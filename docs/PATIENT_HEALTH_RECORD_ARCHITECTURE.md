@@ -127,13 +127,51 @@ Round 1/2's "proof, not hope" convention. Tests: `packages/db/tests/patient_heal
 covers the RLS boundaries and RPC authorization across all five (patient self-upload vs. spoofed
 source, patient-cannot-insert-a-conflict, the resolution-consistency CHECK holding through a state
 transition, the refresh-vs-clinician-edit non-clobber behaviour, and a cross-patient search-leak
-check) — reviewed carefully by hand, same real limitation as Round 1/2: **no local Supabase/Docker
-stack and no execution against the live production project** (deliberately not run there either —
-see §5). Two more real bugs were caught by hand-review before ever reaching that limitation: an
-enum value error (`vitals_readings.vital_type` is `'blood_pressure'`, not `'bp'`) and a genuine
-Postgres correctness bug (`OLD` is unassigned, not merely null, during `INSERT` in a combined
-`BEFORE INSERT OR UPDATE` trigger — an earlier draft of the clinical-summary write-guard referenced
-`old.is_clinician_validated` unconditionally, which would have raised on every insert).
+check).
+
+**Unlike Round 1/2, this round's seven migrations were pushed through the real PR → CI → merge →
+live-apply pipeline (PRs #372/#373/#374, all merged to `main-dev`), and the live-apply step is what
+actually found most of the bugs** — a stronger verification path than Round 1/2 had available, worth
+recording exactly what each stage caught and what it couldn't:
+
+- **Hand-review, before anything ran anywhere:** an enum value error (`vitals_readings.vital_type` is
+  `'blood_pressure'`, not `'bp'`) and a genuine Postgres correctness bug (`OLD` is unassigned, not
+  merely null, during `INSERT` in a combined `BEFORE INSERT OR UPDATE` trigger — an earlier draft of
+  the clinical-summary write-guard referenced `old.is_clinician_validated` unconditionally, which
+  would have raised on every insert).
+- **CI's `Supabase migration replay`** (a fresh, empty database) caught two more real bugs hand-review
+  missed: a `CREATE TRIGGER … on public.X` syntax error (a stray clause duplicated between the
+  trigger name and its real `AFTER INSERT ON …` line, in both `patient_documents_timeline` and
+  `imaging_reports_timeline`) — parses as plausible prose but is invalid SQL — and a genuine
+  `GENERATED ALWAYS AS … STORED` limitation: Postgres classifies `to_tsvector(regconfig, text)` as
+  STABLE, not IMMUTABLE, so it cannot back a generated column at all (`SQLSTATE 42P17`). Fixed by
+  switching every `search_vector` column from generated to a plain column maintained by a dedicated
+  `BEFORE INSERT OR UPDATE` trigger per table, plus a one-time backfill `UPDATE` for the four tables
+  that already carry live rows.
+- **The live-apply step itself caught a bug CI's empty test database structurally cannot reach:** the
+  `medications` table carries two live `BEFORE UPDATE` business-rule triggers
+  (`medications_enforce_confirm_only`, a Tier-1-authority gate, and `medications_bp_prescribing_
+  safety`) with no record anywhere in this checkout's local migration history — more of the same
+  migration/live drift this project has repeatedly documented. The unconditional `search_vector`
+  backfill `UPDATE` tripped the first one immediately on a real medication row. Fixed by disabling
+  both triggers for exactly that one backfill statement (which touches nothing either trigger
+  inspects) and re-enabling them immediately after, within the same migration transaction — confirmed
+  live afterward that all three affected medication rows got their `search_vector` populated and both
+  triggers came back enabled (`tgenabled = 'O'`).
+- **`get_advisors(security)` after all seven migrations were live** caught one more real, if
+  low-severity, finding: all six new `search_vector` trigger functions were missing an explicit
+  `search_path`, the one place in this round that skipped this codebase's standing convention. Not
+  exploitable today (each body only calls `pg_catalog` built-ins), but closed anyway
+  (`20260829224500_search_vector_functions_lock_search_path.sql`) for consistency — re-ran the
+  advisor afterward and confirmed all six findings cleared.
+- **What's still genuinely unverified:** the `packages/db/tests/patient_health_record_round3.sql` RLS/
+  authorization test file itself has still never been executed anywhere (no local Supabase/Docker
+  stack was available, and running fixture-insert/rollback tests directly against production is a
+  separate, deliberate decision this pass didn't make unilaterally — see §5). Everything it tests was
+  reviewed carefully by hand and is consistent with what the live-apply step already exercised (the
+  RLS policies, triggers, and RPCs it targets are the same objects now live), but "reviewed by hand"
+  and "actually run" are not the same claim, and this round's own experience — four real bugs that
+  hand-review missed — is a direct argument for not treating that gap as a formality.
 
 ---
 
@@ -398,17 +436,22 @@ clinician who did *not* make the edit can still read it while a *different* orga
 cannot) and `packages/db/tests/patient_conditions_problem_list.sql` (the mandatory-reason raise).
 
 ### §1.19 Patient record search — BUILT Round 3 (DB half; no UI yet)
-`20260829223204_patient_record_search.sql` adds a generated `search_vector tsvector` column + GIN
-index to `patient_conditions`/`patient_allergies`/`medications`/`screening_results`/`patient_
-documents`/`imaging_reports`, plus one unified, ranked `public.search_patient_record(patient uuid,
-query text)` RPC (`SECURITY DEFINER`, with authorization checked explicitly inside — self / org staff
-/ an explicit clinical-access grantee — since `SECURITY DEFINER` bypasses each table's own RLS).
-Lives in `public`, not `private`, because PostgREST only exposes `public`-schema functions — the
-anon-EXECUTE revoke follows this project's standing gotcha (anon inherits EXECUTE through PUBLIC
-unless explicitly revoked from PUBLIC, not just from anon). **Still missing: a search UI/query box**
-in `apps/web/src` — this section built the callable backend, not the clinician-facing search
-component; encounters (§1.16, still narrow) aren't indexed since there's no generic encounter table
-to index yet.
+`20260829223204_patient_record_search.sql` adds a `search_vector tsvector` column + GIN index to
+`patient_conditions`/`patient_allergies`/`medications`/`screening_results`/`patient_documents`/
+`imaging_reports`, kept current by a dedicated `BEFORE INSERT OR UPDATE` trigger per table — **not**
+`GENERATED ALWAYS AS … STORED`, the more obvious design and this migration's own first draft:
+`to_tsvector(regconfig, text)` is STABLE, not IMMUTABLE, in Postgres, and a generation expression must
+be IMMUTABLE (confirmed live, `SQLSTATE 42P17` — see §0's Round 3 entry). The four tables that already
+carried live data got a one-time backfill `UPDATE`, which itself surfaced a second live-only
+surprise — two undocumented `medications` business-rule triggers had to be disabled for that one
+statement (again, §0). Plus one unified, ranked `public.search_patient_record(patient uuid, query
+text)` RPC (`SECURITY DEFINER`, with authorization checked explicitly inside — self / org staff / an
+explicit clinical-access grantee — since `SECURITY DEFINER` bypasses each table's own RLS). Lives in
+`public`, not `private`, because PostgREST only exposes `public`-schema functions — the anon-EXECUTE
+revoke follows this project's standing gotcha (anon inherits EXECUTE through PUBLIC unless explicitly
+revoked from PUBLIC, not just from anon). **Still missing: a search UI/query box** in `apps/web/src`
+— this section built the callable backend, not the clinician-facing search component; encounters
+(§1.16, still narrow) aren't indexed since there's no generic encounter table to index yet.
 
 ### §1.20 Record permissions (granular, role-scoped) — BUILT, well-engineered
 `private.is_org_staff(org)` is the single reused tenant-isolation predicate across ~314 policies/110
@@ -571,15 +614,23 @@ authenticated` to simulate real sessions, wrapped in `BEGIN`/`ROLLBACK` so nothi
   `insufficient_privilege` exception).
 
 **Verification method, and its real limit.** No local Supabase/Docker stack was available in the
-environment this review ran in, but this session did have live, read-only MCP access to the actual
-production project (`koiplnmbgnqnbywhpjlf`) — used to query `pg_policies` and `pg_proc` directly for
-every table this migration touches, which is how the §1.18 policy mistake was caught and corrected
-(design verified against live reality, not assumed from migration history). **What that access was
-NOT used for: actually executing these test scripts against the production database.** Running them
-would mean inserting and rolling back fixture rows (synthetic patients, clinicians, corrections) in a
-live system serving real patient data — a call for whoever is driving the merge to make deliberately,
-not one to make unilaterally from within an architecture review. Treat every test in `packages/db/
-tests/` here as reviewed carefully by hand against the live schema and RLS helper functions, not as
-having been run — running them for real (`supabase db query "$(cat packages/db/tests/<file>.sql)"
---linked`, ideally against a branch/staging copy rather than production directly) is still worth
-doing before merging.
+environment either review ran in, but both had live, read-only-to-start MCP access to the actual
+production project (`koiplnmbgnqnbywhpjlf`) — used to query `pg_policies`/`pg_proc`/`pg_trigger`
+directly for every table each round's migrations touch, which is how the §1.18 policy mistake
+(Round 1/2) and the undocumented `medications` triggers (Round 3, §0) were caught and corrected
+(design verified against live reality, not assumed from migration history).
+
+Round 1/2's migrations were reviewed carefully by hand and never executed against production at all
+— `packages/db/tests/record_corrections_platform_wide.sql` etc. are not confirmed to actually pass,
+only judged consistent with the live schema at review time. **Round 3 is different: its seven
+migrations went through the real PR → CI (`Supabase migration replay` against a fresh database) →
+merge → `apply_migration` pipeline against `koiplnmbgnqnbywhpjlf` itself**, explicitly at the user's
+direction, and every table/row-count/trigger-state claim in §0's Round 3 entry was confirmed with a
+live read afterward (row counts, `search_vector` population counts, `tgenabled` state, a re-run of
+`get_advisors(security)`). **What was still NOT done for Round 3: actually executing
+`packages/db/tests/patient_health_record_round3.sql`** — that file's RLS/authorization assertions
+were reviewed carefully by hand and target objects now genuinely live, but inserting and rolling back
+its synthetic fixture rows (patients, clinicians, conflicts) directly against production is a
+separate decision this pass didn't make unilaterally, matching Round 1/2's own reasoning. Running it
+for real (`supabase db query "$(cat packages/db/tests/patient_health_record_round3.sql)" --linked`,
+ideally against a branch/staging copy) is still worth doing.
