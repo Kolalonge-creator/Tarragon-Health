@@ -4087,6 +4087,79 @@ export type Database = {
           },
         ]
       }
+      clinical_trials: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          eligibility_rule: Json
+          ethics_approved_at: string | null
+          ethics_attested_by: string | null
+          ethics_committee_name: string | null
+          ethics_reference: string | null
+          id: string
+          name: string
+          organisation_id: string
+          protocol_reference: string | null
+          sponsor: string | null
+          status: Database["public"]["Enums"]["clinical_trial_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          eligibility_rule?: Json
+          ethics_approved_at?: string | null
+          ethics_attested_by?: string | null
+          ethics_committee_name?: string | null
+          ethics_reference?: string | null
+          id?: string
+          name: string
+          organisation_id: string
+          protocol_reference?: string | null
+          sponsor?: string | null
+          status?: Database["public"]["Enums"]["clinical_trial_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          eligibility_rule?: Json
+          ethics_approved_at?: string | null
+          ethics_attested_by?: string | null
+          ethics_committee_name?: string | null
+          ethics_reference?: string | null
+          id?: string
+          name?: string
+          organisation_id?: string
+          protocol_reference?: string | null
+          sponsor?: string | null
+          status?: Database["public"]["Enums"]["clinical_trial_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_trials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_trials_ethics_attested_by_fkey"
+            columns: ["ethics_attested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_trials_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinician_alert_ack_escalations: {
         Row: {
           clinician_alert_id: string
@@ -12592,6 +12665,53 @@ export type Database = {
           },
         ]
       }
+      network_partner_organisations: {
+        Row: {
+          contact_email: string | null
+          contact_name: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          notes: string | null
+          partner_type: Database["public"]["Enums"]["network_partner_type"]
+          relationship_status: Database["public"]["Enums"]["network_partner_relationship_status"]
+          updated_at: string
+        }
+        Insert: {
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          notes?: string | null
+          partner_type: Database["public"]["Enums"]["network_partner_type"]
+          relationship_status?: Database["public"]["Enums"]["network_partner_relationship_status"]
+          updated_at?: string
+        }
+        Update: {
+          contact_email?: string | null
+          contact_name?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          notes?: string | null
+          partner_type?: Database["public"]["Enums"]["network_partner_type"]
+          relationship_status?: Database["public"]["Enums"]["network_partner_relationship_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "network_partner_organisations_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_broadcasts: {
         Row: {
           audience: Database["public"]["Enums"]["broadcast_audience"]
@@ -16182,6 +16302,44 @@ export type Database = {
           {
             foreignKeyName: "platform_finance_inputs_updated_by_fkey"
             columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      population_data_governance_gates: {
+        Row: {
+          attested_at: string | null
+          attested_by: string | null
+          evidence: string | null
+          gate_key: Database["public"]["Enums"]["population_data_gate_key"]
+          id: string
+          met: boolean
+          updated_at: string
+        }
+        Insert: {
+          attested_at?: string | null
+          attested_by?: string | null
+          evidence?: string | null
+          gate_key: Database["public"]["Enums"]["population_data_gate_key"]
+          id?: string
+          met?: boolean
+          updated_at?: string
+        }
+        Update: {
+          attested_at?: string | null
+          attested_by?: string | null
+          evidence?: string | null
+          gate_key?: Database["public"]["Enums"]["population_data_gate_key"]
+          id?: string
+          met?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "population_data_governance_gates_attested_by_fkey"
+            columns: ["attested_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -21206,6 +21364,10 @@ export type Database = {
         Args: { p_days?: number }
         Returns: Json
       }
+      analytics_disease_surveillance: {
+        Args: { p_period?: string }
+        Returns: Json
+      }
       analytics_doctor_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -21224,6 +21386,7 @@ export type Database = {
         Args: { p_period?: string }
         Returns: Json
       }
+      analytics_health_economics: { Args: never; Returns: Json }
       analytics_investor_summary: { Args: never; Returns: Json }
       analytics_log_patient_access: {
         Args: { p_patient_id: string; p_reason: string }
@@ -21235,7 +21398,9 @@ export type Database = {
         Returns: Json
       }
       analytics_patient_search: { Args: { p_query: string }; Returns: Json }
+      analytics_population_dataset_preview: { Args: never; Returns: Json }
       analytics_population_summary: { Args: never; Returns: Json }
+      analytics_programme_funnel: { Args: never; Returns: Json }
       analytics_provider_capacity: { Args: never; Returns: Json }
       analytics_retention_cohorts: { Args: never; Returns: Json }
       analytics_revenue_by_plan: { Args: never; Returns: Json }
@@ -21291,9 +21456,49 @@ export type Database = {
         Args: { p_force_note?: string; p_statement_id: string }
         Returns: Json
       }
+      attest_clinical_trial_ethics_approval: {
+        Args: {
+          p_approved: boolean
+          p_ethics_committee_name?: string
+          p_ethics_reference?: string
+          p_trial_id: string
+        }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          eligibility_rule: Json
+          ethics_approved_at: string | null
+          ethics_attested_by: string | null
+          ethics_committee_name: string | null
+          ethics_reference: string | null
+          id: string
+          name: string
+          organisation_id: string
+          protocol_reference: string | null
+          sponsor: string | null
+          status: Database["public"]["Enums"]["clinical_trial_status"]
+          updated_at: string
+        }
+      }
       attest_health_passport_request: {
         Args: { p_request_id: string; p_statement?: string }
         Returns: string
+      }
+      attest_population_data_governance_gate: {
+        Args: {
+          p_evidence?: string
+          p_gate_key: Database["public"]["Enums"]["population_data_gate_key"]
+          p_met: boolean
+        }
+        Returns: {
+          attested_at: string | null
+          attested_by: string | null
+          evidence: string | null
+          gate_key: Database["public"]["Enums"]["population_data_gate_key"]
+          id: string
+          met: boolean
+          updated_at: string
+        }
       }
       bp_secondary_flags: { Args: { p_patient: string }; Returns: Json }
       can_act_for: { Args: { p_beneficiary: string }; Returns: boolean }
@@ -21361,6 +21566,7 @@ export type Database = {
         Args: { p_reading_id: string }
         Returns: undefined
       }
+      clinical_trial_matching_preview: { Args: { p_trial_id: string }; Returns: Json }
       close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
@@ -23209,6 +23415,7 @@ export type Database = {
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
       clinical_resource_type: "room" | "equipment"
       clinical_severity: "mild" | "moderate" | "severe"
+      clinical_trial_status: "draft" | "ethics_pending" | "active" | "closed" | "withdrawn"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
       commission_type:
@@ -23553,6 +23760,19 @@ export type Database = {
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
       monitoring_baseline_source: "first_reading" | "clinician_set"
       monitoring_item_status: "active" | "paused" | "completed"
+      network_partner_relationship_status:
+        | "prospecting"
+        | "in_discussion"
+        | "agreement_signed"
+        | "integrated"
+        | "inactive"
+      network_partner_type:
+        | "government"
+        | "ngo"
+        | "insurer"
+        | "pharma"
+        | "research_institution"
+        | "development_organisation"
       notification_channel:
         | "email"
         | "sms"
@@ -23672,6 +23892,10 @@ export type Database = {
         | "approved"
         | "activated"
         | "rejected"
+      population_data_gate_key:
+        | "sufficient_real_patient_volume"
+        | "ndpc_registration_and_dpo"
+        | "anonymisation_methodology_reviewed"
       prevention_campaign_action_type:
         | "education"
         | "screening_invite"
@@ -24300,6 +24524,7 @@ export const Constants = {
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
       clinical_resource_type: ["room", "equipment"],
       clinical_severity: ["mild", "moderate", "severe"],
+      clinical_trial_status: ["draft", "ethics_pending", "active", "closed", "withdrawn"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
       commission_type: [
@@ -24684,6 +24909,21 @@ export const Constants = {
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
       monitoring_baseline_source: ["first_reading", "clinician_set"],
       monitoring_item_status: ["active", "paused", "completed"],
+      network_partner_relationship_status: [
+        "prospecting",
+        "in_discussion",
+        "agreement_signed",
+        "integrated",
+        "inactive",
+      ],
+      network_partner_type: [
+        "government",
+        "ngo",
+        "insurer",
+        "pharma",
+        "research_institution",
+        "development_organisation",
+      ],
       notification_channel: [
         "email",
         "sms",
@@ -24819,6 +25059,11 @@ export const Constants = {
         "approved",
         "activated",
         "rejected",
+      ],
+      population_data_gate_key: [
+        "sufficient_real_patient_volume",
+        "ndpc_registration_and_dpo",
+        "anonymisation_methodology_reviewed",
       ],
       prevention_campaign_action_type: [
         "education",
