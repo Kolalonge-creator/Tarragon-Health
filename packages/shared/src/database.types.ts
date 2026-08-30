@@ -6287,6 +6287,63 @@ export type Database = {
           },
         ]
       }
+      employer_billing_configs: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          currency: Database["public"]["Enums"]["currency"]
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          notes: string | null
+          organisation_id: string
+          price_per_member_minor: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id: string
+          price_per_member_minor: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          currency?: Database["public"]["Enums"]["currency"]
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          organisation_id?: string
+          price_per_member_minor?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "employer_billing_configs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "employer_billing_configs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employer_roster_members: {
         Row: {
           added_by: string | null
@@ -21253,6 +21310,14 @@ export type Database = {
         }
         Returns: string
       }
+      employer_roster_counts: {
+        Args: { p_organisation_id: string }
+        Returns: {
+          activated_count: number
+          eligible_count: number
+          pending_count: number
+        }[]
+      }
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }
         Returns: string
@@ -21348,6 +21413,11 @@ export type Database = {
       }
       finance_dashboard_summary: { Args: never; Returns: Json }
       finance_delete_budget: { Args: { p_id: string }; Returns: undefined }
+      finance_delete_employer_billing_config: {
+        Args: { p_id: string }
+        Returns: undefined
+      }
+      finance_employer_billing_summary: { Args: never; Returns: Json }
       finance_import_settlement: {
         Args: {
           p_bank_account: string
@@ -21495,6 +21565,19 @@ export type Database = {
           p_is_active: boolean
           p_name: string
           p_sort_order: number
+        }
+        Returns: string
+      }
+      finance_upsert_employer_billing_config: {
+        Args: {
+          p_currency: string
+          p_effective_from: string
+          p_effective_to: string
+          p_id: string
+          p_is_active: boolean
+          p_notes: string
+          p_organisation_id: string
+          p_price_per_member_minor: number
         }
         Returns: string
       }

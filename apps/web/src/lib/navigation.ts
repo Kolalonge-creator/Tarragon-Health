@@ -400,6 +400,7 @@ export function getNavSections(
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
+            { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
