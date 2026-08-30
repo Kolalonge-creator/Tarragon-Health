@@ -8,12 +8,25 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 
-export function ResolveForm({ escalationId }: { escalationId: string }) {
+export function ResolveForm({
+  escalationId,
+  patientName,
+  patientDateOfBirth,
+}: {
+  escalationId: string;
+  /** Shown on the identity-confirmation step before resolving — §89.4.
+   * Not required to refer a case, only to resolve one (see
+   * private.enforce_escalation_identity_confirm). */
+  patientName: string;
+  patientDateOfBirth: string | null;
+}) {
   const router = useRouter();
   const resolve = useResolveEscalation();
   const [status, setStatus] = useState<"resolved" | "referred">("resolved");
   const [resolutionNote, setResolutionNote] = useState("");
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
 
   return (
     <Card>
@@ -41,16 +54,33 @@ export function ResolveForm({ escalationId }: { escalationId: string }) {
             onChange={(e) => setResolutionNote(e.target.value)}
           />
         </div>
+        {status === "resolved" && (
+          <PatientIdentityConfirm
+            patientName={patientName}
+            patientDateOfBirth={patientDateOfBirth}
+            confirmed={identityConfirmed}
+            onConfirmedChange={setIdentityConfirmed}
+          />
+        )}
         {resolve.isError && (
           <p className="text-sm text-red-600">
             {resolve.error?.message || "Could not save. Try again."}
           </p>
         )}
         <Button
-          disabled={resolve.isPending || resolutionNote.trim().length === 0}
+          disabled={
+            resolve.isPending ||
+            resolutionNote.trim().length === 0 ||
+            (status === "resolved" && !identityConfirmed)
+          }
           onClick={() => {
             resolve.mutate(
-              { escalationId, status, resolutionNote: resolutionNote.trim() },
+              {
+                escalationId,
+                status,
+                resolutionNote: resolutionNote.trim(),
+                identityConfirmed,
+              },
               {
                 onSuccess: async () => {
                   // Send the doctor straight to the next-highest-priority open

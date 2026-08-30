@@ -49,6 +49,7 @@ export const PERMISSION_KEYS = [
   "finance.tax.manage",
   "finance.export",
   "leads.manage",
+  "feature_flags.manage",
   "notification_templates.manage",
 ] as const;
 
