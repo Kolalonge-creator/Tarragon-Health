@@ -7,11 +7,16 @@ import {
   useCreateHealthEducationContent,
   useUpdateHealthEducationContent,
   useSetHealthEducationContentStatus,
+  useContentStatusHistory,
+  useContentTranslations,
+  useUpsertTranslation,
   HEALTH_EDUCATION_CATEGORIES,
+  HEALTH_EDUCATION_LANGUAGE_LABELS,
   type HealthEducationContent,
   type HealthEducationCategory,
   type HealthEducationContentStatus,
   type HealthEducationContentInput,
+  type HealthEducationLanguage,
 } from "@/lib/queries/health-education";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -225,6 +230,27 @@ function ContentForm({
             <Input id="content_audio" value={form.audio_url ?? ""} onChange={(e) => set("audio_url", e.target.value || null)} />
           </div>
         )}
+        <div className="space-y-1">
+          <Label htmlFor="content_author">Author (optional)</Label>
+          <Input id="content_author" value={form.author_name ?? ""} onChange={(e) => set("author_name", e.target.value || null)} />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="content_source">Source / reference (optional)</Label>
+          <Input
+            id="content_source"
+            value={form.source_reference ?? ""}
+            onChange={(e) => set("source_reference", e.target.value || null)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor="content_review_due">Next review due (optional)</Label>
+          <Input
+            id="content_review_due"
+            type="date"
+            value={form.next_review_due ?? ""}
+            onChange={(e) => set("next_review_due", e.target.value || null)}
+          />
+        </div>
       </div>
       <div className="space-y-1">
         <Label htmlFor="content_summary">Summary (optional)</Label>
@@ -241,11 +267,110 @@ function ContentForm({
   );
 }
 
+/**
+ * History & translations (§79.9/§79.11): the transition audit trail plus
+ * per-language content — everything the inline status buttons above don't
+ * cover. Collapsed by default so the catalogue list stays scannable.
+ */
+function HistoryAndTranslations({ item }: { item: HealthEducationContent }) {
+  const { data: history } = useContentStatusHistory(item.id);
+  const { data: translations } = useContentTranslations(item.id);
+  const upsertTranslation = useUpsertTranslation();
+
+  const [translationLang, setTranslationLang] = useState<HealthEducationLanguage>("pcm");
+  const [translationTitle, setTranslationTitle] = useState("");
+  const [translationBody, setTranslationBody] = useState("");
+
+  return (
+    <div className="space-y-4 rounded-md border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
+      {history && history.length > 0 && (
+        <div>
+          <p className="text-xs font-medium text-charcoal-ink/60">History</p>
+          <ul className="mt-1 space-y-0.5 text-xs text-charcoal-ink/50">
+            {history.slice(0, 5).map((h) => (
+              <li key={h.id}>
+                {h.from_status ?? "—"} → {h.to_status} · {new Date(h.created_at).toLocaleDateString()}
+                {h.note ? ` · ${h.note}` : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <p className="text-xs font-medium text-charcoal-ink/60">
+          Translations (§79.9) — human-authored only, never auto-generated
+        </p>
+        {translations && translations.length > 0 && (
+          <ul className="text-xs text-charcoal-ink/60">
+            {translations.map((t) => (
+              <li key={t.id}>
+                {HEALTH_EDUCATION_LANGUAGE_LABELS[t.language as HealthEducationLanguage]}: {t.title}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            aria-label="Translation language"
+            className="h-8 w-40 text-xs"
+            value={translationLang}
+            onChange={(e) => setTranslationLang(e.target.value as HealthEducationLanguage)}
+          >
+            {Object.entries(HEALTH_EDUCATION_LANGUAGE_LABELS).map(([code, label]) => (
+              <option key={code} value={code}>
+                {label}
+              </option>
+            ))}
+          </Select>
+          <Input
+            className="h-8 w-56 text-xs"
+            placeholder="Translated title"
+            value={translationTitle}
+            onChange={(e) => setTranslationTitle(e.target.value)}
+          />
+        </div>
+        <textarea
+          className="w-full rounded-md border border-charcoal-ink/15 p-2 text-xs"
+          rows={3}
+          placeholder="Translated body"
+          value={translationBody}
+          onChange={(e) => setTranslationBody(e.target.value)}
+        />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={!translationTitle.trim() || !translationBody.trim() || upsertTranslation.isPending}
+          onClick={() =>
+            upsertTranslation.mutate(
+              {
+                contentId: item.id,
+                language: translationLang,
+                title: translationTitle.trim(),
+                body: translationBody.trim(),
+              },
+              {
+                onSuccess: () => {
+                  setTranslationTitle("");
+                  setTranslationBody("");
+                },
+              }
+            )
+          }
+        >
+          Save translation
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function ContentRow({ item }: { item: HealthEducationContent }) {
   const setDripWeek = useSetContentDripWeek();
   const setStatus = useSetHealthEducationContentStatus();
   const updateContent = useUpdateHealthEducationContent();
   const [editing, setEditing] = useState(false);
+  const [managing, setManaging] = useState(false);
   const badge = STATUS_BADGE[item.content_status];
   const nextStatuses = NEXT_STATUSES[item.content_status] ?? [];
 
@@ -260,6 +385,7 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
             {item.min_risk_level ? ` · risk ${item.min_risk_level}+` : ""}
             {` · ${item.content_type}`}
             {item.clinician_reviewed ? " · clinician-reviewed" : " · not yet reviewed"}
+            {item.author_name ? ` · by ${item.author_name}` : ""}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -284,6 +410,9 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
           <Badge variant={badge.variant}>{badge.label}</Badge>
           <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
             {editing ? "Close" : "Edit"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => setManaging((v) => !v)}>
+            {managing ? "Close" : "History"}
           </Button>
         </div>
       </div>
@@ -316,6 +445,9 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
               estimated_minutes: item.estimated_minutes,
               video_url: item.video_url,
               audio_url: item.audio_url,
+              author_name: item.author_name,
+              source_reference: item.source_reference,
+              next_review_due: item.next_review_due,
             }}
             submitLabel="Save changes"
             pending={updateContent.isPending}
@@ -328,6 +460,7 @@ function ContentRow({ item }: { item: HealthEducationContent }) {
           )}
         </div>
       )}
+      {managing && <HistoryAndTranslations item={item} />}
     </li>
   );
 }
