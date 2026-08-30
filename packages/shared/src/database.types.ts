@@ -11886,6 +11886,7 @@ export type Database = {
           logged_at: string
           logged_by_profile_id: string | null
           medication_id: string
+          missed_reason: Database["public"]["Enums"]["medication_missed_reason"] | null
           organisation_id: string
           patient_id: string
           reason: string | null
@@ -11899,6 +11900,7 @@ export type Database = {
           logged_at?: string
           logged_by_profile_id?: string | null
           medication_id: string
+          missed_reason?: Database["public"]["Enums"]["medication_missed_reason"] | null
           organisation_id: string
           patient_id: string
           reason?: string | null
@@ -11912,6 +11914,7 @@ export type Database = {
           logged_at?: string
           logged_by_profile_id?: string | null
           medication_id?: string
+          missed_reason?: Database["public"]["Enums"]["medication_missed_reason"] | null
           organisation_id?: string
           patient_id?: string
           reason?: string | null
@@ -12825,6 +12828,7 @@ export type Database = {
           responded_at: string | null
           response_options: Json | null
           response_value: string | null
+          send_after: string | null
           sent_at: string | null
           source_id: string | null
           source_table: string | null
@@ -12857,6 +12861,7 @@ export type Database = {
           responded_at?: string | null
           response_options?: Json | null
           response_value?: string | null
+          send_after?: string | null
           sent_at?: string | null
           source_id?: string | null
           source_table?: string | null
@@ -12889,6 +12894,7 @@ export type Database = {
           responded_at?: string | null
           response_options?: Json | null
           response_value?: string | null
+          send_after?: string | null
           sent_at?: string | null
           source_id?: string | null
           source_table?: string | null
@@ -16629,6 +16635,7 @@ export type Database = {
           pharmacy_partner_id: string | null
           phone: string | null
           preferred_reminder_channel: string | null
+          preferred_reminder_hour: number | null
           receives_care: boolean
           role: Database["public"]["Enums"]["user_role"]
           sex: Database["public"]["Enums"]["sex"] | null
@@ -16675,6 +16682,7 @@ export type Database = {
           pharmacy_partner_id?: string | null
           phone?: string | null
           preferred_reminder_channel?: string | null
+          preferred_reminder_hour?: number | null
           receives_care?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
@@ -16721,6 +16729,7 @@ export type Database = {
           pharmacy_partner_id?: string | null
           phone?: string | null
           preferred_reminder_channel?: string | null
+          preferred_reminder_hour?: number | null
           receives_care?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
@@ -23549,6 +23558,13 @@ export type Database = {
         | "patient_query"
         | "other"
       medication_log_status: "taken" | "missed" | "skipped"
+      medication_missed_reason:
+        | "forgot"
+        | "device_unavailable"
+        | "doesnt_understand"
+        | "doesnt_want_to"
+        | "feels_well"
+        | "technical_problem"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
       monitoring_baseline_source: "first_reading" | "clinician_set"
@@ -23614,6 +23630,7 @@ export type Database = {
         | "missed_appointment"
         | "failed_referral"
         | "referral_follow_up"
+        | "medication_engagement_barrier"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -24680,6 +24697,14 @@ export const Constants = {
         "other",
       ],
       medication_log_status: ["taken", "missed", "skipped"],
+      medication_missed_reason: [
+        "forgot",
+        "device_unavailable",
+        "doesnt_understand",
+        "doesnt_want_to",
+        "feels_well",
+        "technical_problem",
+      ],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
       monitoring_baseline_source: ["first_reading", "clinician_set"],
@@ -24751,6 +24776,7 @@ export const Constants = {
         "missed_appointment",
         "failed_referral",
         "referral_follow_up",
+        "medication_engagement_barrier",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [
