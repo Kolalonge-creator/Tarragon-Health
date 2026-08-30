@@ -39,6 +39,7 @@ import { HealthCheckReview } from "./health-check-review";
 import { CarePlanManagementSection } from "./care-plan-management-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
+import { RequestEmergencyAccessPanel } from "./request-emergency-access-panel";
 
 export default async function ClinicianPatientPage({
   params,
@@ -59,6 +60,26 @@ export default async function ClinicianPatientPage({
     .maybeSingle();
 
   if (!patient) {
+    // The normal lookup is RLS-blocked either because this patient doesn't
+    // exist, or because they exist in a different organisation -- the two
+    // look identical to the query above by design. This second, deliberately
+    // narrow lookup (name and org only, no clinical field) is what tells
+    // them apart, and is what lets a genuine cross-org emergency offer a
+    // real path instead of a dead end.
+    const { data: crossOrg } = await supabase.rpc("patient_exists_cross_org", {
+      p_patient_id: patientId,
+    });
+    const crossOrgPatient = crossOrg as { full_name: string | null } | null;
+
+    if (crossOrgPatient) {
+      return (
+        <RequestEmergencyAccessPanel
+          patientId={patientId}
+          patientName={crossOrgPatient.full_name ?? "This patient"}
+        />
+      );
+    }
+
     return (
       <Card>
         <CardHeader>

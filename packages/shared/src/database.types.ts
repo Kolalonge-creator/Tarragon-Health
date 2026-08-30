@@ -22824,6 +22824,10 @@ export type Database = {
         Args: { p_kid: string }
         Returns: undefined
       }
+      review_emergency_record_access: {
+        Args: { p_grant_id: string; p_note?: string; p_outcome: string }
+        Returns: undefined
+      }
       revoke_care_access: { Args: { p_grant_id: string }; Returns: Json }
       revoke_clinical_staff_credential_verification: {
         Args: { p_clinical_staff_id: string; p_reason?: string }
