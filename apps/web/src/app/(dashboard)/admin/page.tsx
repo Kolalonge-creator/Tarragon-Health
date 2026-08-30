@@ -271,6 +271,13 @@ export default async function AdminPage() {
           visible: canViewAnalytics,
         },
         {
+          href: "/admin/settings/population-data-governance",
+          label: "Population data governance",
+          blurb: "NDPC/DPO, patient-volume, and anonymisation gates for §12",
+          icon: SEMANTIC_ICON.privacy,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/settings/impact-metrics",
           label: "Public impact dashboard",
           blurb: "What shows on the public /impact page",
