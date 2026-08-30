@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 const TABS = [
   { href: "/dashboard/corporate", label: "Overview", exact: true },
   { href: "/dashboard/corporate/reports", label: "Reports & outcomes", exact: false },
+  { href: "/dashboard/corporate/programmes", label: "Programmes", exact: false },
 ] as const;
 
 export function CorporateNav() {

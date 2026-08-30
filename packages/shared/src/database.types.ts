@@ -1536,6 +1536,56 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_templates: {
+        Row: {
+          actions: Json
+          code: string
+          created_at: string
+          created_by: string | null
+          default_duration_days: number | null
+          description: string | null
+          eligibility_rule: Json
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          code: string
+          created_at?: string
+          created_by?: string | null
+          default_duration_days?: number | null
+          description?: string | null
+          eligibility_rule?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          default_duration_days?: number | null
+          description?: string | null
+          eligibility_rule?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_access_events: {
         Row: {
           actor_profile_id: string | null
@@ -16309,8 +16359,10 @@ export type Database = {
           id: string
           name: string
           organisation_id: string
+          requested_by: string | null
           starts_on: string
           status: Database["public"]["Enums"]["prevention_campaign_status"]
+          template_id: string | null
           updated_at: string
         }
         Insert: {
@@ -16324,8 +16376,10 @@ export type Database = {
           id?: string
           name: string
           organisation_id: string
+          requested_by?: string | null
           starts_on: string
           status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          template_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -16339,8 +16393,10 @@ export type Database = {
           id?: string
           name?: string
           organisation_id?: string
+          requested_by?: string | null
           starts_on?: string
           status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          template_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -16356,6 +16412,20 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_templates"
             referencedColumns: ["id"]
           },
         ]
