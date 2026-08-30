@@ -264,6 +264,13 @@ export default async function AdminPage() {
       label: "Platform & growth",
       tiles: [
         {
+          href: "/admin/settings/ops-console",
+          label: "Operations console",
+          blurb: "One cross-domain worklist: alerts, referrals, labs, payments, incidents",
+          icon: NAV_ICON.operations,
+          visible: can("ops.console.view"),
+        },
+        {
           href: "/analytics",
           label: "Platform analytics",
           blurb: "Business, financial, and population-health intelligence",

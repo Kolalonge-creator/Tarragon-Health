@@ -21461,6 +21461,13 @@ export type Database = {
         Returns: Json
       }
       open_health_check: { Args: never; Returns: string }
+      ops_exception_counts: { Args: never; Returns: Json }
+      ops_exception_queue: {
+        Args: { p_domain?: string; p_limit?: number }
+        Returns: Json
+      }
+      ops_system_health: { Args: never; Returns: Json }
+      ops_today_summary: { Args: never; Returns: Json }
       patient_health_reset_progress: {
         Args: never
         Returns: {
