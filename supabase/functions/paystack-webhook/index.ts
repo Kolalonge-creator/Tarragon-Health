@@ -40,7 +40,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 type CheckoutKind = "subscription" | "add_on" | "booking";
-type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit";
+type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
 
 interface CheckoutMetadata {
   kind?: CheckoutKind;
@@ -53,7 +53,11 @@ interface CheckoutMetadata {
 
 const BOOKING_TABLE: Record<
   BookingOrderType,
-  "lab_orders" | "pharmacy_orders" | "specialist_referrals" | "video_visit_requests"
+  | "lab_orders"
+  | "pharmacy_orders"
+  | "specialist_referrals"
+  | "video_visit_requests"
+  | "lab_result_consult_requests"
 > = {
   lab: "lab_orders",
   pharmacy: "pharmacy_orders",
@@ -62,6 +66,10 @@ const BOOKING_TABLE: Record<
   // the visit only books when a doctor accepts (accept_video_visit_request);
   // decline/expiry refunds it. Same column contract as the order tables.
   video_visit: "video_visit_requests",
+  // 'payment_confirmed' on a lab_result_consult_request unlocks exactly one
+  // self-arranged result upload (public.claim_lab_result_consult_credit) —
+  // same held-then-consumed shape as video_visit above, no slot to book.
+  lab_result_consult: "lab_result_consult_requests",
 };
 
 interface PaystackEvent {

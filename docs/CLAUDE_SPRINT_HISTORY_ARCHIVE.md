@@ -2751,3 +2751,80 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+### 2026-08-30 — self-arranged lab-result upload gated behind a one-off ₦10,000 consultation fee
+
+Founder rule: uploading a self-arranged lab result (the patient-uses-any-lab-and-uploads path from the
+2026-08-03 self-arranged-fulfilment pivot) now requires paying a one-off ₦10,000 consultation fee first —
+paying it also entitles the patient to a 15-minute doctor walkthrough of the result. Network-billed
+(`fulfilment='partner'`) orders — PR #321's still-open, still-broken build, not touched here — never need
+this fee; Tarragon already bills those directly.
+
+- Cloned the `video_visit_prices`/`video_visit_requests` shape (20260723120000) into a new pair:
+  `lab_result_consult_prices` (platform-default row, ₦10,000/1,000,000 kobo — a founder-specified real
+  figure, not a placeholder) and `lab_result_consult_requests` (`requested → pending_payment →
+  payment_confirmed → document_uploaded`, trimmed of the scheduling columns video_visit_requests has and
+  this doesn't need — no slot, no doctor-acceptance step). Wired through the exact same generic
+  booking-checkout machinery every other order type uses: `BookingOrderType` gained
+  `"lab_result_consult"` (`checkout-metadata.ts`, `booking-ownership.ts`) and a new
+  `requestLabResultConsult` action (`patient/lab-result-consult-actions.ts`) creates the request +
+  redirects to Paystack/Stripe checkout, mirroring `requestVideoVisit` exactly.
+- Added `'lab_result_consult'` to `video_consultations.context` (standalone enum-add migration, then a
+  separate migration widening `video_consultations_context_link` — Postgres forbids using a fresh enum
+  value in the same transaction that adds it). **Deliberately not used anywhere yet** — no accept-flow
+  that actually books the 15-minute video call was built this pass; see "not done" below.
+- The actual DB-enforced gate: `public.claim_lab_result_consult_credit(p_patient_id, p_lab_order_id)` +
+  `public.settle_lab_result_consult_claim(p_request_id, p_document_id)`. Corrected from the task's own
+  suggested `private.*` naming: this project's PostgREST config only exposes the `public` schema over
+  RPC, so a patient session calling `supabase.rpc(...)` can only ever reach a `public.*` function — the
+  same reason `accept_video_visit_request` et al. are `public.*` despite being internally forge-proof.
+  Split into two functions (not the one the task sketched) for a genuine ordering reason: the gate must
+  reject BEFORE the storage upload even starts (so an unpaid patient never wastes one), which means it
+  runs before the `lab_result_documents` row — and its id — exists; a foreign key to a not-yet-inserted
+  row across two separate app-to-DB calls is unsatisfiable, so `claim` reserves the credit first (atomic
+  `UPDATE ... WHERE ... FOR UPDATE SKIP LOCKED` subquery, raising a stable `DETAIL='CONSULT_FEE_REQUIRED'`
+  marker — never pattern-matched by message text — when nothing is found) and `settle` links the real
+  document id afterwards, or releases the claim back to `payment_confirmed` if the upload then fails, so a
+  transient error never stranded a paid fee.
+- Wired the gate into both upload paths: `uploadResultDocumentAsPatient` (`lib/lab-results/actions.ts`)
+  and its mobile mirror (`/api/mobile/lab-result-upload`) — claim before the storage upload, settle
+  after, release on any failure in between. `PatientResultUpload` shows a "Pay & continue" prompt (via a
+  new `useLabResultConsultPrice` query hook) instead of a dead-end error when the gate rejects.
+- **A real, load-bearing bug found while wiring this, not assumed from the task's own description**: the
+  task said the deployed `paystack-webhook`/`stripe-webhook` Edge Functions handle any `BookingOrderType`
+  generically — false. Both hardcode their own duplicate `BookingOrderType` union + table-lookup (Edge
+  Functions can't import from `apps/web`), and neither recognised a 5th type: paystack's lookup silently
+  returned `undefined` as the table name, and stripe's ternary chain fell through to mis-targeting
+  `specialist_referrals`. Either way a `lab_result_consult` payment would go through Paystack/Stripe and
+  then never mark the request paid. Fixed with the minimal additive change (new union member + new table
+  mapping, no other line touched) and redeployed both — confirmed the live deployed source matched the
+  committed pre-edit file byte-for-byte before touching it, and confirmed the redeployed content matches
+  intent after. This is a deliberate, necessary deviation from the task's explicit "don't touch the
+  webhooks" instruction; flagged prominently in the PR for founder review.
+- Verified against the live `koiplnmbgnqnbywhpjlf` project (this sandbox had no Docker/local Postgres, so
+  a `supabase db reset` replay wasn't possible — applying live with each migration's own closing
+  assertion block is the stronger check anyway, since it's the real current schema): all 5 migrations
+  applied cleanly; `get_advisors` shows nothing new beyond the expected generic "authenticated can execute
+  this SECURITY DEFINER function" advisory every `public.*` forge-proof RPC in this codebase already
+  carries. `packages/db/tests/lab_result_consult_fee.sql` — 16/16 checks pass, covering: amount pinned
+  server-side; an unpaid or already-claimed credit is refused, never silently allowed; a patient cannot
+  claim another patient's credit even by naming their id directly (and an unrelated patient with nothing
+  paid is refused too); an order-linked credit only satisfies an upload naming that exact order, no
+  cross-matching either direction; settle both links a real document and releases a failed claim back to
+  `payment_confirmed`, re-claimable afterward; a network-billed order's claim returns null and can't even
+  have a fee request created against it. Sabotaged the ownership check once (removed the `auth.uid() =
+  p_patient_id` guard) and confirmed the cross-patient-claim test flips to FAIL, then confirmed the
+  restore — the test discriminates, it doesn't just pass vacuously. `pnpm typecheck`/`lint`/`test` clean
+  at both the `web`/`shared` package level and the monorepo root (109/109 web suites, 1123/1123 tests, 0
+  lint errors, same pre-existing warnings). Manually patched `database.types.ts` in **both**
+  `packages/db/src/` and `packages/shared/src/` — this codebase has two separate generated copies and
+  `apps/web` imports the `packages/shared` one exclusively; editing only `packages/db`'s (the one the task
+  pointed at) would have left every new table/enum/RPC invisible to `apps/web`'s typecheck.
+- **Not done, flagged not guessed at**: no accept-flow/RPC that turns a `document_uploaded` (or even
+  `payment_confirmed`) request into an actual booked `video_consultations` row for the promised 15-minute
+  doctor walkthrough — the enum value and constraint widening exist so this can be built without another
+  enum-split migration, but nothing yet lets a patient actually schedule or a doctor actually accept that
+  call. No admin UI to edit the ₦10,000 price — same as `video_visit_prices`, it's a plain SQL `UPDATE`
+  until one exists. No Jest unit tests for the new TS action files — matches this codebase's existing
+  convention of not unit-testing thin `video-visit-actions.ts`-style wrappers, with the real logic proven
+  at the DB layer instead.
+

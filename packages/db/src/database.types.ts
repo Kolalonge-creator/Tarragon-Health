@@ -7739,6 +7739,140 @@ export type Database = {
         }
         Relationships: []
       }
+      lab_result_consult_prices: {
+        Row: {
+          amount_minor: number
+          currency: string
+          id: string
+          is_enabled: boolean
+          organisation_id: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount_minor: number
+          currency?: string
+          id?: string
+          is_enabled?: boolean
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount_minor?: number
+          currency?: string
+          id?: string
+          is_enabled?: boolean
+          organisation_id?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_result_consult_prices_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_consult_prices_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_result_consult_requests: {
+        Row: {
+          amount_minor: number
+          created_at: string
+          currency: string
+          id: string
+          lab_order_id: string | null
+          lab_result_document_id: string | null
+          note: string | null
+          organisation_id: string
+          origin: string
+          patient_id: string
+          payment_provider: string | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          refund_ref: string | null
+          refund_status: string | null
+          status: Database["public"]["Enums"]["lab_result_consult_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount_minor?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          lab_order_id?: string | null
+          lab_result_document_id?: string | null
+          note?: string | null
+          organisation_id: string
+          origin?: string
+          patient_id: string
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          refund_ref?: string | null
+          refund_status?: string | null
+          status?: Database["public"]["Enums"]["lab_result_consult_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          lab_order_id?: string | null
+          lab_result_document_id?: string | null
+          note?: string | null
+          organisation_id?: string
+          origin?: string
+          patient_id?: string
+          payment_provider?: string | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          refund_ref?: string | null
+          refund_status?: string | null
+          status?: Database["public"]["Enums"]["lab_result_consult_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_result_consult_requests_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_consult_requests_lab_result_document_id_fkey"
+            columns: ["lab_result_document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_consult_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_result_consult_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_result_documents: {
         Row: {
           clinician_alert_id: string | null
@@ -16996,6 +17130,10 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
+      claim_lab_result_consult_credit: {
+        Args: { p_lab_order_id: string | null; p_patient_id: string }
+        Returns: string
+      }
       close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
@@ -18041,6 +18179,10 @@ export type Database = {
       }
       set_usd_processing_fee: { Args: { p_fee_pct: number }; Returns: Json }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
+      settle_lab_result_consult_claim: {
+        Args: { p_document_id: string | null; p_request_id: string }
+        Returns: undefined
+      }
       sign_alert_rules: { Args: { p_id: string }; Returns: string }
       sign_cv_risk_config: { Args: { p_config_id: string }; Returns: string }
       sign_escalation_slas: { Args: { p_id: string }; Returns: string }
@@ -18455,6 +18597,14 @@ export type Database = {
         | "duplicate_order"
         | "clinically_withdrawn"
       lab_refund_status: "requested" | "approved" | "rejected" | "paid"
+      lab_result_consult_request_status:
+        | "requested"
+        | "pending_payment"
+        | "payment_confirmed"
+        | "document_uploaded"
+        | "expired"
+        | "cancelled"
+        | "refunded"
       lab_result_document_source:
         | "patient"
         | "lab_liaison"
@@ -18749,6 +18899,7 @@ export type Database = {
         | "specialist_consult"
         | "annual_review"
         | "general_checkin"
+        | "lab_result_consult"
       video_consultation_status:
         | "scheduled"
         | "started"
@@ -19310,6 +19461,15 @@ export const Constants = {
         "clinically_withdrawn",
       ],
       lab_refund_status: ["requested", "approved", "rejected", "paid"],
+      lab_result_consult_request_status: [
+        "requested",
+        "pending_payment",
+        "payment_confirmed",
+        "document_uploaded",
+        "expired",
+        "cancelled",
+        "refunded",
+      ],
       lab_result_document_source: [
         "patient",
         "lab_liaison",
@@ -19635,6 +19795,7 @@ export const Constants = {
         "specialist_consult",
         "annual_review",
         "general_checkin",
+        "lab_result_consult",
       ],
       video_consultation_status: [
         "scheduled",
