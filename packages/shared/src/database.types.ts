@@ -21270,6 +21270,7 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      analytics_engagement_outcome_correlation: { Args: never; Returns: Json }
       analytics_engagement_summary: { Args: never; Returns: Json }
       analytics_escalation_quality: {
         Args: { p_from?: string; p_to?: string }
