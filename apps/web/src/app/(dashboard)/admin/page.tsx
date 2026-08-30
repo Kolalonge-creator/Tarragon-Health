@@ -278,6 +278,13 @@ export default async function AdminPage() {
           visible: isSuperAdmin,
         },
         {
+          href: "/admin/settings/clinical-trials-matching",
+          label: "Clinical trials matching",
+          blurb: "Gated per-trial on its own ethics-committee approval",
+          icon: SEMANTIC_ICON.privacy,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/settings/impact-metrics",
           label: "Public impact dashboard",
           blurb: "What shows on the public /impact page",

@@ -3971,6 +3971,79 @@ export type Database = {
           },
         ]
       }
+      clinical_trials: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          eligibility_rule: Json
+          ethics_approved_at: string | null
+          ethics_attested_by: string | null
+          ethics_committee_name: string | null
+          ethics_reference: string | null
+          id: string
+          name: string
+          organisation_id: string
+          protocol_reference: string | null
+          sponsor: string | null
+          status: Database["public"]["Enums"]["clinical_trial_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          eligibility_rule?: Json
+          ethics_approved_at?: string | null
+          ethics_attested_by?: string | null
+          ethics_committee_name?: string | null
+          ethics_reference?: string | null
+          id?: string
+          name: string
+          organisation_id: string
+          protocol_reference?: string | null
+          sponsor?: string | null
+          status?: Database["public"]["Enums"]["clinical_trial_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          eligibility_rule?: Json
+          ethics_approved_at?: string | null
+          ethics_attested_by?: string | null
+          ethics_committee_name?: string | null
+          ethics_reference?: string | null
+          id?: string
+          name?: string
+          organisation_id?: string
+          protocol_reference?: string | null
+          sponsor?: string | null
+          status?: Database["public"]["Enums"]["clinical_trial_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clinical_trials_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_trials_ethics_attested_by_fkey"
+            columns: ["ethics_attested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinical_trials_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinician_alert_ack_escalations: {
         Row: {
           clinician_alert_id: string
@@ -20665,6 +20738,30 @@ export type Database = {
         Args: { p_force_note?: string; p_statement_id: string }
         Returns: Json
       }
+      attest_clinical_trial_ethics_approval: {
+        Args: {
+          p_approved: boolean
+          p_ethics_committee_name?: string
+          p_ethics_reference?: string
+          p_trial_id: string
+        }
+        Returns: {
+          created_at: string
+          created_by: string | null
+          eligibility_rule: Json
+          ethics_approved_at: string | null
+          ethics_attested_by: string | null
+          ethics_committee_name: string | null
+          ethics_reference: string | null
+          id: string
+          name: string
+          organisation_id: string
+          protocol_reference: string | null
+          sponsor: string | null
+          status: Database["public"]["Enums"]["clinical_trial_status"]
+          updated_at: string
+        }
+      }
       attest_health_passport_request: {
         Args: { p_request_id: string; p_statement?: string }
         Returns: string
@@ -20751,6 +20848,7 @@ export type Database = {
         Args: { p_reading_id: string }
         Returns: undefined
       }
+      clinical_trial_matching_preview: { Args: { p_trial_id: string }; Returns: Json }
       close_masked_call: {
         Args: { p_reason?: string; p_session_id: string }
         Returns: undefined
@@ -22558,6 +22656,7 @@ export type Database = {
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
       clinical_resource_type: "room" | "equipment"
       clinical_severity: "mild" | "moderate" | "severe"
+      clinical_trial_status: "draft" | "ethics_pending" | "active" | "closed" | "withdrawn"
       commission_rate_type: "percentage" | "flat"
       commission_status: "pending" | "confirmed" | "paid"
       commission_type:
@@ -23617,6 +23716,7 @@ export const Constants = {
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
       clinical_resource_type: ["room", "equipment"],
       clinical_severity: ["mild", "moderate", "severe"],
+      clinical_trial_status: ["draft", "ethics_pending", "active", "closed", "withdrawn"],
       commission_rate_type: ["percentage", "flat"],
       commission_status: ["pending", "confirmed", "paid"],
       commission_type: [
