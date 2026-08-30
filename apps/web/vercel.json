@@ -29,6 +29,10 @@
       "schedule": "30 5 * * *"
     },
     {
+      "path": "/api/cron/voucher-cancellation-refunds",
+      "schedule": "50 5 * * *"
+    },
+    {
       "path": "/api/cron/wearable-sync",
       "schedule": "15 4 * * *"
     }

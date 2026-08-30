@@ -19853,6 +19853,69 @@ export type Database = {
           },
         ]
       }
+      voucher_refund_queue: {
+        Row: {
+          amount_minor: number
+          attempts: number
+          care_voucher_payment_id: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          last_error: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          provider_reference: string
+          provider_refund_ref: string | null
+          status: string
+          updated_at: string
+          voucher_id: string
+        }
+        Insert: {
+          amount_minor: number
+          attempts?: number
+          care_voucher_payment_id: string
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency"]
+          id?: string
+          last_error?: string | null
+          provider: Database["public"]["Enums"]["payment_provider"]
+          provider_reference: string
+          provider_refund_ref?: string | null
+          status?: string
+          updated_at?: string
+          voucher_id: string
+        }
+        Update: {
+          amount_minor?: number
+          attempts?: number
+          care_voucher_payment_id?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          last_error?: string | null
+          provider?: Database["public"]["Enums"]["payment_provider"]
+          provider_reference?: string
+          provider_refund_ref?: string | null
+          status?: string
+          updated_at?: string
+          voucher_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "voucher_refund_queue_care_voucher_payment_id_fkey"
+            columns: ["care_voucher_payment_id"]
+            isOneToOne: true
+            referencedRelation: "care_voucher_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "voucher_refund_queue_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vitals_readings: {
         Row: {
           arm: string | null
