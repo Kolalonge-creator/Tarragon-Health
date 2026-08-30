@@ -124,6 +124,51 @@ export const populationSummarySchema = z.object({
 });
 export type PopulationSummary = z.infer<typeof populationSummarySchema>;
 
+// ---- Disease surveillance, programme funnel & health economics
+// ---- (spec §12.4/§12.8/§12.10/§12.11) --------------------------------------
+export const diseaseSurveillanceSchema = z.object({
+  period: z.string().default("month"),
+  new_enrollment_trend: z
+    .array(z.object({ bucket: z.string(), condition: z.string(), count: z.number() }))
+    .default([]),
+  risk_scoring_trend: z
+    .array(z.object({ bucket: z.string(), risk_level: z.string().nullable(), count: z.number() }))
+    .default([]),
+  screening_result_trend: z
+    .array(z.object({ bucket: z.string(), total: z.number(), abnormal: z.number() }))
+    .default([]),
+});
+export type DiseaseSurveillance = z.infer<typeof diseaseSurveillanceSchema>;
+
+export const programmeFunnelSchema = z
+  .array(
+    z.object({
+      condition: z.string(),
+      enrolled: z.number(),
+      monitoring: z.number(),
+      lost_to_follow_up: z.number(),
+      controlled: z.number().nullable(),
+      uncontrolled: z.number().nullable(),
+    })
+  )
+  .default([]);
+export type ProgrammeFunnel = z.infer<typeof programmeFunnelSchema>;
+
+/** Always a modeled estimate — never a real claims-integration figure. See
+ * apps/web/src/lib/care-gaps/estimate-cost-avoided.ts for the same disclaimer
+ * on the existing per-org ClaimsImpactCard this extends platform-wide. */
+export const healthEconomicsSchema = z.object({
+  is_estimate: z.boolean().default(true),
+  per_catch_kobo: z.number().default(0),
+  abnormal_catches: z.number().default(0),
+  estimated_cost_avoided_kobo: z.number().default(0),
+  enrolled_patients: z.number().default(0),
+  cost_per_patient_kobo: z.number().nullable().default(null),
+  controlled_patients_denominator: z.number().default(0),
+  cost_per_controlled_patient_kobo: z.number().nullable().default(null),
+});
+export type HealthEconomics = z.infer<typeof healthEconomicsSchema>;
+
 // ---- Audit -----------------------------------------------------------------
 export const auditLogSchema = z.object({
   total: z.number().default(0),

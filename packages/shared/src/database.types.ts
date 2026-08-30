@@ -20490,6 +20490,10 @@ export type Database = {
         Args: { p_days?: number }
         Returns: Json
       }
+      analytics_disease_surveillance: {
+        Args: { p_period?: string }
+        Returns: Json
+      }
       analytics_doctor_performance: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
@@ -20508,6 +20512,7 @@ export type Database = {
         Args: { p_period?: string }
         Returns: Json
       }
+      analytics_health_economics: { Args: never; Returns: Json }
       analytics_investor_summary: { Args: never; Returns: Json }
       analytics_log_patient_access: {
         Args: { p_patient_id: string; p_reason: string }
@@ -20520,6 +20525,7 @@ export type Database = {
       }
       analytics_patient_search: { Args: { p_query: string }; Returns: Json }
       analytics_population_summary: { Args: never; Returns: Json }
+      analytics_programme_funnel: { Args: never; Returns: Json }
       analytics_provider_capacity: { Args: never; Returns: Json }
       analytics_retention_cohorts: { Args: never; Returns: Json }
       analytics_revenue_by_plan: { Args: never; Returns: Json }

@@ -11,6 +11,7 @@ import {
   businessSummarySchema,
   clinicalOutcomesSchema,
   deliverabilitySchema,
+  diseaseSurveillanceSchema,
   doctorPerformanceSchema,
   engagementSummarySchema,
   escalationQualitySchema,
@@ -21,11 +22,13 @@ import {
   geoHealthAggregatesSchema,
   governanceSummarySchema,
   growthTimeseriesSchema,
+  healthEconomicsSchema,
   investorSummarySchema,
   operationsSummarySchema,
   patientActivitySchema,
   patientSearchSchema,
   populationSummarySchema,
+  programmeFunnelSchema,
   providerCapacitySchema,
   retentionCohortsSchema,
   riskRegisterSchema,
@@ -126,6 +129,46 @@ export function useGeoHealthAggregates() {
       const { data, error } = await createClient().rpc("get_geo_health_aggregates");
       if (error) throw error;
       return geoHealthAggregatesSchema.parse(data);
+    },
+  });
+}
+
+export type SurveillancePeriod = "week" | "month" | "quarter";
+
+/** Trend-over-time surveillance (spec §12.4) — new enrollments, risk scoring, screening results. */
+export function useDiseaseSurveillance(period: SurveillancePeriod = "month") {
+  return useQuery({
+    queryKey: ["analytics", "disease-surveillance", period],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_disease_surveillance", {
+        p_period: period,
+      });
+      if (error) throw error;
+      return diseaseSurveillanceSchema.parse(data);
+    },
+  });
+}
+
+/** Per-condition Enrolled -> Monitoring -> Controlled/Uncontrolled -> Lost-to-follow-up (spec §12.8/§12.10). */
+export function useProgrammeFunnel() {
+  return useQuery({
+    queryKey: ["analytics", "programme-funnel"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_programme_funnel");
+      if (error) throw error;
+      return programmeFunnelSchema.parse(data);
+    },
+  });
+}
+
+/** Modeled cost-avoided / cost-per-patient / cost-per-controlled-patient (spec §12.11). */
+export function useHealthEconomics() {
+  return useQuery({
+    queryKey: ["analytics", "health-economics"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_health_economics");
+      if (error) throw error;
+      return healthEconomicsSchema.parse(data);
     },
   });
 }

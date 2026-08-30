@@ -1,18 +1,46 @@
 "use client";
 
-import { Activity, AlertTriangle, HeartPulse, Users } from "lucide-react";
+import { Activity, AlertTriangle, HeartPulse, Scale, Users, Wallet } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
-import { usePopulationSummary, useGeoHealthAggregates } from "@/lib/analytics/queries";
-import { formatNumber, formatPercent } from "@/lib/analytics/format";
+import {
+  usePopulationSummary,
+  useGeoHealthAggregates,
+  useDiseaseSurveillance,
+  useProgrammeFunnel,
+  useHealthEconomics,
+} from "@/lib/analytics/queries";
+import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
 import { paletteColor } from "./chart-palette";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
 
+/** Screening-access disparity across states (spec §12.18), derived entirely
+ * from get_geo_health_aggregates()'s already small-cell-suppressed output —
+ * no new RPC, just rates instead of raw counts, so a bigger state isn't read
+ * as "more unequal" just for having more patients. */
+function useHealthInequality(geo: ReturnType<typeof useGeoHealthAggregates>["data"]) {
+  const rows = (geo ?? [])
+    .filter((r) => !r.suppressed && (r.patient_count ?? 0) > 0)
+    .map((r) => ({
+      state: r.state,
+      overdueRate: (r.overdue_screening_count ?? 0) / (r.patient_count ?? 1),
+    }))
+    .sort((a, b) => b.overdueRate - a.overdueRate);
+  if (rows.length < 2) return null;
+  const worst = rows[0];
+  const best = rows[rows.length - 1];
+  return { rows, worst, best, spread: worst.overdueRate - best.overdueRate };
+}
+
 export function PopulationDashboard() {
   const { data: s, isLoading } = usePopulationSummary();
   const { data: geo, isLoading: geoLoading } = useGeoHealthAggregates();
+  const { data: surveillance, isLoading: surveillanceLoading } = useDiseaseSurveillance("month");
+  const { data: funnel, isLoading: funnelLoading } = useProgrammeFunnel();
+  const { data: economics, isLoading: economicsLoading } = useHealthEconomics();
+  const inequality = useHealthInequality(geo);
 
   const riskItems = (s?.risk_distribution ?? []).map((r) => ({
     label: r.risk_level ?? "unscored",
@@ -173,6 +201,155 @@ export function PopulationDashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Health access disparity"
+        description="Overdue-screening rate by state, ranked worst to best — a rate, not a raw count, so a larger state isn't read as 'more unequal' just for having more patients. States below the 10-patient floor are already excluded upstream."
+        actions={<ExportButton filename="health-inequality" rows={inequality?.rows ?? []} />}
+      >
+        {geoLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : !inequality ? (
+          <CenterNote>Not enough non-suppressed states yet to compare.</CenterNote>
+        ) : (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-4 text-sm">
+              <span className="text-charcoal-ink/70">
+                Widest gap: <span className="font-medium text-charcoal-ink">{inequality.worst.state}</span>{" "}
+                ({formatPercent(inequality.worst.overdueRate * 100)} overdue) vs.{" "}
+                <span className="font-medium text-charcoal-ink">{inequality.best.state}</span>{" "}
+                ({formatPercent(inequality.best.overdueRate * 100)} overdue)
+              </span>
+            </div>
+            <MiniBarList
+              items={inequality.rows.map((r) => ({
+                label: r.state,
+                value: Math.round(r.overdueRate * 1000),
+                display: formatPercent(r.overdueRate * 100),
+              }))}
+            />
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Programme funnel"
+        description="Enrolled → actively monitored → controlled/uncontrolled → lost to follow-up, per chronic condition. Controlled/uncontrolled only exists today for hypertension (BP) and diabetes (glucose) — shown as “—” elsewhere."
+        actions={<ExportButton filename="programme-funnel" rows={funnel ?? []} />}
+      >
+        {funnelLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : !funnel || funnel.length === 0 ? (
+          <CenterNote>No active care plans yet.</CenterNote>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
+                  <th className="py-2 pr-4 font-medium">Condition</th>
+                  <th className="py-2 pr-4 font-medium">Enrolled</th>
+                  <th className="py-2 pr-4 font-medium">Monitoring</th>
+                  <th className="py-2 pr-4 font-medium">Controlled</th>
+                  <th className="py-2 pr-4 font-medium">Uncontrolled</th>
+                  <th className="py-2 pr-4 font-medium">Lost to follow-up</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnel.map((row) => (
+                  <tr key={row.condition} className="border-b border-charcoal-ink/5">
+                    <td className="py-2 pr-4 capitalize text-charcoal-ink">
+                      {row.condition.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2 pr-4 tabular-nums">{row.enrolled}</td>
+                    <td className="py-2 pr-4 tabular-nums">{row.monitoring}</td>
+                    <td className="py-2 pr-4 tabular-nums">{row.controlled ?? "—"}</td>
+                    <td className="py-2 pr-4 tabular-nums">{row.uncontrolled ?? "—"}</td>
+                    <td className="py-2 pr-4 tabular-nums">{row.lost_to_follow_up}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Disease surveillance"
+        description="New enrollments, risk-score computations, and screening results by month. Reports inflow, not a historical prevalence snapshot — care plans only store current status, not a status-as-of-past-date history."
+        actions={<ExportButton filename="disease-surveillance" rows={surveillance?.new_enrollment_trend ?? []} />}
+      >
+        {surveillanceLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : !surveillance || surveillance.new_enrollment_trend.length === 0 ? (
+          <CenterNote>No care-plan enrollments recorded yet.</CenterNote>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
+                  <th className="py-2 pr-4 font-medium">Month</th>
+                  <th className="py-2 pr-4 font-medium">Condition</th>
+                  <th className="py-2 pr-4 font-medium">New enrollments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {surveillance.new_enrollment_trend.map((row) => (
+                  <tr key={`${row.bucket}-${row.condition}`} className="border-b border-charcoal-ink/5">
+                    <td className="py-2 pr-4 text-charcoal-ink">{row.bucket.slice(0, 7)}</td>
+                    <td className="py-2 pr-4 capitalize text-charcoal-ink/80">
+                      {row.condition.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2 pr-4 tabular-nums">{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Health economics (modeled estimate)"
+        description="Modeled estimate — not a real claims feed. Based on abnormal findings caught early × an admin-configurable per-catch figure (cohort_cost_model_constants). Never treat this as an actuarial number."
+        actions={economics ? <ExportButton filename="health-economics" rows={[economics]} /> : undefined}
+      >
+        {economicsLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : !economics || economics.abnormal_catches === 0 ? (
+          <CenterNote>No actioned abnormal results yet to model against.</CenterNote>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatTile
+              icon={Wallet}
+              label="Estimated cost avoided"
+              value={formatMinor(economics.estimated_cost_avoided_kobo, "NGN")}
+            />
+            <StatTile
+              icon={Scale}
+              label="Cost per enrolled patient"
+              value={
+                economics.cost_per_patient_kobo == null
+                  ? "—"
+                  : formatMinor(economics.cost_per_patient_kobo, "NGN")
+              }
+            />
+            <StatTile
+              icon={Scale}
+              label="Cost per controlled patient"
+              value={
+                economics.cost_per_controlled_patient_kobo == null
+                  ? "—"
+                  : formatMinor(economics.cost_per_controlled_patient_kobo, "NGN")
+              }
+            />
+            <StatTile
+              icon={Activity}
+              label="Abnormal results actioned"
+              value={formatNumber(economics.abnormal_catches)}
+            />
           </div>
         )}
       </SectionCard>
