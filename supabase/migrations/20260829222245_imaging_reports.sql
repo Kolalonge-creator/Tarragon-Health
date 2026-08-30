@@ -270,7 +270,7 @@ begin
 end;
 $$;
 
-create trigger imaging_reports_timeline on public.imaging_reports
+create trigger imaging_reports_timeline
   after insert on public.imaging_reports
   for each row execute function private.timeline_from_imaging_report();
 

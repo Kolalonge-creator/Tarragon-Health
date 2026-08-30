@@ -246,7 +246,7 @@ begin
 end;
 $$;
 
-create trigger patient_documents_timeline on public.patient_documents
+create trigger patient_documents_timeline
   after insert on public.patient_documents
   for each row execute function private.timeline_from_patient_document();
 
