@@ -4616,6 +4616,93 @@ export type Database = {
           },
         ]
       }
+      emergency_record_access_grants: {
+        Row: {
+          created_at: string
+          ended_at: string | null
+          expires_at: string
+          granted_at: string
+          id: string
+          patient_id: string
+          patient_org_id: string
+          reason: string
+          requester_id: string
+          requester_org_id: string
+          review_note: string | null
+          review_status: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          ended_at?: string | null
+          expires_at: string
+          granted_at?: string
+          id?: string
+          patient_id: string
+          patient_org_id: string
+          reason: string
+          requester_id: string
+          requester_org_id: string
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          ended_at?: string | null
+          expires_at?: string
+          granted_at?: string
+          id?: string
+          patient_id?: string
+          patient_org_id?: string
+          reason?: string
+          requester_id?: string
+          requester_org_id?: string
+          review_note?: string | null
+          review_status?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emergency_record_access_grants_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emergency_record_access_grants_patient_org_id_fkey"
+            columns: ["patient_org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emergency_record_access_grants_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emergency_record_access_grants_requester_org_id_fkey"
+            columns: ["requester_org_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emergency_record_access_grants_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       employer_roster_members: {
         Row: {
           added_by: string | null
@@ -12201,6 +12288,51 @@ export type Database = {
           },
         ]
       }
+      patient_serology_status: {
+        Row: {
+          hbv_status: Database["public"]["Enums"]["hbv_status"]
+          hcv_status: Database["public"]["Enums"]["hcv_status"]
+          hiv_status: Database["public"]["Enums"]["hiv_status"]
+          id: string
+          organisation_id: string
+          patient_id: string
+          updated_at: string
+        }
+        Insert: {
+          hbv_status?: Database["public"]["Enums"]["hbv_status"]
+          hcv_status?: Database["public"]["Enums"]["hcv_status"]
+          hiv_status?: Database["public"]["Enums"]["hiv_status"]
+          id?: string
+          organisation_id: string
+          patient_id: string
+          updated_at?: string
+        }
+        Update: {
+          hbv_status?: Database["public"]["Enums"]["hbv_status"]
+          hcv_status?: Database["public"]["Enums"]["hcv_status"]
+          hiv_status?: Database["public"]["Enums"]["hiv_status"]
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_serology_status_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_serology_status_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_shared_decisions: {
         Row: {
           created_at: string
@@ -13360,8 +13492,6 @@ export type Database = {
       }
       profile_access: {
         Row: {
-          clinical_access: boolean
-          clinical_access_updated_at: string | null
           created_at: string
           granted_by: string
           grantee_user_id: string
@@ -13371,8 +13501,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          clinical_access?: boolean
-          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by: string
           grantee_user_id: string
@@ -13382,8 +13510,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          clinical_access?: boolean
-          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by?: string
           grantee_user_id?: string
@@ -13416,6 +13542,32 @@ export type Database = {
           },
         ]
       }
+      profile_access_categories: {
+        Row: {
+          category: Database["public"]["Enums"]["care_access_category"]
+          granted_at: string
+          profile_access_id: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["care_access_category"]
+          granted_at?: string
+          profile_access_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["care_access_category"]
+          granted_at?: string
+          profile_access_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_access_categories_profile_access_id_fkey"
+            columns: ["profile_access_id"]
+            isOneToOne: false
+            referencedRelation: "profile_access"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           app_last_active_at: string | null
@@ -13432,9 +13584,6 @@ export type Database = {
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
           full_name: string | null
-          hbv_status: Database["public"]["Enums"]["hbv_status"]
-          hcv_status: Database["public"]["Enums"]["hcv_status"]
-          hiv_status: Database["public"]["Enums"]["hiv_status"]
           id: string
           identity_verified_at: string | null
           is_active: boolean
@@ -13478,9 +13627,6 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           full_name?: string | null
-          hbv_status?: Database["public"]["Enums"]["hbv_status"]
-          hcv_status?: Database["public"]["Enums"]["hcv_status"]
-          hiv_status?: Database["public"]["Enums"]["hiv_status"]
           id: string
           identity_verified_at?: string | null
           is_active?: boolean
@@ -13524,9 +13670,6 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           full_name?: string | null
-          hbv_status?: Database["public"]["Enums"]["hbv_status"]
-          hcv_status?: Database["public"]["Enums"]["hcv_status"]
-          hiv_status?: Database["public"]["Enums"]["hiv_status"]
           id?: string
           identity_verified_at?: string | null
           is_active?: boolean
@@ -17686,6 +17829,10 @@ export type Database = {
         }[]
       }
       open_health_check: { Args: never; Returns: string }
+      patient_exists_cross_org: {
+        Args: { p_patient_id: string }
+        Returns: Json
+      }
       patient_health_reset_progress: {
         Args: never
         Returns: {
@@ -17917,6 +18064,10 @@ export type Database = {
           p_occurred_on?: string
           p_patient_id: string
         }
+        Returns: Json
+      }
+      request_emergency_record_access: {
+        Args: { p_patient_id: string; p_reason: string }
         Returns: Json
       }
       request_health_passport_attestation: {
@@ -18351,6 +18502,15 @@ export type Database = {
         | "all_partners"
         | "partners_by_type"
       broadcast_status: "draft" | "sent"
+      care_access_category:
+        | "appointments_care_plan"
+        | "vitals_readings"
+        | "medications"
+        | "labs_results"
+        | "vaccinations"
+        | "messaging"
+        | "reproductive_health"
+        | "medical_history"
       care_access_event_kind:
         | "granted"
         | "permission_changed"
@@ -19203,6 +19363,16 @@ export const Constants = {
         "partners_by_type",
       ],
       broadcast_status: ["draft", "sent"],
+      care_access_category: [
+        "appointments_care_plan",
+        "vitals_readings",
+        "medications",
+        "labs_results",
+        "vaccinations",
+        "messaging",
+        "reproductive_health",
+        "medical_history",
+      ],
       care_access_event_kind: [
         "granted",
         "permission_changed",
