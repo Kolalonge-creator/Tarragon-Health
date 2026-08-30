@@ -174,6 +174,7 @@ export async function submitIdentityVerification(
   const parsed = identityVerificationSchema.safeParse({
     method: formData.get("method"),
     idNumber: formData.get("idNumber"),
+    documentType: formData.get("documentType") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
@@ -206,11 +207,19 @@ export async function submitIdentityVerification(
       method: parsed.data.method,
       status: "pending",
       id_last4: idLast4,
+      metadata: parsed.data.method === "document" ? { document_type: parsed.data.documentType } : {},
     })
     .select("id")
     .single();
   if (insertError || !request) {
     return { error: insertError?.message ?? "Could not record your request" };
+  }
+
+  // No provider does document verification (OCR/authenticity checks) — a document submission
+  // always stays `pending` for org-staff manual review, same as a NIN/BVN submission with no
+  // provider configured. Only nin/bvn go through the provider boundary.
+  if (parsed.data.method === "document") {
+    return { status: "pending" };
   }
 
   const result = await verifyIdentity(parsed.data.method, parsed.data.idNumber);
