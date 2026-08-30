@@ -182,37 +182,6 @@ export function useHealthEducationCatalogue() {
   });
 }
 
-/**
- * Toggle a catalogue item live/hidden. As of the §79.10/§79.11 governance
- * lifecycle migration, `is_active` is DERIVED from `content_status` by a DB
- * trigger — a direct `update ... set is_active` would be silently
- * overwritten the next time content_status changes, and would desync the
- * two in the meantime. This now routes through the governed
- * `set_health_education_content_status` RPC (draft <-> published is a
- * legal direct edge, preserving the original instant toggle UX) instead of
- * writing the column directly.
- */
-export function useSetContentActive() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const supabase = createClient();
-      const { error } = await supabase.rpc("set_health_education_content_status", {
-        p_content_id: id,
-        p_new_status: isActive ? "published" : "draft",
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
-    },
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Clinical-governance lifecycle (§79.10/§79.11): draft -> clinical_review ->
-// approved -> published -> review_due -> updated, plus a full audit trail.
-// ---------------------------------------------------------------------------
 export type HealthEducationContentStatus = Enums<"health_education_content_status">;
 
 export const HEALTH_EDUCATION_STATUS_LABELS: Record<HealthEducationContentStatus, string> = {
@@ -224,27 +193,68 @@ export const HEALTH_EDUCATION_STATUS_LABELS: Record<HealthEducationContentStatus
   updated: "Updated (needs re-review)",
 };
 
-/** Legal next steps from a given status, for rendering the right action
- * buttons — mirrors the DB-enforced state machine in
- * set_health_education_content_status; the DB is still the source of truth. */
-export const HEALTH_EDUCATION_LEGAL_NEXT_STATUS: Record<
-  HealthEducationContentStatus,
-  HealthEducationContentStatus[]
-> = {
-  draft: ["clinical_review", "published"],
-  clinical_review: ["approved", "draft"],
-  approved: ["published", "clinical_review"],
-  published: ["review_due", "updated", "draft"],
-  review_due: ["updated", "published", "draft"],
-  updated: ["clinical_review", "published"],
+export type HealthEducationContentInput = {
+  code: string;
+  title: string;
+  summary?: string | null;
+  body: string;
+  category: HealthEducationCategory;
+  content_type: HealthEducationContent["content_type"];
+  condition?: HealthEducationContent["condition"];
+  min_risk_level?: HealthEducationContent["min_risk_level"];
+  estimated_minutes?: number | null;
+  video_url?: string | null;
+  audio_url?: string | null;
+  author_name?: string | null;
+  source_reference?: string | null;
+  next_review_due?: string | null;
+  min_age?: number | null;
+  max_age?: number | null;
 };
 
-export type HealthEducationContentStatusHistory =
-  Tables<"health_education_content_status_history">;
+/** Create a new content item — always lands as content_status='draft' (the
+ * column default), which private.health_education_content_sync_is_active()
+ * keeps is_active=false for until it's carried through clinical_review ->
+ * approved -> published via set_health_education_content_status. */
+export function useCreateHealthEducationContent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: HealthEducationContentInput) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("health_education_content").insert(input);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
+    },
+  });
+}
 
-/** Move a content row through the governance lifecycle. Enforced server-side
- * (admin-only, legal-transition-only) — this is a thin client wrapper. */
-export function useSetContentStatus() {
+export function useUpdateHealthEducationContent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...patch }: Partial<HealthEducationContentInput> & { id: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("health_education_content").update(patch).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
+    },
+  });
+}
+
+/**
+ * Move a content item through its clinical-review lifecycle (draft ->
+ * clinical_review -> approved -> published -> review_due/updated -> ...).
+ * Always goes through public.set_health_education_content_status, which
+ * enforces the legal-transition state machine server-side — never write
+ * is_active or content_status directly from the client. is_active is
+ * derived from content_status by a DB trigger (published/review_due only);
+ * writing it directly would let unreviewed draft content go live to
+ * patients with one click, bypassing clinical review entirely.
+ */
+export function useSetHealthEducationContentStatus() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
@@ -260,16 +270,36 @@ export function useSetContentStatus() {
       const { error } = await supabase.rpc("set_health_education_content_status", {
         p_content_id: id,
         p_new_status: status,
-        p_note: note ?? undefined,
+        p_note: note,
       });
       if (error) throw error;
     },
-    onSuccess: (_data, variables) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
-      queryClient.invalidateQueries({ queryKey: ["health-education-status-history", variables.id] });
     },
   });
 }
+
+/** Admin: set (or clear) an item's curriculum week for the weekly drip. */
+export function useSetContentDripWeek() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, dripWeek }: { id: string; dripWeek: number | null }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("health_education_content")
+        .update({ drip_week: dripWeek })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
+    },
+  });
+}
+
+export type HealthEducationContentStatusHistory =
+  Tables<"health_education_content_status_history">;
 
 /** Admin: full transition history for one content row (who moved what, when, why). */
 export function useContentStatusHistory(contentId: string) {
@@ -286,44 +316,6 @@ export function useContentStatusHistory(contentId: string) {
       return (data ?? []) as HealthEducationContentStatusHistory[];
     },
     enabled: !!contentId,
-  });
-}
-
-/** Admin: edit the governance fields (author, source/reference, next review date). */
-export function useUpdateContentGovernance() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      id,
-      authorName,
-      sourceReference,
-      nextReviewDue,
-      minAge,
-      maxAge,
-    }: {
-      id: string;
-      authorName?: string | null;
-      sourceReference?: string | null;
-      nextReviewDue?: string | null;
-      minAge?: number | null;
-      maxAge?: number | null;
-    }) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("health_education_content")
-        .update({
-          ...(authorName !== undefined ? { author_name: authorName } : {}),
-          ...(sourceReference !== undefined ? { source_reference: sourceReference } : {}),
-          ...(nextReviewDue !== undefined ? { next_review_due: nextReviewDue } : {}),
-          ...(minAge !== undefined ? { min_age: minAge } : {}),
-          ...(maxAge !== undefined ? { max_age: maxAge } : {}),
-        })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
-    },
   });
 }
 
@@ -579,8 +571,7 @@ export function useUpsertTranslation() {
 
 // ---------------------------------------------------------------------------
 // Named learning pathways (§79.6 — REVERSAL of locked decision, see
-// docs/archive/HEALTH_EDUCATION_PATHWAY_SPEC.md §1 and CLAUDE.md's
-// "AI Health Assistant"/health-education notes). health_education_programmes
+// docs/archive/HEALTH_EDUCATION_PATHWAY_SPEC.md §1). health_education_programmes
 // / _programme_modules and their RPCs already existed live before this
 // session's changes; this is the first TS surface for them.
 // ---------------------------------------------------------------------------
@@ -683,23 +674,5 @@ export function useGoalsFromEducation(patientId: string) {
       return data ?? [];
     },
     enabled: !!patientId,
-  });
-}
-
-/** Admin: set (or clear) an item's curriculum week for the weekly drip. */
-export function useSetContentDripWeek() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, dripWeek }: { id: string; dripWeek: number | null }) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("health_education_content")
-        .update({ drip_week: dripWeek })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: healthEducationCatalogueKey });
-    },
   });
 }
