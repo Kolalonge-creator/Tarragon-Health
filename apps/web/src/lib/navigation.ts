@@ -330,6 +330,7 @@ export function getNavSections(
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
             { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
             { label: "Care vouchers", href: "/admin/settings/vouchers", icon: "payables" },
+            { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
             { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
           ],
         },

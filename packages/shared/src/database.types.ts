@@ -15254,6 +15254,133 @@ export type Database = {
           },
         ]
       }
+      promo_codes: {
+        Row: {
+          applicable_order_types: string[]
+          code: string
+          created_at: string
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          is_active: boolean
+          kind: string
+          max_redemptions: number | null
+          min_spend_kobo: number
+          organisation_id: string | null
+          per_profile_limit: number
+          starts_at: string
+          updated_at: string
+          value_bp: number | null
+          value_kobo: number | null
+        }
+        Insert: {
+          applicable_order_types?: string[]
+          code: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          kind: string
+          max_redemptions?: number | null
+          min_spend_kobo?: number
+          organisation_id?: string | null
+          per_profile_limit?: number
+          starts_at?: string
+          updated_at?: string
+          value_bp?: number | null
+          value_kobo?: number | null
+        }
+        Update: {
+          applicable_order_types?: string[]
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: string
+          max_redemptions?: number | null
+          min_spend_kobo?: number
+          organisation_id?: string | null
+          per_profile_limit?: number
+          starts_at?: string
+          updated_at?: string
+          value_bp?: number | null
+          value_kobo?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_codes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_codes_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      promo_code_redemptions: {
+        Row: {
+          discount_applied_kobo: number
+          id: string
+          order_id: string
+          order_type: string
+          profile_id: string
+          promo_code_id: string
+          redeemed_at: string
+          voucher_id: string | null
+        }
+        Insert: {
+          discount_applied_kobo: number
+          id?: string
+          order_id: string
+          order_type: string
+          profile_id: string
+          promo_code_id: string
+          redeemed_at?: string
+          voucher_id?: string | null
+        }
+        Update: {
+          discount_applied_kobo?: number
+          id?: string
+          order_id?: string
+          order_type?: string
+          profile_id?: string
+          promo_code_id?: string
+          redeemed_at?: string
+          voucher_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promo_code_redemptions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_redemptions_promo_code_id_fkey"
+            columns: ["promo_code_id"]
+            isOneToOne: false
+            referencedRelation: "promo_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promo_code_redemptions_voucher_id_fkey"
+            columns: ["voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       permissions: {
         Row: {
           category: string
@@ -21201,6 +21328,20 @@ export type Database = {
         Returns: Json
       }
       create_emergency_card: { Args: never; Returns: string }
+      create_promo_code: {
+        Args: {
+          p_applicable_order_types?: string[]
+          p_code: string
+          p_expires_at?: string
+          p_kind: string
+          p_max_redemptions?: number
+          p_min_spend_kobo?: number
+          p_per_profile_limit?: number
+          p_starts_at?: string
+          p_value: number
+        }
+        Returns: string
+      }
       create_personalised_lifestyle_goal: {
         Args: {
           p_enrollment_id: string
@@ -22225,6 +22366,10 @@ export type Database = {
         Args: { p_order_id: string; p_order_type: string; p_voucher: string }
         Returns: Json
       }
+      redeem_promo_code: {
+        Args: { p_code: string; p_order_id: string; p_order_type: string }
+        Returns: Json
+      }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
       redeem_subscription_voucher: {
         Args: { p_voucher_id: string }
@@ -22595,6 +22740,10 @@ export type Database = {
       set_pharmacy_order_delivery_address: {
         Args: { p_address: Json; p_order_id: string }
         Returns: boolean
+      }
+      set_promo_code_active: {
+        Args: { p_id: string; p_is_active: boolean }
+        Returns: undefined
       }
       set_referral_specialist_provider: {
         Args: { p_referral_id: string; p_specialist_provider_id: string }
