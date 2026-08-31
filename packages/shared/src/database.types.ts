@@ -10042,6 +10042,8 @@ export type Database = {
           acknowledgement_status: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at: string | null
           action_completed_by: string | null
+          ai_summary_generated_at: string | null
+          ai_summary_status: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id: string | null
           created_at: string
           file_path: string
@@ -10068,6 +10070,8 @@ export type Database = {
           acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at?: string | null
           action_completed_by?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path: string
@@ -10094,6 +10098,8 @@ export type Database = {
           acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
           action_completed_at?: string | null
           action_completed_by?: string | null
+          ai_summary_generated_at?: string | null
+          ai_summary_status?: Database["public"]["Enums"]["lab_result_ai_summary_status"]
           clinician_alert_id?: string | null
           created_at?: string
           file_path?: string
@@ -19891,6 +19897,8 @@ export type Database = {
           refund_ref: string | null
           refund_status: string | null
           slot_id: string | null
+          source_lab_order_id: string | null
+          source_lab_result_document_id: string | null
           status: Database["public"]["Enums"]["video_visit_request_status"]
           updated_at: string
           video_consultation_id: string | null
@@ -19916,6 +19924,8 @@ export type Database = {
           refund_ref?: string | null
           refund_status?: string | null
           slot_id?: string | null
+          source_lab_order_id?: string | null
+          source_lab_result_document_id?: string | null
           status?: Database["public"]["Enums"]["video_visit_request_status"]
           updated_at?: string
           video_consultation_id?: string | null
@@ -19941,6 +19951,8 @@ export type Database = {
           refund_ref?: string | null
           refund_status?: string | null
           slot_id?: string | null
+          source_lab_order_id?: string | null
+          source_lab_result_document_id?: string | null
           status?: Database["public"]["Enums"]["video_visit_request_status"]
           updated_at?: string
           video_consultation_id?: string | null
@@ -19979,6 +19991,20 @@ export type Database = {
             columns: ["slot_id"]
             isOneToOne: false
             referencedRelation: "consult_availability_slots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_visit_requests_source_lab_order_id_fkey"
+            columns: ["source_lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_visit_requests_source_lab_result_document_id_fkey"
+            columns: ["source_lab_result_document_id"]
+            isOneToOne: false
+            referencedRelation: "lab_result_documents"
             referencedColumns: ["id"]
           },
           {
@@ -23467,6 +23493,7 @@ export type Database = {
         | "duplicate_order"
         | "clinically_withdrawn"
       lab_refund_status: "requested" | "approved" | "rejected" | "paid"
+      lab_result_ai_summary_status: "pending" | "ready" | "flagged" | "unavailable"
       lab_result_document_source:
         | "patient"
         | "lab_liaison"
@@ -24589,6 +24616,7 @@ export const Constants = {
         "clinically_withdrawn",
       ],
       lab_refund_status: ["requested", "approved", "rejected", "paid"],
+      lab_result_ai_summary_status: ["pending", "ready", "flagged", "unavailable"],
       lab_result_document_source: [
         "patient",
         "lab_liaison",

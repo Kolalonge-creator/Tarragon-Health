@@ -182,6 +182,8 @@ Deno.serve(async (req) => {
               item_code?: string;
               booking_order_id?: string;
               booking_order_type?: "lab" | "pharmacy" | "referral" | "video_visit";
+              secondary_booking_order_id?: string;
+              secondary_booking_order_type?: "lab" | "pharmacy" | "referral" | "video_visit";
             }
           | null;
 
@@ -195,14 +197,15 @@ Deno.serve(async (req) => {
             await markFailed("booking checkout.session.completed missing metadata.booking_order_type");
             break;
           }
-          const bookingTable =
-            bookingOrderType === "lab"
+          const tableFor = (t: "lab" | "pharmacy" | "referral" | "video_visit") =>
+            t === "lab"
               ? "lab_orders"
-              : bookingOrderType === "pharmacy"
+              : t === "pharmacy"
                 ? "pharmacy_orders"
-                : bookingOrderType === "video_visit"
+                : t === "video_visit"
                   ? "video_visit_requests"
                   : "specialist_referrals";
+          const bookingTable = tableFor(bookingOrderType);
 
           const { data: bookingRow } = await supabase
             .from(bookingTable)
@@ -224,6 +227,27 @@ Deno.serve(async (req) => {
               pending_payment_provider_ref: null,
             })
             .eq("id", bookingRow.id);
+
+          // A bundled second order paid for in the same session (see
+          // paystack-webhook/index.ts for the identical Paystack-side logic).
+          if (metadata.secondary_booking_order_id && metadata.secondary_booking_order_type) {
+            const secondaryTable = tableFor(metadata.secondary_booking_order_type);
+            const { error: secondaryError } = await supabase
+              .from(secondaryTable)
+              .update({
+                status: "payment_confirmed",
+                payment_provider: "stripe",
+                payment_provider_ref: session.id,
+                pending_payment_provider_ref: null,
+              })
+              .eq("id", metadata.secondary_booking_order_id);
+            if (secondaryError) {
+              console.error(
+                `stripe-webhook: failed to confirm secondary ${secondaryTable} row ${metadata.secondary_booking_order_id}`,
+                secondaryError,
+              );
+            }
+          }
 
           await markProcessed({
             organisation_id: bookingRow.organisation_id,

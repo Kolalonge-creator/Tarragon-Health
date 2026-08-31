@@ -49,6 +49,9 @@ interface CheckoutMetadata {
   subscription_id?: string;
   booking_order_id?: string;
   booking_order_type?: BookingOrderType;
+  /** A second booking order paid for in the same charge — see checkout-metadata.ts. */
+  secondary_booking_order_id?: string;
+  secondary_booking_order_type?: BookingOrderType;
 }
 
 const BOOKING_TABLE: Record<
@@ -213,6 +216,33 @@ Deno.serve(async (req) => {
               pending_payment_provider_ref: null,
             })
             .eq("id", row.id);
+
+          // A bundled second order (e.g. a video-visit consult add-on paid
+          // for in the same charge as a Synlab lab order) — confirmed
+          // identically, from the same reference, by id rather than by
+          // re-matching pending_payment_provider_ref (both rows already
+          // carry the same one, but matching by id is unambiguous and one
+          // less lookup). A missing/already-confirmed secondary row is
+          // logged, not fatal — the primary booking must not be undone by a
+          // problem with its add-on.
+          if (metadata.secondary_booking_order_id && metadata.secondary_booking_order_type) {
+            const secondaryTable = BOOKING_TABLE[metadata.secondary_booking_order_type];
+            const { error: secondaryError } = await supabase
+              .from(secondaryTable)
+              .update({
+                status: "payment_confirmed",
+                payment_provider: "paystack",
+                payment_provider_ref: event.data.reference,
+                pending_payment_provider_ref: null,
+              })
+              .eq("id", metadata.secondary_booking_order_id);
+            if (secondaryError) {
+              console.error(
+                `paystack-webhook: failed to confirm secondary ${secondaryTable} row ${metadata.secondary_booking_order_id}`,
+                secondaryError,
+              );
+            }
+          }
 
           await markProcessed({
             organisation_id: row.organisation_id,

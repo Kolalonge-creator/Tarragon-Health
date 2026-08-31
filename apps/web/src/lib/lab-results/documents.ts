@@ -29,6 +29,11 @@ export interface ResultDocumentView {
    * only place that may actually move it. */
   acknowledgementStatus: Database["public"]["Enums"]["result_document_acknowledgement_status"];
   actionCompletedAt: string | null;
+  /** Deterministic, patient-visible summary status — never a doctor opinion,
+   * never freeform text. Distinct from patientInterpretation/acknowledgementStatus
+   * above, which are both doctor-authored. See extraction-actions.ts. */
+  aiSummaryStatus: Database["public"]["Enums"]["lab_result_ai_summary_status"];
+  aiSummaryGeneratedAt: string | null;
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
   isPdf: boolean;
@@ -60,7 +65,7 @@ export async function loadResultDocuments(
   const { data: rows } = await supabase
     .from("lab_result_documents")
     .select(
-      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at",
+      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at, ai_summary_status, ai_summary_generated_at",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -83,6 +88,8 @@ export async function loadResultDocuments(
       interpretationSentAt: row.interpretation_sent_at,
       acknowledgementStatus: row.acknowledgement_status,
       actionCompletedAt: row.action_completed_at,
+      aiSummaryStatus: row.ai_summary_status,
+      aiSummaryGeneratedAt: row.ai_summary_generated_at,
       signedUrl: await signResultDocumentPath(row.file_path),
       isPdf: row.mime_type === "application/pdf",
     })),

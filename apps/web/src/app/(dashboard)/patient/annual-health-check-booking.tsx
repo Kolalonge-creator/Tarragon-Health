@@ -8,10 +8,12 @@ import {
   type PanelBundle,
 } from "@/lib/queries/lab-orders";
 import { useRegionServiceAvailable } from "@/lib/queries/service-regions";
+import { useOpenConsultSlots, useVideoVisitPrice } from "@/lib/queries/consult-slots";
 import { createAndPayForPartnerLabOrder } from "./lab-tests/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CURRENCY_SYMBOL, koboToNaira, type Currency } from "@tarragon/shared";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
@@ -37,6 +39,21 @@ const CONFIDENTIAL_CODES = ["single_cervical_smear", "single_hiv", "single_hep_b
 const isConfidential = (b: PanelBundle) => CONFIDENTIAL_CODES.includes(b.code);
 
 const REBOOK_AFTER_MONTHS = 11;
+
+function formatSlot(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatPrice(amountMinor: number, currency: string): string {
+  const symbol = CURRENCY_SYMBOL[currency as Currency] ?? currency;
+  return `${symbol}${koboToNaira(amountMinor).toLocaleString()}`;
+}
 
 /**
  * The Screen ladder. Two fulfilment modes coexist, and neither is hardcoded
@@ -86,6 +103,13 @@ export function AnnualHealthCheckBooking({
   const { data: partnerBillingAvailable } = useRegionServiceAvailable(state, "lab");
   const [payState, payAction, payPending] = useActionState(createAndPayForPartnerLabOrder, undefined);
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
+  // Bundled consult add-on: pre-checked by product decision, opt-out-able.
+  // A slot must be picked (auto-suggested, top 3) for the checkbox to
+  // actually submit as "included" — see the submit button's disabled guard.
+  const [includeConsult, setIncludeConsult] = useState(true);
+  const [selectedConsultSlot, setSelectedConsultSlot] = useState<string>("");
+  const { data: consultSlots } = useOpenConsultSlots();
+  const { data: consultPrice } = useVideoVisitPrice();
   // Captured once on mount so the render stays pure (lint: no Date.now() in
   // render); a rebook nudge doesn't need a live-ticking clock.
   const [nowMs] = useState(() => Date.now());
@@ -286,16 +310,57 @@ export function AnnualHealthCheckBooking({
             {selected && !openBundleIds.has(selected.id) && (
               <div className="space-y-2 pt-1">
                 {partnerBillingAvailable ? (
-                  <form action={payAction}>
+                  <form action={payAction} className="space-y-3">
                     <input type="hidden" name="panelBundleId" value={selected.id} />
-                    <Button type="submit" size="sm" disabled={payPending}>
+                    <input type="hidden" name="include_consult" value={includeConsult ? "true" : "false"} />
+                    <input type="hidden" name="consult_slot_id" value={includeConsult ? selectedConsultSlot : ""} />
+
+                    {consultPrice && (consultSlots ?? []).length > 0 && (
+                      <div className="rounded-md border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
+                        <label className="flex items-start gap-2 text-sm text-charcoal-ink">
+                          <input
+                            type="checkbox"
+                            className="mt-0.5"
+                            checked={includeConsult}
+                            onChange={(e) => setIncludeConsult(e.target.checked)}
+                          />
+                          <span>
+                            Also book a doctor video consult to go through this result —{" "}
+                            {formatPrice(consultPrice.amount_minor, consultPrice.currency)} (uncheck to
+                            skip)
+                          </span>
+                        </label>
+                        {includeConsult && (
+                          <div className="mt-2 flex flex-wrap gap-2 pl-6">
+                            {(consultSlots ?? []).slice(0, 3).map((slot) => (
+                              <Button
+                                key={slot.id}
+                                type="button"
+                                size="sm"
+                                variant={selectedConsultSlot === slot.id ? "default" : "outline"}
+                                onClick={() => setSelectedConsultSlot(slot.id)}
+                              >
+                                {formatSlot(slot.slot_start)}
+                                {slot.clinician?.full_name ? ` · Dr. ${slot.clinician.full_name}` : ""}
+                              </Button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={payPending || (includeConsult && (consultSlots ?? []).length > 0 && !selectedConsultSlot)}
+                    >
                       {payPending ? "Taking you to payment…" : `Book & pay for ${selected.name}`}
                     </Button>
-                    <p className="mt-2 text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60">
                       We book it with our lab partner and send you the result — no separate lab
                       visit to arrange.
                     </p>
-                    {payState?.error && <p className="mt-1 text-xs text-red-600">{payState.error}</p>}
+                    {payState?.error && <p className="text-xs text-red-600">{payState.error}</p>}
                   </form>
                 ) : (
                   <>

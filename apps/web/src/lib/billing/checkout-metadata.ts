@@ -50,6 +50,18 @@ export interface CheckoutMetadata {
   booking_order_id?: string;
   /** Only set for kind='booking' — which table booking_order_id belongs to. */
   booking_order_type?: BookingOrderType;
+  /**
+   * Only set for kind='booking' when a second booking order is being paid
+   * for in the SAME charge (e.g. a Synlab lab order bundled with a
+   * video_visit_requests consult add-on). Both webhooks confirm this row
+   * identically to the primary one, from the same charge/session — see
+   * paystack-webhook/index.ts and stripe-webhook/index.ts. The two orders'
+   * own amount_minor/total_kobo stay exactly what they were before bundling;
+   * only the customer-facing charge is combined.
+   */
+  secondary_booking_order_id?: string;
+  /** Only set alongside secondary_booking_order_id — which table it belongs to. */
+  secondary_booking_order_type?: BookingOrderType;
   /** Only set for kind='sponsored_subscription' — whose plan is being paid for. */
   beneficiary_profile_id?: string;
   /** Only set for kind='sponsored_subscription' — who is being billed. Read by the DB trigger, which re-checks the grant still exists when the money lands. */

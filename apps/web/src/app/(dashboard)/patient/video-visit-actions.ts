@@ -14,6 +14,13 @@ import type { Currency } from "@tarragon/shared";
 const requestSchema = z.object({
   slotId: z.string().uuid(),
   note: z.string().trim().max(500).optional(),
+  /** Set when requested from an uploaded result's "discuss with a doctor" CTA
+   * (ai-result-summary.tsx) — attribution only, never trusted for pricing or
+   * authorisation. */
+  sourceLabResultDocumentId: z.string().uuid().optional(),
+  /** Set when bundled inline with a Synlab partner-billed lab booking
+   * (annual-health-check-booking.tsx) — same attribution-only caveat. */
+  sourceLabOrderId: z.string().uuid().optional(),
 });
 
 export type RequestVideoVisitState = { error: string } | undefined;
@@ -35,6 +42,8 @@ export async function requestVideoVisit(
   const parsed = requestSchema.safeParse({
     slotId: String(formData.get("slot_id") ?? ""),
     note: String(formData.get("note") ?? "") || undefined,
+    sourceLabResultDocumentId: String(formData.get("source_lab_result_document_id") ?? "") || undefined,
+    sourceLabOrderId: String(formData.get("source_lab_order_id") ?? "") || undefined,
   });
   if (!parsed.success) {
     return { error: "Pick a time first" };
@@ -68,6 +77,33 @@ export async function requestVideoVisit(
     return { error: "That time is no longer available, pick another slot." };
   }
 
+  // Source ids are attribution-only (never trusted for pricing/authorisation
+  // — the price book trigger prices every request identically regardless),
+  // but still checked through the caller's own RLS-scoped session so a
+  // request can never be linked to another patient's document or order.
+  if (parsed.data.sourceLabResultDocumentId) {
+    const { data: doc } = await supabase
+      .from("lab_result_documents")
+      .select("id")
+      .eq("id", parsed.data.sourceLabResultDocumentId)
+      .eq("patient_id", user.id)
+      .maybeSingle();
+    if (!doc) {
+      return { error: "That result document could not be found." };
+    }
+  }
+  if (parsed.data.sourceLabOrderId) {
+    const { data: order } = await supabase
+      .from("lab_orders")
+      .select("id")
+      .eq("id", parsed.data.sourceLabOrderId)
+      .eq("patient_id", user.id)
+      .maybeSingle();
+    if (!order) {
+      return { error: "That lab order could not be found." };
+    }
+  }
+
   const { data: request, error: insertError } = await supabase
     .from("video_visit_requests")
     .insert({
@@ -75,6 +111,8 @@ export async function requestVideoVisit(
       patient_id: user.id,
       slot_id: parsed.data.slotId,
       note: parsed.data.note ?? null,
+      source_lab_result_document_id: parsed.data.sourceLabResultDocumentId ?? null,
+      source_lab_order_id: parsed.data.sourceLabOrderId ?? null,
     })
     .select("id, amount_minor, currency")
     .single();

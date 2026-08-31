@@ -97,6 +97,12 @@ export async function createAndPayForPartnerLabOrder(
   if (typeof panelBundleId !== "string" || !panelBundleId) {
     return { error: "Pick a review first" };
   }
+  // Bundled consult add-on (product decision: pre-checked, opt-out-able,
+  // separately priced — never silently folded into the lab price). Absent
+  // entirely, or unchecked, means byte-for-byte the same flow as before this
+  // feature existed: one lab_orders row, one charge.
+  const includeConsult = formData.get("include_consult") === "true";
+  const consultSlotId = formData.get("consult_slot_id");
 
   const supabase = await createClient();
   const {
@@ -131,17 +137,49 @@ export async function createAndPayForPartnerLabOrder(
     return { error: "We couldn't set that review up just now. Please try again." };
   }
 
+  // Bundled consult: a real video_visit_requests row, priced by the same
+  // price book every other video visit uses (private.pin_video_visit_amount
+  // — never a figure this action invents), linked back to this lab order for
+  // attribution only. If anything here fails, the lab order still proceeds
+  // exactly as an unbundled booking would — a consult add-on is never allowed
+  // to block the underlying lab review.
+  let consultRequest: { id: string; amount_minor: number } | null = null;
+  if (includeConsult && typeof consultSlotId === "string" && consultSlotId) {
+    const { data: slot } = await supabase
+      .from("consult_availability_slots")
+      .select("id")
+      .eq("id", consultSlotId)
+      .maybeSingle();
+    if (slot) {
+      const { data: request } = await supabase
+        .from("video_visit_requests")
+        .insert({
+          organisation_id: profile.organisation_id,
+          patient_id: user.id,
+          slot_id: consultSlotId,
+          source_lab_order_id: order.id,
+        })
+        .select("id, amount_minor")
+        .single();
+      consultRequest = request ?? null;
+    }
+  }
+
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const labAmount = order.payable_kobo ?? order.total_kobo;
   const result = await initiateBookingCheckout({
     orderType: "lab",
     orderId: order.id,
     organisationId: profile.organisation_id,
     patientId: user.id,
-    amountKobo: order.payable_kobo ?? order.total_kobo,
+    amountKobo: consultRequest ? labAmount + consultRequest.amount_minor : labAmount,
     currency: "NGN",
     email: user.email,
     description: order.panel_bundle?.name ?? "Lab review",
     callbackUrl: `${origin}/patient`,
+    secondaryBooking: consultRequest
+      ? { orderType: "video_visit", orderId: consultRequest.id }
+      : undefined,
   });
 
   if (!result.ok) {

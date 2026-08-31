@@ -33,8 +33,16 @@ export async function initiateBookingCheckout(args: {
   email: string;
   description: string;
   callbackUrl: string;
+  /**
+   * A second booking order paid for in this same charge (e.g. a bundled
+   * video-visit consult alongside a Synlab lab order). `amountKobo` above
+   * must already be the SUM of both orders' own amounts — this only tells
+   * the webhook which second row to also confirm from the one payment.
+   */
+  secondaryBooking?: { orderType: BookingOrderType; orderId: string };
 }): Promise<BookingCheckoutResult> {
   const table = bookingTableFor(args.orderType);
+  const secondaryTable = args.secondaryBooking ? bookingTableFor(args.secondaryBooking.orderType) : null;
   const serviceRole = createServiceRoleClient();
 
   // There is no longer a payment bypass here. Until 2026-07-29 a member of a
@@ -49,6 +57,12 @@ export async function initiateBookingCheckout(args: {
     item_code: args.orderType,
     booking_order_id: args.orderId,
     booking_order_type: args.orderType,
+    ...(args.secondaryBooking
+      ? {
+          secondary_booking_order_id: args.secondaryBooking.orderId,
+          secondary_booking_order_type: args.secondaryBooking.orderType,
+        }
+      : {}),
   };
 
   if (provider === "paystack") {
@@ -72,6 +86,14 @@ export async function initiateBookingCheckout(args: {
       .update({ status: "pending_payment", pending_payment_provider_ref: result.data.reference })
       .eq("id", args.orderId);
     if (error) return { ok: false, error: error.message };
+
+    if (secondaryTable && args.secondaryBooking) {
+      const { error: secondaryError } = await serviceRole
+        .from(secondaryTable)
+        .update({ status: "pending_payment", pending_payment_provider_ref: result.data.reference })
+        .eq("id", args.secondaryBooking.orderId);
+      if (secondaryError) return { ok: false, error: secondaryError.message };
+    }
 
     return { ok: true, checkoutUrl: result.data.authorizationUrl };
   }
@@ -98,6 +120,14 @@ export async function initiateBookingCheckout(args: {
     .update({ status: "pending_payment", pending_payment_provider_ref: result.data.sessionId })
     .eq("id", args.orderId);
   if (error) return { ok: false, error: error.message };
+
+  if (secondaryTable && args.secondaryBooking) {
+    const { error: secondaryError } = await serviceRole
+      .from(secondaryTable)
+      .update({ status: "pending_payment", pending_payment_provider_ref: result.data.sessionId })
+      .eq("id", args.secondaryBooking.orderId);
+    if (secondaryError) return { ok: false, error: secondaryError.message };
+  }
 
   return { ok: true, checkoutUrl: result.data.checkoutUrl };
 }

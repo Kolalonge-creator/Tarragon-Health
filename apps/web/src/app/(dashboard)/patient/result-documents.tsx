@@ -5,6 +5,7 @@ import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { UploadResultForm } from "./upload-result-form";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
+import { AiResultSummary } from "./ai-result-summary";
 
 function sourceLabel(source: string): string {
   return source === "patient" ? "You uploaded this" : "Uploaded by your care team";
@@ -76,6 +77,7 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                 ) : (
                   <p className="text-xs text-charcoal-ink/50">File unavailable.</p>
                 )}
+                <AiResultSummary status={doc.aiSummaryStatus} documentId={doc.id} />
                 {doc.interpretationSentAt && doc.patientInterpretation ? (
                   <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-3">
                     <p className="text-sm text-charcoal-ink">{doc.patientInterpretation}</p>
