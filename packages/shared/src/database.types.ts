@@ -23444,6 +23444,80 @@ export type Database = {
           },
         ]
       }
+      prescription_renewal_requests: {
+        Row: {
+          created_at: string
+          doctor_note: string | null
+          id: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          patient_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          sla_due_at: string
+          status: Database["public"]["Enums"]["prescription_renewal_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          doctor_note?: string | null
+          id?: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          patient_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sla_due_at?: string
+          status?: Database["public"]["Enums"]["prescription_renewal_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          doctor_note?: string | null
+          id?: string
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          patient_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          sla_due_at?: string
+          status?: Database["public"]["Enums"]["prescription_renewal_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prescription_renewal_requests_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescription_renewal_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescription_renewal_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prescription_renewal_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prevention_campaign_enrolments: {
         Row: {
           campaign_id: string
@@ -27614,6 +27688,143 @@ export type Database = {
           },
         ]
       }
+      second_opinion_requests: {
+        Row: {
+          answer: string | null
+          answered_at: string | null
+          answered_by: string | null
+          created_at: string
+          existing_diagnosis_or_result: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          sla_due_at: string
+          source_description: string | null
+          specific_question: string | null
+          status: Database["public"]["Enums"]["second_opinion_status"]
+          updated_at: string
+        }
+        Insert: {
+          answer?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          existing_diagnosis_or_result: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          sla_due_at?: string
+          source_description?: string | null
+          specific_question?: string | null
+          status?: Database["public"]["Enums"]["second_opinion_status"]
+          updated_at?: string
+        }
+        Update: {
+          answer?: string | null
+          answered_at?: string | null
+          answered_by?: string | null
+          created_at?: string
+          existing_diagnosis_or_result?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          sla_due_at?: string
+          source_description?: string | null
+          specific_question?: string | null
+          status?: Database["public"]["Enums"]["second_opinion_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "second_opinion_requests_answered_by_fkey"
+            columns: ["answered_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "second_opinion_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "second_opinion_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      senior_case_reviews: {
+        Row: {
+          created_at: string
+          declined_reason: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          situation_summary: string
+          sla_due_at: string
+          status: Database["public"]["Enums"]["senior_case_review_status"]
+          updated_at: string
+          written_plan: string | null
+        }
+        Insert: {
+          created_at?: string
+          declined_reason?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          situation_summary: string
+          sla_due_at?: string
+          status?: Database["public"]["Enums"]["senior_case_review_status"]
+          updated_at?: string
+          written_plan?: string | null
+        }
+        Update: {
+          created_at?: string
+          declined_reason?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          situation_summary?: string
+          sla_due_at?: string
+          status?: Database["public"]["Enums"]["senior_case_review_status"]
+          updated_at?: string
+          written_plan?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "senior_case_reviews_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "senior_case_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "senior_case_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       serology_status_transitions: {
         Row: {
           created_at: string
@@ -27734,6 +27945,9 @@ export type Database = {
           pending_payment_provider_ref: string | null
           purchased_at: string | null
           purchaser_profile_id: string | null
+          redeemed_at: string | null
+          redeemed_entity_id: string | null
+          redeemed_entity_type: string | null
           scoped_entity_id: string | null
           scoped_entity_type: string | null
           service_product_id: string
@@ -27756,6 +27970,9 @@ export type Database = {
           pending_payment_provider_ref?: string | null
           purchased_at?: string | null
           purchaser_profile_id?: string | null
+          redeemed_at?: string | null
+          redeemed_entity_id?: string | null
+          redeemed_entity_type?: string | null
           scoped_entity_id?: string | null
           scoped_entity_type?: string | null
           service_product_id: string
@@ -27778,6 +27995,9 @@ export type Database = {
           pending_payment_provider_ref?: string | null
           purchased_at?: string | null
           purchaser_profile_id?: string | null
+          redeemed_at?: string | null
+          redeemed_entity_id?: string | null
+          redeemed_entity_type?: string | null
           scoped_entity_id?: string | null
           scoped_entity_type?: string | null
           service_product_id?: string
@@ -30314,6 +30534,82 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      verified_documents: {
+        Row: {
+          attestation_text: string | null
+          created_at: string
+          declined_reason: string | null
+          document_type: Database["public"]["Enums"]["verified_document_type"]
+          id: string
+          issued_at: string | null
+          issued_by: string | null
+          organisation_id: string
+          patient_id: string
+          request_note: string | null
+          sla_due_at: string
+          status: Database["public"]["Enums"]["verified_document_status"]
+          updated_at: string
+          valid_from: string | null
+          valid_until: string | null
+        }
+        Insert: {
+          attestation_text?: string | null
+          created_at?: string
+          declined_reason?: string | null
+          document_type: Database["public"]["Enums"]["verified_document_type"]
+          id?: string
+          issued_at?: string | null
+          issued_by?: string | null
+          organisation_id: string
+          patient_id: string
+          request_note?: string | null
+          sla_due_at?: string
+          status?: Database["public"]["Enums"]["verified_document_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Update: {
+          attestation_text?: string | null
+          created_at?: string
+          declined_reason?: string | null
+          document_type?: Database["public"]["Enums"]["verified_document_type"]
+          id?: string
+          issued_at?: string | null
+          issued_by?: string | null
+          organisation_id?: string
+          patient_id?: string
+          request_note?: string | null
+          sla_due_at?: string
+          status?: Database["public"]["Enums"]["verified_document_status"]
+          updated_at?: string
+          valid_from?: string | null
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "verified_documents_issued_by_fkey"
+            columns: ["issued_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verified_documents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "verified_documents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -33553,6 +33849,10 @@ export type Database = {
         Returns: undefined
       }
       has_ai_coach_access: { Args: never; Returns: boolean }
+      has_available_service_purchase: {
+        Args: { p_patient_id: string; p_service_product_code: string }
+        Returns: boolean
+      }
       has_feature_access: { Args: { feature: string }; Returns: boolean }
       hbpm_summary: { Args: { p_patient: string }; Returns: Json }
       health_education_analytics: {
@@ -34455,6 +34755,15 @@ export type Database = {
           p_step_count: number
         }
         Returns: boolean
+      }
+      redeem_available_service_purchase: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_patient_id: string
+          p_service_product_code: string
+        }
+        Returns: string
       }
       redeem_care_voucher: {
         Args: { p_order_id: string; p_order_type: string; p_voucher: string }
@@ -35431,6 +35740,7 @@ export type Database = {
         | "follow_up"
         | "procedure"
         | "therapy"
+        | "result_interpretation"
       appointment_waiting_list_status:
         | "waiting"
         | "offered"
@@ -36485,6 +36795,11 @@ export type Database = {
         | "assessment"
         | "discount"
         | "challenge"
+      prescription_renewal_status:
+        | "submitted"
+        | "in_review"
+        | "approved"
+        | "declined"
       prevention_campaign_enrolment_status:
         | "invited"
         | "joined"
@@ -36719,6 +37034,16 @@ export type Database = {
         | "overdue"
         | "cancelled"
         | "declined"
+      second_opinion_status:
+        | "submitted"
+        | "in_review"
+        | "answered"
+        | "closed"
+      senior_case_review_status:
+        | "submitted"
+        | "in_review"
+        | "completed"
+        | "declined"
       service_purchase_status:
         | "pending_payment"
         | "active"
@@ -36856,6 +37181,8 @@ export type Database = {
         | "pending_verification"
         | "verified"
         | "rejected"
+      verified_document_status: "requested" | "issued" | "declined"
+      verified_document_type: "fit_to_work" | "travel_health_certificate"
       video_consultation_context:
         | "pre_referral_triage"
         | "specialist_consult"
@@ -37249,6 +37576,7 @@ export const Constants = {
         "follow_up",
         "procedure",
         "therapy",
+        "result_interpretation",
       ],
       appointment_waiting_list_status: [
         "waiting",
@@ -38424,6 +38752,12 @@ export const Constants = {
       ],
       population_kind: ["registry", "custom"],
       population_status: ["active", "archived"],
+      prescription_renewal_status: [
+        "submitted",
+        "in_review",
+        "approved",
+        "declined",
+      ],
       prevention_campaign_action_type: [
         "education",
         "screening_invite",
@@ -38695,6 +39029,18 @@ export const Constants = {
         "cancelled",
         "declined",
       ],
+      second_opinion_status: [
+        "submitted",
+        "in_review",
+        "answered",
+        "closed",
+      ],
+      senior_case_review_status: [
+        "submitted",
+        "in_review",
+        "completed",
+        "declined",
+      ],
       service_purchase_status: [
         "pending_payment",
         "active",
@@ -38846,6 +39192,8 @@ export const Constants = {
         "verified",
         "rejected",
       ],
+      verified_document_status: ["requested", "issued", "declined"],
+      verified_document_type: ["fit_to_work", "travel_health_certificate"],
       video_consultation_context: [
         "pre_referral_triage",
         "specialist_consult",

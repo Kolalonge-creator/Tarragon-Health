@@ -40,3 +40,23 @@ export function isPurchaseCurrentlyActive(purchase: Pick<Tables<"service_purchas
   if (!purchase.expires_at) return true;
   return new Date(purchase.expires_at).getTime() > Date.now();
 }
+
+/** Does this patient hold a spendable single-use credit for a product right
+ * now (has_available_service_purchase — active, unexpired, unredeemed)?
+ * For a UI that needs to offer "use your credit" vs "buy one" without first
+ * loading every purchase row. */
+export function useHasAvailableServicePurchase(patientId: string, serviceProductCode: string) {
+  return useQuery({
+    queryKey: ["service-purchases", "has-available", patientId, serviceProductCode],
+    enabled: !!patientId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("has_available_service_purchase", {
+        p_patient_id: patientId,
+        p_service_product_code: serviceProductCode,
+      });
+      if (error) throw error;
+      return data as boolean;
+    },
+  });
+}
