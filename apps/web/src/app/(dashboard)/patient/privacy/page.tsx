@@ -20,6 +20,7 @@ export default async function PrivacyCentrePage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (profile.role !== "patient") redirect("/");
+  if (!profile.organisation_id) redirect("/login");
 
   return (
     <div className="space-y-6">
@@ -54,7 +55,7 @@ export default async function PrivacyCentrePage() {
           Under Nigeria&apos;s Data Protection Act, you can ask to see, correct, or delete the data we
           hold about you.
         </p>
-        <DataRightsPanel patientId={profile.id} />
+        <DataRightsPanel organisationId={profile.organisation_id} patientId={profile.id} />
       </div>
     </div>
   );
