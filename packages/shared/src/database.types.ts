@@ -2982,6 +2982,7 @@ export type Database = {
           redeemed_order_type:
             | Database["public"]["Enums"]["commission_type"]
             | null
+          service_product_id: string | null
           sku_code: string | null
           sku_name: string | null
           status: Database["public"]["Enums"]["care_voucher_status"]
@@ -3010,6 +3011,7 @@ export type Database = {
           redeemed_order_type?:
             | Database["public"]["Enums"]["commission_type"]
             | null
+          service_product_id?: string | null
           sku_code?: string | null
           sku_name?: string | null
           status?: Database["public"]["Enums"]["care_voucher_status"]
@@ -3038,6 +3040,7 @@ export type Database = {
           redeemed_order_type?:
             | Database["public"]["Enums"]["commission_type"]
             | null
+          service_product_id?: string | null
           sku_code?: string | null
           sku_name?: string | null
           status?: Database["public"]["Enums"]["care_voucher_status"]
@@ -3072,6 +3075,13 @@ export type Database = {
             columns: ["purchaser_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_vouchers_service_product_id_fkey"
+            columns: ["service_product_id"]
+            isOneToOne: false
+            referencedRelation: "service_products"
             referencedColumns: ["id"]
           },
           {
@@ -22562,6 +22572,14 @@ export type Database = {
         }
         Returns: Json
       }
+      purchase_service_voucher: {
+        Args: {
+          p_beneficiary: string
+          p_gift_message?: string
+          p_service_product_id: string
+        }
+        Returns: Json
+      }
       raise_lab_extraction_alert: {
         Args: {
           p_document_id: string
@@ -22622,6 +22640,7 @@ export type Database = {
         Args: { p_voucher_id: string }
         Returns: Json
       }
+      redeem_service_voucher: { Args: { p_voucher_id: string }; Returns: Json }
       redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
       region_service_available: {
         Args: { p_service: string; p_state: string }
