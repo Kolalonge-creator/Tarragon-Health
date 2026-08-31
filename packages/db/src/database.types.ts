@@ -13360,8 +13360,6 @@ export type Database = {
       }
       profile_access: {
         Row: {
-          clinical_access: boolean
-          clinical_access_updated_at: string | null
           created_at: string
           granted_by: string
           grantee_user_id: string
@@ -13371,8 +13369,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          clinical_access?: boolean
-          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by: string
           grantee_user_id: string
@@ -13382,8 +13378,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          clinical_access?: boolean
-          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by?: string
           grantee_user_id?: string
@@ -13412,6 +13406,32 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profile_access_categories: {
+        Row: {
+          category: Database["public"]["Enums"]["care_access_category"]
+          granted_at: string
+          profile_access_id: string
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["care_access_category"]
+          granted_at?: string
+          profile_access_id: string
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["care_access_category"]
+          granted_at?: string
+          profile_access_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_access_categories_profile_access_id_fkey"
+            columns: ["profile_access_id"]
+            isOneToOne: false
+            referencedRelation: "profile_access"
             referencedColumns: ["id"]
           },
         ]
@@ -18078,6 +18098,13 @@ export type Database = {
         Args: { p_request_id: string; p_slot_id: string }
         Returns: string
       }
+      set_care_access_categories: {
+        Args: {
+          p_categories: Database["public"]["Enums"]["care_access_category"][]
+          p_grant_id: string
+        }
+        Returns: undefined
+      }
       set_lab_order_facility: {
         Args: { p_facility_id: string; p_order_id: string }
         Returns: {
@@ -18351,6 +18378,15 @@ export type Database = {
         | "all_partners"
         | "partners_by_type"
       broadcast_status: "draft" | "sent"
+      care_access_category:
+        | "appointments_care_plan"
+        | "vitals_readings"
+        | "medications"
+        | "labs_results"
+        | "vaccinations"
+        | "messaging"
+        | "reproductive_health"
+        | "medical_history"
       care_access_event_kind:
         | "granted"
         | "permission_changed"
@@ -19203,6 +19239,16 @@ export const Constants = {
         "partners_by_type",
       ],
       broadcast_status: ["draft", "sent"],
+      care_access_category: [
+        "appointments_care_plan",
+        "vitals_readings",
+        "medications",
+        "labs_results",
+        "vaccinations",
+        "messaging",
+        "reproductive_health",
+        "medical_history",
+      ],
       care_access_event_kind: [
         "granted",
         "permission_changed",
