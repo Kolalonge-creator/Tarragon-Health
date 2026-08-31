@@ -10,6 +10,7 @@ import {
   useSetClinicalStaffIndemnity,
   useSetClinicalStaffIndemnityExempt,
   useSetClinicalStaffEmploymentType,
+  useSetClinicalStaffSpecialistType,
   useOrgIndemnityExemptions,
   useAddIndemnityExemption,
   useRemoveIndemnityExemption,
@@ -33,6 +34,27 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
+
+// Matches the DB `specialist_type` enum (same one specialist_referrals
+// uses). Only meaningful for Senior Medical Officer / Chief Medical Officer
+// (DB CHECK enforces this) -- setting it is what makes a specialist
+// matchable by private.auto_match_internal_specialist (20260831001458).
+const SPECIALIST_TYPE_LABEL: Record<string, string> = {
+  urologist: "Urology",
+  oncologist: "Oncology",
+  ob_gyn: "OB-GYN",
+  cardiology: "Cardiology",
+  endocrinology: "Endocrinology",
+  nephrology: "Nephrology",
+  ophthalmology: "Ophthalmology",
+  dietetics: "Dietetics",
+  podiatry: "Podiatry",
+  other: "Other",
+};
+
+function isSpecialistEligible(doctorTier: ClinicalStaff["doctor_tier"]): boolean {
+  return doctorTier === "senior_medical_officer" || doctorTier === "chief_medical_officer";
+}
 
 // The Chief Medical Officer / Clinical Director always needs individual
 // indemnity/malpractice cover before activation; a Senior Medical Officer
@@ -445,9 +467,11 @@ export function ClinicalStaffManager() {
   const verify = useVerifyClinicalStaff();
   const setActive = useSetClinicalStaffActive();
   const setEmploymentType = useSetClinicalStaffEmploymentType();
+  const setSpecialistType = useSetClinicalStaffSpecialistType();
 
   const [doctorTier, setDoctorTier] = useState<ClinicalStaff["doctor_tier"]>("medical_officer");
   const [employmentType, setEmploymentTypeField] = useState<ClinicalStaff["employment_type"]>("employed");
+  const [specialistType, setSpecialistTypeField] = useState<ClinicalStaff["specialist_type"]>(null);
   const [fullName, setFullName] = useState("");
   const [credentialType, setCredentialType] = useState("");
   const [credentialNumber, setCredentialNumber] = useState("");
@@ -519,6 +543,32 @@ export function ClinicalStaffManager() {
               it regardless of this setting.
             </p>
           </div>
+          {isSpecialistEligible(doctorTier) && (
+            <div className="space-y-1.5">
+              <Label htmlFor="specialist-type">Specialty (for referral matching)</Label>
+              <Select
+                id="specialist-type"
+                value={specialistType ?? ""}
+                onChange={(e) =>
+                  setSpecialistTypeField(
+                    (e.target.value || null) as ClinicalStaff["specialist_type"]
+                  )
+                }
+              >
+                <option value="">Not a matchable specialist</option>
+                {Object.entries(SPECIALIST_TYPE_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-charcoal-ink/60">
+                Setting this makes this doctor an automatic match for any pending specialist
+                referral of the same specialty the moment they&apos;re activated — no separate
+                publish step.
+              </p>
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="credential-type">Credential type</Label>
@@ -579,6 +629,7 @@ export function ClinicalStaffManager() {
                 {
                   doctorTier,
                   employmentType,
+                  specialistType: isSpecialistEligible(doctorTier) ? specialistType : null,
                   fullName: fullName.trim(),
                   credentialType: credentialType.trim(),
                   credentialNumber: credentialNumber.trim(),
@@ -709,6 +760,35 @@ export function ClinicalStaffManager() {
                         />
                         Contracted (not employed) — requires individual indemnity cover
                       </label>
+                    )}
+                    {isSpecialistEligible(s.doctor_tier) && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <Label htmlFor={`specialist-type-${s.id}`} className="text-xs text-charcoal-ink/60">
+                          Referral-matching specialty
+                        </Label>
+                        <Select
+                          id={`specialist-type-${s.id}`}
+                          className="w-auto text-xs"
+                          value={s.specialist_type ?? ""}
+                          disabled={setSpecialistType.isPending}
+                          onChange={(e) =>
+                            setSpecialistType.mutate({
+                              clinicalStaffId: s.id,
+                              specialistType: (e.target.value || null) as ClinicalStaff["specialist_type"],
+                            })
+                          }
+                        >
+                          <option value="">Not a matchable specialist</option>
+                          {Object.entries(SPECIALIST_TYPE_LABEL).map(([value, label]) => (
+                            <option key={value} value={value}>
+                              {label}
+                            </option>
+                          ))}
+                        </Select>
+                        {s.specialist_type && s.active && (
+                          <Badge variant="blue">Matchable for {SPECIALIST_TYPE_LABEL[s.specialist_type]}</Badge>
+                        )}
+                      </div>
                     )}
                     {requiresIndemnity && (
                       <IndemnityForm staff={s} orgExemptions={orgExemptions ?? []} />

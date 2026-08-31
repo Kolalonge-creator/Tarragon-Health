@@ -100,6 +100,7 @@ export function useCreateClinicalStaff() {
     mutationFn: async (input: {
       doctorTier: ClinicalStaff["doctor_tier"];
       employmentType: ClinicalStaff["employment_type"];
+      specialistType?: ClinicalStaff["specialist_type"];
       fullName: string;
       credentialType?: string;
       credentialNumber?: string;
@@ -132,6 +133,7 @@ export function useCreateClinicalStaff() {
         profile_id: profileId,
         doctor_tier: input.doctorTier,
         employment_type: input.employmentType,
+        specialist_type: input.specialistType || null,
         full_name: input.fullName,
         credential_type: input.credentialType || null,
         credential_number: input.credentialNumber || null,
@@ -267,6 +269,40 @@ export function useSetClinicalStaffEmploymentType() {
       const { error } = await supabase
         .from("clinical_staff")
         .update({ employment_type: employmentType })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Sets the credentialed specialty used to auto-match specialist_referrals
+ * (private.auto_match_internal_specialist, 20260831001458) — distinct from
+ * the free-text `specialty` display bio. Setting this on an active record
+ * (or activating a record that already has one — see useSetClinicalStaffActive)
+ * immediately sweeps and claims any currently-unmatched referral of that
+ * specialist_type (private.sweep_referrals_on_specialist_activation): a
+ * specialist is matchable the moment they're onboarded, not after some
+ * separate publish step. DB CHECK restricts this to Senior Medical
+ * Officer/Chief Medical Officer records.
+ */
+export function useSetClinicalStaffSpecialistType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clinicalStaffId,
+      specialistType,
+    }: {
+      clinicalStaffId: string;
+      specialistType: ClinicalStaff["specialist_type"];
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ specialist_type: specialistType })
         .eq("id", clinicalStaffId);
       if (error) throw error;
     },

@@ -2684,6 +2684,7 @@ export type Database = {
           photo_url: string | null
           profile_id: string | null
           red_flag_attested_at: string | null
+          specialist_type: Database["public"]["Enums"]["specialist_type"] | null
           specialty: string | null
           staff_number: string | null
           updated_at: string
@@ -2712,6 +2713,7 @@ export type Database = {
           photo_url?: string | null
           profile_id?: string | null
           red_flag_attested_at?: string | null
+          specialist_type?: Database["public"]["Enums"]["specialist_type"] | null
           specialty?: string | null
           staff_number?: string | null
           updated_at?: string
@@ -2740,6 +2742,7 @@ export type Database = {
           photo_url?: string | null
           profile_id?: string | null
           red_flag_attested_at?: string | null
+          specialist_type?: Database["public"]["Enums"]["specialist_type"] | null
           specialty?: string | null
           staff_number?: string | null
           updated_at?: string
@@ -14915,6 +14918,7 @@ export type Database = {
         Row: {
           applied_voucher_id: string | null
           appointment_date: string | null
+          assigned_specialist_id: string | null
           booking_confirmed_at: string | null
           clinical_summary: Json | null
           created_at: string
@@ -14949,6 +14953,7 @@ export type Database = {
         Insert: {
           applied_voucher_id?: string | null
           appointment_date?: string | null
+          assigned_specialist_id?: string | null
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
           created_at?: string
@@ -14983,6 +14988,7 @@ export type Database = {
         Update: {
           applied_voucher_id?: string | null
           appointment_date?: string | null
+          assigned_specialist_id?: string | null
           booking_confirmed_at?: string | null
           clinical_summary?: Json | null
           created_at?: string
@@ -18143,6 +18149,7 @@ export type Database = {
         Returns: {
           applied_voucher_id: string | null
           appointment_date: string | null
+          assigned_specialist_id: string | null
           booking_confirmed_at: string | null
           clinical_summary: Json | null
           created_at: string

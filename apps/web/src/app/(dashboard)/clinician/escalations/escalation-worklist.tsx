@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useDoctorEscalations, useClaimEscalation, useAssignEscalation } from "@/lib/queries/escalations";
+import {
+  useDoctorEscalations,
+  useClaimEscalation,
+  useStartEscalationReview,
+  useAssignEscalation,
+} from "@/lib/queries/escalations";
 import { useAssignableDoctors } from "@/lib/queries/clinical-staff";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,11 +21,19 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationStatus } from "@tarragon/shared";
 
 /**
+ * Every case is auto-assigned to a specific doctor's queue at creation
+ * (private.auto_assign_escalation, 20260831001458) — this worklist reflects
+ * three states per row, not the old binary claimed/unclaimed: assigned to
+ * ME and not yet started (Start review), assigned to SOMEONE ELSE (just
+ * their name — not mine to pick up), or unassigned (the rare case
+ * auto-assignment couldn't route, open to any qualifying doctor's Claim).
+ *
  * `canHandleEmergency` mirrors private.can_handle_emergency_escalation --
  * resolved server-side from the caller's own clinical_staff row and passed
  * down, the same shape as MedicationsList's canConfirmRefill. It only
- * decides whether a row shows a Claim button or a plain-language
- * explanation; the DB trigger is what actually enforces the rule.
+ * decides whether a row shows a Start review/Claim button or a
+ * plain-language explanation; the DB trigger is what actually enforces the
+ * rule.
  *
  * `canClaim` mirrors isClinicalTier(staff) — false for a Care Coordinator,
  * who may raise an escalation but must never claim/resolve one (see the
@@ -30,22 +43,31 @@ import type { EscalationStatus } from "@tarragon/shared";
  *
  * `canAssign` mirrors canAssignCases(staff) — true only for the Chief
  * Medical Officer / Clinical Director. Renders an "Assign to…" picker on
- * every row (claimed or not), letting the CMO hand a case to a specific
- * doctor rather than leaving it to self-claim. The DB trigger on
+ * every row, an override on top of automatic routing (rebalancing, or
+ * routing something to a specific doctor's expertise) rather than the
+ * everyday way work gets assigned. The DB trigger on
  * escalations.assigned_doctor_id is the real enforcement boundary; this only
  * decides whether to render the control.
+ *
+ * `currentProfileId` is the caller's own profiles.id, used purely to decide
+ * which row shows "Start review" (assigned to me) vs. just a name (assigned
+ * to someone else) — never trusted for authority, that's the DB trigger's
+ * job.
  */
 export function EscalationWorklist({
   canHandleEmergency,
   canClaim,
   canAssign,
+  currentProfileId,
 }: {
   canHandleEmergency: boolean;
   canClaim: boolean;
   canAssign: boolean;
+  currentProfileId: string | null;
 }) {
   const { data, isLoading, isError } = useDoctorEscalations();
   const claim = useClaimEscalation();
+  const startReview = useStartEscalationReview();
   const assign = useAssignEscalation();
   const { data: assignableDoctors } = useAssignableDoctors({ enabled: canAssign });
 
@@ -146,6 +168,10 @@ export function EscalationWorklist({
                   </div>
                   <div className="flex flex-col items-end gap-1">
                     {escalation.assigned_doctor_id === null ? (
+                      // The rare case auto-assignment couldn't route (no
+                      // qualifying doctor was active in the org at the
+                      // moment it was raised) -- open to any qualifying
+                      // doctor's self-claim, same as the old open-pool model.
                       !canClaim ? (
                         <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
                           Only a doctor can claim this case
@@ -164,9 +190,26 @@ export function EscalationWorklist({
                           Claim
                         </Button>
                       )
+                    ) : escalation.status === "open" && escalation.assigned_doctor_id === currentProfileId ? (
+                      // Routed to me, not yet started.
+                      isEmergencyLocked ? (
+                        <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
+                          Needs a Senior Medical Officer or the Chief Medical Officer to start
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={startReview.isPending}
+                          onClick={() => startReview.mutate(escalation.id)}
+                        >
+                          Start review
+                        </Button>
+                      )
                     ) : (
                       <span className="text-xs text-charcoal-ink/60">
-                        {escalation.assigned_doctor?.full_name ?? "Claimed"}
+                        {escalation.assigned_doctor?.full_name ?? "Assigned"}
+                        {escalation.status === "open" && " — pending"}
                       </span>
                     )}
                     {canAssign && (
