@@ -56,6 +56,12 @@ export const DANGER_SYMPTOM_IDS = [
   "fever",
   "flank_pain",
   "blood_in_urine",
+  // Yellowing of the skin/eyes (jaundice) is a step up in seriousness from
+  // the rest of the liver cluster's anchor symptoms — it can mean anything
+  // from a mild issue to acute liver failure or a blocked bile duct, so it
+  // routes straight to "see a doctor," never a test suggestion, same as the
+  // rest of this list.
+  "jaundice",
 ] as const;
 
 export const SYMPTOM_OPTIONS: SymptomOption[] = [
@@ -71,6 +77,11 @@ export const SYMPTOM_OPTIONS: SymptomOption[] = [
   { id: "breathlessness_on_exertion", label: "Getting short of breath with mild activity, like climbing stairs" },
   { id: "burning_urination", label: "A burning or stinging feeling when you urinate" },
   { id: "lower_abdomen_discomfort", label: "Mild discomfort in your lower abdomen" },
+  { id: "swelling_ankles_feet", label: "Swelling in your ankles or feet" },
+  { id: "foamy_urine", label: "Foamy or bubbly urine" },
+  { id: "reduced_urination", label: "Urinating noticeably less than usual" },
+  { id: "dark_urine", label: "Unusually dark urine" },
+  { id: "right_upper_abdomen_discomfort", label: "Discomfort on the upper right side of your abdomen" },
   // Danger options — always shown in the checklist, but selecting any of
   // these routes straight to "see a doctor now," never a test suggestion.
   { id: "chest_pain", label: "Chest pain or tightness" },
@@ -81,6 +92,7 @@ export const SYMPTOM_OPTIONS: SymptomOption[] = [
   { id: "fever", label: "A fever" },
   { id: "flank_pain", label: "Pain in your side or back, below the ribs" },
   { id: "blood_in_urine", label: "Blood in your urine" },
+  { id: "jaundice", label: "Yellowing of your skin or the whites of your eyes" },
 ];
 
 export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
@@ -136,6 +148,37 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     patientExplanation:
       "Burning when you urinate, needing to go more often, and mild lower-abdomen discomfort are common signs of a urinary tract infection. A urinalysis is the usual way to confirm it.",
     textTriggers: [/burn(s|ing)?.{0,15}(when i|to) (pee|urinate)/i, /(pain|sting).{0,10}(peeing|urination)/i],
+  },
+  {
+    id: "kidney_concern",
+    name: "Possible kidney concern",
+    anchorSymptomIds: ["swelling_ankles_feet", "foamy_urine", "reduced_urination", "fatigue"],
+    minMatches: 2,
+    excludeSymptomIds: [],
+    screenTypeCode: "kft",
+    patientExplanation:
+      "Swelling in your ankles or feet, foamy urine, and urinating less than usual together can point to how well your kidneys are filtering. A kidney function test (U&E, creatinine, eGFR) is the usual first step to check.",
+    textTriggers: [
+      /swelling.{0,15}(ankle|feet|leg)/i,
+      /(ankle|feet|leg).{0,15}swelling/i,
+      /foamy.{0,10}urine/i,
+      /(peeing|urinating).{0,15}less/i,
+    ],
+  },
+  {
+    id: "liver_concern",
+    name: "Possible liver concern",
+    // Jaundice (yellowing of skin/eyes) is deliberately NOT an anchor symptom
+    // here — it's a step up in seriousness from the rest of this cluster, so
+    // it lives in DANGER_SYMPTOM_IDS instead and routes straight to a doctor,
+    // never to this test suggestion.
+    anchorSymptomIds: ["dark_urine", "right_upper_abdomen_discomfort", "fatigue"],
+    minMatches: 2,
+    excludeSymptomIds: ["jaundice"],
+    screenTypeCode: "lft",
+    patientExplanation:
+      "Dark urine, discomfort on the upper right side of your abdomen, and ongoing tiredness together are worth checking with a liver function test.",
+    textTriggers: [/dark.{0,10}urine/i, /(pain|discomfort).{0,20}(upper right|right side).{0,15}(abdomen|stomach|belly)/i],
   },
 ];
 

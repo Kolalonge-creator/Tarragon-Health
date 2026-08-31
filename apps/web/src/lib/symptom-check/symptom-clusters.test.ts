@@ -51,6 +51,24 @@ describe("matchSymptomClusters", () => {
     expect(ids).toEqual(["anaemia", "blood_sugar"]);
   });
 
+  it("matches the kidney-concern cluster on 2 of its anchor symptoms", () => {
+    const result = matchSymptomClusters(["swelling_ankles_feet", "foamy_urine"]);
+    expect(result.dangerFlag).toBe(false);
+    expect(result.matched.map((c) => c.id)).toEqual(["kidney_concern"]);
+  });
+
+  it("matches the liver-concern cluster on 2 of its anchor symptoms", () => {
+    const result = matchSymptomClusters(["dark_urine", "right_upper_abdomen_discomfort"]);
+    expect(result.dangerFlag).toBe(false);
+    expect(result.matched.map((c) => c.id)).toEqual(["liver_concern"]);
+  });
+
+  it("suppresses the liver-concern suggestion when jaundice is selected, routing to danger instead", () => {
+    const result = matchSymptomClusters(["dark_urine", "right_upper_abdomen_discomfort", "jaundice"]);
+    expect(result.dangerFlag).toBe(true);
+    expect(result.matched).toHaveLength(0);
+  });
+
   it("every cluster's anchor and exclude ids reference a real DANGER_SYMPTOM_IDS entry only where intended", () => {
     for (const cluster of SYMPTOM_CLUSTERS) {
       for (const id of cluster.anchorSymptomIds) {
@@ -66,6 +84,16 @@ describe("matchSymptomClustersFromText", () => {
       "I've had swelling in the front of my neck and I keep feeling too hot lately"
     );
     expect(matched.map((c) => c.id)).toContain("thyroid");
+  });
+
+  it("matches the kidney-concern cluster from free text", () => {
+    const matched = matchSymptomClustersFromText("I've had swelling in my ankles and my urine looks foamy");
+    expect(matched.map((c) => c.id)).toContain("kidney_concern");
+  });
+
+  it("matches the liver-concern cluster from free text", () => {
+    const matched = matchSymptomClustersFromText("My urine has been really dark and I have pain on my upper right side of my abdomen");
+    expect(matched.map((c) => c.id)).toContain("liver_concern");
   });
 
   it("returns no matches for unrelated text", () => {
