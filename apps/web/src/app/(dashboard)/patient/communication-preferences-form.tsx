@@ -14,6 +14,13 @@ const CHANNEL_OPTIONS: Array<{ value: string; label: string }> = [
   { value: "push", label: "App notification" },
 ];
 
+const HOUR_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: "", label: "No preference — send as soon as it's due" },
+  { value: "8", label: "Morning (around 8am)" },
+  { value: "13", label: "Afternoon (around 1pm)" },
+  { value: "19", label: "Evening (around 7pm)" },
+];
+
 /**
  * Health Communication Engine — communication preferences (17.15). Only
  * covers ROUTINE reminders/confirmations: a dangerous vitals reading, an
@@ -23,7 +30,11 @@ const CHANNEL_OPTIONS: Array<{ value: string; label: string }> = [
 export function CommunicationPreferencesForm({
   initial,
 }: {
-  initial: { notification_channel_preference: string | null; marketing_opt_in: boolean };
+  initial: {
+    notification_channel_preference: string | null;
+    marketing_opt_in: boolean;
+    preferred_reminder_hour: number | null;
+  };
 }) {
   const [state, formAction, pending] = useActionState(updateCommunicationPreferences, undefined);
 
@@ -56,6 +67,24 @@ export function CommunicationPreferencesForm({
               className="w-full rounded-lg border border-charcoal-ink/15 px-3 py-2 text-sm"
             >
               {CHANNEL_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="preferred_reminder_hour" className="text-sm font-medium text-charcoal-ink">
+              Preferred time for reminders
+            </label>
+            <select
+              id="preferred_reminder_hour"
+              name="preferred_reminder_hour"
+              defaultValue={initial.preferred_reminder_hour?.toString() ?? ""}
+              className="w-full rounded-lg border border-charcoal-ink/15 px-3 py-2 text-sm"
+            >
+              {HOUR_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}
                 </option>

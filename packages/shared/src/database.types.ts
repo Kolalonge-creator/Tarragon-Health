@@ -1536,6 +1536,56 @@ export type Database = {
         }
         Relationships: []
       }
+      campaign_templates: {
+        Row: {
+          actions: Json
+          code: string
+          created_at: string
+          created_by: string | null
+          default_duration_days: number | null
+          description: string | null
+          eligibility_rule: Json
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          actions?: Json
+          code: string
+          created_at?: string
+          created_by?: string | null
+          default_duration_days?: number | null
+          description?: string | null
+          eligibility_rule?: Json
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          actions?: Json
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          default_duration_days?: number | null
+          description?: string | null
+          eligibility_rule?: Json
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_access_events: {
         Row: {
           actor_profile_id: string | null
@@ -11886,6 +11936,7 @@ export type Database = {
           logged_at: string
           logged_by_profile_id: string | null
           medication_id: string
+          missed_reason: Database["public"]["Enums"]["medication_missed_reason"] | null
           organisation_id: string
           patient_id: string
           reason: string | null
@@ -11899,6 +11950,7 @@ export type Database = {
           logged_at?: string
           logged_by_profile_id?: string | null
           medication_id: string
+          missed_reason?: Database["public"]["Enums"]["medication_missed_reason"] | null
           organisation_id: string
           patient_id: string
           reason?: string | null
@@ -11912,6 +11964,7 @@ export type Database = {
           logged_at?: string
           logged_by_profile_id?: string | null
           medication_id?: string
+          missed_reason?: Database["public"]["Enums"]["medication_missed_reason"] | null
           organisation_id?: string
           patient_id?: string
           reason?: string | null
@@ -12825,6 +12878,7 @@ export type Database = {
           responded_at: string | null
           response_options: Json | null
           response_value: string | null
+          send_after: string | null
           sent_at: string | null
           source_id: string | null
           source_table: string | null
@@ -12857,6 +12911,7 @@ export type Database = {
           responded_at?: string | null
           response_options?: Json | null
           response_value?: string | null
+          send_after?: string | null
           sent_at?: string | null
           source_id?: string | null
           source_table?: string | null
@@ -12889,6 +12944,7 @@ export type Database = {
           responded_at?: string | null
           response_options?: Json | null
           response_value?: string | null
+          send_after?: string | null
           sent_at?: string | null
           source_id?: string | null
           source_table?: string | null
@@ -14326,6 +14382,57 @@ export type Database = {
             foreignKeyName: "patient_diabetes_profile_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_engagement_scores: {
+        Row: {
+          computed_at: string
+          created_at: string
+          days_since_last_event: number | null
+          event_count_30d: number
+          event_count_prior_30d: number
+          id: string
+          organisation_id: string
+          patient_id: string
+          tier: Database["public"]["Enums"]["patient_engagement_tier"]
+        }
+        Insert: {
+          computed_at?: string
+          created_at?: string
+          days_since_last_event?: number | null
+          event_count_30d?: number
+          event_count_prior_30d?: number
+          id?: string
+          organisation_id: string
+          patient_id: string
+          tier: Database["public"]["Enums"]["patient_engagement_tier"]
+        }
+        Update: {
+          computed_at?: string
+          created_at?: string
+          days_since_last_event?: number | null
+          event_count_30d?: number
+          event_count_prior_30d?: number
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          tier?: Database["public"]["Enums"]["patient_engagement_tier"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_engagement_scores_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_engagement_scores_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -16252,8 +16359,10 @@ export type Database = {
           id: string
           name: string
           organisation_id: string
+          requested_by: string | null
           starts_on: string
           status: Database["public"]["Enums"]["prevention_campaign_status"]
+          template_id: string | null
           updated_at: string
         }
         Insert: {
@@ -16267,8 +16376,10 @@ export type Database = {
           id?: string
           name: string
           organisation_id: string
+          requested_by?: string | null
           starts_on: string
           status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          template_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -16282,8 +16393,10 @@ export type Database = {
           id?: string
           name?: string
           organisation_id?: string
+          requested_by?: string | null
           starts_on?: string
           status?: Database["public"]["Enums"]["prevention_campaign_status"]
+          template_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -16299,6 +16412,20 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prevention_campaigns_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "campaign_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -16649,6 +16776,7 @@ export type Database = {
           pharmacy_partner_id: string | null
           phone: string | null
           preferred_reminder_channel: string | null
+          preferred_reminder_hour: number | null
           receives_care: boolean
           role: Database["public"]["Enums"]["user_role"]
           sex: Database["public"]["Enums"]["sex"] | null
@@ -16695,6 +16823,7 @@ export type Database = {
           pharmacy_partner_id?: string | null
           phone?: string | null
           preferred_reminder_channel?: string | null
+          preferred_reminder_hour?: number | null
           receives_care?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
@@ -16741,6 +16870,7 @@ export type Database = {
           pharmacy_partner_id?: string | null
           phone?: string | null
           preferred_reminder_channel?: string | null
+          preferred_reminder_hour?: number | null
           receives_care?: boolean
           role?: Database["public"]["Enums"]["user_role"]
           sex?: Database["public"]["Enums"]["sex"] | null
@@ -21230,6 +21360,7 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      analytics_engagement_outcome_correlation: { Args: never; Returns: Json }
       analytics_engagement_summary: { Args: never; Returns: Json }
       analytics_escalation_quality: {
         Args: { p_from?: string; p_to?: string }
@@ -23585,6 +23716,13 @@ export type Database = {
         | "patient_query"
         | "other"
       medication_log_status: "taken" | "missed" | "skipped"
+      medication_missed_reason:
+        | "forgot"
+        | "device_unavailable"
+        | "doesnt_understand"
+        | "doesnt_want_to"
+        | "feels_well"
+        | "technical_problem"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
       monitoring_baseline_source: "first_reading" | "clinician_set"
@@ -23650,6 +23788,8 @@ export type Database = {
         | "missed_appointment"
         | "failed_referral"
         | "referral_follow_up"
+        | "medication_engagement_barrier"
+        | "engagement_decline"
       partner_revenue_treatment: "net_agent" | "gross_principal"
       partner_statement_line_resolution:
         | "unmatched"
@@ -23671,6 +23811,11 @@ export type Database = {
         | "scale"
         | "thermometer"
         | "pulse_oximeter"
+      patient_engagement_tier:
+        | "highly_engaged"
+        | "moderately_engaged"
+        | "at_risk"
+        | "disengaged"
       payment_provider: "paystack" | "stripe" | "wallet" | "voucher"
       payment_transaction_type:
         | "charge.success"
@@ -24726,6 +24871,14 @@ export const Constants = {
         "other",
       ],
       medication_log_status: ["taken", "missed", "skipped"],
+      medication_missed_reason: [
+        "forgot",
+        "device_unavailable",
+        "doesnt_understand",
+        "doesnt_want_to",
+        "feels_well",
+        "technical_problem",
+      ],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
       monitoring_baseline_source: ["first_reading", "clinician_set"],
@@ -24797,6 +24950,8 @@ export const Constants = {
         "missed_appointment",
         "failed_referral",
         "referral_follow_up",
+        "medication_engagement_barrier",
+        "engagement_decline",
       ],
       partner_revenue_treatment: ["net_agent", "gross_principal"],
       partner_statement_line_resolution: [
@@ -24821,6 +24976,12 @@ export const Constants = {
         "scale",
         "thermometer",
         "pulse_oximeter",
+      ],
+      patient_engagement_tier: [
+        "highly_engaged",
+        "moderately_engaged",
+        "at_risk",
+        "disengaged",
       ],
       payment_provider: ["paystack", "stripe", "wallet", "voucher"],
       payment_transaction_type: [
