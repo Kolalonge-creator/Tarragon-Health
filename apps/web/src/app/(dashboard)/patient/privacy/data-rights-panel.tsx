@@ -32,11 +32,17 @@ function formatDate(value: string): string {
   });
 }
 
-export function DataRightsPanel({ patientId }: { patientId: string }) {
+export function DataRightsPanel({
+  organisationId,
+  patientId,
+}: {
+  organisationId: string;
+  patientId: string;
+}) {
   const deletionRequests = usePatientDeletionRequests(patientId);
-  const createDeletionRequest = useCreateDeletionRequest(patientId);
+  const createDeletionRequest = useCreateDeletionRequest(organisationId, patientId);
   const correctionRequests = usePatientCorrectionRequests(patientId);
-  const createCorrectionRequest = useCreateCorrectionRequest(patientId);
+  const createCorrectionRequest = useCreateCorrectionRequest(organisationId, patientId);
 
   const [deletionOpen, setDeletionOpen] = useState(false);
   const [deletionReason, setDeletionReason] = useState("");
