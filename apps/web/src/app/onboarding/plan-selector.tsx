@@ -1,36 +1,31 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { useActivePatientPlans, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
+import { useActiveServiceProducts, type ServiceProduct } from "@/lib/queries/service-products";
 import { startCheckout } from "./actions";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 import { CurrencyTabs } from "@/components/currency-tabs";
 import { DiasporaReadinessNotice } from "@/components/diaspora-readiness-notice";
 import { Button } from "@/components/ui/button";
 
-function formatPrice(plan: SubscriptionPlan): string {
-  if (plan.price_minor === 0) return "Free";
+function formatPrice(plan: ServiceProduct): string {
+  if (plan.price_kobo === 0) return "Free";
   const currency = plan.currency as Currency;
-  return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(plan.price_minor, currency).toLocaleString()}/${plan.interval === "yearly" ? "year" : "month"}`;
+  return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(plan.price_kobo, currency).toLocaleString()}/${plan.interval === "yearly" ? "year" : "month"}`;
 }
 
-/** Groups the flat subscription_plans rows into one card per tier, with a
- * monthly/yearly toggle where both intervals exist (essential/complete) —
- * pricing.ts sells those two ways, modeled as separate plan rows since
- * subscription_plans has no per-row "annual variant" concept and Paystack
- * Plans are one interval each anyway (see supabase/seed/seed.sql).
+/** Groups the flat service_products rows into one card per tier, with a
+ * monthly/yearly toggle where both durations exist (essential/complete) —
+ * pricing.ts sells those two ways, modeled as separate pack rows since a
+ * service_product has no per-row "annual variant" concept, only a fixed
+ * access_duration_days each pack is seeded with.
  *
- * The "_yearly" segment can sit anywhere in a diaspora code (e.g.
- * "essential_yearly_gbp", not just "essential_yearly") since the currency
- * suffix is appended after it — matching only a trailing "_yearly" here
- * left every GBP/USD yearly row in its own ungrouped, toggle-less card
- * (found while adding ParentCare's gbp/usd yearly variants, which hit the
- * exact same shape). The lookahead strips "_yearly" wherever it appears as
- * a whole segment, not just at the very end. */
-function groupByTier(plans: SubscriptionPlan[]) {
-  const groups = new Map<string, { monthly?: SubscriptionPlan; yearly?: SubscriptionPlan }>();
+ * Strips a trailing "_yearly_pack" or "_pack" to get the tier key, so
+ * "essential_pack"/"essential_yearly_pack" group together. */
+function groupByTier(plans: ServiceProduct[]) {
+  const groups = new Map<string, { monthly?: ServiceProduct; yearly?: ServiceProduct }>();
   for (const plan of plans) {
-    const key = plan.code.replace(/_yearly(?=_|$)/, "");
+    const key = plan.code.replace(/_(yearly_pack|pack)$/, "");
     const entry = groups.get(key) ?? {};
     if (plan.interval === "yearly") entry.yearly = plan;
     else entry.monthly = plan;
@@ -40,7 +35,7 @@ function groupByTier(plans: SubscriptionPlan[]) {
 }
 
 export function PlanSelector() {
-  const { data: plans, isLoading, isError } = useActivePatientPlans();
+  const { data: plans, isLoading, isError } = useActiveServiceProducts();
   const [state, formAction, pending] = useActionState(startCheckout, undefined);
   const [selectedCode, setSelectedCode] = useState<string | null>(null);
   const [intervalByTier, setIntervalByTier] = useState<Record<string, "monthly" | "yearly">>({});
@@ -101,10 +96,10 @@ export function PlanSelector() {
     return <p className="text-sm text-red-600">Could not load plans. Refresh and try again.</p>;
   }
 
-  const visiblePlans = plans.filter((p) => p.code === "free" || p.currency === currency);
+  const visiblePlans = plans.filter((p) => p.code === "free_pack" || p.currency === currency);
   const groups = groupByTier(visiblePlans);
   const selectedPlan = selectedCode ? plans.find((p) => p.code === selectedCode) : undefined;
-  const selectedIsPaid = !!selectedPlan && selectedPlan.price_minor > 0;
+  const selectedIsPaid = !!selectedPlan && selectedPlan.price_kobo > 0;
   const selectedInterval = selectedPlan?.interval === "yearly" ? "year" : "month";
 
   return (
@@ -195,7 +190,7 @@ export function PlanSelector() {
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {selectedIsPaid && (
         <p className="rounded-lg bg-charcoal-ink/5 p-3 text-xs text-charcoal-ink/70">
-          {`Your plan renews automatically every ${selectedInterval} until you cancel. Payments aren’t refundable — if you cancel, your plan stays active until the end of the ${selectedInterval} you’ve paid for, then won’t renew.`}
+          {`This is a one-off payment covering one ${selectedInterval}. Payments aren’t refundable, and nothing renews automatically — you’ll buy again when it’s time.`}
         </p>
       )}
       <Button type="submit" className="w-full" disabled={pending || !selectedCode}>
@@ -217,7 +212,7 @@ export function PlanSelector() {
         </p>
       )}
       <p className="text-center text-xs text-charcoal-ink/50">
-        You can change or cancel your plan any time from your dashboard.
+        You can buy a different plan any time from your dashboard.
       </p>
     </form>
   );

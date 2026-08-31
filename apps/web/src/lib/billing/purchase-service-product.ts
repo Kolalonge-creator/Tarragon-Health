@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { initiateServicePurchaseCheckout } from "@/lib/billing/service-purchase-checkout";
 
-export type PurchaseServiceProductState = { error?: string; checkoutUrl?: string } | undefined;
+export type PurchaseServiceProductState =
+  | { error?: string; checkoutUrl?: string; activated?: boolean }
+  | undefined;
 
 /**
  * Generic pay-per-service purchase entry point — buys any service_products
@@ -51,11 +53,19 @@ export async function purchaseServiceProduct(args: {
 
   const { data: purchase, error: loadError } = await supabase
     .from("service_purchases")
-    .select("id, organisation_id, patient_id, amount_kobo, currency, service_product:service_products(code, name)")
+    .select(
+      "id, organisation_id, patient_id, amount_kobo, currency, status, service_product:service_products(code, name)",
+    )
     .eq("id", purchaseId)
     .single();
   if (loadError || !purchase) {
     return { error: loadError?.message ?? "Could not load the purchase you just started" };
+  }
+
+  // record_service_purchase_intent activates a free product immediately —
+  // no charge to run, so no checkout to start.
+  if (purchase.status === "active") {
+    return { activated: true };
   }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";

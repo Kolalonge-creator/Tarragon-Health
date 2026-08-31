@@ -31,7 +31,7 @@ import {
   paySomeonesPlan,
   type SponsorActionState,
 } from "./actions";
-import { useActivePatientPlans } from "@/lib/queries/subscription-plans";
+import { useActiveServiceProducts } from "@/lib/queries/service-products";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -460,7 +460,7 @@ function PayBillOnMyCard({
  * not a diaspora premium for the same thing.
  */
 function PayTheirPlan({ person }: { person: SupportedPerson }) {
-  const { data: plans } = useActivePatientPlans();
+  const { data: plans } = useActiveServiceProducts();
   const [state, action, pending] = useActionState<SponsorActionState, FormData>(
     paySomeonesPlan,
     undefined,
@@ -468,7 +468,7 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
 
   if (person.permissionLevel !== "manage") return null;
 
-  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_minor > 0);
+  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_kobo > 0);
   if (payable.length === 0) return null;
 
   return (
@@ -481,7 +481,7 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
           <option value="">Choose a plan</option>
           {payable.map((plan) => (
             <option key={plan.code} value={plan.code}>
-              {plan.name} ({naira(plan.price_minor)}
+              {plan.name} ({naira(plan.price_kobo)}
               {plan.interval === "yearly" ? "/yr" : "/mo"})
             </option>
           ))}
