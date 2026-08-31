@@ -82,33 +82,43 @@ function sh(cmd, args, opts = {}) {
 }
 
 function parseRows(raw) {
-  // Extract exactly the first balanced top-level {...} object by brace-counting, rather than
-  // assuming the JSON is either the whole remaining output (breaks if the CLI appends anything
-  // after it, e.g. a trailing banner line — seen intermittently in CI but not reproduced locally,
-  // 2026-08-31) or confined to one line (it's pretty-printed, one key per line).
-  const start = raw.indexOf("{");
-  if (start === -1) {
-    console.error("Could not find JSON output in `supabase db query` output:\n" + raw);
-    process.exit(2);
-  }
-  let depth = 0;
-  let end = -1;
-  for (let i = start; i < raw.length; i++) {
-    if (raw[i] === "{") depth++;
-    else if (raw[i] === "}") {
-      depth--;
-      if (depth === 0) {
-        end = i;
-        break;
+  // The CLI can print more than one top-level JSON object on a cold connection (e.g. a
+  // preliminary status/role-refresh blob before the actual result) — reproduced only in CI, not
+  // locally with an already-warm token, 2026-08-31. Rather than assume the first (or only, or
+  // last-line) object is the result, scan every top-level balanced {...} object in the output by
+  // brace-counting and return the `rows` field of the first one that actually has one.
+  const candidates = [];
+  let i = 0;
+  while (i < raw.length) {
+    const start = raw.indexOf("{", i);
+    if (start === -1) break;
+    let depth = 0;
+    let end = -1;
+    for (let j = start; j < raw.length; j++) {
+      if (raw[j] === "{") depth++;
+      else if (raw[j] === "}") {
+        depth--;
+        if (depth === 0) {
+          end = j;
+          break;
+        }
       }
     }
+    if (end === -1) break;
+    candidates.push(raw.slice(start, end + 1));
+    i = end + 1;
   }
-  if (end === -1) {
-    console.error("Unbalanced JSON in `supabase db query` output:\n" + raw);
-    process.exit(2);
+  for (const text of candidates) {
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      continue;
+    }
+    if (Array.isArray(parsed?.rows)) return parsed.rows;
   }
-  const parsed = JSON.parse(raw.slice(start, end + 1));
-  return parsed.rows;
+  console.error(`Could not find a JSON object with a "rows" array in \`supabase db query\` output:\n${raw}`);
+  process.exit(2);
 }
 
 // Exported shape for the pass/fail decision, kept separate from the DB round-trip so it can be
