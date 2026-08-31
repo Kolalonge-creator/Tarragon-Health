@@ -4,7 +4,10 @@ import { NAV_ICON } from "@/lib/icons";
 import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { ConditionLanguageForm } from "@/app/(dashboard)/patient/condition-language-form";
 import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contact-form";
+import { AvatarUploadForm } from "@/app/(dashboard)/patient/avatar-upload-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
+import { CommunicationPreferencesForm } from "@/app/(dashboard)/patient/communication-preferences-form";
+import { CommunicationHistoryCard } from "@/app/(dashboard)/patient/communication-history-card";
 
 export default async function PatientProfilePage() {
   const { profile, subjectId } = await getPatientDashboardContext();
@@ -23,6 +26,10 @@ export default async function PatientProfilePage() {
       )}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <div className="space-y-4">
+          <AvatarUploadForm
+            fullName={profile.full_name ?? "Account"}
+            avatarUrl={profile.avatar_url}
+          />
           {/* Identity verification lives here rather than in onboarding: it is
               optional and non-blocking, and asking a first-time visitor for a
               government ID before they have done anything is the single most
@@ -46,9 +53,16 @@ export default async function PatientProfilePage() {
           <ConditionLanguageForm
             initial={{ condition_language_preference: profile.condition_language_preference }}
           />
+          <CommunicationPreferencesForm
+            initial={{
+              notification_channel_preference: profile.notification_channel_preference,
+              marketing_opt_in: profile.marketing_opt_in,
+            }}
+          />
           <ChangePasswordForm />
         </div>
       </div>
+      <CommunicationHistoryCard />
     </DashboardSection>
   );
 }

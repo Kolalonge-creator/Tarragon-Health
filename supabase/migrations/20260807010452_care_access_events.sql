@@ -151,6 +151,7 @@ create policy care_access_events_select on public.care_access_events
 -- RLS restricts rows; it does not grant table access, and a table created by a
 -- later migration does not inherit the project-creation grant. Explicit.
 grant select on public.care_access_events to authenticated;
+revoke select on public.care_access_events from anon;
 
 -- --- the one writer -----------------------------------------------------------
 -- Exception-guarded for the same reason the sponsor spend receipt is: this is

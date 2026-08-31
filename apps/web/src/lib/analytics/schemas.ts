@@ -85,6 +85,27 @@ export const revenueByPlanSchema = z
 export type RevenueByPlan = z.infer<typeof revenueByPlanSchema>;
 
 // ---- Population health -----------------------------------------------------
+
+/**
+ * get_geo_health_aggregates() returns one row per state; a null count means
+ * suppressed (spec §2.17) — never coerce it to 0, which would misrepresent
+ * a hidden figure as a real zero.
+ */
+export const geoHealthAggregatesSchema = z
+  .array(
+    z.object({
+      state: z.string(),
+      patient_count: z.number().nullable(),
+      hypertension_high_count: z.number().nullable(),
+      diabetes_high_count: z.number().nullable(),
+      cvd_high_count: z.number().nullable(),
+      overdue_screening_count: z.number().nullable(),
+      suppressed: z.boolean(),
+    })
+  )
+  .default([]);
+export type GeoHealthAggregates = z.infer<typeof geoHealthAggregatesSchema>;
+
 export const populationSummarySchema = z.object({
   total_patients: z.number().default(0),
   condition_prevalence: z
@@ -344,6 +365,47 @@ export const doctorPerformanceSchema = z.object({
     .default([]),
 });
 export type DoctorPerformance = z.infer<typeof doctorPerformanceSchema>;
+
+// ---- Provider capacity (docs/CLINICAL_NETWORK_SPEC.md §4.17) --------------
+export const providerCapacitySchema = z.object({
+  by_specialty: z
+    .array(
+      z.object({
+        specialist_type: z.string(),
+        active_providers: z.number(),
+        total_providers: z.number(),
+        waitlisted_referrals: z.number(),
+        avg_current_wait_hours: z.number().nullable(),
+      })
+    )
+    .default([]),
+  by_specialty_state: z
+    .array(
+      z.object({
+        specialist_type: z.string(),
+        state: z.string(),
+        active_providers: z.number(),
+      })
+    )
+    .default([]),
+  zero_active_provider_specialties: z.array(z.string()).default([]),
+  recent_booking_turnaround: z
+    .object({
+      window_days: z.number(),
+      booked_referrals: z.number(),
+      avg_hours_to_booking: z.number().nullable(),
+    })
+    .nullable()
+    .default(null),
+  video_slot_utilisation_next_7_days: z
+    .object({
+      total_slots: z.number(),
+      booked_slots: z.number(),
+    })
+    .nullable()
+    .default(null),
+});
+export type ProviderCapacity = z.infer<typeof providerCapacitySchema>;
 
 // ---- Staff (Tarragon team) activity ---------------------------------------
 export const staffActivitySchema = z.object({
@@ -628,4 +690,50 @@ export const deliverabilitySchema = z.object({
     .array(z.object({ bucket: z.string(), sent: z.number(), failed: z.number() }))
     .default([]),
 });
+
+// ---- Patient safety (docs spec §89.14) -------------------------------------
+// analytics_safety_dashboard_summary() — 20260829214718_safety_dashboard_summary_rpc.sql.
+export const safetyDashboardSummarySchema = z.object({
+  critical_alerts: z.number().default(0),
+  open_safety_events: z.number().default(0),
+  near_misses: z.number().default(0),
+  overdue_actions: z.number().default(0),
+  ai_escalations: z.number().default(0),
+  medication_incidents: z.number().default(0),
+  open_safeguarding_concerns: z.number().default(0),
+});
+export type SafetyDashboardSummary = z.infer<typeof safetyDashboardSummarySchema>;
+
+// analytics_alert_burden() — 20260828020801_alert_analytics_rpcs.sql (already
+// live; this is the first UI to read it).
+export const alertBurdenSchema = z.object({
+  per_clinician: z
+    .array(
+      z.object({
+        clinical_staff_id: z.string(),
+        full_name: z.string(),
+        doctor_tier: z.string().nullable(),
+        open_owned: z.number(),
+        open_owned_urgent_plus: z.number(),
+        avg_age_hours: z.number().nullable(),
+      })
+    )
+    .default([]),
+  unassigned_important_open: z.number().default(0),
+});
+export type AlertBurden = z.infer<typeof alertBurdenSchema>;
+
+// analytics_alert_quality() — same migration as alertBurdenSchema above.
+export const alertQualitySchema = z.object({
+  total: z.number().default(0),
+  by_category: z.record(z.string(), z.number()).default({}),
+  by_severity: z.record(z.string(), z.number()).default({}),
+  avg_ack_minutes: z.number().nullable().default(null),
+  avg_resolution_hours: z.number().nullable().default(null),
+  escalation_rate_pct: z.number().default(0),
+  duplicate_rate_pct: z.number().default(0),
+  false_positive_rate_pct: z.number().default(0),
+  suppressed_count: z.number().default(0),
+});
+export type AlertQuality = z.infer<typeof alertQualitySchema>;
 export type Deliverability = z.infer<typeof deliverabilitySchema>;

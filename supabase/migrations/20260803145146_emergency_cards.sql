@@ -83,6 +83,7 @@ create policy emergency_cards_lookups_select on public.emergency_card_lookups
 -- be created for someone by someone else.
 
 grant select on public.emergency_cards to authenticated;
+revoke select on public.emergency_cards from anon;
 grant select on public.emergency_card_lookups to authenticated;
 
 -- ---------------------------------------------------------------- create/rotate
@@ -240,7 +241,9 @@ end;
 $$;
 
 revoke all on function public.create_emergency_card() from public;
+revoke all on function public.create_emergency_card() from anon;
 revoke all on function public.revoke_emergency_card() from public;
+revoke all on function public.revoke_emergency_card() from anon;
 revoke all on function public.emergency_card_by_token(text) from public;
 
 grant execute on function public.create_emergency_card() to authenticated;

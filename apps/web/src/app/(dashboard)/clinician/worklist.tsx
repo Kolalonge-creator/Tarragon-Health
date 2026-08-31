@@ -3,12 +3,23 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
-import { useClinicianAlerts, useAcknowledgeAlert } from "@/lib/queries/clinician-alerts";
+import {
+  useClinicianAlerts,
+  useAcknowledgeAlert,
+  useSnoozeAlert,
+  useResolveAlert,
+  useAlertTrend,
+  severityBucket,
+  type AlertResolutionOutcome,
+} from "@/lib/queries/clinician-alerts";
 import { useEscalateAlert } from "@/lib/queries/escalations";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { StatTile } from "@/components/ui/stat-tile";
 import { CaseBriefCard } from "@/components/case-brief-card";
 import { LEVEL_BADGE } from "@/lib/worklist/level-badge";
@@ -18,6 +29,29 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationLevel } from "@tarragon/shared";
 
 const ESCALATABLE_LEVELS = new Set(["urgent_escalation", "emergency"]);
+
+/** 8.8's inbox wireframe: URGENT / HIGH / ROUTINE bucketed counts, straight off severity (8.2). */
+const SEVERITY_BUCKET_LABEL: Record<ReturnType<typeof severityBucket>, string> = {
+  urgent: "URGENT",
+  high: "HIGH",
+  routine: "ROUTINE",
+};
+const SEVERITY_BUCKET_TINT: Record<ReturnType<typeof severityBucket>, { tintClassName: string; iconClassName: string }> = {
+  urgent: SEVERITY_TILE_TINT.red,
+  high: SEVERITY_TILE_TINT.amber,
+  routine: SEVERITY_TILE_TINT.grey,
+};
+
+const RESOLUTION_OUTCOME_LABEL: Record<AlertResolutionOutcome, string> = {
+  true_positive: "True positive — real concern",
+  false_positive: "False positive",
+  duplicate: "Duplicate of another alert",
+  no_action_needed: "No action needed",
+};
+
+function formatDateOnly(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
 
 // A bare toLocaleString() resolves the server's locale on first render and
 // the browser's on hydration -- a real mismatch caught live-verifying the
@@ -38,10 +72,19 @@ export function Worklist() {
   const { data, isLoading, isError } = useClinicianAlerts();
   const acknowledge = useAcknowledgeAlert();
   const escalate = useEscalateAlert();
+  const snooze = useSnoozeAlert();
+  const resolve = useResolveAlert();
   const [escalatingId, setEscalatingId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [expandedBriefId, setExpandedBriefId] = useState<string | null>(null);
   const [expandedWhyId, setExpandedWhyId] = useState<string | null>(null);
+  const [expandedTrendId, setExpandedTrendId] = useState<string | null>(null);
+  const [snoozingId, setSnoozingId] = useState<string | null>(null);
+  const [snoozeDate, setSnoozeDate] = useState("");
+  const [snoozeReason, setSnoozeReason] = useState("");
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
+  const [resolutionAction, setResolutionAction] = useState("");
+  const [resolutionOutcome, setResolutionOutcome] = useState<AlertResolutionOutcome>("true_positive");
 
   const countsByLevel = (data ?? []).reduce(
     (acc, alert) => {
@@ -52,8 +95,35 @@ export function Worklist() {
     {} as Partial<Record<EscalationLevel, number>>
   );
 
+  const countsBySeverityBucket = (data ?? []).reduce(
+    (acc, alert) => {
+      const bucket = severityBucket(alert.severity);
+      acc[bucket] = (acc[bucket] ?? 0) + 1;
+      return acc;
+    },
+    {} as Partial<Record<ReturnType<typeof severityBucket>, number>>
+  );
+
   return (
     <div className="space-y-4">
+      {/* 8.8 inbox summary: URGENT n / HIGH n / ROUTINE n */}
+      {data && data.length > 0 && (
+        <div className="grid grid-cols-3 gap-4">
+          {(["urgent", "high", "routine"] as const).map((bucket) => {
+            const tint = SEVERITY_BUCKET_TINT[bucket];
+            return (
+              <StatTile
+                key={bucket}
+                icon={SEMANTIC_ICON.escalation}
+                tintClassName={tint.tintClassName}
+                iconClassName={tint.iconClassName}
+                label={SEVERITY_BUCKET_LABEL[bucket]}
+                value={String(countsBySeverityBucket[bucket] ?? 0)}
+              />
+            );
+          })}
+        </div>
+      )}
       {data && data.length > 0 && (
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           {(Object.keys(LEVEL_BADGE) as EscalationLevel[]).map((level) => {
@@ -98,15 +168,21 @@ export function Worklist() {
                 !!alert.sla_due_at && new Date(alert.sla_due_at) < new Date();
               const isBriefExpanded = expandedBriefId === alert.id;
               const isWhyExpanded = expandedWhyId === alert.id;
+              const isTrendExpanded = expandedTrendId === alert.id;
+              const isImportant = alert.severity >= 2;
 
               return (
                 <li key={alert.id} className="space-y-3 py-3">
                   <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <Badge variant={badge.variant}>{badge.label}</Badge>
+                        <Badge variant="grey">
+                          {alert.category.replace(/_/g, " ")} · {alert.type_code.replace(/_/g, " ")}
+                        </Badge>
                         {isOverridden && <Badge variant="grey">Overridden</Badge>}
                         {isOverdue && <Badge variant="red">Overdue</Badge>}
+                        {alert.duplicate_of && <Badge variant="grey">Possible duplicate</Badge>}
                       </div>
                       <p className="text-sm font-medium text-charcoal-ink">
                         <Link
@@ -122,6 +198,11 @@ export function Worklist() {
                           SLA due {formatSlaDue(alert.sla_due_at)}
                         </p>
                       )}
+                      {/* 8.4: every alert's ownership, always visible — never just implied. */}
+                      <p className="text-xs text-charcoal-ink/60">
+                        Owner: {alert.responsible_clinician?.full_name ?? "Unassigned"}
+                        {alert.backup_clinician && ` · Backup: ${alert.backup_clinician.full_name}`}
+                      </p>
                       {/*
                         The ranking's own reason, always on screen. A triage
                         order a doctor cannot see the reasoning for is one they
@@ -131,7 +212,7 @@ export function Worklist() {
                       <p className="text-xs font-medium text-charcoal-ink/70">
                         {alert.triage.headline}
                       </p>
-                      <div className="flex gap-3">
+                      <div className="flex flex-wrap gap-3">
                         <button
                           type="button"
                           className="text-xs text-brand-green hover:underline"
@@ -146,7 +227,21 @@ export function Worklist() {
                         >
                           {isWhyExpanded ? "Hide ranking" : "Why this rank?"}
                         </button>
+                        <button
+                          type="button"
+                          className="text-xs text-charcoal-ink/60 hover:underline"
+                          onClick={() => setExpandedTrendId(isTrendExpanded ? null : alert.id)}
+                        >
+                          {isTrendExpanded ? "Hide previous trend" : "Previous trend"}
+                        </button>
                       </div>
+                      {isTrendExpanded && (
+                        <AlertTrendPanel
+                          patientId={alert.patient_id}
+                          typeCode={alert.type_code}
+                          excludeAlertId={alert.id}
+                        />
+                      )}
                       {isWhyExpanded && (
                         <ul className="space-y-0.5 rounded-md bg-charcoal-ink/[0.03] p-2">
                           {alert.triage.factors.map((factor) => (
@@ -190,6 +285,26 @@ export function Worklist() {
                             Escalate to doctor
                           </Button>
                         )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSnoozingId(snoozingId === alert.id ? null : alert.id);
+                            setResolvingId(null);
+                          }}
+                        >
+                          Snooze
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setResolvingId(resolvingId === alert.id ? null : alert.id);
+                            setSnoozingId(null);
+                          }}
+                        >
+                          Resolve
+                        </Button>
                       </div>
                       {escalatingId === alert.id && (
                         <div className="flex w-64 flex-col items-end gap-2">
@@ -220,6 +335,148 @@ export function Worklist() {
                           >
                             Confirm escalation
                           </Button>
+                        </div>
+                      )}
+                      {/*
+                        8.10: snoozing always requires a reason and always
+                        creates a real follow-up task (server-enforced by
+                        clinician_alerts_snooze_requires_reason and
+                        private.stamp_clinician_alert_lifecycle) — the date
+                        input can't be left blank either, so both halves of
+                        "requires an appropriate reason and creates a future
+                        task" have a real UI gate, not just a DB one.
+                      */}
+                      {snoozingId === alert.id && (
+                        <div className="flex w-64 flex-col items-end gap-2">
+                          <Input
+                            type="date"
+                            min={new Date().toISOString().slice(0, 10)}
+                            value={snoozeDate}
+                            onChange={(e) => setSnoozeDate(e.target.value)}
+                          />
+                          <Input
+                            placeholder="Reason for snoozing"
+                            value={snoozeReason}
+                            onChange={(e) => setSnoozeReason(e.target.value)}
+                          />
+                          {snooze.isError && (
+                            <p className="text-xs text-red-600">{(snooze.error as Error).message}</p>
+                          )}
+                          <Button
+                            size="sm"
+                            disabled={snooze.isPending || !snoozeDate || snoozeReason.trim().length === 0}
+                            onClick={() => {
+                              snooze.mutate(
+                                {
+                                  alertId: alert.id,
+                                  snoozeUntil: new Date(`${snoozeDate}T09:00:00`).toISOString(),
+                                  reason: snoozeReason.trim(),
+                                },
+                                {
+                                  onSuccess: () => {
+                                    setSnoozingId(null);
+                                    setSnoozeDate("");
+                                    setSnoozeReason("");
+                                  },
+                                }
+                              );
+                            }}
+                          >
+                            Confirm snooze
+                          </Button>
+                        </div>
+                      )}
+                      {/*
+                        8.12: resolution without a documented action is
+                        restricted for important (severity>=2) alerts —
+                        clinician_alerts_resolution_requires_documentation
+                        (DB CHECK) is the real enforcement; disabling Confirm
+                        here is just the friendly pre-flight.
+                      */}
+                      {resolvingId === alert.id && (
+                        <div className="flex w-72 flex-col items-end gap-2">
+                          <Textarea
+                            className="text-sm"
+                            placeholder="Action taken"
+                            rows={2}
+                            value={resolutionAction}
+                            onChange={(e) => setResolutionAction(e.target.value)}
+                          />
+                          <div className="flex w-full flex-col items-end gap-1">
+                            <Label htmlFor={`resolution-outcome-${alert.id}`} className="sr-only">
+                              Outcome
+                            </Label>
+                            <Select
+                              id={`resolution-outcome-${alert.id}`}
+                              value={resolutionOutcome}
+                              onChange={(e) =>
+                                setResolutionOutcome(e.target.value as AlertResolutionOutcome)
+                              }
+                            >
+                              {(Object.keys(RESOLUTION_OUTCOME_LABEL) as AlertResolutionOutcome[]).map(
+                                (outcome) => (
+                                  <option key={outcome} value={outcome}>
+                                    {RESOLUTION_OUTCOME_LABEL[outcome]}
+                                  </option>
+                                )
+                              )}
+                            </Select>
+                          </div>
+                          {resolve.isError && (
+                            <p className="text-xs text-red-600">{(resolve.error as Error).message}</p>
+                          )}
+                          <div className="flex gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={
+                                resolve.isPending ||
+                                (isImportant && resolutionAction.trim().length === 0)
+                              }
+                              onClick={() => {
+                                resolve.mutate(
+                                  {
+                                    alertId: alert.id,
+                                    resolutionAction: resolutionAction.trim(),
+                                    resolutionOutcome,
+                                  },
+                                  {
+                                    onSuccess: () => {
+                                      setResolvingId(null);
+                                      setResolutionAction("");
+                                    },
+                                  }
+                                );
+                              }}
+                            >
+                              Resolve
+                            </Button>
+                            <Button
+                              size="sm"
+                              disabled={
+                                resolve.isPending ||
+                                (isImportant && resolutionAction.trim().length === 0)
+                              }
+                              onClick={() => {
+                                resolve.mutate(
+                                  {
+                                    alertId: alert.id,
+                                    resolutionAction: resolutionAction.trim(),
+                                    resolutionOutcome,
+                                    close: true,
+                                  },
+                                  {
+                                    onSuccess: () => {
+                                      setResolvingId(null);
+                                      setResolutionAction("");
+                                    },
+                                  }
+                                );
+                              }}
+                            >
+                              Resolve &amp; close
+                            </Button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -258,5 +515,47 @@ export function Worklist() {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+/**
+ * 8.9's "previous trend" panel: prior alerts of the same type for this
+ * patient, so a clinician can see at a glance whether this is a one-off or
+ * part of a pattern before deciding on an action.
+ */
+function AlertTrendPanel({
+  patientId,
+  typeCode,
+  excludeAlertId,
+}: {
+  patientId: string;
+  typeCode: string;
+  excludeAlertId: string;
+}) {
+  const { data, isLoading } = useAlertTrend(patientId, typeCode, excludeAlertId);
+
+  if (isLoading) {
+    return <p className="text-xs text-charcoal-ink/60">Loading trend…</p>;
+  }
+  if (!data || data.length === 0) {
+    return (
+      <p className="rounded-md bg-charcoal-ink/[0.03] p-2 text-xs text-charcoal-ink/60">
+        No other {typeCode.replace(/_/g, " ")} alerts for this patient in the last 90 days.
+      </p>
+    );
+  }
+
+  return (
+    <ul className="space-y-1 rounded-md bg-charcoal-ink/[0.03] p-2">
+      {data.map((row) => (
+        <li key={row.id} className="flex items-center justify-between gap-4 text-xs text-charcoal-ink/70">
+          <span>{formatDateOnly(row.created_at)}</span>
+          <span className="flex-1 truncate px-2">{row.title}</span>
+          <Badge variant={row.status === "resolved" || row.status === "closed" ? "grey" : "amber"}>
+            {row.status}
+          </Badge>
+        </li>
+      ))}
+    </ul>
   );
 }

@@ -48,7 +48,10 @@ describe("combineKdigoRisk", () => {
   });
 
   it("risk is monotonic across each GFR row as ACR worsens", () => {
-    const rank = { low: 0, moderate: 1, high: 2, very_high: 3 };
+    // combineKdigoRisk never actually returns 'unknown' (only null for
+    // invalid input) — included so the Record stays exhaustive against the
+    // shared risk_level DB enum, which now carries it.
+    const rank = { low: 0, moderate: 1, high: 2, very_high: 3, unknown: -1 };
     (["G1", "G2", "G3a", "G3b", "G4", "G5"] as const).forEach((gfr) => {
       const a1 = combineKdigoRisk({ gfrCategory: gfr, acrMgG: 10 })!.riskLevel;
       const a2 = combineKdigoRisk({ gfrCategory: gfr, acrMgG: 100 })!.riskLevel;

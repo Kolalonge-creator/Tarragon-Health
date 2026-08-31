@@ -170,6 +170,7 @@ export function getNavSections(
               shortLabel: "Messages",
             },
             { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
+            { label: "Appointments", href: "/patient/appointments", icon: "booking" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
@@ -182,6 +183,7 @@ export function getNavSections(
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
+            { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {
               label: "Emergency card",
               href: "/patient/emergency-card",
@@ -217,8 +219,18 @@ export function getNavSections(
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                {
+                  label: "Safety incidents",
+                  href: "/clinician/safety-incidents",
+                  icon: "warning",
+                },
               ],
             },
           ]
@@ -232,6 +244,12 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                },
+                { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
               ],
@@ -260,6 +278,14 @@ export function getNavSections(
               label: "Quality & Growth",
               items: [
                 { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
+                { label: "Hypertension quality", href: "/clinician/hypertension-quality", icon: "bp" },
+                { label: "Obesity quality", href: "/clinician/obesity-quality", icon: "weight" },
+                {
+                  label: "Quality improvement",
+                  href: "/clinician/quality-improvement",
+                  icon: "review",
+                },
+                { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
@@ -269,7 +295,9 @@ export function getNavSections(
               label: "My work",
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
+                { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },
           ];

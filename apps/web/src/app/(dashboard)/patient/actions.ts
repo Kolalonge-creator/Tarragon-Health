@@ -1,8 +1,11 @@
 "use server";
 
+import { randomUUID } from "crypto";
+import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { resolveSubjectId } from "@/lib/acting/acting-for";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { validatePatientAvatarFile } from "@/lib/validation/patient-avatar";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
@@ -27,7 +30,8 @@ import {
   QUESTION_CATEGORY,
   type RiskAssessmentInput,
 } from "@/lib/validation/risk-assessment";
-import { computeRiskTiers } from "@/lib/rules/risk-scoring";
+import { computePreventionRiskScores } from "@/lib/rules/compute-risk-scores";
+import type { ComputedRiskScore, PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
 import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
 import { computeCareProgrammeRecommendations } from "@/lib/rules/care-programme-recommendations";
 import { ageFromDateOfBirth, mgDlToMmolL, type Json } from "@tarragon/shared";
@@ -174,6 +178,68 @@ export async function updatePatientLocation(
   }
 
   return { success: true };
+}
+
+const AVATAR_BUCKET = "patient-avatars";
+const AVATAR_EXT_BY_MIME: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
+export type UploadAvatarActionState = { error?: string; success?: boolean; avatarUrl?: string };
+
+/**
+ * A patient uploads their own profile photo — self-upload only, through their
+ * own RLS-scoped session, mirroring uploadResultDocumentAsPatient's shape:
+ * the storage 'patient avatar own insert' policy allows writing into the
+ * caller's own {auth.uid()}/ folder, so there is nothing to elevate. Unlike
+ * lab-result-documents, 'patient-avatars' is a PUBLIC bucket (see
+ * 20260826210202_patient_avatar.sql) — the stored URL is the public one, not
+ * a path needing a signed URL on every read, same convention as
+ * clinical_staff.photo_url.
+ */
+export async function uploadPatientAvatar(formData: FormData): Promise<UploadAvatarActionState> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Choose a photo first." };
+  }
+  const fileError = validatePatientAvatarFile(file);
+  if (fileError) return { error: fileError };
+
+  const ext = AVATAR_EXT_BY_MIME[file.type] ?? "jpg";
+  // The leading folder MUST be the caller's uid: that is exactly what the
+  // storage own-folder policy checks.
+  const path = `${user.id}/${randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(AVATAR_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { error: uploadError.message };
+
+  const publicUrl = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path).data.publicUrl;
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ avatar_url: publicUrl })
+    .eq("id", user.id);
+  if (updateError) {
+    // Roll back the orphaned object so a failed update leaves no stray file.
+    await supabase.storage.from(AVATAR_BUCKET).remove([path]);
+    return { error: updateError.message };
+  }
+
+  // Refreshes the whole route tree for the current URL, which includes the
+  // shared (dashboard)/layout.tsx that renders AppShell/ProfileMenu — so the
+  // header/sidebar avatar picks up the new photo along with the profile page.
+  revalidatePath("/patient/profile");
+  return { success: true, avatarUrl: publicUrl };
 }
 
 export type LogSymptomActionState = { error?: string; success?: boolean } | undefined;
@@ -345,19 +411,25 @@ export async function submitRiskAssessment(
 
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);
 
-  const scores = computeRiskTiers(responses, {
+  const scoringProfile = {
     sex: profile.sex,
     ageYears,
     // Prefer what the patient just entered; fall back to their last logged
     // vitals weight if they left it blank this time.
     weightKg: responses.weight_kg ?? latestWeight?.weight_kg ?? null,
-  });
+  };
+
+  // Prefers a signed, active risk_questionnaire_configs row over the
+  // hardcoded engine — see lib/rules/compute-risk-scores.ts. Falls back to
+  // today's behaviour (confidence 'high' always, since the fixed Zod form
+  // requires every field) until a Clinical Director signs one.
+  const scores = await computePreventionRiskScores(supabase, organisationId, responses, scoringProfile);
 
   // prevention_risk_scores is written through the service-role client, not
   // the patient's own RLS-scoped session: the tier is meant to always be
   // the server's own computation, and a table-level RLS check can only ever
-  // verify row ownership, not that a given tier value actually came from
-  // computeRiskTiers. Identity/org are already verified above via the
+  // verify row ownership, not that a given tier value actually came from the
+  // scoring engine. Identity/org are already verified above via the
   // patient's own session before we reach this point.
   const { error: scoresError } = await createServiceRoleClient()
     .from("prevention_risk_scores")
@@ -367,6 +439,9 @@ export async function submitRiskAssessment(
         profile_id: subjectId,
         condition: score.condition,
         tier: score.tier,
+        confidence: score.confidence,
+        model_name: score.modelName,
+        model_version: score.modelVersion,
         inputs_snapshot: score.inputsSnapshot as Json,
       }))
     );
@@ -397,11 +472,20 @@ export async function submitRiskAssessment(
     }
   }
 
-  const tiersByCondition = new Map(scores.map((score) => [score.condition, score.tier]));
+  // computeScreeningRecommendations/computeCareProgrammeRecommendations only
+  // ever escalate on a definite "high"/"moderate" tier — an 'unknown' tier
+  // (insufficient data) is dropped here rather than passed through, so it
+  // can never accidentally tighten a screening cadence or trigger a care-
+  // programme suggestion off data that isn't actually there. Filtering here,
+  // at the boundary, keeps both of those already-tested engines untouched.
+  const knownTierScores = scores.filter(
+    (score): score is typeof score & { tier: "low" | "moderate" | "high" } => score.tier !== "unknown"
+  );
+  const tiersByCondition = new Map(knownTierScores.map((score) => [score.condition, score.tier]));
 
   const recommendations = computeScreeningRecommendations(
     screenTypes ?? [],
-    tiersByCondition,
+    tiersByCondition as Map<PreventionCondition, RiskTier>,
     { sex: profile.sex, ageYears },
     lastCompletedByScreenTypeId
   );
@@ -450,7 +534,7 @@ export async function submitRiskAssessment(
   // for the same reason as prevention_risk_scores: the tier/rationale are the
   // server's own computation, not values a patient session should set.
   const programmeRecommendations = computeCareProgrammeRecommendations(
-    scores,
+    knownTierScores as unknown as ComputedRiskScore[],
     responses,
     responses.weight_kg ?? latestWeight?.weight_kg ?? null,
   );

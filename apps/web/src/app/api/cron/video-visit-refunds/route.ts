@@ -95,12 +95,16 @@ export async function GET(request: Request): Promise<Response> {
 
   const expired = [...(expiredUnaccepted ?? []), ...(expiredUnselected ?? [])];
 
-  // Pass 3: process due refunds.
+  // Pass 3: process due refunds. 'cancelled' included alongside
+  // declined/expired -- video_visit_requests already carries 'cancelled' as
+  // a valid status (Consultation System §9.12), and any accepted request an
+  // already-booked visit's cancellation flags with refund_status='due'
+  // deserves the same automatic refund as a declined/expired one.
   const { data: due } = await supabase
     .from("video_visit_requests")
     .select("id, payment_provider, payment_provider_ref")
     .eq("refund_status", "due")
-    .in("status", ["declined", "expired"]);
+    .in("status", ["declined", "expired", "cancelled"]);
 
   let refunded = 0;
   let manual = 0;

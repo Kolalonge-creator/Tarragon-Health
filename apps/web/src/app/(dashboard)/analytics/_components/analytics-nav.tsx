@@ -14,6 +14,8 @@ import {
   Landmark,
   ScrollText,
   Clock4,
+  Network,
+  ShieldAlert,
   Stethoscope,
   UserRound,
   UserSearch,
@@ -36,9 +38,11 @@ const TABS = [
   { href: "/analytics/operations", label: "Operations", icon: Activity },
   { href: "/analytics/facilities", label: "Facilities", icon: Building },
   { href: "/analytics/doctors", label: "Doctor performance", icon: Stethoscope },
+  { href: "/analytics/capacity", label: "Provider capacity", icon: Network },
   { href: "/analytics/team", label: "Team activity", icon: Clock4 },
   { href: "/analytics/patient-activity", label: "Patient activity", icon: UserSearch },
   { href: "/analytics/governance", label: "Governance", icon: Gavel },
+  { href: "/analytics/safety", label: "Patient safety", icon: ShieldAlert },
   { href: "/analytics/audit", label: "Audit log", icon: ScrollText },
 ] as const;
 

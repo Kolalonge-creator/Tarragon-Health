@@ -8,6 +8,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
 import { createMeeting } from "@/lib/zoom/meetings";
 import { isZoomConfigured } from "@/lib/zoom/client";
+import { sendVideoConsultBookedConfirmation } from "@/lib/notifications/video-consult-confirmation";
 import type { Currency } from "@tarragon/shared";
 
 const requestSchema = z.object({
@@ -145,12 +146,14 @@ export async function selectVideoVisitAlternateSlot(
 
   if (consult) {
     const service = createServiceRoleClient();
+    let joinUrl: string | null = null;
     if (consult.scheduled_at && isZoomConfigured()) {
       const meeting = await createMeeting({
         topic: "Tarragon Health: Video visit",
         startTime: consult.scheduled_at,
       });
       if (meeting.ok) {
+        joinUrl = meeting.data.joinUrl;
         await service
           .from("video_consultations")
           .update({
@@ -161,15 +164,109 @@ export async function selectVideoVisitAlternateSlot(
           .eq("id", consult.id);
       }
     }
-    await service.from("notifications").insert({
-      organisation_id: consult.organisation_id,
-      recipient_id: consult.patient_id,
-      channel: "whatsapp",
-      status: "pending",
-      template: "video_consult_booked",
-      payload: { scheduled_at: consult.scheduled_at },
-    });
+    await sendVideoConsultBookedConfirmation({ service, consultId: consult.id, joinUrl });
   }
 
   return undefined;
+}
+
+export type SubmitPrepState = { error?: string; message?: string } | undefined;
+
+const prepNotesSchema = z.string().trim().max(1000);
+
+/** Consultation System §9.4 — patient's own pre-visit reason/symptoms, editable any time before the call. */
+export async function submitConsultationPrep(
+  _prev: SubmitPrepState,
+  formData: FormData
+): Promise<SubmitPrepState> {
+  const consultationId = z.string().uuid().safeParse(String(formData.get("consultation_id") ?? ""));
+  const notes = prepNotesSchema.safeParse(String(formData.get("notes") ?? ""));
+  if (!consultationId.success) return { error: "Invalid consultation" };
+  if (!notes.success) return { error: "Keep it under 1000 characters" };
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("submit_consultation_prep", {
+    p_consultation_id: consultationId.data,
+    p_notes: notes.data,
+  });
+  if (error) return { error: error.message };
+  return { message: "Saved — your care team will see this before the visit." };
+}
+
+export type SubmitFeedbackState = { error?: string; message?: string } | undefined;
+
+const feedbackSchema = z.object({
+  consultationId: z.string().uuid(),
+  overallRating: z.coerce.number().int().min(1).max(5),
+  technicalExperienceRating: z.coerce.number().int().min(1).max(5).optional(),
+  punctualityRating: z.coerce.number().int().min(1).max(5).optional(),
+  communicationRating: z.coerce.number().int().min(1).max(5).optional(),
+  comment: z.string().trim().max(1000).optional(),
+});
+
+/**
+ * Consultation System §9.20 — patient experience rating for a completed
+ * video visit. organisation_id/patient_id are server-derived by
+ * private.enforce_consultation_feedback_scope from video_consultation_id
+ * (which also requires the caller be that consult's own patient on a
+ * completed visit); the current user/org are still fetched here only
+ * because the generated insert type requires non-null values for both — the
+ * DB trigger overwrites whatever is sent before any constraint is checked.
+ */
+export async function submitConsultationFeedback(
+  _prev: SubmitFeedbackState,
+  formData: FormData
+): Promise<SubmitFeedbackState> {
+  const parsed = feedbackSchema.safeParse({
+    consultationId: String(formData.get("consultation_id") ?? ""),
+    overallRating: String(formData.get("overall_rating") ?? ""),
+    technicalExperienceRating: formData.get("technical_experience_rating")
+      ? String(formData.get("technical_experience_rating"))
+      : undefined,
+    punctualityRating: formData.get("punctuality_rating")
+      ? String(formData.get("punctuality_rating"))
+      : undefined,
+    communicationRating: formData.get("communication_rating")
+      ? String(formData.get("communication_rating"))
+      : undefined,
+    comment: String(formData.get("comment") ?? "") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check your ratings" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect("/login");
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "Your account has no organisation on file." };
+  }
+
+  const { error } = await supabase.from("consultation_feedback").insert({
+    organisation_id: profile.organisation_id,
+    patient_id: user.id,
+    video_consultation_id: parsed.data.consultationId,
+    overall_rating: parsed.data.overallRating,
+    technical_experience_rating: parsed.data.technicalExperienceRating ?? null,
+    punctuality_rating: parsed.data.punctualityRating ?? null,
+    communication_rating: parsed.data.communicationRating ?? null,
+    comment: parsed.data.comment ?? null,
+  });
+  if (error) {
+    return {
+      error:
+        error.code === "23505"
+          ? "You've already left feedback for this visit."
+          : error.message,
+    };
+  }
+  return { message: "Thanks for the feedback." };
 }

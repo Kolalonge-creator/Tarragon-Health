@@ -54,8 +54,17 @@ select
   ]'::jsonb),
   'v4 — wires spo2_vitals_red_flag and temperature_vitals_red_flag into the trigger functions (previously drafted in v3 but never read by code) and registers symptom_red_flag for the first time. Carries forward v3''s still-open review items unchanged (mild-hypothermia amber band, whether SpO2/temperature should share BP''s channel_sequence) plus this migration''s own new item: symptom_red_flag''s clinician_review SLA (4320min) is a first-time value with no prior clinical sign-off, chosen only by consistency with sibling clinician_review entries — flag for Clinical Director review alongside the rest of this table at /admin/settings/escalation-slas. DRAFT, unsigned.',
   true
+-- Was `where v3.id = '7b69cc62-06e3-4c22-8b2f-3b91b3de3704'` — v3's real,
+-- live id, but escalation_slas.id defaults to gen_random_uuid(), so a
+-- from-scratch replay gives v3 a different id and this matched zero rows,
+-- silently inserting no v4 row at all (found by the new CI migration-
+-- replay job, 2026-08-27 — private.escalation_sla_minutes() then correctly
+-- fail-loud raised "no active escalation SLA configured" per its own
+-- design, rather than resolving anything). `is_active` identifies the same
+-- row by what actually makes it "v3" — being the current config — on any
+-- environment.
 from public.escalation_slas v3
-where v3.id = '7b69cc62-06e3-4c22-8b2f-3b91b3de3704';
+where v3.is_active;
 
 update public.escalation_slas set is_active = false
 where is_active and version <> 4;

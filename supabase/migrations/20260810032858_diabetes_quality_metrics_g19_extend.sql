@@ -6,6 +6,16 @@
 -- combined "complete annual complication screen" (foot + retinal + renal all
 -- up to date at once) since §24 names that as its own KPI, not just the three
 -- individual ones the first pass already covered.
+--
+-- Column order below matters: `create or replace view` can only append new
+-- columns at the end, never insert one ahead of an existing column — doing
+-- so is a rename as far as Postgres is concerned (42P16). target_set was
+-- the first pass's last column; complete_complication_screen has to come
+-- after it, not before, to actually replace the view rather than fail
+-- (found live already correctly ordered this way — via some
+-- out-of-band fix, this migration was never actually recorded as applied —
+-- and confirmed by the new CI migration-replay job, 2026-08-27, which
+-- caught the file's own column order not matching what it produced live).
 -- ===========================================================================
 
 create or replace view public.diabetes_quality_metrics with (security_invoker = true) as
@@ -75,10 +85,10 @@ select
   count(*) filter (where foot.due >= current_date)::int as foot_uptodate,
   count(*) filter (where ret.due >= current_date)::int as retinal_uptodate,
   count(*) filter (where ren.due >= current_date)::int as renal_uptodate,
+  count(*) filter (where tgt.patient_id is not null)::int as target_set,
   count(*) filter (
     where foot.due >= current_date and ret.due >= current_date and ren.due >= current_date
   )::int as complete_complication_screen,
-  count(*) filter (where tgt.patient_id is not null)::int as target_set,
   count(*) filter (where hat.patient_id is not null)::int as hba1c_at_target,
   coalesce(sum(sev.n), 0)::int as severe_hypo_dka_events_90d,
   round(coalesce(sum(sev.n), 0) * 100.0 / nullif(count(*), 0), 1) as severe_hypo_dka_per_100_patients,

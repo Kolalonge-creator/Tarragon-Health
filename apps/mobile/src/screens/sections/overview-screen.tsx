@@ -15,7 +15,17 @@ import {
   type UpcomingVideoVisit,
 } from "@/lib/overview";
 import { colors, spacing } from "@/ui/theme";
-import { Card, MutedText, PrimaryButton } from "@/ui/components";
+import {
+  Card,
+  CalloutCard,
+  GroupedList,
+  GroupedListRow,
+  MutedText,
+  PrimaryButton,
+  QuickActionButton,
+  QuickActionGrid,
+  SectionLabel,
+} from "@/ui/components";
 import type { SectionId } from "@/lib/sections";
 import { relativeTime } from "@/lib/notifications";
 
@@ -132,28 +142,36 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
         </Card>
       ) : null}
 
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
-        <StatTile icon="heart-outline" label="Latest BP" value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"} unit="mmHg" />
-        <StatTile icon="water-outline" label="Latest glucose" value={stats.latestGlucoseMmolL !== null ? String(stats.latestGlucoseMmolL) : "—"} unit="mmol/L" />
-        <StatTile icon="medkit-outline" label="Active meds" value={String(stats.activeMedicationCount)} />
-        <StatTile icon="checkmark-circle-outline" label="Doses today" value={`${stats.dosesTaken}/${stats.dosesTotal}`} />
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Your numbers</SectionLabel>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+          <StatTile icon="heart-outline" label="Latest BP" value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"} unit="mmHg" />
+          <StatTile icon="water-outline" label="Latest glucose" value={stats.latestGlucoseMmolL !== null ? String(stats.latestGlucoseMmolL) : "—"} unit="mmol/L" />
+          <StatTile icon="medkit-outline" label="Active meds" value={String(stats.activeMedicationCount)} />
+          <StatTile icon="checkmark-circle-outline" label="Doses today" value={`${stats.dosesTaken}/${stats.dosesTotal}`} />
+        </View>
+        <QuickActionGrid>
+          <QuickActionButton icon="pulse-outline" label="Log a reading" onPress={() => onNavigate("vitals")} />
+          <QuickActionButton icon="medkit-outline" label="Medications" onPress={() => onNavigate("medications")} />
+          <QuickActionButton icon="chatbox-ellipses-outline" label="Messages" onPress={() => onNavigate("messages")} />
+          <QuickActionButton icon="flask-outline" label="Labs" onPress={() => onNavigate("labs")} />
+        </QuickActionGrid>
       </View>
 
       {schedule.length > 0 ? (
-        <Card style={{ gap: 8 }}>
-          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>What&apos;s coming up</Text>
-          {schedule.map((item, i) => (
-            <View key={i} style={{ paddingVertical: 6, borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
-              <Text style={{ fontSize: 10.5, fontWeight: "600", color: colors.faint, textTransform: "uppercase" }}>
-                {item.type}
-              </Text>
-              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
-                <Text style={{ fontSize: 13, color: colors.ink, flex: 1 }}>{item.title}</Text>
-                <Text style={{ fontSize: 12, color: colors.faint }}>{daysLabel(item.dueDate)}</Text>
-              </View>
-            </View>
-          ))}
-        </Card>
+        <View style={{ gap: 10 }}>
+          <SectionLabel>What&apos;s coming up</SectionLabel>
+          <GroupedList>
+            {schedule.map((item, i) => (
+              <GroupedListRow
+                key={i}
+                title={item.title}
+                subtitle={`${item.type.charAt(0).toUpperCase()}${item.type.slice(1)}`}
+                trailing={<Text style={{ fontSize: 12, color: colors.faint }}>{daysLabel(item.dueDate)}</Text>}
+              />
+            ))}
+          </GroupedList>
+        </View>
       ) : null}
 
       {careTeam ? (
@@ -173,21 +191,43 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
         </Card>
       ) : null}
 
-      <Card style={{ gap: 6 }}>
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink, marginBottom: 2 }}>Recent activity</Text>
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Recent activity</SectionLabel>
         {activity.length === 0 ? (
-          <MutedText>No activity yet. Readings, medications and results will appear here.</MutedText>
+          <Card>
+            <MutedText>No activity yet. Readings, medications and results will appear here.</MutedText>
+          </Card>
         ) : (
-          activity.map((item) => (
-            <View key={item.id} style={{ flexDirection: "row", gap: 8, paddingVertical: 4 }}>
-              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.brand, marginTop: 6 }} />
-              <Text style={{ fontSize: 12.5, color: "rgba(23,23,23,0.75)", flex: 1 }}>
-                {item.title} <Text style={{ color: colors.faint }}>· {relativeTime(item.occurredAt)}</Text>
-              </Text>
-            </View>
-          ))
+          <GroupedList>
+            {activity.map((item) => (
+              <GroupedListRow
+                key={item.id}
+                title={item.title}
+                subtitle={relativeTime(item.occurredAt)}
+                trailing="none"
+              />
+            ))}
+          </GroupedList>
         )}
-      </Card>
+      </View>
+
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Help &amp; contact</SectionLabel>
+        <CalloutCard
+          icon="chatbox-ellipses-outline"
+          title="Message your care team"
+          subtitle="Ask a question and hear back from the doctors reviewing your case."
+          ctaLabel="Open chat"
+          onPress={() => onNavigate("messages")}
+        />
+        <CalloutCard
+          icon="help-buoy-outline"
+          title="Care & support"
+          subtitle="Useful links, common questions, and how to reach us."
+          ctaLabel="Open"
+          onPress={() => onNavigate("care")}
+        />
+      </View>
     </ScrollView>
   );
 }

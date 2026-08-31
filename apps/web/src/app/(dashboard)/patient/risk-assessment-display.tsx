@@ -14,15 +14,20 @@ const CONDITION_LABELS: Record<PreventionCondition, string> = {
   cervical_ca: "Cervical cancer",
   colorectal_ca: "Colorectal cancer",
   prostate_ca: "Prostate cancer",
+  ckd: "Kidney disease",
+  asthma_copd: "Asthma / COPD",
+  mental_wellbeing: "Mental wellbeing",
   other: "Other",
 };
 
-// Clinical-dashboard status colors (green/amber/red) — a separate system
-// from brand color, per CLAUDE.md.
-const TIER_BADGE: Record<RiskTier, "green" | "amber" | "red"> = {
+// Clinical-dashboard status colors (green/amber/red/grey) — a separate
+// system from brand color, per CLAUDE.md. "unknown" reads as grey/neutral,
+// deliberately not green — an unassessed domain must never look reassuring.
+const TIER_BADGE: Record<RiskTier | "unknown", "green" | "amber" | "red" | "grey"> = {
   low: "green",
   moderate: "amber",
   high: "red",
+  unknown: "grey",
 };
 
 function humanizeFactor(factor: string) {
@@ -57,6 +62,8 @@ export function RiskAssessmentDisplay({ patientId }: { patientId: string }) {
               const snapshot = (score.inputs_snapshot ?? {}) as Record<string, unknown>;
               const factors = Array.isArray(snapshot.factors) ? (snapshot.factors as string[]) : [];
               const forcedBy = typeof snapshot.forced_by === "string" ? snapshot.forced_by : null;
+              const isUnknown = score.tier === "unknown";
+              const isLowConfidence = score.confidence === "low" && !isUnknown;
 
               return (
                 <li key={score.id} className="space-y-1 py-3">
@@ -64,21 +71,28 @@ export function RiskAssessmentDisplay({ patientId }: { patientId: string }) {
                     <p className="text-sm font-medium text-charcoal-ink">
                       {CONDITION_LABELS[score.condition]}
                     </p>
-                    <Badge variant={TIER_BADGE[score.tier as RiskTier]}>
-                      {score.tier.charAt(0).toUpperCase() + score.tier.slice(1)}
+                    <Badge variant={TIER_BADGE[score.tier as RiskTier | "unknown"]}>
+                      {isUnknown ? "Unknown" : score.tier.charAt(0).toUpperCase() + score.tier.slice(1)}
                     </Badge>
                   </div>
-                  {forcedBy === "existing_diagnosis" ? (
+                  {isUnknown ? (
+                    <p className="text-xs text-charcoal-ink/60">
+                      We do not have enough information yet to assess this — it is not the same as
+                      being low risk. Complete a few more questions in the assessment above to find out.
+                    </p>
+                  ) : forcedBy === "existing_diagnosis" ? (
                     <p className="text-xs text-charcoal-ink/60">
                       Based on a diagnosis you already told us about.
                     </p>
                   ) : factors.length > 0 ? (
                     <p className="text-xs text-charcoal-ink/60">
                       Because: {factors.map(humanizeFactor).join(", ")}.
+                      {isLowConfidence && " Based on limited information so far."}
                     </p>
                   ) : (
                     <p className="text-xs text-charcoal-ink/60">
                       No major risk factors noted right now.
+                      {isLowConfidence && " Based on limited information so far."}
                     </p>
                   )}
                 </li>

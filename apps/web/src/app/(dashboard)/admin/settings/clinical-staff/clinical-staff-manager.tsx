@@ -12,6 +12,7 @@ import {
   useOrgIndemnityExemptions,
   useAddIndemnityExemption,
   useRemoveIndemnityExemption,
+  useSetClinicalStaffLicenseExpiry,
   useOrgAttestationStatuses,
   type ClinicalStaff,
   type ClinicalStaffIndemnityExemption,
@@ -104,6 +105,47 @@ function IndemnityBadge({ expiresAt }: { expiresAt: string | null }) {
   if (days < 0) return <Badge variant="red">Cover expired</Badge>;
   if (days <= 30) return <Badge variant="amber">Cover expires {formatDate(expiresAt)}</Badge>;
   return <Badge variant="green">Covered until {formatDate(expiresAt)}</Badge>;
+}
+
+/** The clinician's own MDCN/NMCN Annual Practicing License expiry — distinct from license_verified_at (Tarragon's own re-verification cadence, see ReverifyBadge). */
+function LicenseExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
+  if (!expiresAt) return null;
+  const days = daysUntil(expiresAt);
+  if (days < 0) return <Badge variant="red">Practicing license expired</Badge>;
+  if (days <= 30) return <Badge variant="amber">License expires {formatDate(expiresAt)}</Badge>;
+  return <Badge variant="grey">Licensed until {formatDate(expiresAt)}</Badge>;
+}
+
+function LicenseExpiryForm({ staff }: { staff: ClinicalStaff }) {
+  const setLicenseExpiry = useSetClinicalStaffLicenseExpiry();
+  const [expiresAt, setExpiresAt] = useState(
+    staff.license_expires_at ? staff.license_expires_at.slice(0, 10) : ""
+  );
+
+  return (
+    <div className="mt-3 rounded-lg border border-charcoal-ink/10 bg-warm-ivory p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/60">
+          MDCN/NMCN practicing license expiry
+        </p>
+        <LicenseExpiryBadge expiresAt={staff.license_expires_at} />
+      </div>
+      <div className="flex items-center gap-2">
+        <Input type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={expiresAt.length === 0 || setLicenseExpiry.isPending}
+          onClick={() => setLicenseExpiry.mutate({ clinicalStaffId: staff.id, expiresAt })}
+        >
+          {setLicenseExpiry.isPending ? "Saving…" : "Save expiry date"}
+        </Button>
+      </div>
+      {setLicenseExpiry.isError && (
+        <p className="mt-2 text-sm text-red-600">{(setLicenseExpiry.error as Error).message}</p>
+      )}
+    </div>
+  );
 }
 
 /** True if this record can be active without current cover — an individual exemption or an org/tier/director exemption covering it. */
@@ -606,6 +648,7 @@ export function ClinicalStaffManager() {
                             {s.license_verified_at && (
                               <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
                             )}
+                            <LicenseExpiryBadge expiresAt={s.license_expires_at} />
                             <AttestationBadge expiresAt={attestations?.[s.id] ?? null} />
                           </div>
                         </div>
@@ -652,6 +695,7 @@ export function ClinicalStaffManager() {
                     {requiresIndemnity && (
                       <IndemnityForm staff={s} orgExemptions={orgExemptions ?? []} />
                     )}
+                    <LicenseExpiryForm staff={s} />
                   </li>
                 );
               })}

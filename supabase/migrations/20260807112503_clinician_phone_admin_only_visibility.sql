@@ -85,6 +85,7 @@ comment on function public.my_care_plan_clinicians() is
   'Name-only replacement for the removed care_plans-based profiles_select clause. Returns the assigned clinician''s full_name for the calling patient''s own care plans -- nothing else leaves this function.';
 
 revoke all on function public.my_care_plan_clinicians() from public;
+revoke all on function public.my_care_plan_clinicians() from anon;
 grant execute on function public.my_care_plan_clinicians() to authenticated;
 
 -- ---------------------------------------------------------------------------

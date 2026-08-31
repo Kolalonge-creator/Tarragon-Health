@@ -73,6 +73,7 @@ end;
 $$;
 
 revoke all on function public.admin_broadcast_content_check(text) from public;
+revoke all on function public.admin_broadcast_content_check(text) from anon;
 grant execute on function public.admin_broadcast_content_check(text) to authenticated;
 
 -- The real enforcement: admin_send_broadcast itself now refuses to enqueue a

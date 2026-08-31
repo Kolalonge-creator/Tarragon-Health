@@ -344,6 +344,7 @@ end;
 $$;
 
 revoke all on function public.approve_lab_order_refund(uuid) from public;
+revoke all on function public.approve_lab_order_refund(uuid) from anon;
 grant execute on function public.approve_lab_order_refund(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------

@@ -1,15 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import Link from "next/link";
 import {
   useDeviceCatalog,
   DEVICE_CATEGORY_LABEL,
   type DeviceCatalogEntry,
 } from "@/lib/queries/device-catalog";
-import { logDeviceAffiliateClick } from "./device-shop-actions";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 
 const CATEGORY_ORDER: DeviceCatalogEntry["category"][] = [
   "blood_pressure",
@@ -19,14 +16,18 @@ const CATEGORY_ORDER: DeviceCatalogEntry["category"][] = [
 ];
 
 /**
- * In-app Shop (Device Pairing & Integration Spec v2 §9.2) — third-party
- * devices Tarragon has clinically vetted, fulfilled via affiliate link-out.
- * Renders entirely from device_catalog; a device with no active + reviewed
- * row just doesn't appear (see the useDeviceCatalog query for why).
+ * In-app device recommendations (Device Pairing & Integration Spec v2 §9.2) —
+ * third-party devices Tarragon has clinically vetted, shown as a plain
+ * recommendation with no purchase link or commission (2026-08-26: the
+ * affiliate link-out was removed — Jumia/Konga have no workable affiliate
+ * programme for these categories, and a direct-manufacturer/international
+ * link exposes a Nigerian patient to import duty). Patients buy from
+ * whatever local retailer they already use. Renders entirely from
+ * device_catalog; a device with no active + reviewed row just doesn't
+ * appear (see the useDeviceCatalog query for why).
  */
 export function DeviceShop() {
   const { data: catalogue, isLoading, isError } = useDeviceCatalog();
-  const [pendingId, setPendingId] = useState<string | null>(null);
 
   const byCategory = new Map<DeviceCatalogEntry["category"], DeviceCatalogEntry[]>();
   for (const device of catalogue ?? []) {
@@ -35,44 +36,21 @@ export function DeviceShop() {
     byCategory.set(device.category, list);
   }
 
-  async function handleBuyNow(device: DeviceCatalogEntry) {
-    if (!device.affiliate_link) return;
-    setPendingId(device.id);
-    try {
-      await logDeviceAffiliateClick({
-        deviceId: device.id,
-        deviceName: device.device_name,
-        category: device.category,
-        affiliatePartner: device.affiliate_partner,
-      });
-    } finally {
-      setPendingId(null);
-      // Never capture payment/order data (spec §9.2) — the transaction is
-      // entirely the retailer's, this just opens their checkout.
-      window.open(device.affiliate_link, "_blank", "noopener");
-    }
-  }
-
   return (
     <div className="space-y-6">
       <Card>
         <CardContent className="space-y-2 pt-6 text-sm text-charcoal-ink/70">
           <p>
             These are third-party devices Tarragon has clinically vetted for accuracy and app
-            compatibility — Tarragon doesn&apos;t sell or ship them itself. Buying one is entirely
-            optional: you can log any reading by hand in Vitals &amp; symptoms at any time, with
-            any device.
-          </p>
-          <p className="text-xs text-charcoal-ink/50">
-            Tarragon earns a small commission when you buy through a &quot;Buy Now&quot; link
-            below, at no extra cost to you. It never affects which devices we recommend — that is
-            based on clinical accuracy and confirmed compatibility only.
+            compatibility — Tarragon doesn&apos;t sell or ship them itself, and doesn&apos;t earn
+            anything if you buy one. Get one from any retailer you trust, or log any reading by
+            hand in Vitals &amp; symptoms at any time, with any device.
           </p>
         </CardContent>
       </Card>
 
       {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-      {isError && <p className="text-sm text-red-600">Could not load the device shop.</p>}
+      {isError && <p className="text-sm text-red-600">Could not load device recommendations.</p>}
       {catalogue && catalogue.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-sm text-charcoal-ink/60">
@@ -115,13 +93,6 @@ export function DeviceShop() {
                         {device.price_range_ngn}
                       </p>
                     )}
-                    <Button
-                      size="sm"
-                      disabled={!device.affiliate_link || pendingId === device.id}
-                      onClick={() => handleBuyNow(device)}
-                    >
-                      {pendingId === device.id ? "Opening…" : "Buy Now"}
-                    </Button>
                   </CardContent>
                 </Card>
               ))}

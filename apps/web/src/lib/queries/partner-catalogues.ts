@@ -196,6 +196,7 @@ export type LabPartnerLoginRow = {
   email: string | null;
   full_name: string | null;
   lab_provider_id: string | null;
+  is_partner_admin: boolean;
 };
 
 /** Link (or unlink, pass null) an existing lab_partner-role login to a lab_providers row. */
@@ -217,6 +218,61 @@ export function useLinkLabPartner() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-partner-logins"] }),
+  });
+}
+
+export type PharmacistLoginRow = {
+  id: string;
+  email: string | null;
+  full_name: string | null;
+  pharmacy_partner_id: string | null;
+  is_partner_admin: boolean;
+};
+
+/** Link (or unlink, pass null) an existing pharmacist-role login to a pharmacy_partners row. */
+export function useLinkPharmacist() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      profileId,
+      pharmacyPartnerId,
+    }: {
+      profileId: string;
+      pharmacyPartnerId: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("admin_link_pharmacist", {
+        p_profile_id: profileId,
+        p_pharmacy_partner_id: pharmacyPartnerId as unknown as string,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacist-logins"] }),
+  });
+}
+
+/**
+ * Designates (or removes) a linked lab_partner/pharmacist login as its own
+ * provider's self-service admin — the only privilege is being able to invite
+ * further staff logins for the same provider (see the partner-admin invite
+ * server action). profiles.is_partner_admin cannot be self-edited
+ * (private.guard_profiles_self_update) — this must run as an admin.
+ */
+export function useSetPartnerAdmin() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ profileId, isPartnerAdmin }: { profileId: string; isPartnerAdmin: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("admin_set_partner_admin", {
+        p_profile_id: profileId,
+        p_is_partner_admin: isPartnerAdmin,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lab-partner-logins"] });
+      qc.invalidateQueries({ queryKey: ["pharmacist-logins"] });
+    },
   });
 }
 
@@ -320,6 +376,79 @@ export function useSetPharmacyPartnerActive() {
   });
 }
 
+/**
+ * Pharmacy Engine spec §12.3 onboarding pipeline
+ * (20260828232205_pharmacy_partner_onboarding_pipeline.sql). Moves a partner
+ * exactly one stage forward, or rejects it — see the migration for what
+ * each transition requires/stamps. pharmacy_partners_active_requires_
+ * activated_onboarding (a DB CHECK) means the old direct "Activate" toggle
+ * above now only ever succeeds once onboarding_status is already
+ * 'activated' — reaching 'activated' via this RPC is what flips is_active,
+ * not the toggle.
+ */
+export function useAdvancePharmacyPartnerOnboarding() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (partnerId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("admin_advance_pharmacy_partner_onboarding", {
+        p_partner_id: partnerId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-partners"] }),
+  });
+}
+
+export function useRejectPharmacyPartnerOnboarding() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ partnerId, reason }: { partnerId: string; reason: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("admin_reject_pharmacy_partner_onboarding", {
+        p_partner_id: partnerId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-partners"] }),
+  });
+}
+
+export function useVerifyPharmacyPartnerLocation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (locationId: string) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("admin_verify_pharmacy_partner_location", {
+        p_location_id: locationId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["pharmacy-partner-locations"] });
+      qc.invalidateQueries({ queryKey: ["pharmacist-locations"] });
+    },
+  });
+}
+
+export function usePharmacyPartnerLocationsAdmin(partnerId: string) {
+  return useQuery({
+    queryKey: ["pharmacy-partner-locations", "admin", partnerId],
+    enabled: !!partnerId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_partner_locations")
+        .select("*")
+        .eq("pharmacy_partner_id", partnerId)
+        .order("name");
+      if (error) throw error;
+      return data as Tables<"pharmacy_partner_locations">[];
+    },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Pharmacy medications — the catalogue rows record_pharmacy_commission()
 // actually reads (pharmacy_medications.commission_rate per item).
@@ -363,6 +492,44 @@ export function useUpdatePharmacyMedicationCommission() {
     },
     onSuccess: () =>
       qc.invalidateQueries({ queryKey: ["pharmacy-medications"] }),
+  });
+}
+
+/**
+ * Adds a drug/SKU to a pharmacy partner's catalogue — Pharmacy Engine spec
+ * §12.3's "service configuration" onboarding step needs at least one real
+ * catalogue row, and nothing in the app could create one before this (only
+ * `pharmacist-services.tsx`'s is_active toggle on an EXISTING row, and
+ * `supabase/seed/seed.sql`, which only ever runs on a local `db reset`).
+ * Admin-only, matching pharmacy_medications_insert's existing RLS — pricing
+ * stays an admin-set fact from day one, same financial-control reasoning as
+ * the 2026-08-27 partner self-service work (availability-only editing).
+ */
+export function useCreatePharmacyMedication() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      pharmacyPartnerId: string;
+      drugName: string;
+      strength?: string;
+      packSize?: string;
+      priceKobo: number;
+      isGeneric?: boolean;
+      genericEquivalentOf?: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("pharmacy_medications").insert({
+        pharmacy_partner_id: input.pharmacyPartnerId,
+        drug_name: input.drugName,
+        strength: input.strength || null,
+        pack_size: input.packSize || null,
+        price_kobo: input.priceKobo,
+        is_generic: input.isGeneric ?? false,
+        generic_equivalent_of: input.genericEquivalentOf || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["pharmacy-medications"] }),
   });
 }
 

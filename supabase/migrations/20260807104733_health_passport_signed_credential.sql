@@ -316,7 +316,9 @@ create policy health_passport_verifications_select on public.health_passport_ver
 grant select on public.passport_signing_keys to anon, authenticated;
 grant select on public.health_passport_attestation_requests to authenticated;
 grant select on public.health_passport_issuances to authenticated;
+revoke select on public.health_passport_issuances from anon;
 grant select on public.health_passport_verifications to authenticated;
+revoke select on public.health_passport_verifications from anon;
 
 -- ------------------------------------------------------------ serial minting
 

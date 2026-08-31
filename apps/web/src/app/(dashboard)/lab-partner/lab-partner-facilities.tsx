@@ -14,12 +14,11 @@ import {
 } from "@/lib/queries/lab-partner";
 
 /**
- * Self-service branch/location management. Previously the patient-facing
- * "pick a nearby facility" picker only ever reflected whatever an admin
- * hand-typed (a handful of seeded rows) — a real partner with dozens of
- * branches had no way to keep its own footprint accurate. Now the partner
- * maintains its own list directly; RLS (facilities_insert_lab_partner /
- * facilities_update_lab_partner) scopes every write to this lab's own rows.
+ * Self-service branch/location management. Writes to lab_provider_locations
+ * — the table that actually feeds the public /coverage map via
+ * public_partner_locations(). A real partner with dozens of branches
+ * maintains its own list directly; RLS (lab_provider_locations_*_partner,
+ * 20260827203240) scopes every write to this lab's own rows.
  */
 export function LabPartnerFacilities() {
   const { data: providerId } = useLabPartnerOwnProviderId();
@@ -29,8 +28,6 @@ export function LabPartnerFacilities() {
 
   const [name, setName] = useState("");
   const [state, setState] = useState("");
-  const [city, setCity] = useState("");
-  const [area, setArea] = useState("");
   const [address, setAddress] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +42,8 @@ export function LabPartnerFacilities() {
         <CardTitle>Your branches</CardTitle>
         <CardDescription>
           Patients pick from this list when booking with your lab — keep it accurate. Retiring a
-          branch deactivates it rather than deleting it.
+          branch deactivates it rather than deleting it. A branch only appears on the public
+          coverage map once it has coordinates on file — contact support to have one geocoded.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -55,13 +53,11 @@ export function LabPartnerFacilities() {
             e.preventDefault();
             setError(null);
             create.mutate(
-              { providerId, name, state, city, area, address, contactPhone },
+              { providerId, name, state, address, contactPhone },
               {
                 onSuccess: () => {
                   setName("");
                   setState("");
-                  setCity("");
-                  setArea("");
                   setAddress("");
                   setContactPhone("");
                 },
@@ -78,17 +74,14 @@ export function LabPartnerFacilities() {
             <Label htmlFor="branch-state">State</Label>
             <Input id="branch-state" value={state} onChange={(e) => setState(e.target.value)} required />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="branch-city">City</Label>
-            <Input id="branch-city" value={city} onChange={(e) => setCity(e.target.value)} required />
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="branch-area">Area (optional)</Label>
-            <Input id="branch-area" value={area} onChange={(e) => setArea(e.target.value)} />
-          </div>
           <div className="space-y-1 sm:col-span-2">
-            <Label htmlFor="branch-address">Address (optional)</Label>
-            <Input id="branch-address" value={address} onChange={(e) => setAddress(e.target.value)} />
+            <Label htmlFor="branch-address">Address</Label>
+            <Input
+              id="branch-address"
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              required
+            />
           </div>
           <div className="space-y-1">
             <Label htmlFor="branch-phone">Contact phone (E.164, optional)</Label>
@@ -122,8 +115,11 @@ export function LabPartnerFacilities() {
                   <span className="font-medium text-charcoal-ink">{f.name}</span>
                   <Badge variant={f.is_active ? "green" : "grey"}>{f.is_active ? "Active" : "Inactive"}</Badge>
                   <span className="text-xs text-charcoal-ink/50">
-                    {[f.area, f.city, f.state].filter(Boolean).join(", ")}
+                    {[f.address, f.state].filter(Boolean).join(", ")}
                   </span>
+                  {(f.latitude == null || f.longitude == null) && (
+                    <Badge variant="grey">Not on map yet</Badge>
+                  )}
                 </div>
                 <Button
                   variant="outline"

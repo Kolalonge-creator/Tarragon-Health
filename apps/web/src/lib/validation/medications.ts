@@ -31,6 +31,14 @@ export const medicationSchema = z.object({
     .url("Enter a valid link (https://…)")
     .max(2000)
     .optional(),
+  // Prescription order-entry detail (Care Team / Provider Workspace §5.10).
+  // Clinician-source only — the patient self-add form never renders these.
+  route: z.string().trim().max(100).optional(),
+  duration_days: z.coerce.number().int().positive().optional(),
+  quantity: z.string().trim().max(100).optional(),
+  repeats_allowed: z.coerce.number().int().min(0).max(99).optional(),
+  indication: z.string().trim().max(300).optional(),
+  instructions: z.string().trim().max(1000).optional(),
 });
 export type MedicationInput = z.infer<typeof medicationSchema>;
 

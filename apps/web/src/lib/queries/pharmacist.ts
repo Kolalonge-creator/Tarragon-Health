@@ -1,5 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import type { Tables } from "@tarragon/shared";
+
+export type PharmacyPartnerLocation = Tables<"pharmacy_partner_locations">;
+export type PharmacyMedicationRow = Tables<"pharmacy_medications">;
 
 /**
  * Pharmacist surface (Phase 8b). Every call goes through a SECURITY DEFINER
@@ -74,6 +78,62 @@ export function usePharmacistRecordDispense() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
       queryClient.invalidateQueries({ queryKey: ["pharmacist-dispense-history"] });
+    },
+  });
+}
+
+/**
+ * Pharmacy Engine spec §12.5 — the accept/decline workflow that never
+ * existed before (pharmacist_record_dispense only ever wrote to the
+ * separate pharmacy_order_dispenses log, never pharmacy_orders.status; see
+ * docs/PHARMACY_ENGINE_SPEC.md). accept confirms availability/quantity/
+ * price/fulfilment time; a confirmed price below what the patient paid
+ * auto-flags the difference for refund (DB-side, pharmacist_accept_order).
+ * decline is the out-of-stock/cannot-fulfil path, which auto-flags a full
+ * refund and notifies the patient (pharmacist_decline_order).
+ */
+export function usePharmacistAcceptOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      confirmedQuantity,
+      confirmedPriceKobo,
+      estimatedFulfilmentAt,
+    }: {
+      orderId: string;
+      confirmedQuantity: string;
+      confirmedPriceKobo?: number | null;
+      estimatedFulfilmentAt?: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("pharmacist_accept_order", {
+        p_order_id: orderId,
+        p_confirmed_quantity: confirmedQuantity,
+        p_confirmed_price_kobo: confirmedPriceKobo ?? undefined,
+        p_estimated_fulfilment_at: estimatedFulfilmentAt ?? undefined,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
+    },
+  });
+}
+
+export function usePharmacistDeclineOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("pharmacist_decline_order", {
+        p_order_id: orderId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
     },
   });
 }
@@ -157,5 +217,122 @@ export function usePharmacistUpdateProfile() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pharmacist-profile"] });
     },
+  });
+}
+
+/**
+ * Self-service branch/location management — the pharmacist-side counterpart
+ * of lab-partner.ts's useLabPartnerFacilities, targeting the new
+ * pharmacy_partner_locations table (20260827203240) instead of the single
+ * address on pharmacy_partners itself.
+ */
+export function usePharmacistOwnPartnerId() {
+  return useQuery({
+    queryKey: ["pharmacist-own-partner-id"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("pharmacist_own_partner_id");
+      if (error) throw error;
+      return data as string | null;
+    },
+  });
+}
+
+export function usePharmacistLocations(partnerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["pharmacist-locations", partnerId],
+    enabled: !!partnerId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_partner_locations")
+        .select("*")
+        .eq("pharmacy_partner_id", partnerId as string)
+        .order("state")
+        .order("name");
+      if (error) throw error;
+      return data as PharmacyPartnerLocation[];
+    },
+  });
+}
+
+export function useCreatePharmacistLocation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      partnerId: string;
+      name: string;
+      state: string;
+      address?: string;
+      contactPhone?: string;
+      latitude?: number;
+      longitude?: number;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("pharmacy_partner_locations").insert({
+        pharmacy_partner_id: input.partnerId,
+        name: input.name,
+        state: input.state,
+        address: input.address || null,
+        contact_phone: input.contactPhone || null,
+        latitude: input.latitude ?? null,
+        longitude: input.longitude ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pharmacist-locations"] }),
+  });
+}
+
+export function useSetPharmacistLocationActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("pharmacy_partner_locations")
+        .update({ is_active: isActive })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pharmacist-locations"] }),
+  });
+}
+
+/**
+ * A pharmacist's own catalogue rows. is_active is the only column a plain
+ * pharmacist may change (private.restrict_pharmacy_medication_partner_edit_to_availability,
+ * 20260827203240 enforces this at the trigger level regardless of what the
+ * client sends).
+ */
+export function usePharmacistOwnMedications(partnerId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["pharmacist-own-medications", partnerId],
+    enabled: !!partnerId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("pharmacy_medications")
+        .select("*")
+        .eq("pharmacy_partner_id", partnerId as string)
+        .order("drug_name");
+      if (error) throw error;
+      return data as PharmacyMedicationRow[];
+    },
+  });
+}
+
+export function useSetPharmacistMedicationActive() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("pharmacy_medications")
+        .update({ is_active: isActive })
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["pharmacist-own-medications"] }),
   });
 }

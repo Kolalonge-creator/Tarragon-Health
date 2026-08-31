@@ -14,6 +14,10 @@ export const colors = {
   border: "#E7E5E4",
   background: "#FAF7F2",
   card: "#FFFFFF",
+  /** Flat fill for grouped-list rows and quick-action tiles — a step back
+   * from `card` so a row reads as recessed content rather than another
+   * elevated card sitting on the screen background. */
+  groupBg: "#F1ECE3",
   danger: "#B3261E",
   success: "#0E7C52",
 } as const;

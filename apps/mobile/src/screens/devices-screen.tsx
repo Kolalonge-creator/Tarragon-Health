@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Device } from "react-native-ble-plx";
 import type { Tables } from "@tarragon/shared";
@@ -8,7 +8,16 @@ import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
 import { colors, spacing } from "@/ui/theme";
-import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import {
+  Card,
+  ErrorText,
+  GroupedList,
+  GroupedListRow,
+  MutedText,
+  PrimaryButton,
+  SecondaryButton,
+  SectionLabel,
+} from "@/ui/components";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -105,69 +114,57 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
   }
 
   return (
-    <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>
-      <ScreenTitle>Your devices</ScreenTitle>
-      {loading ? (
-        <ActivityIndicator color={colors.brand} />
-      ) : (
-        <FlatList
-          data={devices}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{ gap: 10 }}
-          // Scrolls with the list rather than sitting fixed above it: on a
-          // small screen a pinned card would push the paired devices —
-          // the reason someone opened this tab — below the fold.
-          ListHeaderComponent={
-            <View style={{ gap: 10, marginBottom: 10 }}>
-              <AppleHealthCard />
-              <AndroidHealthConnectCard />
-            </View>
-          }
-          ListEmptyComponent={
-            <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
-              <Ionicons name="bluetooth-outline" size={28} color={colors.faint} />
-              <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
-                No devices paired yet
-              </Text>
-              <MutedText>
-                Pair your BP cuff, glucometer, scale, thermometer, or pulse oximeter to sync readings automatically.
-              </MutedText>
-            </Card>
-          }
-          renderItem={({ item }) => (
-            <Pressable accessibilityRole="button" onPress={() => onOpenDevice(item)}>
-              {({ pressed }) => (
-                <Card style={{ opacity: pressed ? 0.7 : 1 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-                    <View
-                      style={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 20,
-                        backgroundColor: "#E8F3EE",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Ionicons name={deviceIcon(item.device_type)} size={20} color={colors.brand} />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
-                        {item.nickname ?? item.model ?? deviceLabel(item.device_type)}
-                      </Text>
-                      <Text style={{ color: colors.muted, fontSize: 13 }}>
-                        {deviceLabel(item.device_type)} · Last synced:{" "}
-                        {item.last_synced_at ? new Date(item.last_synced_at).toLocaleDateString() : "never"}
-                      </Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={18} color={colors.faint} />
+    <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
+      <View>
+        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Devices</Text>
+        <MutedText>Everything syncing readings into your record automatically.</MutedText>
+      </View>
+
+      <AppleHealthCard />
+      <AndroidHealthConnectCard />
+
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Paired devices</SectionLabel>
+        {loading ? (
+          <ActivityIndicator color={colors.brand} />
+        ) : devices.length === 0 ? (
+          <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
+            <Ionicons name="bluetooth-outline" size={28} color={colors.faint} />
+            <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>No devices paired yet</Text>
+            <MutedText>
+              Pair your BP cuff, glucometer, scale, thermometer, or pulse oximeter to sync readings automatically.
+            </MutedText>
+          </Card>
+        ) : (
+          <GroupedList>
+            {devices.map((item) => (
+              <GroupedListRow
+                key={item.id}
+                title={item.nickname ?? item.model ?? deviceLabel(item.device_type)}
+                subtitle={`${deviceLabel(item.device_type)} · Last synced: ${
+                  item.last_synced_at ? new Date(item.last_synced_at).toLocaleDateString() : "never"
+                }`}
+                onPress={() => onOpenDevice(item)}
+                leading={
+                  <View
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 18,
+                      backgroundColor: "#E8F3EE",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Ionicons name={deviceIcon(item.device_type)} size={18} color={colors.brand} />
                   </View>
-                </Card>
-              )}
-            </Pressable>
-          )}
-        />
-      )}
+                }
+              />
+            ))}
+          </GroupedList>
+        )}
+      </View>
+
       <PrimaryButton title="Pair a new device" onPress={() => setPairing(true)} />
 
       <Modal visible={pairing} animationType="slide" onRequestClose={() => setPairing(false)}>
@@ -207,6 +204,6 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
           <SecondaryButton title="Cancel" onPress={() => setPairing(false)} />
         </View>
       </Modal>
-    </View>
+    </ScrollView>
   );
 }

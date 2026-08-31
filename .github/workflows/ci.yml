@@ -60,6 +60,22 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Audit dependencies (pip-audit)
+        run: |
+          uv pip install pip-audit
+          uv run pip-audit
+        # `uv pip install` puts pip-audit into the same uv-managed venv `uv sync`
+        # just built (without touching pyproject.toml/uv.lock — this is CI-only
+        # tooling, not a project dependency), so `uv run pip-audit` then audits
+        # this project's *actual* installed dependencies (fastapi, pydantic,
+        # scipy, sentry-sdk, uvicorn, ...) rather than an empty/unrelated
+        # environment. Confirmed live 2026-08-29 (0 known vulnerabilities in the
+        # current dependency set — see PR description). pip-audit has no
+        # built-in severity threshold to filter on (checked `pip-audit --help`);
+        # its default behavior is to fail (non-zero exit) on any known
+        # vulnerability at all, which is deliberately left as-is here rather
+        # than suppressed or narrowed.
+
       - name: Ruff
         run: uv run ruff check .
 
@@ -68,3 +84,20 @@ jobs:
 
       - name: Pytest
         run: uv run pytest
+
+  supabase-db:
+    name: Supabase migration replay
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase stack
+        run: supabase start
+
+      - name: Replay all migrations + seed
+        run: supabase db reset

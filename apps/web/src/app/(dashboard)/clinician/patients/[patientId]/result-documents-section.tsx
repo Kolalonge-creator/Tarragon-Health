@@ -4,14 +4,27 @@ import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { MarkResultReviewed } from "./mark-result-reviewed";
+import { MarkActionCompletedButton } from "./mark-action-completed-button";
 import { LabReportExtractionPanel, type ExtractionView } from "./lab-report-extraction-panel";
 import type { ExtractedRow } from "@/lib/lab-reports/extract";
+import type { Database } from "@tarragon/shared";
 
 const SOURCE_LABEL: Record<string, string> = {
   patient: "Patient uploaded",
   lab_liaison: "Lab liaison",
   clinician: "Clinician",
   admin: "Admin",
+};
+
+type AckStatus = Database["public"]["Enums"]["result_document_acknowledgement_status"];
+
+/** Care Team / Provider Workspace §5.7's five states, in order. */
+const ACK_STATUS_BADGE: Record<AckStatus, { label: string; variant: "grey" | "blue" | "green" | "amber" }> = {
+  new: { label: "New", variant: "grey" },
+  opened: { label: "Opened", variant: "blue" },
+  reviewed: { label: "Reviewed", variant: "green" },
+  action_required: { label: "Action required", variant: "amber" },
+  action_completed: { label: "Action completed", variant: "green" },
 };
 
 function formatDate(value: string): string {
@@ -37,6 +50,24 @@ function ageFromDob(dateOfBirth: string | null): number | null {
 export async function ResultDocumentsSection({ patientId }: { patientId: string }) {
   const supabase = await createClient();
   const documents = await loadResultDocuments(supabase, patientId);
+
+  // Read-access audit (Care Team / Provider Workspace §5.20), same shape and
+  // same best-effort-never-blocks-the-view rule as log_patient_record_view
+  // (20260812034612): one call per document a signed URL was actually
+  // generated for — that's the point at which access was granted and shown,
+  // not merely listed. See 20260827202722_clinician_audit_gaps.sql.
+  await Promise.all(
+    documents
+      .filter((doc) => doc.signedUrl)
+      .map(async (doc) => {
+        const { error } = await supabase.rpc("log_result_document_viewed", {
+          p_document_id: doc.id,
+        });
+        if (error) {
+          console.error("Failed to log result document view", error);
+        }
+      }),
+  );
 
   // Extraction drafts, keyed by document. Org-staff RLS on
   // lab_report_extractions is the gate — a patient never sees these.
@@ -96,8 +127,8 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                   <p className="text-sm font-medium text-charcoal-ink">
                     {doc.originalFilename ?? "Result"}
                   </p>
-                  <Badge variant={doc.reviewedAt ? "green" : "amber"}>
-                    {doc.reviewedAt ? "Reviewed" : "Awaiting review"}
+                  <Badge variant={ACK_STATUS_BADGE[doc.acknowledgementStatus].variant}>
+                    {ACK_STATUS_BADGE[doc.acknowledgementStatus].label}
                   </Badge>
                 </div>
                 <p className="text-xs text-charcoal-ink/60">
@@ -138,6 +169,9 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                           </p>
                         )}
                       </div>
+                    )}
+                    {doc.acknowledgementStatus === "action_required" && (
+                      <MarkActionCompletedButton documentId={doc.id} />
                     )}
                   </div>
                 ) : (

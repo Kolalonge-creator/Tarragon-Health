@@ -38,6 +38,12 @@ export async function logAiCoachEscalation(
       title: "AI Coach: possible emergency reported",
       detail,
       sla_due_at: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(),
+      // Explicit rather than left to the trigger's title-pattern fallback:
+      // this is a patient self-report surfaced through conversation, the
+      // same real-world event category as an emergency_events/danger-symptom
+      // report (8.1 symptom_escalation).
+      category: "clinical",
+      type_code: "symptom_escalation",
     })
     .select("id")
     .single();
@@ -117,6 +123,8 @@ export async function logAiCoachReviewFlag(
       // level elsewhere (private.handle_lpe_red_flag()'s amber mapping) —
       // not urgent, but must not silently vanish.
       sla_due_at: new Date(Date.now() + 72 * 60 * 60 * 1000).toISOString(),
+      category: "clinical",
+      type_code: "symptom_escalation",
     })
     .select("id")
     .single();

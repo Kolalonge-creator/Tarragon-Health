@@ -4,6 +4,8 @@ import {
   accountingSummarySchema,
   acquisitionFunnelSchema,
   activeUsersTimeseriesSchema,
+  alertBurdenSchema,
+  alertQualitySchema,
   auditLogSchema,
   auditSummarySchema,
   businessSummarySchema,
@@ -16,6 +18,7 @@ import {
   featureAdoptionSchema,
   financeInputsSchema,
   financialSummarySchema,
+  geoHealthAggregatesSchema,
   governanceSummarySchema,
   growthTimeseriesSchema,
   investorSummarySchema,
@@ -23,8 +26,10 @@ import {
   patientActivitySchema,
   patientSearchSchema,
   populationSummarySchema,
+  providerCapacitySchema,
   retentionCohortsSchema,
   riskRegisterSchema,
+  safetyDashboardSummarySchema,
   staffActivitySchema,
   userSegmentsSchema,
   revenueByPlanSchema,
@@ -109,6 +114,18 @@ export function usePopulationSummary() {
       const { data, error } = await createClient().rpc("analytics_population_summary");
       if (error) throw error;
       return populationSummarySchema.parse(data);
+    },
+  });
+}
+
+/** State-level risk/screening-gap concentration (spec §2.17) — see get_geo_health_aggregates(). */
+export function useGeoHealthAggregates() {
+  return useQuery({
+    queryKey: ["analytics", "geo-health-aggregates"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("get_geo_health_aggregates");
+      if (error) throw error;
+      return geoHealthAggregatesSchema.parse(data);
     },
   });
 }
@@ -362,6 +379,18 @@ export function useDoctorPerformance() {
   });
 }
 
+// ---- Provider capacity (docs/CLINICAL_NETWORK_SPEC.md §4.17) --------------
+export function useProviderCapacity() {
+  return useQuery({
+    queryKey: ["analytics", "provider-capacity"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_provider_capacity");
+      if (error) throw error;
+      return providerCapacitySchema.parse(data);
+    },
+  });
+}
+
 // ---- Staff (Tarragon team) activity ---------------------------------------
 export function useStaffActivity() {
   return useQuery({
@@ -382,6 +411,40 @@ export function useGovernanceSummary() {
       const { data, error } = await createClient().rpc("analytics_governance_summary");
       if (error) throw error;
       return governanceSummarySchema.parse(data);
+    },
+  });
+}
+
+// ---- Patient safety (docs spec §89.14) -------------------------------------
+export function useSafetyDashboardSummary() {
+  return useQuery({
+    queryKey: ["analytics", "safety-dashboard-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_safety_dashboard_summary");
+      if (error) throw error;
+      return safetyDashboardSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useAlertBurden() {
+  return useQuery({
+    queryKey: ["analytics", "alert-burden"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_alert_burden");
+      if (error) throw error;
+      return alertBurdenSchema.parse(data);
+    },
+  });
+}
+
+export function useAlertQuality() {
+  return useQuery({
+    queryKey: ["analytics", "alert-quality"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_alert_quality");
+      if (error) throw error;
+      return alertQualitySchema.parse(data);
     },
   });
 }
