@@ -151,9 +151,16 @@ begin
   --------------------------------------------------------------------------
   -- 4. gone quiet
   --------------------------------------------------------------------------
+  -- source = 'device', not 'manual': 20260831001537_vitals_symptoms_
+  -- timestamp_hardening.sql forces manual-source taken_at to the real
+  -- insert time (closing a spoofing gap that has no legitimate manual-entry
+  -- use case), so a manual row can no longer be backdated to simulate lapsed
+  -- engagement. private.queue_sponsor_quiet_nudges() reads max(taken_at)
+  -- with no source filter, so this is equivalent for what this check
+  -- actually exercises.
   insert into public.vitals_readings
     (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at)
-  values (v_org, v_mum, 'blood_pressure', 156, 96, 'manual', now() - interval '40 days');
+  values (v_org, v_mum, 'blood_pressure', 156, 96, 'device', now() - interval '40 days');
 
   perform private.queue_sponsor_quiet_nudges();
   insert into results

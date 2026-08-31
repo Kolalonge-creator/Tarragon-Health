@@ -14843,6 +14843,81 @@ export type Database = {
           },
         ]
       }
+      patient_reminder_group_members: {
+        Row: {
+          added_at: string
+          group_id: string
+          patient_id: string
+        }
+        Insert: {
+          added_at?: string
+          group_id: string
+          patient_id: string
+        }
+        Update: {
+          added_at?: string
+          group_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_reminder_group_members_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "patient_reminder_groups"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_reminder_group_members_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_reminder_groups: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+          organisation_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+          organisation_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
+          organisation_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_reminder_groups_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_reminder_groups_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_result_explanations: {
         Row: {
           created_at: string
@@ -20154,6 +20229,7 @@ export type Database = {
           condition: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at: string
           frequency_days: number
+          group_id: string | null
           id: string
           organisation_id: string
           patient_id: string | null
@@ -20163,6 +20239,7 @@ export type Database = {
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at?: string
           frequency_days: number
+          group_id?: string | null
           id?: string
           organisation_id: string
           patient_id?: string | null
@@ -20172,12 +20249,20 @@ export type Database = {
           condition?: Database["public"]["Enums"]["care_plan_condition"] | null
           created_at?: string
           frequency_days?: number
+          group_id?: string | null
           id?: string
           organisation_id?: string
           patient_id?: string | null
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "vitals_reminder_rules_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "patient_reminder_groups"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vitals_reminder_rules_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -20877,6 +20962,52 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_logs_latest_per_slot: {
+        Row: {
+          created_at: string | null
+          id: string | null
+          logged_at: string | null
+          logged_by_profile_id: string | null
+          medication_id: string | null
+          missed_reason: string | null
+          organisation_id: string | null
+          patient_id: string | null
+          reason: string | null
+          scheduled_for_date: string | null
+          scheduled_time: string | null
+          status: Database["public"]["Enums"]["medication_log_status"] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_logs_logged_by_profile_id_fkey"
+            columns: ["logged_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_logs_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
