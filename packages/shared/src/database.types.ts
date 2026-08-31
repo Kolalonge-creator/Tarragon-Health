@@ -3440,6 +3440,153 @@ export type Database = {
         }
         Relationships: []
       }
+      chronic_programme_coordinator_tasks: {
+        Row: {
+          created_at: string
+          done_at: string | null
+          done_by: string | null
+          id: string
+          occurrence_id: string
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["chronic_coordinator_task_status"]
+          task_type: Database["public"]["Enums"]["chronic_coordinator_task_type"]
+        }
+        Insert: {
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          occurrence_id: string
+          organisation_id: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["chronic_coordinator_task_status"]
+          task_type: Database["public"]["Enums"]["chronic_coordinator_task_type"]
+        }
+        Update: {
+          created_at?: string
+          done_at?: string | null
+          done_by?: string | null
+          id?: string
+          occurrence_id?: string
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["chronic_coordinator_task_status"]
+          task_type?: Database["public"]["Enums"]["chronic_coordinator_task_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chronic_programme_coordinator_tasks_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_coordinator_tasks_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_programme_schedule_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_coordinator_tasks_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_coordinator_tasks_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chronic_programme_end_reviews: {
+        Row: {
+          created_at: string
+          enrolment_id: string
+          id: string
+          occurrence_id: string
+          organisation_id: string
+          patient_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risk_score_id: string | null
+          summary: string | null
+        }
+        Insert: {
+          created_at?: string
+          enrolment_id: string
+          id?: string
+          occurrence_id: string
+          organisation_id: string
+          patient_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_score_id?: string | null
+          summary?: string | null
+        }
+        Update: {
+          created_at?: string
+          enrolment_id?: string
+          id?: string
+          occurrence_id?: string
+          organisation_id?: string
+          patient_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_score_id?: string | null
+          summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chronic_programme_end_reviews_enrolment_id_fkey"
+            columns: ["enrolment_id"]
+            isOneToOne: true
+            referencedRelation: "chronic_programme_enrolments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_end_reviews_occurrence_id_fkey"
+            columns: ["occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_programme_schedule_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_end_reviews_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_end_reviews_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_end_reviews_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_end_reviews_risk_score_id_fkey"
+            columns: ["risk_score_id"]
+            isOneToOne: false
+            referencedRelation: "patient_risk_scores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chronic_programme_enrolments: {
         Row: {
           care_plan_id: string | null
@@ -3449,9 +3596,12 @@ export type Database = {
           notes: string | null
           organisation_id: string
           patient_id: string
+          programme_ends_at: string | null
           programme_id: string
+          programme_started_at: string | null
           source: Database["public"]["Enums"]["chronic_enrolment_source"]
           status: Database["public"]["Enums"]["chronic_enrolment_status"]
+          track: Database["public"]["Enums"]["chronic_programme_track"]
           updated_at: string
           withdrawn_at: string | null
         }
@@ -3463,9 +3613,12 @@ export type Database = {
           notes?: string | null
           organisation_id: string
           patient_id: string
+          programme_ends_at?: string | null
           programme_id: string
+          programme_started_at?: string | null
           source?: Database["public"]["Enums"]["chronic_enrolment_source"]
           status?: Database["public"]["Enums"]["chronic_enrolment_status"]
+          track?: Database["public"]["Enums"]["chronic_programme_track"]
           updated_at?: string
           withdrawn_at?: string | null
         }
@@ -3477,9 +3630,12 @@ export type Database = {
           notes?: string | null
           organisation_id?: string
           patient_id?: string
+          programme_ends_at?: string | null
           programme_id?: string
+          programme_started_at?: string | null
           source?: Database["public"]["Enums"]["chronic_enrolment_source"]
           status?: Database["public"]["Enums"]["chronic_enrolment_status"]
+          track?: Database["public"]["Enums"]["chronic_programme_track"]
           updated_at?: string
           withdrawn_at?: string | null
         }
@@ -3507,6 +3663,158 @@ export type Database = {
           },
           {
             foreignKeyName: "chronic_programme_enrolments_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_condition_programmes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chronic_programme_schedule_occurrences: {
+        Row: {
+          appointment_id: string | null
+          completed_at: string | null
+          created_at: string
+          due_date: string
+          enrolment_id: string
+          id: string
+          lab_order_id: string | null
+          occurrence_type: Database["public"]["Enums"]["chronic_schedule_occurrence_type"]
+          organisation_id: string
+          patient_id: string
+          status: Database["public"]["Enums"]["chronic_schedule_occurrence_status"]
+          template_id: string | null
+          updated_at: string
+          week_number: number
+        }
+        Insert: {
+          appointment_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          due_date: string
+          enrolment_id: string
+          id?: string
+          lab_order_id?: string | null
+          occurrence_type: Database["public"]["Enums"]["chronic_schedule_occurrence_type"]
+          organisation_id: string
+          patient_id: string
+          status?: Database["public"]["Enums"]["chronic_schedule_occurrence_status"]
+          template_id?: string | null
+          updated_at?: string
+          week_number: number
+        }
+        Update: {
+          appointment_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string
+          enrolment_id?: string
+          id?: string
+          lab_order_id?: string | null
+          occurrence_type?: Database["public"]["Enums"]["chronic_schedule_occurrence_type"]
+          organisation_id?: string
+          patient_id?: string
+          status?: Database["public"]["Enums"]["chronic_schedule_occurrence_status"]
+          template_id?: string | null
+          updated_at?: string
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chronic_programme_schedule_occurrences_appointment_id_fkey"
+            columns: ["appointment_id"]
+            isOneToOne: false
+            referencedRelation: "appointments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_schedule_occurrences_enrolment_id_fkey"
+            columns: ["enrolment_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_programme_enrolments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_schedule_occurrences_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_schedule_occurrences_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders_awaiting_transmission"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_schedule_occurrences_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_schedule_occurrences_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chronic_programme_schedule_occurrences_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_programme_schedule_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chronic_programme_schedule_templates: {
+        Row: {
+          created_at: string
+          id: string
+          is_required: boolean
+          notes: string | null
+          occurrence_type: Database["public"]["Enums"]["chronic_schedule_occurrence_type"]
+          panel_bundle_code: string | null
+          programme_id: string
+          track: Database["public"]["Enums"]["chronic_programme_track"]
+          week_number: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          notes?: string | null
+          occurrence_type: Database["public"]["Enums"]["chronic_schedule_occurrence_type"]
+          panel_bundle_code?: string | null
+          programme_id: string
+          track: Database["public"]["Enums"]["chronic_programme_track"]
+          week_number: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_required?: boolean
+          notes?: string | null
+          occurrence_type?: Database["public"]["Enums"]["chronic_schedule_occurrence_type"]
+          panel_bundle_code?: string | null
+          programme_id?: string
+          track?: Database["public"]["Enums"]["chronic_programme_track"]
+          week_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chronic_programme_schedule_templates_panel_bundle_code_fkey"
+            columns: ["panel_bundle_code"]
+            isOneToOne: false
+            referencedRelation: "panel_bundles"
+            referencedColumns: ["code"]
+          },
+          {
+            foreignKeyName: "chronic_programme_schedule_templates_programme_id_fkey"
             columns: ["programme_id"]
             isOneToOne: false
             referencedRelation: "chronic_condition_programmes"
@@ -9535,6 +9843,7 @@ export type Database = {
       }
       lab_orders: {
         Row: {
+          chronic_programme_occurrence_id: string | null
           applied_voucher_id: string | null
           courier_reference: string | null
           created_at: string
@@ -9585,6 +9894,7 @@ export type Database = {
           voucher_covered_kobo: number
         }
         Insert: {
+          chronic_programme_occurrence_id?: string | null
           applied_voucher_id?: string | null
           courier_reference?: string | null
           created_at?: string
@@ -9635,6 +9945,7 @@ export type Database = {
           voucher_covered_kobo?: number
         }
         Update: {
+          chronic_programme_occurrence_id?: string | null
           applied_voucher_id?: string | null
           courier_reference?: string | null
           created_at?: string
@@ -9685,6 +9996,13 @@ export type Database = {
           voucher_covered_kobo?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "lab_orders_chronic_programme_occurrence_id_fkey"
+            columns: ["chronic_programme_occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_programme_schedule_occurrences"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lab_orders_facility_id_fkey"
             columns: ["facility_id"]
@@ -11818,6 +12136,81 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_dose_history: {
+        Row: {
+          changed_by: string | null
+          changed_reason: string | null
+          chronic_programme_occurrence_id: string | null
+          created_at: string
+          id: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Insert: {
+          changed_by?: string | null
+          changed_reason?: string | null
+          chronic_programme_occurrence_id?: string | null
+          created_at?: string
+          id?: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          snapshot: Json
+          version_number: number
+        }
+        Update: {
+          changed_by?: string | null
+          changed_reason?: string | null
+          chronic_programme_occurrence_id?: string | null
+          created_at?: string
+          id?: string
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          snapshot?: Json
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_dose_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_dose_history_chronic_programme_occurrence_id_fkey"
+            columns: ["chronic_programme_occurrence_id"]
+            isOneToOne: false
+            referencedRelation: "chronic_programme_schedule_occurrences"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_dose_history_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_dose_history_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_dose_history_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -21958,6 +22351,10 @@ export type Database = {
           id: string
         }[]
       }
+      generate_chronic_programme_lab_order: {
+        Args: { p_occurrence_id: string }
+        Returns: string
+      }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       get_available_appointment_slots: {
         Args: {
@@ -21972,6 +22369,16 @@ export type Database = {
           clinician_id: string
           clinician_name: string
           consultation_method: Database["public"]["Enums"]["appointment_consultation_method"]
+          location: string
+          slot_end: string
+          slot_start: string
+        }[]
+      }
+      get_available_doctor_checkin_slots: {
+        Args: { p_from?: string; p_organisation_id: string; p_to?: string }
+        Returns: {
+          clinician_id: string
+          clinician_name: string
           location: string
           slot_end: string
           slot_start: string
@@ -23379,8 +23786,23 @@ export type Database = {
         | "at_target"
         | "above_target"
         | "not_yet_established"
+      chronic_coordinator_task_status: "open" | "done" | "dismissed"
+      chronic_coordinator_task_type:
+        | "missed_lab_panel"
+        | "missed_doctor_checkin"
+        | "lab_panel_due_soon"
       chronic_enrolment_source: "recommended" | "staff" | "clinician"
       chronic_enrolment_status: "enrolled" | "completed" | "withdrawn"
+      chronic_programme_track: "self_monitoring" | "doctor_supported"
+      chronic_schedule_occurrence_status:
+        | "pending"
+        | "completed"
+        | "missed"
+        | "skipped"
+      chronic_schedule_occurrence_type:
+        | "lab_panel"
+        | "doctor_checkin"
+        | "programme_end_review"
       clinical_resource_type: "room" | "equipment"
       clinical_severity: "mild" | "moderate" | "severe"
       commission_rate_type: "percentage" | "flat"
@@ -24476,8 +24898,26 @@ export const Constants = {
         "above_target",
         "not_yet_established",
       ],
+      chronic_coordinator_task_status: ["open", "done", "dismissed"],
+      chronic_coordinator_task_type: [
+        "missed_lab_panel",
+        "missed_doctor_checkin",
+        "lab_panel_due_soon",
+      ],
       chronic_enrolment_source: ["recommended", "staff", "clinician"],
       chronic_enrolment_status: ["enrolled", "completed", "withdrawn"],
+      chronic_programme_track: ["self_monitoring", "doctor_supported"],
+      chronic_schedule_occurrence_status: [
+        "pending",
+        "completed",
+        "missed",
+        "skipped",
+      ],
+      chronic_schedule_occurrence_type: [
+        "lab_panel",
+        "doctor_checkin",
+        "programme_end_review",
+      ],
       clinical_resource_type: ["room", "equipment"],
       clinical_severity: ["mild", "moderate", "severe"],
       commission_rate_type: ["percentage", "flat"],
