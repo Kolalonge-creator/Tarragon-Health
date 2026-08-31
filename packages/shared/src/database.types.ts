@@ -18479,6 +18479,152 @@ export type Database = {
           },
         ]
       }
+      service_products: {
+        Row: {
+          access_duration_days: number | null
+          ai_coach_daily_limit: number | null
+          code: string
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          description: string | null
+          features: string[]
+          id: string
+          is_active: boolean
+          name: string
+          price_kobo: number
+          stripe_price_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_duration_days?: number | null
+          ai_coach_daily_limit?: number | null
+          code: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          description?: string | null
+          features?: string[]
+          id?: string
+          is_active?: boolean
+          name: string
+          price_kobo?: number
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_duration_days?: number | null
+          ai_coach_daily_limit?: number | null
+          code?: string
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          description?: string | null
+          features?: string[]
+          id?: string
+          is_active?: boolean
+          name?: string
+          price_kobo?: number
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      service_purchases: {
+        Row: {
+          amount_kobo: number
+          cancelled_at: string | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          expires_at: string | null
+          id: string
+          organisation_id: string
+          patient_id: string
+          payment_provider:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          purchased_at: string | null
+          purchaser_profile_id: string | null
+          scoped_entity_id: string | null
+          scoped_entity_type: string | null
+          service_product_id: string
+          status: Database["public"]["Enums"]["service_purchase_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount_kobo: number
+          cancelled_at?: string | null
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency"]
+          expires_at?: string | null
+          id?: string
+          organisation_id: string
+          patient_id: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          purchased_at?: string | null
+          purchaser_profile_id?: string | null
+          scoped_entity_id?: string | null
+          scoped_entity_type?: string | null
+          service_product_id: string
+          status?: Database["public"]["Enums"]["service_purchase_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount_kobo?: number
+          cancelled_at?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          expires_at?: string | null
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          purchased_at?: string | null
+          purchaser_profile_id?: string | null
+          scoped_entity_id?: string | null
+          scoped_entity_type?: string | null
+          service_product_id?: string
+          status?: Database["public"]["Enums"]["service_purchase_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_purchases_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchases_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchases_purchaser_profile_id_fkey"
+            columns: ["purchaser_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_purchases_service_product_id_fkey"
+            columns: ["service_product_id"]
+            isOneToOne: false
+            referencedRelation: "service_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       service_regions: {
         Row: {
           activated_at: string | null
@@ -22438,6 +22584,15 @@ export type Database = {
         Args: { p_device_fingerprint: string; p_ip: string; p_user_agent: string }
         Returns: boolean
       }
+      record_service_purchase_intent: {
+        Args: {
+          p_patient_id: string
+          p_scoped_entity_id?: string
+          p_scoped_entity_type?: string
+          p_service_product_code: string
+        }
+        Returns: string
+      }
       record_voucher_payment_intent: {
         Args: {
           p_amount_minor: number
@@ -23770,6 +23925,12 @@ export type Database = {
         | "completed"
         | "overdue"
         | "cancelled"
+      service_purchase_status:
+        | "pending_payment"
+        | "active"
+        | "expired"
+        | "cancelled"
+        | "refunded"
       sex: "male" | "female"
       specialist_type:
         | "urologist"
@@ -24930,6 +25091,13 @@ export const Constants = {
         "completed",
         "overdue",
         "cancelled",
+      ],
+      service_purchase_status: [
+        "pending_payment",
+        "active",
+        "expired",
+        "cancelled",
+        "refunded",
       ],
       sex: ["male", "female"],
       specialist_type: [
