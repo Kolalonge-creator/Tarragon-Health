@@ -82,13 +82,32 @@ function sh(cmd, args, opts = {}) {
 }
 
 function parseRows(raw) {
-  const lines = raw.split("\n");
-  const startIdx = lines.findIndex((l) => l.trim() === "{");
-  if (startIdx === -1) {
+  // Extract exactly the first balanced top-level {...} object by brace-counting, rather than
+  // assuming the JSON is either the whole remaining output (breaks if the CLI appends anything
+  // after it, e.g. a trailing banner line — seen intermittently in CI but not reproduced locally,
+  // 2026-08-31) or confined to one line (it's pretty-printed, one key per line).
+  const start = raw.indexOf("{");
+  if (start === -1) {
     console.error("Could not find JSON output in `supabase db query` output:\n" + raw);
     process.exit(2);
   }
-  const parsed = JSON.parse(lines.slice(startIdx).join("\n"));
+  let depth = 0;
+  let end = -1;
+  for (let i = start; i < raw.length; i++) {
+    if (raw[i] === "{") depth++;
+    else if (raw[i] === "}") {
+      depth--;
+      if (depth === 0) {
+        end = i;
+        break;
+      }
+    }
+  }
+  if (end === -1) {
+    console.error("Unbalanced JSON in `supabase db query` output:\n" + raw);
+    process.exit(2);
+  }
+  const parsed = JSON.parse(raw.slice(start, end + 1));
   return parsed.rows;
 }
 
