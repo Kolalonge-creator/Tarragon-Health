@@ -82,21 +82,27 @@ function sh(cmd, args, opts = {}) {
 }
 
 function parseRows(raw) {
-  // The CLI can print more than one top-level JSON object on a cold connection (e.g. a
-  // preliminary status/role-refresh blob before the actual result) — reproduced only in CI, not
-  // locally with an already-warm token, 2026-08-31. Rather than assume the first (or only, or
-  // last-line) object is the result, scan every top-level balanced {...} object in the output by
-  // brace-counting and return the `rows` field of the first one that actually has one.
+  // `supabase db query --output-format json` has been observed emitting two different shapes for
+  // the exact same query/CLI-version-tag across separate invocations (a bare top-level array of
+  // rows, and a `{boundary, rows, warning}` wrapper object) -- CI and a locally-tested run
+  // disagreed on this the same day, 2026-08-31, most likely because the npm package version
+  // doesn't pin the underlying downloaded Go binary. A cold connection can also print a
+  // preliminary status/role-refresh blob before the real result. Rather than assume any one
+  // shape or position, scan every top-level balanced {...}/[...] structure in the output by
+  // bracket-counting and use the first one that's either an array itself or has a `.rows` array.
   const candidates = [];
   let i = 0;
   while (i < raw.length) {
-    const start = raw.indexOf("{", i);
+    const start = raw.slice(i).search(/[{[]/);
     if (start === -1) break;
+    const absStart = i + start;
+    const open = raw[absStart];
+    const close = open === "{" ? "}" : "]";
     let depth = 0;
     let end = -1;
-    for (let j = start; j < raw.length; j++) {
-      if (raw[j] === "{") depth++;
-      else if (raw[j] === "}") {
+    for (let j = absStart; j < raw.length; j++) {
+      if (raw[j] === open) depth++;
+      else if (raw[j] === close) {
         depth--;
         if (depth === 0) {
           end = j;
@@ -105,7 +111,7 @@ function parseRows(raw) {
       }
     }
     if (end === -1) break;
-    candidates.push(raw.slice(start, end + 1));
+    candidates.push(raw.slice(absStart, end + 1));
     i = end + 1;
   }
   for (const text of candidates) {
@@ -115,9 +121,10 @@ function parseRows(raw) {
     } catch {
       continue;
     }
+    if (Array.isArray(parsed)) return parsed;
     if (Array.isArray(parsed?.rows)) return parsed.rows;
   }
-  console.error(`Could not find a JSON object with a "rows" array in \`supabase db query\` output:\n${raw}`);
+  console.error(`Could not find a rows array in \`supabase db query\` output:\n${raw}`);
   process.exit(2);
 }
 
