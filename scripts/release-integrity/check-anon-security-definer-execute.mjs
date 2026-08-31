@@ -33,7 +33,7 @@
 // anon-executable.
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "node:fs";
+import { writeFileSync, rmSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -104,9 +104,17 @@ export function evaluate(rows) {
 }
 
 function main() {
-  const tempDir = join(REPO_ROOT, "supabase", ".temp");
-  mkdirSync(tempDir, { recursive: true });
-  writeFileSync(join(tempDir, "project-ref"), PROJECT_REF);
+  if (!process.env.SUPABASE_ACCESS_TOKEN) {
+    console.error("SUPABASE_ACCESS_TOKEN is not set — cannot check anon EXECUTE grants.");
+    process.exit(2);
+  }
+
+  // Hand-writing supabase/.temp/project-ref (skipping `supabase link`) leaves the CLI without
+  // pooler connection info, so `db query --linked` falls back to a direct IPv6-only DB connection
+  // that GitHub-hosted runners can't reach (LegacyDbConfigIpv6Error). Running `link` itself,
+  // non-interactively, makes the CLI default to the IPv4-compatible pooler instead — confirmed
+  // 2026-08-31 by reproducing the failure and the fix locally against the live project.
+  sh("npx", ["--yes", "supabase", "link", "--project-ref", PROJECT_REF, "--yes", "--workdir", REPO_ROOT]);
 
   const queryDir = mkdtempSync(join(tmpdir(), "anon-execute-check-"));
   const queryFile = join(queryDir, "query.sql");
