@@ -1,4 +1,6 @@
+import Image from "next/image";
 import Link from "next/link";
+import { Card, CardContent } from "@/components/ui/card";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 /**
@@ -53,16 +55,33 @@ const TRUST_ITEMS = [
 export function TrustBand() {
   return (
     <div>
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {TRUST_ITEMS.map((item) => (
-          <div key={item.title} className="rounded-xl border border-white/15 bg-white/5 p-6">
-            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white" aria-hidden>
-              {item.icon}
-            </span>
-            <h3 className="mt-4 font-heading text-lg font-semibold text-white">{item.title}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-white/70">{item.body}</p>
+      <div className="grid items-stretch gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:gap-10">
+        <div className="relative overflow-hidden rounded-2xl">
+          <Image
+            src="/marketing/photos/body/trust-care-team.jpg"
+            alt="Clinicians talking together in a bright hospital hallway"
+            width={1120}
+            height={1400}
+            className="h-full min-h-[280px] w-full object-cover"
+            sizes="(min-width: 1024px) 420px, 100vw"
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-clinical-navy/90 to-transparent p-5">
+            <p className="text-sm font-medium text-white/85">Your care team, whoever&apos;s covering</p>
           </div>
-        ))}
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
+          {TRUST_ITEMS.map((item) => (
+            <Card key={item.title} variant="dark" className="hover:shadow-none">
+              <CardContent className="p-6">
+                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white" aria-hidden>
+                  {item.icon}
+                </span>
+                <h3 className="mt-4 font-heading text-lg font-semibold text-white">{item.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-white/70">{item.body}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
       <p className="mt-8 text-center text-sm text-white/60">
         Read the full{" "}
