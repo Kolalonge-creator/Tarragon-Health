@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 
 export type StandDownState = { error?: string; success?: boolean } | undefined;
 
@@ -12,11 +13,14 @@ const schema = z.object({
 });
 
 /**
- * Stand down an LPE red flag. Clinical judgement, so it is gated on an active
- * clinical_staff record (a Care Coordinator is excluded). `stood_down_by` is
- * server-derived from the caller's clinical_staff row — never client-supplied,
- * the same forge-proof rule as ReviewedByDoctor. The DB trigger additionally
- * enforces actor + reason and stamps the time; nothing here can auto-close.
+ * Stand down an LPE red flag. Clinical judgement, so it is gated on
+ * isClinicalTier, not a bare "has an active clinical_staff row" check — a
+ * Care Coordinator has one of those too (see lifestyle-reviews/actions.ts).
+ * `stood_down_by` is server-derived from the caller's clinical_staff row —
+ * never client-supplied, the same forge-proof rule as ReviewedByDoctor. The
+ * DB trigger (private.enforce_lpe_red_flag_stand_down) only enforces that an
+ * actor + reason are present and stamps the time — it does not itself check
+ * clinical tier, so this app-layer check is the real enforcement boundary.
  */
 export async function standDownFlag(
   _prev: StandDownState,
@@ -35,11 +39,11 @@ export async function standDownFlag(
 
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("id")
+    .select("id, doctor_tier, is_clinical_director")
     .eq("profile_id", user.id)
     .eq("active", true)
     .maybeSingle();
-  if (!staff) {
+  if (!staff || !isClinicalTier(staff)) {
     return { error: "Only a Tarragon care-team doctor can stand down a safety flag" };
   }
 
