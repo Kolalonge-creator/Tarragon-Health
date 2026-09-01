@@ -282,9 +282,9 @@ export default async function MarketingHomePage({
               Take Tarragon with you
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Add TarragonHealth to your phone&apos;s home screen and check in wherever you are.
-              No app store, no separate download, the same secure record you already use on the
-              web, with your care team in your pocket whenever you need them.
+              Download the TarragonHealth app for iPhone and Android and check in wherever you are.
+              The same secure record you already use on the web, with your care team in your
+              pocket whenever you need them.
             </p>
             <ul className="mt-6 grid gap-3 sm:grid-cols-2">
               {[
@@ -306,8 +306,8 @@ export default async function MarketingHomePage({
               </Button>
             </div>
             <p className="mt-3 text-sm text-charcoal-ink/55">
-              Already have an account? Open tarragonhealth.ng on your phone, then tap Share →
-              Add to Home Screen on iPhone, or Install app when Chrome prompts you on Android.
+              Already have an account? Search &quot;TarragonHealth&quot; in the App Store or Google
+              Play to sign in on your phone.
             </p>
           </div>
         </div>
