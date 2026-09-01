@@ -232,10 +232,30 @@ equivalent.
 This matters more for Nigeria than any single feature above. Three screens must work with zero
 signal and sync later:
 
-- **Quick vitals log** and **today's doses**: write to a local SQLite/AsyncStorage outbox first,
-  render optimistically, sync in the background (`expo-task-manager` or a foreground retry-on-reconnect
-  queue) with idempotency keys so a retried sync can't double-insert. Conflict resolution is simple
-  here — these are append-only event logs, not editable records, so last-write-wins isn't a concern.
+- **Quick vitals log — built (2026-09-01).** `lib/offline-vitals-queue.ts` writes to a local
+  `expo-sqlite` outbox first (`enqueueVitalReading`), rendering optimistically with a "N readings
+  waiting to sync" indicator on the Vitals screen; `flushPendingVitals()` drains it — called
+  opportunistically after every save, on app foreground (`App.tsx`), and from the shared periodic
+  `expo-background-task` (`background-sync.ts`). Idempotency key: a client-generated
+  `client_reading_id` UUID, deduped server-side by `vitals_readings_client_dedupe_idx` — a retried
+  flush after a dropped connection is a no-op, not a duplicate. Append-only event log, so
+  last-write-wins isn't a concern, same as this section originally assumed.
+  - **BP + glucose additionally get an on-device red-flag check and a native, bundled-copy
+    "go to the nearest hospital now" guidance modal** (`lib/glucose-red-flags.ts`,
+    `lib/bp-classification.ts`'s `BP_THRESHOLDS`, `screens/emergency-guidance-modal.tsx`) — the pre-
+    build survey for this found that the web `EmergencyAlert`/danger-symptom-check flow (§2.2) only
+    reaches mobile through the WebView, which itself needs network, so a red-flagged reading logged
+    natively while offline previously had no safety-net UI at all. The modal never creates or
+    acknowledges a server-side `emergency_events` row itself — that stays server-side, driven by the
+    same pipeline once the reading actually syncs; the modal is a client-only rendering layer with a
+    tap-to-dial fallback (bundled `lib/nigeria-emergency-numbers.ts` + the cached emergency contact
+    from `lib/emergency.ts`) for while it hasn't yet. Weight/temperature/SpO2/pulse get the same
+    offline queue but no on-device classification or modal.
+  - Thresholds are bundled in the binary as the default, with a periodic best-effort version check
+    against `/api/mobile/vitals-thresholds` (`lib/threshold-sync.ts`) so a stale build doesn't
+    silently drift from the server's `GLUCOSE_THRESHOLDS`/`BP_THRESHOLDS` if either changes.
+- **Today's doses**: still open — same outbox/idempotency-key shape as vitals logging above, not yet
+  built for the dose-marking screen.
 - **Emergency card**: cache the full rendered card (blood group, allergies, conditions, emergency
   contact, the `/emergency/[token]` share link/QR) on every successful app open, so it renders from
   cache with no network at all. This is the one screen where offline isn't a nice-to-have.
