@@ -48,7 +48,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
   const startThread = () => {
     setError(null);
     start.mutate(
-      { subject, body },
+      { subject, body, patientId },
       {
         onSuccess: (id) => {
           setSubject("");
