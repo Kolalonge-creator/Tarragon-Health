@@ -27931,6 +27931,7 @@ export type Database = {
       service_purchases: {
         Row: {
           amount_kobo: number
+          applied_voucher_id: string | null
           cancelled_at: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
@@ -27938,6 +27939,7 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
+          payable_kobo: number
           payment_provider:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -27953,9 +27955,11 @@ export type Database = {
           service_product_id: string
           status: Database["public"]["Enums"]["service_purchase_status"]
           updated_at: string
+          voucher_covered_kobo: number
         }
         Insert: {
           amount_kobo: number
+          applied_voucher_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           currency: Database["public"]["Enums"]["currency"]
@@ -27963,6 +27967,7 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
+          payable_kobo?: number
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -27978,9 +27983,11 @@ export type Database = {
           service_product_id: string
           status?: Database["public"]["Enums"]["service_purchase_status"]
           updated_at?: string
+          voucher_covered_kobo?: number
         }
         Update: {
           amount_kobo?: number
+          applied_voucher_id?: string | null
           cancelled_at?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
@@ -27988,6 +27995,7 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
+          payable_kobo?: number
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -28003,8 +28011,16 @@ export type Database = {
           service_product_id?: string
           status?: Database["public"]["Enums"]["service_purchase_status"]
           updated_at?: string
+          voucher_covered_kobo?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "service_purchases_applied_voucher_id_fkey"
+            columns: ["applied_voucher_id"]
+            isOneToOne: false
+            referencedRelation: "care_vouchers"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "service_purchases_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -36036,6 +36052,7 @@ export type Database = {
         | "referral"
         | "home_visit"
         | "delivery"
+        | "service_purchase"
       complaint_status:
         | "received"
         | "acknowledged"
@@ -37909,6 +37926,7 @@ export const Constants = {
         "referral",
         "home_visit",
         "delivery",
+        "service_purchase",
       ],
       complaint_status: [
         "received",

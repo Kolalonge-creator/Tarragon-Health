@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useMyServicePurchases, isPurchaseCurrentlyActive } from "@/lib/queries/service-purchases";
 import { useActiveServiceProducts, type ServiceProduct } from "@/lib/queries/service-products";
 import { buyServiceProduct } from "./actions";
@@ -8,6 +8,8 @@ import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 function formatPrice(priceKobo: number, currency: Currency): string {
   if (priceKobo === 0) return "Free";
@@ -34,10 +36,12 @@ export function SubscriptionManager() {
   const { data: purchases, isLoading, isError, refetch: refetchPurchases } = useMyServicePurchases();
   const { data: catalogue } = useActiveServiceProducts();
   const [buyState, buyAction, buyPending] = useActionState(buyServiceProduct, undefined);
+  const [promoCode, setPromoCode] = useState("");
 
   useEffect(() => {
     if (buyState?.message) {
       refetchPurchases();
+      setPromoCode("");
     }
   }, [buyState, refetchPurchases]);
 
@@ -95,6 +99,21 @@ export function SubscriptionManager() {
           <CardContent className="space-y-3">
             {buyState?.error && <p className="text-sm text-red-600">{buyState.error}</p>}
             {buyState?.message && <p className="text-sm text-charcoal-ink/70">{buyState.message}</p>}
+            {buyable.length > 0 && (
+              <div className="space-y-1">
+                <Label htmlFor="promo-code" className="text-xs text-charcoal-ink/60">
+                  Promo code (optional)
+                </Label>
+                <Input
+                  id="promo-code"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  placeholder="e.g. WELCOME10"
+                  className="h-9 max-w-xs"
+                  autoCapitalize="characters"
+                />
+              </div>
+            )}
             {buyable.length === 0 ? (
               <p className="text-sm text-charcoal-ink/60">
                 You already have everything currently on offer.
@@ -104,6 +123,7 @@ export function SubscriptionManager() {
                 {buyable.map((product: ServiceProduct) => (
                   <form key={product.id} action={buyAction} className="w-full sm:w-auto">
                     <input type="hidden" name="serviceProductCode" value={product.code} />
+                    <input type="hidden" name="promoCode" value={promoCode} />
                     <Button
                       type="submit"
                       size="sm"

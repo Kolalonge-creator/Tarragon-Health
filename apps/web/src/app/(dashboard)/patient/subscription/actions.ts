@@ -22,9 +22,12 @@ export async function buyServiceProduct(
   if (typeof serviceProductCode !== "string" || !serviceProductCode) {
     return { error: "Choose a service first" };
   }
+  const promoCodeRaw = formData.get("promoCode");
+  const promoCode = typeof promoCodeRaw === "string" && promoCodeRaw.trim() ? promoCodeRaw.trim() : undefined;
 
   const result = await purchaseServiceProduct({
     serviceProductCode,
+    promoCode,
     callbackPath: "/patient/subscription/checkout-callback",
   });
 

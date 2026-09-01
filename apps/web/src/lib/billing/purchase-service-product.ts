@@ -26,6 +26,7 @@ export async function purchaseServiceProduct(args: {
   scopedEntityType?: string;
   scopedEntityId?: string;
   callbackPath: string;
+  promoCode?: string;
 }): Promise<PurchaseServiceProductState> {
   const supabase = await createClient();
   const {
@@ -51,10 +52,26 @@ export async function purchaseServiceProduct(args: {
     return { error: intentError?.message ?? "Could not start this purchase" };
   }
 
+  // Applied before loading the row below so payable_kobo (a generated
+  // column, amount_kobo minus whatever the promo/voucher covered) already
+  // reflects the discount by the time checkout reads it. A failed code
+  // surfaces as an error without abandoning the purchase — the pending row
+  // stays put, same as any other unpaid intent, and the patient can retry.
+  if (args.promoCode?.trim()) {
+    const { error: promoError } = await supabase.rpc("redeem_promo_code", {
+      p_code: args.promoCode.trim(),
+      p_order_type: "service_purchase",
+      p_order_id: purchaseId,
+    });
+    if (promoError) {
+      return { error: promoError.message };
+    }
+  }
+
   const { data: purchase, error: loadError } = await supabase
     .from("service_purchases")
     .select(
-      "id, organisation_id, patient_id, amount_kobo, currency, status, service_product:service_products(code, name)",
+      "id, organisation_id, patient_id, payable_kobo, currency, status, service_product:service_products(code, name)",
     )
     .eq("id", purchaseId)
     .single();
@@ -62,8 +79,10 @@ export async function purchaseServiceProduct(args: {
     return { error: loadError?.message ?? "Could not load the purchase you just started" };
   }
 
-  // record_service_purchase_intent activates a free product immediately —
-  // no charge to run, so no checkout to start.
+  // record_service_purchase_intent activates a free product immediately, and
+  // a promo/voucher that fully covers the price activates it too (see
+  // redeem_care_voucher's service_purchase branch) — either way there's no
+  // charge left to run.
   if (purchase.status === "active") {
     return { activated: true };
   }
@@ -77,7 +96,7 @@ export async function purchaseServiceProduct(args: {
     serviceProductCode: args.serviceProductCode,
     organisationId: purchase.organisation_id,
     patientId: purchase.patient_id,
-    amountKobo: purchase.amount_kobo,
+    amountKobo: purchase.payable_kobo,
     currency: purchase.currency,
     email: user.email,
     description: productName,
