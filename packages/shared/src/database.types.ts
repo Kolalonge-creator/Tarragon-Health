@@ -20014,6 +20014,7 @@ export type Database = {
         Row: {
           arm: string | null
           cgm_connection_id: string | null
+          client_reading_id: string | null
           created_at: string
           device_id: string | null
           diastolic: number | null
@@ -20048,6 +20049,7 @@ export type Database = {
         Insert: {
           arm?: string | null
           cgm_connection_id?: string | null
+          client_reading_id?: string | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
@@ -20084,6 +20086,7 @@ export type Database = {
         Update: {
           arm?: string | null
           cgm_connection_id?: string | null
+          client_reading_id?: string | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
