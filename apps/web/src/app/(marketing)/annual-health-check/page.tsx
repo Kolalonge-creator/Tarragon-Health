@@ -247,6 +247,18 @@ export default function AnnualHealthCheckPage() {
         <div className="mx-auto mt-6 max-w-2xl">
           <ConfidentialResultNotice />
         </div>
+        <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-dashed border-charcoal-ink/15 bg-white/60 p-6 text-center">
+          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Coming soon</p>
+          <h3 className="mt-1 font-heading text-lg font-semibold text-charcoal-ink">
+            Full Panel: more biomarkers, on top of any tier
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
+            Vitamin D, B12 &amp; folate, iron studies, hs-CRP, a coagulation profile, and an
+            age/sex-appropriate tumour marker screen, added to your next check as a one-time
+            upgrade. We&apos;re holding it back until a Clinical Director has signed off the exact
+            panel, not selling it before it&apos;s reviewed.
+          </p>
+        </div>
       </Section>
 
       <Section variant="sage">

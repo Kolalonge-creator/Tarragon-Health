@@ -1903,10 +1903,13 @@ export type Database = {
       annual_review_workup_catalogue: {
         Row: {
           applies_sex: Database["public"]["Enums"]["sex"] | null
+          clinical_signoff_at: string | null
+          clinical_signoff_by: string | null
           code: string
           created_at: string
           default_applicable: boolean
           description: string | null
+          is_full_panel_addon: boolean
           label: string
           max_age: number | null
           min_age: number | null
@@ -1914,10 +1917,13 @@ export type Database = {
         }
         Insert: {
           applies_sex?: Database["public"]["Enums"]["sex"] | null
+          clinical_signoff_at?: string | null
+          clinical_signoff_by?: string | null
           code: string
           created_at?: string
           default_applicable?: boolean
           description?: string | null
+          is_full_panel_addon?: boolean
           label: string
           max_age?: number | null
           min_age?: number | null
@@ -1925,16 +1931,27 @@ export type Database = {
         }
         Update: {
           applies_sex?: Database["public"]["Enums"]["sex"] | null
+          clinical_signoff_at?: string | null
+          clinical_signoff_by?: string | null
           code?: string
           created_at?: string
           default_applicable?: boolean
           description?: string | null
+          is_full_panel_addon?: boolean
           label?: string
           max_age?: number | null
           min_age?: number | null
           sort_order?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "annual_review_workup_catalogue_clinical_signoff_by_fkey"
+            columns: ["clinical_signoff_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       annual_review_workup_items: {
         Row: {
@@ -32922,6 +32939,10 @@ export type Database = {
         Returns: string
       }
       analytics_user_segments: { Args: never; Returns: Json }
+      apply_full_panel_to_review: {
+        Args: { p_review_id: string }
+        Returns: boolean
+      }
       apply_payer_programme_directive: {
         Args: { p_directive_id: string }
         Returns: Json
