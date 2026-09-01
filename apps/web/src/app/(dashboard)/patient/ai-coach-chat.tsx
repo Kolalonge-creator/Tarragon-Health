@@ -127,7 +127,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
 
         {messages.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
-            <p className="text-xs text-charcoal-ink/70">Want a real doctor's take on this?</p>
+            <p className="text-xs text-charcoal-ink/70">Want a real doctor&apos;s take on this?</p>
             <Button size="sm" variant="outline" asChild>
               <a href="/patient/care#ask-a-doctor">Ask a doctor (written)</a>
             </Button>

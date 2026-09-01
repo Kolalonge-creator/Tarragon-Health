@@ -41,7 +41,6 @@ export function SubscriptionManager() {
   useEffect(() => {
     if (buyState?.message) {
       refetchPurchases();
-      setPromoCode("");
     }
   }, [buyState, refetchPurchases]);
 
