@@ -5786,6 +5786,190 @@ export type Database = {
         }
         Relationships: []
       }
+      doctor_retention_allocations: {
+        Row: {
+          allocated_at: string
+          allocated_by: string
+          amount_minor: number
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          clinical_staff_id: string
+          created_at: string
+          disbursed_at: string | null
+          disbursed_by: string | null
+          disbursement_reference: string | null
+          id: string
+          note: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          pledge_id: string
+          status: Database["public"]["Enums"]["doctor_retention_allocation_status"]
+          updated_at: string
+        }
+        Insert: {
+          allocated_at?: string
+          allocated_by: string
+          amount_minor: number
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          clinical_staff_id: string
+          created_at?: string
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          disbursement_reference?: string | null
+          id?: string
+          note?: string | null
+          organisation_id: string
+          period_end: string
+          period_start: string
+          pledge_id: string
+          status?: Database["public"]["Enums"]["doctor_retention_allocation_status"]
+          updated_at?: string
+        }
+        Update: {
+          allocated_at?: string
+          allocated_by?: string
+          amount_minor?: number
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          clinical_staff_id?: string
+          created_at?: string
+          disbursed_at?: string | null
+          disbursed_by?: string | null
+          disbursement_reference?: string | null
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          period_end?: string
+          period_start?: string
+          pledge_id?: string
+          status?: Database["public"]["Enums"]["doctor_retention_allocation_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_retention_allocations_allocated_by_fkey"
+            columns: ["allocated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_retention_allocations_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_retention_allocations_disbursed_by_fkey"
+            columns: ["disbursed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_retention_allocations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_retention_allocations_pledge_id_fkey"
+            columns: ["pledge_id"]
+            isOneToOne: false
+            referencedRelation: "doctor_retention_pledges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      doctor_retention_pledges: {
+        Row: {
+          amount_minor: number
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          collected_at: string | null
+          collection_method: string | null
+          collection_reference: string | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          note: string | null
+          organisation_id: string
+          pledge_number: string
+          recorded_by: string
+          sponsor_contact: string | null
+          sponsor_name: string
+          sponsor_profile_id: string | null
+          status: Database["public"]["Enums"]["doctor_retention_pledge_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount_minor: number
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          collected_at?: string | null
+          collection_method?: string | null
+          collection_reference?: string | null
+          created_at?: string
+          currency: Database["public"]["Enums"]["currency"]
+          id?: string
+          note?: string | null
+          organisation_id: string
+          pledge_number: string
+          recorded_by: string
+          sponsor_contact?: string | null
+          sponsor_name: string
+          sponsor_profile_id?: string | null
+          status?: Database["public"]["Enums"]["doctor_retention_pledge_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount_minor?: number
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          collected_at?: string | null
+          collection_method?: string | null
+          collection_reference?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          pledge_number?: string
+          recorded_by?: string
+          sponsor_contact?: string | null
+          sponsor_name?: string
+          sponsor_profile_id?: string | null
+          status?: Database["public"]["Enums"]["doctor_retention_pledge_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "doctor_retention_pledges_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_retention_pledges_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "doctor_retention_pledges_sponsor_profile_id_fkey"
+            columns: ["sponsor_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       drug_monitoring_rules: {
         Row: {
           created_at: string
@@ -21185,6 +21369,17 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      allocate_doctor_retention_pledge: {
+        Args: {
+          p_amount_minor: number
+          p_clinical_staff_id: string
+          p_note?: string
+          p_period_end: string
+          p_period_start: string
+          p_pledge_id: string
+        }
+        Returns: string
+      }
       analytics_accounting_summary: { Args: never; Returns: Json }
       analytics_acquisition_funnel: {
         Args: { p_from?: string; p_to?: string }
@@ -21361,6 +21556,14 @@ export type Database = {
       }
       cancel_care_voucher: {
         Args: { p_reason: string; p_voucher: string }
+        Returns: Json
+      }
+      cancel_doctor_retention_allocation: {
+        Args: { p_allocation_id: string; p_reason: string }
+        Returns: Json
+      }
+      cancel_doctor_retention_pledge: {
+        Args: { p_pledge_id: string; p_reason: string }
         Returns: Json
       }
       cancel_waiting_list_entry: {
@@ -22141,6 +22344,18 @@ export type Database = {
         Args: { p_followup_id: string; p_reason: string }
         Returns: undefined
       }
+      mark_doctor_retention_allocation_disbursed: {
+        Args: { p_allocation_id: string; p_disbursement_reference?: string }
+        Returns: Json
+      }
+      mark_doctor_retention_pledge_collected: {
+        Args: {
+          p_collection_method?: string
+          p_collection_reference?: string
+          p_pledge_id: string
+        }
+        Returns: Json
+      }
       mark_emergency_contact_notified: {
         Args: { p_actor_id: string; p_event_id: string }
         Returns: undefined
@@ -22451,6 +22666,17 @@ export type Database = {
           p_original_result_id: string
           p_result_status: Database["public"]["Enums"]["result_status"]
           p_result_summary: string
+        }
+        Returns: string
+      }
+      record_doctor_retention_pledge: {
+        Args: {
+          p_amount_minor: number
+          p_currency: string
+          p_note?: string
+          p_sponsor_contact?: string
+          p_sponsor_name: string
+          p_sponsor_profile_id?: string
         }
         Returns: string
       }
@@ -23328,6 +23554,15 @@ export type Database = {
         | "cancelled"
       diagnostic_urgency: "routine" | "urgent" | "emergency"
       dispense_source: "patient" | "pharmacy"
+      doctor_retention_allocation_status:
+        | "allocated"
+        | "disbursed"
+        | "cancelled"
+      doctor_retention_pledge_status:
+        | "pledged"
+        | "collected"
+        | "fully_allocated"
+        | "cancelled"
       doctor_tier:
         | "care_coordinator"
         | "tier_1"
@@ -24440,6 +24675,17 @@ export const Constants = {
       ],
       diagnostic_urgency: ["routine", "urgent", "emergency"],
       dispense_source: ["patient", "pharmacy"],
+      doctor_retention_allocation_status: [
+        "allocated",
+        "disbursed",
+        "cancelled",
+      ],
+      doctor_retention_pledge_status: [
+        "pledged",
+        "collected",
+        "fully_allocated",
+        "cancelled",
+      ],
       doctor_tier: [
         "care_coordinator",
         "tier_1",

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildCaseloadReport, countBy, scoreLoad, type StaffLoadInput } from "./caseload";
+import {
+  buildCaseloadReport,
+  buildTierLoadSummary,
+  countBy,
+  scoreLoad,
+  type StaffLoadInput,
+  type StaffLoadRow,
+} from "./caseload";
 
 function staff(overrides: Partial<StaffLoadInput> = {}): StaffLoadInput {
   return {
@@ -69,6 +76,42 @@ describe("buildCaseloadReport", () => {
   it("never flags anyone when the whole team's load is zero", () => {
     const report = buildCaseloadReport([staff({ profileId: "a" }), staff({ profileId: "b" })]);
     expect(report.rows.every((r) => !r.isHighLoad)).toBe(true);
+  });
+});
+
+describe("buildTierLoadSummary", () => {
+  function scoredRow(overrides: Partial<StaffLoadInput> = {}): StaffLoadRow {
+    const input = staff(overrides);
+    return { ...input, loadScore: scoreLoad(input), isHighLoad: false };
+  }
+
+  it("averages load and its components within each tier, in ladder order", () => {
+    const summary = buildTierLoadSummary([
+      scoredRow({ profileId: "t1a", doctorTier: "tier_1", panelSize: 10 }),
+      scoredRow({ profileId: "t1b", doctorTier: "tier_1", panelSize: 20 }),
+      scoredRow({ profileId: "t3a", doctorTier: "tier_3", panelSize: 5, activeEscalations: 1 }),
+    ]);
+    expect(summary.map((s) => s.tier)).toEqual(["tier_1", "tier_3"]);
+    const tier1 = summary.find((s) => s.tier === "tier_1")!;
+    expect(tier1.doctorCount).toBe(2);
+    expect(tier1.averagePanelSize).toBe(15);
+    expect(tier1.averageLoadScore).toBe(15);
+  });
+
+  it("excludes care_coordinator and doctors with no tier assigned", () => {
+    const summary = buildTierLoadSummary([
+      scoredRow({ profileId: "coord", doctorTier: "care_coordinator", panelSize: 50 }),
+      scoredRow({ profileId: "untiered", doctorTier: null, panelSize: 50 }),
+      scoredRow({ profileId: "t1", doctorTier: "tier_1", panelSize: 10 }),
+    ]);
+    expect(summary).toEqual([
+      expect.objectContaining({ tier: "tier_1", doctorCount: 1, averagePanelSize: 10 }),
+    ]);
+  });
+
+  it("returns an empty list when nobody has an assigned clinical tier", () => {
+    expect(buildTierLoadSummary([])).toEqual([]);
+    expect(buildTierLoadSummary([scoredRow({ doctorTier: null })])).toEqual([]);
   });
 });
 

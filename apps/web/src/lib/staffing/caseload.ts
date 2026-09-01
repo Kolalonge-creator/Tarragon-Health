@@ -70,3 +70,58 @@ export function countBy<T>(rows: T[], key: (row: T) => string | null): Map<strin
   }
   return counts;
 }
+
+// Ladder order for display, mirroring DOCTOR_TIER_LABEL in
+// lib/clinical/doctor-tier.ts. care_coordinator is deliberately absent —
+// see buildTierLoadSummary below.
+const CLINICAL_TIER_ORDER: DoctorTier[] = [
+  "tier_1",
+  "tier_2",
+  "tier_3",
+  "tier_4_senior_registrar",
+  "tier_5_partner_specialist",
+];
+
+export type TierLoadSummaryRow = {
+  tier: DoctorTier;
+  doctorCount: number;
+  averageLoadScore: number;
+  averagePanelSize: number;
+  averageActiveEscalations: number;
+  averageActiveOutreach: number;
+};
+
+/**
+ * Rolls scored rows up by doctor_tier — the number the founder actually wants
+ * to move on Japa/burnout is case-load *per Tier 1 doctor* (first-line review
+ * absorbs the bulk of routine volume before anything reaches Tier 2+), not any
+ * one clinician's individual score. `care_coordinator` is excluded: it carries
+ * no clinical caseload by design (logistics only, see CLAUDE.md's Clinical
+ * Tier Ladder). A null tier is excluded too — never infer/default a tier
+ * (CLAUDE.md, "What Claude Must Never Do"), so an unassigned doctor is left
+ * out of every tier's average rather than silently folded into one.
+ */
+export function buildTierLoadSummary(rows: StaffLoadRow[]): TierLoadSummaryRow[] {
+  const byTier = new Map<DoctorTier, StaffLoadRow[]>();
+  for (const row of rows) {
+    if (row.doctorTier === null || row.doctorTier === "care_coordinator") continue;
+    const list = byTier.get(row.doctorTier) ?? [];
+    list.push(row);
+    byTier.set(row.doctorTier, list);
+  }
+
+  const average = (list: StaffLoadRow[], value: (r: StaffLoadRow) => number) =>
+    list.length === 0 ? 0 : list.reduce((sum, r) => sum + value(r), 0) / list.length;
+
+  return CLINICAL_TIER_ORDER.filter((tier) => byTier.has(tier)).map((tier) => {
+    const tierRows = byTier.get(tier)!;
+    return {
+      tier,
+      doctorCount: tierRows.length,
+      averageLoadScore: average(tierRows, (r) => r.loadScore),
+      averagePanelSize: average(tierRows, (r) => r.panelSize),
+      averageActiveEscalations: average(tierRows, (r) => r.activeEscalations),
+      averageActiveOutreach: average(tierRows, (r) => r.activeOutreach),
+    };
+  });
+}

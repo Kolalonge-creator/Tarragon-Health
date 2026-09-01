@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
-import { buildCaseloadReport, countBy, type StaffLoadInput } from "@/lib/staffing/caseload";
+import { buildCaseloadReport, buildTierLoadSummary, countBy, type StaffLoadInput } from "@/lib/staffing/caseload";
 
 /**
  * Ops-facing view of who's carrying how much, right now — not a fixed
@@ -94,6 +94,8 @@ export default async function DoctorCaseloadPage() {
     }));
 
   const { rows, averageLoadScore } = buildCaseloadReport(staffInputs);
+  const tierSummary = buildTierLoadSummary(rows);
+  const tier1Summary = tierSummary.find((s) => s.tier === "tier_1");
 
   return (
     <div className="space-y-6">
@@ -127,7 +129,76 @@ export default async function DoctorCaseloadPage() {
           label={'Pending "Ask a doctor" questions'}
           value={String(pendingConsults ?? 0)}
         />
+        <StatTile
+          icon={SEMANTIC_ICON.clinicianFollowUp}
+          tintClassName="bg-green-50"
+          iconClassName="text-green-600"
+          label="Avg. case-load per Tier 1 doctor"
+          value={tier1Summary ? tier1Summary.averageLoadScore.toFixed(1) : "—"}
+        />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>By tier</CardTitle>
+          <CardDescription>
+            Average load per doctor within each tier of the ladder. Tier 1 absorbs the bulk of
+            routine first-line review, so it&apos;s the number worth watching over time — there is
+            no fixed target to compare it against, just whether it&apos;s trending up or down as
+            headcount and automated triage change. Care Coordinators and doctors with no tier
+            assigned yet are excluded — they carry no clinical caseload by design.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {tierSummary.length === 0 ? (
+            <p className="text-sm text-charcoal-ink/60">
+              No clinical staff with an assigned tier in this organisation.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
+                    <th className="py-2 pr-4">Tier</th>
+                    <th className="py-2 pr-4 text-right">Doctors</th>
+                    <th className="py-2 pr-4 text-right">Avg. panel</th>
+                    <th className="py-2 pr-4 text-right">Avg. active escalations</th>
+                    <th className="py-2 pr-4 text-right">Avg. active outreach</th>
+                    <th className="py-2 pr-4 text-right">Avg. load score</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-charcoal-ink/5">
+                  {tierSummary.map((row) => (
+                    <tr key={row.tier}>
+                      <td className="py-2 pr-4 font-medium text-charcoal-ink">
+                        {DOCTOR_TIER_LABEL[row.tier]}
+                        {row.tier === "tier_1" && (
+                          <Badge variant="green" className="ml-2">
+                            Tracked metric
+                          </Badge>
+                        )}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">{row.doctorCount}</td>
+                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
+                        {row.averagePanelSize.toFixed(1)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
+                        {row.averageActiveEscalations.toFixed(1)}
+                      </td>
+                      <td className="py-2 pr-4 text-right text-charcoal-ink/80">
+                        {row.averageActiveOutreach.toFixed(1)}
+                      </td>
+                      <td className="py-2 pr-4 text-right font-semibold text-charcoal-ink">
+                        {row.averageLoadScore.toFixed(1)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
