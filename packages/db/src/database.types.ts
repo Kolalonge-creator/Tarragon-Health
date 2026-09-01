@@ -24458,6 +24458,57 @@ export type Database = {
           },
         ]
       }
+      protocol_api_licenses: {
+        Row: {
+          calls_included_per_month: number | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_active: boolean
+          monthly_price_kobo: number
+          organisation_id: string
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          calls_included_per_month?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          monthly_price_kobo?: number
+          organisation_id: string
+          tier?: string
+          updated_at?: string
+        }
+        Update: {
+          calls_included_per_month?: number | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_active?: boolean
+          monthly_price_kobo?: number
+          organisation_id?: string
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "protocol_api_licenses_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "protocol_api_licenses_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: true
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       protocol_api_usage_log: {
         Row: {
           api_key_id: string
@@ -32493,11 +32544,15 @@ export type Database = {
         Args: never
         Returns: {
           active_key_count: number
+          calls_included_per_month: number | null
           calls_last_30_days: number
+          calls_this_month: number
           created_at: string
           last_called_at: string
+          monthly_price_kobo: number | null
           name: string
           organisation_id: string
+          tier: string | null
         }[]
       }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
@@ -32521,6 +32576,15 @@ export type Database = {
       admin_set_partner_admin: {
         Args: { p_is_partner_admin: boolean; p_profile_id: string }
         Returns: undefined
+      }
+      admin_set_protocol_api_license: {
+        Args: {
+          p_calls_included_per_month: number | null
+          p_monthly_price_kobo: number
+          p_organisation_id: string
+          p_tier: string
+        }
+        Returns: string
       }
       admin_verify_pharmacy_partner_location: {
         Args: { p_location_id: string }
