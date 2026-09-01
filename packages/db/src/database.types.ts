@@ -19285,6 +19285,86 @@ export type Database = {
           },
         ]
       }
+      outcomes_contract_change_requests: {
+        Row: {
+          contract_type: Database["public"]["Enums"]["outcomes_contract_type"]
+          created_at: string
+          created_contract_id: string | null
+          id: string
+          organisation_id: string
+          proposed_effective_from: string
+          proposed_outcome_thresholds: Json
+          proposed_payout_terms: string | null
+          rejection_reason: string | null
+          requested_at: string
+          requested_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+        }
+        Insert: {
+          contract_type: Database["public"]["Enums"]["outcomes_contract_type"]
+          created_at?: string
+          created_contract_id?: string | null
+          id?: string
+          organisation_id: string
+          proposed_effective_from?: string
+          proposed_outcome_thresholds?: Json
+          proposed_payout_terms?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Update: {
+          contract_type?: Database["public"]["Enums"]["outcomes_contract_type"]
+          created_at?: string
+          created_contract_id?: string | null
+          id?: string
+          organisation_id?: string
+          proposed_effective_from?: string
+          proposed_outcome_thresholds?: Json
+          proposed_payout_terms?: string | null
+          rejection_reason?: string | null
+          requested_at?: string
+          requested_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outcomes_contract_change_requests_created_contract_id_fkey"
+            columns: ["created_contract_id"]
+            isOneToOne: false
+            referencedRelation: "outcomes_contracts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outcomes_contract_change_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outcomes_contract_change_requests_requested_by_fkey"
+            columns: ["requested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "outcomes_contract_change_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       outcomes_contracts: {
         Row: {
           contract_type: Database["public"]["Enums"]["outcomes_contract_type"]
@@ -32791,6 +32871,10 @@ export type Database = {
         Args: { p_key: string }
         Returns: undefined
       }
+      approve_outcomes_contract_request: {
+        Args: { p_id: string; p_note?: string | null }
+        Returns: string
+      }
       approve_partner_statement: {
         Args: { p_force_note?: string; p_statement_id: string }
         Returns: Json
@@ -34540,6 +34624,16 @@ export type Database = {
         Returns: string
       }
       promote_protocol_draft: { Args: { p_draft_id: string }; Returns: string }
+      propose_outcomes_contract_change: {
+        Args: {
+          p_contract_type: string
+          p_effective_from?: string | null
+          p_organisation_id: string
+          p_outcome_thresholds: Json
+          p_payout_terms: string | null
+        }
+        Returns: string
+      }
       propose_video_visit_alternate_slots: {
         Args: { p_request_id: string; p_slot_ids: string[] }
         Returns: undefined
@@ -34810,6 +34904,10 @@ export type Database = {
       }
       register_passport_signing_key: {
         Args: { p_activate?: boolean; p_kid: string; p_public_key_spki: string }
+        Returns: undefined
+      }
+      reject_outcomes_contract_request: {
+        Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
       reject_protocol_draft: {
