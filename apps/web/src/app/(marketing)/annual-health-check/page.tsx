@@ -258,6 +258,13 @@ export default function AnnualHealthCheckPage() {
             upgrade. We&apos;re holding it back until a Clinical Director has signed off the exact
             panel, not selling it before it&apos;s reviewed.
           </p>
+          <p className="mt-3 text-sm text-charcoal-ink/60">
+            Want to look further still?{" "}
+            <Link href={MARKETING_ROUTES.advancedDiagnostics} className="text-brand-green hover:underline">
+              Advanced diagnostic imaging
+            </Link>{" "}
+            is on the same waitlist.
+          </p>
         </div>
       </Section>
 
