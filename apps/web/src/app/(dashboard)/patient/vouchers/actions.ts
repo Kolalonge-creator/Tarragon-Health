@@ -122,7 +122,7 @@ export async function payTowardVoucher(
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const result = await initiateVoucherPaymentCheckout({
     voucherId,
-    creditKobo: nairaToKobo(amountNaira),
+    instalmentKobo: nairaToKobo(amountNaira),
     payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/vouchers`,
