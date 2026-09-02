@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { generateDraftReplyAction } from "@/lib/care-messages/actions";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type CareThread = Tables<"care_message_threads">;
@@ -136,6 +137,43 @@ export function usePostMessage() {
       queryClient.invalidateQueries({ queryKey: ["care-messages", input.threadId] });
       queryClient.invalidateQueries({ queryKey: ["care-threads"] });
       queryClient.invalidateQueries({ queryKey: ["org-care-threads"] });
+    },
+  });
+}
+
+export type CareMessageDraftReply = Tables<"care_message_draft_replies">;
+
+/** The current AI-drafted reply suggestion for a thread, staff-only (RLS).
+ * Null when none has been generated yet. */
+export function useDraftReply(threadId: string | null) {
+  return useQuery({
+    queryKey: ["care-message-draft-reply", threadId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_message_draft_replies")
+        .select("*")
+        .eq("thread_id", threadId as string)
+        .maybeSingle();
+      if (error) throw error;
+      return data as CareMessageDraftReply | null;
+    },
+    enabled: !!threadId,
+  });
+}
+
+/** Manual only -- see generateDraftReplyAction's docstring for why this is
+ * never triggered automatically on an inbound message. */
+export function useGenerateDraftReply() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (threadId: string) => {
+      const result = await generateDraftReplyAction(threadId);
+      if (!result.success) throw new Error("Could not generate a draft reply");
+      return result;
+    },
+    onSuccess: (_data, threadId) => {
+      queryClient.invalidateQueries({ queryKey: ["care-message-draft-reply", threadId] });
     },
   });
 }
