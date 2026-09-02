@@ -328,7 +328,7 @@ $$;
 comment on function public.refresh_clinical_summary(uuid) is
   'Regenerates a patient''s clinical_summaries.narrative_text from current structured data and upserts it. Never overwrites a clinician-authored/edited summary (ON CONFLICT ... WHERE guards that). See docs/PATIENT_HEALTH_RECORD_ARCHITECTURE.md §1.6.';
 
-revoke execute on function public.refresh_clinical_summary(uuid) from public;
+revoke execute on function public.refresh_clinical_summary(uuid) from public, anon;
 revoke execute on function public.refresh_clinical_summary(uuid) from anon;
 grant execute on function public.refresh_clinical_summary(uuid) to authenticated;
 

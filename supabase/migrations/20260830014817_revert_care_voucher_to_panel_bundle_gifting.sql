@@ -83,7 +83,7 @@ begin
 end;
 $$;
 
-revoke all on function public.purchase_care_voucher(uuid, uuid, text) from public;
+revoke all on function public.purchase_care_voucher(uuid, uuid, text) from public, anon;
 revoke all on function public.purchase_care_voucher(uuid, uuid, text) from anon;
 grant execute on function public.purchase_care_voucher(uuid, uuid, text) to authenticated;
 

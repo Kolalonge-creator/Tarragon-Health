@@ -202,7 +202,7 @@ $$;
 comment on function private.integration_backoff_seconds(integer) is
   'Exponential backoff ladder for outbound delivery (§33.11): 30s doubling to a 1h cap. Pure and immutable so the app-side worker and the database agree on the schedule by construction, and so it can be asserted on directly in a test.';
 
-revoke all on function private.integration_backoff_seconds(integer) from public;
+revoke all on function private.integration_backoff_seconds(integer) from public, anon;
 grant execute on function private.integration_backoff_seconds(integer) to authenticated;
 
 create or replace function private.enqueue_integration_event(
@@ -247,7 +247,7 @@ $$;
 comment on function private.enqueue_integration_event(uuid, public.integration_event_type, jsonb, text, public.api_environment) is
   'Fan one business event out to every active, subscribed endpoint in the org (§33.10/§33.15). Idempotent on (endpoint, dedupe_key). Returns how many rows were queued; 0 means nobody subscribes, which is normal.';
 
-revoke all on function private.enqueue_integration_event(uuid, public.integration_event_type, jsonb, text, public.api_environment) from public;
+revoke all on function private.enqueue_integration_event(uuid, public.integration_event_type, jsonb, text, public.api_environment) from public, anon;
 
 create or replace function private.claim_integration_outbound_batch(p_limit integer default 25)
 returns table (
@@ -292,7 +292,7 @@ $$;
 comment on function private.claim_integration_outbound_batch(integer) is
   'Atomically claim due deliveries for one worker pass (§33.10). FOR UPDATE SKIP LOCKED makes concurrent drainer runs safe; the 10-minute reclaim window recovers rows abandoned by a worker that died mid-delivery.';
 
-revoke all on function private.claim_integration_outbound_batch(integer) from public;
+revoke all on function private.claim_integration_outbound_batch(integer) from public, anon;
 
 create or replace function private.record_integration_delivery_result(
   p_outbound_event_id uuid,
@@ -381,7 +381,7 @@ $$;
 comment on function private.record_integration_delivery_result(uuid, boolean, integer, text, integer) is
   'Close out one delivery attempt (§33.11): ledger row, then delivered / retry-with-jittered-backoff / dead-letter. Dead-lettering also writes an audit event so an exhausted clinical delivery is never known only to a log line.';
 
-revoke all on function private.record_integration_delivery_result(uuid, boolean, integer, text, integer) from public;
+revoke all on function private.record_integration_delivery_result(uuid, boolean, integer, text, integer) from public, anon;
 
 create or replace function public.requeue_integration_event(p_outbound_event_id uuid)
 returns void
@@ -416,7 +416,7 @@ begin
 end;
 $$;
 
-revoke all on function public.requeue_integration_event(uuid) from public;
+revoke all on function public.requeue_integration_event(uuid) from public, anon;
 grant execute on function public.requeue_integration_event(uuid) to authenticated;
 revoke execute on function public.requeue_integration_event(uuid) from anon;
 
@@ -450,7 +450,7 @@ begin
 end;
 $$;
 
-revoke all on function public.cancel_integration_event(uuid) from public;
+revoke all on function public.cancel_integration_event(uuid) from public, anon;
 grant execute on function public.cancel_integration_event(uuid) to authenticated;
 revoke execute on function public.cancel_integration_event(uuid) from anon;
 
@@ -485,7 +485,7 @@ begin
 end;
 $$;
 
-revoke all on function private.prune_integration_logs(integer) from public;
+revoke all on function private.prune_integration_logs(integer) from public, anon;
 
 do $$
 begin

@@ -222,7 +222,7 @@ create trigger consultation_follow_ups_enforce_write
   before insert or update on public.consultation_follow_ups
   for each row execute function private.enforce_consultation_follow_up_write();
 
-revoke all on function private.enforce_consultation_follow_up_write() from public;
+revoke all on function private.enforce_consultation_follow_up_write() from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- action_consultation_follow_up -- the one path that turns a pending

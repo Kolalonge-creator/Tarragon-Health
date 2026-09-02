@@ -175,7 +175,7 @@ as $$
   order by rs.slot_start;
 $$;
 
-revoke all on function public.get_available_specialist_slots(uuid, date, date) from public;
+revoke all on function public.get_available_specialist_slots(uuid, date, date) from public, anon;
 grant execute on function public.get_available_specialist_slots(uuid, date, date) to authenticated;
 
 do $$

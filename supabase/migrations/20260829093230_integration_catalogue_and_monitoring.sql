@@ -104,7 +104,7 @@ $$;
 comment on function public.integration_catalogue() is
   'Admin integrations page catalogue (§33.8): one row per partner covering both the inbound key it may hold and the outbound reachability/webhook state it may have. SECURITY INVOKER — relies entirely on the caller''s own RLS on the underlying tables, see the migration header.';
 
-revoke all on function public.integration_catalogue() from public;
+revoke all on function public.integration_catalogue() from public, anon;
 grant execute on function public.integration_catalogue() to authenticated;
 revoke execute on function public.integration_catalogue() from anon;
 
@@ -179,7 +179,7 @@ $$;
 comment on function public.integration_health_metrics(integer) is
   'Admin monitoring dashboard (§33.9: uptime/latency/failed requests/auth failures/data mismatches/delayed messages) over a trailing window. SECURITY INVOKER, same posture as integration_catalogue() — see the migration header. Uptime itself is represented by ok_requests/total_requests together with each partner''s own outbound_last_check_ok from the catalogue, rather than a separate synthetic percentage that would need its own definition of "up".';
 
-revoke all on function public.integration_health_metrics(integer) from public;
+revoke all on function public.integration_health_metrics(integer) from public, anon;
 grant execute on function public.integration_health_metrics(integer) to authenticated;
 revoke execute on function public.integration_health_metrics(integer) from anon;
 

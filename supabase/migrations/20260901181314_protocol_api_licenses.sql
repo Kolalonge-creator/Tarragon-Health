@@ -92,7 +92,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_set_protocol_api_license(uuid, text, bigint, integer) from public;
+revoke all on function public.admin_set_protocol_api_license(uuid, text, bigint, integer) from public, anon;
 grant execute on function public.admin_set_protocol_api_license(uuid, text, bigint, integer) to authenticated;
 revoke execute on function public.admin_set_protocol_api_license(uuid, text, bigint, integer) from anon;
 
@@ -140,7 +140,7 @@ as $$
   order by o.created_at desc;
 $$;
 
-revoke all on function public.admin_list_protocol_partners() from public;
+revoke all on function public.admin_list_protocol_partners() from public, anon;
 grant execute on function public.admin_list_protocol_partners() to authenticated;
 revoke execute on function public.admin_list_protocol_partners() from anon;
 

@@ -46,7 +46,7 @@ begin
 end;
 $$;
 
-revoke execute on function public.link_chronic_checkin_appointment(uuid, uuid) from public;
+revoke execute on function public.link_chronic_checkin_appointment(uuid, uuid) from public, anon;
 grant execute on function public.link_chronic_checkin_appointment(uuid, uuid) to authenticated;
 
 -- Resolves the occurrence's status from the appointment's real lifecycle

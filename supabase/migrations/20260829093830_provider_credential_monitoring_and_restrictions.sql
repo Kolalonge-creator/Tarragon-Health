@@ -71,7 +71,7 @@ $$;
 comment on function private.provider_work_restricted(uuid) is
   'True when the provider has a live service_restriction or suspension. warning/grace_period deliberately do not restrict — they are the notice period §29.7 requires before a consequence lands.';
 
-revoke all on function private.provider_work_restricted(uuid) from public;
+revoke all on function private.provider_work_restricted(uuid) from public, anon;
 
 create or replace function private.profile_work_restricted(p_profile_id uuid)
 returns boolean
@@ -90,7 +90,7 @@ as $$
   );
 $$;
 
-revoke all on function private.profile_work_restricted(uuid) from public;
+revoke all on function private.profile_work_restricted(uuid) from public, anon;
 
 create or replace function private.block_restricted_provider_booking()
 returns trigger
@@ -125,7 +125,7 @@ $$;
 comment on function private.block_restricted_provider_booking() is
   '§29.7 "service restriction" made real: a provider with a live restriction cannot be assigned NEW appointment work. Existing appointments remain fully manageable (cancel/complete/document) — the restriction stops new clinical exposure, it does not strand patients already booked.';
 
-revoke all on function private.block_restricted_provider_booking() from public;
+revoke all on function private.block_restricted_provider_booking() from public, anon;
 
 create trigger appointments_block_restricted_provider
   before insert or update on public.appointments
@@ -336,7 +336,7 @@ $$;
 comment on function private.advance_provider_credential_ladder() is
   '§29.7 sweep: advances a provider up warning -> grace_period -> service_restriction -> suspension based on the day offsets in the active provider_quality_policy. Never advances a record with no license_expires_at on file, never walks the ladder back down (that needs a human lift, recorded), and never touches clinical_staff.active.';
 
-revoke all on function private.advance_provider_credential_ladder() from public;
+revoke all on function private.advance_provider_credential_ladder() from public, anon;
 
 select cron.schedule(
   'provider-credential-ladder-advance',
