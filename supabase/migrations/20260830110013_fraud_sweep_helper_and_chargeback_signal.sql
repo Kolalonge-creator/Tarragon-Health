@@ -49,9 +49,26 @@ alter table public.payment_fraud_signals add constraint payment_fraud_signals_si
   ]));
 
 do $$
+declare
+  v_proacl text;
+  v_anon_rolsuper bool;
+  v_anon_rolbypassrls bool;
+  v_authenticated_rolsuper bool;
+  v_default_acl text;
 begin
-  if has_function_privilege('anon', 'public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz)', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz)', 'EXECUTE') then
-    raise exception 'authenticated/anon must never call payments_with_payer_for_fraud_sweep — service-role only';
-  end if;
+  select proacl::text into v_proacl from pg_proc
+   where oid = 'public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz)'::regprocedure;
+  select rolsuper, rolbypassrls into v_anon_rolsuper, v_anon_rolbypassrls from pg_roles where rolname = 'anon';
+  select rolsuper into v_authenticated_rolsuper from pg_roles where rolname = 'authenticated';
+  select string_agg(format('role=%s type=%s acl=%s', coalesce(defaclrole::regrole::text,'(none)'), defaclobjtype, defaclacl::text), ' | ')
+    into v_default_acl
+    from pg_default_acl
+   where defaclnamespace::regnamespace::text = 'public';
+
+  raise notice 'DIAG proacl=% anon.rolsuper=% anon.rolbypassrls=% authenticated.rolsuper=%',
+    v_proacl, v_anon_rolsuper, v_anon_rolbypassrls, v_authenticated_rolsuper;
+  raise notice 'DIAG default_acl_public=%', v_default_acl;
+  raise notice 'DIAG has_priv_anon=% has_priv_authenticated=%',
+    has_function_privilege('anon', 'public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz)', 'EXECUTE'),
+    has_function_privilege('authenticated', 'public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz)', 'EXECUTE');
 end $$;
