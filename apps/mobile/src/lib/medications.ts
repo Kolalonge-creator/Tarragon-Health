@@ -3,6 +3,19 @@ import type { Tables } from "@tarragon/shared";
 
 export type DoseStatus = "pending" | "taken" | "missed" | "skipped";
 
+/** Mirrors MISSED_DOSE_REASONS in apps/web/src/lib/validation/medication-logs.ts
+ * (pathway §65.9) — duplicated for the same reason buildTodaysDoseChecklist is:
+ * apps/web isn't a shared package the mobile app can pull from. */
+export const MISSED_DOSE_REASON_OPTIONS: { value: Tables<"medication_logs">["missed_reason"] & string; label: string }[] = [
+  { value: "cost", label: "Cost" },
+  { value: "side_effects", label: "Side effects" },
+  { value: "forgetfulness", label: "Forgot" },
+  { value: "availability", label: "Couldn't get it" },
+  { value: "understanding", label: "Not sure how" },
+  { value: "other", label: "Other" },
+];
+export type MissedDoseReason = (typeof MISSED_DOSE_REASON_OPTIONS)[number]["value"];
+
 export interface DoseChecklistItem {
   medicationId: string;
   drugName: string;
@@ -72,9 +85,11 @@ export async function logDose(
   patientId: string,
   organisationId: string,
   item: DoseChecklistItem,
-  status: Exclude<DoseStatus, "pending">
+  status: Exclude<DoseStatus, "pending">,
+  missedReason?: MissedDoseReason
 ): Promise<{ error?: string }> {
   const scheduled_for_date = todayIsoDate();
+  const missed_reason = status === "missed" ? (missedReason ?? null) : null;
   const { data: existing } = await supabase
     .from("medication_logs")
     .select("id")
@@ -86,13 +101,14 @@ export async function logDose(
   const { error } = existing
     ? await supabase
         .from("medication_logs")
-        .update({ status, logged_at: new Date().toISOString() })
+        .update({ status, missed_reason, logged_at: new Date().toISOString() })
         .eq("id", existing.id)
     : await supabase.from("medication_logs").insert({
         medication_id: item.medicationId,
         scheduled_time: item.time,
         scheduled_for_date,
         status,
+        missed_reason,
         patient_id: patientId,
         organisation_id: organisationId,
       });

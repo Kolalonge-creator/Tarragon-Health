@@ -417,6 +417,34 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "charge.dispute.created": {
+        // §91.17 fraud detection. Always worth a human look regardless of
+        // correlation — a Stripe Dispute's own `charge`/`payment_intent`
+        // fields don't map onto how our payment_transactions rows are keyed
+        // (by the original checkout/invoice event id, not a charge or PI
+        // id), so this is recorded uncorrelated rather than guessed at; the
+        // detail carries enough to cross-reference manually.
+        const dispute = event.data.object as Stripe.Dispute;
+        await supabase.from("payment_fraud_signals").insert({
+          signal_type: "chargeback",
+          severity: "high",
+          dedupe_key: `chargeback:stripe:${event.id}`,
+          payment_transaction_id: null,
+          amount_minor: dispute.amount ?? null,
+          currency: toCurrencyCode(dispute.currency),
+          detail: {
+            provider: "stripe",
+            provider_event_id: event.id,
+            charge: typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id,
+            payment_intent:
+              typeof dispute.payment_intent === "string" ? dispute.payment_intent : dispute.payment_intent?.id,
+            reason: dispute.reason,
+          },
+        });
+        await markProcessed();
+        break;
+      }
+
       default:
         // Every other event type is still recorded above for audit but
         // requires no state change.

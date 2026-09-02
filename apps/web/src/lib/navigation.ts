@@ -100,7 +100,7 @@ export function getNavSections(
       // second-level PatientNav pill bar, but it kept growing: fifteen
       // equally-weighted links with no headings is past the point where a
       // patient scans rather than reads, and "Wellness" sat two rows from
-      // "Subscription" with nothing to say they belong to different parts of
+      // "My services" with nothing to say they belong to different parts of
       // their life. Nothing is hidden or demoted — the same links, banded by
       // the question each one answers:
       //   (top)        where am I / what needs me today
@@ -181,7 +181,7 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
-            { label: "Subscription", href: "/patient/subscription", icon: "billing" },
+            { label: "My services", href: "/patient/subscription", icon: "billing" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
             { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {

@@ -177,13 +177,18 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
       {careTeam ? (
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.navy, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
-              {careTeam.clinicianName.split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase()}
-            </Text>
+            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>CT</Text>
           </View>
+          {/* care_team_assignment.clinician_id is internal routing/rota only —
+              mirrors your-care-team.tsx (web): deliberately never rendered as
+              a named "your doctor" ahead of a review actually happening. A
+              doctor is named only once they've reviewed something specific
+              (ReviewedByDoctor's job, not this card's). */}
           <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Dr. {careTeam.clinicianName}</Text>
-            <MutedText>Your clinician{careTeam.credential ? ` · ${careTeam.credential}` : ""}</MutedText>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Your care team</Text>
+            <MutedText>
+              A team of MDCN-registered doctors follows your readings and checks in with you.
+            </MutedText>
           </View>
           <Text onPress={() => onNavigate("messages")} style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand }}>
             Message

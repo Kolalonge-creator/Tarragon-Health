@@ -59,23 +59,23 @@ export async function initiateSponsoredSubscriptionCheckout(args: {
   }
 
   const { data: plan } = await supabase
-    .from("subscription_plans")
-    .select("code, name, price_minor, currency, interval, is_active")
+    .from("service_products")
+    .select("code, name, price_kobo, currency, access_duration_days, is_active")
     .eq("code", args.planCode)
     .maybeSingle();
 
   if (!plan || !plan.is_active) {
-    return { ok: false, error: "That plan isn't available." };
+    return { ok: false, error: "That service isn't available." };
   }
 
-  // The plan is priced in naira because the care is delivered in Nigeria. A
-  // payer abroad is charged the same care at the admin-set reference rate, not
-  // a diaspora premium. An unset rate means dollar payment is simply not
+  // The service is priced in naira because the care is delivered in Nigeria.
+  // A payer abroad is charged the same care at the admin-set reference rate,
+  // not a diaspora premium. An unset rate means dollar payment is simply not
   // offered yet, rather than a silent wrong-price charge.
-  let chargeAmountMinor = plan.price_minor;
+  let chargeAmountMinor = plan.price_kobo;
   if (args.payerCurrency !== plan.currency) {
     if (args.payerCurrency === "NGN" || plan.currency !== "NGN") {
-      return { ok: false, error: "That plan can't be paid in your currency yet." };
+      return { ok: false, error: "That service can't be paid in your currency yet." };
     }
     const { data: fx } = await supabase
       .from("platform_currency_settings")
@@ -89,7 +89,7 @@ export async function initiateSponsoredSubscriptionCheckout(args: {
         error: `${args.payerCurrency} payments aren't set up yet — pay in NGN for now.`,
       };
     }
-    chargeAmountMinor = Math.round(plan.price_minor / rate);
+    chargeAmountMinor = Math.round(plan.price_kobo / rate);
   }
 
   const metadata: CheckoutMetadata = {

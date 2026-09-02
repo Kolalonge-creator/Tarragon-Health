@@ -33,7 +33,7 @@
 // anon-executable.
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from "node:fs";
+import { writeFileSync, rmSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -82,14 +82,50 @@ function sh(cmd, args, opts = {}) {
 }
 
 function parseRows(raw) {
-  const lines = raw.split("\n");
-  const startIdx = lines.findIndex((l) => l.trim() === "{");
-  if (startIdx === -1) {
-    console.error("Could not find JSON output in `supabase db query` output:\n" + raw);
-    process.exit(2);
+  // `supabase db query --output-format json` has been observed emitting two different shapes for
+  // the exact same query/CLI-version-tag across separate invocations (a bare top-level array of
+  // rows, and a `{boundary, rows, warning}` wrapper object) -- CI and a locally-tested run
+  // disagreed on this the same day, 2026-08-31, most likely because the npm package version
+  // doesn't pin the underlying downloaded Go binary. A cold connection can also print a
+  // preliminary status/role-refresh blob before the real result. Rather than assume any one
+  // shape or position, scan every top-level balanced {...}/[...] structure in the output by
+  // bracket-counting and use the first one that's either an array itself or has a `.rows` array.
+  const candidates = [];
+  let i = 0;
+  while (i < raw.length) {
+    const start = raw.slice(i).search(/[{[]/);
+    if (start === -1) break;
+    const absStart = i + start;
+    const open = raw[absStart];
+    const close = open === "{" ? "}" : "]";
+    let depth = 0;
+    let end = -1;
+    for (let j = absStart; j < raw.length; j++) {
+      if (raw[j] === open) depth++;
+      else if (raw[j] === close) {
+        depth--;
+        if (depth === 0) {
+          end = j;
+          break;
+        }
+      }
+    }
+    if (end === -1) break;
+    candidates.push(raw.slice(absStart, end + 1));
+    i = end + 1;
   }
-  const parsed = JSON.parse(lines.slice(startIdx).join("\n"));
-  return parsed.rows;
+  for (const text of candidates) {
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch {
+      continue;
+    }
+    if (Array.isArray(parsed)) return parsed;
+    if (Array.isArray(parsed?.rows)) return parsed.rows;
+  }
+  console.error(`Could not find a rows array in \`supabase db query\` output:\n${raw}`);
+  process.exit(2);
 }
 
 // Exported shape for the pass/fail decision, kept separate from the DB round-trip so it can be
@@ -104,9 +140,17 @@ export function evaluate(rows) {
 }
 
 function main() {
-  const tempDir = join(REPO_ROOT, "supabase", ".temp");
-  mkdirSync(tempDir, { recursive: true });
-  writeFileSync(join(tempDir, "project-ref"), PROJECT_REF);
+  if (!process.env.SUPABASE_ACCESS_TOKEN) {
+    console.error("SUPABASE_ACCESS_TOKEN is not set — cannot check anon EXECUTE grants.");
+    process.exit(2);
+  }
+
+  // Hand-writing supabase/.temp/project-ref (skipping `supabase link`) leaves the CLI without
+  // pooler connection info, so `db query --linked` falls back to a direct IPv6-only DB connection
+  // that GitHub-hosted runners can't reach (LegacyDbConfigIpv6Error). Running `link` itself,
+  // non-interactively, makes the CLI default to the IPv4-compatible pooler instead — confirmed
+  // 2026-08-31 by reproducing the failure and the fix locally against the live project.
+  sh("npx", ["--yes", "supabase", "link", "--project-ref", PROJECT_REF, "--yes", "--workdir", REPO_ROOT]);
 
   const queryDir = mkdtempSync(join(tmpdir(), "anon-execute-check-"));
   const queryFile = join(queryDir, "query.sql");
