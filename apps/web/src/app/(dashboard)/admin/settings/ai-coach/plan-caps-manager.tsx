@@ -15,10 +15,10 @@ function formatPrice(priceMinor: number, currency: string): string {
   return `${symbol}${amount.toLocaleString()}`;
 }
 
-/** Lets admin give each subscription tier (free, standard, premium, family,
- * etc. — just the existing subscription_plans rows) its own AI Coach daily
- * message cap, instead of one flat limit for every patient. Resolution
- * order lives in public.get_ai_coach_daily_limit() (see rate-limit.ts). */
+/** Lets admin give each service product (free, prevent, essential, complete,
+ * etc. — the existing service_products rows) its own AI Coach daily message
+ * cap, instead of one flat limit for every patient. Resolution order lives
+ * in public.get_ai_coach_daily_limit() (see rate-limit.ts). */
 export function PlanCapsManager() {
   const { data: plans, isLoading, isError } = useSubscriptionPlanCaps();
   const setLimit = useSetPlanDailyLimit();
@@ -27,7 +27,7 @@ export function PlanCapsManager() {
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
   if (isError || !plans) {
-    return <p className="text-sm text-red-600">Could not load subscription plans.</p>;
+    return <p className="text-sm text-red-600">Could not load service products.</p>;
   }
 
   const mutationError = (setLimit.error as Error | null)?.message ?? null;
@@ -61,7 +61,7 @@ export function PlanCapsManager() {
               <div>
                 <p className="text-sm font-medium text-charcoal-ink">{plan.name}</p>
                 <p className="text-xs text-charcoal-ink/60">
-                  {formatPrice(plan.price_minor, plan.currency)},{" "}
+                  {formatPrice(plan.price_kobo, plan.currency)},{" "}
                   {plan.ai_coach_daily_limit
                     ? `${plan.ai_coach_daily_limit} messages/day`
                     : "no cap set (falls back to the org-wide/default cap)"}

@@ -121,4 +121,4 @@ grant execute on function public.amend_medication(
 ) to authenticated;
 revoke all on function public.amend_medication(
   uuid, text, text, text, text, text, integer, text, integer, text, text, jsonb, date
-) from anon;
+) from public, anon;

@@ -97,4 +97,4 @@ comment on function public.verify_prescription is
   'Spec §62.7 prescription verification for any pharmacy. Requires both rx_number and verification_code, restricted to role=pharmacist callers. Returns zero rows (never an error) for a bad code, an unauthorised caller, or an unknown rx_number, so a lookup failure never distinguishes "wrong code" from "not found" — see this migration''s header.';
 
 grant execute on function public.verify_prescription(text, text) to authenticated;
-revoke all on function public.verify_prescription(text, text) from anon;
+revoke all on function public.verify_prescription(text, text) from public, anon;

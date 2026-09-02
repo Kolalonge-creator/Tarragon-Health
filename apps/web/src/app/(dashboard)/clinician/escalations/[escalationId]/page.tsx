@@ -31,7 +31,7 @@ export default async function EscalationDetailPage({
   const { data: escalation } = await supabase
     .from("escalations")
     .select(
-      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
+      "*, patient:profiles!escalations_patient_id_fkey(id, full_name, phone, date_of_birth), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(title, detail, level, sla_due_at, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status))"
     )
     .eq("id", escalationId)
     .maybeSingle();
@@ -49,6 +49,19 @@ export default async function EscalationDetailPage({
         </CardContent>
       </Card>
     );
+  }
+
+  // Read-access audit, same call site pattern as
+  // clinician/patients/[patientId]/page.tsx: this page renders the same
+  // vitals/medications/timeline "patient context" a full chart open does, so
+  // it gets the same log_patient_record_view call rather than being a gap in
+  // audit coverage. Best-effort: a logging failure must never block the
+  // clinician from seeing the case.
+  const { error: viewLogError } = await supabase.rpc("log_patient_record_view", {
+    p_patient_id: escalation.patient.id,
+  });
+  if (viewLogError) {
+    console.error("Failed to log patient record view", viewLogError);
   }
 
   const caseBrief = escalation.clinician_alert_id
@@ -219,7 +232,11 @@ export default async function EscalationDetailPage({
           </CardContent>
         </Card>
       ) : (
-        <ResolveForm escalationId={escalation.id} />
+        <ResolveForm
+          escalationId={escalation.id}
+          patientName={escalation.patient?.full_name ?? "this patient"}
+          patientDateOfBirth={escalation.patient?.date_of_birth ?? null}
+        />
       )}
     </div>
   );

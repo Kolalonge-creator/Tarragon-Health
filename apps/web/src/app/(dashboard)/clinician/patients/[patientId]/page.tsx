@@ -37,7 +37,9 @@ import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
+import { HealthCheckVideoConsult } from "./health-check-video-consult";
 import { CarePlanManagementSection } from "./care-plan-management-section";
+import { ChronicProgrammeReviewSection } from "./chronic-programme-review-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
@@ -109,7 +111,9 @@ export default async function ClinicianPatientPage({
   const year = new Date().getFullYear();
   const { data: healthCheck } = await supabase
     .from("annual_health_checks")
-    .select("reviewed_at, reviewed_by")
+    .select(
+      "reviewed_at, reviewed_by, video_consult:video_consultations!annual_health_checks_video_consultation_id_fkey(id, proposed_slots, scheduled_at)"
+    )
     .eq("patient_id", patientId)
     .eq("year", year)
     .maybeSingle();
@@ -276,6 +280,11 @@ export default async function ClinicianPatientPage({
             ),
           },
           {
+            id: "chronic-programme",
+            label: "12-week programme",
+            content: <ChronicProgrammeReviewSection patientId={patient.id} />,
+          },
+          {
             id: "vitals-chronic-care",
             label: "Vitals & chronic care",
             content: (
@@ -319,6 +328,7 @@ export default async function ClinicianPatientPage({
                 <MentalHealthSummary patientId={patient.id} showScores />
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />
+                <HealthCheckVideoConsult consult={healthCheck?.video_consult ?? null} />
                 <HealthCheckReview
                   patientId={patient.id}
                   reviewedAt={healthCheck?.reviewed_at ?? null}
@@ -346,6 +356,8 @@ export default async function ClinicianPatientPage({
                 organisationId={patient.organisation_id}
                 canWrite={isClinicalTier(callerStaff)}
                 canActionFollowUps={Boolean(callerStaff)}
+                patientName={patient.full_name ?? "this patient"}
+                patientDateOfBirth={patient.date_of_birth}
               />
             ) : null,
           },

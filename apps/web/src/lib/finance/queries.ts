@@ -20,6 +20,7 @@ import {
   pnlByCostCenterSchema,
   budgetsListSchema,
   budgetVarianceSchema,
+  employerBillingSummarySchema,
   cashFlowStatementSchema,
   vendorsListSchema,
   billsListSchema,
@@ -280,6 +281,23 @@ export function useBudgetVariance(from: string, to: string, currency: string) {
       });
       if (error) throw error;
       return budgetVarianceSchema.parse(data);
+    },
+  });
+}
+
+/**
+ * docs/FULL_SPECIFICATION_V4.md §94.12's "Eligible employees x Price per
+ * member = Monthly invoice" — one row per corporate/hmo org with its roster's
+ * eligible/activated counts, current per-member rate (if configured), and the
+ * resulting estimate. Read-only; never generates or sends an actual invoice.
+ */
+export function useEmployerBillingSummary() {
+  return useQuery({
+    queryKey: ["finance", "employer-billing"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_employer_billing_summary");
+      if (error) throw error;
+      return employerBillingSummarySchema.parse(data);
     },
   });
 }
