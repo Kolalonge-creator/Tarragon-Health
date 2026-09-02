@@ -69,9 +69,9 @@ export default async function PatientCarePage() {
           <PregnancyStatus patientId={subjectId} />
           <PatientEscalations patientId={subjectId} />
           <HospitalAdmissionsCard patientId={subjectId} />
-          <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>
-            <LifestyleProgressSummary patientId={subjectId} />
-          </RequiresEntitlement>
+          {/* Not entitlement-gated: lifestyle coaching is free to every
+              patient since the pay-per-service rework. */}
+          <LifestyleProgressSummary patientId={subjectId} />
         </div>
 
         <div className="space-y-4">

@@ -8,11 +8,11 @@ import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
-import { NGN_TIERS } from "../_content/pricing";
+import { PAID_SERVICES } from "../_content/pricing";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
-const ESSENTIAL_CARE_TIER = NGN_TIERS.find((tier) => tier.id === "essential")!;
+const CHRONIC_PROGRAMME = PAID_SERVICES.find((service) => service.id === "chronic-programme")!;
 
 export const metadata: Metadata = pageMetadata({
   title: "For you",
@@ -235,18 +235,18 @@ export default function ForYouPage() {
         />
         <div className="mx-auto max-w-3xl space-y-4 text-lg leading-relaxed text-charcoal-ink/75">
           <p>
-            Tarragon Free lets you track your own numbers forever, at no cost; it never expires and
-            never converts to a paid plan on its own. When you want a doctor actually reviewing your
-            readings, Essential Care starts at {ESSENTIAL_CARE_TIER.priceMain}/month for one
-            condition, and Complete Care covers hypertension, diabetes, and weight together on one
-            scheduled care plan.
+            The app is free and stays free: track your own numbers, get your screening calendar,
+            read the whole education library, and use the AI Health Coach, with no time limit and no
+            card required. When you want a doctor actually managing a condition with you, the 12-week
+            doctor-supported programme is {CHRONIC_PROGRAMME.price}, and it covers hypertension,
+            diabetes and weight together rather than charging you per condition.
           </p>
           <p>
-            Not sure which fits? The three-question plan finder on the{" "}
+            Want a doctor for one thing rather than twelve weeks? The{" "}
             <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
               pricing page
             </Link>{" "}
-            points you to the right one. And looking after a parent instead?{" "}
+            lists every one-off service and what it costs. And looking after a parent instead?{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
               Caring for a parent
             </Link>{" "}

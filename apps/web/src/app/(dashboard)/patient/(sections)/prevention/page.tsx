@@ -49,14 +49,11 @@ export default async function PreventionHubPage() {
   const { profile, subjectId, subjectDateOfBirth } = await getPatientDashboardContext();
 
   const supabase = await createClient();
-  const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "lab_coordination",
-  });
-  const { data: preventionCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "prevention_coordination",
-  });
-  const screeningBookingEnabled =
-    (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
+  // The screening calendar and lab-request coordination are free to every
+  // patient since the pay-per-service rework — neither costs clinician time.
+  // Kept as a named constant rather than deleted so the downstream layout
+  // reads the same, and so re-gating it later is a one-line change.
+  const screeningBookingEnabled = true;
 
   const location = { state: profile.state, city: profile.city, area: profile.area };
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);
