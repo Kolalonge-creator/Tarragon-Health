@@ -205,6 +205,7 @@ export function getNavSections(
             { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
             { label: "Insurance", href: "/patient/insurance", icon: "insurance" },
             { label: "My services", href: "/patient/subscription", icon: "billing" },
+            { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
             {
               label: "Notification settings",
               href: "/patient/notification-settings",
