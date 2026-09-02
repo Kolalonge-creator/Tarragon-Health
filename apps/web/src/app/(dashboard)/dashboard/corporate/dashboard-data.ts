@@ -6,6 +6,7 @@ import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-
 import { loadAgeBandDistribution } from "@/lib/corporate/load-age-band-distribution";
 import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
+import { loadVaccinationCoverage } from "@/lib/vaccination/load-coverage-analytics";
 import { loadWellbeingCohortMetric } from "@/lib/corporate/load-wellbeing-cohort-metric";
 import { loadActivationFunnel, loadDepartmentBreakdown } from "@/lib/corporate/load-activation-funnel";
 
@@ -54,6 +55,7 @@ async function loadCorporateDashboardDataUncached() {
     ageBands,
     costAvoided,
     medicationOutcomes,
+    vaccinationCoverage,
     wellbeingCohortMetric,
     activationFunnel,
     departmentBreakdown,
@@ -61,6 +63,7 @@ async function loadCorporateDashboardDataUncached() {
     loadAgeBandDistribution(access.client, access.organisationId),
     estimateCostAvoided(access.client, access.organisationId, analytics.abnormal_findings_count),
     loadMedicationOutcomes(access.client, access.organisationId),
+    loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
     loadWellbeingCohortMetric(access.client, access.organisationId),
     loadActivationFunnel(access.client, access.organisationId, access.minCohortSize),
     loadDepartmentBreakdown(access.client, access.organisationId, access.minCohortSize),
@@ -76,6 +79,7 @@ async function loadCorporateDashboardDataUncached() {
     ageBands,
     costAvoided,
     medicationOutcomes,
+    vaccinationCoverage,
     wellbeingCohortMetric,
     activationFunnel,
     departmentBreakdown,

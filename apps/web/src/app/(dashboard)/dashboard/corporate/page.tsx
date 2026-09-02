@@ -4,6 +4,7 @@ import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/ca
 import { ProposeContractCard } from "../propose-contract-card";
 import { RosterManager } from "./roster-manager";
 import { CohortSummary } from "./cohort-summary";
+import { VaccinationCoveragePanel } from "./vaccination-coverage-panel";
 import { ActivationFunnelCard, DepartmentBreakdownTable } from "./activation-funnel-card";
 import { loadCorporateDashboardData } from "./dashboard-data";
 
@@ -56,6 +57,7 @@ export default async function CorporateOverviewPage() {
       <ProposeContractCard organisationId={data.organisationId} />
       <RosterManager organisationId={data.organisationId} />
       <CohortSummary analytics={data.analytics} />
+      <VaccinationCoveragePanel coverage={data.vaccinationCoverage} />
     </div>
   );
 }
