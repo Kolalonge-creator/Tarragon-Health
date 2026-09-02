@@ -8,8 +8,10 @@ import {
   type MenstrualDailyLog,
   type MenstrualFlowLevel,
   type MenstrualMood,
+  type MenstrualOvulationTestResult,
   type MenstrualSymptom,
 } from "@/lib/queries/menstrual-cycle";
+import { Input } from "@/components/ui/input";
 
 /**
  * The per-day log: flow, symptoms and mood for one date.
@@ -41,6 +43,12 @@ const SYMPTOM_OPTIONS: { value: MenstrualSymptom; label: string }[] = [
   { value: "constipation", label: "Constipation" },
   { value: "food_cravings", label: "Cravings" },
   { value: "insomnia", label: "Trouble sleeping" },
+];
+
+const OVULATION_TEST_OPTIONS: { value: MenstrualOvulationTestResult; label: string }[] = [
+  { value: "negative", label: "Negative" },
+  { value: "positive", label: "Positive" },
+  { value: "peak", label: "Peak" },
 ];
 
 const MOOD_OPTIONS: { value: MenstrualMood; label: string }[] = [
@@ -110,6 +118,12 @@ export function CycleDayLog({
   const [symptoms, setSymptoms] = useState<MenstrualSymptom[]>(existing?.symptoms ?? []);
   const [moods, setMoods] = useState<MenstrualMood[]>(existing?.moods ?? []);
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [bbt, setBbt] = useState(
+    existing?.basal_body_temperature_c != null ? String(existing.basal_body_temperature_c) : ""
+  );
+  const [ovulationTest, setOvulationTest] = useState<MenstrualOvulationTestResult | null>(
+    existing?.ovulation_test_result ?? null
+  );
 
   const readableDate = new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
     weekday: "long",
@@ -130,6 +144,10 @@ export function CycleDayLog({
           symptoms,
           moods,
           notes: notes.trim() || null,
+          // Empty string means "not measured", which is a different thing
+          // from zero and must not be sent as one.
+          basalBodyTemperatureC: bbt.trim() === "" ? null : Number(bbt),
+          ovulationTestResult: ovulationTest,
         });
       }}
     >
@@ -178,6 +196,52 @@ export function CycleDayLog({
             />
           ))}
         </div>
+      </fieldset>
+
+      {/* Optional, and only meaningful to somebody actively tracking
+          ovulation, so it sits after the everyday fields rather than
+          greeting everyone who opens the form. */}
+      <fieldset>
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70">
+          Tracking ovulation? (optional)
+        </legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label htmlFor="cycle-bbt" className="text-xs text-charcoal-ink/60">
+              Waking temperature (&deg;C)
+            </label>
+            <Input
+              id="cycle-bbt"
+              type="number"
+              step="0.01"
+              min={34}
+              max={40}
+              inputMode="decimal"
+              placeholder="36.50"
+              value={bbt}
+              onChange={(event) => setBbt(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <span className="block text-xs text-charcoal-ink/60">Ovulation test</span>
+            <div className="flex flex-wrap gap-2">
+              {OVULATION_TEST_OPTIONS.map((option) => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  selected={ovulationTest === option.value}
+                  onClick={() =>
+                    setOvulationTest(ovulationTest === option.value ? null : option.value)
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <p className="mt-1.5 text-[11px] text-charcoal-ink/50">
+          Take your temperature before getting out of bed. A sustained rise suggests ovulation
+          has already happened, so it confirms rather than predicts.
+        </p>
       </fieldset>
 
       <div className="space-y-1.5">
