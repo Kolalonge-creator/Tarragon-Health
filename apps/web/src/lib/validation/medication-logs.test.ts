@@ -42,6 +42,10 @@ describe("medicationLogSchema", () => {
     ).toBe(false);
   });
 
+  it.each(["delayed", "not_available"])("accepts the %s dose-response state", (status) => {
+    expect(medicationLogSchema.safeParse({ ...validFreeform, status }).success).toBe(true);
+  });
+
   it("rejects a malformed scheduled_time", () => {
     expect(
       medicationLogSchema.safeParse({

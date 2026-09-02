@@ -229,8 +229,8 @@ create policy patient_match_candidates_delete on public.patient_match_candidates
 grant select, insert, update, delete on public.patient_match_candidates to authenticated;
 revoke all on public.patient_match_candidates from anon;
 
-revoke execute on function public.run_patient_duplicate_detection() from public;
-revoke execute on function public.review_patient_match_candidate(uuid, public.patient_match_status, text) from public;
+revoke execute on function public.run_patient_duplicate_detection() from public, anon;
+revoke execute on function public.review_patient_match_candidate(uuid, public.patient_match_status, text) from public, anon;
 grant execute on function public.run_patient_duplicate_detection() to authenticated, service_role;
 grant execute on function public.review_patient_match_candidate(uuid, public.patient_match_status, text) to authenticated, service_role;
 

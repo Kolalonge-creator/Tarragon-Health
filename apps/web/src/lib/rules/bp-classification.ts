@@ -13,14 +13,28 @@
  */
 export type BpLevel = "green" | "amber" | "red" | "emergency" | "unknown";
 
+/**
+ * Bump whenever a band below changes — served to the mobile app by
+ * /api/mobile/vitals-thresholds (see ../vitals/mobile-thresholds.ts) so its
+ * bundled offline classifier can detect drift from this source of truth.
+ */
+export const BP_THRESHOLDS_VERSION = "2026-09-01.1";
+
+export const BP_THRESHOLDS = {
+  emergency: { systolic: 200, diastolic: 120 },
+  red: { systolic: 160, diastolic: 100 },
+  amber: { systolic: 135, diastolic: 85 },
+} as const;
+
 export function classifyBpLevel(
   systolic: number | null | undefined,
   diastolic: number | null | undefined
 ): BpLevel {
   if (systolic == null || diastolic == null) return "unknown";
-  if (diastolic >= 120 || systolic >= 200) return "emergency";
-  if (systolic >= 160 || diastolic >= 100) return "red";
-  if (systolic >= 135 || diastolic >= 85) return "amber";
+  if (diastolic >= BP_THRESHOLDS.emergency.diastolic || systolic >= BP_THRESHOLDS.emergency.systolic)
+    return "emergency";
+  if (systolic >= BP_THRESHOLDS.red.systolic || diastolic >= BP_THRESHOLDS.red.diastolic) return "red";
+  if (systolic >= BP_THRESHOLDS.amber.systolic || diastolic >= BP_THRESHOLDS.amber.diastolic) return "amber";
   return "green";
 }
 

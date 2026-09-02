@@ -41,7 +41,7 @@ begin
 end;
 $$;
 
-revoke all on function private.escalation_channel_sequence(text, public.alert_level) from public;
+revoke all on function private.escalation_channel_sequence(text, public.alert_level) from public, anon;
 revoke all on function private.escalation_channel_sequence(text, public.alert_level) from anon;
 
 -- escalation_slas' channel_sequence entries are semantic config, not literal
@@ -139,7 +139,7 @@ begin
 end;
 $$;
 
-revoke all on function private.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) from public;
+revoke all on function private.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) from public, anon;
 revoke all on function private.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) from anon;
 
 -- private.* functions aren't PostgREST-exposed (deliberately, per this
@@ -168,9 +168,9 @@ as $$
   );
 $$;
 
-revoke all on function public.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) from public;
+revoke all on function public.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) from public, anon;
 revoke all on function public.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) from anon;
-revoke all on function public.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) from authenticated;
+revoke all on function public.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) from authenticated, anon;
 grant execute on function public.enqueue_critical_notification(uuid, uuid, text, jsonb, text, public.alert_level, text, uuid) to service_role;
 
 do $$
@@ -288,7 +288,7 @@ begin
 end;
 $$;
 
-revoke all on function private.escalate_unconfirmed_critical_notifications() from public;
+revoke all on function private.escalate_unconfirmed_critical_notifications() from public, anon;
 revoke all on function private.escalate_unconfirmed_critical_notifications() from anon;
 
 do $$

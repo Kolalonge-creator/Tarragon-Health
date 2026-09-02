@@ -86,7 +86,7 @@ grant select, insert, update, delete on public.units_of_measure to authenticated
 grant select, insert, update, delete on public.unit_conversions to authenticated;
 revoke all on public.units_of_measure from anon;
 revoke all on public.unit_conversions from anon;
-revoke execute on function public.convert_unit(numeric, text, text) from public;
+revoke execute on function public.convert_unit(numeric, text, text) from public, anon;
 grant execute on function public.convert_unit(numeric, text, text) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------

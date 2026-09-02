@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAiConversation, useSendCoachMessage } from "@/lib/queries/ai-coach";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
+import { COACH_LIMIT_REACHED_REPLY } from "@/lib/ai-coach/rate-limit";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,9 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   const [draft, setDraft] = useState("");
 
   const messages = conversation?.messages ?? [];
+  const lastMessage = messages[messages.length - 1];
+  const limitReached =
+    lastMessage?.role === "assistant" && lastMessage.content === COACH_LIMIT_REACHED_REPLY;
 
   function formatTimestamp(isoString: string): string {
     return new Date(isoString).toLocaleString([], {
@@ -108,6 +112,30 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
           General guidance, not a diagnosis. For an emergency, call emergency services or go to
           the nearest hospital.
         </p>
+
+        {limitReached && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
+            <p className="text-xs text-charcoal-ink/70">
+              Need more room today? A 30-day pass raises your daily message limit — buy again any
+              time, no auto-renewal.
+            </p>
+            <Button size="sm" variant="outline" asChild>
+              <a href="/patient/subscription">Get the AI Coach Daily Pass</a>
+            </Button>
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
+            <p className="text-xs text-charcoal-ink/70">Want a real doctor&apos;s take on this?</p>
+            <Button size="sm" variant="outline" asChild>
+              <a href="/patient/care#ask-a-doctor">Ask a doctor (written)</a>
+            </Button>
+            <Button size="sm" variant="outline" asChild>
+              <a href="/patient/appointments">Book a video visit</a>
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

@@ -124,6 +124,35 @@ export const populationSummarySchema = z.object({
 });
 export type PopulationSummary = z.infer<typeof populationSummarySchema>;
 
+// ---- Disease surveillance & programme funnel (spec §12.4/§12.8/§12.10) -----
+export const diseaseSurveillanceSchema = z.object({
+  period: z.string().default("month"),
+  new_enrollment_trend: z
+    .array(z.object({ bucket: z.string(), condition: z.string(), count: z.number() }))
+    .default([]),
+  risk_scoring_trend: z
+    .array(z.object({ bucket: z.string(), risk_level: z.string().nullable(), count: z.number() }))
+    .default([]),
+  screening_result_trend: z
+    .array(z.object({ bucket: z.string(), total: z.number(), abnormal: z.number() }))
+    .default([]),
+});
+export type DiseaseSurveillance = z.infer<typeof diseaseSurveillanceSchema>;
+
+export const programmeFunnelSchema = z
+  .array(
+    z.object({
+      condition: z.string(),
+      enrolled: z.number(),
+      monitoring: z.number(),
+      lost_to_follow_up: z.number(),
+      controlled: z.number().nullable(),
+      uncontrolled: z.number().nullable(),
+    })
+  )
+  .default([]);
+export type ProgrammeFunnel = z.infer<typeof programmeFunnelSchema>;
+
 // ---- Audit -----------------------------------------------------------------
 export const auditLogSchema = z.object({
   total: z.number().default(0),
@@ -690,4 +719,50 @@ export const deliverabilitySchema = z.object({
     .array(z.object({ bucket: z.string(), sent: z.number(), failed: z.number() }))
     .default([]),
 });
+
+// ---- Patient safety (docs spec §89.14) -------------------------------------
+// analytics_safety_dashboard_summary() — 20260829214718_safety_dashboard_summary_rpc.sql.
+export const safetyDashboardSummarySchema = z.object({
+  critical_alerts: z.number().default(0),
+  open_safety_events: z.number().default(0),
+  near_misses: z.number().default(0),
+  overdue_actions: z.number().default(0),
+  ai_escalations: z.number().default(0),
+  medication_incidents: z.number().default(0),
+  open_safeguarding_concerns: z.number().default(0),
+});
+export type SafetyDashboardSummary = z.infer<typeof safetyDashboardSummarySchema>;
+
+// analytics_alert_burden() — 20260828020801_alert_analytics_rpcs.sql (already
+// live; this is the first UI to read it).
+export const alertBurdenSchema = z.object({
+  per_clinician: z
+    .array(
+      z.object({
+        clinical_staff_id: z.string(),
+        full_name: z.string(),
+        doctor_tier: z.string().nullable(),
+        open_owned: z.number(),
+        open_owned_urgent_plus: z.number(),
+        avg_age_hours: z.number().nullable(),
+      })
+    )
+    .default([]),
+  unassigned_important_open: z.number().default(0),
+});
+export type AlertBurden = z.infer<typeof alertBurdenSchema>;
+
+// analytics_alert_quality() — same migration as alertBurdenSchema above.
+export const alertQualitySchema = z.object({
+  total: z.number().default(0),
+  by_category: z.record(z.string(), z.number()).default({}),
+  by_severity: z.record(z.string(), z.number()).default({}),
+  avg_ack_minutes: z.number().nullable().default(null),
+  avg_resolution_hours: z.number().nullable().default(null),
+  escalation_rate_pct: z.number().default(0),
+  duplicate_rate_pct: z.number().default(0),
+  false_positive_rate_pct: z.number().default(0),
+  suppressed_count: z.number().default(0),
+});
+export type AlertQuality = z.infer<typeof alertQualitySchema>;
 export type Deliverability = z.infer<typeof deliverabilitySchema>;

@@ -151,7 +151,7 @@ $$;
 comment on function public.resolve_analyte_concept is
   'Looks up the seeded LOINC concept for a lab_analyte_readings.code string via the tarragon_analyte_code bridge written by mdm_units_and_concept_seed. Returns null if that code has no seeded concept yet.';
 
-revoke execute on function public.resolve_analyte_concept(text) from public;
+revoke execute on function public.resolve_analyte_concept(text) from public, anon;
 grant execute on function public.resolve_analyte_concept(text) to authenticated, service_role;
 
 grant execute on function private.validate_concept_domain() to authenticated, service_role;

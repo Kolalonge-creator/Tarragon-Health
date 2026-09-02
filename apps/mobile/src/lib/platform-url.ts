@@ -4,8 +4,8 @@ export const PLATFORM_URL =
 export const PLATFORM_HOST = new URL(PLATFORM_URL).host;
 
 /** Allowlist for WebView navigation: the platform itself, plus the hosted
- * checkout pages the subscription flow redirects through and back. Anything
- * else opens in the system browser instead of hijacking the shell. */
+ * checkout pages a voucher/service-purchase flow redirects through and back.
+ * Anything else opens in the system browser instead of hijacking the shell. */
 export function isPlatformUrl(url: string): boolean {
   try {
     const { host, protocol } = new URL(url);

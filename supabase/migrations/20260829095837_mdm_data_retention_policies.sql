@@ -144,7 +144,7 @@ create policy data_retention_policies_delete on public.data_retention_policies
 
 grant select, insert, update, delete on public.data_retention_policies to authenticated;
 revoke all on public.data_retention_policies from anon;
-revoke execute on function public.data_retention_policy_summary() from public;
+revoke execute on function public.data_retention_policy_summary() from public, anon;
 grant execute on function public.data_retention_policy_summary() to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------

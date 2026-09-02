@@ -43,6 +43,7 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
   const supabase = await createClient();
   const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies } =
     await loadMedicationSafety(supabase, patientId);
+  const { pregnancyCheckNote } = report;
 
   return (
     <Card>
@@ -156,6 +157,12 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
         {report.renalCheckSkipped && medicationCount > 0 ? (
           <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
             {report.renalCheckSkipped}
+          </p>
+        ) : null}
+
+        {pregnancyCheckNote && medicationCount > 0 ? (
+          <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+            {pregnancyCheckNote}
           </p>
         ) : null}
       </CardContent>
