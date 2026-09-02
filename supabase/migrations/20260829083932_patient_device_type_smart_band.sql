@@ -1,0 +1,19 @@
+-- Tarragon Health
+-- Adds 'smart_band' to patient_device_type for consumer BLE fitness/health
+-- bands paired via a vendor SDK (not a standard clinical GATT profile) —
+-- CLAUDE.md "Device & Wearable Integration". This is additive only: it
+-- reuses the existing patient_devices/vitals_readings pipeline verbatim
+-- (source='device', same /api/mobile/device-readings ingestion boundary,
+-- same BP-control/glucose assessment triggers) rather than a parallel
+-- table, per the "no dual source of truth" rule already governing
+-- bp_cuff/glucometer/scale/thermometer/pulse_oximeter.
+--
+-- Scope is deliberately narrower than the vendor SDK's full capability:
+-- only pulse (heart rate) and spo2 are wired up on the app side (see
+-- apps/mobile/src/lib/yucheng-band.ts). The vendor SDK also exposes a
+-- blood_pressure data type, but a band's PPG-derived BP estimate is not
+-- clinically equivalent to a real cuff reading and piping it into the same
+-- vital_type='blood_pressure' pipeline as a cuff would silently blend two
+-- different confidence levels of data — left out until a founder/clinical
+-- decision says otherwise, not an oversight.
+alter type public.patient_device_type add value if not exists 'smart_band';

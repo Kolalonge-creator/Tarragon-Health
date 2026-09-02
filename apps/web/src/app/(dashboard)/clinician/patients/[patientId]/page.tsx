@@ -37,6 +37,7 @@ import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
 import { CarePlanManagementSection } from "./care-plan-management-section";
+import { ChronicProgrammeReviewSection } from "./chronic-programme-review-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
@@ -269,6 +270,11 @@ export default async function ClinicianPatientPage({
             ),
           },
           {
+            id: "chronic-programme",
+            label: "12-week programme",
+            content: <ChronicProgrammeReviewSection patientId={patient.id} />,
+          },
+          {
             id: "vitals-chronic-care",
             label: "Vitals & chronic care",
             content: (
@@ -339,6 +345,8 @@ export default async function ClinicianPatientPage({
                 organisationId={patient.organisation_id}
                 canWrite={isClinicalTier(callerStaff)}
                 canActionFollowUps={Boolean(callerStaff)}
+                patientName={patient.full_name ?? "this patient"}
+                patientDateOfBirth={patient.date_of_birth}
               />
             ) : null,
           },
