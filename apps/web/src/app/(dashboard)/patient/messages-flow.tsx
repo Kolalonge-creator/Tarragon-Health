@@ -10,6 +10,18 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { NAV_ICON } from "@/lib/icons";
+import { careMessageCategories, type CareMessageCategory } from "@/lib/validation/care-messages";
+
+const CATEGORY_LABEL: Record<CareMessageCategory, string> = {
+  clinical: "Clinical question",
+  appointment: "Appointment",
+  medication: "Medication",
+  laboratory: "Lab result",
+  pharmacy: "Pharmacy",
+  billing: "Billing",
+  technical: "Technical issue",
+  general: "General",
+};
 
 /** Phone-only way back to the conversation list — on lg the list is still
  * sitting there beside this pane, so the control would be meaningless. */
@@ -42,17 +54,19 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [category, setCategory] = useState<CareMessageCategory>("general");
   const [error, setError] = useState<string | null>(null);
   const [composing, setComposing] = useState(false);
 
   const startThread = () => {
     setError(null);
     start.mutate(
-      { subject, body, patientId },
+      { subject, body, category, patientId },
       {
         onSuccess: (id) => {
           setSubject("");
           setBody("");
+          setCategory("general");
           setComposing(false);
           setOpenId(id);
         },
@@ -116,7 +130,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                     </span>
                     {thread.status === "closed" && <Badge variant="grey">Closed</Badge>}
                   </div>
-                  <p className="mt-0.5 text-xs text-charcoal-ink/50">{when(thread.last_message_at)}</p>
+                  <p className="mt-0.5 text-xs text-charcoal-ink/50">
+                    {CATEGORY_LABEL[thread.category]} · {when(thread.last_message_at)}
+                  </p>
                 </button>
               </li>
             ))}
@@ -148,6 +164,21 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   placeholder="e.g. Question about my medication"
                   maxLength={150}
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="category">What&apos;s this about?</Label>
+                <select
+                  id="category"
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as CareMessageCategory)}
+                  className="h-10 rounded-md border border-charcoal-ink/15 bg-white px-3 text-sm text-charcoal-ink"
+                >
+                  {careMessageCategories.map((c) => (
+                    <option key={c} value={c}>
+                      {CATEGORY_LABEL[c]}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="body">Message</Label>
@@ -183,6 +214,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <CareMessageThread
                 threadId={openThread.id}
+                patientId={patientId}
                 closed={openThread.status === "closed"}
                 showEmergencyNotice
               />

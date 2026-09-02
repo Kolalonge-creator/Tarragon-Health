@@ -3,11 +3,15 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { AddChildForm } from "./add-child-form";
+import { AddElderProxyForm } from "./add-elder-form";
+import { MaturedDependentBanner } from "./matured-dependent-banner";
+import { HouseholdOverview } from "./household-overview";
 import { NextOfKinForm, type NextOfKinState } from "./next-of-kin-form";
 import { DependantsList } from "./dependants-list";
 import { AdultsYouManageList } from "./adults-you-manage-list";
 import { CareAccessRequestsList, type CareAccessRequestRow } from "./care-access-requests-list";
 import { CareVisibilityList } from "./care-visibility-list";
+import { EmergencyAccessBanner } from "./emergency-access-banner";
 import { CareAccessLog, type CareAccessLogRow } from "./care-access-log";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -138,14 +142,23 @@ export default async function CareCirclePage() {
         </p>
       </div>
 
+      <EmergencyAccessBanner />
+
       <CareAccessRequestsList requests={requests} currentUserId={profile.id} />
+
+      <HouseholdOverview />
+
+      <MaturedDependentBanner />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <DependantsList />
           <AddChildForm />
         </div>
-        <AdultsYouManageList />
+        <div className="space-y-4">
+          <AdultsYouManageList />
+          <AddElderProxyForm />
+        </div>
       </div>
 
       <NextOfKinForm current={nextOfKin} />

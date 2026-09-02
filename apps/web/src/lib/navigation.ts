@@ -125,11 +125,22 @@ export function getNavSections(
               primary: true,
               shortLabel: "Home",
             },
+            // Spec §76.5 ("action centre") — every outstanding task in one
+            // urgency-bucketed place, not scattered across Overview's
+            // individual cards. First-class nav entry, not just a link off
+            // Overview, since it's meant to be reachable directly.
+            { label: "My actions", href: "/patient/actions", icon: "approvals" },
           ],
         },
         {
           label: "Your health",
           items: [
+            // Spec §76.3 ("personal health summary") — conditions,
+            // allergies, medications, measurements, investigations, care
+            // programmes, appointments, referrals and preventive tasks in
+            // one place, composed from the record the sections below already
+            // hold rather than a second copy of it.
+            { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
             {
               label: "Vitals & symptoms",
               href: "/patient/vitals",
@@ -146,8 +157,16 @@ export function getNavSections(
             },
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
+            { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
+            {
+              label: "Sexual & reproductive health",
+              href: "/patient/sexual-health",
+              icon: "family",
+            },
             { label: "Wellbeing", href: "/patient/wellbeing", icon: "mood" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Adolescent Health", href: "/patient/adolescent-health", icon: "mood" },
+            { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
             { label: "Healthy ageing", href: "/patient/healthy-ageing", icon: "healthyAgeing" },
             { label: "Get a device", href: "/patient/devices", icon: "devices" },
           ],
@@ -183,8 +202,15 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
             { label: "Insurance", href: "/patient/insurance", icon: "insurance" },
             { label: "My services", href: "/patient/subscription", icon: "billing" },
+            { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
+            {
+              label: "Notification settings",
+              href: "/patient/notification-settings",
+              icon: "bell",
+            },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
             { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {
@@ -223,6 +249,12 @@ export function getNavSections(
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
                 { label: "Case management", href: "/clinician/case-management", icon: "carePlan" },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
+                {
+                  label: "Operations queue",
+                  href: "/clinician/operations-queue",
+                  icon: "escalation",
+                },
                 {
                   label: "Medication issues",
                   href: "/clinician/medication-issues",
@@ -260,6 +292,12 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
+                {
+                  label: "Operations queue",
+                  href: "/clinician/operations-queue",
+                  icon: "escalation",
+                },
                 {
                   label: "Medication issues",
                   href: "/clinician/medication-issues",
@@ -281,6 +319,7 @@ export function getNavSections(
                 { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive" },
+                { label: "Sexual health cases", href: "/clinician/sexual-health", icon: "escalation" },
               ],
             },
             {
@@ -371,6 +410,7 @@ export function getNavSections(
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
             { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
             { label: "Care vouchers", href: "/admin/settings/vouchers", icon: "payables" },
+            { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
             { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
           ],
         },
@@ -456,12 +496,15 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/finance", icon: "dashboard", exact: true },
             { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
+            { label: "Transactions", href: "/finance/transactions", icon: "billing" },
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
             { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
+            { label: "Fraud signals", href: "/finance/fraud", icon: "warning" },
+            { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
             { label: "Compliance calendar", href: "/finance/compliance", icon: "compliance" },
             { label: "Reports & filings", href: "/finance/reports", icon: "statements" },

@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/fraud-sweep",
+      "schedule": "10 5 * * *"
+    },
+    {
       "path": "/api/cron/ai-coach-embed-content",
       "schedule": "20 8 * * *"
     },
@@ -39,6 +43,14 @@
     {
       "path": "/api/cron/video-visit-refunds",
       "schedule": "30 5 * * *"
+    },
+    {
+      "path": "/api/cron/voucher-cancellation-refunds",
+      "schedule": "50 5 * * *"
+    },
+    {
+      "path": "/api/cron/cycle-reminders",
+      "schedule": "0 6 * * *"
     },
     {
       "path": "/api/cron/wearable-sync",

@@ -52,11 +52,29 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
               <li key={order.id} className="space-y-2 py-3">
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
+                  {order.urgency === "urgent" && <Badge variant="red">Urgent</Badge>}
                   <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
                 </div>
                 <p className="text-sm font-medium text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Lab test"}
                 </p>
+                {/* Null-gated: only a clinician-generated order ever sets
+                    ordered_by, so this line is absent for a self-service
+                    due-screening order rather than showing "Ordered by"
+                    with nothing after it. */}
+                {order.ordered_by_staff && (
+                  <p className="text-xs text-charcoal-ink/60">
+                    Ordered by Dr. {order.ordered_by_staff.full_name}
+                  </p>
+                )}
+                {order.clinical_indication && (
+                  <p className="text-xs text-charcoal-ink/60">Reason: {order.clinical_indication}</p>
+                )}
+                {order.panel_bundle?.preparation_instructions && (
+                  <p className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
+                    {order.panel_bundle.preparation_instructions}
+                  </p>
+                )}
                 {order.status === "pending_payment" && (
                   <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
                 )}

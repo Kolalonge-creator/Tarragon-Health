@@ -2,14 +2,20 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 /**
- * The three anchors a patient can ask "help me understand this" about.
- * Each one always explains the patient's LATEST value for that kind+key --
- * matching how RiskSignalsCard/LipidProfileCard already present "latest"
- * data -- so no specific row id needs threading through the UI, and a past
- * reading never changing means the cache in patient_result_explanations
- * never goes stale.
+ * The anchors a patient can ask "help me understand this" about.
+ * "risk_score" / "lab_analyte" / "vitals" each explain the patient's LATEST
+ * value for that kind+key -- matching how RiskSignalsCard/LipidProfileCard
+ * already present "latest" data -- so no specific row id needs threading
+ * through the UI, and a past reading never changing means the cache in
+ * patient_result_explanations never goes stale.
+ *
+ * "condition" / "allergy" (added for spec §76.10/§76.3, see
+ * 20260829222759_result_explanations_condition_allergy_kinds.sql) key on a
+ * SPECIFIC row id instead -- a patient can have several conditions or
+ * allergies at once, so there is no single "latest" to collapse to the way
+ * the other three kinds do.
  */
-export type ExplainerKind = "risk_score" | "lab_analyte" | "vitals";
+export type ExplainerKind = "risk_score" | "lab_analyte" | "vitals" | "condition" | "allergy";
 
 export interface ResultSnapshot {
   kind: ExplainerKind;
@@ -83,6 +89,55 @@ export async function buildResultSnapshot(
       previous: previous
         ? { value: String(previous.value), unit: previous.unit, recordedAt: previous.taken_at }
         : null,
+    };
+  }
+
+  if (kind === "condition") {
+    // subjectKey is a specific patient_conditions.id, not "latest" -- a
+    // patient can have several conditions on file at once (see the
+    // ExplainerKind doc comment above). created_at is selected purely as a
+    // type-safe final fallback for recordedAt (last_reviewed_at and
+    // date_identified are both nullable on this table; created_at is not).
+    const { data } = await supabase
+      .from("patient_conditions")
+      .select("status, last_reviewed_at, date_identified, created_at")
+      .eq("id", subjectKey)
+      .eq("patient_id", patientId)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      kind,
+      subjectKey,
+      label,
+      latest: {
+        value: data.status,
+        unit: null,
+        recordedAt: data.last_reviewed_at ?? data.date_identified ?? data.created_at,
+      },
+      previous: null,
+    };
+  }
+
+  if (kind === "allergy") {
+    // subjectKey is a specific patient_allergies.id, same "no single latest"
+    // reasoning as condition above.
+    const { data } = await supabase
+      .from("patient_allergies")
+      .select("reaction, severity, noted_at")
+      .eq("id", subjectKey)
+      .eq("patient_id", patientId)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      kind,
+      subjectKey,
+      label,
+      latest: {
+        value: data.reaction ?? data.severity ?? "recorded",
+        unit: null,
+        recordedAt: data.noted_at,
+      },
+      previous: null,
     };
   }
 
