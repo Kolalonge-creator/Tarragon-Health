@@ -197,6 +197,7 @@ end;
 $$;
 
 revoke all on function public.finance_unified_ledger(uuid, uuid, date, date, integer, integer) from public;
+revoke all on function public.finance_unified_ledger(uuid, uuid, date, date, integer, integer) from anon;
 grant execute on function public.finance_unified_ledger(uuid, uuid, date, date, integer, integer) to authenticated;
 
 -- ---------------------------------------------------------------------------

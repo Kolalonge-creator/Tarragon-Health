@@ -64,6 +64,7 @@ end;
 $$;
 
 revoke all on function public.analytics_specialist_provider_workload(uuid) from public;
+revoke all on function public.analytics_specialist_provider_workload(uuid) from anon;
 grant execute on function public.analytics_specialist_provider_workload(uuid) to authenticated;
 
 create or replace function public.analytics_specialist_provider_performance(p_specialist_provider_id uuid)
@@ -104,6 +105,7 @@ end;
 $$;
 
 revoke all on function public.analytics_specialist_provider_performance(uuid) from public;
+revoke all on function public.analytics_specialist_provider_performance(uuid) from anon;
 grant execute on function public.analytics_specialist_provider_performance(uuid) to authenticated;
 
 do $$

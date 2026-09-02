@@ -297,6 +297,7 @@ grant select, insert, update, delete on public.data_quality_findings to authenti
 revoke all on public.data_quality_findings from anon;
 
 revoke execute on function public.run_data_quality_scan() from public;
+revoke execute on function public.run_data_quality_scan() from anon;
 revoke execute on function public.resolve_data_quality_finding(uuid, public.data_quality_finding_status, text) from public;
 grant execute on function public.run_data_quality_scan() to authenticated, service_role;
 grant execute on function public.resolve_data_quality_finding(uuid, public.data_quality_finding_status, text) to authenticated, service_role;

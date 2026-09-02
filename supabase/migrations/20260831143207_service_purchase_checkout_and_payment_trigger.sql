@@ -62,6 +62,7 @@ end;
 $$;
 
 revoke execute on function public.record_service_purchase_intent(uuid, text, text, uuid) from public;
+revoke execute on function public.record_service_purchase_intent(uuid, text, text, uuid) from anon;
 grant execute on function public.record_service_purchase_intent(uuid, text, text, uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------

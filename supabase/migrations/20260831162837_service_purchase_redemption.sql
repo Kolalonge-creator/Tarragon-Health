@@ -113,6 +113,7 @@ end;
 $$;
 
 revoke execute on function public.redeem_available_service_purchase(uuid, text, text, uuid) from public;
+revoke execute on function public.redeem_available_service_purchase(uuid, text, text, uuid) from anon;
 grant execute on function public.redeem_available_service_purchase(uuid, text, text, uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -144,6 +145,7 @@ as $$
 $$;
 
 revoke execute on function public.has_available_service_purchase(uuid, text) from public;
+revoke execute on function public.has_available_service_purchase(uuid, text) from anon;
 grant execute on function public.has_available_service_purchase(uuid, text) to authenticated;
 
 do $$

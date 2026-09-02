@@ -190,6 +190,7 @@ end;
 $$;
 
 revoke all on function public.redeem_promo_code(text, text, uuid) from public;
+revoke all on function public.redeem_promo_code(text, text, uuid) from anon;
 grant execute on function public.redeem_promo_code(text, text, uuid) to authenticated;
 
 create or replace function public.create_promo_code(
@@ -238,6 +239,7 @@ end;
 $$;
 
 revoke all on function public.create_promo_code(text, text, numeric, text[], integer, integer, bigint, timestamptz, timestamptz) from public;
+revoke all on function public.create_promo_code(text, text, numeric, text[], integer, integer, bigint, timestamptz, timestamptz) from anon;
 grant execute on function public.create_promo_code(text, text, numeric, text[], integer, integer, bigint, timestamptz, timestamptz) to authenticated;
 
 create or replace function public.set_promo_code_active(p_id uuid, p_is_active boolean)
@@ -256,6 +258,7 @@ end;
 $$;
 
 revoke all on function public.set_promo_code_active(uuid, boolean) from public;
+revoke all on function public.set_promo_code_active(uuid, boolean) from anon;
 grant execute on function public.set_promo_code_active(uuid, boolean) to authenticated;
 
 do $$

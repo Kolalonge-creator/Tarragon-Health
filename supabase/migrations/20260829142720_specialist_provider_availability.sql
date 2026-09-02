@@ -176,6 +176,7 @@ as $$
 $$;
 
 revoke all on function public.get_available_specialist_slots(uuid, date, date) from public;
+revoke all on function public.get_available_specialist_slots(uuid, date, date) from anon;
 grant execute on function public.get_available_specialist_slots(uuid, date, date) to authenticated;
 
 do $$

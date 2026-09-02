@@ -120,6 +120,7 @@ $$;
 -- anon inherits EXECUTE through the PUBLIC pseudo-role unless explicitly
 -- revoked from public (not from anon) — see CLAUDE.md's standing gotcha.
 revoke all on function public.advance_specialist_verification_stage(uuid, public.specialist_verification_stage, text) from public;
+revoke all on function public.advance_specialist_verification_stage(uuid, public.specialist_verification_stage, text) from anon;
 grant execute on function public.advance_specialist_verification_stage(uuid, public.specialist_verification_stage, text) to authenticated;
 
 do $$

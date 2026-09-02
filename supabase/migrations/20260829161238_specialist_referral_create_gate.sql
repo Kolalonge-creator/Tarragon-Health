@@ -85,6 +85,7 @@ create trigger specialist_referrals_enforce_create
   for each row execute function private.enforce_specialist_referral_create();
 
 revoke all on function private.enforce_specialist_referral_create() from public;
+revoke all on function private.enforce_specialist_referral_create() from anon;
 
 -- A draft moving to any other status is "submission" (67.4 Draft ->
 -- Submitted) and must be stamped the same way a fresh non-draft INSERT is.
@@ -111,6 +112,7 @@ create trigger specialist_referrals_stamp_submission
   for each row execute function private.stamp_specialist_referral_submission();
 
 revoke all on function private.stamp_specialist_referral_submission() from public;
+revoke all on function private.stamp_specialist_referral_submission() from anon;
 
 do $$
 begin

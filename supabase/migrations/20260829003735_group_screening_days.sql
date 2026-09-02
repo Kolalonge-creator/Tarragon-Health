@@ -552,15 +552,23 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- Grants. anon gets nothing — same anon-inherits-via-PUBLIC gotcha this
--- codebase has re-broken before, so revoke from public, not anon, and assert
--- rather than assume (see feedback_supabase_anon_execute_gotcha memory).
+-- codebase has re-broken before: Supabase grants EXECUTE directly to anon via
+-- a default-privileges setting independent of the PUBLIC pseudo-role, so
+-- revoking from public alone is not enough — anon must be revoked explicitly
+-- too (see feedback_supabase_anon_execute_gotcha memory, and
+-- 20260803165959_emergency_card_hardening.sql's own comment).
 -- ---------------------------------------------------------------------------
 
 revoke all on function public.request_screening_day(text, text, text, date, uuid, integer, text) from public;
+revoke all on function public.request_screening_day(text, text, text, date, uuid, integer, text) from anon;
 revoke all on function public.confirm_screening_day(uuid, integer, numeric, uuid) from public;
+revoke all on function public.confirm_screening_day(uuid, integer, numeric, uuid) from anon;
 revoke all on function public.record_screening_day_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) from public;
+revoke all on function public.record_screening_day_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) from anon;
 revoke all on function public.add_screening_day_slot(uuid, text, text) from public;
+revoke all on function public.add_screening_day_slot(uuid, text, text) from anon;
 revoke all on function public.issue_screening_day_voucher(uuid, uuid) from public;
+revoke all on function public.issue_screening_day_voucher(uuid, uuid) from anon;
 
 grant execute on function public.request_screening_day(text, text, text, date, uuid, integer, text) to authenticated;
 grant execute on function public.confirm_screening_day(uuid, integer, numeric, uuid) to authenticated;

@@ -343,6 +343,7 @@ end;
 $$;
 
 revoke all on function public.redeem_promo_code(text, text, uuid) from public;
+revoke all on function public.redeem_promo_code(text, text, uuid) from anon;
 grant execute on function public.redeem_promo_code(text, text, uuid) to authenticated;
 
 do $$

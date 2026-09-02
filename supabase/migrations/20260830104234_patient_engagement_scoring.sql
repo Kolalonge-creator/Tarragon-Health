@@ -149,6 +149,7 @@ end;
 $$;
 
 revoke execute on function private.compute_patient_engagement_tiers() from public;
+revoke execute on function private.compute_patient_engagement_tiers() from anon;
 
 select cron.schedule(
   'patient-engagement-scoring-daily',
