@@ -104,12 +104,95 @@ function substituteTemplatePlaceholders(text: string, payload: Record<string, un
 interface NotificationRow {
   id: string;
   recipient_id: string;
+  organisation_id: string | null;
   channel: "whatsapp" | "sms" | "in_app" | "email" | "push" | "voice";
   template: string | null;
   payload: Record<string, unknown>;
   attempts: number;
   priority: "routine" | "critical";
 }
+
+// Spec §76.12 (patient channel preferences). patient_notification_preferences
+// (20260829222502) has no `category` column on `notifications` itself to key
+// off — categorising by template here, purely additive, needs no schema
+// change to `notifications`. A template with no entry is simply never gated
+// (always sends, today's behaviour unchanged) — the safe default for
+// anything not confidently classified, rather than guessing. Never includes
+// a template addressed to someone other than the patient (a lab/pharmacy/
+// specialist contact, or an emergency contact) or an admin-authored
+// broadcast — see the per-line comments where those are deliberately
+// omitted below.
+type PreferenceCategory =
+  | "appointments"
+  | "medications"
+  | "labs_results"
+  | "screenings_vaccinations"
+  | "referrals"
+  | "care_messages"
+  | "education_wellness"
+  | "billing";
+
+const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
+  booking_reminder: "appointments",
+  video_consult_booked: "appointments",
+  video_visit_alternate_proposed: "appointments",
+  video_visit_declined: "appointments",
+  async_consult_answered: "appointments",
+  annual_review_consult_scheduled: "appointments",
+
+  medication_refill_reminder: "medications",
+  medication_adherence_checkin: "medications",
+  medication_review_due: "medications",
+  medication_prescribed_patient: "medications",
+  pharmacy_order_patient_confirmation: "medications",
+
+  lab_order_patient_confirmation: "labs_results",
+  lab_order_requested_patient: "labs_results",
+  risk_signal_attention: "labs_results",
+
+  vaccination_due: "screenings_vaccinations",
+  vaccination_verified: "screenings_vaccinations",
+  screening_due: "screenings_vaccinations",
+  health_check_due_soon: "screenings_vaccinations",
+  diabetes_complication_check_due: "screenings_vaccinations",
+  preventive_review_due: "screenings_vaccinations",
+  annual_review_due: "screenings_vaccinations",
+
+  referral_patient_confirmation: "referrals",
+
+  new_care_message: "care_messages",
+  care_outreach_checkin: "care_messages",
+  sponsor_care_reviewed: "care_messages",
+  sponsor_person_quiet: "care_messages",
+  sponsored_plan_started: "care_messages",
+
+  vitals_reminder: "education_wellness",
+  lifestyle_nudge: "education_wellness",
+  lifestyle_review_due: "education_wellness",
+  wellness_challenge_ending: "education_wellness",
+  region_now_available: "education_wellness",
+
+  sponsor_spend_receipt: "billing",
+  sponsor_monthly_report: "billing",
+
+  // Deliberately NOT categorised (never gated by this table, always sends):
+  // broadcast_announcement (admin-authored, org-wide — a category toggle
+  // must never silently drop it); emergency_contact_alert/emergency_
+  // followup/emergency_card_viewed/emergency_card_expiring_soon (safety-
+  // adjacent); abnormal_result_clinician_alert/emergency_event_clinician_
+  // alert/vitals_red_flag_clinician_alert/pharmacy_order_pharmacy_alert/
+  // lab_order_lab_alert/referral_specialist_alert (recipient_id is the
+  // patient for bookkeeping only — the content is addressed to a
+  // clinician/partner/emergency contact, not the patient, same nuance
+  // 20260811235133_guarantee_in_app_notification_companions.sql documents).
+};
+
+// Spec §76.14 (notification fatigue management). More than this many
+// ROUTINE (never critical) rows queued for the same recipient in one batch
+// collapse into a single in-app digest instead of arriving as separate
+// pushes/texts/emails. 3 is a small, deliberately conservative threshold —
+// "avoid reminder overload", not "batch everything".
+const DIGEST_THRESHOLD = 3;
 
 interface PushSubscriptionRow {
   id: string;
@@ -2165,7 +2248,7 @@ Deno.serve(async () => {
   // as before. Never set on critical/escalation rows, so this can never delay one.
   const { data: pending, error: fetchError } = await supabase
     .from("notifications")
-    .select("id, recipient_id, channel, template, payload, attempts, priority")
+    .select("id, recipient_id, organisation_id, channel, template, payload, attempts, priority")
     .eq("status", "pending")
     .in("channel", ["whatsapp", "sms", "email", "voice", "push"])
     .lt("attempts", MAX_ATTEMPTS)
@@ -2176,14 +2259,14 @@ Deno.serve(async () => {
 
   if (fetchError) {
     return Response.json(
-      { processed: 0, sent: 0, retried: 0, failed: 0, error: fetchError.message },
+      { processed: 0, sent: 0, retried: 0, failed: 0, suppressed: 0, error: fetchError.message },
       { status: 200 },
     );
   }
 
   const rows = pending ?? [];
   if (rows.length === 0) {
-    return Response.json({ processed: 0, sent: 0, retried: 0, failed: 0 });
+    return Response.json({ processed: 0, sent: 0, retried: 0, failed: 0, suppressed: 0 });
   }
 
   const recipientIds = [...new Set(rows.map((row) => row.recipient_id))];
@@ -2207,11 +2290,108 @@ Deno.serve(async () => {
     subscriptionsByProfile.set(sub.profile_id, list);
   }
 
+  // Spec §76.12 — patient channel preferences, routine rows only. Keyed
+  // "recipientId:category" since patient_notification_preferences is one row
+  // per (patient, category); a missing row means "all channels on"
+  // (the table's own column defaults), so an absent lookup below always
+  // falls through to "send".
+  const { data: preferenceRows } = await supabase
+    .from("patient_notification_preferences")
+    .select("patient_id, category, email_enabled, sms_enabled, push_enabled, whatsapp_enabled")
+    .in("patient_id", recipientIds)
+    .returns<
+      Array<{
+        patient_id: string;
+        category: PreferenceCategory;
+        email_enabled: boolean;
+        sms_enabled: boolean;
+        push_enabled: boolean;
+        whatsapp_enabled: boolean;
+      }>
+    >();
+  const preferenceByRecipientCategory = new Map(
+    (preferenceRows ?? []).map((p) => [`${p.patient_id}:${p.category}`, p]),
+  );
+
+  function channelAllowed(row: NotificationRow): boolean {
+    if (row.priority === "critical") return true; // never gated — see TEMPLATE_CATEGORY's header comment
+    const category = row.template ? TEMPLATE_CATEGORY[row.template] : undefined;
+    if (!category) return true; // unclassified templates are never gated
+    const pref = preferenceByRecipientCategory.get(`${row.recipient_id}:${category}`);
+    if (!pref) return true; // no row on file — table defaults are all-on
+    switch (row.channel) {
+      case "email":
+        return pref.email_enabled;
+      case "sms":
+        return pref.sms_enabled;
+      case "push":
+        return pref.push_enabled;
+      case "whatsapp":
+        return pref.whatsapp_enabled;
+      default:
+        return true; // voice has no toggle column — treat as always-on
+    }
+  }
+
   let sent = 0;
   let retried = 0;
   let failed = 0;
+  let suppressed = 0;
+
+  const suppress = (id: string, reason: string) =>
+    supabase
+      .from("notifications")
+      .update({ status: "suppressed", last_error: reason })
+      .eq("id", id);
+
+  // Spec §76.14 — fatigue management. More than DIGEST_THRESHOLD routine
+  // rows for the same recipient in this one batch fold into a single in-app
+  // digest; the individual rows never send on their own external channel.
+  // Critical rows are never eligible — they're excluded from `routineByRecipient`
+  // below by construction (only priority === "routine" rows are grouped).
+  const routineByRecipient = new Map<string, NotificationRow[]>();
+  for (const row of rows) {
+    if (row.priority !== "routine") continue;
+    const list = routineByRecipient.get(row.recipient_id) ?? [];
+    list.push(row);
+    routineByRecipient.set(row.recipient_id, list);
+  }
+
+  const foldedIds = new Set<string>();
+  for (const [recipientId, group] of routineByRecipient) {
+    if (group.length <= DIGEST_THRESHOLD) continue;
+
+    const labels = group.map((row) => {
+      const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
+      return renderFn ? renderFn(row.payload ?? {}).smsText : (row.template ?? "an update");
+    });
+
+    const { error: digestError } = await supabase.from("notifications").insert({
+      recipient_id: recipientId,
+      organisation_id: group[0].organisation_id,
+      channel: "in_app",
+      status: "pending",
+      priority: "routine",
+      template: "daily_digest",
+      payload: { count: group.length, items: labels, action_centre_url: appUrl("/patient/actions") },
+    });
+    if (digestError) continue; // couldn't create the digest — leave the originals to send normally, don't silently drop them
+
+    for (const row of group) {
+      await suppress(row.id, `folded into daily_digest (${group.length} items)`);
+      foldedIds.add(row.id);
+      suppressed++;
+    }
+  }
 
   for (const row of rows) {
+    if (foldedIds.has(row.id)) continue;
+
+    if (!channelAllowed(row)) {
+      await suppress(row.id, "patient turned off this channel for this category");
+      suppressed++;
+      continue;
+    }
     // Critical rows fail fast, never sit through the normal 3-attempt/
     // ~15-minute retry ladder — private.escalate_unconfirmed_critical_notifications()
     // (checked every 2 minutes) is what turns a failed critical send into
@@ -2411,5 +2591,5 @@ Deno.serve(async () => {
     }
   }
 
-  return Response.json({ processed: rows.length, sent, retried, failed });
+  return Response.json({ processed: rows.length, sent, retried, failed, suppressed });
 });

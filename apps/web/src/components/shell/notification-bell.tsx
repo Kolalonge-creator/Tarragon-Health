@@ -13,6 +13,58 @@ import {
   type InAppNotification,
 } from "@/lib/queries/notifications";
 
+/**
+ * Spec §76.13 ("notification priority") — Critical/Important/Routine, so a
+ * patient can tell an appointment reminder apart from a clinical safety
+ * alert at a glance. Deliberately NOT a new DB column: `notifications.
+ * priority` (routine/critical) is live, load-bearing input to the critical-
+ * notification escalation engine (private.escalate_unconfirmed_critical_
+ * notifications) and is not touched here. This is a purely client-side
+ * DISPLAY tier: any row the DB already marked `priority = 'critical'`
+ * always displays "Critical"; a curated handful of templates that are
+ * known-safety-relevant but might reach this table via a plain (non-
+ * escalation-engine) insert are treated as critical too, defensively; every
+ * other routine row is split Important/Routine by template. Anything
+ * unmapped defaults to "important", never "routine" — the same
+ * never-silently-downgrade principle this codebase already applies to
+ * priority classification elsewhere.
+ */
+const ALWAYS_CRITICAL_TEMPLATES = new Set<string>([
+  "free_tier_reading_self_care_suggestion",
+  "emergency_followup",
+  "critical_notification_escalation_exhausted",
+]);
+
+const ROUTINE_TEMPLATES = new Set<string>([
+  "health_education_unlock",
+  "health_reset_complete",
+  "voucher_gift_used",
+  "care_voucher_expiring",
+  "reward_voucher_issued",
+  "sponsor_monthly_report",
+  "sponsor_care_reviewed",
+  "sponsor_person_quiet",
+  "sponsored_plan_started",
+  "region_now_available",
+  "wellness_challenge_ending",
+  "second_condition_needs_upgrade",
+]);
+
+type DisplayTier = "critical" | "important" | "routine";
+
+const TIER_STYLE: Record<DisplayTier, { label: string; className: string }> = {
+  critical: { label: "Critical", className: "bg-red-100 text-red-800" },
+  important: { label: "Important", className: "bg-amber-100 text-amber-800" },
+  routine: { label: "Routine", className: "bg-charcoal-ink/10 text-charcoal-ink/60" },
+};
+
+function displayTier(n: InAppNotification): DisplayTier {
+  const template = n.template ?? "";
+  if (n.priority === "critical" || ALWAYS_CRITICAL_TEMPLATES.has(template)) return "critical";
+  if (ROUTINE_TEMPLATES.has(template)) return "routine";
+  return "important";
+}
+
 interface ResponseOption {
   label: string;
   value: string;
@@ -395,6 +447,20 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/subscription",
     };
   }
+  if (n.template === "daily_digest") {
+    // Spec §76.14 (fatigue management) — supabase/functions/send-pending-
+    // notifications/index.ts folds several same-day routine reminders into
+    // one of these instead of sending each on its own external channel; the
+    // in-app row is always created individually so nothing is silently lost.
+    const count = Number(payload.count ?? 0);
+    return {
+      text: `${count} update${count === 1 ? "" : "s"} waiting for you today`,
+      // Deliberately not payload.action_centre_url — that's a full external
+      // URL (appUrl() in the edge function), useful for a WhatsApp/email
+      // link, but router.push() here needs an internal relative path.
+      href: "/patient/actions",
+    };
+  }
   if (n.template === "care_access_revoked") {
     // From private.revoke_care_access() (care_graph_unification.sql).
     // by_owner tells the RECIPIENT who acted: true when the owner revoked
@@ -565,6 +631,7 @@ export function NotificationBell() {
               <ul className="divide-y divide-charcoal-ink/10">
                 {items.map((n) => {
                   const { text } = describe(n);
+                  const tier = TIER_STYLE[displayTier(n)];
                   // Two-way communication (17.9) — a quick-reply option set
                   // attached at send time (e.g. appointment_reminder's
                   // confirm/reschedule/cancel/need_help). Rendered as its
@@ -590,6 +657,14 @@ export function NotificationBell() {
                           />
                         )}
                         <span className="min-w-0 flex-1">
+                          <span
+                            className={cn(
+                              "mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                              tier.className
+                            )}
+                          >
+                            {tier.label}
+                          </span>
                           <span className="block text-charcoal-ink">{text}</span>
                           <span className="mt-0.5 block text-xs text-charcoal-ink/50">
                             {timeAgo(n.created_at)}
