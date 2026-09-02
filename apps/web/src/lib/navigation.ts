@@ -340,6 +340,7 @@ export function getNavSections(
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
+            { label: "Clinical rules engine", href: "/admin/settings/clinical-rules", icon: "governance" },
           ],
         },
       ];
