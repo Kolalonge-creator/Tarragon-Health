@@ -34,7 +34,7 @@ export const PREVENTION_CATEGORY_LABEL: Record<PreventionCategory, string> = {
   general_health: "General health",
 };
 
-export type ItemStatus = "pending" | "booked" | "completed" | "overdue" | "cancelled";
+export type ItemStatus = "pending" | "booked" | "completed" | "overdue" | "cancelled" | "declined";
 
 export interface PreventionItem {
   category: PreventionCategory;
