@@ -152,6 +152,9 @@ export type ReferralStatus = Enums<"referral_status">;
 /** specialist_referrals.urgency — set by the assigning doctor, never inferred. */
 export type ReferralUrgency = Enums<"referral_urgency">;
 
+/** specialist_referrals.referral_source — clinical origin of the episode (67.2), distinct from the payment-rail `origin` column. */
+export type ReferralSource = Enums<"referral_source">;
+
 /** specialist_referrals.specialist_type / specialist_providers.specialist_type. */
 export type SpecialistType = Enums<"specialist_type">;
 
