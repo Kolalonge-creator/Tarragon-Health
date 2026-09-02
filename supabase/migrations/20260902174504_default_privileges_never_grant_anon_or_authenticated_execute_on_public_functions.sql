@@ -67,10 +67,36 @@ alter default privileges for role postgres in schema public
   revoke usage, select on sequences from public, anon, authenticated;
 
 do $$
+declare
+  v_diag record;
+  v_found_default_acl boolean := false;
 begin
+  raise notice 'DIAG identity: current_user=%, session_user=%, current_role=%',
+    current_user, session_user, current_role;
+
+  for v_diag in
+    select defaclrole::regrole::text as role,
+           defaclnamespace::regnamespace::text as schema,
+           defaclobjtype as objtype,
+           defaclacl::text as acl
+    from pg_default_acl
+    where defaclnamespace = 'public'::regnamespace
+  loop
+    v_found_default_acl := true;
+    raise notice 'DIAG pg_default_acl row: role=%, schema=%, objtype=%, acl=%',
+      v_diag.role, v_diag.schema, v_diag.objtype, v_diag.acl;
+  end loop;
+  if not v_found_default_acl then
+    raise notice 'DIAG pg_default_acl: NO ROWS AT ALL for schema public';
+  end if;
+
   create function public._default_priv_probe_fn_20260902174504()
     returns void language sql as $probe$ select 1 $probe$;
   create sequence public._default_priv_probe_seq_20260902174504;
+
+  raise notice 'DIAG probe fn: proowner=%, proacl=%',
+    (select proowner::regrole::text from pg_proc where proname = '_default_priv_probe_fn_20260902174504'),
+    (select proacl::text from pg_proc where proname = '_default_priv_probe_fn_20260902174504');
 
   if has_function_privilege('anon', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE')
      or has_function_privilege('authenticated', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE') then
