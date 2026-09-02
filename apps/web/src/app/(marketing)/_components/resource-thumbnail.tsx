@@ -1,5 +1,40 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import type { ResourceArticle } from "../_content/resources";
+
+/**
+ * One real photo per article category (not per-article — the library isn't
+ * deep enough for 42 distinct concepts, and a consistent category image is a
+ * common, legible pattern for a card grid this size). Replaces the abstract
+ * icon-on-sage background as the card's dominant visual; the icon survives as
+ * a small accent badge rather than disappearing outright.
+ */
+const CATEGORY_PHOTO: Record<ResourceArticle["category"], { src: string; alt: string }> = {
+  "Blood pressure": {
+    src: "/marketing/photos/body/resource-blood-pressure.jpg",
+    alt: "An older man checking his blood pressure at home with a paper record beside him",
+  },
+  Diabetes: {
+    src: "/marketing/photos/body/resource-diabetes.jpg",
+    alt: "A woman preparing a meal in her kitchen with a glucometer on the counter",
+  },
+  Weight: {
+    src: "/marketing/photos/body/resource-weight.jpg",
+    alt: "Bare feet standing on a bathroom scale",
+  },
+  Screening: {
+    src: "/marketing/photos/body/resource-screening.jpg",
+    alt: "A patient collecting a results envelope at a clinic reception counter",
+  },
+  Cholesterol: {
+    src: "/marketing/photos/body/resource-cholesterol.jpg",
+    alt: "A laboratory technician handling sample tubes at a clean bench",
+  },
+  Nutrition: {
+    src: "/marketing/photos/body/resource-nutrition.jpg",
+    alt: "A Nigerian family meal laid out on a table with hands serving",
+  },
+};
 
 /**
  * Small brand-styled line icons standing in for photography on resource
@@ -96,35 +131,32 @@ export function resourceThumbnailIcon(article: {
 }
 
 export function ResourceThumbnail({
+  category,
   icon,
   className,
 }: {
+  category: ResourceArticle["category"];
   icon: ResourceThumbnailIconId;
   className?: string;
 }) {
+  const photo = CATEGORY_PHOTO[category];
   return (
-    <div
-      className={cn(
-        "relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-soft-sage",
-        className
-      )}
-    >
-      <div
-        aria-hidden
-        className="absolute -right-6 -top-8 h-28 w-28 rounded-full bg-brand-green/10"
+    <div className={cn("relative aspect-[4/3] w-full overflow-hidden bg-soft-sage", className)}>
+      <Image
+        src={photo.src}
+        alt={photo.alt}
+        fill
+        className="object-cover"
+        sizes="(min-width: 640px) 288px, 256px"
       />
-      <div
-        aria-hidden
-        className="absolute -bottom-10 -left-8 h-32 w-32 rounded-full bg-clinical-navy/10"
-      />
-      <svg
-        viewBox="0 0 24 24"
-        className="relative h-10 w-10 text-brand-green"
-        fill="none"
+      <span
+        className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-brand-green shadow-sm"
         aria-hidden
       >
-        <ResourceIconPath id={icon} />
-      </svg>
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none">
+          <ResourceIconPath id={icon} />
+        </svg>
+      </span>
     </div>
   );
 }

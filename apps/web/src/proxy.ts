@@ -185,9 +185,14 @@ export async function proxy(request: NextRequest) {
     // below.
     const isCoordinatorClinicianPath =
       profile.role === "care_coordinator" &&
-      ["/clinician/patients", "/clinician/messages", "/clinician/escalations", "/clinician/orders", "/clinician/support-inbox"].some(
-        (allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`)
-      );
+      [
+        "/clinician/patients",
+        "/clinician/messages",
+        "/clinician/escalations",
+        "/clinician/orders",
+        "/clinician/support-inbox",
+        "/clinician/safety-incidents",
+      ].some((allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`));
     if (isCoordinatorClinicianPath) {
       return response;
     }
@@ -241,7 +246,15 @@ export const config = {
       // links produced N concurrent Auth API calls per render. Real
       // navigations never carry these headers, so page-level auth checks
       // (layout.tsx, RLS) remain the enforcement boundary either way.
-      source: "/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      //
+      // `api/status` is excluded for a different reason: it exists to
+      // report whether Supabase Auth itself is degraded (see
+      // docs/BUSINESS_CONTINUITY_DR_SPEC.md). updateSession()'s
+      // auth.getUser() call has no timeout — routing this check through it
+      // would let a slow/down Auth service hang the health check instead of
+      // letting it report the outage, defeating the one check meant to
+      // catch exactly that.
+      source: "/((?!_next/static|_next/image|favicon.ico|api/status|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },

@@ -1,3 +1,5 @@
+"use client";
+
 import {
   useDeviceCatalog,
   DEVICE_CATEGORY_LABEL,

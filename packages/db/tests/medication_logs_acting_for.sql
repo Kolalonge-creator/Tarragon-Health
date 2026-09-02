@@ -1,12 +1,16 @@
--- Proves 20260809232718_medication_logs_acting_for.sql.
+-- Proves 20260809232718_medication_logs_acting_for.sql, as amended by
+-- 20260830224528_medication_logs_append_only.sql.
 --
--- medication_logs differs from vitals_readings/symptoms in one deliberate
--- way: a supporter IS allowed to update a row, but only one they themselves
--- logged (same-day dose-toggle correction), never the patient's own entry
--- or another supporter's. Both the allowed and the forbidden update are
--- checked here, not just the allowed one — a policy that looks right but
--- passes vacuously is the failure mode this whole style of test exists to
--- catch (see the "sabotage the test once" habit in CLAUDE.md).
+-- medication_logs is now append-only (spec §1.4): there is no UPDATE policy
+-- left for anyone, patient or supporter — a correction is a new INSERT, and
+-- the latest row per slot (medication_logs_latest_per_slot) is authoritative
+-- for "today's status." This deliberately widens what a supporter may do
+-- versus the old narrow UPDATE-only-your-own-entry scope: a supporter may
+-- now insert a newer entry for ANY slot on a patient they act for, including
+-- one the patient logged herself, since nothing is ever overwritten — both
+-- entries stay in the record. The UPDATE-is-blocked-for-everyone assertion
+-- below is the sabotage check this style of test exists for: a leftover or
+-- accidentally-reintroduced UPDATE policy would let this silently pass.
 --
 -- The medication_id is captured into `ids` as a plain scalar BEFORE any
 -- role switch and referenced by that captured value everywhere after —
@@ -127,32 +131,61 @@ select 'the spoofed author is overwritten with the real one',
   from public.medication_logs
  where medication_id = (select v from ids where k='med') and scheduled_time = '20:00';
 
--- Allowed: the supporter corrects their OWN entry (unlike vitals_readings,
--- this is the whole point of the update policy existing at all).
-update public.medication_logs
-   set status = 'missed'
- where medication_id = (select v from ids where k='med') and scheduled_time = '20:00';
+-- Allowed: the supporter corrects their OWN entry — append-only means this
+-- is a new INSERT, not an UPDATE. The raw table keeps both rows; the latest
+-- one (this one) is what medication_logs_latest_per_slot surfaces.
+insert into public.medication_logs
+  (organisation_id, patient_id, medication_id, scheduled_time, scheduled_for_date, status, logged_at)
+values
+  ('00000000-0000-0000-0000-000000000001', (select v from ids where k='mum'),
+   (select v from ids where k='med'), '20:00', current_date, 'missed', now());
 
 insert into results
-select 'a supporter can correct a dose log they themselves wrote', 'missed', status::text
-  from public.medication_logs
- where medication_id = (select v from ids where k='med') and scheduled_time = '20:00';
+select 'a supporter can correct a dose log they themselves wrote (append-only: latest wins)',
+       'missed',
+       (select status::text from public.medication_logs_latest_per_slot
+          where medication_id = (select v from ids where k='med') and scheduled_time = '20:00');
 
--- Forbidden: the supporter tries to revise the row the PATIENT logged
--- herself for the morning dose. This is the sabotage check — if the update
--- policy is broader than intended, this silently succeeds instead of doing
--- nothing, and the row's status catches that.
-update public.medication_logs
-   set status = 'missed'
- where medication_id = (select v from ids where k='med') and scheduled_time = '08:00';
+insert into results
+select 'the correction did not erase the original entry', '2',
+       (select count(*)::text from public.medication_logs
+          where medication_id = (select v from ids where k='med') and scheduled_time = '20:00');
+
+-- Allowed, and deliberately wider than the old UPDATE scope: the supporter
+-- inserts a newer entry for the slot the PATIENT logged herself. Append-only
+-- means this is not "revising someone else's row" — it's a new row, and
+-- both stay visible in the record. This is the assertion that would fail if
+-- the insert policy were narrowed back to a can_act_for-and-own-only check.
+insert into public.medication_logs
+  (organisation_id, patient_id, medication_id, scheduled_time, scheduled_for_date, status, logged_at)
+values
+  ('00000000-0000-0000-0000-000000000001', (select v from ids where k='mum'),
+   (select v from ids where k='med'), '08:00', current_date, 'missed', now());
 
 reset role;
 select set_config('request.jwt.claims', null, true);
 
 insert into results
-select 'a supporter cannot revise the dose the patient logged herself', 'taken', status::text
-  from public.medication_logs
- where medication_id = (select v from ids where k='med') and scheduled_time = '08:00';
+select 'a supporter can append a newer entry for a slot the patient logged herself',
+       'missed',
+       (select status::text from public.medication_logs_latest_per_slot
+          where medication_id = (select v from ids where k='med') and scheduled_time = '08:00');
+
+insert into results
+select 'append-only: the patient''s original 08:00 entry is still on file, not overwritten', 'true',
+       (exists(
+         select 1 from public.medication_logs
+          where medication_id = (select v from ids where k='med') and scheduled_time = '08:00'
+            and status = 'taken' and logged_by_profile_id is null
+       ))::text;
+
+-- Sabotage check: no UPDATE policy should exist for medication_logs at all
+-- any more, for any role — a leftover or reintroduced one would let a
+-- correction silently overwrite history instead of appending to it.
+insert into results
+select 'medication_logs has no UPDATE policy for anyone (append-only)', '0',
+       (select count(*)::text from pg_policies
+          where schemaname = 'public' and tablename = 'medication_logs' and cmd = 'UPDATE');
 
 ------------------------------------------------------------------
 -- Patient consents to clinical_access — now the whole checklist opens up

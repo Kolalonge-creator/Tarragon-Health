@@ -50,6 +50,14 @@ function FollowUpActionForm({ resultId, onSaved }: { resultId: string; onSaved: 
         className="min-w-[220px] flex-1"
         required
       />
+      <Input
+        name="recall_months"
+        type="number"
+        min={1}
+        max={60}
+        placeholder="Repeat in (months)"
+        className="w-40"
+      />
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Saving…" : "Save follow-up"}
       </Button>
@@ -102,6 +110,13 @@ export function ScreenOrderChecklist({
               c.resultStatus &&
               ["abnormal", "critical"].includes(c.resultStatus) &&
               !c.followUpAction;
+            // Borderline results don't force the amber "needs follow-up"
+            // badge (abnormal/critical already escalates to a doctor
+            // separately), but a clinician can still optionally record a
+            // recall/follow-up note for one — the most common real-world
+            // "this needs a repeat sooner" case.
+            const canOfferFollowUp =
+              c.satisfied && !c.followUpAction && (needsFollowUp || c.resultStatus === "borderline");
             return (
               <li key={c.code} className="py-2">
                 <div className="flex items-center justify-between gap-3">
@@ -126,7 +141,7 @@ export function ScreenOrderChecklist({
                     Follow-up: {c.followUpAction}
                   </p>
                 )}
-                {needsFollowUp && c.resultId && (
+                {canOfferFollowUp && c.resultId && (
                   showFollowUpFor[c.code] ? (
                     <FollowUpActionForm
                       resultId={c.resultId}

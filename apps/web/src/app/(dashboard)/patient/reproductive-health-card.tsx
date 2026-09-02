@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import {
   useReproductiveHealthProfile,
   useSaveReproductiveHealthProfile,
@@ -88,6 +89,26 @@ export function ReproductiveHealthCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* The tracker is the real feature; this card is now the life-stage
+            half of it. Linking rather than embedding keeps the Prevention hub
+            from growing a calendar. */}
+        <Link
+          href="/patient/cycle"
+          className="flex items-center justify-between rounded-lg border border-brand-green/25 bg-brand-green/5 p-3 hover:bg-brand-green/10"
+        >
+          <span>
+            <span className="block text-sm font-medium text-charcoal-ink">
+              Open your cycle tracker
+            </span>
+            <span className="block text-xs text-charcoal-ink/70">
+              Log your period, see what to expect next, and track how you feel.
+            </span>
+          </span>
+          <span aria-hidden className="text-brand-green">
+            &rarr;
+          </span>
+        </Link>
+
         {nudges.length > 0 && (
           <div className="rounded-lg bg-brand-green/5 p-3">
             <ul className="space-y-1">
