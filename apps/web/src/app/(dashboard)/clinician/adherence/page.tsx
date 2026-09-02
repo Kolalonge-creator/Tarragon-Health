@@ -10,6 +10,43 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import type { MissedDoseReason } from "@/lib/validation/medication-logs";
+
+/** Pathway §65.9 — turns a raw missed-dose count into a targeted next step,
+ * matched to the barrier the patient actually reported. */
+const REASON_META: Record<MissedDoseReason, { label: string; suggestion: string }> = {
+  cost: { label: "Cost", suggestion: "Check for a lower-cost option or a Care Voucher." },
+  side_effects: { label: "Side effects", suggestion: "Doctor review — possible dose or drug change." },
+  forgetfulness: { label: "Forgetfulness", suggestion: "Suggest a reminder routine or pillbox." },
+  availability: { label: "Couldn't get it", suggestion: "Check what's blocking fulfilment." },
+  understanding: { label: "Not sure how", suggestion: "Walk through the regimen again with the patient." },
+  other: { label: "Other", suggestion: "Ask the patient what's getting in the way." },
+};
+
+function ReasonBreakdown({ alert }: { alert: AdherenceAlertWithContext }) {
+  const breakdown = (alert.reason_breakdown ?? {}) as Partial<Record<MissedDoseReason, number>>;
+  const entries = Object.entries(breakdown).filter(([, count]) => (count ?? 0) > 0) as [
+    MissedDoseReason,
+    number,
+  ][];
+  if (entries.length === 0) {
+    return <p className="text-xs text-charcoal-ink/50">No reason reported yet.</p>;
+  }
+  const primary = alert.primary_reason;
+  return (
+    <div className="space-y-1">
+      <p className="text-xs text-charcoal-ink/70">
+        {entries
+          .sort(([, a], [, b]) => b - a)
+          .map(([reason, count]) => `${REASON_META[reason].label} ×${count}`)
+          .join(" · ")}
+      </p>
+      {primary && (
+        <p className="text-xs font-medium text-brand-green">{REASON_META[primary].suggestion}</p>
+      )}
+    </div>
+  );
+}
 
 function AlertRow({ alert }: { alert: AdherenceAlertWithContext }) {
   const update = useUpdateAdherenceAlert();
@@ -31,6 +68,7 @@ function AlertRow({ alert }: { alert: AdherenceAlertWithContext }) {
         {alert.medication?.drug_name ?? "Medication"} · {alert.missed_count} missed doses in the
         last {alert.window_days} days
       </p>
+      <ReasonBreakdown alert={alert} />
       <div className="flex flex-wrap items-end gap-2">
         {alert.status === "open" && (
           <Button
