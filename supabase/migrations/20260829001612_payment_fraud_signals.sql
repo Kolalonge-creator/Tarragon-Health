@@ -135,6 +135,12 @@ grant select, insert on public.payment_fraud_signals to service_role;
 -- place.
 revoke all on function public.finance_fraud_signals(text) from public;
 revoke all on function public.finance_resolve_fraud_signal(uuid, text, text) from public;
+-- `revoke ... from public` alone is correct on live but has repeatedly
+-- failed a fresh local/CI replay's self-check assertion in this codebase —
+-- revoke from anon explicitly too, for defense in depth against that
+-- divergence.
+revoke all on function public.finance_fraud_signals(text) from anon;
+revoke all on function public.finance_resolve_fraud_signal(uuid, text, text) from anon;
 grant execute on function public.finance_fraud_signals(text) to authenticated;
 grant execute on function public.finance_resolve_fraud_signal(uuid, text, text) to authenticated;
 
