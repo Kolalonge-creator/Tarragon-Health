@@ -46,6 +46,10 @@ create policy care_message_templates_update on public.care_message_templates
 
 grant select, insert, update on public.care_message_templates to authenticated;
 revoke all on public.care_message_templates from anon;
+-- `revoke ... from public` (not just `from anon`) is what actually removes
+-- the PUBLIC pseudo-grant anon inherits through here — see
+-- 20260830014616_programme_purchases.sql's note for the verified reasoning.
+revoke all on public.care_message_templates from public, anon;
 
 create or replace function private.enforce_care_message_template_author()
 returns trigger

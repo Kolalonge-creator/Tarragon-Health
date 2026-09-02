@@ -132,6 +132,8 @@ create policy medication_dose_history_select on public.medication_dose_history
   );
 
 grant select on public.medication_dose_history to authenticated;
+-- A from-scratch environment's base Supabase template grants table DML to
+-- anon by default at CREATE TABLE time too -- revoke explicitly.
 revoke all on public.medication_dose_history from anon;
 
 do $$

@@ -13,6 +13,7 @@ import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-sc
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
+import { medicationAccessBarrierSchema } from "@/lib/validation/medication-access-barriers";
 import { patientLocationSchema } from "@/lib/validation/patient-location";
 import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
 import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
@@ -281,12 +282,84 @@ export async function logSymptom(
     return { error: "No organisation on file" };
   }
 
+  // Medication safety pathway 64.9: "I'm experiencing a side effect" is this
+  // same symptom report, just attributed to a specific medication. Confirm
+  // the medication actually belongs to the subject before attributing a
+  // side effect to it — a client-supplied id could otherwise be any uuid.
+  let medicationId: string | null = null;
+  if (parsed.data.medication_id) {
+    const { data: medication } = await supabase
+      .from("medications")
+      .select("id")
+      .eq("id", parsed.data.medication_id)
+      .eq("patient_id", subjectId)
+      .maybeSingle();
+    if (!medication) {
+      return { error: "That medication could not be found on this patient's list" };
+    }
+    medicationId = medication.id;
+  }
+
   const { error } = await supabase.from("symptoms").insert({
     symptom_type: parsed.data.symptom_type,
     severity: parsed.data.severity,
     description: parsed.data.description || null,
+    medication_id: medicationId,
     patient_id: subjectId,
     organisation_id: profile.organisation_id,
+  });
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+export type MedicationAccessBarrierActionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Medication safety pathway 64.20/64.21 — "I cannot afford/get this
+ * medicine". Inserting is all this action does: private.raise_
+ * medication_access_barrier_alert (20260829155532) does the rest, raising a
+ * clinician_review clinician_alerts row for a human to work the pathway
+ * (lower-cost options, pharmacy alternatives, clinician review, assistance
+ * programmes, insurance options). This action never substitutes, changes,
+ * or stops the medication itself — see the migration header for why.
+ */
+export async function reportMedicationAccessBarrier(
+  _prevState: MedicationAccessBarrierActionState,
+  formData: FormData
+): Promise<MedicationAccessBarrierActionState> {
+  const parsed = medicationAccessBarrierSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+  const subjectId = await resolveSubjectId(user.id);
+
+  const { data: medication } = await supabase
+    .from("medications")
+    .select("id, organisation_id")
+    .eq("id", parsed.data.medication_id)
+    .eq("patient_id", subjectId)
+    .maybeSingle();
+  if (!medication) {
+    return { error: "That medication could not be found on this patient's list" };
+  }
+
+  const { error } = await supabase.from("medication_access_barriers").insert({
+    organisation_id: medication.organisation_id,
+    patient_id: subjectId,
+    medication_id: medication.id,
+    reason: parsed.data.reason,
+    note: parsed.data.note || null,
   });
   if (error) {
     return { error: error.message };
@@ -1085,4 +1158,33 @@ export async function setPatientReportedDiabetesType(
   });
   if (error) return { error: error.message };
   return { success: true };
+}
+
+/**
+ * Medication safety pathway 64.16-64.18: call once, right after a clinician
+ * adds a new medication (AddMedicationForm), so a contraindicated
+ * interaction/duplicate-therapy/allergy/renal finding reaches the care team
+ * as a real clinician_alerts row instead of waiting for someone to open
+ * MedicationSafetyPanel. Never call this from a patient's own self-add path
+ * (even one attributed to a specialist) — assessMedicationSafetyBestEffort's
+ * underlying RPC requires the caller to be org staff, and only the
+ * clinician-driven form path actually is.
+ *
+ * Fire-and-forget from the client's point of view: this never throws, so a
+ * failed safety check can never make "medication added" look like it failed.
+ */
+export async function checkMedicationSafetyAfterAdd(patientId: string): Promise<void> {
+  try {
+    const { assessMedicationSafetyBestEffort } = await import("@/lib/clinical/patient-clinical-context");
+    const supabase = await createClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", patientId)
+      .single();
+    if (!profile?.organisation_id) return;
+    await assessMedicationSafetyBestEffort(supabase, patientId, profile.organisation_id);
+  } catch {
+    // Best-effort follow-up — never let this surface to the caller.
+  }
 }

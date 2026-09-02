@@ -36,6 +36,15 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
 - **Never hand-type a round-number migration timestamp.** Six real migrations once collided on the
   same `20260720120000` version number from parallel sessions doing exactly that —
   `supabase_migrations.version` is the primary key, so only the first of each group ever recorded.
+  Recurred 2026-08-29 in a worse shape: two concurrent sessions independently picked the same round
+  prefixes for unrelated features, and — because `mcp__Supabase__apply_migration` assigns the actual
+  live `version` from wall-clock time regardless of the local filename — the migrations didn't collide
+  in the DB, they collided invisibly while 20 of one session's migrations sat live in production with
+  **zero corresponding file in git, on any branch**. Before applying a new migration, check
+  `list_migrations`/`schema_migrations` on the live project (not just local files) for anything recent
+  you don't recognise — `schema_migrations.statements` preserves the exact applied SQL even with no git
+  record, which is how the 20 orphaned migrations below were recovered rather than lost. Full account:
+  the 2026-08-29 "Referral Management Engine" entry in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.
 - **A live schema object can exist with no migration record at all — not even an uncommitted one.**
   Found 2026-08-27: 7 migrations from a same-day audit pass were live but never committed (at least
   present in `supabase_migrations.schema_migrations`, so comparing `list_migrations` against local
@@ -237,6 +246,14 @@ taken on faith:**
   meantime.
 - A production-quality Nigerian-language voice/TTS vendor was deliberately never built — the
   platform is English-only by founder decision (2026-08-03). Revisit only on an explicit ask.
+- **2026-08-29 — modules 27 (insurer/payer platform) and 28 (provider organisation platform) are
+  fully built and shipped dormant**, per founder instruction — see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s
+  2026-08-29 entry for the full build. Both stay inert until a superadmin calls
+  `public.set_platform_module('payer_platform'|'provider_org_platform', true, '<why>')`
+  (`public.platform_modules`, checked in RLS, every write RPC, and the `(dashboard)/payer` /
+  `(dashboard)/provider-org` route guards) — do not flip either on without the founder's explicit
+  go-ahead, and confirm a real signed counterparty exists first. Neither platform's activation has
+  ever been exercised against a real insurer or provider organisation.
 - **2026-08-26 — mobile OTA publishing is now automated, but needs one secret added before it runs.**
   `apps/mobile` had no CI path to the actual running app — EAS Update only shipped via a manual
   `eas update`, and a day's worth of merged JS-only UI work (BMW-kit rework, nav-drawer/Devices
@@ -307,3 +324,4 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - Pre-merge checklist for a clinical or compliance-relevant feature (clinical owner/protocol/escalation/audit; data classification/retention/sharing/consent) → `docs/CLINICAL_FEATURE_CHECKLIST.md` — a reviewer checklist, not an automated gate
 - Diabetes/Hypertension clinical pathway source docs + outstanding-gap tracking → `guideline/` — the `.docx` files are the signed pathway source-of-truth; `Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md` and `Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md` track exactly what the platform still owes each pathway (mostly governance sign-off + localisation facts, not code) — read these directly, they are not otherwise summarised in this file
 - Shipped-feature build-plan docs, superseded by the running code and by `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, kept for historical design rationale only → `docs/archive/`
+- Symptom Assessment & Triage Engine — red-flag screening + dynamic questionnaire, governed/signed protocol config, escalation wiring into the existing `emergency_events`/`clinician_alerts` machinery, safety monitoring, scope decisions (which presenting complaints exist, which entry points have a UI, why there's no AI layer), go-live checklist → `docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md` — the patient-facing symptom checker stays OFF until a Clinical Director signs `triage_protocols`, see that file before assuming it's live

@@ -2751,6 +2751,223 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+
+### 2026-08-29 — Modules 27/28: insurer/payer platform and provider organisation platform, built fully, shipped dormant
+
+Founder instruction: build both spec modules — 27 (insurer/payer platform: plans, members, benefits,
+network, pre-authorisation, claims, care programmes, aggregate analytics) and 28 (provider organisation
+platform: locations, departments, staff, services, resources, referral/order queue, settlement, analytics)
+— completely, but do not make either live. Both are future-business-model bets with no signed counterparty
+yet, so "built" had to mean something a founder can trust is inert until deliberately switched on, not just
+"no nav link points at it."
+
+- **The dormancy mechanism is `public.platform_modules`** (`20260829092227_platform_module_activation_gate.sql`):
+  one row per module, `is_enabled` defaults false, and a CHECK constraint refuses to let it read true
+  without `enabled_at`/`enabled_by` set — so a bare `UPDATE` can never switch a module on, only
+  `public.set_platform_module(key, true, note)` can (superadmin-only, requires a reason, audit-logged).
+  Checked in three independent places, matching the same defence-in-depth CLAUDE.md already asks for
+  elsewhere on this platform: every payer/provider-org table's RLS policies call
+  `private.module_enabled()`/gate through `private.is_payer_admin_for()`/`private.is_provider_org_staff_for()`
+  (both of which check the module themselves), every write RPC does the same, and the Next.js route groups
+  (`(dashboard)/payer`, `(dashboard)/provider-org`) render an honest "not yet activated" placeholder instead
+  of an empty console when the module — or, for a provider organisation, that specific org's own
+  `is_operational` flag — is off. A superadmin can still fully configure either platform (create insurers,
+  plans, provider organisations, staff seats) before flipping the switch; `is_admin()` passes unconditionally
+  in both scoping predicates for exactly that reason.
+- **Two new account roles**, `payer_admin` and `provider_org_staff` — added to `public.user_role` in their
+  own migration (enum values can't be used in the transaction that adds them) and, in the very next
+  migration, added to `private.is_org_staff()`'s exclusion list before either role could exist unguarded.
+  CLAUDE.md calls `is_org_staff` "the highest-leverage security function in the codebase" (~110 patient-
+  scoped tables) and records two prior real leaks from exactly this shape of mistake (a new role added
+  without updating the deny-list) — this time the exclusion landed first, and
+  `packages/db/tests/payer_provider_org_platform.sql` proves it behaviourally (a real seated account of
+  each new role fails `is_org_staff` while a real clinician control passes) rather than by inspection.
+  Neither role is a re-split of `clinician`/`profiles.role` — both are wholly new counterparty roles for
+  wholly new platforms, so the "never re-split the account role" rule is untouched. Authority within each
+  platform is carried by a scoped membership row (`payer_administrators.payer_role`,
+  `provider_org_members.org_role`), never by the account role or which dashboard a login reaches — same
+  discipline as the doctor-tier ladder.
+- **Module 27 extends the existing dormant insurance core** (`insurers`/`insurance_policies`/
+  `insurance_benefits`/`insurance_preauthorizations`/`insurance_claims`, built earlier the same day on a
+  sibling branch and merged in rather than duplicated) instead of growing a parallel copy: `insurers`
+  gained an `organisation_id`/onboarding pipeline so it can be an operator, not just a directory row;
+  `payer_plans` gives a plan an identity (a sync trigger keeps `insurance_policies`/`insurance_benefits`
+  .`plan_name` text in lockstep so the existing string-matched benefit lookup never drifts from the
+  structured picture); `payer_network_providers` records exceptions to open-network coverage across all
+  four existing provider directories; `payer_programme_directives` + `apply_payer_programme_directive()`
+  let a payer enrol every member with a diagnosed condition into a Tarragon chronic-disease programme
+  without ever diagnosing on the payer's behalf (only acts on a `patient_conditions` row a Tarragon
+  clinician already wrote); `payer_decide_preauthorization()`/`payer_adjudicate_claim()` let the insurer
+  record its own decision directly instead of Tarragon staff transcribing a phone call; and
+  `payer_dashboard_analytics()` is a suppressed aggregate view (I9's small-cell floor, mirrored via
+  `insurers.min_cohort_size`) — never a per-member row, matching the institution-privacy line the platform
+  already draws for HMO/corporate dashboards. I8 (no capitation, ever) holds throughout: an insurer here is
+  strictly a per-service payer.
+- **Module 28** anchors a provider organisation as a first-class tenant (`organisations.type = 'provider_org'`,
+  `provider_organisations` as its extension row) with real structure (`provider_org_locations`/
+  `_departments`/`_services`/`_resources`/`_operating_hours`) and staff (`provider_org_members`).
+  Deliberately did NOT build a parallel booking/appointment engine for a provider org's own operational
+  visits — the existing `appointments` table (generalised into "the universal appointment object" the day
+  before) is Tarragon's own care-team visit record, and blurring a third party's own scheduling into it
+  would cut against the exact line `is_org_staff`'s exclusion exists to hold. What a provider org gets
+  instead: "claiming" one of the four existing provider directories (adding `organisation_id` to
+  `facilities`/`lab_providers`/`pharmacy_partners`/`specialist_providers`, same move as insurers) surfaces a
+  read-only referral/lab/pharmacy queue over work already routed there (`provider_org_referral_queue()` and
+  siblings) — visibility only, since uploading a result or dispensing an order stays the existing
+  `lab_partner`/`pharmacist` login's job, not a new fulfilment path. `provider_org_settlements` is a
+  generic billing ledger (the existing `partner_statements` is hard-typed to `lab_providers` alone and
+  can't represent a hospital or specialist practice). `provider_org_analytics()` reports only what the
+  built tables can actually measure (staffing, structure, queue volume, referral response time) rather than
+  fabricating appointment/utilisation figures for a booking engine that doesn't exist yet.
+- **A real bug shipped and was fixed the same session**: `provider_org_analytics()`'s first draft
+  aggregated referral-status counts and average response time in one subquery whose outer
+  `jsonb_object_agg(status, n)` referenced a column (`n`) that subquery never produced. It went live
+  undetected because the migration's own assertion called the function with no fixture organisation, so
+  `is_provider_org_staff_for()` raised 42501 before execution ever reached the buggy line — an exception-
+  shaped pass that never exercised the SQL. Fixed forward in
+  `20260829094538_fix_provider_org_analytics_referral_aggregation_bug.sql` (split into two independent
+  queries) with an assertion that runs the corrected aggregation against synthetic literal rows instead of
+  trusting the same shallow raise-and-catch again.
+- **Concurrency note**: this build ran against the live, shared `koiplnmbgnqnbywhpjlf` project while at
+  least three other sessions were applying migrations in parallel (an integration/outbound-queue build, an
+  employer-platform roster build, a clinical-rules-engine build all landed mid-session) — one migration
+  name collided on an auto-assigned timestamp and had to be retried. Local migration filenames were
+  renamed to match whatever timestamp the live apply actually assigned, not the name first guessed.
+- Verified: `pnpm --filter web typecheck`/`lint` clean on every new/changed file (the handful of
+  pre-existing errors elsewhere in the tree — `sample_rejected`/`closed`/`declined`/`transferred`/
+  `missed_care_task` and friends missing from a few `Record<...>` maps — are enum values other concurrent
+  sessions added the same day to tables unrelated to this work, left untouched rather than fixed
+  opportunistically in someone else's in-flight change). `packages/db/tests/payer_provider_org_platform.sql`
+  (10 checks: `is_org_staff` exclusion behaviourally proven for both new roles against a real clinician
+  control; both modules' dormant→live transition proven live; a provider organisation's own
+  `is_operational` gate proven independent of the platform-wide switch; the analytics suppression floor
+  proven to discriminate) passes clean and leaves no fixture behind. `database.types.ts` regenerated (both
+  `packages/shared` and `packages/db` copies) against the live post-migration schema.
+- **Not done, flagged not guessed at**: no UI was built for claiming a directory row from the admin side
+  beyond the existing per-table edit path (an admin sets `organisation_id` via SQL/the existing
+  facilities/lab/pharmacy/specialist admin screens, none of which gained a dedicated "claim for this
+  provider organisation" control) — a real onboarding flow for the first provider organisation would want
+  one. Neither platform's activation has ever been exercised against a real counterparty; the first real
+  insurer or provider organisation to onboard is the actual test of everything built here.
+
+### 2026-08-29 — Referral Management Engine: found a concurrent session's parallel build first, recovered 20 orphaned migrations, layered the real gaps on top
+
+Task was "build the Referral Management Engine" (spec §67, the same episode-tracking/urgency/package/
+closure/escalation shape described in `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §7 Level 5b).
+Wrote a full local implementation first (migrations, hooks, a real "create referral" form — the platform
+had **zero** UI to create a referral before this; every row was trigger- or one-RPC-created), then, before
+applying anything, discovered via `list_migrations`/`execute_sql` against the live `koiplnmbgnqnbywhpjlf`
+project that a **different concurrent Claude Code session had already shipped a more complete, overlapping
+implementation directly to production between 2026-08-28 22:26 and 2026-08-29 14:41** — 20 migrations,
+none committed to git anywhere (not this branch, not `main-dev`, not any other branch). Two of that
+session's migration *names* even collided on the exact same round timestamp prefixes (`20260829120000`,
+`20260829121500`) this session had independently hand-picked for unrelated work — precisely the failure
+mode the "never hand-type a round-number migration timestamp" lesson above describes, just with a second,
+worse wrinkle: this time the collision carried real, different, already-applied SQL with no local file at
+all backing it, not just a version-number clash. New standing lesson added above.
+
+Stopped and asked the founder how to proceed (three separate decisions: recover the orphaned git history,
+how much of the already-live work to treat as authoritative, and what to do about one specific finding —
+see below) rather than guessing through a live schema conflict. Founder direction: recover the git history,
+drop the locally-built pieces that duplicated already-live work in favour of layering only the genuine gaps
+on top, leave one specific finding alone and just flag it.
+
+**What the concurrent session (apparently working module 66 "Specialist Network & Provider Platform" plus
+adjacent module-46 Mental Health and module-75 Navigation Requests work, going by its own migration
+comments' section references) had already shipped, read in full via `schema_migrations.statements` (Postgres
+keeps the exact applied SQL) and recovered verbatim as real files — `20260828222628` through `20260829144134`,
+20 migrations:**
+- `specialist_referrals` gained `referred_by`/`preferred_consultation_type`/`preferred_location`/
+  `parent_referral_id` (intake/provenance), `outcome_document_path`/`care_plan_update_note`/`closed_at`/
+  `closed_by` plus a genuinely separate `status='closed'` value with its own CHECK constraint
+  (`specialist_referrals_closed_requires_outcome`) and a clinical-tier-gated, immutable-once-closed
+  `enforce_specialist_referral_outcome_and_closure` trigger — a materially more complete realisation of
+  "a referral should not close simply because an appointment was booked" (67.15) than this session's first
+  draft (which had reused `status='completed'` for the same purpose).
+- A private, patient-own-folder `specialist-referral-outcome-documents` storage bucket; feedback-loop
+  notifications back to the referring clinician and to the patient on closure; a three-tier staleness sweep
+  (14-day patient reminder → 30-day coordinator outreach task → 7-day urgent clinician alert, all via
+  `cron.schedule`) — more sophisticated than this session's single-tier draft.
+- `public.refer_patient_to_specialist(patient_id, specialist_type, reason)` — a real, clinical-tier-gated
+  RPC for creating a referral (used by the new psychiatry/psychology pathway, `specialist_type` gaining both
+  values) — but gated only at the RPC layer, leaving a direct `.insert()` against the table wide open to any
+  org staff including Care Coordinator (the shared 2026-07-05 org-staff INSERT policy was never narrowed).
+- `activate_partner_specialist_booking` (20260828233653) — reactivates `set_referral_specialist_provider`
+  for a real, active, specialty-matched partner (org-staff + status + active + specialty-match guards),
+  reversing the 2026-08-03 self-arranged-only decision. **Currently inert**: all 9 `specialist_providers`
+  rows are still `is_active=false` placeholders and `specialist_referrals` had zero rows at the time of this
+  check, so nothing live is actually bookable. No fresh founder reasoning accompanies the reversal beyond a
+  comment reusing the original migration's own "is_active flip" framing. **Left alone per founder
+  instruction — flagging here rather than reverting or endorsing it.** Worth a real conversation before any
+  provider is ever flipped active.
+- A `specialist_providers` profile/verification/multi-location/availability/workload-performance buildout
+  (subspecialty, qualifications, a `specialist_verification_stage` pipeline gating `is_active`, per-branch
+  locations, admin-entered availability rules + a computed slot function, workload/performance analytics) —
+  explicitly, repeatedly self-documented as respecting the `CLINICAL_NETWORK_SPEC.md` §3 matching/ranking
+  guardrail (its own migration comments quote it directly; verified by reading every function body — none
+  scores, ranks, or auto-assigns).
+- An unrelated module-75 `navigation_requests` table (non-clinical patient support/advocacy, deterministic
+  clinical-content keyword classifier with human override) that merely links to `specialist_referrals` by
+  nullable FK for a "check my referral status" category — not itself referral-engine work, recovered for
+  completeness since it shared the same orphaned-migration gap.
+- One real, unrelated bug fix caught in passing: `provider_org_analytics()`'s referral-status aggregation
+  referenced a nonexistent column and had never actually been exercised by its own migration's assertion
+  (an auth check raised before the buggy line ever ran) — `20260829094538` fixed and re-proved it against
+  synthetic rows.
+
+**What this session actually built and applied on top** (`20260829160519` through `20260829160523` —
+renamed from an initial round-timestamp draft to real `select now()`-derived versions before applying, for
+the same reason the whole recovery was needed in the first place):
+- `referral_source` (a clinical origin taxonomy — abnormal result/chronic-care programme/emergency
+  assessment/hospital discharge/etc, 67.2) — genuinely distinct from both the pre-existing payment-rail
+  `origin` column and the concurrently-shipped `referred_by`/`preferred_*` (who created it / their
+  preference, not why the episode exists) — plus `requested_service` (67.6) and `appropriateness_flags`, a
+  non-blocking CDS advisory snapshot (67.7, `apps/web/src/lib/referrals/appropriateness-check.ts`).
+- `declined_reason`, required by a CHECK constraint whenever `status='declined'` (67.12) — the live closure
+  CHECK only ever governed `status='closed'`, so this was a real, non-duplicated gap.
+- `referral_urgency` gained `'emergency'` (67.5) — `routine`/`priority`/`urgent` untouched, no rename.
+- `referral_status` gained `'draft'` (67.4's missing first stage) + a `submitted_at` timestamp, stamped by
+  two new triggers. Had to also patch the three concurrently-shipped staleness sweeps (CREATE OR REPLACE,
+  logic otherwise untouched) to exclude `'draft'` from their `created_at`-based age filters — without that,
+  a clinician's still-being-drafted referral would eventually trigger a patient-facing "see your specialist"
+  reminder for an episode the patient doesn't even know exists yet.
+- `private.enforce_specialist_referral_create` — the one genuinely missing security gap: nothing before this
+  stopped a Care Coordinator from creating a `specialist_referrals` row via a direct insert (only
+  `refer_patient_to_specialist`'s own RPC-level check was gated). Same "RLS admits, the trigger narrows"
+  shape as `enforce_referral_fulfilment`. Also fills in `referred_by` on this new insertion path — resolved
+  as a `clinical_staff.id` (confirmed live FK target; an early draft of this trigger, written before the
+  live schema was known, would have wrongly stamped a bare `profiles.id` here and failed every insert with a
+  foreign-key violation) and never client-trusted, matching `stamp_bariatric_referral_staff`'s pattern.
+- A real "refer this patient" form on the clinician-side patient record (`create-referral-form.tsx`, new
+  "Referrals" tab on `/clinician/patients/[patientId]`) — the actual headline gap: this platform had no
+  general clinician-facing way to start a referral at all before this session, only automation and one
+  narrow consultation-follow-up RPC. Gated to clinical tier in the UI to match the new DB trigger. Rewrote
+  the worklist (`/clinician/referrals`) to drop the pre-existing dead Assign/Appointment-slot flow it still
+  had — `useAssignSpecialistProvider` wrote `specialist_provider_id`/a nonzero fee, which the 2026-08-03
+  `enforce_referral_fulfilment` trigger has unconditionally blocked for eleven months; that whole flow threw
+  a Postgres error on click and nothing had ever exercised it to notice. Deleted three fully-orphaned dead
+  files from the same era (`choose-referral-specialist.tsx`, `pay-for-referral-button.tsx`,
+  `patient/referrals/actions.ts` — verified via repo-wide grep that nothing imported any of them).
+- Deliberately not built, per the founder's own scope decision this session: booking/pricing/availability
+  UI, a specialist-facing digital acceptance portal, or anything resembling the guardrailed matching/ranking
+  engine — internal, staff-side episode tracking only, matching the self-arranged model as it stood at the
+  start of this session.
+- `packages/db/tests/referral_management_engine.sql` (new) and `self_arranged_referrals.sql` (patched to
+  simulate a clinical-tier session, per the new create-gate — its own case 5 now passes for a different
+  reason than before, see the file's own updated comment) both run clean against the live project. `pnpm
+  typecheck`/`lint` clean across every touched file. `get_advisors` shows nothing new against
+  `specialist_referrals`/the new trigger functions (confirmed each is `revoke all from public` with no
+  `authenticated` grant, so none show up in the standard "security-definer function executable by
+  authenticated" advisory the rest of the project's RPCs legitimately carry).
+
+**Standing follow-ups, not this session's to resolve:** the partner-booking reactivation (above) needs a
+real founder decision before any provider is ever activated. The `booking-ownership.ts`/checkout-metadata
+"referral" booking-order-type plumbing is now fully dead code (nothing calls it since the two dead files
+above were removed) but was left alone — shared infrastructure also serving labs/pharmacy, out of scope to
+touch here. `specialist_referral_intake_and_provenance`'s own comment anticipates an automated/trigger-
+created referral path (e.g. abnormal-result-driven) that does not exist yet anywhere in the codebase; when
+one is built, it will need either a service-role bypass of the new clinical-tier create-gate or to run as an
+already-clinical-tier-authenticated actor.
 ### 2026-08-30 — self-arranged lab-result upload gated behind a one-off ₦10,000 consultation fee
 
 Founder rule: uploading a self-arranged lab result (the patient-uses-any-lab-and-uploads path from the

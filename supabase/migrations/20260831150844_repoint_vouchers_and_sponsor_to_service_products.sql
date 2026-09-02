@@ -403,5 +403,5 @@ begin
     raise exception 'expected % backfilled QA service_purchases rows (one per matched subscription), got %', v_expected, v_backfilled;
   end if;
 
-  raise notice 'PASS: vouchers and sponsor flow repointed to service_products/service_purchases; % QA rows backfilled', v_backfilled;
+  raise notice 'PASS: vouchers and sponsor flow repointed to service_products/service_purchases; % rows backfilled', v_backfilled;
 end $$;

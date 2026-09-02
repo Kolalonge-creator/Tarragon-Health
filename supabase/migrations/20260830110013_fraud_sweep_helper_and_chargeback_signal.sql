@@ -44,7 +44,10 @@ revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, t
 revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from anon;
 revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from authenticated;
 -- the same trust boundary every other cron route already relies on.
-revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from public, anon;
+-- A from-scratch environment's base Supabase template also grants EXECUTE
+-- directly to authenticated at CREATE FUNCTION time (not only via the
+-- PUBLIC pseudo-role anon inherits through) — revoke that explicitly too.
+revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from public, anon, authenticated;
 
 alter table public.payment_fraud_signals drop constraint payment_fraud_signals_signal_type_check;
 alter table public.payment_fraud_signals add constraint payment_fraud_signals_signal_type_check

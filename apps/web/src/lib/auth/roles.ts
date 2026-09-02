@@ -14,8 +14,8 @@ export const ROLE_HOME_PATH: Record<UserRole, string> = {
   lab_liaison: "/lab-liaison",
   finance: "/finance",
   lab_partner: "/lab-partner",
-  payer_admin: "/dashboard/payer_admin",
-  provider_org_staff: "/dashboard/provider_org_staff",
+  payer_admin: "/payer",
+  provider_org_staff: "/provider-org",
 };
 
 export function getRoleHomePath(role: UserRole): string {
@@ -42,6 +42,11 @@ export const ROLE_DISPLAY_LABEL: Record<UserRole, string> = {
   finance: "Finance",
   lab_liaison: "Lab Liaison",
   lab_partner: "Partner Laboratory",
+  // Module 27/28 — built dormant (see platform_modules), gated by
+  // private.module_enabled('payer_platform' / 'provider_org_platform').
+  // These labels exist so a seat can be provisioned and its own dashboard
+  // built ahead of activation; they carry no meaning until a superadmin
+  // switches the module on via public.set_platform_module().
   payer_admin: "Payer Admin",
   provider_org_staff: "Provider Organisation Staff",
 };

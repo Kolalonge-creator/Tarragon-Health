@@ -43,6 +43,8 @@ create policy chronic_coordinator_tasks_update on public.chronic_programme_coord
   with check (private.is_org_staff(organisation_id));
 
 grant select, update on public.chronic_programme_coordinator_tasks to authenticated;
+-- A from-scratch environment's base Supabase template grants table DML to
+-- anon by default at CREATE TABLE time too -- revoke explicitly.
 revoke all on public.chronic_programme_coordinator_tasks from anon;
 
 -- Daily sweep, same idiom as private.queue_vitals_reminders(): a 7-day grace
