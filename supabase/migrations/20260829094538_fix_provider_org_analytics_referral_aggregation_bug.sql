@@ -1,5 +1,5 @@
 -- Tarragon Health — fix a real bug in provider_org_analytics()
--- (20260829094445, module 28 part 4): the referral-status aggregation
+-- (20260829094423, module 28 part 4): the referral-status aggregation
 -- subquery selected (status, response_hours) per row and the outer query
 -- then called jsonb_object_agg(status, n) — `n` was never a column in that
 -- subquery at all. This went live undetected because the migration's own
