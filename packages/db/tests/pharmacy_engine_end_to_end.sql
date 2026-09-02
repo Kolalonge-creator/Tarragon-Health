@@ -181,6 +181,7 @@ declare
   v_org       uuid := (select v from e2e_fixture where k = 'org');
   v_patient   uuid := (select v from e2e_fixture where k = 'patient');
   v_partner   uuid := (select v from e2e_fixture where k = 'partner');
+  v_med_id    uuid := (select v from e2e_fixture where k = 'medication');
   v_order_id  uuid;
   v_notif_count int;
 begin
@@ -192,11 +193,16 @@ begin
     json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
 
+  -- medication_id must match a real pharmacy_medications row: private.
+  -- snapshot_pharmacy_order_partner_cost() (fires on the payment_confirmed
+  -- transition in section C below) rejects any item it can't price against
+  -- the catalogue -- the item previously carried only drug_name/price_kobo/
+  -- quantity, with no medication_id at all.
   insert into public.pharmacy_orders
     (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status, fulfilment_method)
   values (
     v_org, v_patient, v_partner,
-    jsonb_build_array(jsonb_build_object('drug_name', 'E2E Test Amlodipine 5mg', 'price_kobo', 150000, 'quantity', 1)),
+    jsonb_build_array(jsonb_build_object('medication_id', v_med_id, 'drug_name', 'E2E Test Amlodipine 5mg', 'price_kobo', 150000, 'quantity', 1)),
     150000, 'pending_payment', 'pickup'
   )
   returning id into v_order_id;
@@ -302,6 +308,7 @@ declare
   v_patient   uuid := (select v from e2e_fixture where k = 'patient');
   v_partner   uuid := (select v from e2e_fixture where k = 'partner');
   v_pharmacist uuid := (select v from e2e_fixture where k = 'pharmacist');
+  v_med_id    uuid := (select v from e2e_fixture where k = 'medication');
   v_order_id  uuid;
   v_notif_count int;
 begin
@@ -312,7 +319,7 @@ begin
     (organisation_id, patient_id, pharmacy_partner_id, items, total_kobo, status, fulfilment_method)
   values (
     v_org, v_patient, v_partner,
-    jsonb_build_array(jsonb_build_object('drug_name', 'E2E Test Amlodipine 5mg', 'price_kobo', 150000, 'quantity', 1)),
+    jsonb_build_array(jsonb_build_object('medication_id', v_med_id, 'drug_name', 'E2E Test Amlodipine 5mg', 'price_kobo', 150000, 'quantity', 1)),
     150000, 'pending_payment', 'pickup'
   )
   returning id into v_order_id;
