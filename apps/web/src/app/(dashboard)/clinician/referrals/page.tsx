@@ -21,6 +21,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { koboToNaira, type ReferralStatus } from "@tarragon/shared";
 
 const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["variant"]; label: string }> = {
+  draft: { variant: "grey", label: "Not yet submitted" },
   pending: { variant: "amber", label: "Needs specialist assigned" },
   pending_payment: { variant: "amber", label: "Awaiting payment" },
   payment_confirmed: { variant: "blue", label: "Ready to book" },
