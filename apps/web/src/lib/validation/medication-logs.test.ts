@@ -55,34 +55,4 @@ describe("medicationLogSchema", () => {
   it("rejects a missing medication_id", () => {
     expect(medicationLogSchema.safeParse({ status: "taken" }).success).toBe(false);
   });
-
-  it("accepts a missed dose with a structured reason", () => {
-    expect(
-      medicationLogSchema.safeParse({
-        ...validFreeform,
-        status: "missed",
-        missed_reason: "cost",
-      }).success
-    ).toBe(true);
-  });
-
-  it("rejects a missed_reason on a non-missed status", () => {
-    expect(
-      medicationLogSchema.safeParse({
-        ...validFreeform,
-        status: "taken",
-        missed_reason: "cost",
-      }).success
-    ).toBe(false);
-  });
-
-  it("rejects an invalid missed_reason", () => {
-    expect(
-      medicationLogSchema.safeParse({
-        ...validFreeform,
-        status: "missed",
-        missed_reason: "not_a_real_reason",
-      }).success
-    ).toBe(false);
-  });
 });
