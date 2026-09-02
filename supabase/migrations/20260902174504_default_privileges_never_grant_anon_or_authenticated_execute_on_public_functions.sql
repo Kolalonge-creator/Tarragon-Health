@@ -61,16 +61,44 @@
 -- (~230 of 264 functions were found anon-executable there) and is out of
 -- scope for this fix, which exists to make the CI replay job accurately
 -- reflect live privilege state, not to re-run that audit for public.
+do $$
+declare
+  v_before text;
+begin
+  select string_agg(format('role=%s ns=%s type=%s acl=%s', coalesce(defaclrole::regrole::text,'(none)'), coalesce(defaclnamespace::regnamespace::text,'(db-wide)'), defaclobjtype, defaclacl::text), ' | ')
+    into v_before
+    from pg_default_acl
+   where defaclobjtype = 'f';
+  raise notice 'DIAG before-revoke default_acl(f)=%', coalesce(v_before, '(no rows at all)');
+end $$;
+
 alter default privileges for role postgres in schema public
   revoke execute on functions from public, anon, authenticated;
 alter default privileges for role postgres in schema public
   revoke usage, select on sequences from public, anon, authenticated;
 
 do $$
+declare
+  v_current_user text;
+  v_session_user text;
+  v_after text;
+  v_proowner text;
+  v_proacl text;
 begin
+  select string_agg(format('role=%s ns=%s type=%s acl=%s', coalesce(defaclrole::regrole::text,'(none)'), coalesce(defaclnamespace::regnamespace::text,'(db-wide)'), defaclobjtype, defaclacl::text), ' | ')
+    into v_after
+    from pg_default_acl
+   where defaclobjtype = 'f';
+  select current_user, session_user into v_current_user, v_session_user;
+  raise notice 'DIAG after-revoke default_acl(f)=% current_user=% session_user=%', coalesce(v_after, '(no rows at all)'), v_current_user, v_session_user;
+
   create function public._default_priv_probe_fn_20260902174504()
     returns void language sql as $probe$ select 1 $probe$;
   create sequence public._default_priv_probe_seq_20260902174504;
+
+  select proowner::regrole::text, proacl::text into v_proowner, v_proacl from pg_proc
+   where oid = 'public._default_priv_probe_fn_20260902174504()'::regprocedure;
+  raise notice 'DIAG probe fn proowner=% proacl=%', v_proowner, coalesce(v_proacl, '(null -- default owner=all,PUBLIC=execute)');
 
   if has_function_privilege('anon', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE')
      or has_function_privilege('authenticated', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE') then
