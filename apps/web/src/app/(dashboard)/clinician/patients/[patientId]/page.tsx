@@ -19,6 +19,8 @@ import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
+import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
@@ -234,6 +236,8 @@ export default async function ClinicianPatientPage({
                     and renal-dosing checks are what a dispensing pharmacist would
                     have caught, and this platform has no pharmacist in the loop. */}
                 <MedicationSafetyPanel patientId={patient.id} />
+                <MedicationEffectivenessCard patientId={patient.id} />
+                <MedicationReconciliationPanel patientId={patient.id} />
                 {/* Spec §62.12 — every repeat request needs a clinician's
                     decision; canReview mirrors canConfirmRefill (any active
                     clinical tier, never a Care Coordinator) since approving a
