@@ -159,6 +159,7 @@ export function getNavSections(
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Wellbeing", href: "/patient/wellbeing", icon: "mood" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
             { label: "Healthy ageing", href: "/patient/healthy-ageing", icon: "healthyAgeing" },
             { label: "Get a device", href: "/patient/devices", icon: "devices" },
           ],
