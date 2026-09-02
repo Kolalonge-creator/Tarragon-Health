@@ -266,6 +266,10 @@ export function QualityImprovementConsole() {
         </CardContent>
       </Card>
 
+      {open.length === 0 && closed.length === 0 && (
+        <p className="text-sm text-charcoal-ink/60">No quality-improvement cycles yet.</p>
+      )}
+
       {open.length > 0 && (
         <div className="space-y-3">
           <h3 className="font-heading text-base font-semibold text-charcoal-ink">Open cycles</h3>

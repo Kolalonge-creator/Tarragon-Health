@@ -264,6 +264,37 @@ export function useSetClinicalStaffActive() {
 }
 
 /**
+ * Toggles whether this clinical_staff member is one of Tarragon's in-house
+ * therapists (Module 46 §46.8) — directory/admin display only. Actually
+ * being bookable for a therapy slot still requires the person to publish
+ * their own provider_availability_rules including the therapy appointment
+ * type (clinician-side, AvailabilityRulesManager) — this flag doesn't do
+ * that for them.
+ */
+export function useSetClinicalStaffOffersTherapy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clinicalStaffId,
+      offersTherapySessions,
+    }: {
+      clinicalStaffId: string;
+      offersTherapySessions: boolean;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ offers_therapy_sessions: offersTherapySessions })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
  * Edits specialty/bio/photo on an existing clinical_staff record — the
  * fields the admin manager had no way to change after creation (only
  * verify/activate existed). Name/credential/tier stay create-time-only:
