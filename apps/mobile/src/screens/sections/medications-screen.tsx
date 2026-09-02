@@ -1,10 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { loadTodaysDoses, logDose, type DoseChecklistItem, type DoseStatus } from "@/lib/medications";
+import {
+  loadTodaysDoses,
+  logDose,
+  MISSED_DOSE_REASON_OPTIONS,
+  type DoseChecklistItem,
+  type DoseStatus,
+  type MissedDoseReason,
+} from "@/lib/medications";
 import { syncDoseReminders } from "@/lib/dose-reminders";
 import { colors, spacing } from "@/ui/theme";
-import { CalloutCard, Card, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
+import { CalloutCard, Card, ChoiceChip, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 
 interface MedicationsScreenProps {
@@ -20,6 +27,10 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
   const [doses, setDoses] = useState<DoseChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cabinetOpen, setCabinetOpen] = useState(false);
+  // Pathway §65.9 — asked before a "missed" write, not after: the escalation
+  // trigger only reacts to INSERT, so the reason has to be on the row from
+  // the start rather than added by a follow-up update.
+  const [reasonPromptItem, setReasonPromptItem] = useState<DoseChecklistItem | null>(null);
 
   const load = useCallback(async () => {
     const today = await loadTodaysDoses(patientId);
@@ -31,14 +42,32 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
     load().finally(() => setLoading(false));
   }, [load]);
 
-  async function toggle(item: DoseChecklistItem) {
-    const nextStatus: Exclude<DoseStatus, "pending"> = item.status === "taken" ? "missed" : "taken";
+  async function applyStatus(
+    item: DoseChecklistItem,
+    nextStatus: Exclude<DoseStatus, "pending">,
+    missedReason?: MissedDoseReason
+  ) {
     // Optimistic — this is the highest-frequency native write in the app.
     const next: DoseChecklistItem[] = doses.map((d) => (d === item ? { ...d, status: nextStatus } : d));
     setDoses(next);
     void syncDoseReminders(next);
-    const result = await logDose(patientId, organisationId, item, nextStatus);
+    const result = await logDose(patientId, organisationId, item, nextStatus, missedReason);
     if (result.error) await load();
+  }
+
+  function toggle(item: DoseChecklistItem) {
+    const nextStatus: Exclude<DoseStatus, "pending"> = item.status === "taken" ? "missed" : "taken";
+    if (nextStatus === "missed") {
+      setReasonPromptItem(item);
+      return;
+    }
+    void applyStatus(item, nextStatus);
+  }
+
+  function pickMissedReason(reason?: MissedDoseReason) {
+    const item = reasonPromptItem;
+    setReasonPromptItem(null);
+    if (item) void applyStatus(item, "missed", reason);
   }
 
   return (
@@ -100,6 +129,28 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
             <SecondaryButton title="Close" onPress={() => setCabinetOpen(false)} />
           </View>
           <WebViewScreen path="/patient/medications" />
+        </View>
+      </Modal>
+
+      <Modal
+        visible={reasonPromptItem !== null}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setReasonPromptItem(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "flex-end" }}>
+          <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: spacing.screen, gap: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.ink }}>
+              What got in the way?
+            </Text>
+            <MutedText>Optional — helps your care team help you.</MutedText>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              {MISSED_DOSE_REASON_OPTIONS.map((option) => (
+                <ChoiceChip key={option.value} title={option.label} onPress={() => pickMissedReason(option.value)} />
+              ))}
+            </View>
+            <SecondaryButton title="Skip" onPress={() => pickMissedReason(undefined)} />
+          </View>
         </View>
       </Modal>
     </ScrollView>
