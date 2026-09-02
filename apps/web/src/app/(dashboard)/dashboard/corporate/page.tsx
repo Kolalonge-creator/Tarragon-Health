@@ -1,5 +1,6 @@
 import { InstitutionPrivacyNotice } from "@/components/institution-privacy-notice";
 import { ContractStatusCard } from "@/components/contract-status-card";
+import { ProposeContractCard } from "../propose-contract-card";
 import { RosterManager } from "./roster-manager";
 import { CohortSummary } from "./cohort-summary";
 import { loadCorporateDashboardData } from "./dashboard-data";
@@ -17,6 +18,7 @@ export default async function CorporateOverviewPage() {
     <div className="space-y-6">
       <InstitutionPrivacyNotice />
       <ContractStatusCard performance={data.contractPerformance} />
+      <ProposeContractCard organisationId={data.organisationId} />
       <RosterManager organisationId={data.organisationId} />
       <CohortSummary analytics={data.analytics} />
     </div>

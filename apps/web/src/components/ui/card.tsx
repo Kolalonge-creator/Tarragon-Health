@@ -1,19 +1,24 @@
 import * as React from "react";
+import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 const CARD_VARIANT = {
   default: "bg-white",
   soft: "bg-warm-ivory",
   sage: "bg-soft-sage",
+  /** For use on a dark (navy) section background — see Section variant="navy". */
+  dark: "border-white/15 bg-white/5",
 } as const;
 
 export function Card({
   className,
   variant = "default",
+  asChild = false,
   ...props
-}: React.ComponentProps<"div"> & { variant?: keyof typeof CARD_VARIANT }) {
+}: React.ComponentProps<"div"> & { variant?: keyof typeof CARD_VARIANT; asChild?: boolean }) {
+  const Comp = asChild ? Slot : "div";
   return (
-    <div
+    <Comp
       className={cn(
         "rounded-xl border border-charcoal-ink/10 shadow-sm transition-shadow hover:shadow-md",
         CARD_VARIANT[variant],

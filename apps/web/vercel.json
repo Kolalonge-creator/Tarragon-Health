@@ -13,6 +13,10 @@
       "schedule": "0 8 * * *"
     },
     {
+      "path": "/api/cron/pharmacy-order-refunds",
+      "schedule": "40 5 * * *"
+    },
+    {
       "path": "/api/cron/reconcile-payment-providers",
       "schedule": "0 9 * * *"
     },
