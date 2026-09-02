@@ -17,6 +17,7 @@ import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
 import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-campaigns-card";
+import { DevelopmentalScreeningCard } from "@/app/(dashboard)/patient/developmental-screening-card";
 
 /**
  * The prevention hub — one destination for everything that keeps a healthy
@@ -45,7 +46,7 @@ import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-ca
  * anchorIds so those deep links keep landing on the right tab.
  */
 export default async function PreventionHubPage() {
-  const { profile, subjectId } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectDateOfBirth } = await getPatientDashboardContext();
 
   const supabase = await createClient();
   const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
@@ -59,6 +60,11 @@ export default async function PreventionHubPage() {
 
   const location = { state: profile.state, city: profile.city, area: profile.area };
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);
+  // Distinct from ageYears above (the CALLER's own age, used for the "Me"
+  // family-vaccination tab): the Child health tab below is about whichever
+  // record is actually open, which is the acting-for subject's, not the
+  // caller's own, when a parent has opened a child's account.
+  const subjectAgeYears = ageFromDateOfBirth(subjectDateOfBirth);
 
   const tabs: PreventionTab[] = [
     {
@@ -128,6 +134,27 @@ export default async function PreventionHubPage() {
         </div>
       ),
     },
+    // Only for a child/adolescent subject — a screening aid whose age-banded
+    // item bank tops out at 60 months (developmental-screening-card.tsx
+    // self-gates on that; the age check here just keeps the tab itself from
+    // showing up empty for an adult patient).
+    ...(subjectAgeYears !== null && subjectAgeYears < 18
+      ? [
+          {
+            id: "child-health",
+            label: "Child health",
+            content: (
+              <div className="space-y-6">
+                <DevelopmentalScreeningCard
+                  patientId={subjectId}
+                  organisationId={profile.organisation_id}
+                  dateOfBirth={subjectDateOfBirth}
+                />
+              </div>
+            ),
+          } satisfies PreventionTab,
+        ]
+      : []),
     {
       id: "programmes",
       label: "Programmes",

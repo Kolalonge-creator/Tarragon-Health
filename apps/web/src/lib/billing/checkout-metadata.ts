@@ -31,6 +31,19 @@
  * either Edge Function — a redeploy this codebase has been bitten by twice.
  */
 /**
+ * 'subsidy_contribution' is read the same way, by
+ * private.apply_subsidy_contribution_from_transaction (an AFTER INSERT
+ * trigger on payment_transactions, see
+ * supabase/migrations/20260830113902_subsidy_split_engine.sql). Two of these
+ * checkouts exist per subsidized order — one for the sponsor's share, one
+ * for the patient's — each carrying its own subsidy_contribution_id. The
+ * underlying lab/pharmacy/referral order only flips to payment_confirmed
+ * once BOTH contributions have landed.
+ *
+ * Same deliberate reason as voucher_payment/sponsored_subscription: ships
+ * without redeploying either webhook.
+ */
+/**
  * 'service_purchase' follows the exact same deliberate pattern as
  * 'voucher_payment'/'sponsored_subscription' above: read only by
  * private.apply_service_purchase_payment (an AFTER INSERT trigger on
@@ -49,6 +62,7 @@ export type CheckoutKind =
   | "booking"
   | "voucher_payment"
   | "sponsored_subscription"
+  | "subsidy_contribution"
   | "service_purchase";
 
 export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
@@ -70,4 +84,6 @@ export interface CheckoutMetadata {
   sponsor_profile_id?: string;
   /** Only set for kind='sponsored_subscription' — subscription_plans.code, read by the trigger. */
   plan_code?: string;
+  /** Only set for kind='subsidy_contribution' — the subsidy_contributions.id this specific charge settles. */
+  subsidy_contribution_id?: string;
 }

@@ -3,6 +3,7 @@ import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { ActingForBanner } from "@/app/(dashboard)/patient/acting-for-banner";
 import { EmergencyAlert } from "@/app/(dashboard)/patient/emergency-alert";
 import { DangerSymptomCheck } from "@/app/(dashboard)/patient/danger-symptom-check";
+import { ageFromDateOfBirth } from "@tarragon/shared";
 
 /**
  * Shared chrome for the 7 real dashboard sections (Overview, Vitals,
@@ -25,7 +26,7 @@ export default async function PatientSectionsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile, acting, subjectId, subjectState, subjectHasEmergencyContact } =
+  const { profile, acting, subjectId, subjectState, subjectDateOfBirth, subjectHasEmergencyContact } =
     await getPatientDashboardContext();
 
   return (
@@ -36,7 +37,6 @@ export default async function PatientSectionsLayout({
           : `Hi${profile.full_name ? `, ${profile.full_name}` : ""}`
       }
       roleLabel={acting ? "Acting for them" : "Patient"}
-      comingUp={[]}
     >
       {/* Whose account this is must never be in doubt. It sits above the
           safety surfaces because mistaking one person's record for another is
@@ -49,7 +49,7 @@ export default async function PatientSectionsLayout({
         hasEmergencyContact={subjectHasEmergencyContact}
         state={subjectState}
       />
-      <DangerSymptomCheck patientId={subjectId} />
+      <DangerSymptomCheck patientId={subjectId} ageYears={ageFromDateOfBirth(subjectDateOfBirth)} />
 
       <div className="space-y-6">{children}</div>
     </DashboardPlaceholder>

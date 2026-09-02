@@ -1,9 +1,50 @@
--- see supabase/migrations/20260829094312_ai_governance_registry_and_vendors.sql
+-- Tarragon Health — AI Governance, Safety & Model Management, part 1/6:
+-- the AI registry, per-version model metadata, and vendor management.
+--
+-- The platform already runs ten distinct AI capabilities in production (the
+-- AI Coach LangGraph turn, the lifestyle nudge proposer, the patient result
+-- explainer, clinician case briefs, lab-report/ECG-report/medication-pack/
+-- meal vision extraction, Voyage embeddings, and the Python risk-scoring
+-- service) with no shared inventory, no recorded owner, no risk
+-- classification, and no way to turn one off without a code deploy. Each one
+-- hardcodes its own model id and its own prompt. This is the governance
+-- layer for all of them, and it is deliberately a first-class platform
+-- capability rather than an appendix: nothing in parts 2-5 works without the
+-- registry rows created here.
+--
+-- NO organisation_id, on purpose. This mirrors escalation_slas
+-- (20260730105131) and alert_rules (20260828013011): an AI system's risk
+-- class, autonomy ceiling and kill-switch state are platform-wide clinical
+-- governance, not tenant data. The *operational* tables that record what a
+-- model actually did to a specific patient (ai_interaction_log,
+-- ai_safety_incidents, part 3) are org-scoped and RLS'd like any other
+-- patient-touching table.
+--
+-- Two invariants are enforced structurally here rather than left to review:
+--   * a high or very-high risk system may never hold autonomy_level =
+--     'execute' (40.4, "clinical execution should be highly restricted") --
+--     a CHECK, so no migration, admin screen or seed can quietly grant it;
+--   * is_enabled (the kill switch, part 5) is only meaningful for a system
+--     whose lifecycle_status is 'live'.
+-- The fuller "purpose -> owner -> risk -> validation -> guardrails ->
+-- monitoring -> audit -> rollback" acceptance gate needs tables from parts
+-- 2-4, so it lands as a trigger in part 5.
+
+-- ---------------------------------------------------------------------------
+-- Enums
+-- ---------------------------------------------------------------------------
+
+-- Potential clinical impact, not model size. Drives how much of the rest of
+-- this system is mandatory: high/very_high systems cannot be activated
+-- without a signed prompt version and a passing required evaluation run.
 create type public.ai_risk_class as enum ('low', 'moderate', 'high', 'very_high');
 
 comment on type public.ai_risk_class is
   'Clinical-impact classification (40.3). low = administrative summarisation; moderate = patient education; high = clinical decision support; very_high = could materially influence diagnosis or treatment.';
 
+-- What the AI is permitted to do on its own. Ordered least-to-most
+-- autonomous; private.ai_autonomy_rank() below turns it into an integer so
+-- guardrails can express a ceiling.
 create type public.ai_autonomy_level as enum ('inform_only', 'recommend', 'assist', 'execute');
 
 comment on type public.ai_autonomy_level is
@@ -15,6 +56,10 @@ create type public.ai_lifecycle_status as enum (
 
 comment on type public.ai_lifecycle_status is
   'Registry lifecycle. A system reaches ''live'' only through public.set_ai_system_enabled() (part 5), which re-checks the full acceptance criteria; ''suspended'' is where the kill switch leaves it.';
+
+-- ---------------------------------------------------------------------------
+-- Vendors (40.19)
+-- ---------------------------------------------------------------------------
 
 create table public.ai_vendors (
   id                          uuid primary key default gen_random_uuid(),
@@ -50,22 +95,36 @@ create policy ai_vendors_write on public.ai_vendors
 
 grant select, insert, update, delete on public.ai_vendors to authenticated;
 
+-- ---------------------------------------------------------------------------
+-- The registry (40.1, 40.2, 40.3, 40.4, 40.17, 40.18)
+-- ---------------------------------------------------------------------------
+
 create table public.ai_systems (
   id                    uuid primary key default gen_random_uuid(),
   system_code           text not null unique check (system_code ~ '^AI-[0-9]{3}$'),
   name                  text not null,
   purpose               text not null,
+  -- Accountable owner. owner_role is the *function* that owns it and is
+  -- always required; owner_profile_id names the current individual and is
+  -- null-gated (an unset owner means "needs assigning", never a default),
+  -- the same discipline doctor_tier and reviewed_by already follow.
   owner_role            text not null,
   owner_profile_id      uuid references public.profiles (id) on delete set null,
   vendor_id             uuid references public.ai_vendors (id) on delete restrict,
   risk_class            public.ai_risk_class not null,
   autonomy_level        public.ai_autonomy_level not null,
+  -- True when this system's outputs can influence a clinical decision about
+  -- an identifiable patient. Drives the mandatory audit trail (40.11) and
+  -- the kill-switch requirement (40.17).
   clinically_meaningful boolean not null,
   lifecycle_status      public.ai_lifecycle_status not null default 'draft',
   is_enabled            boolean not null default false,
   disabled_at           timestamptz,
   disabled_by           uuid references public.profiles (id) on delete set null,
   disabled_reason       text,
+  -- 40.18: what happens to the workflow when this AI is unavailable or
+  -- switched off. Required for every registered system, because "care
+  -- continues" is the whole point of registering it.
   fallback_behaviour    text not null,
   code_reference        text,
   review_interval_days  integer check (review_interval_days is null or review_interval_days > 0),
@@ -74,10 +133,17 @@ create table public.ai_systems (
   created_at            timestamptz not null default now(),
   updated_at            timestamptz not null default now(),
 
+  -- 40.4. Clinical execution is highly restricted: a system that could
+  -- materially influence diagnosis or treatment, or that provides clinical
+  -- decision support, may never act automatically. Structural, so it cannot
+  -- be granted by an admin screen, a seed, or a careless later migration.
   constraint ai_systems_no_high_risk_autonomous_execution
     check (not (autonomy_level = 'execute' and risk_class in ('high', 'very_high'))),
+  -- The kill switch is only meaningful for a system that is actually live.
   constraint ai_systems_enabled_only_when_live
     check (not is_enabled or lifecycle_status = 'live'),
+  -- A disabled system says why and when, so an investigation (40.17) starts
+  -- from a record rather than from memory.
   constraint ai_systems_disable_reason_present
     check ((disabled_at is null) = (disabled_reason is null))
 );
@@ -101,6 +167,11 @@ create trigger ai_systems_set_updated_at
 
 alter table public.ai_systems enable row level security;
 
+-- The registry itself is not PHI, and transparency about which AI systems
+-- exist is part of the point -- any authenticated user may read it. Only an
+-- admin may write, and the governance-significant columns (is_enabled,
+-- lifecycle_status) are additionally protected by the part-5 trigger so even
+-- an admin goes through the RPC.
 create policy ai_systems_select on public.ai_systems
   for select to authenticated using (true);
 create policy ai_systems_insert on public.ai_systems
@@ -109,6 +180,10 @@ create policy ai_systems_update on public.ai_systems
   for update to authenticated using (private.is_admin()) with check (private.is_admin());
 
 grant select, insert, update on public.ai_systems to authenticated;
+
+-- ---------------------------------------------------------------------------
+-- Per-version model metadata (40.2) + validation/approval record (40.9)
+-- ---------------------------------------------------------------------------
 
 create table public.ai_system_versions (
   id                        uuid primary key default gen_random_uuid(),
@@ -132,10 +207,13 @@ create table public.ai_system_versions (
   updated_at                timestamptz not null default now(),
 
   constraint ai_system_versions_unique_version unique (ai_system_id, version),
+  -- approved_by/approved_at move together, and are server-derived by
+  -- public.approve_ai_system_version() (part 5) -- never client-supplied.
   constraint ai_system_versions_approval_paired
     check ((approved_by is null) = (approved_at is null)),
   constraint ai_system_versions_validation_paired
     check ((validated_by is null) = (validation_completed_at is null)),
+  -- Nothing is deployed that was never approved.
   constraint ai_system_versions_deploy_requires_approval
     check (deployed_at is null or approved_at is not null)
 );
@@ -158,6 +236,9 @@ alter table public.ai_system_versions enable row level security;
 
 create policy ai_system_versions_select on public.ai_system_versions
   for select to authenticated using (true);
+-- A draft version may be proposed by an admin, but never self-approved:
+-- approval goes through public.approve_ai_system_version() (part 5), which
+-- checks the required evaluation runs first.
 create policy ai_system_versions_insert on public.ai_system_versions
   for insert to authenticated
   with check (private.is_admin() and approved_by is null and approved_at is null and deployed_at is null);
@@ -166,6 +247,9 @@ create policy ai_system_versions_update on public.ai_system_versions
 
 grant select, insert, update on public.ai_system_versions to authenticated;
 
+-- Blocks the "edit the approved record instead of cutting a new version"
+-- shortcut. Once a version carries an approval, the fields that describe
+-- what was approved are frozen; correcting them means a new version row.
 create or replace function private.guard_ai_system_version_immutability()
 returns trigger
 language plpgsql
@@ -193,6 +277,11 @@ comment on function private.guard_ai_system_version_immutability() is
 create trigger ai_system_versions_immutable_after_approval
   before update on public.ai_system_versions
   for each row execute function private.guard_ai_system_version_immutability();
+
+-- ---------------------------------------------------------------------------
+-- Vendor model observations (40.19 -- "a vendor silently changing the
+-- underlying model should not go unnoticed")
+-- ---------------------------------------------------------------------------
 
 create table public.ai_vendor_model_observations (
   id                        uuid primary key default gen_random_uuid(),
@@ -226,6 +315,12 @@ create policy ai_vendor_model_observations_update on public.ai_vendor_model_obse
 
 grant select, update on public.ai_vendor_model_observations to authenticated;
 
+-- ---------------------------------------------------------------------------
+-- Shared helper: autonomy as an orderable rank, so a guardrail can express
+-- a ceiling ("this system may never exceed 'recommend'") without every
+-- caller re-encoding the enum order.
+-- ---------------------------------------------------------------------------
+
 create or replace function private.ai_autonomy_rank(p_level public.ai_autonomy_level)
 returns integer
 language sql
@@ -244,6 +339,10 @@ comment on function private.ai_autonomy_rank(public.ai_autonomy_level) is
   'Least-to-most autonomous rank for ai_autonomy_level, so a max_autonomy guardrail (40.5) can be compared numerically.';
 
 revoke all on function private.ai_autonomy_rank(public.ai_autonomy_level) from public, anon;
+
+-- ---------------------------------------------------------------------------
+-- Assertions -- "created" should be provable, not hopeful.
+-- ---------------------------------------------------------------------------
 
 do $$
 begin
@@ -264,6 +363,8 @@ begin
     raise exception 'not every part-1 AI governance table was created';
   end if;
 
+  -- Every new table has RLS on. (The 2026-08-01 sweep found ~30 tables that
+  -- did not; this asserts rather than assumes.)
   if exists (
     select 1 from pg_class c join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public'
@@ -273,6 +374,7 @@ begin
     raise exception 'an AI governance table was created without row level security';
   end if;
 
+  -- The two structural invariants actually discriminate.
   begin
     insert into public.ai_systems
       (system_code, name, purpose, owner_role, risk_class, autonomy_level,

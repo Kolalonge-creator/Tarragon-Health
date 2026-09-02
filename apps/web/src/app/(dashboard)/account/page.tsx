@@ -9,6 +9,12 @@ import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
 import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
+import { JoinEmployerCodeForm } from "./join-employer-code-form";
+
+// The seeded default consumer org (20260706084837) every self-serve signup
+// lands on until claimed by a real employer/HMO/clinic roster — the same
+// literal public.employer_join_with_code checks server-side.
+const DEFAULT_CONSUMER_ORG_ID = "00000000-0000-0000-0000-000000000001";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
   if (!value) return null;
@@ -134,6 +140,8 @@ export default async function AccountPage() {
           </p>
         </div>
       )}
+
+      {isPatient && profile.organisation_id === DEFAULT_CONSUMER_ORG_ID && <JoinEmployerCodeForm />}
 
       <ChangePasswordForm />
       <MfaSettingsCard verifiedFactorId={verifiedFactorId} />

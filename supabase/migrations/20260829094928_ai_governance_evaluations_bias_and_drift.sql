@@ -1,4 +1,27 @@
--- see supabase/migrations/20260829100118_ai_governance_evaluations_bias_and_drift.sql
+-- Tarragon Health — AI Governance, Safety & Model Management, part 4/6:
+-- the pre-production evaluation environment (40.9), red-team testing
+-- (40.10), bias and fairness monitoring (40.14), and data/model drift
+-- (40.15, 40.16).
+--
+-- 40.9 draws a pipeline -- test dataset -> safety -> clinical -> bias ->
+-- performance -> governance approval -- and the only version of that
+-- pipeline worth building is one where the last arrow is enforced. So the
+-- suites here carry is_required_for_release, the runs carry an outcome
+-- against a pass threshold, and part 5's public.approve_ai_system_version()
+-- refuses to approve a version that has not passed every required suite.
+-- Without that, "we evaluated it" is a claim rather than a record.
+--
+-- 40.14's warning about Nigerian datasets -- geographically concentrated,
+-- urban-heavy, skewed by socioeconomic group, thin on rural populations --
+-- is why ai_bias_assessments is keyed by (dimension, group_label) rather
+-- than by a fixed column set: the dimensions that matter here (geopolitical
+-- zone, urban/rural, state, income band) are not the ones a model card
+-- template would have picked, and they will change as coverage grows.
+
+-- ---------------------------------------------------------------------------
+-- Enums
+-- ---------------------------------------------------------------------------
+
 create type public.ai_evaluation_kind as enum ('safety', 'clinical', 'bias', 'performance', 'red_team');
 
 comment on type public.ai_evaluation_kind is
@@ -6,6 +29,9 @@ comment on type public.ai_evaluation_kind is
 
 create type public.ai_evaluation_outcome as enum ('pass', 'fail', 'needs_review');
 
+-- 40.10's list of deliberately difficult scenarios, as an enum so a suite's
+-- coverage is countable: "we red-teamed it" means little if nobody can say
+-- which of these seven categories were actually exercised.
 create type public.ai_redteam_category as enum (
   'emergency_symptoms',
   'contradictory_information',
@@ -20,6 +46,10 @@ create type public.ai_drift_kind as enum ('data_drift', 'model_drift');
 
 comment on type public.ai_drift_kind is
   'data_drift (40.15) = the population being served has moved away from the development data. model_drift (40.16) = predictive performance is deteriorating. They need different responses, so they are different rows, not one "drift" number.';
+
+-- ---------------------------------------------------------------------------
+-- Evaluation suites, cases, runs and results (40.9, 40.10)
+-- ---------------------------------------------------------------------------
 
 create table public.ai_evaluation_suites (
   id                      uuid primary key default gen_random_uuid(),
@@ -41,6 +71,10 @@ comment on table public.ai_evaluation_suites is
 comment on column public.ai_evaluation_suites.pass_threshold_pct is
   'Percentage of cases that must pass for a run to count as passing. Defaults to 100 deliberately -- a safety suite where four out of five adversarial prompts are handled correctly has not passed.';
 
+-- A suite name is unique per system, and unique among the shared suites.
+-- Two partial unique indexes rather than one constraint, because a plain
+-- UNIQUE (ai_system_id, name) treats every null ai_system_id as distinct
+-- and would happily admit two shared suites with the same name.
 create unique index ai_evaluation_suites_name_per_system
   on public.ai_evaluation_suites (ai_system_id, name) where ai_system_id is not null;
 create unique index ai_evaluation_suites_shared_name
@@ -73,6 +107,9 @@ create table public.ai_evaluation_cases (
   updated_at         timestamptz not null default now(),
 
   constraint ai_evaluation_cases_unique_code unique (suite_id, case_code),
+  -- A red-team category only means something on an adversarial case, and an
+  -- adversarial case with no category cannot be counted toward 40.10's
+  -- coverage. Both directions, so the coverage report is trustworthy.
   constraint ai_evaluation_cases_redteam_paired
     check (is_adversarial = (redteam_category is not null))
 );
@@ -129,6 +166,9 @@ create table public.ai_evaluation_runs (
 comment on table public.ai_evaluation_runs is
   'One execution of one evaluation suite against one AI system version (40.9). The release gate in part 5 reads these: a version is approvable only when every active, required suite for its system has a completed run against that version with outcome = pass.';
 
+-- Percentage of executed cases that passed. A generated column rather than
+-- an application calculation so the release gate and the dashboard can never
+-- disagree about what a run scored.
 alter table public.ai_evaluation_runs
   add column pass_rate_pct numeric(5, 2)
   generated always as (
@@ -180,6 +220,9 @@ create policy ai_evaluation_case_results_write on public.ai_evaluation_case_resu
 
 grant select, insert, update, delete on public.ai_evaluation_case_results to authenticated;
 
+-- Keeps a run's tallies and outcome derived from its own case results, so
+-- "this run passed" is a consequence of the recorded cases rather than a
+-- number somebody typed next to them.
 create or replace function private.recount_ai_evaluation_run()
 returns trigger
 language plpgsql
@@ -214,6 +257,8 @@ begin
          outcome = case
            when completed_at is null then outcome
            when v_total = 0 then 'needs_review'::public.ai_evaluation_outcome
+           -- An unreviewed case is not a pass. A run with anything still
+           -- awaiting review can never round up to 'pass'.
            when v_review > 0 then 'needs_review'::public.ai_evaluation_outcome
            when (v_passed::numeric * 100) / v_total >= coalesce(v_threshold, 100)
              then 'pass'::public.ai_evaluation_outcome
@@ -232,6 +277,9 @@ create trigger ai_evaluation_case_results_recount
   after insert or update or delete on public.ai_evaluation_case_results
   for each row execute function private.recount_ai_evaluation_run();
 
+-- Re-scores a run when it is marked complete, so completed_at alone is
+-- enough to finalise an outcome (the per-case trigger leaves the outcome
+-- untouched while a run is still open).
 create or replace function private.score_ai_evaluation_run_on_completion()
 returns trigger
 language plpgsql
@@ -272,6 +320,8 @@ create trigger ai_evaluation_runs_score_on_completion
   before update on public.ai_evaluation_runs
   for each row execute function private.score_ai_evaluation_run_on_completion();
 
+-- The release gate, as a readable report rather than a bare boolean, so the
+-- admin console can show a Clinical Director exactly which suite is missing.
 create or replace function private.ai_release_gate(p_version_id uuid)
 returns jsonb
 language sql
@@ -330,8 +380,14 @@ comment on function private.ai_release_gate(uuid) is
 
 revoke all on function private.ai_release_gate(uuid) from public, anon;
 
+-- ---------------------------------------------------------------------------
+-- Bias and fairness monitoring (40.14)
+-- ---------------------------------------------------------------------------
+
 create table public.ai_bias_assessments (
   id                     uuid primary key default gen_random_uuid(),
+  -- Unlike the registry, this IS tenant data: a fairness metric is measured
+  -- over a specific population, and whose population it was matters.
   organisation_id        uuid not null references public.organisations (id) on delete restrict,
   ai_system_id           uuid not null references public.ai_systems (id) on delete cascade,
   ai_system_version_id   uuid references public.ai_system_versions (id) on delete set null,
@@ -360,6 +416,10 @@ comment on table public.ai_bias_assessments is
 comment on column public.ai_bias_assessments.sample_size is
   'Recorded because a disparity measured on twelve patients is a different claim from one measured on twelve thousand, and the dashboard must be able to say which it is.';
 
+-- Ratio of this group's metric to the reference group's. Generated so a
+-- disparity cannot be reported with a ratio that does not follow from the
+-- two numbers beside it. Null when there is no reference, or when the
+-- reference is zero.
 alter table public.ai_bias_assessments
   add column disparity_ratio numeric
   generated always as (
@@ -381,8 +441,15 @@ create policy ai_bias_assessments_write on public.ai_bias_assessments
 
 grant select, insert, update, delete on public.ai_bias_assessments to authenticated;
 
+-- ---------------------------------------------------------------------------
+-- Data drift (40.15) and model drift (40.16)
+-- ---------------------------------------------------------------------------
+
 create table public.ai_drift_observations (
   id                   uuid primary key default gen_random_uuid(),
+  -- The population the window was measured over -- the same reason
+  -- ai_bias_assessments carries one. It is also what gives the automated
+  -- incident below an organisation to belong to.
   organisation_id      uuid not null references public.organisations (id) on delete restrict,
   ai_system_id         uuid not null references public.ai_systems (id) on delete cascade,
   ai_system_version_id uuid references public.ai_system_versions (id) on delete set null,
@@ -401,6 +468,8 @@ create table public.ai_drift_observations (
 
   constraint ai_drift_observations_unique
     unique (organisation_id, ai_system_id, kind, feature_or_metric, observed_on),
+  -- A breach has to be a breach OF something. Without this, "breached" is
+  -- an opinion rather than a measurement.
   constraint ai_drift_observations_breach_needs_threshold
     check (not breached or (drift_score is not null and threshold is not null))
 );
@@ -435,6 +504,9 @@ begin
 
   select risk_class into v_risk from public.ai_systems where id = new.ai_system_id;
 
+  -- Drift on a high-impact system is a high-severity incident; on a
+  -- low-impact one it is worth recording without paging anyone at 2am --
+  -- notify_ai_safety_incident() only pages at high/critical.
   insert into public.ai_safety_incidents
     (organisation_id, ai_system_id, reporter_kind, category, severity, description)
   values (
@@ -461,6 +533,10 @@ comment on function private.raise_ai_drift_incident() is
 create trigger ai_drift_observations_raise_incident
   after insert or update on public.ai_drift_observations
   for each row execute function private.raise_ai_drift_incident();
+
+-- ---------------------------------------------------------------------------
+-- Assertions
+-- ---------------------------------------------------------------------------
 
 do $$
 declare
@@ -490,6 +566,10 @@ begin
     raise exception 'a part-4 AI governance table was created without row level security';
   end if;
 
+  -- End-to-end: a run whose only case fails must score 'fail' and leave the
+  -- release gate unsatisfied; the same run with the case passing must score
+  -- 'pass' and satisfy it. Testing both directions, because a gate that
+  -- refuses everything passes a one-sided test just as well as a correct one.
   insert into public.ai_systems
     (system_code, name, purpose, owner_role, risk_class, autonomy_level,
      clinically_meaningful, fallback_behaviour)
@@ -518,6 +598,11 @@ begin
     raise exception 'pass_rate_pct was % for a run with zero passes', v_rate;
   end if;
 
+  -- Flipping the case to pass is enough: the run is already complete, so
+  -- the per-case recount trigger re-scores it in place. (Re-opening the run
+  -- by clearing completed_at is not a legal state -- the
+  -- outcome_requires_completion constraint refuses a scored-but-open run,
+  -- which is itself the behaviour we want.)
   update public.ai_evaluation_case_results set outcome = 'pass' where run_id = v_run;
 
   select outcome into v_out from public.ai_evaluation_runs where id = v_run;
@@ -525,6 +610,8 @@ begin
     raise exception 'a run whose only case passed scored %, not pass', v_out;
   end if;
 
+  -- A red-team case must carry a category, and a non-adversarial one must
+  -- not -- otherwise 40.10 coverage cannot be counted.
   begin
     insert into public.ai_evaluation_cases (suite_id, case_code, scenario, expected_behaviour, is_adversarial)
     values (v_suite, 'probe_adversarial', 'probe', 'probe', true);
@@ -533,6 +620,11 @@ begin
     when check_violation then null;
   end;
 
+  -- A drift breach with no threshold is not a measurement. Skipped when no
+  -- organisation exists yet: on a fresh `supabase db reset` the migrations
+  -- run before seed.sql, so there is genuinely nothing to attribute a probe
+  -- observation to, and a not-null failure here would look like a broken
+  -- constraint rather than an empty database.
   select id into v_org from public.organisations order by created_at limit 1;
   if v_org is not null then
     begin

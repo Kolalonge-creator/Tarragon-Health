@@ -3,9 +3,11 @@ import type { LucideIcon } from "lucide-react";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { checkDependencies, type DependencyReport } from "@/lib/status/check-dependencies";
 import { businessSummarySchema, financialSummarySchema } from "@/lib/analytics/schemas";
 import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 
@@ -25,6 +27,24 @@ type AdminTileGroup = {
 function sectionId(label: string) {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
+
+/** "up"/"configured" reads as healthy, "down" as a real problem, "unconfigured"
+ * as neutral — a provider nobody's set up yet isn't a fault. */
+function statusBadgeVariant(status: string): "green" | "red" | "grey" {
+  if (status === "down") return "red";
+  if (status === "unconfigured") return "grey";
+  return "green";
+}
+
+const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, string> = {
+  supabase: "Supabase",
+  ml_service: "ML service",
+  whatsapp: "WhatsApp",
+  termii: "Termii SMS",
+  paystack: "Paystack",
+  stripe: "Stripe",
+  resend: "Resend (email)",
+};
 
 export default async function AdminPage() {
   const profile = await getCurrentProfile();
@@ -64,6 +84,7 @@ export default async function AdminPage() {
     pendingVerificationRes,
     openBookingsRes,
     pendingBookingsRes,
+    dependencyReport,
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
@@ -80,6 +101,10 @@ export default async function AdminPage() {
       .from("booking_requests")
       .select("*", { count: "exact", head: true })
       .eq("status", "requested"),
+    // Same checks the unauthenticated /api/status route exposes — called
+    // directly here rather than fetched, since this page already renders
+    // server-side. See docs/BUSINESS_CONTINUITY_DR_SPEC.md.
+    checkDependencies(),
   ]);
 
   const business = businessSummarySchema.parse(businessRes.data ?? {});
@@ -142,6 +167,13 @@ export default async function AdminPage() {
           blurb: "Contact form and plan-finder submissions, including B2B",
           icon: NAV_ICON.inbox,
           visible: can("leads.manage"),
+        },
+        {
+          href: "/admin/patients/duplicates",
+          label: "Duplicate patients",
+          blurb: "Review flagged possible-duplicate patient records",
+          icon: NAV_ICON.review,
+          visible: can("patients.duplicates.review") || can("patients.merge"),
         },
       ],
     },
@@ -259,7 +291,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/subscriptions",
           label: "Subscription plans & add-ons",
-          blurb: "Create, price, and activate plans, synced to Paystack",
+          blurb: "Legacy plan/add-on editor — no longer sets live patient pricing",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },
@@ -480,12 +512,36 @@ export default async function AdminPage() {
 
       <Card variant="soft">
         <CardHeader>
+          <CardTitle>System status</CardTitle>
+          <CardDescription>
+            Live dependency checks, also reachable unauthenticated at{" "}
+            <code className="text-xs">/api/status</code> — see{" "}
+            <code className="text-xs">docs/BUSINESS_CONTINUITY_DR_SPEC.md</code>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+            {(Object.keys(DEPENDENCY_LABELS) as Array<keyof typeof DEPENDENCY_LABELS>).map(
+              (key) => (
+                <li key={key} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-charcoal-ink/80">{DEPENDENCY_LABELS[key]}</span>
+                  <Badge variant={statusBadgeVariant(dependencyReport[key].status)}>
+                    {dependencyReport[key].status}
+                  </Badge>
+                </li>
+              )
+            )}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card variant="soft">
+        <CardHeader>
           <CardTitle>On the roadmap</CardTitle>
           <CardDescription>Planned for an upcoming release.</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="list-inside list-disc space-y-1.5 text-sm text-charcoal-ink/80">
-            <li>System health: API latency, WhatsApp delivery, ML status</li>
             <li>ML model versioning + batch re-scoring trigger</li>
             <li>Audit trail + NDPR export/erasure tools</li>
           </ul>
