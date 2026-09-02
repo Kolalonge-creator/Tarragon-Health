@@ -51,7 +51,7 @@ export type CheckoutKind =
   | "sponsored_subscription"
   | "service_purchase";
 
-export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit";
+export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
 
 export interface CheckoutMetadata {
   kind: CheckoutKind;

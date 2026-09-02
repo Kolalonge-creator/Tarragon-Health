@@ -333,7 +333,7 @@ export function AnnualHealthCheckBooking({
               The Health Check packages come with a paid plan. You can still upload any result you
               already have and a doctor will read it, on any plan.
             </p>
-            <PatientResultUpload label="Upload a result you already have" />
+            <PatientResultUpload label="Upload a result you already have" patientId={patientId} />
           </div>
         )}
       </CardContent>

@@ -297,6 +297,11 @@ export function getNavSections(
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                {
+                  label: "Lab result consults",
+                  href: "/clinician/lab-result-consults",
+                  icon: "labs",
+                },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },
@@ -325,6 +330,11 @@ export function getNavSections(
           label: "Commercial",
           items: [
             { label: "Subscriptions", href: "/admin/settings/subscriptions", icon: "billing" },
+            {
+              label: "Lab-result consult fee",
+              href: "/admin/settings/lab-result-consult-pricing",
+              icon: "billing",
+            },
             { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
