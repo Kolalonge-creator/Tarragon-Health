@@ -545,6 +545,23 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       : "is overdue: your care team may follow up";
     return { text: `${vaccine} ${label}`, href: "/patient/prevention" };
   }
+  if (
+    n.template === "cycle_period_due_soon" ||
+    n.template === "cycle_period_due_today" ||
+    n.template === "cycle_period_late"
+  ) {
+    // From lib/cycle/reminders.ts. Worded softly on purpose: an estimate
+    // that turns out to be wrong should read as a guess that missed, not as
+    // the app telling somebody something is wrong with them.
+    const days = Number(payload.days_overdue ?? 0);
+    const text =
+      n.template === "cycle_period_due_soon"
+        ? "Your period is expected in a couple of days"
+        : n.template === "cycle_period_due_today"
+          ? "Your period is expected around today"
+          : `Your period is ${days} days later than expected. Cycles shift for all sorts of reasons.`;
+    return { text, href: "/patient/cycle" };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 

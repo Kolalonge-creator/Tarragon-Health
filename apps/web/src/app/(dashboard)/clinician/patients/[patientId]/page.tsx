@@ -20,7 +20,9 @@ import { ScreeningResultForm } from "./screening-result-form";
 import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
+import { ImagingOrdersSection } from "./imaging-orders-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { CdsPanel } from "./cds-panel";
 import { MedicationAdherenceHistory } from "./medication-adherence-history";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
@@ -54,6 +56,7 @@ import { HealthyAgeingClinicianPanel } from "./healthy-ageing-clinician-panel";
 import { CreateReferralForm } from "./create-referral-form";
 import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
+import { WomensHealthPanel } from "./womens-health-panel";
 import { RequestEmergencyAccessPanel } from "./request-emergency-access-panel";
 
 export default async function ClinicianPatientPage({
@@ -235,6 +238,13 @@ export default async function ClinicianPatientPage({
             ),
           },
           {
+            id: "decision-support",
+            label: "Decision support",
+            content: patient.organisation_id ? (
+              <CdsPanel patientId={patient.id} organisationId={patient.organisation_id} />
+            ) : null,
+          },
+          {
             id: "medications",
             label: "Medications",
             content: (
@@ -343,6 +353,7 @@ export default async function ClinicianPatientPage({
                     inline, so checking a value against the page is one glance. */}
                 <ResultDocumentsSection patientId={patient.id} />
                 <EcgReportDocumentsSection patientId={patient.id} />
+                <ImagingOrdersSection patientId={patient.id} canOrder={isClinicalTier(callerStaff)} />
                 <MentalHealthSummary patientId={patient.id} showScores />
                 {isClinicalTier(callerStaff) && <ReferToSpecialistForm patientId={patient.id} />}
                 <ScreenOrderResultsSection patientId={patient.id} />
@@ -401,6 +412,15 @@ export default async function ClinicianPatientPage({
               />
             ) : null,
           },
+          ...(patient.sex === "female"
+            ? [
+                {
+                  id: "womens-health",
+                  label: "Women's Health",
+                  content: <WomensHealthPanel patientId={patient.id} />,
+                },
+              ]
+            : []),
           {
             id: "referrals",
             label: "Referrals",
