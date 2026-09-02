@@ -160,7 +160,7 @@ export function AskADoctor({
         {!isCheckingCredit && !canAsk && (
           <div className="space-y-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
             <p className="text-sm text-charcoal-ink">
-              Ask a doctor isn't included on your current plan. Buy a one-off credit to send this
+              Ask a doctor isn&apos;t included on your current plan. Buy a one-off credit to send this
               question, or upgrade for unlimited access.
             </p>
             {formError && <p className="text-sm text-red-600">{formError}</p>}

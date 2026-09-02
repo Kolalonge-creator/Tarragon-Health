@@ -23990,6 +23990,8 @@ export type Database = {
       }
       profile_access: {
         Row: {
+          clinical_access: boolean
+          clinical_access_updated_at: string | null
           created_at: string
           granted_by: string
           grantee_user_id: string
@@ -23999,6 +24001,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          clinical_access?: boolean
+          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by: string
           grantee_user_id: string
@@ -24008,6 +24012,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          clinical_access?: boolean
+          clinical_access_updated_at?: string | null
           created_at?: string
           granted_by?: string
           grantee_user_id?: string
@@ -28087,7 +28093,7 @@ export type Database = {
           id: string
           organisation_id: string
           patient_id: string
-          payable_kobo: number
+          payable_kobo: number | null
           payment_provider:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -28115,7 +28121,7 @@ export type Database = {
           id?: string
           organisation_id: string
           patient_id: string
-          payable_kobo?: number
+          payable_kobo?: number | null
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -28143,7 +28149,7 @@ export type Database = {
           id?: string
           organisation_id?: string
           patient_id?: string
-          payable_kobo?: number
+          payable_kobo?: number | null
           payment_provider?:
             | Database["public"]["Enums"]["payment_provider"]
             | null
@@ -31090,6 +31096,7 @@ export type Database = {
         Row: {
           arm: string | null
           cgm_connection_id: string | null
+          client_reading_id: string | null
           created_at: string
           device_id: string | null
           diastolic: number | null
@@ -31124,6 +31131,7 @@ export type Database = {
         Insert: {
           arm?: string | null
           cgm_connection_id?: string | null
+          client_reading_id?: string | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
@@ -31160,6 +31168,7 @@ export type Database = {
         Update: {
           arm?: string | null
           cgm_connection_id?: string | null
+          client_reading_id?: string | null
           created_at?: string
           device_id?: string | null
           diastolic?: number | null
@@ -32561,15 +32570,15 @@ export type Database = {
         Args: never
         Returns: {
           active_key_count: number
-          calls_included_per_month: number | null
+          calls_included_per_month: number
           calls_last_30_days: number
           calls_this_month: number
           created_at: string
           last_called_at: string
-          monthly_price_kobo: number | null
+          monthly_price_kobo: number
           name: string
           organisation_id: string
-          tier: string | null
+          tier: string
         }[]
       }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
@@ -32596,7 +32605,7 @@ export type Database = {
       }
       admin_set_protocol_api_license: {
         Args: {
-          p_calls_included_per_month: number | null
+          p_calls_included_per_month: number
           p_monthly_price_kobo: number
           p_organisation_id: string
           p_tier: string
@@ -32957,7 +32966,7 @@ export type Database = {
         Returns: undefined
       }
       approve_outcomes_contract_request: {
-        Args: { p_id: string; p_note?: string | null }
+        Args: { p_id: string; p_note?: string }
         Returns: string
       }
       approve_partner_statement: {
@@ -34024,6 +34033,10 @@ export type Database = {
         Args: { p_population_id: string }
         Returns: Json
       }
+      get_since_last_visit_summary: {
+        Args: { p_patient_id: string }
+        Returns: Json
+      }
       hand_over_care: {
         Args: {
           p_new_profile_id: string
@@ -34712,10 +34725,10 @@ export type Database = {
       propose_outcomes_contract_change: {
         Args: {
           p_contract_type: string
-          p_effective_from?: string | null
+          p_effective_from?: string
           p_organisation_id: string
           p_outcome_thresholds: Json
-          p_payout_terms: string | null
+          p_payout_terms: string
         }
         Returns: string
       }
@@ -36989,17 +37002,17 @@ export type Database = {
         | "anonymisation_methodology_reviewed"
       population_kind: "registry" | "custom"
       population_status: "active" | "archived"
+      prescription_renewal_status:
+        | "submitted"
+        | "in_review"
+        | "approved"
+        | "declined"
       prevention_campaign_action_type:
         | "education"
         | "screening_invite"
         | "assessment"
         | "discount"
         | "challenge"
-      prescription_renewal_status:
-        | "submitted"
-        | "in_review"
-        | "approved"
-        | "declined"
       prevention_campaign_enrolment_status:
         | "invited"
         | "joined"
@@ -37234,11 +37247,7 @@ export type Database = {
         | "overdue"
         | "cancelled"
         | "declined"
-      second_opinion_status:
-        | "submitted"
-        | "in_review"
-        | "answered"
-        | "closed"
+      second_opinion_status: "submitted" | "in_review" | "answered" | "closed"
       senior_case_review_status:
         | "submitted"
         | "in_review"
@@ -39230,12 +39239,7 @@ export const Constants = {
         "cancelled",
         "declined",
       ],
-      second_opinion_status: [
-        "submitted",
-        "in_review",
-        "answered",
-        "closed",
-      ],
+      second_opinion_status: ["submitted", "in_review", "answered", "closed"],
       senior_case_review_status: [
         "submitted",
         "in_review",

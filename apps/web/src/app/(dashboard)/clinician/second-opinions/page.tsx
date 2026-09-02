@@ -45,7 +45,7 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithPatient }) {
         <p className="text-xs text-charcoal-ink/60">Source: {request.source_description}</p>
       )}
       {request.specific_question && (
-        <p className="text-xs text-charcoal-ink/60">Patient's question: {request.specific_question}</p>
+        <p className="text-xs text-charcoal-ink/60">Patient&apos;s question: {request.specific_question}</p>
       )}
       {request.sla_due_at && (
         <p className="text-xs text-charcoal-ink/60">

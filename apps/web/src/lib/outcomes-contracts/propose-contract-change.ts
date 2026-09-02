@@ -45,7 +45,7 @@ export async function proposeContractChange(
     p_organisation_id: organisationId,
     p_contract_type: contractType as Database["public"]["Enums"]["outcomes_contract_type"],
     p_outcome_thresholds: thresholds,
-    p_payout_terms: typeof payoutTerms === "string" && payoutTerms.trim() ? payoutTerms.trim() : null,
+    p_payout_terms: typeof payoutTerms === "string" && payoutTerms.trim() ? payoutTerms.trim() : "",
     p_effective_from: typeof effectiveFrom === "string" && effectiveFrom ? effectiveFrom : undefined,
   });
 

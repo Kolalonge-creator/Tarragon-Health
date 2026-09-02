@@ -118,7 +118,7 @@ export default function VerifiedDocumentsWorklistPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Verified documents</h1>
         <p className="text-sm text-charcoal-ink/60">
           Fit-to-work letters and travel health certificates awaiting your review. What you write
-          here is exactly what prints on the patient's signed PDF.
+          here is exactly what prints on the patient&apos;s signed PDF.
         </p>
       </div>
       <Card>

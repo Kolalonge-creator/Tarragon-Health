@@ -129,9 +129,9 @@ export function SeniorCaseReviewCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
-          Managing more than one condition, or feel your plan isn't quite right? A senior doctor
+          Managing more than one condition, or feel your plan isn&apos;t quite right? A senior doctor
           reviews your whole record and sends you a written plan, coordinated across everything
-          you're managing.
+          you&apos;re managing.
         </p>
 
         {!isCheckingCredit && !hasCredit && (

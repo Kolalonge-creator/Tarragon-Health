@@ -45,7 +45,7 @@ export function useApproveOutcomesContractRequest() {
       const supabase = createClient();
       const { error } = await supabase.rpc("approve_outcomes_contract_request", {
         p_id: input.id,
-        p_note: input.note ?? null,
+        p_note: input.note,
       });
       if (error) throw error;
     },

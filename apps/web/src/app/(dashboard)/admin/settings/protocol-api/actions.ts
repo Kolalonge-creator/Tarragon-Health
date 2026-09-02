@@ -112,7 +112,9 @@ export async function setProtocolApiLicenseAction(input: {
       p_organisation_id: parsed.data.organisationId,
       p_tier: parsed.data.tier,
       p_monthly_price_kobo: parsed.data.monthlyPriceKobo,
-      p_calls_included_per_month: parsed.data.callsIncludedPerMonth,
+      // The DB function forces this to null for tier='unlimited' regardless
+      // of what's passed, so 0 is a safe placeholder for that case.
+      p_calls_included_per_month: parsed.data.callsIncludedPerMonth ?? 0,
     });
     if (error) return { error: error.message };
 

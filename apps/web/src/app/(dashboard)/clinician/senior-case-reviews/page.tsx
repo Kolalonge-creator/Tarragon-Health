@@ -101,7 +101,7 @@ export default function SeniorCaseReviewsPage() {
         <p className="text-sm text-charcoal-ink/60">
           Complex, often multi-condition cases awaiting a coordinated written plan. Completing one
           is restricted server-side to Tier 3+ doctors and Clinical Directors — everyone can see
-          the queue, but only a senior doctor's account can actually submit a plan.
+          the queue, but only a senior doctor&apos;s account can actually submit a plan.
         </p>
       </div>
       <Card>

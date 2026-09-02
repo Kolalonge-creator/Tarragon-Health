@@ -86,6 +86,9 @@ export async function purchaseServiceProduct(args: {
   if (purchase.status === "active") {
     return { activated: true };
   }
+  if (purchase.payable_kobo === null) {
+    return { error: "This purchase has no amount to charge — contact support." };
+  }
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const callbackUrl = `${origin}${args.callbackPath}`;
