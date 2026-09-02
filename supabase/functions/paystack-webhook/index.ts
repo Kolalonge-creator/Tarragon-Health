@@ -40,7 +40,7 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 type CheckoutKind = "subscription" | "add_on" | "booking";
-type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit";
+type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
 
 interface CheckoutMetadata {
   kind?: CheckoutKind;
@@ -53,7 +53,11 @@ interface CheckoutMetadata {
 
 const BOOKING_TABLE: Record<
   BookingOrderType,
-  "lab_orders" | "pharmacy_orders" | "specialist_referrals" | "video_visit_requests"
+  | "lab_orders"
+  | "pharmacy_orders"
+  | "specialist_referrals"
+  | "video_visit_requests"
+  | "lab_result_consult_requests"
 > = {
   lab: "lab_orders",
   pharmacy: "pharmacy_orders",
@@ -62,6 +66,10 @@ const BOOKING_TABLE: Record<
   // the visit only books when a doctor accepts (accept_video_visit_request);
   // decline/expiry refunds it. Same column contract as the order tables.
   video_visit: "video_visit_requests",
+  // 'payment_confirmed' on a lab_result_consult_request unlocks exactly one
+  // self-arranged result upload (public.claim_lab_result_consult_credit) —
+  // same held-then-consumed shape as video_visit above, no slot to book.
+  lab_result_consult: "lab_result_consult_requests",
 };
 
 interface PaystackEvent {
@@ -82,6 +90,9 @@ interface PaystackEvent {
     paid?: boolean;
     status?: string;
     id?: number | string;
+    // Only present on charge.dispute.create — the original charge, if
+    // Paystack's payload nests it here (see the dispute case below).
+    transaction?: { reference?: string } | null;
   };
 }
 
@@ -253,7 +264,7 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           if (!row) {
-            await markFailed(`no subscription_add_ons row with pending_provider_ref=${event.data.reference}`);
+            await markFailed(`no subscription_add_ons row with pending_payment_provider_ref=${event.data.reference}`);
             break;
           }
 
@@ -484,6 +495,36 @@ Deno.serve(async (req) => {
           break;
         }
         await markFailed(`no row with provider_ref=${subscriptionCode}`);
+        break;
+      }
+
+      case "charge.dispute.create": {
+        // §91.17 fraud detection. A dispute is always worth a human look
+        // regardless of whether it correlates to a known transaction — a
+        // best-effort reference match (Paystack's dispute payload nests the
+        // original charge under `transaction`) links it when possible, but
+        // an unmatched dispute is still recorded, never dropped.
+        const disputeRef = event.data.transaction?.reference ?? null;
+        let matchedTxnId: string | null = null;
+        if (disputeRef) {
+          const { data: matched } = await supabase
+            .from("payment_transactions")
+            .select("id")
+            .eq("provider", "paystack")
+            .eq("provider_event_id", disputeRef)
+            .maybeSingle();
+          matchedTxnId = matched?.id ?? null;
+        }
+        await supabase.from("payment_fraud_signals").insert({
+          signal_type: "chargeback",
+          severity: "high",
+          dedupe_key: `chargeback:paystack:${providerEventId}`,
+          payment_transaction_id: matchedTxnId,
+          amount_minor: event.data?.amount ?? null,
+          currency: (event.data?.currency as "NGN" | "GBP" | "USD" | undefined) ?? null,
+          detail: { provider: "paystack", provider_event_id: providerEventId, transaction_reference: disputeRef },
+        });
+        await markProcessed();
         break;
       }
 
