@@ -153,6 +153,7 @@ create policy care_management_cases_write on public.care_management_cases
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert, update, delete on public.care_management_cases to authenticated;
+revoke all on public.care_management_cases from anon;
 
 -- ---------------------------------------------------------------------------
 -- Lifecycle event log — 74.16 analytics (active count, avg duration) and
@@ -201,6 +202,7 @@ create policy care_management_case_events_insert on public.care_management_case_
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert on public.care_management_case_events to authenticated;
+revoke all on public.care_management_case_events from anon;
 
 -- ---------------------------------------------------------------------------
 -- Barriers — 74.4/74.14: a genuinely new concept with no existing table.
@@ -253,6 +255,7 @@ create policy care_management_barriers_write on public.care_management_barriers
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert, update, delete on public.care_management_barriers to authenticated;
+revoke all on public.care_management_barriers from anon;
 
 -- ---------------------------------------------------------------------------
 -- Proof, not hope.
