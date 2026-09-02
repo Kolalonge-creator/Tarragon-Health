@@ -10,7 +10,7 @@ import {
   type BroadcastAudienceFilter,
   type NotificationChannel,
 } from "@/lib/queries/broadcasts";
-import { useAllSubscriptionPlansAdmin } from "@/lib/queries/subscription-plans";
+import { useActiveServiceProducts } from "@/lib/queries/service-products";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 const AUDIENCES: { value: BroadcastAudience; label: string }[] = [
   { value: "all_patients", label: "All patients" },
   { value: "patients_by_state", label: "Patients in a state" },
-  { value: "subscribers_by_plan", label: "Subscribers on a plan" },
+  { value: "subscribers_by_plan", label: "Patients with an active service" },
   { value: "all_partners", label: "All partners" },
   { value: "partners_by_type", label: "A partner group" },
 ];
@@ -45,7 +45,7 @@ export function BroadcastComposer() {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [sentCount, setSentCount] = useState<number | null>(null);
 
-  const plans = useAllSubscriptionPlansAdmin();
+  const serviceProducts = useActiveServiceProducts();
   const send = useSendBroadcast();
   const history = useBroadcastHistory();
   const contentCheck = useBroadcastContentCheck();
@@ -120,12 +120,13 @@ export function BroadcastComposer() {
     );
   }
 
-  // Distinct plan codes for the dropdown (plans repeat per currency/interval).
-  const planCodes = useMemo(() => {
+  // Distinct service product codes for the dropdown (products repeat per
+  // currency/interval).
+  const serviceProductCodes = useMemo(() => {
     const seen = new Map<string, string>();
-    for (const p of plans.data ?? []) if (!seen.has(p.code)) seen.set(p.code, p.name);
+    for (const p of serviceProducts.data ?? []) if (!seen.has(p.code)) seen.set(p.code, p.name);
     return [...seen.entries()];
-  }, [plans.data]);
+  }, [serviceProducts.data]);
 
   const sendError = (send.error as Error | null)?.message ?? null;
 
@@ -195,10 +196,10 @@ export function BroadcastComposer() {
 
             {audience === "subscribers_by_plan" && (
               <div className="space-y-1.5">
-                <Label htmlFor="plan">Plan (optional, any plan if blank)</Label>
+                <Label htmlFor="plan">Service (optional, any active service if blank)</Label>
                 <Select id="plan" value={planCode} onChange={(e) => setPlanCode(e.target.value)}>
-                  <option value="">Any plan</option>
-                  {planCodes.map(([code, name]) => (
+                  <option value="">Any active service</option>
+                  {serviceProductCodes.map(([code, name]) => (
                     <option key={code} value={code}>
                       {name} ({code})
                     </option>

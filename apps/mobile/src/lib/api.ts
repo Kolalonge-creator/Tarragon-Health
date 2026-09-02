@@ -49,14 +49,38 @@ export type VitalReadingPayload =
  * beneficiaryProfileId is the mobile equivalent of web's acting-for cookie
  * (see lib/acting.ts) — set when the signed-in user currently has a
  * supported person's account open, so the reading is logged for them, not
- * for the caller. The route re-checks the live 'manage' grant itself. */
+ * for the caller. The route re-checks the live 'manage' grant itself.
+ *
+ * clientReadingId, when set, is the offline queue's idempotency key (see
+ * offline-vitals-queue.ts) — the route treats a replay of the same id as a
+ * successful no-op rather than a duplicate insert, so a queued reading can
+ * retry blind after a dropped connection. */
 export async function postVitalReading(
   payload: VitalReadingPayload,
-  beneficiaryProfileId?: string
+  beneficiaryProfileId?: string,
+  clientReadingId?: string
 ): Promise<PostVitalReadingResult> {
-  const body = beneficiaryProfileId ? { ...payload, beneficiary_profile_id: beneficiaryProfileId } : payload;
+  const body = {
+    ...payload,
+    ...(beneficiaryProfileId ? { beneficiary_profile_id: beneficiaryProfileId } : {}),
+    ...(clientReadingId ? { client_reading_id: clientReadingId } : {}),
+  };
   const result = await request<Record<string, never>>("/api/mobile/vitals", "POST", body);
   return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
+export interface MobileThresholds {
+  version: string;
+  glucose: Record<string, number>;
+  bp: Record<string, { systolic: number; diastolic: number }>;
+}
+
+/** Best-effort fetch for threshold-sync.ts — the caller always has a bundled
+ * default to fall back to, so this never throws, it just returns null on any
+ * failure (offline, auth, or server error alike). */
+export async function fetchVitalsThresholds(): Promise<MobileThresholds | null> {
+  const result = await request<MobileThresholds>("/api/mobile/vitals-thresholds", "GET");
+  return result.ok ? result.data : null;
 }
 
 export interface HealthSyncCursor {
