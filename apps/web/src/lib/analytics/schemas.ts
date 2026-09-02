@@ -764,20 +764,6 @@ export const alertBurdenSchema = z.object({
   unassigned_important_open: z.number().default(0),
 });
 export type AlertBurden = z.infer<typeof alertBurdenSchema>;
-
-// analytics_alert_quality() — same migration as alertBurdenSchema above.
-export const alertQualitySchema = z.object({
-  total: z.number().default(0),
-  by_category: z.record(z.string(), z.number()).default({}),
-  by_severity: z.record(z.string(), z.number()).default({}),
-  avg_ack_minutes: z.number().nullable().default(null),
-  avg_resolution_hours: z.number().nullable().default(null),
-  escalation_rate_pct: z.number().default(0),
-  duplicate_rate_pct: z.number().default(0),
-  false_positive_rate_pct: z.number().default(0),
-  suppressed_count: z.number().default(0),
-});
-export type AlertQuality = z.infer<typeof alertQualitySchema>;
 export type Deliverability = z.infer<typeof deliverabilitySchema>;
 
 // ---- Executive dashboard (Operations & Command Centre §96.3) --------------
