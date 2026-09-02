@@ -56,29 +56,17 @@ create table if not exists public.navigation_requests (
   is_complaint                  boolean not null default false,
   status                        public.navigation_request_status not null default 'open',
 
-  -- 75.6 referral navigation: points at the patient's own existing
-  -- specialist_referrals row. No new referral-matching/status logic lives
-  -- here -- see file header.
   specialist_referral_id        uuid references public.specialist_referrals (id) on delete set null,
-  -- 75.5 smart routing hand-off: set once a navigator moves a
-  -- clinical-flagged request into the existing care_messages channel.
   care_message_thread_id        uuid references public.care_message_threads (id) on delete set null,
 
   assigned_to                   uuid references public.profiles (id) on delete set null,
   created_by                    uuid references public.profiles (id) on delete set null,
 
-  -- 75.16 complaints: first staff touch marks this automatically (see the
-  -- update trigger below), matching the Acknowledged step of the
-  -- Acknowledged -> Assigned -> Investigated -> Response -> Resolved
-  -- pipeline. is_complaint reuses the same status/assignment/resolution
-  -- machinery as an ordinary request rather than a parallel table.
   acknowledged_at               timestamptz,
   resolution_note               text,
   resolved_by                   uuid references public.profiles (id) on delete set null,
   resolved_at                   timestamptz,
 
-  -- 75.17/75.18 closed-loop feedback, patient-submitted once resolved (see
-  -- submit_navigation_request_feedback below).
   satisfaction_rating           smallint check (satisfaction_rating between 1 and 5),
   satisfaction_comment          text,
 
@@ -106,10 +94,6 @@ create trigger navigation_requests_set_updated_at
   before update on public.navigation_requests
   for each row execute function private.set_updated_at();
 
--- Deterministic keyword classifier -- 75.5's "Classification -> Clinical?"
--- gate. Kept as a fixed word list rather than a model call so "never let a
--- non-clinical navigator answer a clinical question" is provable, not
--- probabilistic.
 create or replace function private.classify_navigation_request(
   p_category public.navigation_request_category,
   p_description text
@@ -132,12 +116,6 @@ $$;
 comment on function private.classify_navigation_request(public.navigation_request_category, text) is
   'Deterministic keyword scan used to auto-route a navigation request -- flags likely-clinical free text so a non-clinical navigator hands it to care_messages instead of answering it. Never auto-escalates by itself.';
 
--- Server-derives every field a client must not control. organisation_id is
--- always the caller's own org (never client-supplied); patient_id is the
--- caller unless the caller is org staff logging a request on behalf of a
--- same-org patient; classification is always recomputed; every lifecycle
--- field starts clean regardless of what the insert statement supplied. Same
--- forge-proofing discipline as private.enforce_care_message_author.
 create or replace function private.enforce_navigation_request_insert()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare
@@ -192,15 +170,6 @@ create trigger navigation_requests_enforce_insert
 
 revoke all on function private.enforce_navigation_request_insert() from public;
 
--- Staff-only lifecycle transitions, enforced regardless of which client
--- path performs the UPDATE (a plain table update or a future RPC): a
--- resolved request always gets resolved_by/resolved_at and requires a note
--- (75.16/75.18's closed loop as an invariant, not a UI convention); the
--- first staff touch stamps acknowledged_at automatically; a classification
--- change is stamped with who overrode it; and patient-submitted feedback
--- (satisfaction_rating/comment) is only ever accepted from the request's
--- own patient once it is resolved -- the real enforcement boundary behind
--- submit_navigation_request_feedback below.
 create or replace function private.enforce_navigation_request_update()
 returns trigger language plpgsql security definer set search_path = '' as $$
 declare
@@ -272,10 +241,6 @@ create trigger navigation_requests_enforce_update
 
 revoke all on function private.enforce_navigation_request_update() from public;
 
--- Closed-loop notification (75.18): the patient is told, in-app, the moment
--- their request is marked resolved. content_class mirrors the request's own
--- classification so the taxonomy stays honest even though in_app is
--- unrestricted either way.
 create or replace function private.after_navigation_request_update()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
@@ -301,27 +266,16 @@ create trigger navigation_requests_after_update
 
 revoke all on function private.after_navigation_request_update() from public;
 
--- RLS -----------------------------------------------------------------
 alter table public.navigation_requests enable row level security;
 
 create policy navigation_requests_select on public.navigation_requests
   for select to authenticated
   using (patient_id = (select auth.uid()) or private.is_org_staff(organisation_id));
 
--- The BEFORE INSERT trigger runs first and forces organisation_id/
--- patient_id to authorised values, so this check is a true statement by the
--- time it runs (same ordering care_message_threads_insert relies on) --
--- kept as an explicit, readable policy rather than `with check (true)`.
 create policy navigation_requests_insert on public.navigation_requests
   for insert to authenticated
   with check (patient_id = (select auth.uid()) or private.is_org_staff(organisation_id));
 
--- Staff-only. Patient-submitted feedback goes through
--- submit_navigation_request_feedback (SECURITY DEFINER, so it is not
--- subject to this policy) with the BEFORE UPDATE trigger above as the real
--- ownership/resolved-only enforcement -- this keeps a patient from being
--- able to rewrite their own request's category/status/resolution_note via
--- a raw client update once it is resolved.
 create policy navigation_requests_update on public.navigation_requests
   for update to authenticated
   using (private.is_org_staff(organisation_id))
@@ -330,11 +284,6 @@ create policy navigation_requests_update on public.navigation_requests
 grant select, insert, update on public.navigation_requests to authenticated;
 revoke delete on public.navigation_requests from authenticated;
 
--- Ergonomic RPC for a patient leaving closed-loop feedback -- avoids the
--- client needing to fetch-then-update, and (being SECURITY DEFINER) is not
--- gated by navigation_requests_update, which is staff-only. The BEFORE
--- UPDATE trigger above is the real enforcement boundary: ownership +
--- resolved-only.
 create or replace function public.submit_navigation_request_feedback(
   p_request_id uuid,
   p_rating smallint,

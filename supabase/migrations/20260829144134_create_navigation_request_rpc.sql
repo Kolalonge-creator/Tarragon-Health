@@ -1,12 +1,3 @@
--- Ergonomic RPC wrapper for logging a navigation request (75.4), mirroring
--- start_care_thread's shape. The BEFORE INSERT trigger
--- (private.enforce_navigation_request_insert, added in
--- 20260829143304_navigation_requests.sql) remains the real enforcement
--- boundary and still runs on this RPC's INSERT -- this only exists because
--- organisation_id is NOT NULL with no default, which makes a direct
--- Supabase client insert from TypeScript structurally require a value the
--- trigger is going to overwrite anyway.
-
 create or replace function public.create_navigation_request(
   p_category public.navigation_request_category,
   p_description text,

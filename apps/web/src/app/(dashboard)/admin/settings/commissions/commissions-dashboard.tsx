@@ -17,6 +17,11 @@ const TYPE_BADGE: Record<CommissionType, { variant: BadgeProps["variant"]; label
   referral: { variant: "grey", label: "Referral" },
   home_visit: { variant: "amber", label: "Home visit" },
   delivery: { variant: "green", label: "Delivery" },
+  // service_purchase was added to commission_type for care-voucher redemption
+  // bookkeeping (promo codes on service_purchases) — it never actually earns
+  // a partner commission, but the shared enum means this map must stay
+  // exhaustive.
+  service_purchase: { variant: "grey", label: "Service purchase" },
 };
 
 const STATUS_BADGE: Record<CommissionStatus, { variant: BadgeProps["variant"]; label: string }> = {

@@ -1,11 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { useClinicianUpcomingAppointments, useAdvanceAppointmentStatus, useCancelAppointment } from "@/lib/queries/appointments";
+import { useRouter } from "next/navigation";
+import {
+  useClinicianUpcomingAppointments,
+  useAdvanceAppointmentStatus,
+  useCancelAppointment,
+  useEnsureAppointmentVideoConsultation,
+} from "@/lib/queries/appointments";
 import { APPOINTMENT_TYPE_LABELS, APPOINTMENT_STATUS_LABELS } from "@/app/(dashboard)/patient/appointments/appointment-labels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
+const JOINABLE_STATUSES = ["booked", "confirmed", "checked_in", "in_progress"];
 
 function formatSlot(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -25,12 +33,18 @@ export function AppointmentsCalendarList({ clinicianId }: { clinicianId: string 
   const { data: appointments, isLoading } = useClinicianUpcomingAppointments(clinicianId);
   const advance = useAdvanceAppointmentStatus();
   const cancel = useCancelAppointment();
+  const ensureVideo = useEnsureAppointmentVideoConsultation();
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
-  async function handleAdvance(appointmentId: string, to: "checked_in" | "in_progress" | "completed" | "no_show") {
+  async function handleAdvance(
+    appointmentId: string,
+    to: "checked_in" | "in_progress" | "completed" | "no_show",
+    noShowReason?: "patient_no_show" | "clinician_no_show"
+  ) {
     setError(null);
     try {
-      await advance.mutateAsync({ appointmentId, to });
+      await advance.mutateAsync({ appointmentId, to, noShowReason });
     } catch (e) {
       setError((e as Error).message || "Could not update that appointment.");
     }
@@ -42,6 +56,20 @@ export function AppointmentsCalendarList({ clinicianId }: { clinicianId: string 
       await cancel.mutateAsync({ appointmentId });
     } catch (e) {
       setError((e as Error).message || "Could not cancel that appointment.");
+    }
+  }
+
+  /** 68.5/68.9 — opens the clinician's own consultation screen (video +
+   * patient snapshot + notes + prescribing + lab orders in one place),
+   * creating the Zoom meeting first if this appointment doesn't have one
+   * yet (e.g. the patient hasn't clicked "Join call" themselves). */
+  async function handleStartVideoCall(appointmentId: string) {
+    setError(null);
+    try {
+      const result = await ensureVideo.mutateAsync(appointmentId);
+      router.push(`/clinician/video-visit/${result.videoConsultationId}`);
+    } catch (e) {
+      setError((e as Error).message || "Could not open the video visit — try again in a moment.");
     }
   }
 
@@ -73,7 +101,12 @@ export function AppointmentsCalendarList({ clinicianId }: { clinicianId: string 
                     </p>
                   </div>
                   <Badge variant={status.tone}>{status.label}</Badge>
-                  <div className="ml-auto flex gap-2">
+                  <div className="ml-auto flex flex-wrap justify-end gap-2">
+                    {appt.consultation_method === "telemedicine" && JOINABLE_STATUSES.includes(appt.status) && (
+                      <Button size="sm" disabled={ensureVideo.isPending} onClick={() => handleStartVideoCall(appt.id)}>
+                        {ensureVideo.isPending ? "Opening…" : "Start video call"}
+                      </Button>
+                    )}
                     {["booked", "confirmed"].includes(appt.status) && (
                       <Button size="sm" variant="outline" disabled={advance.isPending} onClick={() => handleAdvance(appt.id, "checked_in")}>
                         Check in
@@ -89,9 +122,27 @@ export function AppointmentsCalendarList({ clinicianId }: { clinicianId: string 
                         Complete
                       </Button>
                     )}
+                    {/* 68.15 — patient/clinician no-show tracked separately; a
+                        technical failure is a cancellation instead (see
+                        Cancel below), never lumped in with either no-show. */}
                     {["booked", "confirmed", "checked_in"].includes(appt.status) && (
-                      <Button size="sm" variant="ghost" disabled={advance.isPending} onClick={() => handleAdvance(appt.id, "no_show")}>
-                        No-show
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={advance.isPending}
+                        onClick={() => handleAdvance(appt.id, "no_show", "patient_no_show")}
+                      >
+                        Patient no-show
+                      </Button>
+                    )}
+                    {["booked", "confirmed", "checked_in"].includes(appt.status) && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={advance.isPending}
+                        onClick={() => handleAdvance(appt.id, "no_show", "clinician_no_show")}
+                      >
+                        Clinician no-show
                       </Button>
                     )}
                     {["held", "booked", "confirmed"].includes(appt.status) && (
