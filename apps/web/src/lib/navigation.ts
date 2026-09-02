@@ -343,6 +343,7 @@ export function getNavSections(
           items: [
             { label: "Members & access", href: "/admin/settings/members", icon: "members" },
             { label: "Clinical staff", href: "/admin/settings/clinical-staff", icon: "clinicianFollowUp" },
+            { label: "Employers", href: "/admin/employers", icon: "corporate" },
             { label: "Partners", href: "/admin/settings/partners", icon: "corporate" },
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
