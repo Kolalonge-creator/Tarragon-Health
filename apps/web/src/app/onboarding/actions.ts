@@ -1,13 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { isPaystackConfigured } from "@/lib/paystack/client";
-import { initializeTransaction } from "@/lib/paystack/transactions";
-import { isStripeConfigured } from "@/lib/stripe/client";
-import { createCheckoutSession } from "@/lib/stripe/checkout";
-import { resolveProvider } from "@/lib/billing/provider";
+import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   demographicsSchema,
@@ -265,22 +260,21 @@ export async function submitIdentityVerification(
 export type StartCheckoutState = { error?: string } | undefined;
 
 /**
- * Free tier (price_minor === 0) activates immediately, no Paystack
- * involved, then finishes onboarding the same way the old "Continue to my
- * dashboard" button did. A paid tier creates a 'trialing' subscriptions row
- * with pending_provider_ref set to the just-initialized Paystack
- * transaction reference, then redirects the browser to Paystack's hosted
- * checkout — activation itself only ever happens later, when
- * paystack-webhook's charge.success handler matches that reference (see
- * its correlation notes). Onboarding is only marked complete for the paid
- * path once the patient lands back on /onboarding/checkout-callback.
+ * A free service_product activates immediately — no charge to run, see
+ * record_service_purchase_intent's price_kobo<=0 branch — then finishes
+ * onboarding the same way the old "Continue to my dashboard" button did. A
+ * paid one starts a real one-off charge via purchaseServiceProduct and
+ * redirects the browser to the provider's hosted checkout — activation
+ * itself only happens later, when private.apply_service_purchase_payment
+ * confirms the charge. Onboarding is only marked complete for the paid path
+ * once the patient lands back on /onboarding/checkout-callback.
  */
 export async function startCheckout(
   _prevState: StartCheckoutState,
   formData: FormData,
 ): Promise<StartCheckoutState> {
-  const planCode = formData.get("planCode");
-  if (typeof planCode !== "string" || !planCode) {
+  const serviceProductCode = formData.get("planCode");
+  if (typeof serviceProductCode !== "string" || !serviceProductCode) {
     return { error: "Choose a plan first" };
   }
 
@@ -292,26 +286,16 @@ export async function startCheckout(
     redirect("/login");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organisation_id")
-    .eq("id", user.id)
-    .single();
-  if (!profile?.organisation_id) {
-    return { error: "This account has no organisation on file" };
-  }
-
-  // Hard safeguard, independent of whatever the UI shows: never create a
-  // second subscription (and never initiate a second charge) for an account
-  // that already has one active or trialing. This is the actual
-  // money-charging code path, so it has to be safe on its own even if
-  // onboarding's reconciliation screen (existing-plan-notice.tsx) is ever
-  // reached in a state where a plan somehow got resubmitted anyway.
+  // Hard safeguard, independent of whatever the UI shows: never start a
+  // second purchase for an account that already has an active grant. This is
+  // the actual money-charging code path, so it has to be safe on its own
+  // even if onboarding's reconciliation screen (existing-plan-notice.tsx) is
+  // ever reached in a state where a plan somehow got resubmitted anyway.
   const { data: existing } = await supabase
-    .from("subscriptions")
+    .from("service_purchases")
     .select("id")
-    .eq("subscriber_id", user.id)
-    .in("status", ["active", "trialing"])
+    .eq("patient_id", user.id)
+    .eq("status", "active")
     .limit(1)
     .maybeSingle();
   if (existing) {
@@ -319,113 +303,20 @@ export async function startCheckout(
     return;
   }
 
-  const { data: plan } = await supabase
-    .from("subscription_plans")
-    .select("id, code, price_minor, currency, interval, paystack_plan_code, stripe_price_id")
-    .eq("code", planCode)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (!plan) {
-    return { error: "That plan is not available right now" };
-  }
+  const result = await purchaseServiceProduct({
+    serviceProductCode,
+    callbackPath: "/onboarding/checkout-callback",
+  });
 
-  if (plan.price_minor === 0) {
-    const { error } = await supabase.from("subscriptions").insert({
-      organisation_id: profile.organisation_id,
-      subscriber_id: user.id,
-      plan_id: plan.id,
-      status: "active",
-      currency: plan.currency,
-      amount_minor: 0,
-      interval: plan.interval,
-    });
-    if (error) {
-      return { error: error.message };
-    }
+  if (result?.error) {
+    return { error: result.error };
+  }
+  if (result?.activated) {
     await completeOnboarding();
     return;
   }
-
-  if (!user.email) {
-    return { error: "Your account needs an email on file to check out." };
+  if (result?.checkoutUrl) {
+    redirect(result.checkoutUrl);
   }
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const callbackUrl = `${origin}/onboarding/checkout-callback`;
-
-  if (resolveProvider(plan.currency) === "paystack") {
-    if (!isPaystackConfigured()) {
-      return {
-        error: "Card payments aren't set up yet — try again shortly, or start on Tarragon Free for now.",
-      };
-    }
-    if (!plan.paystack_plan_code) {
-      return { error: "This plan isn't ready for checkout yet — contact support." };
-    }
-
-    const result = await initializeTransaction({
-      email: user.email,
-      amountMinor: plan.price_minor,
-      currency: plan.currency,
-      paystackPlanCode: plan.paystack_plan_code,
-      callbackUrl,
-      metadata: { kind: "subscription", profile_id: user.id, item_code: plan.code },
-    });
-    if (!result.ok) {
-      return { error: result.error };
-    }
-
-    const { error: insertError } = await supabase.from("subscriptions").insert({
-      organisation_id: profile.organisation_id,
-      subscriber_id: user.id,
-      plan_id: plan.id,
-      status: "trialing",
-      currency: plan.currency,
-      amount_minor: plan.price_minor,
-      interval: plan.interval,
-      provider: "paystack",
-      pending_provider_ref: result.data.reference,
-    });
-    if (insertError) {
-      return { error: insertError.message };
-    }
-
-    redirect(result.data.authorizationUrl);
-  }
-
-  if (!isStripeConfigured()) {
-    return {
-      error: "Card payments aren't set up yet — try again shortly, or start on Tarragon Free for now.",
-    };
-  }
-  if (!plan.stripe_price_id) {
-    return { error: "This plan isn't ready for checkout yet — contact support." };
-  }
-
-  const result = await createCheckoutSession({
-    email: user.email,
-    stripePriceId: plan.stripe_price_id,
-    successUrl: callbackUrl,
-    cancelUrl: `${origin}/onboarding`,
-    metadata: { kind: "subscription", profile_id: user.id, item_code: plan.code },
-  });
-  if (!result.ok) {
-    return { error: result.error };
-  }
-
-  const { error: insertError } = await supabase.from("subscriptions").insert({
-    organisation_id: profile.organisation_id,
-    subscriber_id: user.id,
-    plan_id: plan.id,
-    status: "trialing",
-    currency: plan.currency,
-    amount_minor: plan.price_minor,
-    interval: plan.interval,
-    provider: "stripe",
-    pending_provider_ref: result.data.sessionId,
-  });
-  if (insertError) {
-    return { error: insertError.message };
-  }
-
-  redirect(result.data.checkoutUrl);
+  return { error: "Could not start checkout" };
 }
