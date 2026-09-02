@@ -110,7 +110,11 @@ export async function POST(request: Request): Promise<NextResponse> {
   let claimedRequestId: string | null = null;
   const { data: claimed, error: claimError } = await supabase.rpc(
     "claim_lab_result_consult_credit",
-    { p_patient_id: user.id, p_lab_order_id: labOrderId ?? null },
+    // Supabase's generated Args type doesn't carry nullability for plain
+    // Postgres function params (only DEFAULTs make an arg optional), even
+    // though the RPC itself accepts null fine — same cast used elsewhere
+    // in this file's web counterpart (lib/lab-results/actions.ts:138).
+    { p_patient_id: user.id, p_lab_order_id: (labOrderId ?? null) as unknown as string },
   );
   if (claimError) {
     if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
@@ -139,7 +143,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (claimedRequestId) {
       await supabase.rpc("settle_lab_result_consult_claim", {
         p_request_id: claimedRequestId,
-        p_document_id: null,
+        p_document_id: null as unknown as string,
       });
     }
     return NextResponse.json({ error: uploadError.message }, { status: 500 });
@@ -168,7 +172,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (claimedRequestId) {
       await supabase.rpc("settle_lab_result_consult_claim", {
         p_request_id: claimedRequestId,
-        p_document_id: null,
+        p_document_id: null as unknown as string,
       });
     }
     return NextResponse.json(

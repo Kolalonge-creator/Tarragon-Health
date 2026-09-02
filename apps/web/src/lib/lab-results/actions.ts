@@ -260,7 +260,7 @@ export async function uploadResultDocumentAsPatient(
   let claimedRequestId: string | null = null;
   const { data: claimed, error: claimError } = await supabase.rpc(
     "claim_lab_result_consult_credit",
-    { p_patient_id: user.id, p_lab_order_id: labOrderId ?? null },
+    { p_patient_id: user.id, p_lab_order_id: (labOrderId ?? null) as unknown as string },
   );
   if (claimError) {
     if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
@@ -289,7 +289,7 @@ export async function uploadResultDocumentAsPatient(
     if (claimedRequestId) {
       await supabase.rpc("settle_lab_result_consult_claim", {
         p_request_id: claimedRequestId,
-        p_document_id: null,
+        p_document_id: null as unknown as string,
       });
     }
     return { error: uploadError.message };
@@ -318,7 +318,7 @@ export async function uploadResultDocumentAsPatient(
     if (claimedRequestId) {
       await supabase.rpc("settle_lab_result_consult_claim", {
         p_request_id: claimedRequestId,
-        p_document_id: null,
+        p_document_id: null as unknown as string,
       });
     }
     return { error: insertError?.message ?? "Could not save that upload." };
