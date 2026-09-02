@@ -49,6 +49,18 @@ comment on column public.wearable_connections.revoked_at is
 -- role. Only the SECURITY DEFINER RPC below (which runs as table owner) can set them.
 grant select (revoked_at, revoked_by, revocation_reason) on public.wearable_connections to authenticated;
 
+-- A table-level `grant update` (from this table's original migration) implicitly covers every
+-- column, present and future — adding the three columns above would otherwise silently hand
+-- authenticated direct UPDATE on revoked_at/revoked_by/revocation_reason too, defeating the point
+-- of routing revocation exclusively through the RPC below. Revoke the table-level grant and
+-- re-grant the explicit column list every other write path on this table actually needs.
+revoke update on public.wearable_connections from authenticated;
+grant update (
+  status, access_token, refresh_token, token_expires_at, last_sync_error, last_synced_at,
+  sync_cursor, consent_activity, consent_heart_rate, consent_sleep, consent_weight,
+  connected_at, created_at, external_id, id, organisation_id, patient_id, provider
+) on public.wearable_connections to authenticated;
+
 alter table public.patient_devices
   add column unpaired_at     timestamptz,
   add column unpaired_by     uuid references public.profiles (id) on delete set null,
