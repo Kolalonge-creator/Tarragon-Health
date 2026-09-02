@@ -230,12 +230,15 @@ create policy programme_purchases_update on public.programme_purchases
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert, update on public.programme_purchases to authenticated;
--- A from-scratch environment's base Supabase template grants table DML to
--- anon by default at CREATE TABLE time too (see
--- 20260829095837_mdm_data_retention_policies.sql's identical note for
--- CREATE FUNCTION/EXECUTE) -- revoke explicitly rather than relying on "no
--- grant statement" to mean "no access".
-revoke all on public.programme_purchases from anon;
+-- `revoke ... from public` is what actually removes the PUBLIC pseudo-grant
+-- anon inherits through on this project; a bare `revoke ... from anon` alone
+-- is a no-op when anon never held a direct grant — same standing gotcha as
+-- every anon-EXECUTE revoke elsewhere in this codebase, applied here to a
+-- table grant instead of a function. (Kept the broader `from public, anon`
+-- form over a concurrently-landed narrower `from anon`-only fix for this
+-- same table — verified live via has_table_privilege that this form
+-- actually closes the gap; strictly a superset, never a regression.)
+revoke all on public.programme_purchases from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- Assert.

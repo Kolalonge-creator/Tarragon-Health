@@ -41,9 +41,10 @@ create policy care_message_attachments_insert on public.care_message_attachments
   );
 
 grant select, insert on public.care_message_attachments to authenticated;
--- A from-scratch environment's base Supabase template grants table DML to
--- anon by default at CREATE TABLE time too -- revoke explicitly.
-revoke all on public.care_message_attachments from anon;
+-- `revoke ... from public` (not just `from anon`) is what actually removes
+-- the PUBLIC pseudo-grant anon inherits through here — see
+-- 20260830014616_programme_purchases.sql's note for the verified reasoning.
+revoke all on public.care_message_attachments from public, anon;
 
 create or replace function private.enforce_care_message_attachment_scope()
 returns trigger

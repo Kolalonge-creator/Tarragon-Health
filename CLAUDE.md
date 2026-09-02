@@ -36,6 +36,15 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
 - **Never hand-type a round-number migration timestamp.** Six real migrations once collided on the
   same `20260720120000` version number from parallel sessions doing exactly that —
   `supabase_migrations.version` is the primary key, so only the first of each group ever recorded.
+  Recurred 2026-08-29 in a worse shape: two concurrent sessions independently picked the same round
+  prefixes for unrelated features, and — because `mcp__Supabase__apply_migration` assigns the actual
+  live `version` from wall-clock time regardless of the local filename — the migrations didn't collide
+  in the DB, they collided invisibly while 20 of one session's migrations sat live in production with
+  **zero corresponding file in git, on any branch**. Before applying a new migration, check
+  `list_migrations`/`schema_migrations` on the live project (not just local files) for anything recent
+  you don't recognise — `schema_migrations.statements` preserves the exact applied SQL even with no git
+  record, which is how the 20 orphaned migrations below were recovered rather than lost. Full account:
+  the 2026-08-29 "Referral Management Engine" entry in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.
 - **A live schema object can exist with no migration record at all — not even an uncommitted one.**
   Found 2026-08-27: 7 migrations from a same-day audit pass were live but never committed (at least
   present in `supabase_migrations.schema_migrations`, so comparing `list_migrations` against local

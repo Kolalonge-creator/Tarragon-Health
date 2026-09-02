@@ -19,6 +19,7 @@ import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
@@ -40,6 +41,8 @@ import { HealthCheckVideoConsult } from "./health-check-video-consult";
 import { CarePlanManagementSection } from "./care-plan-management-section";
 import { ChronicProgrammeReviewSection } from "./chronic-programme-review-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
+import { CreateReferralForm } from "./create-referral-form";
+import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
 export default async function ClinicianPatientPage({
@@ -231,10 +234,16 @@ export default async function ClinicianPatientPage({
                     and renal-dosing checks are what a dispensing pharmacist would
                     have caught, and this platform has no pharmacist in the loop. */}
                 <MedicationSafetyPanel patientId={patient.id} />
+                {/* Spec §62.12 — every repeat request needs a clinician's
+                    decision; canReview mirrors canConfirmRefill (any active
+                    clinical tier, never a Care Coordinator) since approving a
+                    routine repeat is that same class of act. */}
+                <MedicationRepeatRequestsPanel patientId={patient.id} canReview={canConfirmRefill} />
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
                   canConfirmRefill={canConfirmRefill}
+                  canAmend={canPrescribe}
                   isClinicianView
                 />
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
@@ -353,6 +362,26 @@ export default async function ClinicianPatientPage({
                 patientDateOfBirth={patient.date_of_birth}
               />
             ) : null,
+          },
+          {
+            id: "referrals",
+            label: "Referrals",
+            content: (
+              <>
+                <PatientReferralsList patientId={patient.id} />
+                {/* Creating a referral is a clinical decision (67.2/67.7) —
+                    gated to clinical tier here to match the DB create-gate
+                    trigger (private.is_clinical_tier), same isClinicalTier
+                    pattern the vitals/diabetes forms above already use. */}
+                {patient.organisation_id && isClinicalTier(callerStaff) ? (
+                  <CreateReferralForm patientId={patient.id} organisationId={patient.organisation_id} />
+                ) : (
+                  <p className="text-sm text-charcoal-ink/60">
+                    Only a clinical-tier member of the care team can create a specialist referral.
+                  </p>
+                )}
+              </>
+            ),
           },
         ];
 
