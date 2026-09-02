@@ -95,7 +95,7 @@ export default async function ResultsInboxPage() {
         </CardHeader>
         <CardContent>
           {rows.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">Nothing waiting — the inbox is clear.</p>
+            <p className="text-sm text-charcoal-ink/60">Nothing waiting: the inbox is clear.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
@@ -121,7 +121,7 @@ export default async function ResultsInboxPage() {
                       <tr key={row.id}>
                         <td className="py-2.5 pr-3">
                           <Link
-                            href={`/clinician/patients/${row.patient_id}`}
+                            href={`/clinician/patients/${row.patient_id}?tab=screening-prevention`}
                             className="font-medium text-brand-green hover:underline"
                           >
                             {row.patient?.full_name ?? "Unnamed patient"}

@@ -1,21 +1,34 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   useVaccinationCatalog,
   useVaccinationRecords,
+  useVaccinationNonAdministrations,
   useAttachVaccinationCertificate,
+  useReportVaccinationAdverseEvent,
+  vaccinationNonAdministrationsKey,
+  vaccinationSchedulesKey,
   type VaccinationRecord,
 } from "@/lib/queries/vaccination";
-import { computeVaccinationStatuses, type VaccinationStatus } from "@/lib/rules/vaccination-status";
+import {
+  applyNonAdministrationOverrides,
+  computeVaccinationStatuses,
+  type VaccinationStatus,
+} from "@/lib/rules/vaccination-status";
 import {
   validateCertificateFile,
   CERTIFICATE_ACCEPT,
+  VACCINATION_ADVERSE_EVENT_SYMPTOMS,
+  VACCINATION_ADVERSE_EVENT_SEVERITIES,
 } from "@/lib/validation/vaccination";
+import { declineVaccinationAction } from "./vaccination-actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 const STATUS_BADGE: Record<VaccinationStatus, { variant: BadgeProps["variant"]; label: string }> = {
@@ -24,7 +37,186 @@ const STATUS_BADGE: Record<VaccinationStatus, { variant: BadgeProps["variant"]; 
   up_to_date: { variant: "green", label: "Up to date" },
   not_yet_due: { variant: "grey", label: "Not yet due" },
   not_applicable: { variant: "grey", label: "Not applicable" },
+  declined: { variant: "grey", label: "Declined" },
+  contraindicated: { variant: "red", label: "Contraindicated" },
 };
+
+const SYMPTOM_LABEL: Record<(typeof VACCINATION_ADVERSE_EVENT_SYMPTOMS)[number], string> = {
+  pain_at_site: "Pain at injection site",
+  swelling_at_site: "Swelling at injection site",
+  redness_at_site: "Redness at injection site",
+  fever: "Fever",
+  allergic_reaction: "Allergic reaction",
+  fatigue: "Fatigue",
+  headache: "Headache",
+  nausea: "Nausea",
+  other: "Other",
+};
+
+/** Report a reaction against one logged dose (spec §43.11). Collapsed behind
+ * a toggle so every dose row doesn't default to an open form. */
+function ReportAdverseEventControl({ record, patientId }: { record: VaccinationRecord; patientId: string }) {
+  const [open, setOpen] = useState(false);
+  const [symptoms, setSymptoms] = useState<string[]>([]);
+  const [severity, setSeverity] = useState<string>("mild");
+  const [description, setDescription] = useState("");
+  const report = useReportVaccinationAdverseEvent();
+
+  function toggleSymptom(symptom: string) {
+    setSymptoms((current) =>
+      current.includes(symptom) ? current.filter((s) => s !== symptom) : [...current, symptom]
+    );
+  }
+
+  function submit() {
+    if (symptoms.length === 0) return;
+    report.mutate(
+      {
+        vaccinationRecordId: record.id,
+        patientId,
+        symptoms: symptoms as (typeof VACCINATION_ADVERSE_EVENT_SYMPTOMS)[number][],
+        severity: severity as (typeof VACCINATION_ADVERSE_EVENT_SEVERITIES)[number],
+        description: description.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          setSymptoms([]);
+          setSeverity("mild");
+          setDescription("");
+        },
+      }
+    );
+  }
+
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        Report a reaction
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3">
+      <p className="text-xs font-medium text-charcoal-ink">
+        What did you notice after this dose?
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {VACCINATION_ADVERSE_EVENT_SYMPTOMS.map((symptom) => (
+          <button
+            key={symptom}
+            type="button"
+            onClick={() => toggleSymptom(symptom)}
+            className={`rounded-full border px-2.5 py-1 text-xs ${
+              symptoms.includes(symptom)
+                ? "border-brand-green bg-brand-green/10 text-deep-forest"
+                : "border-charcoal-ink/15 text-charcoal-ink/70"
+            }`}
+          >
+            {SYMPTOM_LABEL[symptom]}
+          </button>
+        ))}
+      </div>
+      <div className="space-y-1.5">
+        <label htmlFor={`severity-${record.id}`} className="text-xs text-charcoal-ink/70">
+          How severe?
+        </label>
+        <Select
+          id={`severity-${record.id}`}
+          value={severity}
+          onChange={(event) => setSeverity(event.target.value)}
+          className="max-w-[10rem] text-xs"
+        >
+          {VACCINATION_ADVERSE_EVENT_SEVERITIES.map((value) => (
+            <option key={value} value={value}>
+              {value.charAt(0).toUpperCase() + value.slice(1)}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <Input
+        placeholder="Anything else to add? (optional)"
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+        className="text-xs"
+      />
+      {symptoms.length === 0 && (
+        <p className="text-xs text-red-600">Choose at least one symptom</p>
+      )}
+      {report.error && (
+        <p className="text-xs text-red-600">{(report.error as Error).message}</p>
+      )}
+      <div className="flex gap-2">
+        <Button size="sm" disabled={report.isPending} onClick={submit}>
+          {report.isPending ? "Sending…" : "Send report"}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+/** Records an informed decline against a due/overdue/not-yet-due vaccine
+ * (spec §43.3). Collapsed behind a toggle, same shape as the adverse-event
+ * report control above. */
+function DeclineVaccineControl({
+  patientId,
+  vaccinationCatalogId,
+}: {
+  patientId: string;
+  vaccinationCatalogId: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const queryClient = useQueryClient();
+  const decline = useMutation({
+    mutationFn: async () => {
+      const result = await declineVaccinationAction({ patientId, vaccinationCatalogId, note: note.trim() || undefined });
+      if (result.error) throw new Error(result.error);
+    },
+    onSuccess: () => {
+      setOpen(false);
+      queryClient.invalidateQueries({ queryKey: vaccinationNonAdministrationsKey(patientId) });
+      queryClient.invalidateQueries({ queryKey: vaccinationSchedulesKey(patientId) });
+    },
+  });
+
+  if (!open) {
+    return (
+      <Button size="sm" variant="outline" onClick={() => setOpen(true)}>
+        Decline
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3">
+      <p className="text-xs font-medium text-charcoal-ink">
+        Decline this vaccine? Your care team will see this instead of a repeating reminder.
+      </p>
+      <Input
+        placeholder="Reason (optional)"
+        value={note}
+        onChange={(event) => setNote(event.target.value)}
+        className="text-xs"
+      />
+      {decline.error && (
+        <p className="text-xs text-red-600">{(decline.error as Error).message}</p>
+      )}
+      <div className="flex gap-2">
+        <Button size="sm" disabled={decline.isPending} onClick={() => decline.mutate()}>
+          {decline.isPending ? "Saving…" : "Confirm decline"}
+        </Button>
+        <Button size="sm" variant="outline" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
 
 const VERIFICATION_BADGE: Record<
   VaccinationRecord["verification_status"],
@@ -90,7 +282,19 @@ function VaccinationRecordRow({
       <p className="text-xs text-charcoal-ink/60">
         Given {new Date(record.date_administered).toLocaleDateString()}
         {record.provider ? ` · ${record.provider}` : ""}
+        {record.location ? ` · ${record.location}` : ""}
       </p>
+      {(record.batch_lot_number || record.site || record.route) && (
+        <p className="text-xs text-charcoal-ink/50">
+          {[
+            record.batch_lot_number ? `Batch/lot ${record.batch_lot_number}` : null,
+            record.site,
+            record.route,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+      )}
 
       {record.verification_status === "verified" && (
         <div className="text-xs text-charcoal-ink/70">
@@ -147,6 +351,9 @@ function VaccinationRecordRow({
           {fileError ?? (attach.error as Error)?.message}
         </p>
       )}
+      <div className="pt-1">
+        <ReportAdverseEventControl record={record} patientId={patientId} />
+      </div>
     </li>
   );
 }
@@ -167,6 +374,7 @@ export function VaccinationRegistry({
 }) {
   const catalog = useVaccinationCatalog();
   const records = useVaccinationRecords(patientId);
+  const nonAdministrations = useVaccinationNonAdministrations(patientId);
 
   const catalogById = useMemo(() => {
     const map = new Map<string, string>();
@@ -176,8 +384,13 @@ export function VaccinationRegistry({
 
   const statuses = useMemo(() => {
     if (!catalog.data || !records.data) return [];
-    return computeVaccinationStatuses(catalog.data, records.data, { ageYears, dateOfBirth, sex });
-  }, [catalog.data, records.data, ageYears, dateOfBirth, sex]);
+    const computed = computeVaccinationStatuses(catalog.data, records.data, {
+      ageYears,
+      dateOfBirth,
+      sex,
+    });
+    return applyNonAdministrationOverrides(computed, nonAdministrations.data ?? []);
+  }, [catalog.data, records.data, ageYears, dateOfBirth, sex, nonAdministrations.data]);
 
   // Newest doses first for the certificate/verification list.
   const sortedRecords = useMemo(
@@ -252,6 +465,7 @@ export function VaccinationRegistry({
             <ul className="divide-y divide-charcoal-ink/10">
               {visibleStatuses.map((entry) => {
                 const badge = STATUS_BADGE[entry.status];
+                const canDecline = ["due", "overdue", "not_yet_due"].includes(entry.status);
                 return (
                   <li key={entry.catalogId} className="space-y-1 py-3">
                     <div className="flex items-center gap-2">
@@ -265,6 +479,11 @@ export function VaccinationRegistry({
                       {entry.nextDueDate &&
                         `, next due ${new Date(entry.nextDueDate).toLocaleDateString()}`}
                     </p>
+                    {canDecline && (
+                      <div className="pt-1">
+                        <DeclineVaccineControl patientId={patientId} vaccinationCatalogId={entry.catalogId} />
+                      </div>
+                    )}
                   </li>
                 );
               })}
