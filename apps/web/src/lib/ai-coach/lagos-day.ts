@@ -14,3 +14,15 @@ export function startOfLagosDayUtc(now: Date): Date {
   );
   return new Date(startOfLagosDayAsUtc - LAGOS_OFFSET_MS);
 }
+
+/** Today's calendar date in Africa/Lagos as YYYY-MM-DD.
+ *
+ * Anything that reasons about which DAY something happened on must go
+ * through this rather than `toISOString().slice(0, 10)`: between 23:00 and
+ * midnight UTC, Lagos is already on the next day, so the naive version
+ * silently reports yesterday for an hour every night. That is a real bug for
+ * a cycle tracker, where "day 1 of your period" is the anchor every
+ * prediction is measured from. */
+export function lagosDateString(now: Date = new Date()): string {
+  return new Date(now.getTime() + LAGOS_OFFSET_MS).toISOString().slice(0, 10);
+}

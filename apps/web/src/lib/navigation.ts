@@ -157,6 +157,7 @@ export function getNavSections(
             },
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
+            { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
             {
               label: "Sexual & reproductive health",
               href: "/patient/sexual-health",

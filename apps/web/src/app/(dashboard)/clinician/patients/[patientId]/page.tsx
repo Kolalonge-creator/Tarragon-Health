@@ -54,6 +54,7 @@ import { HealthyAgeingClinicianPanel } from "./healthy-ageing-clinician-panel";
 import { CreateReferralForm } from "./create-referral-form";
 import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
+import { WomensHealthPanel } from "./womens-health-panel";
 import { RequestEmergencyAccessPanel } from "./request-emergency-access-panel";
 
 export default async function ClinicianPatientPage({
@@ -401,6 +402,15 @@ export default async function ClinicianPatientPage({
               />
             ) : null,
           },
+          ...(patient.sex === "female"
+            ? [
+                {
+                  id: "womens-health",
+                  label: "Women's Health",
+                  content: <WomensHealthPanel patientId={patient.id} />,
+                },
+              ]
+            : []),
           {
             id: "referrals",
             label: "Referrals",
