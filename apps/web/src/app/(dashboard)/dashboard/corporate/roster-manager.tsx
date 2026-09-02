@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import {
   useEmployerRoster,
+  useEmployerRosterCounts,
   useAddRosterMember,
   useClaimRosterMember,
   useRemoveRosterMember,
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 /**
@@ -34,6 +36,7 @@ export function RosterManager({
   entityLabel?: "staff" | "member";
 }) {
   const roster = useEmployerRoster(organisationId);
+  const counts = useEmployerRosterCounts(organisationId);
   const addMember = useAddRosterMember(organisationId);
   const claimMember = useClaimRosterMember(organisationId);
   const removeMember = useRemoveRosterMember(organisationId);
@@ -81,6 +84,16 @@ export function RosterManager({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {counts.data && (
+          <div className="grid grid-cols-2 gap-3">
+            <StatTile
+              icon={SEMANTIC_ICON.family}
+              label={entityLabel === "member" ? "Eligible members" : "Eligible employees"}
+              value={String(counts.data.eligible_count)}
+            />
+            <StatTile icon={SEMANTIC_ICON.family} label="Activated" value={String(counts.data.activated_count)} />
+          </div>
+        )}
         <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-3">
           <div className="space-y-1.5">
             <Label htmlFor="roster_phone">Phone</Label>

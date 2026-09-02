@@ -130,6 +130,13 @@ export default async function AdminPage() {
           visible: can("clinical_staff.manage"),
         },
         {
+          href: "/admin/settings/provider-restrictions",
+          label: "Provider restrictions",
+          blurb: "Staged, reason-coded suspension workflow for clinical staff",
+          icon: SEMANTIC_ICON.clinicianFollowUp,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/leads",
           label: "Leads",
           blurb: "Contact form and plan-finder submissions, including B2B",
@@ -166,6 +173,13 @@ export default async function AdminPage() {
           href: "/admin/settings/commissions",
           label: "Commission tracking",
           blurb: "Partner-network commissions earned, owed, and paid",
+          icon: SEMANTIC_ICON.commission,
+          visible: can("commissions.view"),
+        },
+        {
+          href: "/admin/settings/outcomes-contracts",
+          label: "Fee-at-risk contracts",
+          blurb: "Review HMO/corporate-proposed fee-at-risk terms before they go live",
           icon: SEMANTIC_ICON.commission,
           visible: can("commissions.view"),
         },
@@ -269,6 +283,13 @@ export default async function AdminPage() {
       label: "Platform & growth",
       tiles: [
         {
+          href: "/admin/settings/ops-console",
+          label: "Operations console",
+          blurb: "One cross-domain worklist: alerts, referrals, labs, payments, incidents",
+          icon: NAV_ICON.operations,
+          visible: can("ops.console.view"),
+        },
+        {
           href: "/analytics",
           label: "Platform analytics",
           blurb: "Business, financial, and population-health intelligence",
@@ -297,6 +318,13 @@ export default async function AdminPage() {
           visible: can("broadcasts.send"),
         },
         {
+          href: "/admin/settings/notification-templates",
+          label: "Notification templates",
+          blurb: "The catalogue of every notification the platform sends",
+          icon: NAV_ICON.messages,
+          visible: can("notification_templates.manage"),
+        },
+        {
           href: "/admin/settings/integrations",
           label: "API keys & integrations",
           blurb: "Inbound partner keys and outbound partner APIs",
@@ -304,11 +332,25 @@ export default async function AdminPage() {
           visible: can("integrations.manage"),
         },
         {
+          href: "/admin/settings/feature-flags",
+          label: "Feature flags",
+          blurb: "Roll a feature out to staff, a percentage, or a named cohort",
+          icon: NAV_ICON.settings,
+          visible: can("feature_flags.manage"),
+        },
+        {
           href: "/admin/settings/protocol-api",
           label: "Protocol API",
           blurb: "License escalation/risk/protocol machinery to partners",
           icon: NAV_ICON.settings,
           visible: can("integrations.manage"),
+        },
+        {
+          href: "/admin/settings/ai-governance",
+          label: "AI governance",
+          blurb: "Every AI system's incidents and kill switch",
+          icon: SEMANTIC_ICON.aiCoach,
+          visible: can("ai_governance.manage"),
         },
         {
           href: "/admin/testimonials",

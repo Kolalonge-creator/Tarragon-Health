@@ -191,7 +191,7 @@ export async function proxy(request: NextRequest) {
         "/clinician/escalations",
         "/clinician/orders",
         "/clinician/support-inbox",
-        "/clinician/incident-reports",
+        "/clinician/safety-incidents",
       ].some((allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`));
     if (isCoordinatorClinicianPath) {
       return response;

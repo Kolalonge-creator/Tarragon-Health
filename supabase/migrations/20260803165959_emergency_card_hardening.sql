@@ -168,7 +168,7 @@ begin
 end;
 $$;
 
-revoke all on function public.emergency_card_by_token(text) from public;
+revoke all on function public.emergency_card_by_token(text) from public, anon;
 grant execute on function public.emergency_card_by_token(text) to anon, authenticated;
 
 -- ------------------------------------------------------------- renewal nudge

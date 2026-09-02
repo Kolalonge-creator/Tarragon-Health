@@ -100,7 +100,7 @@ export function getNavSections(
       // second-level PatientNav pill bar, but it kept growing: fifteen
       // equally-weighted links with no headings is past the point where a
       // patient scans rather than reads, and "Wellness" sat two rows from
-      // "Subscription" with nothing to say they belong to different parts of
+      // "My services" with nothing to say they belong to different parts of
       // their life. Nothing is hidden or demoted — the same links, banded by
       // the question each one answers:
       //   (top)        where am I / what needs me today
@@ -181,8 +181,9 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
-            { label: "Subscription", href: "/patient/subscription", icon: "billing" },
+            { label: "My services", href: "/patient/subscription", icon: "billing" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
+            { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {
               label: "Emergency card",
               href: "/patient/emergency-card",
@@ -218,9 +219,18 @@ export function getNavSections(
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
-                { label: "Incident reports", href: "/clinician/incident-reports", icon: "warning" },
+                {
+                  label: "Safety incidents",
+                  href: "/clinician/safety-incidents",
+                  icon: "warning",
+                },
               ],
             },
             // Only reachable for a Coordinator holding a delegated
@@ -246,6 +256,11 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                },
                 { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
@@ -275,10 +290,17 @@ export function getNavSections(
               label: "Quality & Growth",
               items: [
                 { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
+                { label: "Hypertension quality", href: "/clinician/hypertension-quality", icon: "bp" },
+                { label: "Obesity quality", href: "/clinician/obesity-quality", icon: "weight" },
+                {
+                  label: "Quality improvement",
+                  href: "/clinician/quality-improvement",
+                  icon: "review",
+                },
+                { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
-                { label: "Incident reports", href: "/clinician/incident-reports", icon: "warning" },
               ],
             },
             {
@@ -287,6 +309,11 @@ export function getNavSections(
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                {
+                  label: "Lab result consults",
+                  href: "/clinician/lab-result-consults",
+                  icon: "labs",
+                },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },
@@ -328,6 +355,11 @@ export function getNavSections(
           label: "Commercial",
           items: [
             { label: "Subscriptions", href: "/admin/settings/subscriptions", icon: "billing" },
+            {
+              label: "Lab-result consult fee",
+              href: "/admin/settings/lab-result-consult-pricing",
+              icon: "billing",
+            },
             { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
@@ -343,6 +375,7 @@ export function getNavSections(
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
+            { label: "Clinical rules engine", href: "/admin/settings/clinical-rules", icon: "governance" },
           ],
         },
       ];
@@ -416,6 +449,7 @@ export function getNavSections(
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
+            { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },

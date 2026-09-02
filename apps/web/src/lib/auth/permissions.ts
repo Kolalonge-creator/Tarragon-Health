@@ -54,6 +54,8 @@ export const PERMISSION_KEYS = [
   "feature_flags.manage",
   "ops.console.view",
   "support.manage",
+  "notification_templates.manage",
+  "ai_governance.manage",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
