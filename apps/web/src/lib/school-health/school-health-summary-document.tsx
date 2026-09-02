@@ -48,6 +48,8 @@ const VACCINATION_STATUS_LABEL: Record<VaccinationStatus, string> = {
   overdue: "Overdue",
   not_yet_due: "Not yet due",
   not_applicable: "Not applicable",
+  declined: "Declined",
+  contraindicated: "Medically contraindicated",
 };
 
 const styles = StyleSheet.create({
