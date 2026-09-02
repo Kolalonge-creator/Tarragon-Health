@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { initiateVoucherPaymentCheckout } from "@/lib/billing/voucher-checkout";
 import { nairaToKobo } from "@tarragon/shared";
-import type { Currency } from "@tarragon/shared";
 
 export type VoucherActionState = { error?: string; message?: string } | undefined;
 
@@ -113,7 +112,6 @@ export async function payTowardVoucher(
 
   const voucherId = formData.get("voucherId") as string;
   const amountNaira = Number(formData.get("amountNaira"));
-  const currency = (formData.get("currency") as Currency) || "NGN";
 
   if (!voucherId) return { error: "Which voucher are you paying for?" };
   if (!Number.isFinite(amountNaira) || amountNaira <= 0) {
@@ -124,7 +122,6 @@ export async function payTowardVoucher(
   const result = await initiateVoucherPaymentCheckout({
     voucherId,
     instalmentKobo: nairaToKobo(amountNaira),
-    payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/vouchers`,
     description: "Care voucher payment",

@@ -5,6 +5,7 @@ import { useVideoConsultation } from "@/lib/queries/consult-slots";
 import { useStartThread } from "@/lib/queries/care-messages";
 import { useConsultationSummary } from "@/lib/queries/consultation-video";
 import { submitConsultationPrep, type SubmitPrepState } from "../../video-visit-actions";
+import { AppointmentPrepHelper } from "./appointment-prep-helper";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -234,6 +235,11 @@ export function VideoVisitWaitingRoom({
     submitConsultationPrep,
     undefined
   );
+  // Controlled (rather than the old defaultValue+key remount) so a
+  // suggestion from AppointmentPrepHelper can be appended without touching
+  // the save mechanism below -- still just plain text the patient can edit
+  // freely before submitConsultationPrep saves it.
+  const [notesValue, setNotesValue] = useState<string | null>(null);
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
   if (!consult) return <p className="text-sm text-charcoal-ink/60">Visit not found.</p>;
@@ -294,12 +300,21 @@ export function VideoVisitWaitingRoom({
               <p className="text-sm font-medium text-charcoal-ink">
                 What would you like to talk about? (optional)
               </p>
+              <AppointmentPrepHelper
+                consultationId={consultationId}
+                onAddToNotes={(question) =>
+                  setNotesValue((prev) => {
+                    const base = prev ?? consult.patient_prep_notes ?? "";
+                    return base.trim().length > 0 ? `${base}\n${question}` : question;
+                  })
+                }
+              />
               <form action={prepAction} className="space-y-2">
                 <input type="hidden" name="consultation_id" value={consultationId} />
                 <Textarea
-                  key={consult.patient_prep_notes ?? ""}
                   name="notes"
-                  defaultValue={consult.patient_prep_notes ?? ""}
+                  value={notesValue ?? consult.patient_prep_notes ?? ""}
+                  onChange={(event) => setNotesValue(event.target.value)}
                   placeholder="Reason for the visit, symptoms, anything you want your doctor to know beforehand…"
                 />
                 <Button size="sm" variant="outline" type="submit" disabled={prepPending}>
