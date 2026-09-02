@@ -249,6 +249,26 @@ export default async function AdminPage() {
           visible: can("protocols.manage"),
         },
         {
+          // The §37 Symptom Assessment & Triage Engine's admin page
+          // (packages/symptom-triage-engine, PR #345) shipped with no nav
+          // entry anywhere -- this points here rather than to a second,
+          // parallel triage-protocol admin surface (see the 2026-09-02
+          // PR #376 reconciliation note in the ai-coach merge history for
+          // why only one symptom-triage implementation was kept).
+          href: "/admin/settings/triage-protocols",
+          label: "Symptom triage protocol",
+          blurb: "The decision tree behind the patient symptom checker",
+          icon: SEMANTIC_ICON.preventive,
+          visible: can("protocols.manage"),
+        },
+        {
+          href: "/admin/settings/lpe-content-library",
+          label: "Lifestyle coaching content",
+          blurb: "The AI Coach's reference material — draft until a Clinical Director signs it off",
+          icon: SEMANTIC_ICON.learn,
+          visible: can("protocols.manage"),
+        },
+        {
           href: "/admin/settings/conditions",
           label: "Chronic conditions",
           blurb: "The phased chronic-disease catalogue",
