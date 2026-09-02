@@ -185,9 +185,14 @@ export async function proxy(request: NextRequest) {
     // below.
     const isCoordinatorClinicianPath =
       profile.role === "care_coordinator" &&
-      ["/clinician/patients", "/clinician/messages", "/clinician/escalations", "/clinician/orders", "/clinician/support-inbox"].some(
-        (allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`)
-      );
+      [
+        "/clinician/patients",
+        "/clinician/messages",
+        "/clinician/escalations",
+        "/clinician/orders",
+        "/clinician/support-inbox",
+        "/clinician/safety-incidents",
+      ].some((allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`));
     if (isCoordinatorClinicianPath) {
       return response;
     }

@@ -611,7 +611,13 @@ function CategoryGrid({
   );
 }
 
-function CategoryDetail({
+/**
+ * A single category's reading list — exported so a feature page can embed
+ * one topic directly (e.g. the Wellbeing dashboard's "mental_health" list,
+ * Module 46 §46.6/§46.7) without pulling in the full browsable-library UI.
+ * `onBack` is omitted in that embedded case, which also hides the back link.
+ */
+export function CategoryDetail({
   category,
   onBack,
   patientId,
@@ -619,7 +625,7 @@ function CategoryDetail({
   conditionLanguagePreference,
 }: {
   category: HealthEducationCategory;
-  onBack: () => void;
+  onBack?: () => void;
   patientId: string;
   organisationId: string;
   conditionLanguagePreference?: string | null;
@@ -640,13 +646,15 @@ function CategoryDetail({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <button
-              type="button"
-              onClick={onBack}
-              className="mb-1 text-xs font-medium text-charcoal-ink/60 hover:text-brand-green"
-            >
-              ← All topics
-            </button>
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="mb-1 text-xs font-medium text-charcoal-ink/60 hover:text-brand-green"
+              >
+                ← All topics
+              </button>
+            )}
             <CardTitle>{label}</CardTitle>
           </div>
           <Input

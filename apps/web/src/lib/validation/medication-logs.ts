@@ -14,7 +14,7 @@ export const MISSED_REASONS = [
 export const medicationLogSchema = z
   .object({
     medication_id: z.string().uuid(),
-    status: z.enum(["taken", "missed", "skipped"]),
+    status: z.enum(["taken", "missed", "skipped", "delayed", "not_available"]),
     reason: z.string().trim().max(500).optional(),
     missed_reason: z.enum(MISSED_REASONS).optional(),
     scheduled_time: z.string().regex(HHMM, "Use 24-hour HH:MM, e.g. 08:00").optional(),

@@ -14,6 +14,7 @@ import {
   logVaccinationSchema,
   validateCertificateFile,
   CERTIFICATE_ACCEPT,
+  VACCINATION_ROUTES,
 } from "@/lib/validation/vaccination";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,10 @@ export function LogVaccinationForm({
   const [dateAdministered, setDateAdministered] = useState("");
   const [provider, setProvider] = useState("");
   const [bookingId, setBookingId] = useState("");
+  const [batchLotNumber, setBatchLotNumber] = useState("");
+  const [route, setRoute] = useState("");
+  const [site, setSite] = useState("");
+  const [location, setLocation] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -84,6 +89,10 @@ export function LogVaccinationForm({
     setDateAdministered("");
     setProvider("");
     setBookingId("");
+    setBatchLotNumber("");
+    setRoute("");
+    setSite("");
+    setLocation("");
     setFile(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   }
@@ -98,6 +107,10 @@ export function LogVaccinationForm({
       date_administered: dateAdministered,
       provider: provider || undefined,
       booking_request_id: bookingId || undefined,
+      batch_lot_number: batchLotNumber || undefined,
+      route: route || undefined,
+      site: site || undefined,
+      location: location || undefined,
     });
     if (!parsed.success) {
       setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
@@ -197,6 +210,46 @@ export function LogVaccinationForm({
               value={provider}
               onChange={(event) => setProvider(event.target.value)}
             />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="location">Where was it given? (optional)</Label>
+            <Input
+              id="location"
+              placeholder="e.g. Reliance Family Clinic, Lekki"
+              value={location}
+              onChange={(event) => setLocation(event.target.value)}
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="batch_lot_number">Batch/lot number (optional)</Label>
+              <Input
+                id="batch_lot_number"
+                placeholder="From the vial or certificate"
+                value={batchLotNumber}
+                onChange={(event) => setBatchLotNumber(event.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="site">Site (optional)</Label>
+              <Input
+                id="site"
+                placeholder="e.g. left deltoid"
+                value={site}
+                onChange={(event) => setSite(event.target.value)}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="route">Route (optional)</Label>
+            <Select id="route" value={route} onChange={(event) => setRoute(event.target.value)}>
+              <option value="">Not recorded</option>
+              {VACCINATION_ROUTES.map((value) => (
+                <option key={value} value={value}>
+                  {value.charAt(0).toUpperCase() + value.slice(1)}
+                </option>
+              ))}
+            </Select>
           </div>
           {vaccinationBookings.length > 0 && (
             <div className="space-y-1.5">

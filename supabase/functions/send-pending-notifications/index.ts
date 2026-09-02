@@ -1467,6 +1467,53 @@ const TEMPLATE_MAP: Record<
         `See your Tarragon Health worklist. Tarragon Health`,
     };
   },
+  // Sent as the "extra channel" nudge (push/whatsapp/sms, generic non-PHI
+  // copy only — the real alert detail stays in the in_app row, which never
+  // routes through this function at all) when
+  // private.escalate_unacknowledged_clinician_alerts() (20260828015134)
+  // climbs a rung of the ack-timeout ladder: hop 1 = the alert's backup
+  // clinician, hop 2 = senior tier/Clinical Director, hop 3 = every
+  // platform admin. private.notify_clinician_alert() always fans these out
+  // with the same fixed message regardless of which hop fired, so all three
+  // templates share this shape — only the audience (and therefore which
+  // template key gets used) differs, same pattern as the clinician-alert
+  // templates above.
+  clinician_alert_ack_timeout_backup: (payload) => {
+    const message = String(
+      payload.message ?? "An unacknowledged alert needs your attention.",
+    );
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_backup",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} See your Tarragon Health worklist. Tarragon Health`,
+      pushUrl: "/clinician/escalations",
+    };
+  },
+  clinician_alert_ack_timeout_senior: (payload) => {
+    const message = String(
+      payload.message ?? "An unacknowledged alert has escalated to you.",
+    );
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_senior",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} See your Tarragon Health worklist. Tarragon Health`,
+      pushUrl: "/clinician/escalations",
+    };
+  },
+  clinician_alert_ack_timeout_admin: (payload) => {
+    const message = String(
+      payload.message ?? "An alert has gone unacknowledged past its escalation timeout.",
+    );
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_admin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} See your Tarragon Health worklist. Tarragon Health`,
+      pushUrl: "/clinician/escalations",
+    };
+  },
   // Sent to the patient after the follow-up window on an emergency event
   // (private.notify_emergency_followups). Gentle check-in nudging them to update
   // their care team in the app — the follow-up itself happens in-app, never over

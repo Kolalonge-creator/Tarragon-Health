@@ -14,6 +14,8 @@ const STATUS_BADGE: Record<DoseStatus, { variant: BadgeProps["variant"]; label: 
   taken: { variant: "green", label: "Taken" },
   missed: { variant: "red", label: "Missed" },
   skipped: { variant: "amber", label: "Skipped" },
+  delayed: { variant: "amber", label: "Delayed" },
+  not_available: { variant: "amber", label: "Not available" },
 };
 
 type MissedReason = (typeof MISSED_REASONS)[number];
@@ -26,6 +28,22 @@ const MISSED_REASON_LABEL: Record<MissedReason, string> = {
   feels_well: "Feeling fine, didn't think I needed it",
   technical_problem: "Something else went wrong",
 };
+
+/**
+ * Medication safety pathway 64.8: a dose response is one of four states —
+ * Taken / Skipped / Delayed / Not available. Missed stays available
+ * alongside them (it predates this change and evaluate_adherence_escalation
+ * already keys its primary missed-dose count off it) rather than being
+ * replaced by this list. Choosing "Missed" doesn't log immediately — it
+ * opens the missed-reason picker below, same as before pathway 64.8.
+ */
+const LOG_ACTIONS: { status: "taken" | "missed" | "skipped" | "delayed" | "not_available"; label: string }[] = [
+  { status: "taken", label: "Taken" },
+  { status: "skipped", label: "Skipped" },
+  { status: "delayed", label: "Delayed" },
+  { status: "not_available", label: "Not available" },
+  { status: "missed", label: "Missed" },
+];
 
 export function TodaysDoses({ patientId }: { patientId: string }) {
   const { data: medications, isLoading: medsLoading } = useMedications(patientId);
@@ -42,7 +60,7 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
     medicationId: string,
     time: string,
     organisationId: string,
-    status: "taken" | "missed",
+    status: "taken" | "missed" | "skipped" | "delayed" | "not_available",
     missedReason?: MissedReason
   ) {
     logDose.mutate({
@@ -90,25 +108,22 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                       <p className="text-xs text-charcoal-ink/60">{item.drugName}</p>
                     </div>
                     {medication && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={logDose.isPending}
-                          onClick={() =>
-                            log(item.medicationId, item.time, medication.organisation_id, "taken")
-                          }
-                        >
-                          Taken
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={logDose.isPending}
-                          onClick={() => setReasonPromptFor(askingReason ? null : rowKey)}
-                        >
-                          Missed
-                        </Button>
+                      <div className="flex flex-wrap gap-2">
+                        {LOG_ACTIONS.map((action) => (
+                          <Button
+                            key={action.status}
+                            size="sm"
+                            variant="outline"
+                            disabled={logDose.isPending}
+                            onClick={() =>
+                              action.status === "missed"
+                                ? setReasonPromptFor(askingReason ? null : rowKey)
+                                : log(item.medicationId, item.time, medication.organisation_id, action.status)
+                            }
+                          >
+                            {action.label}
+                          </Button>
+                        ))}
                       </div>
                     )}
                   </div>
