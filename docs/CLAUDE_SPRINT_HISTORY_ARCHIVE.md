@@ -2751,3 +2751,478 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+
+### 2026-08-29 — Modules 27/28: insurer/payer platform and provider organisation platform, built fully, shipped dormant
+
+Founder instruction: build both spec modules — 27 (insurer/payer platform: plans, members, benefits,
+network, pre-authorisation, claims, care programmes, aggregate analytics) and 28 (provider organisation
+platform: locations, departments, staff, services, resources, referral/order queue, settlement, analytics)
+— completely, but do not make either live. Both are future-business-model bets with no signed counterparty
+yet, so "built" had to mean something a founder can trust is inert until deliberately switched on, not just
+"no nav link points at it."
+
+- **The dormancy mechanism is `public.platform_modules`** (`20260829092227_platform_module_activation_gate.sql`):
+  one row per module, `is_enabled` defaults false, and a CHECK constraint refuses to let it read true
+  without `enabled_at`/`enabled_by` set — so a bare `UPDATE` can never switch a module on, only
+  `public.set_platform_module(key, true, note)` can (superadmin-only, requires a reason, audit-logged).
+  Checked in three independent places, matching the same defence-in-depth CLAUDE.md already asks for
+  elsewhere on this platform: every payer/provider-org table's RLS policies call
+  `private.module_enabled()`/gate through `private.is_payer_admin_for()`/`private.is_provider_org_staff_for()`
+  (both of which check the module themselves), every write RPC does the same, and the Next.js route groups
+  (`(dashboard)/payer`, `(dashboard)/provider-org`) render an honest "not yet activated" placeholder instead
+  of an empty console when the module — or, for a provider organisation, that specific org's own
+  `is_operational` flag — is off. A superadmin can still fully configure either platform (create insurers,
+  plans, provider organisations, staff seats) before flipping the switch; `is_admin()` passes unconditionally
+  in both scoping predicates for exactly that reason.
+- **Two new account roles**, `payer_admin` and `provider_org_staff` — added to `public.user_role` in their
+  own migration (enum values can't be used in the transaction that adds them) and, in the very next
+  migration, added to `private.is_org_staff()`'s exclusion list before either role could exist unguarded.
+  CLAUDE.md calls `is_org_staff` "the highest-leverage security function in the codebase" (~110 patient-
+  scoped tables) and records two prior real leaks from exactly this shape of mistake (a new role added
+  without updating the deny-list) — this time the exclusion landed first, and
+  `packages/db/tests/payer_provider_org_platform.sql` proves it behaviourally (a real seated account of
+  each new role fails `is_org_staff` while a real clinician control passes) rather than by inspection.
+  Neither role is a re-split of `clinician`/`profiles.role` — both are wholly new counterparty roles for
+  wholly new platforms, so the "never re-split the account role" rule is untouched. Authority within each
+  platform is carried by a scoped membership row (`payer_administrators.payer_role`,
+  `provider_org_members.org_role`), never by the account role or which dashboard a login reaches — same
+  discipline as the doctor-tier ladder.
+- **Module 27 extends the existing dormant insurance core** (`insurers`/`insurance_policies`/
+  `insurance_benefits`/`insurance_preauthorizations`/`insurance_claims`, built earlier the same day on a
+  sibling branch and merged in rather than duplicated) instead of growing a parallel copy: `insurers`
+  gained an `organisation_id`/onboarding pipeline so it can be an operator, not just a directory row;
+  `payer_plans` gives a plan an identity (a sync trigger keeps `insurance_policies`/`insurance_benefits`
+  .`plan_name` text in lockstep so the existing string-matched benefit lookup never drifts from the
+  structured picture); `payer_network_providers` records exceptions to open-network coverage across all
+  four existing provider directories; `payer_programme_directives` + `apply_payer_programme_directive()`
+  let a payer enrol every member with a diagnosed condition into a Tarragon chronic-disease programme
+  without ever diagnosing on the payer's behalf (only acts on a `patient_conditions` row a Tarragon
+  clinician already wrote); `payer_decide_preauthorization()`/`payer_adjudicate_claim()` let the insurer
+  record its own decision directly instead of Tarragon staff transcribing a phone call; and
+  `payer_dashboard_analytics()` is a suppressed aggregate view (I9's small-cell floor, mirrored via
+  `insurers.min_cohort_size`) — never a per-member row, matching the institution-privacy line the platform
+  already draws for HMO/corporate dashboards. I8 (no capitation, ever) holds throughout: an insurer here is
+  strictly a per-service payer.
+- **Module 28** anchors a provider organisation as a first-class tenant (`organisations.type = 'provider_org'`,
+  `provider_organisations` as its extension row) with real structure (`provider_org_locations`/
+  `_departments`/`_services`/`_resources`/`_operating_hours`) and staff (`provider_org_members`).
+  Deliberately did NOT build a parallel booking/appointment engine for a provider org's own operational
+  visits — the existing `appointments` table (generalised into "the universal appointment object" the day
+  before) is Tarragon's own care-team visit record, and blurring a third party's own scheduling into it
+  would cut against the exact line `is_org_staff`'s exclusion exists to hold. What a provider org gets
+  instead: "claiming" one of the four existing provider directories (adding `organisation_id` to
+  `facilities`/`lab_providers`/`pharmacy_partners`/`specialist_providers`, same move as insurers) surfaces a
+  read-only referral/lab/pharmacy queue over work already routed there (`provider_org_referral_queue()` and
+  siblings) — visibility only, since uploading a result or dispensing an order stays the existing
+  `lab_partner`/`pharmacist` login's job, not a new fulfilment path. `provider_org_settlements` is a
+  generic billing ledger (the existing `partner_statements` is hard-typed to `lab_providers` alone and
+  can't represent a hospital or specialist practice). `provider_org_analytics()` reports only what the
+  built tables can actually measure (staffing, structure, queue volume, referral response time) rather than
+  fabricating appointment/utilisation figures for a booking engine that doesn't exist yet.
+- **A real bug shipped and was fixed the same session**: `provider_org_analytics()`'s first draft
+  aggregated referral-status counts and average response time in one subquery whose outer
+  `jsonb_object_agg(status, n)` referenced a column (`n`) that subquery never produced. It went live
+  undetected because the migration's own assertion called the function with no fixture organisation, so
+  `is_provider_org_staff_for()` raised 42501 before execution ever reached the buggy line — an exception-
+  shaped pass that never exercised the SQL. Fixed forward in
+  `20260829094538_fix_provider_org_analytics_referral_aggregation_bug.sql` (split into two independent
+  queries) with an assertion that runs the corrected aggregation against synthetic literal rows instead of
+  trusting the same shallow raise-and-catch again.
+- **Concurrency note**: this build ran against the live, shared `koiplnmbgnqnbywhpjlf` project while at
+  least three other sessions were applying migrations in parallel (an integration/outbound-queue build, an
+  employer-platform roster build, a clinical-rules-engine build all landed mid-session) — one migration
+  name collided on an auto-assigned timestamp and had to be retried. Local migration filenames were
+  renamed to match whatever timestamp the live apply actually assigned, not the name first guessed.
+- Verified: `pnpm --filter web typecheck`/`lint` clean on every new/changed file (the handful of
+  pre-existing errors elsewhere in the tree — `sample_rejected`/`closed`/`declined`/`transferred`/
+  `missed_care_task` and friends missing from a few `Record<...>` maps — are enum values other concurrent
+  sessions added the same day to tables unrelated to this work, left untouched rather than fixed
+  opportunistically in someone else's in-flight change). `packages/db/tests/payer_provider_org_platform.sql`
+  (10 checks: `is_org_staff` exclusion behaviourally proven for both new roles against a real clinician
+  control; both modules' dormant→live transition proven live; a provider organisation's own
+  `is_operational` gate proven independent of the platform-wide switch; the analytics suppression floor
+  proven to discriminate) passes clean and leaves no fixture behind. `database.types.ts` regenerated (both
+  `packages/shared` and `packages/db` copies) against the live post-migration schema.
+- **Not done, flagged not guessed at**: no UI was built for claiming a directory row from the admin side
+  beyond the existing per-table edit path (an admin sets `organisation_id` via SQL/the existing
+  facilities/lab/pharmacy/specialist admin screens, none of which gained a dedicated "claim for this
+  provider organisation" control) — a real onboarding flow for the first provider organisation would want
+  one. Neither platform's activation has ever been exercised against a real counterparty; the first real
+  insurer or provider organisation to onboard is the actual test of everything built here.
+
+### 2026-08-29 — Referral Management Engine: found a concurrent session's parallel build first, recovered 20 orphaned migrations, layered the real gaps on top
+
+Task was "build the Referral Management Engine" (spec §67, the same episode-tracking/urgency/package/
+closure/escalation shape described in `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §7 Level 5b).
+Wrote a full local implementation first (migrations, hooks, a real "create referral" form — the platform
+had **zero** UI to create a referral before this; every row was trigger- or one-RPC-created), then, before
+applying anything, discovered via `list_migrations`/`execute_sql` against the live `koiplnmbgnqnbywhpjlf`
+project that a **different concurrent Claude Code session had already shipped a more complete, overlapping
+implementation directly to production between 2026-08-28 22:26 and 2026-08-29 14:41** — 20 migrations,
+none committed to git anywhere (not this branch, not `main-dev`, not any other branch). Two of that
+session's migration *names* even collided on the exact same round timestamp prefixes (`20260829120000`,
+`20260829121500`) this session had independently hand-picked for unrelated work — precisely the failure
+mode the "never hand-type a round-number migration timestamp" lesson above describes, just with a second,
+worse wrinkle: this time the collision carried real, different, already-applied SQL with no local file at
+all backing it, not just a version-number clash. New standing lesson added above.
+
+Stopped and asked the founder how to proceed (three separate decisions: recover the orphaned git history,
+how much of the already-live work to treat as authoritative, and what to do about one specific finding —
+see below) rather than guessing through a live schema conflict. Founder direction: recover the git history,
+drop the locally-built pieces that duplicated already-live work in favour of layering only the genuine gaps
+on top, leave one specific finding alone and just flag it.
+
+**What the concurrent session (apparently working module 66 "Specialist Network & Provider Platform" plus
+adjacent module-46 Mental Health and module-75 Navigation Requests work, going by its own migration
+comments' section references) had already shipped, read in full via `schema_migrations.statements` (Postgres
+keeps the exact applied SQL) and recovered verbatim as real files — `20260828222628` through `20260829144134`,
+20 migrations:**
+- `specialist_referrals` gained `referred_by`/`preferred_consultation_type`/`preferred_location`/
+  `parent_referral_id` (intake/provenance), `outcome_document_path`/`care_plan_update_note`/`closed_at`/
+  `closed_by` plus a genuinely separate `status='closed'` value with its own CHECK constraint
+  (`specialist_referrals_closed_requires_outcome`) and a clinical-tier-gated, immutable-once-closed
+  `enforce_specialist_referral_outcome_and_closure` trigger — a materially more complete realisation of
+  "a referral should not close simply because an appointment was booked" (67.15) than this session's first
+  draft (which had reused `status='completed'` for the same purpose).
+- A private, patient-own-folder `specialist-referral-outcome-documents` storage bucket; feedback-loop
+  notifications back to the referring clinician and to the patient on closure; a three-tier staleness sweep
+  (14-day patient reminder → 30-day coordinator outreach task → 7-day urgent clinician alert, all via
+  `cron.schedule`) — more sophisticated than this session's single-tier draft.
+- `public.refer_patient_to_specialist(patient_id, specialist_type, reason)` — a real, clinical-tier-gated
+  RPC for creating a referral (used by the new psychiatry/psychology pathway, `specialist_type` gaining both
+  values) — but gated only at the RPC layer, leaving a direct `.insert()` against the table wide open to any
+  org staff including Care Coordinator (the shared 2026-07-05 org-staff INSERT policy was never narrowed).
+- `activate_partner_specialist_booking` (20260828233653) — reactivates `set_referral_specialist_provider`
+  for a real, active, specialty-matched partner (org-staff + status + active + specialty-match guards),
+  reversing the 2026-08-03 self-arranged-only decision. **Currently inert**: all 9 `specialist_providers`
+  rows are still `is_active=false` placeholders and `specialist_referrals` had zero rows at the time of this
+  check, so nothing live is actually bookable. No fresh founder reasoning accompanies the reversal beyond a
+  comment reusing the original migration's own "is_active flip" framing. **Left alone per founder
+  instruction — flagging here rather than reverting or endorsing it.** Worth a real conversation before any
+  provider is ever flipped active.
+- A `specialist_providers` profile/verification/multi-location/availability/workload-performance buildout
+  (subspecialty, qualifications, a `specialist_verification_stage` pipeline gating `is_active`, per-branch
+  locations, admin-entered availability rules + a computed slot function, workload/performance analytics) —
+  explicitly, repeatedly self-documented as respecting the `CLINICAL_NETWORK_SPEC.md` §3 matching/ranking
+  guardrail (its own migration comments quote it directly; verified by reading every function body — none
+  scores, ranks, or auto-assigns).
+- An unrelated module-75 `navigation_requests` table (non-clinical patient support/advocacy, deterministic
+  clinical-content keyword classifier with human override) that merely links to `specialist_referrals` by
+  nullable FK for a "check my referral status" category — not itself referral-engine work, recovered for
+  completeness since it shared the same orphaned-migration gap.
+- One real, unrelated bug fix caught in passing: `provider_org_analytics()`'s referral-status aggregation
+  referenced a nonexistent column and had never actually been exercised by its own migration's assertion
+  (an auth check raised before the buggy line ever ran) — `20260829094538` fixed and re-proved it against
+  synthetic rows.
+
+**What this session actually built and applied on top** (`20260829160519` through `20260829160523` —
+renamed from an initial round-timestamp draft to real `select now()`-derived versions before applying, for
+the same reason the whole recovery was needed in the first place):
+- `referral_source` (a clinical origin taxonomy — abnormal result/chronic-care programme/emergency
+  assessment/hospital discharge/etc, 67.2) — genuinely distinct from both the pre-existing payment-rail
+  `origin` column and the concurrently-shipped `referred_by`/`preferred_*` (who created it / their
+  preference, not why the episode exists) — plus `requested_service` (67.6) and `appropriateness_flags`, a
+  non-blocking CDS advisory snapshot (67.7, `apps/web/src/lib/referrals/appropriateness-check.ts`).
+- `declined_reason`, required by a CHECK constraint whenever `status='declined'` (67.12) — the live closure
+  CHECK only ever governed `status='closed'`, so this was a real, non-duplicated gap.
+- `referral_urgency` gained `'emergency'` (67.5) — `routine`/`priority`/`urgent` untouched, no rename.
+- `referral_status` gained `'draft'` (67.4's missing first stage) + a `submitted_at` timestamp, stamped by
+  two new triggers. Had to also patch the three concurrently-shipped staleness sweeps (CREATE OR REPLACE,
+  logic otherwise untouched) to exclude `'draft'` from their `created_at`-based age filters — without that,
+  a clinician's still-being-drafted referral would eventually trigger a patient-facing "see your specialist"
+  reminder for an episode the patient doesn't even know exists yet.
+- `private.enforce_specialist_referral_create` — the one genuinely missing security gap: nothing before this
+  stopped a Care Coordinator from creating a `specialist_referrals` row via a direct insert (only
+  `refer_patient_to_specialist`'s own RPC-level check was gated). Same "RLS admits, the trigger narrows"
+  shape as `enforce_referral_fulfilment`. Also fills in `referred_by` on this new insertion path — resolved
+  as a `clinical_staff.id` (confirmed live FK target; an early draft of this trigger, written before the
+  live schema was known, would have wrongly stamped a bare `profiles.id` here and failed every insert with a
+  foreign-key violation) and never client-trusted, matching `stamp_bariatric_referral_staff`'s pattern.
+- A real "refer this patient" form on the clinician-side patient record (`create-referral-form.tsx`, new
+  "Referrals" tab on `/clinician/patients/[patientId]`) — the actual headline gap: this platform had no
+  general clinician-facing way to start a referral at all before this session, only automation and one
+  narrow consultation-follow-up RPC. Gated to clinical tier in the UI to match the new DB trigger. Rewrote
+  the worklist (`/clinician/referrals`) to drop the pre-existing dead Assign/Appointment-slot flow it still
+  had — `useAssignSpecialistProvider` wrote `specialist_provider_id`/a nonzero fee, which the 2026-08-03
+  `enforce_referral_fulfilment` trigger has unconditionally blocked for eleven months; that whole flow threw
+  a Postgres error on click and nothing had ever exercised it to notice. Deleted three fully-orphaned dead
+  files from the same era (`choose-referral-specialist.tsx`, `pay-for-referral-button.tsx`,
+  `patient/referrals/actions.ts` — verified via repo-wide grep that nothing imported any of them).
+- Deliberately not built, per the founder's own scope decision this session: booking/pricing/availability
+  UI, a specialist-facing digital acceptance portal, or anything resembling the guardrailed matching/ranking
+  engine — internal, staff-side episode tracking only, matching the self-arranged model as it stood at the
+  start of this session.
+- `packages/db/tests/referral_management_engine.sql` (new) and `self_arranged_referrals.sql` (patched to
+  simulate a clinical-tier session, per the new create-gate — its own case 5 now passes for a different
+  reason than before, see the file's own updated comment) both run clean against the live project. `pnpm
+  typecheck`/`lint` clean across every touched file. `get_advisors` shows nothing new against
+  `specialist_referrals`/the new trigger functions (confirmed each is `revoke all from public` with no
+  `authenticated` grant, so none show up in the standard "security-definer function executable by
+  authenticated" advisory the rest of the project's RPCs legitimately carry).
+
+**Standing follow-ups, not this session's to resolve:** the partner-booking reactivation (above) needs a
+real founder decision before any provider is ever activated. The `booking-ownership.ts`/checkout-metadata
+"referral" booking-order-type plumbing is now fully dead code (nothing calls it since the two dead files
+above were removed) but was left alone — shared infrastructure also serving labs/pharmacy, out of scope to
+touch here. `specialist_referral_intake_and_provenance`'s own comment anticipates an automated/trigger-
+created referral path (e.g. abnormal-result-driven) that does not exist yet anywhere in the codebase; when
+one is built, it will need either a service-role bypass of the new clinical-tier create-gate or to run as an
+already-clinical-tier-authenticated actor.
+### 2026-08-30 — self-arranged lab-result upload gated behind a one-off ₦10,000 consultation fee
+
+Founder rule: uploading a self-arranged lab result (the patient-uses-any-lab-and-uploads path from the
+2026-08-03 self-arranged-fulfilment pivot) now requires paying a one-off ₦10,000 consultation fee first —
+paying it also entitles the patient to a 15-minute doctor walkthrough of the result. Network-billed
+(`fulfilment='partner'`) orders — PR #321's still-open, still-broken build, not touched here — never need
+this fee; Tarragon already bills those directly.
+
+- Cloned the `video_visit_prices`/`video_visit_requests` shape (20260723120000) into a new pair:
+  `lab_result_consult_prices` (platform-default row, ₦10,000/1,000,000 kobo — a founder-specified real
+  figure, not a placeholder) and `lab_result_consult_requests` (`requested → pending_payment →
+  payment_confirmed → document_uploaded`, trimmed of the scheduling columns video_visit_requests has and
+  this doesn't need — no slot, no doctor-acceptance step). Wired through the exact same generic
+  booking-checkout machinery every other order type uses: `BookingOrderType` gained
+  `"lab_result_consult"` (`checkout-metadata.ts`, `booking-ownership.ts`) and a new
+  `requestLabResultConsult` action (`patient/lab-result-consult-actions.ts`) creates the request +
+  redirects to Paystack/Stripe checkout, mirroring `requestVideoVisit` exactly.
+- Added `'lab_result_consult'` to `video_consultations.context` (standalone enum-add migration, then a
+  separate migration widening `video_consultations_context_link` — Postgres forbids using a fresh enum
+  value in the same transaction that adds it). **Deliberately not used anywhere yet** — no accept-flow
+  that actually books the 15-minute video call was built this pass; see "not done" below.
+- The actual DB-enforced gate: `public.claim_lab_result_consult_credit(p_patient_id, p_lab_order_id)` +
+  `public.settle_lab_result_consult_claim(p_request_id, p_document_id)`. Corrected from the task's own
+  suggested `private.*` naming: this project's PostgREST config only exposes the `public` schema over
+  RPC, so a patient session calling `supabase.rpc(...)` can only ever reach a `public.*` function — the
+  same reason `accept_video_visit_request` et al. are `public.*` despite being internally forge-proof.
+  Split into two functions (not the one the task sketched) for a genuine ordering reason: the gate must
+  reject BEFORE the storage upload even starts (so an unpaid patient never wastes one), which means it
+  runs before the `lab_result_documents` row — and its id — exists; a foreign key to a not-yet-inserted
+  row across two separate app-to-DB calls is unsatisfiable, so `claim` reserves the credit first (atomic
+  `UPDATE ... WHERE ... FOR UPDATE SKIP LOCKED` subquery, raising a stable `DETAIL='CONSULT_FEE_REQUIRED'`
+  marker — never pattern-matched by message text — when nothing is found) and `settle` links the real
+  document id afterwards, or releases the claim back to `payment_confirmed` if the upload then fails, so a
+  transient error never stranded a paid fee.
+- Wired the gate into both upload paths: `uploadResultDocumentAsPatient` (`lib/lab-results/actions.ts`)
+  and its mobile mirror (`/api/mobile/lab-result-upload`) — claim before the storage upload, settle
+  after, release on any failure in between. `PatientResultUpload` shows a "Pay & continue" prompt (via a
+  new `useLabResultConsultPrice` query hook) instead of a dead-end error when the gate rejects.
+- **A real, load-bearing bug found while wiring this, not assumed from the task's own description**: the
+  task said the deployed `paystack-webhook`/`stripe-webhook` Edge Functions handle any `BookingOrderType`
+  generically — false. Both hardcode their own duplicate `BookingOrderType` union + table-lookup (Edge
+  Functions can't import from `apps/web`), and neither recognised a 5th type: paystack's lookup silently
+  returned `undefined` as the table name, and stripe's ternary chain fell through to mis-targeting
+  `specialist_referrals`. Either way a `lab_result_consult` payment would go through Paystack/Stripe and
+  then never mark the request paid. Fixed with the minimal additive change (new union member + new table
+  mapping, no other line touched) and redeployed both — confirmed the live deployed source matched the
+  committed pre-edit file byte-for-byte before touching it, and confirmed the redeployed content matches
+  intent after. This is a deliberate, necessary deviation from the task's explicit "don't touch the
+  webhooks" instruction; flagged prominently in the PR for founder review.
+- Verified against the live `koiplnmbgnqnbywhpjlf` project (this sandbox had no Docker/local Postgres, so
+  a `supabase db reset` replay wasn't possible — applying live with each migration's own closing
+  assertion block is the stronger check anyway, since it's the real current schema): all 5 migrations
+  applied cleanly; `get_advisors` shows nothing new beyond the expected generic "authenticated can execute
+  this SECURITY DEFINER function" advisory every `public.*` forge-proof RPC in this codebase already
+  carries. `packages/db/tests/lab_result_consult_fee.sql` — 16/16 checks pass, covering: amount pinned
+  server-side; an unpaid or already-claimed credit is refused, never silently allowed; a patient cannot
+  claim another patient's credit even by naming their id directly (and an unrelated patient with nothing
+  paid is refused too); an order-linked credit only satisfies an upload naming that exact order, no
+  cross-matching either direction; settle both links a real document and releases a failed claim back to
+  `payment_confirmed`, re-claimable afterward; a network-billed order's claim returns null and can't even
+  have a fee request created against it. Sabotaged the ownership check once (removed the `auth.uid() =
+  p_patient_id` guard) and confirmed the cross-patient-claim test flips to FAIL, then confirmed the
+  restore — the test discriminates, it doesn't just pass vacuously. `pnpm typecheck`/`lint`/`test` clean
+  at both the `web`/`shared` package level and the monorepo root (109/109 web suites, 1123/1123 tests, 0
+  lint errors, same pre-existing warnings). Manually patched `database.types.ts` in **both**
+  `packages/db/src/` and `packages/shared/src/` — this codebase has two separate generated copies and
+  `apps/web` imports the `packages/shared` one exclusively; editing only `packages/db`'s (the one the task
+  pointed at) would have left every new table/enum/RPC invisible to `apps/web`'s typecheck.
+- **Not done, flagged not guessed at**: no accept-flow/RPC that turns a `document_uploaded` (or even
+  `payment_confirmed`) request into an actual booked `video_consultations` row for the promised 15-minute
+  doctor walkthrough — the enum value and constraint widening exist so this can be built without another
+  enum-split migration, but nothing yet lets a patient actually schedule or a doctor actually accept that
+  call. No admin UI to edit the ₦10,000 price — same as `video_visit_prices`, it's a plain SQL `UPDATE`
+  until one exists. No Jest unit tests for the new TS action files — matches this codebase's existing
+  convention of not unit-testing thin `video-visit-actions.ts`-style wrappers, with the real logic proven
+  at the DB layer instead.
+
+### 2026-08-30 — doctor-side half: a queue, a picked time, a generated video link
+
+Same day, same feature, founder follow-up in his own words: "doctors should be able to get queue of the
+request pending, then they can select time and date that they are free for the consult and the video
+link can then be generated." The morning's pass left `lab_result_consult_requests` reaching
+`payment_confirmed`/`document_uploaded` with no way to turn that into an actual booked call — this closes
+that gap.
+
+- **Deliberately NOT the `consult_availability_slots` pre-published-slot model** `video_visit_requests`
+  uses — that model exists because a *patient* picks from a doctor's pre-published slots at request time;
+  here the patient never picks anything, they just pay. Simpler and a direct match for the founder's own
+  words: `public.accept_lab_result_consult_request(p_request_id, p_scheduled_at)` lets the doctor supply
+  an arbitrary future timestamp directly when they reach the request in their queue. `public.*`, not
+  `private.*`, for the same PostgREST-exposed-schema reason as the morning's claim/settle pair.
+- Three sequential migrations (`lab_result_consult_request_status` gains `'accepted'`;
+  `lab_result_consult_requests` gains `accepted_by`/`accepted_at`/`video_consultation_id`, mirroring
+  `video_visit_requests`'s own columns minus the slot-negotiation fields it doesn't need; the accept RPC
+  itself) applied and verified directly against the live `koiplnmbgnqnbywhpjlf` project — same sandbox
+  constraint as the morning's pass, no Docker/local Postgres available.
+- **Authority is a floor, not a fence, and explicitly excludes Care Coordinators by name** — any active
+  `clinical_staff` member of the SAME organisation whose `doctor_tier is not null and doctor_tier <>
+  'care_coordinator'` can accept (routine first-line scheduling, not prescribing or emergency-escalation
+  authority). Checking this live surfaced a real, non-obvious fact worth recording: `doctor_tier` itself
+  has a `'care_coordinator'` enum member (a Care Coordinator genuinely can hold a `clinical_staff` row,
+  confirmed live — one does, in the seed org) — so "any active clinical_staff row exists" alone, the
+  precedent `markResultDocumentReviewed` already uses, would NOT have excluded them. Matches the existing
+  tier-authority-monotonicity precedent (`project_tier_authority_monotonic_invariant` memory) exactly:
+  exclude `care_coordinator` by name, never require a specific tier floor above it.
+- **Double-booking guard, scoped honestly**: an advisory transaction lock keyed on the accepting
+  `clinical_staff` id (`pg_advisory_xact_lock(hashtextextended('lab_result_consult_accept:' ||
+  staff_id, 0))`) serializes concurrent accepts by the SAME doctor before an overlap check rejects a
+  second booking whose `[scheduled_at, scheduled_at + 15 minutes)` window collides with one they already
+  hold — a different doctor taking the exact same time is untouched. **This checks only this feature's own
+  bookings** — `video_consultations` itself carries no "assigned clinician" column at all (confirmed by
+  reading its live schema; a video-visit-sourced consult's doctor identity lives only on
+  `video_visit_requests.accepted_by`, a separate table) — so there is no shared "doctor's calendar"
+  abstraction to check against across both booking systems, and building one is out of scope here. A
+  doctor could in principle still double-book across a video-visit slot and a lab-result-consult slot at
+  the same time; flagged in the PR, not silently assumed away.
+- Deliberately did NOT touch or reuse the Appointment Engine (`provider_availability_rules`,
+  `get_available_appointment_slots`, `20260828000941_appointment_engine_availability.sql`) — its own
+  migration comments say it deliberately does not merge with the video-visit/consult economics, so
+  imitating it here would have been unsanctioned scope creep, not a precedent to follow.
+- Doctor-side UI: new `/clinician/lab-result-consults` page + nav entry (under "My work", cloned from
+  `clinician/availability/request-queue.tsx`'s queue-list-with-`useActionState`-form shape, minus the
+  propose-alternates/decline branches this flow doesn't have). A plain `<input type="datetime-local">` —
+  no shared date-time-picker component exists in this codebase yet; several other clinician pages
+  (`annual-reviews`, `availability-manager`) already use the same plain element, and its
+  `new Date(localValue).toISOString()` conversion helper is copied from `annual-reviews/page.tsx`
+  verbatim. `acceptLabResultConsultRequest` (new `clinician/lab-result-consults/actions.ts`) mirrors
+  `acceptVideoVisit`'s exact sequencing: the RPC creates/reserves the row, then Zoom's `createMeeting()` is
+  called best-effort and the row is patched with the join/host URLs, then the patient is notified — booking
+  success never depends on Zoom being configured or the notification send succeeding.
+- Patient notification: `sendLabResultConsultBookedConfirmation` (new
+  `notifications/lab-result-consult-confirmation.ts`), a clone of `sendVideoConsultBookedConfirmation`
+  reading back through `lab_result_consult_requests` instead of `video_visit_requests` (the two tables
+  share no join path). Template `lab_result_consult_booked`, whatsapp + in_app pair, `content_class` left
+  at its live-confirmed default (`'non_clinical'`) since a booking confirmation is logistics, not a
+  clinical finding — same posture as the video-visit equivalent. **Checked for the newer
+  `notification_templates`/`notification_template_locales` catalog tables before assuming the old
+  direct-insert pattern still applies** — they exist live (a concurrent, not-yet-merged-to-`main-dev`
+  session's work per the "Notification template catalog" memory entry) but zero `apps/web` code
+  references them and no committed migration for them exists on this branch, so the actual current
+  convention in the committed code is still the old direct-insert-into-`notifications` pattern; wiring into
+  an unmerged catalog would have been premature.
+- Verified: `packages/db/tests/lab_result_consult_accept.sql` — 11/11 checks pass, covering: the patient
+  cannot accept their own request; a Care Coordinator cannot accept; a different organisation's clinician
+  cannot accept (proven by temporarily repointing a real clinician's `clinical_staff.organisation_id` to a
+  freshly created temp org inside the rolled-back transaction, rather than fabricating a new `auth.users`
+  row); the real doctor's accept books a correctly-shaped `video_consultations` row; an already-accepted
+  request can't be accepted twice; a past scheduled time is rejected; the SAME doctor can't double-book an
+  overlapping time; a non-overlapping time for the same doctor succeeds; a DIFFERENT doctor is not blocked
+  by the first doctor's booking. Sabotaged the overlap check once (hardcoded the conflict flag to `false`)
+  and confirmed the double-booking test flips to FAIL, then confirmed the restore. `pnpm
+  typecheck`/`lint`/`test` clean at both package and monorepo-root level (109/109 web suites, 1123/1123
+  tests, 0 lint errors). Manually patched `database.types.ts` in both `packages/db/src/` and
+  `packages/shared/src/` again, same reason as the morning's pass.
+- **Not done, flagged not guessed at**: no reschedule/cancel path for an already-accepted lab-result
+  consult — a doctor who books the wrong time has no in-app way to change it yet. No doctor-side
+  notification/digest telling them a new request landed in their queue (they have to check the page). No
+  cross-system double-booking check against `video_visit_requests`-sourced bookings (see above). No
+  admin UI still, same as the morning's entry.
+
+### 2026-08-30 — same day, third pass: cross-system double-booking fixed, reschedule/cancel, staff notification, admin price UI
+
+Founder wanted all four gaps from the entry above closed before review. All four checked for existing
+precedent first, per standing instruction, with two real findings worth keeping visible:
+
+- **Cross-system double-booking (the correctness bug) — fixed for real, not worked around.** Checked
+  `video_consultations`' live schema: it carries no "assigned clinician" column at all, on any row,
+  from any source. The only real join back to a clinician identity for a `video_visit_requests`-sourced
+  booking is `video_visit_requests.video_consultation_id` -> `video_visit_requests.slot_id` ->
+  `consult_availability_slots.clinician_profile_id` — confirmed live that `slot_id` is accurate even
+  after a doctor proposed alternates and the patient picked a different one
+  (`select_video_visit_alternate_slot` updates `slot_id` to whichever slot was actually booked, not the
+  original request). New `private.lab_result_consult_slot_conflict()` checks BOTH systems for the
+  accepting clinician and is now called from `accept_lab_result_consult_request` (rewritten in place)
+  and the new `reschedule_lab_result_consult_request`. Chose the join over adding a `clinician_id`
+  column to `video_consultations` (a shared table several other flows write into, needing every one
+  updated plus a backfill) — the join needs neither. **Residual, stated plainly, not silently
+  fixed**: only this feature's own accept/reschedule now check against video-visit bookings; the mirror
+  direction (video-visit accept checking against lab-result-consult bookings) would mean modifying the
+  separate, pre-existing, actively-used video-visit RPCs themselves — out of scope for a targeted fix.
+  A doctor could in principle still double-book by accepting a video-visit request over an existing
+  lab-result-consult booking. Verified with a REAL fixture, not a stand-in: an actual
+  `consult_availability_slots` + `video_visit_requests` row taken all the way through the genuine
+  `accept_video_visit_request` RPC, then confirmed a lab-result-consult accept at the same time is now
+  rejected (was previously silently allowed) — sabotaged the check once (stripped back to the old,
+  lab-result-consult-only query) and confirmed the test flips to FAIL, then restored.
+- **Reschedule/release (doctor) + cancel (patient).** Checked precedent first and found two things
+  worth recording: `video_visit_requests`' own `cancel_video_visit_request` is dead code (defined,
+  never called from any UI, and only ever worked pre-payment via a raw RLS delete anyway); and
+  `video_consultations`' migration (`20260828000220`) deliberately dropped a planned cancel/no-show RPC
+  because a separate, concurrent "Appointment Engine" (`appointments`, `reschedule_appointment`,
+  2026-08-28) was meant to own that going forward. Checked live: the Appointment Engine has exactly
+  zero rows in `appointments` — it is not tracking any real booking today, video-visit or otherwise —
+  so a narrow mechanism scoped only to this feature's own rows cannot create the "two disagreeing
+  records" problem that migration warned about. Built three RPCs:
+  `reschedule_lab_result_consult_request` (re-runs the cross-system conflict check, clears Zoom fields
+  so a fresh meeting gets minted for the new time — this codebase has no "update an existing Zoom
+  meeting" call anywhere to reuse instead), `release_lab_result_consult_request` (doctor gives up a
+  booking; reverts to `document_uploaded` or `payment_confirmed` depending on whether
+  `lab_result_document_id` is actually set — not a guessed/snapshotted status string — cancels the
+  booked consult, never touches the patient's paid fee), and `cancel_lab_result_consult_request`
+  (patient cancels outright, no refund — matches this platform's existing non-refundable-mid-period
+  posture, e.g. the payment webhooks' own subscription-cancel handling). Doctor-side UI: a second card
+  on `/clinician/lab-result-consults` for "your booked consults" with reschedule/release controls.
+  Patient-side: a compact status-list-with-cancel section added to `PatientResultUpload` (new optional
+  `patientId` prop, deliberately NOT wired at the per-order call site in `lab-orders-list.tsx` since that
+  renders inside a `.map()` and would duplicate the list once per open order — wired only at the one
+  standalone, non-looped call site in `annual-health-check-booking.tsx` instead).
+- **Doctor notification when a request first becomes claimable.** `clinician_alerts` was the obvious
+  first guess and the wrong one — read its live classify/assign trigger
+  (`private.classify_and_assign_clinician_alert`) and confirmed it drives a real clinical severity/SLA/
+  escalation-ladder/auto-assignment system with no "routine logistics" bucket; shoehorning "a payment
+  cleared, pick a time" into it would dilute a system whose whole purpose is surfacing genuinely urgent
+  clinical findings. Checked the support-inbox and care_outreach_engine queues too — neither has any
+  active staff-facing push, staff just check the page. `notification_broadcasts` is the one real
+  broadcast mechanism in this codebase, but it's manual/admin-triggered and patient/partner-audience
+  only. Conclusion: no existing "auto-notify all org staff of a routine item" mechanism exists, so built
+  the minimal correct one — `private.notify_org_clinical_staff()` (one `notifications` row per active,
+  non-Care-Coordinator clinician, `in_app` only, matching the founder's own "this is routine, not
+  emergency" framing) fired by a new trigger the moment status first reaches `payment_confirmed` (not
+  re-fired on the later `document_uploaded` transition). Added the render case to
+  `NotificationBell.describe()` (`components/shell/notification-bell.tsx`) — the one real generic
+  in-app-notification surface this codebase already has, used by both clinician and patient dashboards
+  — plus cases for the new `lab_result_consult_rescheduled`/`lab_result_consult_needs_rescheduling`
+  templates from the reschedule/release notices above.
+- **Admin price UI.** No admin UI exists for `video_visit_prices` either (the table this feature's price
+  book was cloned from) — a plain SQL `UPDATE` was the only way to change that price, and still is,
+  since this pass didn't touch it. The closest real precedent, `/admin/settings/diaspora-pricing`, is a
+  derived-currency-rate editor too specific to reuse directly, but its RBAC gate shape
+  (`getCurrentProfile().role !== "admin"` redirect, defence in depth on top of `proxy.ts`) is the
+  reusable part. For the audit-trail convention specifically: found it in
+  `admin/settings/subscriptions/actions.ts`'s bulk price-adjustment action — a direct
+  `audit_log` insert (`action: "billing.price_adjustment"`) is the real, existing pattern for "an admin
+  changed a commercial price," not diaspora-pricing's narrower `updated_by`/`updated_at`-only approach.
+  New `/admin/settings/lab-result-consult-pricing` page: edit the platform-default row, edit any
+  existing per-organisation override, add a new override for any org that doesn't have one yet — every
+  save writes an `audit_log` row (`billing.lab_result_consult_price_change`) with the old and new
+  amount. Nav entry added under admin's "Commercial" group.
+- Verified: `packages/db/tests/lab_result_consult_cross_system_and_lifecycle.sql` — 16/16 checks pass
+  (cross-system conflict rejected/allowed correctly, reschedule re-runs the check and clears Zoom
+  fields, release reverts to the correct pre-accept status in both branches, patient cancel is
+  patient-scoped and refuses a terminal request, the staff-notify trigger fires exactly once per active
+  clinician and does not re-fire on a later unrelated transition). Re-ran the two earlier test files
+  (`lab_result_consult_fee.sql` 16/16, `lab_result_consult_accept.sql` 11/11) as a full regression check
+  after rewriting `accept_lab_result_consult_request` in place — all 43 checks across all three files
+  still pass. Sabotaged the cross-system conflict check specifically (the correctness-bug fix) and
+  confirmed it flips to FAIL, then restored. `pnpm typecheck`/`lint`/`test` clean at both package and
+  monorepo-root level (109/109 web suites, 1123/1123 tests, 0 lint errors — two real lint errors
+  surfaced and were fixed along the way: a `setState`-in-effect violation and an unescaped apostrophe,
+  both in the new doctor-queue component). `database.types.ts` patched again in both
+  `packages/db/src/` and `packages/shared/src/`.
+- **Not done, flagged not guessed at**: the mirror-direction cross-system check (video-visit accept
+  checking against lab-result-consult bookings) — see above. No reschedule of a `cancelled` request (a
+  patient who cancels, then changes their mind, has to pay again — matches "no refund," not an
+  oversight). The `PatientResultUpload` status list only renders where a `patientId` prop was cheap to
+  wire through; the per-order upload slot in `lab-orders-list.tsx` still doesn't show it. No change to
+  `video_visit_prices` — still no admin UI for that one, only for this feature's own price now.
+

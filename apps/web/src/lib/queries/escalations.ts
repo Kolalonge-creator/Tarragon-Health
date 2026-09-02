@@ -247,10 +247,16 @@ export function useResolveEscalation() {
       escalationId,
       status,
       resolutionNote,
+      identityConfirmed,
     }: {
       escalationId: string;
       status: "resolved" | "referred";
       resolutionNote: string;
+      /** Wrong-patient prevention (§89.4) — the DB rejects a RESOLVE
+       * transition without this (private.enforce_escalation_identity_confirm);
+       * referring a case is unaffected. Server derives
+       * identity_confirmed_by/at from auth.uid(), never client-supplied. */
+      identityConfirmed: boolean;
     }) => {
       const supabase = createClient();
       const {
@@ -265,6 +271,7 @@ export function useResolveEscalation() {
           resolution_note: resolutionNote,
           reviewed_by: user.id,
           reviewed_at: new Date().toISOString(),
+          identity_confirmed: identityConfirmed,
         })
         .eq("id", escalationId);
       if (error) throw error;

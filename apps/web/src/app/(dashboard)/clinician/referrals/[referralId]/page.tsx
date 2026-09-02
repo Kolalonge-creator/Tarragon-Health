@@ -1,22 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Stepper } from "@/components/ui/stepper";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
-import { koboToNaira, type ReferralStatus } from "@tarragon/shared";
+import { koboToNaira } from "@tarragon/shared";
 import type { SpecialistReferralWithDetails } from "@/lib/queries/specialist-referrals";
+import { REFERRAL_STATUS_BADGE } from "@/lib/worklist/referral-status-badge";
 import { ClinicalSummaryPanel } from "./clinical-summary-panel";
-
-const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["variant"]; label: string }> = {
-  pending: { variant: "amber", label: "Needs specialist assigned" },
-  pending_payment: { variant: "amber", label: "Awaiting payment" },
-  payment_confirmed: { variant: "blue", label: "Ready to book" },
-  booked: { variant: "blue", label: "Booked" },
-  confirmed: { variant: "blue", label: "Confirmed" },
-  completed: { variant: "green", label: "Completed" },
-  declined: { variant: "grey", label: "Declined" },
-  waitlisted: { variant: "amber", label: "Waitlisted, no specialist available" },
-};
 
 const REFERRAL_SELECT =
   "*, patient:profiles!specialist_referrals_patient_id_fkey(full_name), specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name, consultation_fee_kobo)";
