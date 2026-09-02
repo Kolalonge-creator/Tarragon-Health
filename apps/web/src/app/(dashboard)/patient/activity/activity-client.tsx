@@ -6,8 +6,11 @@ import {
   useActivityGoal,
   useActivityEntries,
   useTodaySteps,
+  useWeeklyActivityMinutes,
   type ActivityEntry,
 } from "@/lib/queries/activity";
+import { useLatestWeightKg } from "@/lib/queries/vitals";
+import { classifyActivity, caloriesBurned, WHO_WEEKLY_TARGET_MINUTES } from "@/lib/activity/intensity";
 import {
   setActivityGoalAction,
   logStepsAction,
@@ -26,6 +29,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 const GOAL_QUERY_KEY = "activity-goal";
 const TODAY_STEPS_KEY = "today-steps";
 const ENTRIES_KEY = "activity-entries";
+const WEEKLY_MINUTES_KEY = "weekly-activity-minutes";
 
 function StepRing({ current, goal }: { current: number; goal: number }) {
   const size = 176;
@@ -93,6 +97,8 @@ export function ActivityClient({ patientId }: { patientId: string }) {
   const goal = useActivityGoal(patientId);
   const todaySteps = useTodaySteps(patientId);
   const entries = useActivityEntries(patientId);
+  const weeklyMinutes = useWeeklyActivityMinutes(patientId);
+  const latestWeight = useLatestWeightKg(patientId);
 
   const stepGoal = goal.data?.daily_step_goal ?? 7500;
 
@@ -117,6 +123,8 @@ export function ActivityClient({ patientId }: { patientId: string }) {
 
       <LogWorkoutCard patientId={patientId} />
 
+      <WeeklyGuidelineCard minutes={weeklyMinutes.data} loading={weeklyMinutes.isLoading} />
+
       <Card>
         <CardHeader>
           <CardTitle>History</CardTitle>
@@ -132,7 +140,12 @@ export function ActivityClient({ patientId }: { patientId: string }) {
                 <p className="mb-2 text-sm font-semibold text-charcoal-ink">{groupLabel(dateKey)}</p>
                 <ul className="space-y-2">
                   {rows.map((entry) => (
-                    <EntryRow key={entry.id} entry={entry} patientId={patientId} />
+                    <EntryRow
+                      key={entry.id}
+                      entry={entry}
+                      patientId={patientId}
+                      weightKg={latestWeight.data?.weight_kg ?? null}
+                    />
                   ))}
                 </ul>
               </div>
@@ -141,6 +154,42 @@ export function ActivityClient({ patientId }: { patientId: string }) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function WeeklyGuidelineCard({ minutes, loading }: { minutes: number | undefined; loading: boolean }) {
+  const total = minutes ?? 0;
+  const progressPct = Math.min(100, Math.round((total / WHO_WEEKLY_TARGET_MINUTES) * 100));
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>This week&apos;s activity guideline</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {loading ? (
+          <p className="text-sm text-charcoal-ink/60">Loading…</p>
+        ) : (
+          <>
+            <p className="text-sm text-charcoal-ink/70">
+              WHO recommends {WHO_WEEKLY_TARGET_MINUTES} minutes of moderate activity a week (vigorous
+              minutes count double). You&apos;re at{" "}
+              <span className="font-semibold text-charcoal-ink">{total} min</span> from this week&apos;s
+              logged workouts.
+            </p>
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
+              <div
+                className="h-full rounded-full bg-brand-green transition-all"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-charcoal-ink/60">
+              {progressPct >= 100 ? "Weekly guideline reached, nice work." : `${progressPct}% of the way there.`}
+            </p>
+          </>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -242,6 +291,7 @@ function LogWorkoutCard({ patientId }: { patientId: string }) {
       const result = await logWorkoutAction(prev, formData);
       if (result?.success) {
         queryClient.invalidateQueries({ queryKey: [ENTRIES_KEY, patientId] });
+        queryClient.invalidateQueries({ queryKey: [WEEKLY_MINUTES_KEY, patientId] });
       }
       return result;
     },
@@ -293,9 +343,30 @@ function entrySummary(entry: ActivityEntry): string {
 
 const StepsIcon = SEMANTIC_ICON.steps;
 
-function EntryRow({ entry, patientId }: { entry: ActivityEntry; patientId: string }) {
+const INTENSITY_LABEL: Record<ReturnType<typeof classifyActivity>["intensity"], string> = {
+  light: "Light",
+  moderate: "Moderate",
+  vigorous: "Vigorous",
+};
+
+function EntryRow({
+  entry,
+  patientId,
+  weightKg,
+}: {
+  entry: ActivityEntry;
+  patientId: string;
+  weightKg: number | null;
+}) {
   const queryClient = useQueryClient();
   const [favorite, setFavorite] = useState(entry.is_favorite);
+
+  const workoutDetail =
+    entry.entry_type === "workout" && entry.activity_name && entry.duration_minutes != null
+      ? classifyActivity(entry.activity_name)
+      : null;
+  const calories =
+    workoutDetail && weightKg ? caloriesBurned(workoutDetail.met, weightKg, entry.duration_minutes as number) : null;
 
   return (
     <li className="flex items-center justify-between gap-3 rounded-lg border border-charcoal-ink/10 p-3">
@@ -307,6 +378,12 @@ function EntryRow({ entry, patientId }: { entry: ActivityEntry; patientId: strin
           <p className="text-sm font-medium text-charcoal-ink">{entrySummary(entry)}</p>
           {entry.entry_type === "steps" && entry.step_count != null && (
             <p className="text-xs text-charcoal-ink/50">Logged for the day</p>
+          )}
+          {workoutDetail && (
+            <p className="text-xs text-charcoal-ink/50">
+              {INTENSITY_LABEL[workoutDetail.intensity]} intensity
+              {calories != null ? ` · ~${calories.toLocaleString()} kcal` : ""}
+            </p>
           )}
         </div>
       </div>

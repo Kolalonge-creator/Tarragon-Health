@@ -1,23 +1,19 @@
 "use client";
 
-import { useActionState, useEffect, useState, useTransition } from "react";
-import {
-  useCurrentSubscription,
-  useAttachedAddOns,
-  useAvailableAddOns,
-} from "@/lib/queries/subscriptions";
-import { useActivePatientPlans, type SubscriptionPlan } from "@/lib/queries/subscription-plans";
-import { selectAttachableAddOns } from "@/lib/subscriptions/attachable-add-ons";
-import { changePlan, attachAddOn, detachAddOn, cancelSubscription, resumeSubscription } from "./actions";
+import { useActionState, useEffect, useState } from "react";
+import { useMyServicePurchases, isPurchaseCurrentlyActive } from "@/lib/queries/service-purchases";
+import { useActiveServiceProducts, type ServiceProduct } from "@/lib/queries/service-products";
+import { buyServiceProduct } from "./actions";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
-import { CurrencyTabs } from "@/components/currency-tabs";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
-function formatPrice(priceMinor: number, currency: Currency, interval: string): string {
-  if (priceMinor === 0) return "Free";
-  return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(priceMinor, currency).toLocaleString()}/${interval === "yearly" ? "year" : "month"}`;
+function formatPrice(priceKobo: number, currency: Currency): string {
+  if (priceKobo === 0) return "Free";
+  return `${CURRENCY_SYMBOL[currency]}${fromMinorUnits(priceKobo, currency).toLocaleString()}`;
 }
 
 function formatDate(iso: string | null | undefined): string | null {
@@ -27,361 +23,154 @@ function formatDate(iso: string | null | undefined): string | null {
   return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
-const STATUS_BADGE: Record<string, { label: string; variant: "green" | "amber" | "red" | "grey" }> = {
-  active: { label: "Active", variant: "green" },
-  trialing: { label: "Pending payment", variant: "amber" },
-  past_due: { label: "Payment failed", variant: "red" },
-  cancelled: { label: "Cancelled", variant: "grey" },
-};
-
+/**
+ * Pay-per-service patient billing page (2026-08-31, replaced the recurring
+ * subscription/add-on manager). There is no "current plan" any more —
+ * has_feature_access unions features across every currently active
+ * service_purchases row, so a patient can simultaneously hold several (e.g.
+ * essential_pack + lifestyle-coaching_pack). There is also no cancel/resume
+ * concept: a purchase is a one-off charge for a fixed window and simply
+ * expires — buying again is the only "renewal" there is.
+ */
 export function SubscriptionManager() {
-  const { data: subscription, isLoading, isError, refetch: refetchSubscription } =
-    useCurrentSubscription();
-  const { data: addOns, refetch: refetchAddOns } = useAttachedAddOns(subscription?.id);
-  const { data: catalogue } = useAvailableAddOns();
-  const { data: plans } = useActivePatientPlans();
+  const { data: purchases, isLoading, isError, refetch: refetchPurchases } = useMyServicePurchases();
+  const { data: catalogue } = useActiveServiceProducts();
+  const [buyState, buyAction, buyPending] = useActionState(buyServiceProduct, undefined);
+  const [promoCode, setPromoCode] = useState("");
 
-  const [changeState, changeAction, changePending] = useActionState(changePlan, undefined);
-  const [attachState, attachAction, attachPending] = useActionState(attachAddOn, undefined);
-  const [pendingId, startTransition] = useTransition();
-  const [rowMessage, setRowMessage] = useState<string | null>(null);
-  const [confirmingCancel, setConfirmingCancel] = useState(false);
-  // Undefined until the patient manually switches tabs — until then, the
-  // tab tracks their current plan's currency (falls back to NGN once
-  // `subscription` has loaded and has no plan/is on the currency-less free plan).
-  const [currencyOverride, setCurrencyOverride] = useState<Currency | null>(null);
-
-  // changePlan's free-plan branch resolves in place (paid plans redirect to
-  // Paystack instead, which navigates away and re-fetches naturally) — a
-  // successful switch needs an explicit refetch, or the card above keeps
-  // showing the old plan/status despite the "Switched to..." message below it.
   useEffect(() => {
-    if (changeState?.message) {
-      refetchSubscription();
-      refetchAddOns();
+    if (buyState?.message) {
+      refetchPurchases();
     }
-  }, [changeState, refetchSubscription, refetchAddOns]);
+  }, [buyState, refetchPurchases]);
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
-  if (isError) return <p className="text-sm text-red-600">Could not load your subscription.</p>;
+  if (isError) return <p className="text-sm text-red-600">Could not load your services.</p>;
 
-  if (!subscription) {
-    return (
-      <p className="text-sm text-charcoal-ink/60">
-        No plan on file yet. This shouldn&apos;t happen after onboarding. Contact support if
-        this persists.
-      </p>
-    );
-  }
-
-  const status = STATUS_BADGE[subscription.status] ?? { label: subscription.status, variant: "grey" as const };
-  const currentPlanCode = subscription.plan?.code ?? null;
-  const currency = currencyOverride ?? ((subscription.plan?.currency as Currency | undefined) ?? "NGN");
-  const switchablePlans = (plans ?? []).filter(
-    (p) => p.code !== currentPlanCode && (p.code === "free" || p.currency === currency),
+  const active = (purchases ?? []).filter(isPurchaseCurrentlyActive);
+  const activeProductIds = new Set(active.map((p) => p.service_product_id));
+  // NGN only — USD/GBP service_products (e.g. lifestyle-coaching_usd_pack)
+  // exist for the diaspora sponsor-checkout flow (sponsor-bill-checkout.ts),
+  // never for a patient buying their own access. See
+  // docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md's "diaspora is a sponsor, not a
+  // patient" decision — there is no diaspora patient-facing tier.
+  const buyable = (catalogue ?? []).filter(
+    (product) => product.currency === "NGN" && !activeProductIds.has(product.id),
   );
-  /**
-   * Dollars lead with the yearly row, naira keeps its natural order.
-   *
-   * Same reasoning as the onboarding plan selector: a dollar plan is the naira
-   * price converted, so buying it monthly is twelve small card charges a year
-   * instead of one. Every dollar price (monthly or yearly) already carries a
-   * disclosed 10% international-card processing fee since 2026-08-02 (see the
-   * note rendered next to CurrencyTabs below) -- yearly halves the number of
-   * charges, it does not change the per-charge fee rate. Only the order
-   * changes here; every monthly row is still listed and still switchable.
-   */
-  const otherPlans =
-    currency === "USD"
-      ? [...switchablePlans].sort(
-          (a, b) => (a.interval === "yearly" ? 0 : 1) - (b.interval === "yearly" ? 0 : 1),
-        )
-      : switchablePlans;
-  // Never offers an add-on whose features this patient already has — see
-  // lib/subscriptions/attachable-add-ons.ts for why that mattered.
-  const attachableAddOns = selectAttachableAddOns({
-    catalogue: catalogue ?? [],
-    planFeatures: subscription.plan?.features,
-    attached: (addOns ?? []).map((a) => ({
-      code: a.add_on?.code,
-      features: a.add_on?.features,
-    })),
-    currency,
-    currentPlanCode,
-  });
-
-  const isPaid = !!subscription.plan && subscription.plan.price_minor > 0;
-  const scheduledToCancel = subscription.cancel_at_period_end && subscription.status !== "cancelled";
-  const periodEndLabel = formatDate(subscription.current_period_end);
-
-  function handleDetach(id: string) {
-    startTransition(async () => {
-      const result = await detachAddOn(id);
-      setRowMessage(result?.message ?? result?.error ?? null);
-      refetchAddOns();
-    });
-  }
-
-  function handleCancel() {
-    if (!subscription) return;
-    startTransition(async () => {
-      const result = await cancelSubscription(subscription.id);
-      setRowMessage(result?.message ?? result?.error ?? null);
-      setConfirmingCancel(false);
-      refetchSubscription();
-    });
-  }
-
-  function handleResume() {
-    if (!subscription) return;
-    startTransition(async () => {
-      const result = await resumeSubscription(subscription.id);
-      setRowMessage(result?.message ?? result?.error ?? null);
-      refetchSubscription();
-    });
-  }
 
   return (
     <div className="space-y-4">
-      {rowMessage && <p className="text-sm text-charcoal-ink/70">{rowMessage}</p>}
-
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.3fr_1fr]">
-        <Card className="border-none bg-gradient-to-br from-deep-forest to-brand-green text-white">
+        <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-white">{subscription.plan?.name ?? "Unknown plan"}</CardTitle>
-              <Badge variant="grey" className="bg-white/20 text-white">
-                {scheduledToCancel ? "Auto-renewal off" : status.label}
-              </Badge>
-            </div>
-            <CardDescription className="text-white/80">
-              {subscription.plan
-                ? formatPrice(
-                    subscription.plan.price_minor,
-                    subscription.plan.currency as Currency,
-                    subscription.plan.interval,
-                  )
-                : null}
-              {isPaid && periodEndLabel && (
-                <>
-                  {" · "}
-                  {scheduledToCancel
-                    ? `Ends ${periodEndLabel}, you keep access until then`
-                    : `Auto-renews ${periodEndLabel}`}
-                </>
-              )}
+            <CardTitle>Your active services</CardTitle>
+            <CardDescription>
+              Each is a one-off purchase covering a fixed window — nothing renews automatically,
+              and payments aren&apos;t refundable. Buy again any time to extend.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {isPaid && (
-              <p className="text-xs text-white/70">
-                Your plan renews automatically at the end of each{" "}
-                {subscription.plan?.interval === "yearly" ? "year" : "month"} so your care never
-                lapses. You can turn off auto-renewal any time. Subscriptions are non-refundable:
-                the {subscription.plan?.interval === "yearly" ? "year" : "month"}
-                {" "}you&apos;ve paid for runs to the end, and turning off auto-renewal simply
-                stops the next charge.
+          <CardContent>
+            {active.length === 0 ? (
+              <p className="text-sm text-charcoal-ink/60">
+                Nothing active yet — you&apos;re on Tarragon Free. Buy a service to unlock more.
               </p>
-            )}
-
-            {isPaid && !scheduledToCancel && subscription.status !== "cancelled" && !confirmingCancel && (
-              <Button
-                size="sm"
-                disabled={pendingId}
-                onClick={() => setConfirmingCancel(true)}
-                className="bg-white text-deep-forest hover:bg-white/90"
-              >
-                Turn off auto-renewal
-              </Button>
-            )}
-
-            {isPaid && confirmingCancel && (
-              <div className="space-y-3 rounded-md border border-white/25 bg-white/10 p-4">
-                <p className="text-sm font-medium text-white">Turn off auto-renewal?</p>
-                <p className="text-sm text-white/80">
-                  {periodEndLabel
-                    ? `You'll keep ${subscription.plan?.name ?? "your plan"} until ${periodEndLabel}, then it ends and won't renew.`
-                    : `You'll keep ${subscription.plan?.name ?? "your plan"} until the end of the period you've paid for, then it ends and won't renew.`}{" "}
-                  Subscriptions are non-refundable, so you won&apos;t be charged again but the
-                  current period is not refunded.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    size="sm"
-                    disabled={pendingId}
-                    onClick={handleCancel}
-                    className="bg-white text-deep-forest hover:bg-white/90"
-                  >
-                    Yes, turn off auto-renewal
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={pendingId}
-                    onClick={() => setConfirmingCancel(false)}
-                    className="border-white/40 text-white hover:bg-white/10"
-                  >
-                    Keep my plan
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {scheduledToCancel && (
-              <div className="space-y-3 rounded-md border border-white/25 bg-white/10 p-4">
-                <p className="text-sm text-white/80">
-                  Auto-renewal is off.{" "}
-                  {periodEndLabel
-                    ? `Your plan stays active until ${periodEndLabel} and won't renew.`
-                    : "Your plan runs to the end of the period you've paid for and won't renew."}{" "}
-                  Changed your mind?
-                </p>
-                <Button
-                  size="sm"
-                  disabled={pendingId}
-                  onClick={handleResume}
-                  className="bg-white text-deep-forest hover:bg-white/90"
-                >
-                  Turn auto-renewal back on
-                </Button>
-              </div>
+            ) : (
+              <ul className="divide-y divide-charcoal-ink/10">
+                {active.map((purchase) => {
+                  const endLabel = formatDate(purchase.expires_at);
+                  return (
+                    <li key={purchase.id} className="flex items-center justify-between gap-4 py-3">
+                      <div>
+                        <p className="text-sm font-medium text-charcoal-ink">
+                          {purchase.service_product?.name ?? "Unknown service"}
+                        </p>
+                        <p className="text-xs text-charcoal-ink/60">
+                          {endLabel ? `Active until ${endLabel}` : "Active, no expiry"}
+                        </p>
+                      </div>
+                      <Badge variant="green">Active</Badge>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </CardContent>
         </Card>
 
-        <div className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Change plan</CardTitle>
-              <CardDescription>
-                Switching starts a fresh billing cycle on the new plan: no partial-month credit.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <CurrencyTabs value={currency} onChange={setCurrencyOverride} />
-              {currency === "USD" && (
-                <p className="rounded-lg bg-charcoal-ink/5 p-3 text-xs text-charcoal-ink/70">
-                  Dollar prices below (plans and add-ons) already include a 10% international
-                  card-processing fee, on top of the converted naira price.
-                </p>
-              )}
-              {changeState?.error && <p className="text-sm text-red-600">{changeState.error}</p>}
-              {changeState?.message && <p className="text-sm text-charcoal-ink/70">{changeState.message}</p>}
-              {otherPlans.length > 0 && (
-                <p className="text-xs text-charcoal-ink/60">
-                  Switching charges the new plan&apos;s price immediately and renews automatically
-                  every {otherPlans[0]?.interval === "yearly" ? "year" : "billing period"}
-                  {" "}until you cancel. Payments aren&apos;t refundable.
-                </p>
-              )}
-              {otherPlans.length === 0 ? (
-                <p className="text-sm text-charcoal-ink/60">No other {currency} plans available.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {otherPlans.map((plan: SubscriptionPlan) => (
-                    <form key={plan.id} action={changeAction} className="w-full sm:w-auto">
-                      <input type="hidden" name="subscriptionId" value={subscription.id} />
-                      <input type="hidden" name="planCode" value={plan.code} />
-                      {/* Button defaults to whitespace-nowrap, and a label like
-                          "Switch to Complete Care (yearly) (₦200,000/year)" is
-                          wider than a phone — it pushed the page sideways.
-                          Allowed to wrap, full-width on small screens. */}
-                      <Button
-                        type="submit"
-                        size="sm"
-                        variant="outline"
-                        disabled={changePending}
-                        className="h-auto w-full whitespace-normal py-2 text-left sm:w-auto"
-                      >
-                        Switch to {plan.name} (
-                        {formatPrice(plan.price_minor, plan.currency as Currency, plan.interval)})
-                      </Button>
-                    </form>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Add-on services</CardTitle>
-              <CardDescription>Attach optional services to your plan.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {addOns && addOns.length > 0 && (
-                <ul className="divide-y divide-charcoal-ink/10">
-                  {addOns.map((row) => {
-                    const addOnScheduledToCancel = row.cancel_at_period_end && row.status !== "cancelled";
-                    const addOnEndLabel = formatDate(row.current_period_end);
-                    return (
-                      <li key={row.id} className="flex items-center justify-between gap-4 py-3">
-                        <div>
-                          <p className="text-sm font-medium text-charcoal-ink">
-                            {row.add_on?.name ?? "Unknown add-on"}
-                          </p>
-                          <p className="text-xs text-charcoal-ink/60">
-                            {row.add_on &&
-                              formatPrice(row.add_on.price_minor, row.add_on.currency as Currency, row.add_on.interval)}{" "}
-                            ·{" "}
-                            {addOnScheduledToCancel
-                              ? addOnEndLabel
-                                ? `Ends ${addOnEndLabel}`
-                                : "Ends at period end"
-                              : STATUS_BADGE[row.status]?.label ?? row.status}
-                          </p>
-                        </div>
-                        {row.status !== "cancelled" && !addOnScheduledToCancel && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={pendingId}
-                            onClick={() => handleDetach(row.id)}
-                          >
-                            Remove
-                          </Button>
-                        )}
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-
-              {attachState?.error && <p className="text-sm text-red-600">{attachState.error}</p>}
-              {attachableAddOns.length === 0 ? (
-                <p className="text-sm text-charcoal-ink/60">
-                  No add-ons available for your current plan.
-                </p>
-              ) : (
-                <>
-                  <p className="text-xs text-charcoal-ink/60">
-                    Add-ons are charged immediately and renew automatically with your plan until
-                    you remove them. Payments aren&apos;t refundable.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {attachableAddOns.map((addOn) => (
-                      <form key={addOn.id} action={attachAction} className="w-full sm:w-auto">
-                        <input type="hidden" name="subscriptionId" value={subscription.id} />
-                        <input type="hidden" name="addOnCode" value={addOn.code} />
-                        {/* Same wrap treatment as the plan-switch buttons above. */}
-                        <Button
-                          type="submit"
-                          size="sm"
-                          disabled={attachPending}
-                          className="h-auto w-full whitespace-normal py-2 text-left sm:w-auto"
-                        >
-                          Add {addOn.name} (
-                          {formatPrice(addOn.price_minor, addOn.currency as Currency, addOn.interval)})
-                        </Button>
-                      </form>
-                    ))}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <Card>
+          <CardHeader>
+            <CardTitle>Buy a service</CardTitle>
+            <CardDescription>One-off payment, no auto-renewal.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {buyState?.error && <p className="text-sm text-red-600">{buyState.error}</p>}
+            {buyState?.message && <p className="text-sm text-charcoal-ink/70">{buyState.message}</p>}
+            {buyable.length > 0 && (
+              <div className="space-y-1">
+                <Label htmlFor="promo-code" className="text-xs text-charcoal-ink/60">
+                  Promo code (optional)
+                </Label>
+                <Input
+                  id="promo-code"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value)}
+                  placeholder="e.g. WELCOME10"
+                  className="h-9 max-w-xs"
+                  autoCapitalize="characters"
+                />
+              </div>
+            )}
+            {buyable.length === 0 ? (
+              <p className="text-sm text-charcoal-ink/60">
+                You already have everything currently on offer.
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {buyable.map((product: ServiceProduct) => (
+                  <form key={product.id} action={buyAction} className="w-full sm:w-auto">
+                    <input type="hidden" name="serviceProductCode" value={product.code} />
+                    <input type="hidden" name="promoCode" value={promoCode} />
+                    <Button
+                      type="submit"
+                      size="sm"
+                      variant="outline"
+                      disabled={buyPending}
+                      className="h-auto w-full whitespace-normal py-2 text-left sm:w-auto"
+                    >
+                      {product.price_kobo === 0 ? "Switch to" : "Buy"} {product.name} (
+                      {formatPrice(product.price_kobo, product.currency as Currency)})
+                    </Button>
+                  </form>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
+
+      {(purchases ?? []).some((p) => !isPurchaseCurrentlyActive(p)) && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Past services</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ul className="divide-y divide-charcoal-ink/10">
+              {(purchases ?? [])
+                .filter((p) => !isPurchaseCurrentlyActive(p))
+                .map((purchase) => (
+                  <li key={purchase.id} className="flex items-center justify-between gap-4 py-3">
+                    <p className="text-sm text-charcoal-ink/70">
+                      {purchase.service_product?.name ?? "Unknown service"}
+                    </p>
+                    <Badge variant="grey">
+                      {purchase.status === "pending_payment" ? "Payment pending" : purchase.status}
+                    </Badge>
+                  </li>
+                ))}
+            </ul>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

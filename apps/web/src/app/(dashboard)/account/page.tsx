@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { MfaSettingsCard } from "@/components/account/mfa-settings-card";
+import { SignOutOtherDevicesCard } from "@/components/account/sign-out-other-devices-card";
 import { PatientLocationForm } from "@/app/(dashboard)/patient/patient-location-form";
 
 function Field({ label, value }: { label: string; value: React.ReactNode }) {
@@ -136,6 +137,7 @@ export default async function AccountPage() {
 
       <ChangePasswordForm />
       <MfaSettingsCard verifiedFactorId={verifiedFactorId} />
+      <SignOutOtherDevicesCard />
     </div>
   );
 }

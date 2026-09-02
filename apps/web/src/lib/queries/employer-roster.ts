@@ -30,6 +30,28 @@ export function useEmployerRoster(organisationId: string) {
   });
 }
 
+export type RosterCounts = { eligible_count: number; activated_count: number; pending_count: number };
+
+/**
+ * docs/FULL_SPECIFICATION_V4.md §94.2's "Eligible employees / Activated"
+ * split, named formally (public.employer_roster_counts) instead of derived
+ * ad hoc from status filters — eligible = not removed, activated = claimed.
+ */
+export function useEmployerRosterCounts(organisationId: string) {
+  return useQuery({
+    queryKey: [...rosterKey(organisationId), "counts"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .rpc("employer_roster_counts", { p_organisation_id: organisationId })
+        .single();
+      if (error) throw error;
+      return data as RosterCounts;
+    },
+    enabled: !!organisationId,
+  });
+}
+
 export function useAddRosterMember(organisationId: string) {
   const queryClient = useQueryClient();
   return useMutation({

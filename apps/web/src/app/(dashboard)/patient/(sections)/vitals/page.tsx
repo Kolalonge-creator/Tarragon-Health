@@ -12,6 +12,8 @@ import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-conne
 import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
 import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-check";
 import { listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
+import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
+import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 
 export default async function PatientVitalsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -45,6 +47,10 @@ export default async function PatientVitalsPage() {
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}
       <DiabetesDailyLog patientId={subjectId} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ComplicationStatus patientId={subjectId} />
+        <FootRiskStatus patientId={subjectId} />
+      </div>
       <WearableConnectSection patientId={subjectId} />
     </DashboardSection>
   );

@@ -266,9 +266,9 @@ create trigger payment_transactions_apply_voucher_payment
   after insert on public.payment_transactions
   for each row execute function private.apply_voucher_payment_from_transaction();
 
-revoke all on function public.purchase_care_voucher(uuid, uuid, text) from public;
+revoke all on function public.purchase_care_voucher(uuid, uuid, text) from public, anon;
 revoke all on function public.purchase_care_voucher(uuid, uuid, text) from anon;
-revoke all on function public.record_voucher_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) from public;
+revoke all on function public.record_voucher_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) from public, anon;
 revoke all on function public.record_voucher_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) from anon;
 grant execute on function public.purchase_care_voucher(uuid, uuid, text) to authenticated;
 grant execute on function public.record_voucher_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) to authenticated;

@@ -155,10 +155,23 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       // ANTHROPIC_API_KEY must degrade this turn, not throw before we can catch it.
       const model = deps.model ?? buildAnthropicModel({ maxTokens: 500 });
       const structuredModel = model.withStructuredOutput(structuredReplySchema);
+      // cache_control on the newest turn (not the system message) is the
+      // "multi-turn conversation" caching pattern: it marks system + all prior
+      // history + this message as one cached prefix, so next turn's request
+      // re-reads everything up to here instead of re-billing it, and only
+      // pays full price for whatever's new. The system message + a single
+      // turn or two often sits under Sonnet 5's 1024-token cacheable-prefix
+      // minimum (a marker below it is a documented no-op, not an error), so
+      // this mostly starts paying off from the 3rd exchange in a session
+      // onward — but it costs nothing on the turns where it doesn't.
       const result = await structuredModel.invoke([
         new SystemMessage(contextLine ? `${COACH_SYSTEM_PROMPT}\n\n${contextLine}` : COACH_SYSTEM_PROMPT),
         ...history,
-        new HumanMessage(state.incomingMessage),
+        new HumanMessage({
+          content: [
+            { type: "text", text: state.incomingMessage, cache_control: { type: "ephemeral" } },
+          ],
+        }),
       ]);
 
       // The emergency-tier safety sentence is always the canned copy, never
