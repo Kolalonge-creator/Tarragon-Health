@@ -86,6 +86,8 @@ begin
 end;
 $$;
 
+revoke all on function private.sweep_chronic_programme_occurrences() from public, anon;
+
 select cron.schedule(
   'chronic-programme-occurrences-daily',
   '0 6 * * *',
