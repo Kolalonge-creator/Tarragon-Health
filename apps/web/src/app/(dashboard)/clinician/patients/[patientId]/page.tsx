@@ -37,6 +37,7 @@ import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { HealthCheckReview } from "./health-check-review";
 import { CarePlanManagementSection } from "./care-plan-management-section";
+import { ChronicProgrammeReviewSection } from "./chronic-programme-review-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
@@ -267,6 +268,11 @@ export default async function ClinicianPatientPage({
             ) : (
               <p className="text-sm text-charcoal-ink/60">This patient has no organisation on file.</p>
             ),
+          },
+          {
+            id: "chronic-programme",
+            label: "12-week programme",
+            content: <ChronicProgrammeReviewSection patientId={patient.id} />,
           },
           {
             id: "vitals-chronic-care",
