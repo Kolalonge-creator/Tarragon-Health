@@ -16,6 +16,25 @@
 --     (20260803144056) -- a draft lives in its OWN table, has NO
 --     INSERT/UPDATE/DELETE RLS policy at all (service-role/Edge-Function
 --     write only), and is never patient-readable.
+--
+--   * KNOWN PRE-EXISTING PLATFORM ISSUE, worked around locally here (found
+--     2026-09-02, confirmed live via pg_default_acl): the public schema's
+--     default ACL for tables owned by postgres already grants
+--     authenticated=arwd (SELECT+INSERT+UPDATE+DELETE), not SELECT-only, on
+--     every newly created table -- almost certainly an over-grant introduced
+--     by 20260731232749_fix_missing_authenticated_table_grants.sql, which
+--     was only meant to backfill the missing SELECT grant. This means
+--     "Pattern A" (no direct write path for authenticated) no longer holds
+--     merely from omitting an explicit grant -- confirmed live: case_briefs
+--     (created before that fix) has SELECT only, but lab_report_extractions
+--     (created after) already has full arwd despite never being granted
+--     insert/update/delete explicitly. This migration compensates with an
+--     explicit revoke below rather than relying on absence-of-grant. This is
+--     a systemic, repo-wide privilege-drift issue (the same class as the
+--     documented anon-EXECUTE-via-PUBLIC gotcha) squarely in the declared
+--     scope of other sessions already working the anon/authenticated
+--     privilege-drift backlog -- intentionally not fixed globally here.
+--
 --   * imaging_reports (part 6) has no column an AI process could write to
 --     directly -- the only path from a draft into a real clinical record is
 --     a human calling confirm_imaging_ai_assist_draft() below, then
@@ -61,6 +80,13 @@ create policy imaging_ai_assist_drafts_select on public.imaging_ai_assist_drafts
   for select to authenticated using (private.is_org_staff(organisation_id));
 
 grant select on public.imaging_ai_assist_drafts to authenticated;
+
+-- The public-schema default ACL already grants authenticated INSERT/UPDATE/
+-- DELETE on every newly created table (see the pre-existing-platform-issue
+-- note in the header) -- explicitly revoke them so "no client write path"
+-- is a real, verified property of this table rather than an assumption that
+-- omitting a grant is enough.
+revoke insert, update, delete on public.imaging_ai_assist_drafts from authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Confirm step -- a deliberate human act. Marks the draft accepted; does
@@ -110,7 +136,11 @@ grant execute on function public.confirm_imaging_ai_assist_draft(uuid) to authen
 
 -- ---------------------------------------------------------------------------
 -- Self-verification -- the whole point of this table is that it has no
--- direct write policy; assert that structurally rather than trusting intent.
+-- direct write path for authenticated: no RLS write policy, and (per the
+-- pre-existing-platform-issue note above) an explicit revoke rather than
+-- relying on the absence of a grant, since the schema default ACL already
+-- hands out INSERT/UPDATE/DELETE to authenticated on every new table.
+-- Assert both structurally rather than trusting intent.
 -- ---------------------------------------------------------------------------
 do $$
 begin

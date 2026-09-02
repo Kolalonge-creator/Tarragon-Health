@@ -39,6 +39,35 @@
 -- relationship imaging_equipment already carries via its `modality` column.
 
 -- ---------------------------------------------------------------------------
+-- 0. Retimestamped 2026-09-02: an unrelated same-day PHR gap-closure pass
+--    (PR #372-382) independently created its own public.imaging_modality
+--    enum with different values (xray/ultrasound/ct_scan/mri/mammogram/
+--    dexa/other, for its own much simpler placeholder imaging_reports table
+--    — see 20260902220000_imaging_reports.sql for the full story on that
+--    table). Confirmed live the type has exactly one dependent column
+--    (that placeholder's own imaging_reports.modality, which this branch's
+--    migration set replaces later) before dropping and recreating it with
+--    this platform's real value set, which its own app code (Zod schema,
+--    clinician order UI) already depends on.
+do $$
+declare
+  v_dependents int;
+begin
+  if exists (select 1 from pg_type where typname = 'imaging_modality') then
+    select count(*) into v_dependents
+      from pg_type t
+      join pg_attribute a on a.atttypid = t.oid
+      join pg_class c on c.oid = a.attrelid
+      where t.typname = 'imaging_modality' and a.attnum > 0 and not a.attisdropped
+        and c.relname <> 'imaging_reports';
+    if v_dependents > 0 then
+      raise exception 'imaging_modality has % dependent column(s) outside imaging_reports -- refusing to drop', v_dependents;
+    end if;
+    drop type public.imaging_modality cascade;
+  end if;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- 1. Enums
 -- ---------------------------------------------------------------------------
 create type public.imaging_modality as enum (

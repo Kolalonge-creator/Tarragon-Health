@@ -51,6 +51,29 @@
 -- own history, not a silently overwritten field.
 
 -- ---------------------------------------------------------------------------
+-- 0. Retimestamped 2026-09-02: this file originally ran 2026-08-29, before
+--    an unrelated same-day PHR gap-closure pass (PR #372-382) independently
+--    created its OWN, much simpler public.imaging_reports (one lab-document-
+--    style table, no order/provider-network pipeline behind it, zero app
+--    code ever wired to it) under the same name -- confirmed live and empty
+--    (0 rows) before this migration was moved. Since that simpler table has
+--    no real data and nothing reads/writes it, this migration now runs
+--    AFTER it (and after the category-scoped-access rewrite it's chained
+--    into) and replaces it outright with this platform's real design,
+--    rather than the two colliding at replay time. The two triggers/
+--    functions/storage-bucket policies that placeholder brought with it are
+--    dropped by CASCADE along with the table.
+do $$
+begin
+  if (select count(*) from public.imaging_reports) > 0 then
+    raise exception 'imaging_reports has % row(s) -- refusing to drop a non-empty table', (select count(*) from public.imaging_reports);
+  end if;
+end $$;
+
+drop table public.imaging_reports cascade;
+drop type public.imaging_report_source;
+
+-- ---------------------------------------------------------------------------
 -- 1. Enums
 -- ---------------------------------------------------------------------------
 create type public.imaging_report_status as enum ('preliminary', 'final', 'amended');
