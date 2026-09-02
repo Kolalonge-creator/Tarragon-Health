@@ -157,6 +157,11 @@ export function getNavSections(
             },
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
+            {
+              label: "Sexual & reproductive health",
+              href: "/patient/sexual-health",
+              icon: "family",
+            },
             { label: "Wellbeing", href: "/patient/wellbeing", icon: "mood" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
             { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
@@ -307,6 +312,7 @@ export function getNavSections(
                 { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive" },
+                { label: "Sexual health cases", href: "/clinician/sexual-health", icon: "escalation" },
               ],
             },
             {
