@@ -65,16 +65,30 @@ alter default privileges for role postgres in schema public
   revoke usage, select on sequences from anon, authenticated;
 
 do $$
+declare
+  v_current_user text;
+  v_session_user text;
+  v_proowner text;
+  v_default_acl text;
 begin
   create function public._default_priv_probe_fn_20260902174504()
     returns void language sql as $probe$ select 1 $probe$;
   create sequence public._default_priv_probe_seq_20260902174504;
 
+  select current_user, session_user into v_current_user, v_session_user;
+  select proowner::regrole::text into v_proowner from pg_proc
+   where oid = 'public._default_priv_probe_fn_20260902174504()'::regprocedure;
+  select string_agg(format('role=%s type=%s acl=%s', coalesce(defaclrole::regrole::text,'(none)'), defaclobjtype, defaclacl::text), ' | ')
+    into v_default_acl
+    from pg_default_acl
+   where defaclnamespace::regnamespace::text = 'public' and defaclobjtype = 'f';
+
   if has_function_privilege('anon', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE')
      or has_function_privilege('authenticated', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE') then
     drop function public._default_priv_probe_fn_20260902174504();
     drop sequence public._default_priv_probe_seq_20260902174504;
-    raise exception 'FAIL: anon/authenticated still get a default EXECUTE privilege on a brand-new public-schema function';
+    raise exception 'FAIL: anon/authenticated still get a default EXECUTE privilege on a brand-new public-schema function. DIAG current_user=% session_user=% proowner=% default_acl_f=%',
+      v_current_user, v_session_user, v_proowner, v_default_acl;
   end if;
 
   if has_sequence_privilege('anon', 'public._default_priv_probe_seq_20260902174504', 'USAGE')
