@@ -297,6 +297,11 @@ export function getNavSections(
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                {
+                  label: "Lab result consults",
+                  href: "/clinician/lab-result-consults",
+                  icon: "labs",
+                },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
               ],
             },
@@ -325,6 +330,11 @@ export function getNavSections(
           label: "Commercial",
           items: [
             { label: "Subscriptions", href: "/admin/settings/subscriptions", icon: "billing" },
+            {
+              label: "Lab-result consult fee",
+              href: "/admin/settings/lab-result-consult-pricing",
+              icon: "billing",
+            },
             { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
             { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
@@ -340,6 +350,7 @@ export function getNavSections(
             { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
+            { label: "Clinical rules engine", href: "/admin/settings/clinical-rules", icon: "governance" },
           ],
         },
       ];
@@ -400,6 +411,7 @@ export function getNavSections(
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
+            { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },

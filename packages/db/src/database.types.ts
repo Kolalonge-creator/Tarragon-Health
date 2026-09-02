@@ -1871,6 +1871,7 @@ export type Database = {
           tests_completed: Json
           total_cost_kobo: number
           updated_at: string
+          video_consultation_id: string | null
           year: number
         }
         Insert: {
@@ -1888,6 +1889,7 @@ export type Database = {
           tests_completed?: Json
           total_cost_kobo?: number
           updated_at?: string
+          video_consultation_id?: string | null
           year: number
         }
         Update: {
@@ -1905,6 +1907,7 @@ export type Database = {
           tests_completed?: Json
           total_cost_kobo?: number
           updated_at?: string
+          video_consultation_id?: string | null
           year?: number
         }
         Relationships: [
@@ -1941,6 +1944,13 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "annual_health_checks_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
             referencedColumns: ["id"]
           },
         ]
@@ -4817,9 +4827,9 @@ export type Database = {
         Row: {
           amount_minor: number
           created_at: string
-          credit_kobo: number
           currency: string
           id: string
+          instalment_kobo: number
           organisation_id: string
           payer_profile_id: string
           payment_transaction_id: string | null
@@ -4831,9 +4841,9 @@ export type Database = {
         Insert: {
           amount_minor: number
           created_at?: string
-          credit_kobo: number
           currency?: string
           id?: string
+          instalment_kobo: number
           organisation_id: string
           payer_profile_id: string
           payment_transaction_id?: string | null
@@ -4845,9 +4855,9 @@ export type Database = {
         Update: {
           amount_minor?: number
           created_at?: string
-          credit_kobo?: number
           currency?: string
           id?: string
+          instalment_kobo?: number
           organisation_id?: string
           payer_profile_id?: string
           payment_transaction_id?: string | null
@@ -33841,6 +33851,10 @@ export type Database = {
         }
         Returns: number
       }
+      confirm_health_check_video_slot: {
+        Args: { p_consultation_id: string; p_slot: string }
+        Returns: undefined
+      }
       confirm_lab_report_extraction: {
         Args: {
           p_extraction_id: string
@@ -35472,8 +35486,8 @@ export type Database = {
       record_voucher_payment_intent: {
         Args: {
           p_amount_minor: number
-          p_credit_kobo: number
           p_currency: string
+          p_instalment_kobo: number
           p_provider: Database["public"]["Enums"]["payment_provider"]
           p_reference: string
           p_voucher: string
