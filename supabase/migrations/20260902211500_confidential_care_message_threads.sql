@@ -2,6 +2,27 @@
 -- §47.12 — "a family caregiver should not automatically receive: 'Your
 -- spouse has an STI result.'").
 --
+-- RE-TIMESTAMPED 2026-09-02 (was 20260829090700): the previous reconciliation
+-- pass (see the RECONCILED note below) rewrote this file's body to call the
+-- 2-arg private.can_read_clinical(patient_id, 'messaging') added by
+-- 20260830103251, but left the FILENAME at its original 2026-08-29 timestamp
+-- -- which sorts BEFORE 20260830103251, so a fresh migration replay (CI, or
+-- `supabase db reset`) hit "function private.can_read_clinical(uuid,
+-- unknown) does not exist" at this file, before that function was ever
+-- created. This migration was, at the time, already live on
+-- koiplnmbgnqnbywhpjlf under version 20260902203618 (applied there correctly
+-- AFTER 20260830103251 and 20260902010000, since it was ad-hoc applied after
+-- both already existed) -- only the local file/filename was stale; the
+-- schema_migrations ledger row for that version was updated in place to
+-- 20260902211500 to match, rather than re-applying (the DDL is idempotent --
+-- add column if not exists, drop+create policy, create-or-replace function --
+-- but re-applying under yet another version would have added a third
+-- drifted ledger row for the same migration instead of fixing the one that
+-- existed). Also depends on 20260902010000 (fix_start_care_thread_self_access),
+-- which re-creates a 6-arg start_care_thread overload -- this file must run
+-- after that one too, or that migration's `create or replace` would silently
+-- resurrect a stale 6-arg overload alongside this file's 7-arg one.
+--
 -- WHY THIS TOUCHES care_message_threads
 -- ---------------------------------------------------------------------------
 -- profile_access + the sponsor three-way messaging feature

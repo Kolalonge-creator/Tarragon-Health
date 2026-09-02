@@ -88,7 +88,7 @@ create trigger sti_case_episodes_set_updated_at
 alter table public.sti_case_episodes enable row level security;
 
 -- Confidential by construction: patient + org staff only, no profile_access/
--- sponsor visibility (module-wide choice — see 20260829090700's header).
+-- sponsor visibility (module-wide choice — see 20260902211500's header).
 drop policy if exists sti_case_episodes_select on public.sti_case_episodes;
 create policy sti_case_episodes_select on public.sti_case_episodes
   for select to authenticated

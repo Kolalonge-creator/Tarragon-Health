@@ -14,7 +14,7 @@ const inputSchema = z.object({
  * Opens a confidential care-team thread from inside the Sexual & Reproductive
  * Health hub. Every SRH-related thread the app opens is expected to pass
  * confidential = true (spec §47.12/§47.13 — see migration
- * 20260829090700's header): a thread here must stay invisible to a
+ * 20260902211500's header): a thread here must stay invisible to a
  * sponsor/supporter even when the patient has granted them clinical_access
  * for everything else, which is exactly what the confidential flag on
  * care_message_threads narrows.

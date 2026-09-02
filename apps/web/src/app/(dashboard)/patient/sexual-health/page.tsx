@@ -14,7 +14,7 @@ import { SexualHealthPrivacyGate } from "./sexual-health-privacy-gate";
  * Plain auth/profile fetch, mirroring patient/lifestyle/page.tsx, not
  * getPatientDashboardContext's "acting for" resolution: every table this
  * module reads is patient-self-or-org-staff only by construction, with no
- * profile_access/supporter path at all (see migration 20260829090700's
+ * profile_access/supporter path at all (see migration 20260902211500's
  * header) — a supporter "acting for" someone else could never see this
  * data anyway, and every server action already built for this module writes
  * under auth.uid() directly, never a subject id. This page matches that.

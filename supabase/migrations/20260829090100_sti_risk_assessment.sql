@@ -11,7 +11,7 @@
 -- structured self-report, scored deterministically server-side (never
 -- trusted from the client), never itself a diagnosis, and read by the
 -- patient + org staff only — no profile_access/sponsor visibility. That last
--- point is a deliberate, module-wide choice (see 20260829090700's header):
+-- point is a deliberate, module-wide choice (see 20260902211500's header):
 -- everything new in this module is confidential-by-default, even where an
 -- existing sibling table (reproductive_health_profiles) is more open.
 --
