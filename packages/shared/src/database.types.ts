@@ -277,56 +277,101 @@ export type Database = {
           },
         ]
       }
-      menstrual_cycle_logs: {
+      menstrual_cycles: {
         Row: {
           created_at: string
-          flow_level: Database["public"]["Enums"]["menstrual_flow_level"] | null
           id: string
           notes: string | null
           organisation_id: string
-          pain_level: number | null
           patient_id: string
           period_end_date: string | null
           period_start_date: string
-          symptoms: string[]
           updated_at: string
         }
         Insert: {
           created_at?: string
-          flow_level?: Database["public"]["Enums"]["menstrual_flow_level"] | null
           id?: string
           notes?: string | null
           organisation_id: string
-          pain_level?: number | null
           patient_id: string
           period_end_date?: string | null
           period_start_date: string
-          symptoms?: string[]
           updated_at?: string
         }
         Update: {
           created_at?: string
-          flow_level?: Database["public"]["Enums"]["menstrual_flow_level"] | null
           id?: string
           notes?: string | null
           organisation_id?: string
-          pain_level?: number | null
           patient_id?: string
           period_end_date?: string | null
           period_start_date?: string
-          symptoms?: string[]
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "menstrual_cycle_logs_organisation_id_fkey"
+            foreignKeyName: "menstrual_cycles_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "menstrual_cycle_logs_patient_id_fkey"
+            foreignKeyName: "menstrual_cycles_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menstrual_daily_logs: {
+        Row: {
+          created_at: string
+          flow: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id: string
+          log_date: string
+          moods: Database["public"]["Enums"]["menstrual_mood"][]
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          symptoms: Database["public"]["Enums"]["menstrual_symptom"][]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          flow?: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id?: string
+          log_date: string
+          moods?: Database["public"]["Enums"]["menstrual_mood"][]
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          symptoms?: Database["public"]["Enums"]["menstrual_symptom"][]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          flow?: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id?: string
+          log_date?: string
+          moods?: Database["public"]["Enums"]["menstrual_mood"][]
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          symptoms?: Database["public"]["Enums"]["menstrual_symptom"][]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menstrual_daily_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menstrual_daily_logs_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -38706,7 +38751,34 @@ export type Database = {
         | "joint_aches"
         | "brain_fog"
         | "other"
-      menstrual_flow_level: "spotting" | "light" | "medium" | "heavy"
+      menstrual_flow_level:
+        | "none"
+        | "spotting"
+        | "light"
+        | "medium"
+        | "heavy"
+        | "flooding"
+      menstrual_mood:
+        | "calm"
+        | "happy"
+        | "energetic"
+        | "irritable"
+        | "anxious"
+        | "low"
+        | "mood_swings"
+      menstrual_symptom:
+        | "cramps"
+        | "headache"
+        | "bloating"
+        | "breast_tenderness"
+        | "acne"
+        | "fatigue"
+        | "nausea"
+        | "back_pain"
+        | "diarrhoea"
+        | "constipation"
+        | "food_cravings"
+        | "insomnia"
       alert_level:
         | "routine"
         | "clinician_review"
@@ -40687,7 +40759,37 @@ export const Constants = {
         "brain_fog",
         "other",
       ],
-      menstrual_flow_level: ["spotting", "light", "medium", "heavy"],
+      menstrual_flow_level: [
+        "none",
+        "spotting",
+        "light",
+        "medium",
+        "heavy",
+        "flooding",
+      ],
+      menstrual_mood: [
+        "calm",
+        "happy",
+        "energetic",
+        "irritable",
+        "anxious",
+        "low",
+        "mood_swings",
+      ],
+      menstrual_symptom: [
+        "cramps",
+        "headache",
+        "bloating",
+        "breast_tenderness",
+        "acne",
+        "fatigue",
+        "nausea",
+        "back_pain",
+        "diarrhoea",
+        "constipation",
+        "food_cravings",
+        "insomnia",
+      ],
       alert_level: [
         "routine",
         "clinician_review",
