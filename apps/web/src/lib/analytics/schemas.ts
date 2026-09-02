@@ -240,6 +240,17 @@ export const retentionCohortsSchema = z
   .default([]);
 export type RetentionCohorts = z.infer<typeof retentionCohortsSchema>;
 
+export const engagementOutcomeCorrelationSchema = z
+  .array(
+    z.object({
+      tier: z.enum(["highly_engaged", "moderately_engaged", "at_risk", "disengaged"]),
+      cohort_size: z.number(),
+      bp_in_range_count: z.number(),
+    })
+  )
+  .default([]);
+export type EngagementOutcomeCorrelation = z.infer<typeof engagementOutcomeCorrelationSchema>;
+
 // ---- Clinical outcomes & quality ------------------------------------------
 const controlRate = z.object({
   total: z.number().default(0),

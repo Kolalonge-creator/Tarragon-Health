@@ -20,6 +20,11 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
   const [doses, setDoses] = useState<DoseChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [cabinetOpen, setCabinetOpen] = useState(false);
+  // medication_logs is append-only (20260830224528): a rapid double-tap used
+  // to converge to one upserted row for the same slot; now each tap is its
+  // own permanent row, so a double-tap here would leave a duplicate in the
+  // clinician's dose log history rather than being harmlessly absorbed.
+  const [pendingKeys, setPendingKeys] = useState<Set<string>>(new Set());
 
   const load = useCallback(async () => {
     const today = await loadTodaysDoses(patientId);
@@ -32,13 +37,25 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
   }, [load]);
 
   async function toggle(item: DoseChecklistItem) {
+    const key = `${item.medicationId}-${item.time}`;
+    if (pendingKeys.has(key)) return;
+    setPendingKeys((prev) => new Set(prev).add(key));
+
     const nextStatus: Exclude<DoseStatus, "pending"> = item.status === "taken" ? "missed" : "taken";
     // Optimistic — this is the highest-frequency native write in the app.
     const next: DoseChecklistItem[] = doses.map((d) => (d === item ? { ...d, status: nextStatus } : d));
     setDoses(next);
     void syncDoseReminders(next);
-    const result = await logDose(patientId, organisationId, item, nextStatus);
-    if (result.error) await load();
+    try {
+      const result = await logDose(patientId, organisationId, item, nextStatus);
+      if (result.error) await load();
+    } finally {
+      setPendingKeys((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
   }
 
   return (
@@ -71,6 +88,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                 subtitle={item.time}
                 trailing="none"
                 onPress={() => toggle(item)}
+                disabled={pendingKeys.has(`${item.medicationId}-${item.time}`)}
                 leading={
                   item.status === "taken" ? (
                     <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: colors.brand, alignItems: "center", justifyContent: "center" }}>

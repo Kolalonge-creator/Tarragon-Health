@@ -66,6 +66,18 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: `/clinician/patients/${String(payload.patient_id ?? "")}`,
     };
   }
+  if (n.template === "clinician_unread_care_message_alert") {
+    // From private.raise_unread_clinical_message_alerts() (77.13) — a
+    // clinical-category patient message has sat unread by the care team
+    // past the reminder window. Routes to the alerts worklist, same as
+    // every other clinician_alerts-backed notification, rather than
+    // straight into Messages — resolving the underlying clinician_alerts
+    // row is the accountable action, opening the thread is just step one.
+    return {
+      text: "A patient's clinical message has gone unread",
+      href: "/clinician/escalations",
+    };
+  }
   if (n.template === "clinician_new_referral") {
     const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
     return {
