@@ -166,6 +166,7 @@ export function getNavSections(
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
             { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
             { label: "Healthy ageing", href: "/patient/healthy-ageing", icon: "healthyAgeing" },
+            { label: "Adolescent Health", href: "/patient/adolescent-health", icon: "mood" },
             { label: "Get a device", href: "/patient/devices", icon: "devices" },
           ],
         },
@@ -255,6 +256,7 @@ export function getNavSections(
                   href: "/clinician/medication-issues",
                   icon: "medication",
                 },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 {
@@ -297,6 +299,7 @@ export function getNavSections(
                   href: "/clinician/medication-issues",
                   icon: "medication",
                 },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
                 { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },

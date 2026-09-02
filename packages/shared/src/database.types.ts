@@ -145,6 +145,166 @@ export type Database = {
           },
         ]
       }
+      adolescent_transition_events: {
+        Row: {
+          created_at: string
+          id: string
+          milestone: Database["public"]["Enums"]["adolescent_transition_milestone"]
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          milestone: Database["public"]["Enums"]["adolescent_transition_milestone"]
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          milestone?: Database["public"]["Enums"]["adolescent_transition_milestone"]
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adolescent_transition_events_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adolescent_psychosocial_screens: {
+        Row: {
+          abuse_neglect_exploitation_flagged: boolean
+          created_at: string
+          domain_responses: Json
+          id: string
+          immediate_danger_flagged: boolean
+          organisation_id: string
+          patient_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          self_harm_flagged: boolean
+          sexual_health_follow_up_requested: boolean
+          substance_use_concern_flagged: boolean
+        }
+        Insert: {
+          abuse_neglect_exploitation_flagged?: boolean
+          created_at?: string
+          domain_responses?: Json
+          id?: string
+          immediate_danger_flagged?: boolean
+          organisation_id: string
+          patient_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          self_harm_flagged?: boolean
+          sexual_health_follow_up_requested?: boolean
+          substance_use_concern_flagged?: boolean
+        }
+        Update: {
+          abuse_neglect_exploitation_flagged?: boolean
+          created_at?: string
+          domain_responses?: Json
+          id?: string
+          immediate_danger_flagged?: boolean
+          organisation_id?: string
+          patient_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          self_harm_flagged?: boolean
+          sexual_health_follow_up_requested?: boolean
+          substance_use_concern_flagged?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adolescent_psychosocial_screens_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_psychosocial_screens_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_psychosocial_screens_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adolescent_transition_plans: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          current_stage: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          stage_log: Json
+          started_at: string
+          target_transition_age: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_stage?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          stage_log?: Json
+          started_at?: string
+          target_transition_age?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_stage?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          stage_log?: Json
+          started_at?: string
+          target_transition_age?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adolescent_transition_plans_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_transition_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_transition_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ageing_assessment_domain_results: {
         Row: {
           assessment_id: string
@@ -3569,212 +3729,6 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      adolescent_transition_events: {
-        Row: {
-          created_at: string
-          id: string
-          milestone: Database["public"]["Enums"]["adolescent_transition_milestone"]
-          profile_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          milestone: Database["public"]["Enums"]["adolescent_transition_milestone"]
-          profile_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          milestone?: Database["public"]["Enums"]["adolescent_transition_milestone"]
-          profile_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "adolescent_transition_events_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      emergency_access_grants: {
-        Row: {
-          created_at: string
-          expires_at: string
-          grantee_user_id: string
-          granted_at: string
-          id: string
-          profile_id: string
-          reason: string
-          revoked_at: string | null
-          revoked_by: string | null
-        }
-        Insert: {
-          created_at?: string
-          expires_at?: string
-          grantee_user_id: string
-          granted_at?: string
-          id?: string
-          profile_id: string
-          reason: string
-          revoked_at?: string | null
-          revoked_by?: string | null
-        }
-        Update: {
-          created_at?: string
-          expires_at?: string
-          grantee_user_id?: string
-          granted_at?: string
-          id?: string
-          profile_id?: string
-          reason?: string
-          revoked_at?: string | null
-          revoked_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "emergency_access_grants_profile_id_fkey"
-            columns: ["profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "emergency_access_grants_grantee_user_id_fkey"
-            columns: ["grantee_user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "emergency_access_grants_revoked_by_fkey"
-            columns: ["revoked_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      patient_duplicate_flags: {
-        Row: {
-          confidence: number
-          created_at: string
-          id: string
-          profile_id_a: string
-          profile_id_b: string
-          reasons: Json
-          reviewed_at: string | null
-          reviewed_by: string | null
-          status: Database["public"]["Enums"]["patient_duplicate_flag_status"]
-          updated_at: string
-        }
-        Insert: {
-          confidence: number
-          created_at?: string
-          id?: string
-          profile_id_a: string
-          profile_id_b: string
-          reasons?: Json
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: Database["public"]["Enums"]["patient_duplicate_flag_status"]
-          updated_at?: string
-        }
-        Update: {
-          confidence?: number
-          created_at?: string
-          id?: string
-          profile_id_a?: string
-          profile_id_b?: string
-          reasons?: Json
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          status?: Database["public"]["Enums"]["patient_duplicate_flag_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "patient_duplicate_flags_profile_id_a_fkey"
-            columns: ["profile_id_a"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_duplicate_flags_profile_id_b_fkey"
-            columns: ["profile_id_b"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_duplicate_flags_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      patient_merge_log: {
-        Row: {
-          id: string
-          kept_profile_id: string
-          merged_at: string
-          merged_profile_id: string
-          performed_by: string | null
-          reason: string
-          snapshot_kept: Json
-          snapshot_merged: Json
-          tables_affected: Json
-        }
-        Insert: {
-          id?: string
-          kept_profile_id: string
-          merged_at?: string
-          merged_profile_id: string
-          performed_by?: string | null
-          reason: string
-          snapshot_kept: Json
-          snapshot_merged: Json
-          tables_affected?: Json
-        }
-        Update: {
-          id?: string
-          kept_profile_id?: string
-          merged_at?: string
-          merged_profile_id?: string
-          performed_by?: string | null
-          reason?: string
-          snapshot_kept?: Json
-          snapshot_merged?: Json
-          tables_affected?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "patient_merge_log_kept_profile_id_fkey"
-            columns: ["kept_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_merge_log_merged_profile_id_fkey"
-            columns: ["merged_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "patient_merge_log_performed_by_fkey"
-            columns: ["performed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -9734,6 +9688,64 @@ export type Database = {
           {
             foreignKeyName: "ecg_report_extractions_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      emergency_access_grants: {
+        Row: {
+          created_at: string
+          expires_at: string
+          granted_at: string
+          grantee_user_id: string
+          id: string
+          profile_id: string
+          reason: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          granted_at?: string
+          grantee_user_id: string
+          id?: string
+          profile_id: string
+          reason: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          granted_at?: string
+          grantee_user_id?: string
+          id?: string
+          profile_id?: string
+          reason?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "emergency_access_grants_grantee_user_id_fkey"
+            columns: ["grantee_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emergency_access_grants_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "emergency_access_grants_revoked_by_fkey"
+            columns: ["revoked_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -18420,7 +18432,6 @@ export type Database = {
           is_active: boolean
           last_confirmed_at: string | null
           last_confirmed_by: string | null
-          logged_by_profile_id: string | null
           organisation_id: string
           patient_id: string
           prescriber_document_url: string | null
@@ -18458,7 +18469,6 @@ export type Database = {
           is_active?: boolean
           last_confirmed_at?: string | null
           last_confirmed_by?: string | null
-          logged_by_profile_id?: string | null
           organisation_id: string
           patient_id: string
           prescriber_document_url?: string | null
@@ -18496,7 +18506,6 @@ export type Database = {
           is_active?: boolean
           last_confirmed_at?: string | null
           last_confirmed_by?: string | null
-          logged_by_profile_id?: string | null
           organisation_id?: string
           patient_id?: string
           prescriber_document_url?: string | null
@@ -18650,279 +18659,6 @@ export type Database = {
             foreignKeyName: "mental_health_screening_schedules_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      child_growth_measurements: {
-        Row: {
-          age_days_at_measurement: number
-          bmi: number | null
-          bmi_for_age_z: number | null
-          created_at: string
-          head_circumference_cm: number | null
-          head_circumference_for_age_z: number | null
-          height_cm: number | null
-          height_for_age_z: number | null
-          id: string
-          logged_by_profile_id: string | null
-          measured_at: string
-          note: string | null
-          organisation_id: string
-          patient_id: string
-          weight_for_age_z: number | null
-          weight_kg: number | null
-        }
-        Insert: {
-          age_days_at_measurement?: number
-          bmi?: number | null
-          bmi_for_age_z?: number | null
-          created_at?: string
-          head_circumference_cm?: number | null
-          head_circumference_for_age_z?: number | null
-          height_cm?: number | null
-          height_for_age_z?: number | null
-          id?: string
-          logged_by_profile_id?: string | null
-          measured_at?: string
-          note?: string | null
-          organisation_id: string
-          patient_id: string
-          weight_for_age_z?: number | null
-          weight_kg?: number | null
-        }
-        Update: {
-          age_days_at_measurement?: number
-          bmi?: number | null
-          bmi_for_age_z?: number | null
-          created_at?: string
-          head_circumference_cm?: number | null
-          head_circumference_for_age_z?: number | null
-          height_cm?: number | null
-          height_for_age_z?: number | null
-          id?: string
-          logged_by_profile_id?: string | null
-          measured_at?: string
-          note?: string | null
-          organisation_id?: string
-          patient_id?: string
-          weight_for_age_z?: number | null
-          weight_kg?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "child_growth_measurements_logged_by_profile_id_fkey"
-            columns: ["logged_by_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "child_growth_measurements_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "child_growth_measurements_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      growth_reference_lms: {
-        Row: {
-          age_months: number
-          created_at: string
-          id: string
-          l_value: number
-          m_value: number
-          measurement_type: Database["public"]["Enums"]["growth_measurement_type"]
-          s_value: number
-          sex: Database["public"]["Enums"]["sex"]
-          source: string
-        }
-        Insert: {
-          age_months: number
-          created_at?: string
-          id?: string
-          l_value: number
-          m_value: number
-          measurement_type: Database["public"]["Enums"]["growth_measurement_type"]
-          s_value: number
-          sex: Database["public"]["Enums"]["sex"]
-          source?: string
-        }
-        Update: {
-          age_months?: number
-          created_at?: string
-          id?: string
-          l_value?: number
-          m_value?: number
-          measurement_type?: Database["public"]["Enums"]["growth_measurement_type"]
-          s_value?: number
-          sex?: Database["public"]["Enums"]["sex"]
-          source?: string
-        }
-        Relationships: []
-      }
-      developmental_questionnaire_items: {
-        Row: {
-          age_band_months_max: number
-          age_band_months_min: number
-          created_at: string
-          display_order: number
-          domain: Database["public"]["Enums"]["developmental_domain"]
-          id: string
-          is_active: boolean
-          prompt: string
-        }
-        Insert: {
-          age_band_months_max: number
-          age_band_months_min: number
-          created_at?: string
-          display_order?: number
-          domain: Database["public"]["Enums"]["developmental_domain"]
-          id?: string
-          is_active?: boolean
-          prompt: string
-        }
-        Update: {
-          age_band_months_max?: number
-          age_band_months_min?: number
-          created_at?: string
-          display_order?: number
-          domain?: Database["public"]["Enums"]["developmental_domain"]
-          id?: string
-          is_active?: boolean
-          prompt?: string
-        }
-        Relationships: []
-      }
-      developmental_screenings: {
-        Row: {
-          age_band_months_max: number
-          age_band_months_min: number
-          age_months_at_screening: number
-          created_at: string
-          flagged_domains: Database["public"]["Enums"]["developmental_domain"][]
-          id: string
-          logged_by_profile_id: string | null
-          organisation_id: string
-          overall_flag: boolean
-          patient_id: string
-          responses: Json
-          review_note: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          domain_scores: Json
-          screening_date: string
-          updated_at: string
-        }
-        Insert: {
-          age_band_months_max?: number
-          age_band_months_min?: number
-          age_months_at_screening?: number
-          created_at?: string
-          flagged_domains?: Database["public"]["Enums"]["developmental_domain"][]
-          id?: string
-          logged_by_profile_id?: string | null
-          organisation_id: string
-          overall_flag?: boolean
-          patient_id: string
-          responses?: Json
-          review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          domain_scores?: Json
-          screening_date?: string
-          updated_at?: string
-        }
-        Update: {
-          age_band_months_max?: number
-          age_band_months_min?: number
-          age_months_at_screening?: number
-          created_at?: string
-          flagged_domains?: Database["public"]["Enums"]["developmental_domain"][]
-          id?: string
-          logged_by_profile_id?: string | null
-          organisation_id?: string
-          overall_flag?: boolean
-          patient_id?: string
-          responses?: Json
-          review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          domain_scores?: Json
-          screening_date?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "developmental_screenings_logged_by_profile_id_fkey"
-            columns: ["logged_by_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "developmental_screenings_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "developmental_screenings_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "developmental_screenings_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "clinical_staff"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      dependent_transition_status: {
-        Row: {
-          computed_at: string
-          organisation_id: string | null
-          patient_id: string
-          transition_state: Database["public"]["Enums"]["dependent_transition_state"]
-        }
-        Insert: {
-          computed_at?: string
-          organisation_id?: string | null
-          patient_id: string
-          transition_state: Database["public"]["Enums"]["dependent_transition_state"]
-        }
-        Update: {
-          computed_at?: string
-          organisation_id?: string | null
-          patient_id?: string
-          transition_state?: Database["public"]["Enums"]["dependent_transition_state"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "dependent_transition_status_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "dependent_transition_status_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -22198,6 +21934,67 @@ export type Database = {
           },
         ]
       }
+      patient_duplicate_flags: {
+        Row: {
+          confidence: number
+          created_at: string
+          id: string
+          profile_id_a: string
+          profile_id_b: string
+          reasons: Json
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["patient_duplicate_flag_status"]
+          updated_at: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          id?: string
+          profile_id_a: string
+          profile_id_b: string
+          reasons?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["patient_duplicate_flag_status"]
+          updated_at?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          profile_id_a?: string
+          profile_id_b?: string
+          reasons?: Json
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["patient_duplicate_flag_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_duplicate_flags_profile_id_a_fkey"
+            columns: ["profile_id_a"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_duplicate_flags_profile_id_b_fkey"
+            columns: ["profile_id_b"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_duplicate_flags_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_engagement_scores: {
         Row: {
           computed_at: string
@@ -22716,6 +22513,64 @@ export type Database = {
           {
             foreignKeyName: "patient_match_candidates_reviewed_by_fkey"
             columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_merge_log: {
+        Row: {
+          id: string
+          kept_profile_id: string
+          merged_at: string
+          merged_profile_id: string
+          performed_by: string | null
+          reason: string
+          snapshot_kept: Json
+          snapshot_merged: Json
+          tables_affected: Json
+        }
+        Insert: {
+          id?: string
+          kept_profile_id: string
+          merged_at?: string
+          merged_profile_id: string
+          performed_by?: string | null
+          reason: string
+          snapshot_kept: Json
+          snapshot_merged: Json
+          tables_affected?: Json
+        }
+        Update: {
+          id?: string
+          kept_profile_id?: string
+          merged_at?: string
+          merged_profile_id?: string
+          performed_by?: string | null
+          reason?: string
+          snapshot_kept?: Json
+          snapshot_merged?: Json
+          tables_affected?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_merge_log_kept_profile_id_fkey"
+            columns: ["kept_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_merge_log_merged_profile_id_fkey"
+            columns: ["merged_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_merge_log_performed_by_fkey"
+            columns: ["performed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -34493,6 +34348,16 @@ export type Database = {
           tier: string
         }[]
       }
+      admin_merge_patient_records: {
+        Args: {
+          p_allow_cross_org?: boolean
+          p_dry_run?: boolean
+          p_keep_id: string
+          p_merge_id: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_refresh_public_impact_metrics: { Args: never; Returns: undefined }
       admin_reject_pharmacy_partner_onboarding: {
@@ -34503,6 +34368,7 @@ export type Database = {
         Args: { p_key_id: string }
         Returns: undefined
       }
+      admin_run_duplicate_patient_sweep: { Args: never; Returns: undefined }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
@@ -37423,17 +37289,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      admin_merge_patient_records: {
-        Args: {
-          p_allow_cross_org?: boolean
-          p_dry_run?: boolean
-          p_keep_id: string
-          p_merge_id: string
-          p_reason: string
-        }
-        Returns: Json
-      }
-      admin_run_duplicate_patient_sweep: { Args: never; Returns: undefined }
       revoke_care_access: { Args: { p_grant_id: string }; Returns: Json }
       revoke_clinical_staff_credential_verification: {
         Args: { p_clinical_staff_id: string; p_reason?: string }
@@ -37915,7 +37770,6 @@ export type Database = {
       adolescent_transition_milestone:
         | "shared_access_nudge_13"
         | "independence_downgrade_18"
-      patient_duplicate_flag_status: "open" | "dismissed" | "merged"
       ageing_assessment_domain:
         | "mobility"
         | "falls"
@@ -39092,6 +38946,7 @@ export type Database = {
         | "specialist_letter"
         | "previous_hospital_record"
         | "other"
+      patient_duplicate_flag_status: "open" | "dismissed" | "merged"
       patient_engagement_tier:
         | "highly_engaged"
         | "moderately_engaged"
@@ -39573,18 +39428,6 @@ export type Database = {
         | "severe_headache"
         | "visual_disturbance"
         | "confusion"
-        | "poor_feeding"
-        | "lethargy"
-        | "grunting_or_retractions"
-        | "dehydration_signs"
-      growth_measurement_type:
-        | "weight_for_age"
-        | "height_for_age"
-        | "bmi_for_age"
-        | "head_circumference_for_age"
-      developmental_domain: "motor" | "language" | "social" | "cognitive" | "behavioural"
-      developmental_item_answer: "yes" | "sometimes" | "not_yet"
-      dependent_transition_state: "child" | "adolescent" | "transition_prep" | "independent"
       timeline_event_type:
         | "lab_completed"
         | "lab_abnormal"
@@ -39613,7 +39456,6 @@ export type Database = {
         | "record_conflict_flagged"
         | "record_conflict_resolved"
         | "clinical_summary_validated"
-        | "dependent_account_transitioned"
       triage_category: "emergency" | "urgent" | "routine" | "self_management"
       triage_entry_point:
         | "patient_app"
@@ -39857,7 +39699,6 @@ export const Constants = {
         "shared_access_nudge_13",
         "independence_downgrade_18",
       ],
-      patient_duplicate_flag_status: ["open", "dismissed", "merged"],
       ageing_assessment_domain: [
         "mobility",
         "falls",
@@ -41167,6 +41008,7 @@ export const Constants = {
         "previous_hospital_record",
         "other",
       ],
+      patient_duplicate_flag_status: ["open", "dismissed", "merged"],
       patient_engagement_tier: [
         "highly_engaged",
         "moderately_engaged",
@@ -41708,20 +41550,7 @@ export const Constants = {
         "severe_headache",
         "visual_disturbance",
         "confusion",
-        "poor_feeding",
-        "lethargy",
-        "grunting_or_retractions",
-        "dehydration_signs",
       ],
-      growth_measurement_type: [
-        "weight_for_age",
-        "height_for_age",
-        "bmi_for_age",
-        "head_circumference_for_age",
-      ],
-      developmental_domain: ["motor", "language", "social", "cognitive", "behavioural"],
-      developmental_item_answer: ["yes", "sometimes", "not_yet"],
-      dependent_transition_state: ["child", "adolescent", "transition_prep", "independent"],
       timeline_event_type: [
         "lab_completed",
         "lab_abnormal",
@@ -41750,7 +41579,6 @@ export const Constants = {
         "record_conflict_flagged",
         "record_conflict_resolved",
         "clinical_summary_validated",
-        "dependent_account_transitioned",
       ],
       triage_category: ["emergency", "urgent", "routine", "self_management"],
       triage_entry_point: [

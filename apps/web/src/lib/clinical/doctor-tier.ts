@@ -154,3 +154,38 @@ export function canHandleEmergencyEscalation(staff: PrescribingAuthority | null)
     (staff.doctor_tier !== null && EMERGENCY_ESCALATION_TIERS.includes(staff.doctor_tier))
   );
 }
+
+/**
+ * Every clinical tier at Tier 3 or above. Deliberately a separate constant
+ * from EMERGENCY_ESCALATION_TIERS (Tier 2+) — safeguarding review sits one
+ * rung higher, per private.can_review_safeguarding_concern's own comment in
+ * 20260829212949_safeguarding_concerns.sql ("deliberately one rung higher... free
+ * to diverge later without changing emergency-escalation authority as a side
+ * effect").
+ */
+const SAFEGUARDING_REVIEW_TIERS: DoctorTier[] = [
+  "tier_3",
+  "tier_4_senior_registrar",
+  "tier_5_partner_specialist",
+];
+
+/**
+ * Mirrors private.can_review_safeguarding_concern(org)
+ * (20260829212949_safeguarding_concerns.sql) — moving a safeguarding_
+ * concerns row into review OR closing it (every status transition, not just
+ * closing) requires Tier 3+ or the Clinical Director; Tier 1/2 and Care
+ * Coordinator may file and read a concern they reported but never advance
+ * its status.
+ *
+ * This copy only gates the UI so a Tier <3 clinician gets a friendly
+ * explanation rather than a raw RLS/trigger error.
+ * private.enforce_safeguarding_concern_attribution is the real enforcement
+ * boundary.
+ */
+export function canReviewSafeguardingConcern(staff: PrescribingAuthority | null): boolean {
+  if (!staff) return false;
+  return (
+    staff.is_clinical_director ||
+    (staff.doctor_tier !== null && SAFEGUARDING_REVIEW_TIERS.includes(staff.doctor_tier))
+  );
+}
