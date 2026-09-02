@@ -1,8 +1,8 @@
 // Tarragon Health — Interoperability & API Platform (spec §33)
 // Outbound partner webhook drainer.
 //
-// pg_cron + pg_net invoking a Supabase Edge Function is this codebase's own
-// established pattern for a scheduled job (see send-pending-notifications
+// pg_cron + pg_net invoking a Supabase Edge Function every minute, exactly
+// this codebase's own established pattern (see send-pending-notifications
 // and its schedule_notification_sender migration) — followed here rather
 // than a Vercel Cron route because this project's Vercel team is on the
 // Hobby plan, which caps Vercel Cron Jobs to once per day. A once-daily

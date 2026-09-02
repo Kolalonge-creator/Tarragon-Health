@@ -5,12 +5,7 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { AnimatedNumber } from "./animated-number";
 import type { AudienceTab } from "../_content/services";
-
-const PILL_TONE = {
-  green: "bg-soft-sage text-deep-forest",
-  amber: "bg-sprout-gold/15 text-charcoal-ink",
-  red: "bg-[#F8E4E1] text-[#B0453B]",
-} as const;
+import { PILL_TONE } from "../_content/pill-tone";
 
 export function AudienceTabs({ tabs }: { tabs: AudienceTab[] }) {
   const [active, setActive] = useState(tabs[0].key);

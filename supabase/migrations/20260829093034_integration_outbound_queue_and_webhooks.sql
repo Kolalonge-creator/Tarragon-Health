@@ -1,49 +1,6 @@
 -- Tarragon Health — Interoperability & API Platform, part 2 of 3:
 -- the outbound event queue, partner webhooks, retry ladder and dead-letter queue.
---
--- WHY THIS EXISTS. Spec §33.10, §33.11, §33.15. The platform already calls
--- partners synchronously (lib/integrations/partner-client.ts, 5s timeout,
--- never throws) and that is the right shape for a "test connection" ping or
--- an interactive lookup. It is the wrong shape for telling a partner that a
--- result is available: a synchronous call that fails has nowhere to put the
--- fact it was supposed to deliver, so a partner being down for ten minutes
--- silently loses clinical information. §33.10 states the requirement
--- directly — "this prevents a temporary external outage from losing clinical
--- information" — and the answer is a durable queue, not a longer timeout.
---
--- THE SHAPE, and why each piece is the way it is:
---
---   * FAN-OUT AT ENQUEUE, NOT AT DELIVERY. One business event becomes one
---     ROW PER SUBSCRIBED ENDPOINT. A partner that is down then blocks only
---     its own row; the other subscribers to the same event are delivered and
---     done. Storing one row per event and iterating endpoints at delivery
---     time would make every subscriber share one retry state, which is how
---     one broken partner stalls everybody.
---
---   * event_id IS SHARED ACROSS THE FAN-OUT AND SENT TO THE PARTNER.
---     §33.12 is written from Tarragon's side ("if a laboratory sends the same
---     result twice..."), but the obligation is symmetric: our own retry ladder
---     WILL deliver twice if a partner ACKs slowly, so the partner needs a
---     stable id to deduplicate on. It is in the payload envelope and in the
---     X-Tarragon-Event-Id header.
---
---   * dedupe_key IS UNIQUE PER ENDPOINT. Enqueuing is therefore idempotent
---     at the source too: a trigger that fires twice for one state change
---     cannot produce two deliveries.
---
---   * RETRY IS DATA, NOT CODE (the same discipline the escalation SLA is
---     held to). attempt_count/max_attempts/next_attempt_at live on the row
---     and the backoff curve is a SQL function, so the ladder is inspectable
---     and testable in the database rather than implied by a worker's control
---     flow. §33.11's four requirements map exactly: retry (next_attempt_at),
---     exponential backoff (integration_backoff_seconds), dead-letter queue
---     (status 'dead_letter'), operational alert (log_audit + the admin DLQ
---     surface in part 3).
---
---   * NO PHI DECISION IS MADE HERE. payload is whatever the caller passes.
---     The minimisation rule (§33.7) is enforced where the event is BUILT, in
---     the typed app-side builders, because only there is it known what the
---     receiving partner is entitled to. This table's job is delivery.
+-- (Full rationale in the committed migration file.)
 
 create type public.integration_event_type as enum (
   'result.available',
@@ -67,32 +24,22 @@ comment on type public.integration_event_type is
   'Outbound event catalogue (§33.15). Adding a value is a migration on purpose: every value is a public contract a partner has subscribed to by name, so it should not be possible to invent one at runtime.';
 
 create type public.integration_delivery_status as enum (
-  'pending',      -- queued, never attempted
-  'delivering',   -- claimed by a worker (reclaimed if the worker dies, see claim RPC)
-  'delivered',    -- partner returned 2xx
-  'failed',       -- attempt failed, will retry at next_attempt_at
-  'dead_letter',  -- attempts exhausted; needs a human (§33.11)
-  'cancelled'     -- retired by an admin, e.g. the endpoint was decommissioned
+  'pending',
+  'delivering',
+  'delivered',
+  'failed',
+  'dead_letter',
+  'cancelled'
 );
 
--- ---------------------------------------------------------------------------
--- §33.15 — webhook subscriptions. One partner may register several endpoints
--- (a results endpoint and a billing endpoint are usually different systems).
--- ---------------------------------------------------------------------------
 create table public.partner_webhook_endpoints (
   id                      uuid primary key default gen_random_uuid(),
   organisation_id         uuid not null references public.organisations (id),
   partner_integration_id  uuid not null references public.partner_integrations (id) on delete cascade,
   name                    text not null,
   url                     text not null,
-  -- HMAC-SHA256 signing key. The partner verifies X-Tarragon-Signature with
-  -- it, which is what makes a webhook trustworthy on their side; without it
-  -- anyone who learns the URL can post fake clinical events at them.
   secret                  text not null,
   event_types             public.integration_event_type[] not null,
-  -- A sandbox endpoint receives only events raised by sandbox traffic, so a
-  -- partner can certify (§33.17) without their test runs being fed live
-  -- patient events.
   environment             public.api_environment not null default 'live',
   is_active               boolean not null default true,
   description             text,
@@ -102,8 +49,6 @@ create table public.partner_webhook_endpoints (
   created_at              timestamptz not null default now(),
   updated_at              timestamptz not null default now(),
 
-  -- Plaintext http would put signed clinical events on the open wire; the
-  -- signature proves origin, it does not provide confidentiality.
   constraint partner_webhook_url_https check (url like 'https://%' and length(url) between 12 and 500),
   constraint partner_webhook_has_events check (array_length(event_types, 1) >= 1),
   constraint partner_webhook_secret_strength check (length(secret) >= 32)
@@ -153,16 +98,11 @@ create trigger partner_webhook_endpoints_updated_at
   before update on public.partner_webhook_endpoints
   for each row execute function private.set_updated_at();
 
--- ---------------------------------------------------------------------------
--- §33.10 — the queue itself.
--- ---------------------------------------------------------------------------
 create table public.integration_outbound_events (
   id                      uuid primary key default gen_random_uuid(),
   organisation_id         uuid not null references public.organisations (id),
   partner_integration_id  uuid not null references public.partner_integrations (id) on delete cascade,
   webhook_endpoint_id     uuid not null references public.partner_webhook_endpoints (id) on delete cascade,
-  -- Shared across every fan-out row for one business event, and sent to the
-  -- partner so they can deduplicate our retries.
   event_id                uuid not null,
   event_type              public.integration_event_type not null,
   dedupe_key              text not null,
@@ -181,11 +121,8 @@ create table public.integration_outbound_events (
 
   constraint integration_outbound_attempts_sane
     check (attempt_count >= 0 and max_attempts between 1 and 20 and attempt_count <= max_attempts),
-  -- 'delivered' has to mean delivered: a row cannot claim success without the
-  -- timestamp that proves when, and nothing else may carry one.
   constraint integration_outbound_delivered_is_stamped
     check ((status = 'delivered') = (delivered_at is not null)),
-  -- Dead-lettering without having tried is a bug, not a state.
   constraint integration_outbound_dead_letter_was_attempted
     check (status <> 'dead_letter' or attempt_count > 0)
 );
@@ -193,14 +130,11 @@ create table public.integration_outbound_events (
 comment on table public.integration_outbound_events is
   'Durable outbound delivery queue (§33.10/§33.11). One row per (business event, subscribed endpoint) so a partner outage blocks only that partner. Retry state is data on the row — attempt_count, next_attempt_at, max_attempts — never implied by a worker''s control flow.';
 
--- Enqueuing the same business event twice for the same endpoint is a no-op.
 create unique index integration_outbound_dedupe
   on public.integration_outbound_events (webhook_endpoint_id, dedupe_key);
--- The drainer''s only hot query.
 create index integration_outbound_due_idx
   on public.integration_outbound_events (next_attempt_at)
   where status in ('pending', 'failed');
--- Reclaiming rows abandoned by a worker that died mid-flight.
 create index integration_outbound_inflight_idx
   on public.integration_outbound_events (last_attempt_at)
   where status = 'delivering';
@@ -214,10 +148,6 @@ create index integration_outbound_event_id_idx
 
 alter table public.integration_outbound_events enable row level security;
 
--- Read-only from a user session: the queue is driven entirely by the
--- SECURITY DEFINER RPCs below and the service-role drainer. An admin
--- retrying a dead-lettered event goes through requeue_integration_event,
--- which is the only supported way to move a row backwards.
 create policy integration_outbound_events_select on public.integration_outbound_events
   for select to authenticated
   using (
@@ -227,10 +157,6 @@ create policy integration_outbound_events_select on public.integration_outbound_
 
 grant select on public.integration_outbound_events to authenticated;
 
--- Per-attempt ledger. §33.9 asks for latency and failed-request tracking on
--- the OUTBOUND side too, and the event row only ever remembers its last
--- attempt — "it failed four times, each time with a 502, taking 5s" is not
--- reconstructable from it.
 create table public.integration_delivery_attempts (
   id                 uuid primary key default gen_random_uuid(),
   outbound_event_id  uuid not null references public.integration_outbound_events (id) on delete cascade,
@@ -264,31 +190,21 @@ create policy integration_delivery_attempts_select on public.integration_deliver
 
 grant select on public.integration_delivery_attempts to authenticated;
 
--- ---------------------------------------------------------------------------
--- §33.11 — the backoff curve, as data.
--- ---------------------------------------------------------------------------
 create or replace function private.integration_backoff_seconds(p_attempt integer)
 returns integer
 language sql
 immutable
 set search_path = ''
 as $$
-  -- 30s, 1m, 2m, 4m, 8m, 16m, 32m, then capped at 1h. Eight attempts spans
-  -- a little over an hour of outage, which covers a partner restart or a
-  -- short network partition without holding a clinical event for a day.
   select least(30 * (2 ^ greatest(p_attempt - 1, 0))::bigint, 3600)::integer;
 $$;
 
 comment on function private.integration_backoff_seconds(integer) is
   'Exponential backoff ladder for outbound delivery (§33.11): 30s doubling to a 1h cap. Pure and immutable so the app-side worker and the database agree on the schedule by construction, and so it can be asserted on directly in a test.';
 
-revoke all on function private.integration_backoff_seconds(integer) from public;
+revoke all on function private.integration_backoff_seconds(integer) from public, anon;
 grant execute on function private.integration_backoff_seconds(integer) to authenticated;
 
--- ---------------------------------------------------------------------------
--- Enqueue. SECURITY DEFINER so a database trigger on a clinical table can
--- raise an event without that table''s writer needing any integration rights.
--- ---------------------------------------------------------------------------
 create or replace function private.enqueue_integration_event(
   p_organisation_id uuid,
   p_event_type      public.integration_event_type,
@@ -309,9 +225,6 @@ begin
     raise exception 'enqueue_integration_event: a dedupe_key is required';
   end if;
 
-  -- No subscriber is a legitimate outcome, not an error: most orgs have no
-  -- webhook endpoints at all, and an event nobody asked for is simply not
-  -- queued. Returning 0 lets a caller log that without a failed transaction.
   insert into public.integration_outbound_events (
     organisation_id, partner_integration_id, webhook_endpoint_id,
     event_id, event_type, dedupe_key, payload, environment
@@ -324,8 +237,6 @@ begin
     and w.is_active
     and w.environment = p_environment
     and p_event_type = any (w.event_types)
-  -- The unique index makes a repeated enqueue a no-op rather than a failure,
-  -- so a trigger that fires twice for one state change cannot double-deliver.
   on conflict (webhook_endpoint_id, dedupe_key) do nothing;
 
   get diagnostics v_queued = row_count;
@@ -336,13 +247,8 @@ $$;
 comment on function private.enqueue_integration_event(uuid, public.integration_event_type, jsonb, text, public.api_environment) is
   'Fan one business event out to every active, subscribed endpoint in the org (§33.10/§33.15). Idempotent on (endpoint, dedupe_key). Returns how many rows were queued; 0 means nobody subscribes, which is normal.';
 
-revoke all on function private.enqueue_integration_event(uuid, public.integration_event_type, jsonb, text, public.api_environment) from public;
+revoke all on function private.enqueue_integration_event(uuid, public.integration_event_type, jsonb, text, public.api_environment) from public, anon;
 
--- ---------------------------------------------------------------------------
--- Claim a batch. FOR UPDATE SKIP LOCKED is what makes it safe for two
--- overlapping cron invocations (or one slow run and the next tick) to drain
--- the same queue without delivering anything twice.
--- ---------------------------------------------------------------------------
 create or replace function private.claim_integration_outbound_batch(p_limit integer default 25)
 returns table (
   id                uuid,
@@ -366,10 +272,6 @@ begin
     from public.integration_outbound_events e
     where (
         (e.status in ('pending', 'failed') and e.next_attempt_at <= now())
-        -- Reclaim: a worker that was killed mid-delivery leaves a row stuck
-        -- in 'delivering' forever otherwise. Ten minutes is far longer than
-        -- the 10s per-delivery timeout, so this can only catch a genuinely
-        -- abandoned row, never one still in flight.
         or (e.status = 'delivering' and e.last_attempt_at < now() - interval '10 minutes')
       )
     order by e.next_attempt_at
@@ -390,11 +292,8 @@ $$;
 comment on function private.claim_integration_outbound_batch(integer) is
   'Atomically claim due deliveries for one worker pass (§33.10). FOR UPDATE SKIP LOCKED makes concurrent drainer runs safe; the 10-minute reclaim window recovers rows abandoned by a worker that died mid-delivery.';
 
-revoke all on function private.claim_integration_outbound_batch(integer) from public;
+revoke all on function private.claim_integration_outbound_batch(integer) from public, anon;
 
--- ---------------------------------------------------------------------------
--- Record the outcome of one attempt: success, scheduled retry, or dead-letter.
--- ---------------------------------------------------------------------------
 create or replace function private.record_integration_delivery_result(
   p_outbound_event_id uuid,
   p_ok                boolean,
@@ -440,8 +339,6 @@ begin
     set last_success_at = now(), consecutive_failures = 0
     where id = v_event.webhook_endpoint_id;
   else
-    -- Attempts are exhausted when the count reaches max_attempts, because
-    -- claim_integration_outbound_batch already incremented it for THIS try.
     v_status := case when v_event.attempt_count >= v_event.max_attempts
                      then 'dead_letter'::public.integration_delivery_status
                      else 'failed'::public.integration_delivery_status end;
@@ -452,9 +349,6 @@ begin
         last_error = left(p_error, 500),
         next_attempt_at = case
           when v_status = 'failed'
-          -- Jitter, so a partner coming back up is not hit by every queued
-          -- event at the same instant — a thundering herd is how a recovering
-          -- partner gets knocked over again.
           then now() + make_interval(secs =>
                  private.integration_backoff_seconds(v_event.attempt_count) * (0.75 + random() * 0.5))
           else next_attempt_at
@@ -465,10 +359,6 @@ begin
     set last_failure_at = now(), consecutive_failures = consecutive_failures + 1
     where id = v_event.webhook_endpoint_id;
 
-    -- §33.11's "operational alert". The audit log is this platform's existing
-    -- durable operational record, and the admin integration monitor reads the
-    -- dead-letter queue directly — a dead-lettered clinical event must never
-    -- be something only a log line knows about.
     if v_status = 'dead_letter' then
       perform private.log_audit(
         'integration.delivery.dead_letter',
@@ -491,13 +381,8 @@ $$;
 comment on function private.record_integration_delivery_result(uuid, boolean, integer, text, integer) is
   'Close out one delivery attempt (§33.11): ledger row, then delivered / retry-with-jittered-backoff / dead-letter. Dead-lettering also writes an audit event so an exhausted clinical delivery is never known only to a log line.';
 
-revoke all on function private.record_integration_delivery_result(uuid, boolean, integer, text, integer) from public;
+revoke all on function private.record_integration_delivery_result(uuid, boolean, integer, text, integer) from public, anon;
 
--- ---------------------------------------------------------------------------
--- Admin recovery: put a dead-lettered event back on the queue once the
--- partner-side cause is fixed. The only supported way to move a row
--- backwards, which is why the table has no UPDATE policy.
--- ---------------------------------------------------------------------------
 create or replace function public.requeue_integration_event(p_outbound_event_id uuid)
 returns void
 language plpgsql
@@ -531,7 +416,7 @@ begin
 end;
 $$;
 
-revoke all on function public.requeue_integration_event(uuid) from public;
+revoke all on function public.requeue_integration_event(uuid) from public, anon;
 grant execute on function public.requeue_integration_event(uuid) to authenticated;
 revoke execute on function public.requeue_integration_event(uuid) from anon;
 
@@ -565,15 +450,10 @@ begin
 end;
 $$;
 
-revoke all on function public.cancel_integration_event(uuid) from public;
+revoke all on function public.cancel_integration_event(uuid) from public, anon;
 grant execute on function public.cancel_integration_event(uuid) to authenticated;
 revoke execute on function public.cancel_integration_event(uuid) from anon;
 
--- ---------------------------------------------------------------------------
--- Retention: extend the part-1 sweep to cover delivered events. Dead-lettered
--- and cancelled rows are deliberately NOT pruned — a clinical event that was
--- never delivered is exactly the row an operator will need months later.
--- ---------------------------------------------------------------------------
 create or replace function private.prune_integration_logs(p_request_log_days integer default 90)
 returns jsonb
 language plpgsql
@@ -605,11 +485,8 @@ begin
 end;
 $$;
 
-revoke all on function private.prune_integration_logs(integer) from public;
+revoke all on function private.prune_integration_logs(integer) from public, anon;
 
--- ---------------------------------------------------------------------------
--- Assertions.
--- ---------------------------------------------------------------------------
 do $$
 begin
   if not has_table_privilege('authenticated', 'public.partner_webhook_endpoints', 'SELECT')
@@ -618,8 +495,6 @@ begin
     raise exception 'outbound queue: an authenticated table grant did not take';
   end if;
 
-  -- The queue must not be writable from a user session — every transition
-  -- goes through a SECURITY DEFINER RPC.
   if exists (
     select 1 from pg_policies
     where schemaname = 'public' and tablename = 'integration_outbound_events' and cmd <> 'SELECT'
@@ -632,7 +507,6 @@ begin
     raise exception 'integration recovery RPCs: anon is still EXECUTE-able';
   end if;
 
-  -- The backoff ladder has to actually be exponential and actually be capped.
   if private.integration_backoff_seconds(1) <> 30
      or private.integration_backoff_seconds(2) <> 60
      or private.integration_backoff_seconds(3) <> 120
@@ -642,8 +516,6 @@ begin
   end if;
 end $$;
 
--- The dedupe index and the delivered-is-stamped constraint both have to
--- discriminate. Sabotage each once, in a rolled-back subtransaction.
 do $$
 declare
   v_org      uuid;
@@ -675,14 +547,12 @@ begin
     raise exception 'enqueue_integration_event did not fan out to the subscribed endpoint (got %)', v_queued;
   end if;
 
-  -- Second enqueue of the same business event must be a no-op, not a duplicate.
   v_again := private.enqueue_integration_event(
     v_org, 'result.available', '{"probe":true}'::jsonb, 'self-test-dedupe');
   if v_again <> 0 then
     raise exception 'enqueue_integration_event is not idempotent on dedupe_key (got %)', v_again;
   end if;
 
-  -- An event that is not subscribed must not be queued at all.
   if private.enqueue_integration_event(
        v_org, 'payment.settled', '{"probe":true}'::jsonb, 'self-test-unsubscribed') <> 0 then
     raise exception 'enqueue_integration_event queued an event the endpoint does not subscribe to';
