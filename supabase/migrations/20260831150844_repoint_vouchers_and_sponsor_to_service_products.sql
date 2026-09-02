@@ -366,6 +366,7 @@ where s.subscriber_id is not null
 do $$
 declare
   v_backfilled integer;
+  v_expected integer;
 begin
   if not exists (select 1 from information_schema.columns
     where table_schema='public' and table_name='care_vouchers' and column_name='service_product_id') then
@@ -382,11 +383,25 @@ begin
     raise exception 'old sponsored_subscription trigger was not removed';
   end if;
 
+  -- Was a hardcoded "expected 6" (the live QA-fixture count at authoring
+  -- time, per the header note) — that hard-fails a fresh `supabase db
+  -- reset`, which has zero subscriptions rows (the 6 are real @tarragon.test
+  -- signups, not something any migration seeds). Recompute the SAME join the
+  -- INSERT above uses instead, so this validates "the backfill covered every
+  -- eligible subscription" on ANY environment, live or freshly reset (0=0
+  -- there, 6=6 on live today).
+  select count(*) into v_expected
+  from public.subscriptions s
+  join public.subscription_plans p on p.id = s.plan_id
+  join public.service_products sp
+    on sp.code = regexp_replace(p.code, '_(yearly|usd|gbp)$', '') || '_pack'
+  where s.subscriber_id is not null;
+
   select count(*) into v_backfilled from public.service_purchases
     where patient_id in (select subscriber_id from public.subscriptions);
-  if v_backfilled <> 6 then
-    raise exception 'expected 6 backfilled QA service_purchases rows, got %', v_backfilled;
+  if v_backfilled <> v_expected then
+    raise exception 'expected % backfilled service_purchases rows (one per matched subscription), got %', v_expected, v_backfilled;
   end if;
 
-  raise notice 'PASS: vouchers and sponsor flow repointed to service_products/service_purchases; % QA rows backfilled', v_backfilled;
+  raise notice 'PASS: vouchers and sponsor flow repointed to service_products/service_purchases; % rows backfilled', v_backfilled;
 end $$;

@@ -12,6 +12,17 @@ alter table public.care_voucher_payments rename column credit_kobo to instalment
 comment on column public.care_voucher_payments.instalment_kobo is
   'Kobo amount of this single instalment toward the voucher''s face value. Named "instalment", not "credit" — this is layaway against one named voucher_id, never a spendable balance. See care_vouchers_purchase_and_layaway.sql for the cap enforcement.';
 
+-- A bare CREATE OR REPLACE rejects changing an input parameter's NAME
+-- (SQLSTATE 42P13) -- the prior version of this function had p_credit_kobo
+-- in this position, matching the pre-rename column. Drop by the type-only
+-- signature first (confirmed live on koiplnmbgnqnbywhpjlf, where this exact
+-- function/column rename already exists but was applied out-of-band with no
+-- migration recorded for it -- see CLAUDE.md's "a live schema object can
+-- exist with no migration record at all" standing lesson -- so this
+-- migration is not itself live yet and this DROP only matters for a fresh
+-- replay reaching the function's original p_credit_kobo-named definition).
+drop function if exists public.record_voucher_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text);
+
 create or replace function public.record_voucher_payment_intent(
   p_voucher uuid,
   p_amount_minor bigint,
