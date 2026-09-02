@@ -1,3 +1,4 @@
+import { ageFromDateOfBirth } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import {
@@ -19,6 +20,9 @@ import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
+import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
+import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
@@ -35,9 +39,18 @@ import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
+import { ReferToSpecialistForm } from "./refer-to-specialist-form";
 import { HealthCheckReview } from "./health-check-review";
+import { ReviewedResultLine } from "@/components/reviewed-result-line";
+import { HealthCheckVideoConsult } from "./health-check-video-consult";
 import { CarePlanManagementSection } from "./care-plan-management-section";
+import { ChronicProgrammeReviewSection } from "./chronic-programme-review-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
+import { MarkVaccineContraindicatedForm } from "./mark-vaccine-contraindicated-form";
+import { VaccinationRegistry } from "@/app/(dashboard)/patient/vaccination-registry";
+import { HealthyAgeingClinicianPanel } from "./healthy-ageing-clinician-panel";
+import { CreateReferralForm } from "./create-referral-form";
+import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
 
 export default async function ClinicianPatientPage({
@@ -108,28 +121,12 @@ export default async function ClinicianPatientPage({
   const year = new Date().getFullYear();
   const { data: healthCheck } = await supabase
     .from("annual_health_checks")
-    .select("reviewed_at, reviewed_by")
+    .select(
+      "reviewed_at, reviewed_by, video_consult:video_consultations!annual_health_checks_video_consultation_id_fkey(id, proposed_slots, scheduled_at)"
+    )
     .eq("patient_id", patientId)
     .eq("year", year)
     .maybeSingle();
-  let reviewedByName: string | null = null;
-  if (healthCheck?.reviewed_by) {
-    const { data: reviewer } = await supabase
-      .from("clinical_staff")
-      .select("full_name, credential_type, credential_number")
-      .eq("id", healthCheck.reviewed_by)
-      .maybeSingle();
-    if (reviewer) {
-      reviewedByName = [
-        `Dr. ${reviewer.full_name}`,
-        reviewer.credential_type && reviewer.credential_number
-          ? `${reviewer.credential_type} ${reviewer.credential_number}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-    }
-  }
   // Confirm/continue an existing prescription (master plan §4/§8) —
   // characteristically Tier 1's half of the job, but NOT Tier-1-exclusive.
   // Clinical authority is monotonic, so a senior doctor covering a shift with
@@ -227,10 +224,18 @@ export default async function ClinicianPatientPage({
                     and renal-dosing checks are what a dispensing pharmacist would
                     have caught, and this platform has no pharmacist in the loop. */}
                 <MedicationSafetyPanel patientId={patient.id} />
+                <MedicationEffectivenessCard patientId={patient.id} />
+                <MedicationReconciliationPanel patientId={patient.id} />
+                {/* Spec §62.12 — every repeat request needs a clinician's
+                    decision; canReview mirrors canConfirmRefill (any active
+                    clinical tier, never a Care Coordinator) since approving a
+                    routine repeat is that same class of act. */}
+                <MedicationRepeatRequestsPanel patientId={patient.id} canReview={canConfirmRefill} />
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
                   canConfirmRefill={canConfirmRefill}
+                  canAmend={canPrescribe}
                   isClinicianView
                 />
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
@@ -267,6 +272,11 @@ export default async function ClinicianPatientPage({
             ) : (
               <p className="text-sm text-charcoal-ink/60">This patient has no organisation on file.</p>
             ),
+          },
+          {
+            id: "chronic-programme",
+            label: "12-week programme",
+            content: <ChronicProgrammeReviewSection patientId={patient.id} />,
           },
           {
             id: "vitals-chronic-care",
@@ -310,13 +320,17 @@ export default async function ClinicianPatientPage({
                 <ResultDocumentsSection patientId={patient.id} />
                 <EcgReportDocumentsSection patientId={patient.id} />
                 <MentalHealthSummary patientId={patient.id} showScores />
+                {isClinicalTier(callerStaff) && <ReferToSpecialistForm patientId={patient.id} />}
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />
-                <HealthCheckReview
-                  patientId={patient.id}
-                  reviewedAt={healthCheck?.reviewed_at ?? null}
-                  reviewedByName={reviewedByName}
-                />
+                <HealthCheckVideoConsult consult={healthCheck?.video_consult ?? null} />
+                <HealthCheckReview patientId={patient.id} reviewedAt={healthCheck?.reviewed_at ?? null}>
+                  <ReviewedResultLine
+                    reviewedBy={healthCheck?.reviewed_by ?? null}
+                    reviewedAt={healthCheck?.reviewed_at ?? null}
+                    reviewedByKey="staff"
+                  />
+                </HealthCheckReview>
                 {patient.organisation_id && (
                   <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}
@@ -327,8 +341,27 @@ export default async function ClinicianPatientPage({
                 <ObesityAttestationCard />
                 <ObesityAssessmentPanel patientId={patient.id} patientSex={patient.sex} />
                 <ObesityEdScreenForm patientId={patient.id} />
+                {/* Vaccination & Immunisation Engine (spec §43): the same
+                    registry the patient sees (org-staff RLS already permits
+                    a clinician to read it), plus the one write action that
+                    belongs to a clinician rather than the patient — marking
+                    a vaccine contraindicated is a clinical judgement. */}
+                <VaccinationRegistry
+                  patientId={patient.id}
+                  ageYears={ageFromDateOfBirth(patient.date_of_birth)}
+                  dateOfBirth={patient.date_of_birth}
+                  sex={patient.sex}
+                />
+                {isClinicalTier(callerStaff) && (
+                  <MarkVaccineContraindicatedForm patientId={patient.id} />
+                )}
               </>
             ),
+          },
+          {
+            id: "healthy-ageing",
+            label: "Healthy ageing",
+            content: <HealthyAgeingClinicianPanel patientId={patient.id} />,
           },
           {
             id: "clinical-notes",
@@ -339,8 +372,30 @@ export default async function ClinicianPatientPage({
                 organisationId={patient.organisation_id}
                 canWrite={isClinicalTier(callerStaff)}
                 canActionFollowUps={Boolean(callerStaff)}
+                patientName={patient.full_name ?? "this patient"}
+                patientDateOfBirth={patient.date_of_birth}
               />
             ) : null,
+          },
+          {
+            id: "referrals",
+            label: "Referrals",
+            content: (
+              <>
+                <PatientReferralsList patientId={patient.id} />
+                {/* Creating a referral is a clinical decision (67.2/67.7) —
+                    gated to clinical tier here to match the DB create-gate
+                    trigger (private.is_clinical_tier), same isClinicalTier
+                    pattern the vitals/diabetes forms above already use. */}
+                {patient.organisation_id && isClinicalTier(callerStaff) ? (
+                  <CreateReferralForm patientId={patient.id} organisationId={patient.organisation_id} />
+                ) : (
+                  <p className="text-sm text-charcoal-ink/60">
+                    Only a clinical-tier member of the care team can create a specialist referral.
+                  </p>
+                )}
+              </>
+            ),
           },
         ];
 

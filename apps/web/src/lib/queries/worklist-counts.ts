@@ -52,6 +52,38 @@ async function countAsyncConsults(supabase: Client) {
   return count ?? 0;
 }
 
+async function countSecondOpinionRequests(supabase: Client) {
+  const { count } = await supabase
+    .from("second_opinion_requests")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "in_review"]);
+  return count ?? 0;
+}
+
+async function countPrescriptionRenewalRequests(supabase: Client) {
+  const { count } = await supabase
+    .from("prescription_renewal_requests")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "in_review"]);
+  return count ?? 0;
+}
+
+async function countVerifiedDocumentRequests(supabase: Client) {
+  const { count } = await supabase
+    .from("verified_documents")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "requested");
+  return count ?? 0;
+}
+
+async function countSeniorCaseReviews(supabase: Client) {
+  const { count } = await supabase
+    .from("senior_case_reviews")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "in_review"]);
+  return count ?? 0;
+}
+
 async function countAdherenceAlerts(supabase: Client) {
   const { count } = await supabase
     .from("medication_adherence_alerts")
@@ -138,6 +170,10 @@ export type WorklistCountKey =
   | "waitlistedReferrals"
   | "outreach"
   | "asyncConsults"
+  | "secondOpinionRequests"
+  | "prescriptionRenewalRequests"
+  | "verifiedDocumentRequests"
+  | "seniorCaseReviews"
   | "adherenceAlerts"
   | "medicationReviews"
   | "preventiveReviews"
@@ -155,6 +191,10 @@ const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<number>> 
   waitlistedReferrals: countWaitlistedReferrals,
   outreach: countOutreachTasks,
   asyncConsults: countAsyncConsults,
+  secondOpinionRequests: countSecondOpinionRequests,
+  prescriptionRenewalRequests: countPrescriptionRenewalRequests,
+  verifiedDocumentRequests: countVerifiedDocumentRequests,
+  seniorCaseReviews: countSeniorCaseReviews,
   adherenceAlerts: countAdherenceAlerts,
   medicationReviews: countMedicationReviews,
   preventiveReviews: countPreventiveReviews,
