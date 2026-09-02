@@ -5,6 +5,8 @@ import { supabase } from "./supabase";
 import { configureIOSBackgroundDelivery, subscribeToIOSHealthChanges } from "./healthkit";
 import { syncAppleHealth, syncHealthConnect } from "./health-sync";
 import { recordSyncError } from "./sync-diagnostics";
+import { flushPendingVitals } from "./offline-vitals-queue";
+import { syncThresholdsIfOnline } from "./threshold-sync";
 
 /**
  * The reliable background-sync backbone for both platforms.
@@ -43,6 +45,18 @@ TaskManager.defineTask(TASK_NAME, async () => {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session) return BackgroundTask.BackgroundTaskResult.Success;
+
+    // Unconditional, unlike the platform-specific health sync below — the
+    // offline vitals queue (offline-vitals-queue.ts) and the threshold
+    // version check (threshold-sync.ts) apply to both platforms equally,
+    // and are the "usually don't have to think about it" layer for the
+    // Vitals screen's own opportunistic flush-on-save/flush-on-mount.
+    try {
+      await flushPendingVitals();
+      await syncThresholdsIfOnline();
+    } catch (error) {
+      recordSyncError("offline_vitals", `${Platform.OS}:backgroundFlush`, error);
+    }
 
     const result =
       Platform.OS === "ios"

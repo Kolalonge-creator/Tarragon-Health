@@ -27,16 +27,18 @@ const anyOf =
 
 /**
  * Every admin settings page, grouped into the tabs rendered by
- * `/admin/settings/layout.tsx`, replacing the ~28 individual links that used
- * to be split between the main sidebar (15 of them) and `/admin` home-page
- * tiles (a different, overlapping 21) — two inconsistent lists neither of
- * which covered all of them. `visible` mirrors each destination page's own
- * actual gate (checked directly in each page.tsx), not the looser
- * permission keys some of those old lists used — several pages (protocols,
- * cv-risk-config, subscriptions, clinical-staff, broadcasts, and others)
- * hard-gate to `profile.role === "admin"` even though a same-named
- * delegable permission key exists in `PERMISSION_KEYS`, so showing this tab
- * item to a delegated non-admin member would be a dead link.
+ * `/admin/settings/layout.tsx` — originally replacing the ~28 individual
+ * links that used to be split between the main sidebar (15 of them) and
+ * `/admin` home-page tiles (a different, overlapping 21), two inconsistent
+ * lists neither of which covered all of them. `visible` mirrors each
+ * destination page's own actual gate (checked directly in each page.tsx),
+ * not the looser permission keys some of those old lists used — several
+ * pages (protocols, cv-risk-config, subscriptions, clinical-staff,
+ * broadcasts, and others) hard-gate to `profile.role === "admin"` even
+ * though a same-named delegable permission key exists in `PERMISSION_KEYS`,
+ * so showing this tab item to a delegated non-admin member would be a dead
+ * link. New settings pages should be added here, not as a direct sidebar
+ * link — see the "admin" case in `navigation.ts`.
  */
 export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
   {
@@ -77,6 +79,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         label: "Clinical staff",
         blurb: "Add and verify every MDCN/NMCN-credentialed doctor.",
         icon: SEMANTIC_ICON.clinicianFollowUp,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/provider-restrictions",
+        label: "Provider restrictions",
+        blurb: "A staged, reason-coded suspension workflow for clinical staff.",
+        icon: NAV_ICON.warning,
         visible: adminOnly,
       },
     ],
@@ -161,6 +170,20 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         icon: SEMANTIC_ICON.carePlan,
         visible: adminOnly,
       },
+      {
+        href: "/admin/settings/triage-protocols",
+        label: "Symptom triage protocols",
+        blurb: "Red-flag thresholds and questionnaire branching for the symptom checker, versioned and Director-signed.",
+        icon: NAV_ICON.siren,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/clinical-rules",
+        label: "Clinical rules engine",
+        blurb: "Governed deployment and rollback for every configurable clinical rule version.",
+        icon: NAV_ICON.governance,
+        visible: adminOnly,
+      },
     ],
   },
   {
@@ -238,6 +261,20 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         icon: NAV_ICON.payables,
         visible: anyOf("vouchers.manage"),
       },
+      {
+        href: "/admin/settings/lab-result-consult-pricing",
+        label: "Lab-result consult fee",
+        blurb: "The fee charged for a doctor consult triggered by an abnormal lab result.",
+        icon: SEMANTIC_ICON.billing,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/outcomes-contracts",
+        label: "Fee-at-risk contracts",
+        blurb: "Review and approve HMO/corporate-proposed outcomes contract terms.",
+        icon: NAV_ICON.outcomes,
+        visible: adminOnly,
+      },
     ],
   },
   {
@@ -286,6 +323,41 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         blurb: "The NDPA 72-hour notification clock, tracked.",
         icon: NAV_ICON.compliance,
         visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/feature-flags",
+        label: "Feature flags",
+        blurb: "Turn a feature on or off platform-wide without a deploy.",
+        icon: NAV_ICON.flag,
+        visible: anyOf("feature_flags.manage"),
+      },
+      {
+        href: "/admin/settings/platform-modules",
+        label: "Platform modules",
+        blurb: "The activation switch for a dormant module, e.g. the insurer or provider-organisation platform.",
+        icon: NAV_ICON.settings,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/notification-templates",
+        label: "Notification templates",
+        blurb: "The wording behind every WhatsApp/SMS/email/in-app reminder and alert.",
+        icon: NAV_ICON.messages,
+        visible: anyOf("notification_templates.manage"),
+      },
+      {
+        href: "/admin/settings/ai-governance",
+        label: "AI governance",
+        blurb: "Oversight and audit trail for every AI-assisted clinical or operational decision.",
+        icon: SEMANTIC_ICON.aiCoach,
+        visible: anyOf("ai_governance.manage"),
+      },
+      {
+        href: "/admin/settings/ops-console",
+        label: "Ops console",
+        blurb: "One cross-domain worklist — alerts, appointments, referrals, labs, pharmacy, support, payments, incidents.",
+        icon: NAV_ICON.operations,
+        visible: anyOf("ops.console.view"),
       },
     ],
   },
