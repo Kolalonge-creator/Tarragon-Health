@@ -41,3 +41,12 @@ export const EMERGENCY_SAFETY_REPLY =
 
 export const COACH_UNAVAILABLE_REPLY =
   "I'm having trouble reaching the coach right now. If this feels urgent, please contact your care team directly — otherwise, try again in a few minutes.";
+
+/**
+ * Intro line for a symptom-to-test suggestion appended after a non-emergency
+ * reply (see ai-coach/graph.ts's llmTurn). Like EMERGENCY_SAFETY_REPLY, this
+ * is fixed, hand-written copy — the model never phrases the suggestion
+ * itself, only a deterministic keyword match against
+ * lib/symptom-check/symptom-clusters.ts decides whether it's shown at all.
+ */
+export const SYMPTOM_SUGGESTION_INTRO = "One more thing, based on what you described:";

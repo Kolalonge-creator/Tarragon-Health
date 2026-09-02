@@ -17,6 +17,7 @@ import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
 import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-campaigns-card";
+import { SymptomToTestCheck } from "@/app/(dashboard)/patient/symptom-to-test-check";
 
 /**
  * The prevention hub — one destination for everything that keeps a healthy
@@ -125,6 +126,16 @@ export default async function PreventionHubPage() {
             patientId={subjectId}
             conditionLanguagePreference={profile.condition_language_preference}
           />
+        </div>
+      ),
+    },
+    {
+      id: "symptom-checker",
+      label: "Symptom Checker",
+      anchorIds: ["symptom-checker"],
+      content: (
+        <div id="symptom-checker" className="scroll-mt-24">
+          <SymptomToTestCheck patientId={subjectId} organisationId={profile.organisation_id} />
         </div>
       ),
     },
