@@ -7,6 +7,7 @@ import type { LabOrderStatus } from "@tarragon/shared";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { EcgReportUpload } from "@/components/ecg-report-upload";
 import { RequestPartnerLabVisit } from "@/app/(dashboard)/patient/request-partner-lab-visit";
+import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
  * go when you can" and "the result is in". Payment states are retained in the
@@ -19,6 +20,7 @@ const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["vari
   processing: { variant: "blue", label: "In progress" },
   resulted: { variant: "green", label: "Results ready" },
   cancelled: { variant: "grey", label: "Cancelled" },
+  sample_rejected: { variant: "red", label: "Sample rejected" },
 };
 
 /** Still open: the patient has a request and we're waiting on their result. */
@@ -55,6 +57,9 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                 <p className="text-sm font-medium text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Lab test"}
                 </p>
+                {order.status === "pending_payment" && (
+                  <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                )}
                 {awaiting && (
                   <>
                     <a

@@ -45,6 +45,11 @@ export default async function AdminPage() {
   // A member only sees an operational tile if they can actually use that surface.
   // Tiles with no dedicated capability key stay super-admin-only.
   const can = (key: string) => isSuperAdmin || keys.has(key);
+  // Mirrors private.can_view_ops_console(): private.is_analyst() (role in
+  // ('analyst', 'admin')) OR the ops.console.view grant.
+  const canViewOps =
+    isSuperAdmin || profile?.role === "analyst" || keys.has("ops.console.view");
+  const canViewIncidents = isSuperAdmin || keys.has("incidents.view") || keys.has("incidents.manage");
 
   // Live platform KPIs for the welcome banner + stat row. The RPCs return
   // '{}' (parsed to all-zero defaults) for a caller who isn't analyst/admin,
@@ -125,6 +130,13 @@ export default async function AdminPage() {
           visible: can("clinical_staff.manage"),
         },
         {
+          href: "/admin/settings/provider-restrictions",
+          label: "Provider restrictions",
+          blurb: "Staged, reason-coded suspension workflow for clinical staff",
+          icon: SEMANTIC_ICON.clinicianFollowUp,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/leads",
           label: "Leads",
           blurb: "Contact form and plan-finder submissions, including B2B",
@@ -161,6 +173,13 @@ export default async function AdminPage() {
           href: "/admin/settings/commissions",
           label: "Commission tracking",
           blurb: "Partner-network commissions earned, owed, and paid",
+          icon: SEMANTIC_ICON.commission,
+          visible: can("commissions.view"),
+        },
+        {
+          href: "/admin/settings/outcomes-contracts",
+          label: "Fee-at-risk contracts",
+          blurb: "Review HMO/corporate-proposed fee-at-risk terms before they go live",
           icon: SEMANTIC_ICON.commission,
           visible: can("commissions.view"),
         },
@@ -264,6 +283,13 @@ export default async function AdminPage() {
       label: "Platform & growth",
       tiles: [
         {
+          href: "/admin/settings/ops-console",
+          label: "Operations console",
+          blurb: "One cross-domain worklist: alerts, referrals, labs, payments, incidents",
+          icon: NAV_ICON.operations,
+          visible: can("ops.console.view"),
+        },
+        {
           href: "/analytics",
           label: "Platform analytics",
           blurb: "Business, financial, and population-health intelligence",
@@ -292,11 +318,25 @@ export default async function AdminPage() {
           visible: can("broadcasts.send"),
         },
         {
+          href: "/admin/settings/notification-templates",
+          label: "Notification templates",
+          blurb: "The catalogue of every notification the platform sends",
+          icon: NAV_ICON.messages,
+          visible: can("notification_templates.manage"),
+        },
+        {
           href: "/admin/settings/integrations",
           label: "API keys & integrations",
           blurb: "Inbound partner keys and outbound partner APIs",
           icon: SEMANTIC_ICON.family,
           visible: can("integrations.manage"),
+        },
+        {
+          href: "/admin/settings/feature-flags",
+          label: "Feature flags",
+          blurb: "Roll a feature out to staff, a percentage, or a named cohort",
+          icon: NAV_ICON.settings,
+          visible: can("feature_flags.manage"),
         },
         {
           href: "/admin/settings/protocol-api",
@@ -306,11 +346,51 @@ export default async function AdminPage() {
           visible: can("integrations.manage"),
         },
         {
+          href: "/admin/settings/ai-governance",
+          label: "AI governance",
+          blurb: "Every AI system's incidents and kill switch",
+          icon: SEMANTIC_ICON.aiCoach,
+          visible: can("ai_governance.manage"),
+        },
+        {
           href: "/admin/testimonials",
           label: "Testimonials",
           blurb: "Review consented patient quotes before they go live",
           icon: NAV_ICON.review,
           visible: isSuperAdmin,
+        },
+        {
+          href: "/admin/settings/platform-modules",
+          label: "Platform modules",
+          blurb: "Activate the payer or provider-organisation platform",
+          icon: NAV_ICON.settings,
+          visible: isSuperAdmin,
+        },
+      ],
+    },
+    {
+      label: "Operations & governance",
+      tiles: [
+        {
+          href: "/admin/ops",
+          label: "Operations console",
+          blurb: "Tarragon Today, one exception queue across every domain, system health",
+          icon: NAV_ICON.operations,
+          visible: canViewOps,
+        },
+        {
+          href: "/admin/ops/incidents",
+          label: "Incident register",
+          blurb: "Clinical, technical, privacy, security, financial and operational incidents",
+          icon: NAV_ICON.siren,
+          visible: canViewIncidents,
+        },
+        {
+          href: "/admin/settings/feature-flags",
+          label: "Feature flags",
+          blurb: "Roll a feature out by state, role, org or percentage — no deploy",
+          icon: NAV_ICON.flag,
+          visible: can("feature_flags.manage"),
         },
       ],
     },
