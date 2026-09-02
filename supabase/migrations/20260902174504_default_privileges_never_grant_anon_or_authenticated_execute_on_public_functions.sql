@@ -71,6 +71,7 @@ declare
   v_proacl text;
   v_proacl2 text;
   v_still_has_exec boolean;
+  v_event_triggers text;
 begin
   select string_agg(format('role=%s ns=%s type=%s acl=%s', coalesce(defaclrole::regrole::text,'(none)'), coalesce(defaclnamespace::regnamespace::text,'(db-wide)'), defaclobjtype, defaclacl::text), ' | ')
     into v_before
@@ -104,6 +105,10 @@ begin
   select proowner::regrole::text, proacl::text into v_proowner, v_proacl from pg_proc
    where oid = 'public._default_priv_probe_fn_20260902174504()'::regprocedure;
 
+  select string_agg(format('%s(%s,enabled=%s,fn=%s)', evtname, evtevent, evtenabled, evtfoid::regproc::text), ' | ')
+    into v_event_triggers
+    from pg_event_trigger;
+
   -- Sanity check: does a DIRECT, per-object revoke (not via default
   -- privileges) actually stick? If PUBLIC persists even after this, an event
   -- trigger or extension is re-granting it, not a default-privilege quirk.
@@ -115,7 +120,7 @@ begin
 
   drop function public._default_priv_probe_fn_20260902174504();
   drop sequence public._default_priv_probe_seq_20260902174504;
-  raise exception 'DIAG: before=[%] after=[%] current_user=% session_user=% proowner=% proacl_default=% proacl_after_direct_revoke=% still_has_execute_after_direct_revoke=%',
-    coalesce(v_before, '(no rows)'), coalesce(v_after, '(no rows)'), v_current_user, v_session_user,
-    v_proowner, coalesce(v_proacl, '(null)'), coalesce(v_proacl2, '(null)'), v_still_has_exec;
+  raise exception 'DIAG: proowner=% proacl_default=% proacl_after_direct_revoke=% still_has_execute_after_direct_revoke=% event_triggers=%',
+    v_proowner, coalesce(v_proacl, '(null)'), coalesce(v_proacl2, '(null)'), v_still_has_exec,
+    coalesce(v_event_triggers, '(none)');
 end $$;
