@@ -378,6 +378,7 @@ export function getNavSections(
             { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
             { label: "Symptom triage protocols", href: "/admin/settings/triage-protocols", icon: "escalation" },
             { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
+            { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
             { label: "Clinical rules engine", href: "/admin/settings/clinical-rules", icon: "governance" },
           ],
         },

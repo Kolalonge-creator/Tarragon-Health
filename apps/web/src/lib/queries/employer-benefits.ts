@@ -4,7 +4,7 @@ import type { Tables } from "@tarragon/shared";
 
 export type EmployerBenefitPackage = Tables<"employer_benefit_packages">;
 export type EmployerBenefitAllowance = Tables<"employer_benefit_allowances">;
-export type SubscriptionPlan = Tables<"service_products">;
+export type ServiceProduct = Tables<"service_products">;
 
 function packagesKey(organisationId: string) {
   return ["employer-benefit-packages", organisationId];
@@ -14,9 +14,9 @@ function allowancesKey(packageId: string) {
 }
 
 /** Module 26 §26.6/§26.7 — what an employer purchases. Reuses the platform's
- * own subscription_plans catalogue (see the migration header on
- * 20260829093527_employer_platform_benefit_packages_entitlement_wiring.sql)
- * rather than a second feature-toggle system. */
+ * own service_products catalogue (rewired off subscription_plans by
+ * 20260831160547_rewire_employer_benefits_to_service_products.sql, part of
+ * the pay-per-service cutover) rather than a second feature-toggle system. */
 export function useBenefitPackages(organisationId: string) {
   return useQuery({
     queryKey: packagesKey(organisationId),
@@ -35,13 +35,11 @@ export function useBenefitPackages(organisationId: string) {
   });
 }
 
-/** The service-product tiers a package can reference — same pay-per-service
- * catalogue individual patients buy from directly (subscription_plans was
- * retired in favour of service_products by the 2026-08-31 pay-per-service
- * cutover — see 20260831160547_rewire_employer_benefits_to_service_products.sql). */
-export function useSubscriptionPlanCatalog() {
+/** The plan tiers a package can reference — same catalogue individual
+ * patients buy from directly. */
+export function useServiceProductCatalog() {
   return useQuery({
-    queryKey: ["subscription-plan-catalog"],
+    queryKey: ["service-product-catalog"],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -50,7 +48,7 @@ export function useSubscriptionPlanCatalog() {
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
-      return data as SubscriptionPlan[];
+      return data as ServiceProduct[];
     },
   });
 }
