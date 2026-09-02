@@ -2,12 +2,38 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { BookAppointment } from "./book-appointment";
 import { MyAppointmentsList } from "./my-appointments-list";
+import type { AppointmentType } from "@/lib/queries/appointments";
 
-export default async function PatientAppointmentsPage() {
+const VALID_APPOINTMENT_TYPES: AppointmentType[] = [
+  "gp",
+  "specialist",
+  "nurse",
+  "dietitian",
+  "physiotherapist",
+  "laboratory",
+  "imaging",
+  "vaccination",
+  "physical_clinic",
+  "telemedicine",
+  "follow_up",
+  "procedure",
+  "therapy",
+];
+
+export default async function PatientAppointmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
   const profile = await getCurrentProfile();
   if (!profile?.organisation_id) {
     redirect("/login");
   }
+
+  const { type } = await searchParams;
+  const initialAppointmentType = VALID_APPOINTMENT_TYPES.includes(type as AppointmentType)
+    ? (type as AppointmentType)
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -18,7 +44,11 @@ export default async function PatientAppointmentsPage() {
         </p>
       </div>
       <MyAppointmentsList patientId={profile.id} />
-      <BookAppointment organisationId={profile.organisation_id} patientId={profile.id} />
+      <BookAppointment
+        organisationId={profile.organisation_id}
+        patientId={profile.id}
+        initialAppointmentType={initialAppointmentType}
+      />
     </div>
   );
 }

@@ -107,6 +107,59 @@ export function vitalsEquivalentFor(readingType: WearableReadingType): VitalsEqu
   return VITALS_EQUIVALENT[readingType] ?? null;
 }
 
+/**
+ * The four patient-facing consent categories a wearable connection can be
+ * narrowed to (53.3/53.4's "separate permission where practical" — steps,
+ * heart rate, sleep, weight are the categories actually named). Glucose,
+ * blood pressure and SpO2 deliberately have no category here: they already
+ * flow through vitals_readings' own plan-gated red-flag pipeline, which is
+ * the more load-bearing consent surface for those, and reading()'s
+ * per-metric routing already keeps clinically-significant readings out of
+ * an all-or-nothing "give us everything" connect step regardless.
+ */
+export type WearableConsentCategory = "activity" | "heart_rate" | "sleep" | "weight";
+
+const CONSENT_CATEGORY: Partial<Record<WearableReadingType, WearableConsentCategory>> = {
+  steps: "activity",
+  calories: "activity",
+  resting_heart_rate: "heart_rate",
+  hrv_ms: "heart_rate",
+  respiratory_rate: "heart_rate",
+  sleep_minutes: "sleep",
+  sleep_efficiency: "sleep",
+  weight: "weight",
+};
+
+/** Null for a reading type with no gated category (glucose, blood pressure,
+ * SpO2, recovery/readiness/strain) — those are never filtered by consent. */
+export function consentCategoryFor(readingType: WearableReadingType): WearableConsentCategory | null {
+  return CONSENT_CATEGORY[readingType] ?? null;
+}
+
+/** One connection's per-category grants. Keyed to match the
+ * wearable_connections consent_* columns directly. */
+export interface WearableConsent {
+  activity: boolean;
+  heart_rate: boolean;
+  sleep: boolean;
+  weight: boolean;
+}
+
+export const FULL_WEARABLE_CONSENT: WearableConsent = {
+  activity: true,
+  heart_rate: true,
+  sleep: true,
+  weight: true,
+};
+
+/** True unless the reading's category is explicitly denied. A reading with
+ * no gated category (see consentCategoryFor) is always permitted. */
+export function isConsentedTo(reading: NormalisedReading, consent: WearableConsent): boolean {
+  const category = consentCategoryFor(reading.readingType);
+  if (!category) return true;
+  return consent[category];
+}
+
 export function isVitalsEquivalent(readingType: WearableReadingType): boolean {
   return readingType in VITALS_EQUIVALENT;
 }
