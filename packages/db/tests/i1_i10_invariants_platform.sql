@@ -238,6 +238,72 @@ begin
 end $$;
 
 -- ===========================================================================
+-- I9 (continued) — the same guarantee, re-proven directly on the vaccination
+-- tables a new coverage-analytics dashboard (spec 43.15) reads aggregates
+-- from. The dashboard itself never queries these tables under the caller's
+-- own session (see requireInstitutionAggregateAccess/loadVaccinationCoverage,
+-- which always run under the service-role client after their own explicit
+-- authorization check) — this proves the RLS backstop holds even if a future
+-- change accidentally queried them directly from an institution admin's own
+-- session instead.
+-- ===========================================================================
+do $$
+declare
+  v_org        uuid := '00000000-0000-0000-0000-000000000001';
+  v_corp       uuid;
+  v_hmo        uuid;
+  v_clin       uuid;
+  v_pat        uuid;
+  v_catalog_id uuid;
+  n_corp_rec   int;
+  n_corp_sched int;
+  n_hmo_rec    int;
+  n_clin_rec   int;
+begin
+  select id into v_corp from public.profiles where role='corporate_admin' and organisation_id=v_org limit 1;
+  select id into v_hmo  from public.profiles where role='hmo_admin'       and organisation_id=v_org limit 1;
+  select id into v_clin from public.profiles where role='clinician'       and organisation_id=v_org limit 1;
+  select id into v_pat  from public.profiles where role='patient'         and organisation_id=v_org limit 1;
+  select id into v_catalog_id from public.vaccination_catalog limit 1;
+
+  insert into public.vaccination_records (organisation_id, profile_id, vaccination_catalog_id, dose_number, date_administered)
+  values (v_org, v_pat, v_catalog_id, 1, current_date - 1);
+  insert into public.vaccination_schedules (organisation_id, patient_id, vaccination_catalog_id, status, due_date)
+  values (v_org, v_pat, v_catalog_id, 'overdue', current_date - 30);
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_corp, 'role','authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select count(*) into n_corp_rec   from public.vaccination_records;
+  select count(*) into n_corp_sched from public.vaccination_schedules;
+  perform set_config('role', 'postgres', true);
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_hmo, 'role','authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select count(*) into n_hmo_rec from public.vaccination_records;
+  perform set_config('role', 'postgres', true);
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_clin, 'role','authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
+  select count(*) into n_clin_rec from public.vaccination_records;
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
+
+  insert into invariant_result values
+    (95, 'I9', case when n_corp_rec = 0 then 'PASS' else 'FAIL' end,
+        'corporate_admin reads zero vaccination_records rows',
+        '0', n_corp_rec::text),
+    (96, 'I9', case when n_corp_sched = 0 then 'PASS' else 'FAIL' end,
+        'corporate_admin reads zero vaccination_schedules rows',
+        '0', n_corp_sched::text),
+    (97, 'I9', case when n_hmo_rec = 0 then 'PASS' else 'FAIL' end,
+        'hmo_admin reads zero vaccination_records rows',
+        '0', n_hmo_rec::text),
+    (98, 'I9', case when n_clin_rec >= 1 then 'PASS' else 'FAIL' end,
+        'CONTROL — a real clinician in the same org still reads the vaccination_records row',
+        '>=1', n_clin_rec::text);
+end $$;
+
+-- ===========================================================================
 -- I1 — no clinical content on an open rail (whatsapp/sms/email). FIXED
 -- 20260730094515_i1_notifications_content_class.sql.
 --

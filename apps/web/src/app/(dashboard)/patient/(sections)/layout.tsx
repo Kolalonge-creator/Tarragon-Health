@@ -25,7 +25,8 @@ export default async function PatientSectionsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile, acting, subjectId, subjectState } = await getPatientDashboardContext();
+  const { profile, acting, subjectId, subjectState, subjectHasEmergencyContact } =
+    await getPatientDashboardContext();
 
   return (
     <DashboardPlaceholder
@@ -44,7 +45,7 @@ export default async function PatientSectionsLayout({
       {/* Safety surfaces stay above everything, outside any section. */}
       <EmergencyAlert
         patientId={subjectId}
-        hasEmergencyContact={!!profile.emergency_contact_phone}
+        hasEmergencyContact={subjectHasEmergencyContact}
         state={subjectState}
       />
       <DangerSymptomCheck patientId={subjectId} />

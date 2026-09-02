@@ -40,6 +40,11 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   condition_recorded: { dot: "bg-clinical-navy", label: "Condition" },
   condition_status_changed: { dot: "bg-amber-500", label: "Condition" },
   referral_outcome_recorded: { dot: "bg-clinical-navy", label: "Referral" },
+  document_uploaded: { dot: "bg-clinical-navy", label: "Document" },
+  imaging_report_uploaded: { dot: "bg-clinical-navy", label: "Imaging" },
+  record_conflict_flagged: { dot: "bg-amber-500", label: "Record conflict" },
+  record_conflict_resolved: { dot: "bg-green-600", label: "Record conflict" },
+  clinical_summary_validated: { dot: "bg-green-600", label: "Clinical summary" },
 };
 
 // Belt-and-braces only — private.record_timeline_event() now strips

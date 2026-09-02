@@ -72,6 +72,130 @@ wrapped in `BEGIN`/`ROLLBACK`) — see the file list in §4.
 Everything else below is **findings and recommendations, not built this round** — smaller, lower-risk
 items called out as follow-up work (§5), not gated on a decision.
 
+**Round 3 (2026-08-29) — the four remaining MISSING items closed.** Six more migrations, built in an
+isolated git worktree (`.claude/worktrees/ehr-longitudinal-record-gaps`, branch `worktree-ehr-
+longitudinal-record-gaps`) because another session was concurrently active on this same checkout
+(`claude/fix-blueprint-gaps-20260829`, its own unrelated master-architecture-blueprint pass — see
+`docs/MASTER_ARCHITECTURE_BLUEPRINT_GAP_ANALYSIS.md`):
+
+- `20260829221500_timeline_document_imaging_conflict_event_types.sql` — five new `timeline_event_
+  type` enum values, added alone per the established same-transaction-can't-use-a-fresh-enum-value
+  gotcha (see `20260827195559_timeline_condition_event_types.sql`).
+- `20260829221812_patient_documents_external_records.sql` — §1.21: a generic `patient_documents`
+  table (discharge summaries, prescriptions, vaccination cards, specialist letters), mirroring
+  `lab_result_documents` (private storage bucket, patient-own-folder policies, server-derived
+  `uploaded_by`) with one deliberate difference — no automatic `clinician_alerts` row on upload. A
+  scanned vaccination card doesn't need doctor triage the way a raw lab result does; per the spec's
+  own framing for imaging, storing it is enough.
+- `20260829222245_imaging_reports.sql` — §1.14: general imaging (X-ray/ultrasound/CT/MRI/mammogram/
+  DEXA), mirroring `lab_result_documents` fully *including* the automatic `clinician_review` alert —
+  an imaging report, unlike a generic document, does need a doctor to read it. One table, not the ECG
+  pipeline's three, per the spec's own "initially, storing the report may be sufficient."
+- `20260829222717_record_conflicts_reconciliation.sql` — §1.22: a `record_conflicts` table for the
+  spec's "Verify" step (flag → clinician review → resolve), sequenced after `patient_documents` since
+  a discrepancy needs two things to compare. **Deliberately does not build "Extract/Match"** — no
+  OCR/parsing/auto-matching engine exists anywhere on this platform, and one is far outside an
+  additive schema pass. This is a clinician-flagged structured queue, not an automated reconciliation
+  engine. Patient-insert is disallowed for the same reason `patient_conditions` disallows it —
+  verifying a clinical discrepancy is the same "never let a patient edit a diagnosis" principle.
+- `20260829223204_patient_record_search.sql` — §1.19: generated `search_vector` tsvector columns +
+  GIN indexes on `patient_conditions`/`patient_allergies`/`medications`/`screening_results`/
+  `patient_documents`/`imaging_reports`, plus one unified `public.search_patient_record(patient,
+  query)` RPC (ranked, cross-table). Lives in `public` (not `private`) because PostgREST only exposes
+  `public`-schema functions — same reason as `public.find_profile_by_phone` — so the anon-EXECUTE
+  revoke is not optional (this project's standing "anon inherits EXECUTE through PUBLIC" gotcha).
+  Authorization (self / org staff / an explicit clinical-access grantee) is checked *inside* the
+  function, since `SECURITY DEFINER` bypasses RLS on the tables it queries directly.
+- `20260829223649_clinical_summary.sql` — §1.6: a one-row-per-patient `clinical_summaries` table plus
+  `private.generate_clinical_summary_draft()` (a **deterministic** composition from active
+  conditions/current medications/allergies/latest BP+glucose — no LLM call; that's an app-layer
+  concern out of scope for a migration, same reason this pass doesn't build OCR) and a callable
+  `public.refresh_clinical_summary()` RPC a clinician (or a future cron) can invoke. Regeneration is
+  deliberately NOT trigger-driven off every condition/medication change — that would be noisy and
+  risks clobbering a clinician's own authored text. A real bug was caught and fixed while building
+  this: the write-guard trigger's "was this a clinician hand-edit" heuristic was initially
+  indistinguishable from the refresh RPC's own UPDATE (both change `narrative_text` while `source`
+  was already `system_generated`) — every second-and-later auto-refresh would have mislabeled itself
+  `clinician_edited` and then silently stopped updating forever (via the RPC's own
+  never-clobber-a-clinician-edit guard). Fixed with a transaction-local `app.clinical_summary_
+  system_write` GUC the RPC sets before writing, matching the existing `app.change_reason` idiom.
+
+All five new tables are attached to both `audit_row_change_trg` and `capture_record_correction_trg`
+directly in their own creation migrations (both pre-date this round). Every migration ends in a
+`do $$ ... raise exception ...$$` assertion block proving the table/trigger/grant shape, matching
+Round 1/2's "proof, not hope" convention. Tests: `packages/db/tests/patient_health_record_round3.sql`
+covers the RLS boundaries and RPC authorization across all five (patient self-upload vs. spoofed
+source, patient-cannot-insert-a-conflict, the resolution-consistency CHECK holding through a state
+transition, the refresh-vs-clinician-edit non-clobber behaviour, and a cross-patient search-leak
+check).
+
+**Unlike Round 1/2, this round's seven migrations were pushed through the real PR → CI → merge →
+live-apply pipeline (PRs #372/#373/#374, all merged to `main-dev`), and the live-apply step is what
+actually found most of the bugs** — a stronger verification path than Round 1/2 had available, worth
+recording exactly what each stage caught and what it couldn't:
+
+- **Hand-review, before anything ran anywhere:** an enum value error (`vitals_readings.vital_type` is
+  `'blood_pressure'`, not `'bp'`) and a genuine Postgres correctness bug (`OLD` is unassigned, not
+  merely null, during `INSERT` in a combined `BEFORE INSERT OR UPDATE` trigger — an earlier draft of
+  the clinical-summary write-guard referenced `old.is_clinician_validated` unconditionally, which
+  would have raised on every insert).
+- **CI's `Supabase migration replay`** (a fresh, empty database) caught two more real bugs hand-review
+  missed: a `CREATE TRIGGER … on public.X` syntax error (a stray clause duplicated between the
+  trigger name and its real `AFTER INSERT ON …` line, in both `patient_documents_timeline` and
+  `imaging_reports_timeline`) — parses as plausible prose but is invalid SQL — and a genuine
+  `GENERATED ALWAYS AS … STORED` limitation: Postgres classifies `to_tsvector(regconfig, text)` as
+  STABLE, not IMMUTABLE, so it cannot back a generated column at all (`SQLSTATE 42P17`). Fixed by
+  switching every `search_vector` column from generated to a plain column maintained by a dedicated
+  `BEFORE INSERT OR UPDATE` trigger per table, plus a one-time backfill `UPDATE` for the four tables
+  that already carry live rows.
+- **The live-apply step itself caught a bug CI's empty test database structurally cannot reach:** the
+  `medications` table carries two live `BEFORE UPDATE` business-rule triggers
+  (`medications_enforce_confirm_only`, a Tier-1-authority gate, and `medications_bp_prescribing_
+  safety`) with no record anywhere in this checkout's local migration history — more of the same
+  migration/live drift this project has repeatedly documented. The unconditional `search_vector`
+  backfill `UPDATE` tripped the first one immediately on a real medication row. Fixed by disabling
+  both triggers for exactly that one backfill statement (which touches nothing either trigger
+  inspects) and re-enabling them immediately after, within the same migration transaction — confirmed
+  live afterward that all three affected medication rows got their `search_vector` populated and both
+  triggers came back enabled (`tgenabled = 'O'`).
+- **`get_advisors(security)` after all seven migrations were live** caught one more real, if
+  low-severity, finding: all six new `search_vector` trigger functions were missing an explicit
+  `search_path`, the one place in this round that skipped this codebase's standing convention. Not
+  exploitable today (each body only calls `pg_catalog` built-ins), but closed anyway
+  (`20260829224500_search_vector_functions_lock_search_path.sql`) for consistency — re-ran the
+  advisor afterward and confirmed all six findings cleared.
+- **`packages/db/tests/patient_health_record_round3.sql` was subsequently run for real against the
+  live database** (at the user's explicit direction), inside its own `begin;`/`rollback;` — and it
+  immediately justified doing so, catching two more real bugs "reviewed by hand" had missed entirely:
+  - **The test file itself had a real bug**, twice: two of its checks (`record_conflicts`'s
+    "fresh conflict starts open" check, and `clinical_summaries`'s "generated draft mentions the
+    active condition" check) inserted into the test's own temporary result table *while still
+    impersonating the `authenticated` role* — but that temp table was created by the connecting
+    (superuser) role before any `set local role`, and `authenticated` has no `INSERT` privilege on
+    it, so both checks failed with a genuine `42501 permission denied for table phr3_result`. Fixed by
+    moving every write to the temp tables to strictly after `reset role`, restructuring both checks
+    into separate role-switch blocks rather than one continuous one.
+  - **`public.search_patient_record()` was completely broken in production — every call to it failed**
+    (`ERROR: 0A000: invalid UNION/INTERSECT/EXCEPT ORDER BY clause`). `RETURNS TABLE (..., rank real)`
+    names the function's *output* row type, but `return query select ... union all ... order by rank
+    desc` evaluates as an ordinary standalone query whose own column names come from what each SELECT
+    branch actually aliases — none of the six UNION branches aliased `ts_rank(...)` as `rank`, so no
+    column in the query itself was named `rank`; Postgres then parsed the bare `rank` identifier as a
+    call to the built-in `rank()` window function instead, which produced the confusing "not
+    expressions or functions" error. Fixed in `20260829230000_fix_search_patient_record_order_by_
+    rank.sql` by explicitly aliasing every branch's columns to match the `RETURNS TABLE` names.
+  **Neither hand-review nor CI's migration replay could have caught this last one** — CI only checks
+  that migrations *apply* without error, and `CREATE OR REPLACE FUNCTION` itself never fails just
+  because the function body would error at call time. Only actually *calling* the function surfaced
+  it. **Confirmed by re-running the test file against production a second time** after applying
+  `20260829230000_fix_search_patient_record_order_by_rank.sql`: a clean run with no error and no
+  `raise exception` — the script's own final block explicitly raises if any check's verdict is `FAIL`,
+  so a clean return is a genuine pass, not just an absence of a crash. `packages/db/tests/patient_
+  health_record_round3.sql` should now be treated as actually verified, not merely reviewed by hand —
+  this round's own experience (five real bugs across hand-review, CI, live-apply, `get_advisors`, and
+  finally the test run itself) is the argument for keeping that distinction precise rather than
+  rounding "reviewed" up to "verified" next time either.
+
 ---
 
 ## 1. Section-by-section status
@@ -118,14 +242,18 @@ self-editable via the same RLS path **forever, not just during onboarding** — 
 "first-time intake" from "changing it two years later." DOB drives age-based risk scoring and
 screening eligibility, so this is a real product question, not a bug — see §4, still open.
 
-### §1.6 Clinical summary — MISSING (as a persistent, patient-level artifact)
-No `clinical_summary`/`patient_summary` table. Three unrelated, narrower composites exist instead:
-`patient/summary.ts`'s `getPatientSummaryStats()` (dashboard stats, not narrative);
-`clinician/patients/[patientId]/pre-visit-summary.tsx` (explicitly "read-only — nothing clinical is
-decided here," no free-text narrative, no clinician sign-off field); and a referral-letter-scoped
-`ClinicalSummary` in `clinician/referrals/[referralId]/actions.ts` (vitals+meds snapshot for one
-referral, not a standing PHR summary). **No dynamically-generated "52yo male with HTN and
-diabetes..." narrative exists anywhere, and no clinician can validate/pin one.**
+### §1.6 Clinical summary — BUILT Round 3
+`public.clinical_summaries` (`20260829223649_clinical_summary.sql`): one row per patient,
+`narrative_text` + `source` (`system_generated`/`clinician_authored`/`clinician_edited`) +
+`is_clinician_validated`/`validated_by`/`validated_at`. `private.generate_clinical_summary_draft()`
+composes a real, deterministic narrative from active problem-list entries, current medications,
+allergies, and the latest BP/glucose readings — no LLM call (that stays an app-layer concern, same
+scope line as not building OCR for imaging/documents). `public.refresh_clinical_summary()` is the
+callable regeneration RPC; a clinician can also edit `narrative_text` directly, which the write-guard
+trigger marks `clinician_edited` and which a later refresh will never overwrite. The three older,
+narrower composites this section originally found (`getPatientSummaryStats()`, the read-only
+pre-visit summary, the referral-letter-scoped snapshot) are untouched — this is additive, not a
+replacement for any of them.
 
 ### §1.7 Problem list — BUILT this round (was the biggest real gap in the whole review)
 Founder decision (§3 Q1): a genuinely new table, not an extension of `care_plans`. Built in
@@ -223,15 +351,17 @@ explanations`, which explains the *latest* value only, and is a caching/plain-la
 trend engine. This is a query-time concern (compute "previous same-code reading for this patient"
 from existing rows), not obviously a schema gap — flagged as a UI/query follow-up, not built here.
 
-### §1.14 Imaging — MOSTLY MISSING; one narrow pipeline exists
-No general `imaging_orders`/`imaging_reports` table, no DICOM/PACS reference anywhere. ECG has a
-full, purpose-built three-table pipeline (`ecg_report_documents` → `ecg_report_extractions` → `ecg_
-parameter_readings`, confirm-gated, "never patient-readable until confirmed") that is explicitly
-ECG-only by its own migration comment, not a generalized imaging model. "Imaging" otherwise appears
-only as screening-bundle line items (breast/abdominal/prostate ultrasound) inside the existing
-lab_orders flow. The spec itself says "initially, storing the report may be sufficient" — see §2;
-this is additive and low-risk to build (mirrors the lab/ECG document pattern) but
-was out of scope for this pass given everything else already in flight.
+### §1.14 Imaging — BUILT Round 3 (one table, not the ECG pipeline's three)
+`public.imaging_reports` (`20260829222245_imaging_reports.sql`): X-ray/ultrasound/CT/MRI/mammogram/
+DEXA, mirroring `lab_result_documents` fully — private storage bucket, patient-own-folder policies,
+server-derived `uploaded_by`, and (unlike `patient_documents` below) an automatic `clinician_review`
+alert on upload, since an imaging report genuinely needs a doctor to read it the same way a raw lab
+result does. `lab_order_id` links to the existing screening-bundle order when one exists, but is
+optional — a patient can upload an old/external scan with no Tarragon order behind it. ECG's own
+three-table confirm-gated pipeline (`ecg_report_documents`/`ecg_report_extractions`/`ecg_parameter_
+readings`) is untouched — still ECG-only by design, not folded into this table. **Still no DICOM/PACS
+reference or structured findings extraction** — per the spec's own "initially, storing the report may
+be sufficient," `findings_summary` is a clinician-typed free-text field, not a parsed one.
 
 ### §1.15 Medications: Prescribed → Dispensed → Received → Taken — BUILT this round (4th event added)
 **Prescribed:** real (`medications` table, `source` enum clinician/patient/specialist, prescriber
@@ -328,14 +458,23 @@ suppression rule, append-only enforcement, and — the access checks — that an
 clinician who did *not* make the edit can still read it while a *different* organisation's clinician
 cannot) and `packages/db/tests/patient_conditions_problem_list.sql` (the mandatory-reason raise).
 
-### §1.19 Patient record search — MISSING
-No full-text or structured search across a patient's history exists anywhere — no `tsvector`/GIN
-index on any clinical table, no search component in `apps/web/src` (`*Search*` glob returns
-nothing patient-record-related), no API route. The clinician patient-detail view is fixed sections
-(timeline, referrals, medications) with no query box. Real gap, not attempted this pass — flagged as
-follow-up (likely a `tsvector` generated column across the handful of highest-value tables — lab
-results, medications, encounters once §1.16 exists — plus a simple search UI, once §1.7's problem
-list gives it something structured to search).
+### §1.19 Patient record search — BUILT Round 3 (DB half; no UI yet)
+`20260829223204_patient_record_search.sql` adds a `search_vector tsvector` column + GIN index to
+`patient_conditions`/`patient_allergies`/`medications`/`screening_results`/`patient_documents`/
+`imaging_reports`, kept current by a dedicated `BEFORE INSERT OR UPDATE` trigger per table — **not**
+`GENERATED ALWAYS AS … STORED`, the more obvious design and this migration's own first draft:
+`to_tsvector(regconfig, text)` is STABLE, not IMMUTABLE, in Postgres, and a generation expression must
+be IMMUTABLE (confirmed live, `SQLSTATE 42P17` — see §0's Round 3 entry). The four tables that already
+carried live data got a one-time backfill `UPDATE`, which itself surfaced a second live-only
+surprise — two undocumented `medications` business-rule triggers had to be disabled for that one
+statement (again, §0). Plus one unified, ranked `public.search_patient_record(patient uuid, query
+text)` RPC (`SECURITY DEFINER`, with authorization checked explicitly inside — self / org staff / an
+explicit clinical-access grantee — since `SECURITY DEFINER` bypasses each table's own RLS). Lives in
+`public`, not `private`, because PostgREST only exposes `public`-schema functions — the anon-EXECUTE
+revoke follows this project's standing gotcha (anon inherits EXECUTE through PUBLIC unless explicitly
+revoked from PUBLIC, not just from anon). **Still missing: a search UI/query box** in `apps/web/src`
+— this section built the callable backend, not the clinician-facing search component; encounters
+(§1.16, still narrow) aren't indexed since there's no generic encounter table to index yet.
 
 ### §1.20 Record permissions (granular, role-scoped) — BUILT, well-engineered
 `private.is_org_staff(org)` is the single reused tenant-isolation predicate across ~314 policies/110
@@ -346,24 +485,28 @@ iteratively hardened after finding real over-broad access more than once (docume
 migrations themselves). This is the platform's strongest section against the whole spec — no action
 needed.
 
-### §1.21 External records — PARTIAL, no generic path
-Two purpose-built pipelines exist (`lab_result_documents`, `ecg_report_documents`), each following
-"AI drafts, marked unverified, never patient-readable until a clinician confirms." **No generic
-`patient_documents` table exists for discharge summaries, prescriptions, or medical letters** — only
-lab results and ECGs are upload-supported document types today, and `patient_hospital_admissions`
-captures only self-reported *text*, not an attached discharge-summary file. This is additive and
-low-risk to build (same pattern, one more document-type table) — recommended follow-up, not built
-this pass given the volume of other findings in this review.
+### §1.21 External records — BUILT Round 3 (generic path added)
+`public.patient_documents` (`20260829221812_patient_documents_external_records.sql`): discharge
+summaries, prescriptions, vaccination cards, specialist letters, previous hospital records — mirrors
+`lab_result_documents`'s storage/RLS/attribution pattern, deliberately *without* the automatic
+`clinician_review` alert (a scanned vaccination card doesn't need doctor triage the way a raw lab
+result does — see §1.14 for the imaging table, which keeps the alert). `lab_result_documents` and
+`ecg_report_documents` are untouched, still their own purpose-built pipelines. `patient_hospital_
+admissions` still captures only self-reported text, not an attached file — out of scope for this
+round.
 
-### §1.22 Record reconciliation on conflict — MISSING
-Grepping `discrepan`/`reconcil`/`conflict` across the codebase surfaces only *finance* reconciliation
-(Paystack/Stripe) — unrelated. The one clinical near-miss, a medication-pack-photo check
-(`lib/medications/pack-actions.ts`), is explicitly stateless: no discrepancy row is ever persisted,
-the patient is just pointed at in-app messaging. **No allergy/condition/medication table has a
-conflict-flag or reconciliation-queue mechanism**, and an uploaded external document that contradicts
-existing structured data raises only a generic "review needed" alert, not a conflict-aware one.
-Genuinely missing; needs §1.21's generic document table to exist first (a discrepancy needs two
-things to compare) — sequenced as follow-up after §1.21, not attempted standalone.
+### §1.22 Record reconciliation on conflict — BUILT Round 3 (the "Verify" step; not "Extract/Match")
+`public.record_conflicts` (`20260829222717_record_conflicts_reconciliation.sql`): a clinician-flagged
+structured queue (`conflict_type`, `status` open → under_review → resolved_*/dismissed, a CHECK
+enforcing the resolution stamp is set if-and-only-if the status is terminal) pointing at an uploaded
+`patient_document` and/or an existing structured record (`conflicting_table`/`conflicting_record_id`).
+Raises a `clinician_review` alert on flag, reaches `patient_timeline` on both flag and resolve.
+**Deliberately does not build "Extract/Match"** — no OCR/parsing/auto-matching engine exists
+anywhere on this platform, and building one is far outside an additive schema pass; a clinician must
+still notice the discrepancy while reviewing an uploaded document, same as today, but now has a real
+structured queue instead of a generic "review needed" alert. Patient-insert is disallowed, same
+principle as `patient_conditions` — verifying a clinical discrepancy is not something a patient does
+unsupervised.
 
 ### §1.23 Patient-facing health record UI — PARTIAL
 The patient dashboard already covers **My results**, **My medications**, **My care plan/referrals**,
@@ -401,17 +544,21 @@ storage) that needs its own dedicated review, not a byproduct of a record-archit
 
 Smaller, genuinely low-risk items **not** built this round simply because of volume, not difficulty,
 are worth a short follow-up PR each: the timeline category filter (§1.17, no schema change, just
-wire the existing `event_type` enum into `patient-timeline.tsx` and `usePatientTimeline`), a generic
-`patient_documents` table (§1.21, mirrors `lab_result_documents` exactly), export audit logging
-(§1.24, one shared helper called from ~6 existing routes), lab result trend display (§1.13, a
-query over existing rows, no schema change), record reconciliation/discrepancy flagging (§1.22,
-sequenced after `patient_documents` since a discrepancy needs two things to compare), a generalized
-imaging model (§1.14, mirrors the lab/ECG document pattern), a proper clinical-encounter/consultation-
-note model (§1.16, larger — needs its own design pass, not a column tweak), and wiring the new
+wire the existing `event_type` enum into `patient-timeline.tsx` and `usePatientTimeline`), export
+audit logging (§1.24, one shared helper called from ~6 existing routes), lab result trend display
+(§1.13, a query over existing rows, no schema change), a proper clinical-encounter/consultation-note
+model (§1.16, larger — needs its own design pass, not a column tweak), and wiring the new
 `app.change_reason` GUC (§1.18) into the highest-stakes call sites so corrections start carrying a
 human-readable reason instead of `null`. A unified "My conditions" and "My appointments" page on the
 patient dashboard (§1.23) is now unblocked by §1.7's `patient_conditions` table but wasn't built this
 round either.
+
+**Closed in Round 3 (2026-08-29), formerly listed here:** a generic `patient_documents` table
+(§1.21), a generalized imaging model (§1.14), and record reconciliation/discrepancy flagging (§1.22)
+— see §0's Round 3 entry and each section above. **Still genuinely open after Round 3:** a search
+UI/query box against the new `search_patient_record()` RPC (§1.19), and app-layer wiring to actually
+call `refresh_clinical_summary()` on some cadence (§1.6 — the RPC exists and works, nothing calls it
+yet outside a clinician's manual action).
 
 ## 3. Founder decisions made this round (previously open questions)
 
@@ -476,17 +623,37 @@ authenticated` to simulate real sessions, wrapped in `BEGIN`/`ROLLBACK` so nothi
   the no-op suppression rule, append-only enforcement, and the access checks: a same-org clinician
   who did not make the edit can still read it (matching care_plans' own live policy), a different
   organisation's clinician cannot.
+- `patient_health_record_round3.sql` (Round 3, 2026-08-29) — covers all five new tables in one file:
+  a patient can self-upload a `patient_document` tagged `source='patient'` but cannot spoof another
+  source; the upload reaches `patient_timeline` with a correctly server-derived `uploaded_by`; an
+  `imaging_reports` upload raises an open `clinician_review` alert; a patient cannot insert a
+  `record_conflicts` row but org staff can, the resolution-consistency CHECK holds through a real
+  open → resolved transition, and both the flag and the resolve reach `patient_timeline`;
+  `refresh_clinical_summary()` generates a draft that actually mentions the patient's active
+  condition, a clinician's direct edit is correctly marked `clinician_edited`, and a later refresh
+  call does NOT clobber that edit; a patient can read but not write their own `clinical_summaries`
+  row; and `search_patient_record()` finds the patient's own condition while a different patient's
+  session searching the same patient_id gets nothing back (empty result or the function's own
+  `insufficient_privilege` exception).
 
 **Verification method, and its real limit.** No local Supabase/Docker stack was available in the
-environment this review ran in, but this session did have live, read-only MCP access to the actual
-production project (`koiplnmbgnqnbywhpjlf`) — used to query `pg_policies` and `pg_proc` directly for
-every table this migration touches, which is how the §1.18 policy mistake was caught and corrected
-(design verified against live reality, not assumed from migration history). **What that access was
-NOT used for: actually executing these test scripts against the production database.** Running them
-would mean inserting and rolling back fixture rows (synthetic patients, clinicians, corrections) in a
-live system serving real patient data — a call for whoever is driving the merge to make deliberately,
-not one to make unilaterally from within an architecture review. Treat every test in `packages/db/
-tests/` here as reviewed carefully by hand against the live schema and RLS helper functions, not as
-having been run — running them for real (`supabase db query "$(cat packages/db/tests/<file>.sql)"
---linked`, ideally against a branch/staging copy rather than production directly) is still worth
-doing before merging.
+environment either review ran in, but both had live, read-only-to-start MCP access to the actual
+production project (`koiplnmbgnqnbywhpjlf`) — used to query `pg_policies`/`pg_proc`/`pg_trigger`
+directly for every table each round's migrations touch, which is how the §1.18 policy mistake
+(Round 1/2) and the undocumented `medications` triggers (Round 3, §0) were caught and corrected
+(design verified against live reality, not assumed from migration history).
+
+Round 1/2's migrations were reviewed carefully by hand and never executed against production at all
+— `packages/db/tests/record_corrections_platform_wide.sql` etc. are not confirmed to actually pass,
+only judged consistent with the live schema at review time. **Round 3 is different: its seven
+migrations went through the real PR → CI (`Supabase migration replay` against a fresh database) →
+merge → `apply_migration` pipeline against `koiplnmbgnqnbywhpjlf` itself**, explicitly at the user's
+direction, and every table/row-count/trigger-state claim in §0's Round 3 entry was confirmed with a
+live read afterward (row counts, `search_vector` population counts, `tgenabled` state, a re-run of
+`get_advisors(security)`). **What was still NOT done for Round 3: actually executing
+`packages/db/tests/patient_health_record_round3.sql`** — that file's RLS/authorization assertions
+were reviewed carefully by hand and target objects now genuinely live, but inserting and rolling back
+its synthetic fixture rows (patients, clinicians, conflicts) directly against production is a
+separate decision this pass didn't make unilaterally, matching Round 1/2's own reasoning. Running it
+for real (`supabase db query "$(cat packages/db/tests/patient_health_record_round3.sql)" --linked`,
+ideally against a branch/staging copy) is still worth doing.

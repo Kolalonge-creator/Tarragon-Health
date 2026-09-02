@@ -8,6 +8,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Button } from "@/components/ui/button";
 import {
   useActiveUsersTimeseries,
+  useEngagementOutcomeCorrelation,
   useEngagementSummary,
   useFeatureAdoption,
   useRetentionCohorts,
@@ -19,16 +20,42 @@ import { ExportButton } from "./export-button";
 
 const PERIODS: GrowthPeriod[] = ["day", "week", "month"];
 
+const TIER_ORDER = ["highly_engaged", "moderately_engaged", "at_risk", "disengaged"] as const;
+const TIER_LABEL: Record<(typeof TIER_ORDER)[number], string> = {
+  highly_engaged: "Highly engaged",
+  moderately_engaged: "Moderately engaged",
+  at_risk: "At risk",
+  disengaged: "Disengaged",
+};
+
 export function EngagementDashboard() {
   const [period, setPeriod] = useState<GrowthPeriod>("day");
   const summary = useEngagementSummary();
   const active = useActiveUsersTimeseries(period);
   const adoption = useFeatureAdoption();
   const cohorts = useRetentionCohorts();
+  const correlation = useEngagementOutcomeCorrelation();
 
   const s = summary.data;
   const activeRows = active.data ?? [];
   const cohortRows = cohorts.data ?? [];
+
+  // Different grain than DAU/MAU above (per-patient tier x latest BP-control
+  // level, not activity counts) — a separate section, fixed tier order so the
+  // trend across tiers reads left to right regardless of which happen to
+  // have data. bpInRangePercent drives the bar width; the label carries the
+  // real count so a reader never mistakes a percentage for a headcount.
+  const correlationRows = (correlation.data ?? [])
+    .slice()
+    .sort((a, b) => TIER_ORDER.indexOf(a.tier) - TIER_ORDER.indexOf(b.tier))
+    .map((bucket) => {
+      const pct = bucket.cohort_size > 0 ? Math.round((bucket.bp_in_range_count / bucket.cohort_size) * 100) : 0;
+      return {
+        label: TIER_LABEL[bucket.tier],
+        value: pct,
+        display: `${pct}% (n=${bucket.cohort_size})`,
+      };
+    });
 
   // Flatten cohorts for CSV export.
   const cohortExport = cohortRows.flatMap((c) =>
@@ -138,6 +165,18 @@ export function EngagementDashboard() {
           )}
         </SectionCard>
       </div>
+
+      <SectionCard
+        title="Engagement and BP control"
+        description="Does more engagement actually track with better blood-pressure control, or just more app activity? Latest engagement tier vs. latest BP-control assessment, monitored patients only."
+        actions={<ExportButton filename="engagement-outcome-correlation" rows={correlation.data ?? []} />}
+      >
+        {correlation.isLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : (
+          <MiniBarList items={correlationRows} emptyLabel="No monitored patients scored yet." />
+        )}
+      </SectionCard>
     </div>
   );
 }
