@@ -115,19 +115,20 @@ describe("canHandleEmergencyEscalation", () => {
 
 /**
  * Mirrors private.can_review_safeguarding_concern
- * (20260829121248_adolescent_health_module.sql) — resolving or closing a
- * safeguarding_concerns row needs the same Tier 2+/Clinical Director
- * threshold as an emergency escalation.
+ * (20260829213100_safeguarding_concerns.sql, the general Patient Safety
+ * table this module's own concerns are filed into) — resolving or closing a
+ * safeguarding_concerns row needs Tier 3+/Clinical Director, one rung above
+ * an emergency escalation's threshold.
  */
 describe("canReviewSafeguardingConcern", () => {
-  it("refuses Tier 1 and Care Coordinator", () => {
+  it("refuses Tier 1, Tier 2, and Care Coordinator", () => {
     expect(canReviewSafeguardingConcern(staff("tier_1"))).toBe(false);
+    expect(canReviewSafeguardingConcern(staff("tier_2"))).toBe(false);
     expect(canReviewSafeguardingConcern(staff("care_coordinator"))).toBe(false);
   });
 
-  it("allows Tier 2 through Tier 5", () => {
+  it("allows Tier 3 through Tier 5", () => {
     for (const tier of [
-      "tier_2",
       "tier_3",
       "tier_4_senior_registrar",
       "tier_5_partner_specialist",

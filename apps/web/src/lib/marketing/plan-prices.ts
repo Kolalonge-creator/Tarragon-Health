@@ -13,8 +13,11 @@ import { DIASPORA_PROCESSING_FEE_NOTE_SHORT } from "@/app/(marketing)/_content/p
  * Reads the public_price_list() RPC through a BARE anon supabase-js client,
  * following lib/marketing/resources-data.ts: deliberately not
  * @/lib/supabase/server, so the marketing tree stays free of auth and platform
- * modules per the marketing-boundary rule. The RPC returns only on-sale rows
- * and only code/currency/interval/price, never features or provider ids.
+ * modules per the marketing-boundary rule. The RPC reads service_products
+ * (not the retired subscription_plans/add_ons — see
+ * 20260902002938_public_price_list_reads_service_products.sql) and returns
+ * only on-sale rows, and only code/currency/access_duration_days/price,
+ * never features or provider ids.
  *
  * Returns an empty map on any failure. Callers fall back to the static copy in
  * _content/pricing.ts, so a network blip degrades to slightly stale prices
@@ -62,23 +65,35 @@ export function formatPrice(minor: number, currency: "NGN" | "USD"): string {
 }
 
 /**
- * Which subscription_plans rows back each pricing-page tier.
+ * Which service_products rows back each pricing-page tier.
  *
- * The marketing tier ids and the plan codes were named independently and do
- * not line up (`diaspora-complete` is backed by `complete_usd`), so the mapping
- * is written out rather than derived. A tier missing from here simply keeps its
- * static price.
+ * The marketing tier ids and the product codes were named independently and
+ * do not line up (`prevent` is backed by `prevent_pack`), so the mapping is
+ * written out rather than derived. A tier missing from here simply keeps its
+ * static price. "monthly"/"yearly" here means the 30-day vs 365-day pack
+ * (service_products.access_duration_days), not a recurring billing interval
+ * — nothing in this catalogue auto-renews.
+ *
+ * The three diaspora (USD) entries are deliberately kept even though no
+ * `prevent_usd_pack`/`essential_usd_pack`/`complete_usd_pack` rows exist in
+ * service_products yet (as of 2026-09-02, the only live USD product is
+ * `lifestyle-coaching_usd_pack`) — this is safe (fetchPlanPrices' map simply
+ * won't have these keys, so the diaspora tier cards fall back to their
+ * static price, same as today), and documents the intended codes for
+ * whoever adds those rows next rather than leaving the mapping silently
+ * incomplete.
  */
 const TIER_PLAN_CODES: Record<string, { monthly?: string; yearly?: string; currency: "NGN" | "USD" }> = {
   // Naira
-  free: { monthly: "free", currency: "NGN" },
-  prevent: { monthly: "prevent", yearly: "prevent_yearly", currency: "NGN" },
-  essential: { monthly: "essential", yearly: "essential_yearly", currency: "NGN" },
-  complete: { monthly: "complete", yearly: "complete_yearly", currency: "NGN" },
-  // Dollars — every one of these is its naira row above, converted.
-  "diaspora-prevent": { monthly: "prevent_usd", yearly: "prevent_yearly_usd", currency: "USD" },
-  "diaspora-essential": { monthly: "essential_usd", yearly: "essential_yearly_usd", currency: "USD" },
-  "diaspora-complete": { monthly: "complete_usd", yearly: "complete_yearly_usd", currency: "USD" },
+  free: { monthly: "free_pack", currency: "NGN" },
+  prevent: { monthly: "prevent_pack", yearly: "prevent_yearly_pack", currency: "NGN" },
+  essential: { monthly: "essential_pack", yearly: "essential_yearly_pack", currency: "NGN" },
+  complete: { monthly: "complete_pack", yearly: "complete_yearly_pack", currency: "NGN" },
+  // Dollars — every one of these is its naira row above, converted. Not yet
+  // live in service_products — see the comment above.
+  "diaspora-prevent": { monthly: "prevent_usd_pack", yearly: "prevent_yearly_usd_pack", currency: "USD" },
+  "diaspora-essential": { monthly: "essential_usd_pack", yearly: "essential_yearly_usd_pack", currency: "USD" },
+  "diaspora-complete": { monthly: "complete_usd_pack", yearly: "complete_yearly_usd_pack", currency: "USD" },
 };
 
 export type TierPriceOverride = { priceMain?: string; priceSecondary?: string; priceNote?: string };

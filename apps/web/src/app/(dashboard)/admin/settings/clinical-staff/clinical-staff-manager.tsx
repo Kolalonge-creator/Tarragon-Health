@@ -7,6 +7,7 @@ import {
   useUpdateClinicalStaff,
   useVerifyClinicalStaff,
   useSetClinicalStaffActive,
+  useSetClinicalStaffOffersTherapy,
   useSetClinicalStaffIndemnity,
   useSetClinicalStaffIndemnityExempt,
   useOrgIndemnityExemptions,
@@ -451,6 +452,7 @@ export function ClinicalStaffManager() {
   const create = useCreateClinicalStaff();
   const verify = useVerifyClinicalStaff();
   const setActive = useSetClinicalStaffActive();
+  const setOffersTherapy = useSetClinicalStaffOffersTherapy();
 
   const [doctorTier, setDoctorTier] = useState<ClinicalStaff["doctor_tier"]>("tier_1");
   const [isClinicalDirector, setIsClinicalDirector] = useState(false);
@@ -650,6 +652,7 @@ export function ClinicalStaffManager() {
                             )}
                             <LicenseExpiryBadge expiresAt={s.license_expires_at} />
                             <AttestationBadge expiresAt={attestations?.[s.id] ?? null} />
+                            {s.offers_therapy_sessions && <Badge variant="blue">In-house therapist</Badge>}
                           </div>
                         </div>
                       </div>
@@ -686,6 +689,19 @@ export function ClinicalStaffManager() {
                           onClick={() => setActive.mutate({ clinicalStaffId: s.id, active: !s.active })}
                         >
                           {s.active ? "Deactivate" : "Activate"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={setOffersTherapy.isPending}
+                          onClick={() =>
+                            setOffersTherapy.mutate({
+                              clinicalStaffId: s.id,
+                              offersTherapySessions: !s.offers_therapy_sessions,
+                            })
+                          }
+                        >
+                          {s.offers_therapy_sessions ? "Remove therapist flag" : "Mark as therapist"}
                         </Button>
                       </div>
                     </div>

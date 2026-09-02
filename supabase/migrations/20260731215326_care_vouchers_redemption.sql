@@ -176,7 +176,7 @@ begin
 end;
 $$;
 
-revoke all on function public.redeem_care_voucher(uuid, text, uuid) from public;
+revoke all on function public.redeem_care_voucher(uuid, text, uuid) from public, anon;
 revoke all on function public.redeem_care_voucher(uuid, text, uuid) from anon;
 grant execute on function public.redeem_care_voucher(uuid, text, uuid) to authenticated;
 

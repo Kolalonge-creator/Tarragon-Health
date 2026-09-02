@@ -7,6 +7,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -23,6 +24,7 @@ import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
+import { HealthStatusBanner } from "@/components/health-status-banner";
 
 // Clinical dashboard status colours (a separate system from brand colour, per
 // the brand guide) — same convention as vitals-history.tsx's LEVEL_STYLE,
@@ -84,6 +86,12 @@ export default async function PatientOverviewPage() {
           name DashboardPlaceholder's "Hi, {name}" already gave a moment ago
           (2026-08-17 patient-experience pass). */}
       <p className="text-sm text-charcoal-ink/60">{weekSummaryLine}</p>
+      <HealthStatusBanner patientId={subjectId} />
+
+      {/* §91.10 — an unpaid plan is more urgent than a wellness nudge, so it
+          renders above NextBestAction. Renders nothing when there's no
+          payment problem. */}
+      <PaymentFailureBanner patientId={subjectId} />
 
       {/* Age-aware framing (spec §49.3/§49.4) — a single soft line, never an
           urgent banner: a self-harm/safety-adjacent check-in doesn't belong
@@ -220,7 +228,7 @@ export default async function PatientOverviewPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CareScheduleCard patientId={subjectId} />
-        <PatientTimeline patientId={subjectId} limit={6} />
+        <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" />
       </div>
 
       {/* Conditional clinical cards — each self-hides when the patient has no

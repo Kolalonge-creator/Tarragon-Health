@@ -84,6 +84,25 @@ const EMERGENCY_ESCALATION_TIERS: DoctorTier[] = [
 ];
 
 /**
+ * One rung above EMERGENCY_ESCALATION_TIERS — deliberately Tier 3+, not
+ * Tier 2+. Gates resolving/closing a safeguarding_concerns row, mirroring
+ * private.can_review_safeguarding_concern
+ * (20260829213100_safeguarding_concerns.sql, the general Patient Safety
+ * table this module's own concerns are filed into — see
+ * 20260902204423_extend_safeguarding_concerns_adolescent_linkage.sql for
+ * why the adolescent module unifies onto that table's threshold rather than
+ * keeping a separate, lower one). Kept as its own constant rather than
+ * reusing EMERGENCY_ESCALATION_TIERS: the two authorities are free to
+ * diverge, same reasoning as PRESCRIBING_TIERS vs EMERGENCY_ESCALATION_TIERS
+ * above.
+ */
+const SAFEGUARDING_REVIEW_TIERS: DoctorTier[] = [
+  "tier_3",
+  "tier_4_senior_registrar",
+  "tier_5_partner_specialist",
+];
+
+/**
  * True for anyone who may act as a doctor in the clinical sense: any tier on
  * the ladder, or the Clinical Director flag. False for `care_coordinator` (a
  * doctor_tier value, but explicitly non-clinical — see CLINICAL_TIERS above)
@@ -157,21 +176,20 @@ export function canHandleEmergencyEscalation(staff: PrescribingAuthority | null)
 
 /**
  * Mirrors private.can_review_safeguarding_concern(org)
- * (20260829121248_adolescent_health_module.sql) — resolving or closing a
- * safeguarding_concerns row requires Tier 2+ or the Clinical Director; Tier 1
- * and Care Coordinator may raise/read a concern but never close one. Same
- * tier threshold as canHandleEmergencyEscalation, reused rather than
- * duplicated — the two DB functions are still kept separate so they can
- * diverge later without one silently changing the other.
+ * (20260829213100_safeguarding_concerns.sql) — resolving or closing a
+ * safeguarding_concerns row requires Tier 3+ or the Clinical Director; Tier 1,
+ * Tier 2, and Care Coordinator may raise/read a concern but never close one.
+ * One rung above canHandleEmergencyEscalation's threshold, not the same one
+ * — see SAFEGUARDING_REVIEW_TIERS' own comment for why.
  *
- * This copy only gates the UI so a Tier 1 gets a friendly explanation rather
- * than a raw RLS/trigger error. private.enforce_safeguarding_concern_
- * resolution_tier is the real enforcement boundary.
+ * This copy only gates the UI so a sub-Tier-3 clinician gets a friendly
+ * explanation rather than a raw RLS/trigger error. private.enforce_
+ * safeguarding_concern_attribution is the real enforcement boundary.
  */
 export function canReviewSafeguardingConcern(staff: PrescribingAuthority | null): boolean {
   if (!staff) return false;
   return (
     staff.is_clinical_director ||
-    (staff.doctor_tier !== null && EMERGENCY_ESCALATION_TIERS.includes(staff.doctor_tier))
+    (staff.doctor_tier !== null && SAFEGUARDING_REVIEW_TIERS.includes(staff.doctor_tier))
   );
 }

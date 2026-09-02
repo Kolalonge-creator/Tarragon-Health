@@ -6,6 +6,7 @@ import { mmolLToMgDl, type Tables } from "@tarragon/shared";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { classifySpo2Level, SPO2_LEVEL_LABEL, type Spo2Level } from "@/lib/rules/spo2-classification";
+import { classifyPulseLevel, PULSE_LEVEL_LABEL, type PulseLevel } from "@/lib/rules/pulse-classification";
 import {
   classifyTemperatureLevel,
   TEMPERATURE_LEVEL_LABEL,
@@ -37,6 +38,40 @@ function Spo2LevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
       className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${SPO2_LEVEL_STYLE[level]}`}
     >
       {SPO2_LEVEL_LABEL[level]}
+    </span>
+  );
+}
+
+const PULSE_LEVEL_STYLE: Record<Exclude<PulseLevel, "unknown">, string> = LEVEL_STYLE;
+
+function PulseLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
+  const level = classifyPulseLevel(reading.pulse_bpm);
+  if (level === "unknown") return null;
+  return (
+    <span
+      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${PULSE_LEVEL_STYLE[level]}`}
+    >
+      {PULSE_LEVEL_LABEL[level]}
+    </span>
+  );
+}
+
+/**
+ * 53.9: "distinguish a consumer wearable estimate from a clinically
+ * validated measurement — do not treat every smartwatch reading as a
+ * diagnostic ECG." A synced-from-wearable reading gets the same clinical
+ * classification badges as any other (BpLevelBadge etc. above don't change),
+ * but this makes the provenance visible next to it rather than presenting a
+ * wrist-worn estimate with the same unqualified confidence as a fingerstick
+ * glucose test or a manual BP cuff reading. Manual and BLE clinical-device
+ * (source='device') readings get no badge — those are already the
+ * platform's two most-trusted sources and don't need a qualifier.
+ */
+function SourceBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
+  if (reading.source !== "wearable") return null;
+  return (
+    <span className="ml-2 inline-block rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-[11px] font-medium text-charcoal-ink/60">
+      Wearable estimate
     </span>
   );
 }
@@ -116,6 +151,8 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                     {reading.vital_type === "temperature" && (
                       <TemperatureLevelBadge reading={reading} />
                     )}
+                    {reading.vital_type === "pulse" && <PulseLevelBadge reading={reading} />}
+                    <SourceBadge reading={reading} />
                   </p>
                   {reading.note && (
                     <p className="text-xs text-charcoal-ink/60">{reading.note}</p>

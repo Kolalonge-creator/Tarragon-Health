@@ -173,6 +173,9 @@ export type ReferralStatus = Enums<"referral_status">;
 /** specialist_referrals.urgency — set by the assigning doctor, never inferred. */
 export type ReferralUrgency = Enums<"referral_urgency">;
 
+/** specialist_referrals.referral_source — clinical origin of the episode (67.2), distinct from the payment-rail `origin` column. */
+export type ReferralSource = Enums<"referral_source">;
+
 /** specialist_referrals.specialist_type / specialist_providers.specialist_type. */
 export type SpecialistType = Enums<"specialist_type">;
 
@@ -181,6 +184,15 @@ export type LabOrderStatus = Enums<"lab_order_status">;
 
 /** pharmacy_orders.status — payment/fulfillment lifecycle. */
 export type PharmacyOrderStatus = Enums<"pharmacy_order_status">;
+
+/** insurance_policies.status — active/expired/suspended/cancelled. */
+export type InsurancePolicyStatus = Enums<"insurance_policy_status">;
+
+/** insurance_preauthorizations.status — pending/approved/denied/expired. */
+export type InsurancePreauthStatus = Enums<"insurance_preauth_status">;
+
+/** insurance_claims.status — submitted through paid/denied. */
+export type InsuranceClaimStatus = Enums<"insurance_claim_status">;
 
 /** commissions.commission_type — lab/pharmacy/referral partner-revenue source. */
 export type CommissionType = Enums<"commission_type">;

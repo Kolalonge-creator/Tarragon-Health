@@ -33,10 +33,29 @@ export const facilitySchema = z.object({
 });
 export type FacilityInput = z.infer<typeof facilitySchema>;
 
+export const APPOINTMENT_TYPES = [
+  "gp",
+  "specialist",
+  "nurse",
+  "dietitian",
+  "physiotherapist",
+  "laboratory",
+  "imaging",
+  "vaccination",
+  "physical_clinic",
+  "telemedicine",
+  "follow_up",
+  "procedure",
+  "therapy",
+] as const;
+
 export const facilityServiceSchema = z.object({
   facility_id: z.string().uuid(),
   name: z.string().trim().min(1, "Enter a service name").max(200),
   description: z.string().trim().max(500).optional(),
   price_kobo: z.coerce.number().int().min(0).optional(),
+  duration_minutes: z.coerce.number().int().min(1).max(480).optional(),
+  appointment_type: z.enum(APPOINTMENT_TYPES).optional(),
+  eligible_specialty: z.string().trim().max(200).optional(),
 });
 export type FacilityServiceInput = z.infer<typeof facilityServiceSchema>;
