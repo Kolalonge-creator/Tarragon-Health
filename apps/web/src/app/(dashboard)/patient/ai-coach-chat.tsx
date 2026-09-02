@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { ReportAiAnswer } from "@/components/ai/report-ai-answer";
+import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
 
 const QUICK_ACTIONS = [
   { kind: "explain_record" as const, label: "Explain my health record" },
@@ -25,6 +27,9 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   const [draft, setDraft] = useState("");
 
   const messages = conversation?.messages ?? [];
+  const lastResult = sendMessage.data;
+  const lastInteractionId =
+    lastResult && lastResult.success ? lastResult.aiInteractionId : null;
   const lastMessage = messages[messages.length - 1];
   const limitReached =
     lastMessage?.role === "assistant" && lastMessage.content === COACH_LIMIT_REACHED_REPLY;
@@ -138,10 +143,21 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
           </Button>
         </form>
 
-        <p className="text-xs text-charcoal-ink/50">
-          General guidance, not a diagnosis. For an emergency, call emergency services or go to
-          the nearest hospital.
-        </p>
+        <div className="flex flex-col gap-2">
+          <p className="text-xs text-charcoal-ink/50">
+            General guidance, not a diagnosis. For an emergency, call emergency services or go to
+            the nearest hospital.
+          </p>
+          {/* 40.12. Shown once there is something to report, and carrying the
+              interaction id of the most recent turn when we have it, so the
+              report lands against the exact answer rather than the thread. */}
+          {(messages.length > 0 || lastInteractionId) && (
+            <ReportAiAnswer
+              systemCode={AI_SYSTEMS.coach.code}
+              interactionId={lastInteractionId}
+            />
+          )}
+        </div>
 
         {limitReached && (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
