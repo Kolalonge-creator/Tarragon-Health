@@ -259,7 +259,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/subscriptions",
           label: "Subscription plans & add-ons",
-          blurb: "Create, price, and activate plans, synced to Paystack",
+          blurb: "Legacy plan/add-on editor — no longer sets live patient pricing",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },
