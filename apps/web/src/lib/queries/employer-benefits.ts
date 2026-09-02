@@ -14,9 +14,9 @@ function allowancesKey(packageId: string) {
 }
 
 /** Module 26 §26.6/§26.7 — what an employer purchases. Reuses the platform's
- * own service_products catalogue (rewired from subscription_plans by
- * 20260831160547_rewire_employer_benefits_to_service_products.sql) rather
- * than a second feature-toggle system. */
+ * own service_products catalogue (rewired off subscription_plans by
+ * 20260831160547_rewire_employer_benefits_to_service_products.sql, part of
+ * the pay-per-service cutover) rather than a second feature-toggle system. */
 export function useBenefitPackages(organisationId: string) {
   return useQuery({
     queryKey: packagesKey(organisationId),
