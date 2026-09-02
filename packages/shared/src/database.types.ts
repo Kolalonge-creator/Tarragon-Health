@@ -21280,6 +21280,51 @@ export type Database = {
           },
         ]
       }
+      patient_feature_views: {
+        Row: {
+          created_at: string
+          dismissed_at: string | null
+          feature_id: string
+          id: string
+          opened_at: string | null
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string | null
+          feature_id: string
+          id?: string
+          opened_at?: string | null
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string | null
+          feature_id?: string
+          id?: string
+          opened_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_feature_views_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_feature_views_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_glucose_targets: {
         Row: {
           category: Database["public"]["Enums"]["glycaemic_target_category"]
