@@ -2,9 +2,10 @@
 -- received, who reviewed, when, action, communication, closure." Reviewed/
 -- action/communication/closure are covered by screening_results.reviewed_by/
 -- reviewed_at/action_type/patient_informed_at (20260829122500) and by
--- result_recalls' own audit_log entries (20260829122600) — but "result
--- received" itself had no audit_log row at all unless the result happened
--- to be abnormal/critical (screening_upgrades only fires for those two
+-- private.apply_screening_result_recall's own effect on screening_schedules
+-- (20260829121900) — but "result received" itself had no audit_log row at
+-- all unless the result happened to be abnormal/critical (screening_upgrades
+-- only fires for those two
 -- statuses, per private.handle_abnormal_screening_result). A normal,
 -- borderline, or indeterminate result — the majority of results — left no
 -- trace in audit_log that it was ever received.

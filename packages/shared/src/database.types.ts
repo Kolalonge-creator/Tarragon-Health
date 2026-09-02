@@ -31152,129 +31152,6 @@ export type Database = {
           },
         ]
       }
-      result_recalls: {
-        Row: {
-          cancel_reason: string | null
-          cancelled_at: string | null
-          cancelled_by: string | null
-          completed_at: string | null
-          completed_lab_order_id: string | null
-          completed_result_id: string | null
-          created_at: string
-          id: string
-          organisation_id: string
-          patient_id: string
-          reason: string | null
-          recommended_at: string
-          recommended_by: string | null
-          reminded_at: string | null
-          repeat_due_date: string
-          screen_type_code: string | null
-          screening_result_id: string
-          status: Database["public"]["Enums"]["result_recall_status"]
-          updated_at: string
-        }
-        Insert: {
-          cancel_reason?: string | null
-          cancelled_at?: string | null
-          cancelled_by?: string | null
-          completed_at?: string | null
-          completed_lab_order_id?: string | null
-          completed_result_id?: string | null
-          created_at?: string
-          id?: string
-          organisation_id: string
-          patient_id: string
-          reason?: string | null
-          recommended_at?: string
-          recommended_by?: string | null
-          reminded_at?: string | null
-          repeat_due_date: string
-          screen_type_code?: string | null
-          screening_result_id: string
-          status?: Database["public"]["Enums"]["result_recall_status"]
-          updated_at?: string
-        }
-        Update: {
-          cancel_reason?: string | null
-          cancelled_at?: string | null
-          cancelled_by?: string | null
-          completed_at?: string | null
-          completed_lab_order_id?: string | null
-          completed_result_id?: string | null
-          created_at?: string
-          id?: string
-          organisation_id?: string
-          patient_id?: string
-          reason?: string | null
-          recommended_at?: string
-          recommended_by?: string | null
-          reminded_at?: string | null
-          repeat_due_date?: string
-          screen_type_code?: string | null
-          screening_result_id?: string
-          status?: Database["public"]["Enums"]["result_recall_status"]
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "result_recalls_cancelled_by_fkey"
-            columns: ["cancelled_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "result_recalls_completed_lab_order_id_fkey"
-            columns: ["completed_lab_order_id"]
-            isOneToOne: false
-            referencedRelation: "lab_orders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "result_recalls_completed_result_id_fkey"
-            columns: ["completed_result_id"]
-            isOneToOne: false
-            referencedRelation: "screening_results"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "result_recalls_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "result_recalls_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "result_recalls_recommended_by_fkey"
-            columns: ["recommended_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "result_recalls_screen_type_code_fkey"
-            columns: ["screen_type_code"]
-            isOneToOne: false
-            referencedRelation: "screen_types"
-            referencedColumns: ["code"]
-          },
-          {
-            foreignKeyName: "result_recalls_screening_result_id_fkey"
-            columns: ["screening_result_id"]
-            isOneToOne: false
-            referencedRelation: "screening_results"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       result_release_policies: {
         Row: {
           approved_at: string | null
@@ -32186,7 +32063,6 @@ export type Database = {
       screening_results: {
         Row: {
           abnormal_flags: string[]
-          action_repeat_due_date: string | null
           action_type: Database["public"]["Enums"]["result_action_type"] | null
           correction_reason: string | null
           corrects_result_id: string | null
@@ -32199,6 +32075,7 @@ export type Database = {
           patient_id: string
           patient_informed_at: string | null
           patient_informed_by: string | null
+          recall_months: number | null
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary: string | null
           reviewed_at: string | null
@@ -32209,7 +32086,6 @@ export type Database = {
         }
         Insert: {
           abnormal_flags?: string[]
-          action_repeat_due_date?: string | null
           action_type?: Database["public"]["Enums"]["result_action_type"] | null
           correction_reason?: string | null
           corrects_result_id?: string | null
@@ -32222,6 +32098,7 @@ export type Database = {
           patient_id: string
           patient_informed_at?: string | null
           patient_informed_by?: string | null
+          recall_months?: number | null
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
           reviewed_at?: string | null
@@ -32232,7 +32109,6 @@ export type Database = {
         }
         Update: {
           abnormal_flags?: string[]
-          action_repeat_due_date?: string | null
           action_type?: Database["public"]["Enums"]["result_action_type"] | null
           correction_reason?: string | null
           corrects_result_id?: string | null
@@ -32245,6 +32121,7 @@ export type Database = {
           patient_id?: string
           patient_informed_at?: string | null
           patient_informed_by?: string | null
+          recall_months?: number | null
           result_status?: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
           reviewed_at?: string | null
@@ -38582,10 +38459,6 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
-      cancel_result_recall: {
-        Args: { p_reason: string; p_recall_id: string }
-        Returns: undefined
-      }
       cancel_waiting_list_entry: {
         Args: { p_waiting_list_id: string }
         Returns: undefined
@@ -43199,7 +43072,6 @@ export type Database = {
         | "reviewed"
         | "action_required"
         | "action_completed"
-      result_recall_status: "scheduled" | "reminded" | "completed" | "cancelled"
       result_release_mode: "immediate" | "after_review" | "restricted"
       result_status: "normal" | "borderline" | "indeterminate" | "abnormal" | "critical"
       risk_assessment_category:
@@ -45590,7 +45462,6 @@ export const Constants = {
         "action_required",
         "action_completed",
       ],
-      result_recall_status: ["scheduled", "reminded", "completed", "cancelled"],
       result_release_mode: ["immediate", "after_review", "restricted"],
       result_status: ["normal", "borderline", "indeterminate", "abnormal", "critical"],
       risk_assessment_category: [
