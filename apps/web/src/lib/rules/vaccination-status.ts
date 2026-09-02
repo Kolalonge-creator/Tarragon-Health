@@ -71,7 +71,14 @@ export interface VaccinationProfile {
   sex?: "male" | "female" | null;
 }
 
-export type VaccinationStatus = "not_yet_due" | "due" | "overdue" | "up_to_date" | "not_applicable";
+export type VaccinationStatus =
+  | "not_yet_due"
+  | "due"
+  | "overdue"
+  | "up_to_date"
+  | "not_applicable"
+  | "declined"
+  | "contraindicated";
 
 export interface VaccinationStatusResult {
   catalogId: string;
@@ -282,5 +289,34 @@ export function computeVaccinationStatuses(
     return dosesGiven > 0
       ? { ...base, status: "up_to_date", nextDueDate: null }
       : { ...base, status: "due", nextDueDate: todayISO };
+  });
+}
+
+/**
+ * Overlays a patient's recorded declines/contraindications
+ * (vaccination_schedules.non_administration_reason, spec §43.3) onto the
+ * computed statuses above. Deliberately a separate pass rather than a branch
+ * inside computeVaccinationStatuses: that function is a pure projection of
+ * catalog + records only, has no knowledge of vaccination_schedules, and
+ * every one of its existing due/overdue/up_to_date branches is already
+ * covered by tests that would need to account for a third input — this
+ * keeps that engine, and its tests, untouched.
+ */
+export interface VaccinationNonAdministration {
+  vaccination_catalog_id: string;
+  non_administration_reason: "declined" | "contraindicated";
+}
+
+export function applyNonAdministrationOverrides<T extends { catalogId: string; status: VaccinationStatus }>(
+  statuses: T[],
+  overrides: VaccinationNonAdministration[]
+): T[] {
+  if (overrides.length === 0) return statuses;
+  const reasonByCatalogId = new Map(
+    overrides.map((o) => [o.vaccination_catalog_id, o.non_administration_reason])
+  );
+  return statuses.map((entry) => {
+    const reason = reasonByCatalogId.get(entry.catalogId);
+    return reason ? { ...entry, status: reason } : entry;
   });
 }

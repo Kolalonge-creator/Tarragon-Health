@@ -9,12 +9,16 @@ import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-connect-section";
+import { SleepSummaryCard } from "@/app/(dashboard)/patient/sleep-summary-card";
 import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
+import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-check";
+import { listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
 import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
 import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 
 export default async function PatientVitalsPage() {
   const { subjectId } = await getPatientDashboardContext();
+  const presentingComplaints = await listAvailablePresentingComplaints();
 
   return (
     <DashboardSection
@@ -38,6 +42,8 @@ export default async function PatientVitalsPage() {
         <SymptomLogHistory patientId={subjectId} />
       </div>
 
+      <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
+
       <VitalsHistory patientId={subjectId} />
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}
@@ -46,6 +52,9 @@ export default async function PatientVitalsPage() {
         <ComplicationStatus patientId={subjectId} />
         <FootRiskStatus patientId={subjectId} />
       </div>
+      {/* Renders nothing until a connected wearable has synced at least one
+          night — see sleep-summary-card.tsx. */}
+      <SleepSummaryCard patientId={subjectId} />
       <WearableConnectSection patientId={subjectId} />
     </DashboardSection>
   );

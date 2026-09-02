@@ -36,7 +36,16 @@ function severityTrackColor(severity: number): string {
   return "accent-brand-green";
 }
 
-export function SymptomLogForm({ patientId }: { patientId: string }) {
+export function SymptomLogForm({
+  patientId,
+  medicationId,
+  drugName,
+}: {
+  patientId: string;
+  /** Medication safety pathway 64.9: scopes this to "I'm experiencing a side effect" for one medication. */
+  medicationId?: string;
+  drugName?: string;
+}) {
   const [severity, setSeverity] = useState(5);
   const [state, formAction, pending] = useActionState(logSymptom, undefined);
   const queryClient = useQueryClient();
@@ -53,10 +62,19 @@ export function SymptomLogForm({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log a symptom</CardTitle>
+        <CardTitle>{medicationId ? "Report a side effect" : "Log a symptom"}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
+          {medicationId && (
+            <>
+              <input type="hidden" name="medication_id" value={medicationId} />
+              <p className="text-xs text-charcoal-ink/60">
+                Reporting a side effect for {drugName ?? "this medication"}. Your care team will
+                see this alongside your medication list.
+              </p>
+            </>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="symptom_type">Symptom</Label>
             <Select id="symptom_type" name="symptom_type" defaultValue="other" required>
