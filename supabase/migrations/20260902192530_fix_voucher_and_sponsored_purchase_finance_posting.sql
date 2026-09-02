@@ -505,7 +505,7 @@ begin
     -- --- voucher_payment proof --------------------------------------------
     -- Real shape purchase_service_voucher() produces (service_product_id,
     -- not panel_bundle_id/subscription_plan_id) — see the sibling
-    -- 20260902193015 migration, which this one depends on for
+    -- 20260902192200 migration, which this one depends on for
     -- care_vouchers_kind_shape to accept it.
     insert into public.care_vouchers
       (organisation_id, voucher_number, kind, beneficiary_profile_id, purchaser_profile_id,
