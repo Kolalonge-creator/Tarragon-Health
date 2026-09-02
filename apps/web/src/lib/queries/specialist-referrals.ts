@@ -69,6 +69,91 @@ export function usePatientSpecialistReferrals(patientId: string) {
   });
 }
 
+export interface SpecialistProviderMatchFilters {
+  specialistType: Tables<"specialist_referrals">["specialist_type"] | null;
+  state?: string;
+  city?: string;
+  requireTelemedicine?: boolean;
+  hmo?: string;
+  /** Filters out providers whose consultation_fee_kobo exceeds this — a real column, just never exposed as a filter until now (docs/CLINICAL_NETWORK_SPEC.md §4.6 Phase 1 item 4). */
+  maxFeeKobo?: number;
+  /** Filters to providers whose languages[] contains this language — same "already a column, not yet a filter" gap. */
+  language?: string;
+}
+
+/**
+ * Active specialist_providers matching a specialist_type plus optional
+ * state/telemedicine/HMO/price/language filters. This is filtering an
+ * existing catalogue, not ranking it — see docs/CLINICAL_NETWORK_SPEC.md §3:
+ * adding a price/language predicate is explicitly listed as safe to build
+ * without a new founder ask, scoring/weighting is not, and this function
+ * still does neither. Ordered so a same-state match sorts first, then
+ * alphabetically; done client-side rather than a Postgres CASE ORDER BY
+ * since the provider list is small (9 placeholder rows today) and this
+ * keeps the query itself simple.
+ *
+ * Powers the patient-initiated find-a-specialist entry point
+ * (find-a-specialist.tsx), which is read-only/informational — assigning a
+ * specialist_provider to a live referral is a clinician action via the
+ * reactivated set_referral_specialist_provider() RPC
+ * (20260828233653_activate_partner_specialist_booking.sql), not this hook.
+ * The prior clinician-side picker (choose-referral-specialist.tsx) and its
+ * useAssignSpecialistProvider mutation were removed as dead code by the
+ * Referral Management Engine build (#338) — that mutation wrote
+ * specialist_provider_id/referral_fee_kobo directly without ever setting
+ * fulfilment='partner', so the self-arranged-fulfilment trigger rejected
+ * every call. A future clinician-side assignment UI should call
+ * set_referral_specialist_provider() (which sets fulfilment correctly)
+ * rather than resurrecting that raw-update pattern.
+ */
+export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFilters) {
+  const { specialistType, state, city, requireTelemedicine, hmo, maxFeeKobo, language } = filters;
+  return useQuery({
+    queryKey: [
+      "specialist-providers",
+      specialistType ?? "none",
+      state ?? "",
+      city ?? "",
+      requireTelemedicine ?? false,
+      hmo ?? "",
+      maxFeeKobo ?? "",
+      language ?? "",
+    ],
+    queryFn: async () => {
+      const supabase = createClient();
+      let query = supabase
+        .from("specialist_providers")
+        .select("*")
+        .eq("specialist_type", specialistType!)
+        .eq("is_active", true);
+      if (requireTelemedicine) {
+        query = query.eq("supports_telemedicine", true);
+      }
+      if (hmo) {
+        query = query.contains("accepted_hmos", [hmo]);
+      }
+      if (typeof maxFeeKobo === "number") {
+        query = query.lte("consultation_fee_kobo", maxFeeKobo);
+      }
+      if (language) {
+        query = query.contains("languages", [language]);
+      }
+      const { data, error } = await query.order("name", { ascending: true });
+      if (error) throw error;
+      const providers = data as SpecialistProvider[];
+      if (!state) return providers;
+      // Locality score: same state+city best (0), same state only next (1),
+      // elsewhere last (2) — city refines within a state, per the location model.
+      const score = (p: SpecialistProvider) => {
+        if (p.state !== state) return 2;
+        return city && p.city === city ? 0 : 1;
+      };
+      return [...providers].sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name));
+    },
+    enabled: !!specialistType,
+  });
+}
+
 export type SpecialistProvider = Tables<"specialist_providers">;
 
 /**

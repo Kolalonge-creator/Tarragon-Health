@@ -168,6 +168,13 @@ export default async function AdminPage() {
           icon: NAV_ICON.inbox,
           visible: can("leads.manage"),
         },
+        {
+          href: "/admin/patients/duplicates",
+          label: "Duplicate patients",
+          blurb: "Review flagged possible-duplicate patient records",
+          icon: NAV_ICON.review,
+          visible: can("patients.duplicates.review") || can("patients.merge"),
+        },
       ],
     },
     {

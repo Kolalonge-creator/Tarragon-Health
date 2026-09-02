@@ -45,6 +45,7 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   record_conflict_flagged: { dot: "bg-amber-500", label: "Record conflict" },
   record_conflict_resolved: { dot: "bg-green-600", label: "Record conflict" },
   clinical_summary_validated: { dot: "bg-green-600", label: "Clinical summary" },
+  dependent_account_transitioned: { dot: "bg-clinical-navy", label: "Account access" },
 };
 
 // Belt-and-braces only — private.record_timeline_event() now strips

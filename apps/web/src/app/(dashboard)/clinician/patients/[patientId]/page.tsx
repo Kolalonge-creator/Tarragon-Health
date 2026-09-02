@@ -7,6 +7,7 @@ import {
   isClinicalTier,
 } from "@/lib/clinical/doctor-tier";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar } from "@/components/avatar";
 import { MaskedCallButton } from "@/components/masked-call-button";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
@@ -68,7 +69,7 @@ export default async function ClinicianPatientPage({
   // lookup in this app.
   const { data: patient } = await supabase
     .from("profiles")
-    .select("id, full_name, phone, organisation_id, sex, date_of_birth")
+    .select("id, full_name, phone, organisation_id, sex, date_of_birth, avatar_url, patient_number")
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
@@ -424,11 +425,30 @@ export default async function ClinicianPatientPage({
 
   return (
     <div className="space-y-6">
+      <div className="flex items-start gap-3">
+        <Avatar fullName={patient.full_name ?? "Unnamed patient"} photoUrl={patient.avatar_url} size="xl" />
+        <div>
+          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
+            {patient.full_name ?? "Unnamed patient"}
+          </h1>
+          <p className="text-sm text-charcoal-ink/60">
+            {patient.patient_number && <span>{patient.patient_number}</span>}
+            {patient.patient_number && patient.date_of_birth && <span> · </span>}
+            {patient.date_of_birth && (
+              <span>
+                DOB{" "}
+                {new Date(patient.date_of_birth).toLocaleDateString("en-GB", {
+                  day: "numeric",
+                  month: "short",
+                  year: "numeric",
+                })}
+              </span>
+            )}
+          </p>
+          {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
+        </div>
+      </div>
       <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          {patient.full_name ?? "Unnamed patient"}
-        </h1>
-        {patient.phone && <p className="text-charcoal-ink/60">{patient.phone}</p>}
         {currentUser && (
           <div className="mt-2">
             <MaskedCallButton
