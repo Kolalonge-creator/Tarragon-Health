@@ -74,8 +74,19 @@ begin
     -- (a "no patient row exists yet" replay ordering accident, see the
     -- 20260829120000 wearable-consent migration's synthetic test patient,
     -- previously masked this test always skipping when it wasn't active).
-    -- Flip it on for the duration of the proof only, then restore it.
+    -- Flipping is_active on its own also runs into
+    -- chronic_condition_programmes_protocol_gate
+    -- (private.enforce_chronic_programme_protocol_signed, 20260716223231 /
+    -- hardened 20260813163440), which additionally requires a
+    -- protocol_versions row signed by an active Clinical Director for
+    -- 'chronic_hypertension_who' — real governance this proof isn't testing
+    -- either, and unlike is_active there's no single column to fake without
+    -- fabricating clinical_staff/protocol_versions rows. Disable that gate
+    -- for the duration of the proof only (transactional DDL: rolls back
+    -- with everything else if the proof below fails), then restore both.
+    alter table public.chronic_condition_programmes disable trigger chronic_condition_programmes_protocol_gate;
     update public.chronic_condition_programmes set is_active = true where id = v_programme_id;
+    alter table public.chronic_condition_programmes enable trigger chronic_condition_programmes_protocol_gate;
 
     -- Sabotage check: a patient with no chronic_doctor_supported_pack must
     -- land on self_monitoring even if the client tries to claim otherwise.
@@ -90,7 +101,9 @@ begin
     end if;
 
     delete from public.chronic_programme_enrolments where id = v_enrolment_id;
+    alter table public.chronic_condition_programmes disable trigger chronic_condition_programmes_protocol_gate;
     update public.chronic_condition_programmes set is_active = v_was_active where id = v_programme_id;
+    alter table public.chronic_condition_programmes enable trigger chronic_condition_programmes_protocol_gate;
   end if;
 
   raise notice 'PASS: chronic programme track is server-derived and immutable to client input';
