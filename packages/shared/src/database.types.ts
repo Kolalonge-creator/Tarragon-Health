@@ -26944,7 +26944,6 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          clinical_access?: boolean
           clinical_access_updated_at?: string | null
           created_at?: string
           granted_by: string
@@ -26955,7 +26954,6 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          clinical_access?: boolean
           clinical_access_updated_at?: string | null
           created_at?: string
           granted_by?: string
@@ -27025,6 +27023,7 @@ export type Database = {
           created_at: string
           custom_role_id: string | null
           date_of_birth: string | null
+          dependent_kind: Database["public"]["Enums"]["dependent_kind"] | null
           emergency_contact_consent: boolean
           emergency_contact_consent_at: string | null
           emergency_contact_name: string | null
@@ -27039,6 +27038,7 @@ export type Database = {
           is_pregnant: boolean
           lab_provider_id: string | null
           language: string
+          majority_review_at: string | null
           marketing_opt_in: boolean
           merged_at: string | null
           merged_into_profile_id: string | null
@@ -27071,6 +27071,7 @@ export type Database = {
           created_at?: string
           custom_role_id?: string | null
           date_of_birth?: string | null
+          dependent_kind?: Database["public"]["Enums"]["dependent_kind"] | null
           emergency_contact_consent?: boolean
           emergency_contact_consent_at?: string | null
           emergency_contact_name?: string | null
@@ -27085,6 +27086,7 @@ export type Database = {
           is_pregnant?: boolean
           lab_provider_id?: string | null
           language?: string
+          majority_review_at?: string | null
           marketing_opt_in?: boolean
           merged_at?: string | null
           merged_into_profile_id?: string | null
@@ -27117,6 +27119,7 @@ export type Database = {
           created_at?: string
           custom_role_id?: string | null
           date_of_birth?: string | null
+          dependent_kind?: Database["public"]["Enums"]["dependent_kind"] | null
           emergency_contact_consent?: boolean
           emergency_contact_consent_at?: string | null
           emergency_contact_name?: string | null
@@ -27131,6 +27134,7 @@ export type Database = {
           is_pregnant?: boolean
           lab_provider_id?: string | null
           language?: string
+          majority_review_at?: string | null
           marketing_opt_in?: boolean
           merged_at?: string | null
           merged_into_profile_id?: string | null
@@ -40187,6 +40191,7 @@ export type Database = {
         | "ble_vendor_sdk"
         | "health_connect_bridge"
         | "manual_only"
+      dependent_kind: "minor_child" | "elder_proxy"
       diabetes_type: "type_1" | "type_2" | "gestational" | "other"
       diagnostic_modality:
         | "xray"
@@ -42293,6 +42298,7 @@ export const Constants = {
         "health_connect_bridge",
         "manual_only",
       ],
+      dependent_kind: ["minor_child", "elder_proxy"],
       diabetes_type: ["type_1", "type_2", "gestational", "other"],
       diagnostic_modality: [
         "xray",
