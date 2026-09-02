@@ -98,7 +98,7 @@ begin
 end;
 $$;
 
-revoke all on function private.refresh_public_impact_metrics() from public;
+revoke all on function private.refresh_public_impact_metrics() from public, anon;
 revoke all on function private.refresh_public_impact_metrics() from anon;
 
 -- Populate real numbers immediately rather than waiting for the first cron tick.
@@ -125,7 +125,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_refresh_public_impact_metrics() from public;
+revoke all on function public.admin_refresh_public_impact_metrics() from public, anon;
 revoke all on function public.admin_refresh_public_impact_metrics() from anon;
 grant execute on function public.admin_refresh_public_impact_metrics() to authenticated;
 
@@ -147,7 +147,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_set_impact_metric_published(text, boolean) from public;
+revoke all on function public.admin_set_impact_metric_published(text, boolean) from public, anon;
 revoke all on function public.admin_set_impact_metric_published(text, boolean) from anon;
 grant execute on function public.admin_set_impact_metric_published(text, boolean) to authenticated;
 

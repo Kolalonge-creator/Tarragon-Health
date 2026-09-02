@@ -196,11 +196,11 @@ create trigger pharmacy_orders_enqueue_response_notifications
   when (old.status is distinct from new.status and new.status in ('confirmed', 'cancelled'))
   execute function private.enqueue_pharmacy_order_response_notifications();
 
-revoke execute on function public.pharmacist_accept_order(uuid, text, bigint, timestamptz) from public;
+revoke execute on function public.pharmacist_accept_order(uuid, text, bigint, timestamptz) from public, anon;
 revoke execute on function public.pharmacist_accept_order(uuid, text, bigint, timestamptz) from anon;
 grant execute on function public.pharmacist_accept_order(uuid, text, bigint, timestamptz) to authenticated;
 
-revoke execute on function public.pharmacist_decline_order(uuid, text) from public;
+revoke execute on function public.pharmacist_decline_order(uuid, text) from public, anon;
 revoke execute on function public.pharmacist_decline_order(uuid, text) from anon;
 grant execute on function public.pharmacist_decline_order(uuid, text) to authenticated;
 
