@@ -3,11 +3,59 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useVideoConsultation } from "@/lib/queries/consult-slots";
 import { useStartThread } from "@/lib/queries/care-messages";
+import { useConsultationSummary } from "@/lib/queries/consultation-video";
 import { submitConsultationPrep, type SubmitPrepState } from "../../video-visit-actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+
+/** 68.17 — the curated post-visit recap, once the care team has published
+ * one. Nothing shows here until a clinician explicitly writes and publishes
+ * it (publish_consultation_summary) — never an automatic dump of the
+ * clinical note. */
+function ConsultationSummaryCard({ consultationId }: { consultationId: string }) {
+  const { data: summary, isLoading } = useConsultationSummary(consultationId);
+  if (isLoading || !summary) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Your visit summary</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm text-charcoal-ink">
+        <div>
+          <p className="text-xs font-medium text-charcoal-ink/50">What we discussed</p>
+          <p>{summary.what_we_discussed}</p>
+        </div>
+        {summary.what_you_need_to_do && (
+          <div>
+            <p className="text-xs font-medium text-charcoal-ink/50">What you need to do</p>
+            <p>{summary.what_you_need_to_do}</p>
+          </div>
+        )}
+        {summary.medicines_note && (
+          <div>
+            <p className="text-xs font-medium text-charcoal-ink/50">Medicines</p>
+            <p>{summary.medicines_note}</p>
+          </div>
+        )}
+        {summary.tests_note && (
+          <div>
+            <p className="text-xs font-medium text-charcoal-ink/50">Tests</p>
+            <p>{summary.tests_note}</p>
+          </div>
+        )}
+        {summary.next_appointment_note && (
+          <div>
+            <p className="text-xs font-medium text-charcoal-ink/50">Next appointment</p>
+            <p>{summary.next_appointment_note}</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 function formatSlot(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -231,6 +279,8 @@ export function VideoVisitWaitingRoom({
           )}
         </CardContent>
       </Card>
+
+      {consult.status === "completed" && <ConsultationSummaryCard consultationId={consultationId} />}
 
       {!isPast && (
         <Card>
