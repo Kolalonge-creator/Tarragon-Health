@@ -1,14 +1,22 @@
 -- Tarragon Health — verification for 20260829140000_pulse_red_flag_engine.sql
 --
--- Proves, for a genuinely fresh Free-tier patient (no subscriptions row at
--- all) vs. a genuinely fresh paid-tier patient (an active 'complete'
--- subscription): a RED-range pulse reading raises a clinician_alerts row for
+-- Proves, for a genuinely fresh Free-tier patient (no service_purchases row
+-- at all) vs. a genuinely fresh paid-tier patient (an active complete_pack
+-- purchase): a RED-range pulse reading raises a clinician_alerts row for
 -- the paid patient and raises NO clinician_alerts row plus an in_app
 -- self-care suggestion for the free patient (mirrors
 -- vitals_red_flag_plan_gate.sql's BP case). Also proves an EMERGENCY-range
 -- pulse reading gets the same treatment via emergency_events, and that a
 -- routine (GREEN) reading raises nothing at all — the trigger must not fire
 -- on every ordinary heart-rate log.
+--
+-- Updated 2026-09-03 for the pay-per-service migration, matching
+-- vitals_red_flag_plan_gate.sql: "paid" is now an active service_purchases
+-- row (complete_pack) rather than a subscriptions row —
+-- private.patient_has_feature_access itself was repointed at
+-- service_purchases (20260831141943_rewire_feature_access_to_service_purchases.sql),
+-- so this fixture was left checking a table the gate no longer reads at all,
+-- meaning the "paid patient" branch was never actually exercised as paid.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -34,9 +42,9 @@ begin
     raise exception 'no organisation has patient profiles — cannot run this test';
   end if;
 
-  select id into v_complete_plan from public.subscription_plans where code = 'complete' limit 1;
+  select id into v_complete_plan from public.service_products where code = 'complete_pack' limit 1;
   if v_complete_plan is null then
-    raise exception 'no complete subscription_plans row found — cannot run this test';
+    raise exception 'no complete_pack service_products row found — cannot run this test';
   end if;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
@@ -51,10 +59,11 @@ begin
   on conflict (id) do update
     set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
-  -- v_free_patient deliberately gets NO subscriptions row at all — the same
-  -- state a real Tarragon Free patient is in.
-  insert into public.subscriptions (organisation_id, subscriber_id, plan_id, status)
-  values (v_org, v_paid_patient, v_complete_plan, 'active');
+  -- v_free_patient deliberately gets NO service_purchases row at all — the
+  -- same state a real Tarragon Free patient is in.
+  insert into public.service_purchases
+    (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, purchased_at, expires_at)
+  values (v_org, v_paid_patient, v_paid_patient, v_complete_plan, 'active', 2000000, 'NGN', now(), now() + interval '30 days');
 
   insert into prfe_fixture(k, v) values
     ('org', v_org), ('free_patient', v_free_patient), ('paid_patient', v_paid_patient);
