@@ -3525,9 +3525,11 @@ export type Database = {
         Row: {
           counterparty_user_id: string
           created_at: string
+          expires_at: string | null
           id: string
           initiated_by: string
           permission_level: Database["public"]["Enums"]["profile_access_level"]
+          permissions: Database["public"]["Enums"]["caregiver_permission"][] | null
           profile_id: string
           relationship: string | null
           responded_at: string | null
@@ -3538,9 +3540,11 @@ export type Database = {
         Insert: {
           counterparty_user_id: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           initiated_by: string
           permission_level: Database["public"]["Enums"]["profile_access_level"]
+          permissions?: Database["public"]["Enums"]["caregiver_permission"][] | null
           profile_id: string
           relationship?: string | null
           responded_at?: string | null
@@ -3551,9 +3555,11 @@ export type Database = {
         Update: {
           counterparty_user_id?: string
           created_at?: string
+          expires_at?: string | null
           id?: string
           initiated_by?: string
           permission_level?: Database["public"]["Enums"]["profile_access_level"]
+          permissions?: Database["public"]["Enums"]["caregiver_permission"][] | null
           profile_id?: string
           relationship?: string | null
           responded_at?: string | null
@@ -3588,6 +3594,32 @@ export type Database = {
             columns: ["responded_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      caregiver_alert_notifications: {
+        Row: {
+          last_notified_at: string
+          last_notified_review_due: string
+          profile_access_id: string
+        }
+        Insert: {
+          last_notified_at?: string
+          last_notified_review_due: string
+          profile_access_id: string
+        }
+        Update: {
+          last_notified_at?: string
+          last_notified_review_due?: string
+          profile_access_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caregiver_alert_notifications_profile_access_id_fkey"
+            columns: ["profile_access_id"]
+            isOneToOne: true
+            referencedRelation: "profile_access"
             referencedColumns: ["id"]
           },
         ]
@@ -26151,30 +26183,36 @@ export type Database = {
           clinical_access: boolean
           clinical_access_updated_at: string | null
           created_at: string
+          expires_at: string | null
           granted_by: string
           grantee_user_id: string
           id: string
           permission_level: Database["public"]["Enums"]["profile_access_level"]
+          permissions: Database["public"]["Enums"]["caregiver_permission"][] | null
           profile_id: string
           updated_at: string
         }
         Insert: {
           clinical_access_updated_at?: string | null
           created_at?: string
+          expires_at?: string | null
           granted_by: string
           grantee_user_id: string
           id?: string
           permission_level?: Database["public"]["Enums"]["profile_access_level"]
+          permissions?: Database["public"]["Enums"]["caregiver_permission"][] | null
           profile_id: string
           updated_at?: string
         }
         Update: {
           clinical_access_updated_at?: string | null
           created_at?: string
+          expires_at?: string | null
           granted_by?: string
           grantee_user_id?: string
           id?: string
           permission_level?: Database["public"]["Enums"]["profile_access_level"]
+          permissions?: Database["public"]["Enums"]["caregiver_permission"][] | null
           profile_id?: string
           updated_at?: string
         }
@@ -39046,6 +39084,7 @@ export type Database = {
         | "record_viewed"
         | "receipt_generated"
         | "acted_for"
+        | "expired"
         | "data_exported"
         | "category_access_granted"
         | "category_access_withdrawn"
@@ -39054,6 +39093,16 @@ export type Database = {
         | "accepted"
         | "declined"
         | "cancelled"
+      caregiver_permission:
+        | "view_appointments"
+        | "book_appointments"
+        | "view_medication"
+        | "manage_pharmacy"
+        | "view_results"
+        | "view_care_plan"
+        | "communicate_with_care_team"
+        | "manage_payments"
+        | "receive_alerts"
       care_message_author: "patient" | "care_team" | "sponsor"
       care_message_category:
         | "clinical"
@@ -41041,6 +41090,7 @@ export const Constants = {
         "record_viewed",
         "receipt_generated",
         "acted_for",
+        "expired",
         "data_exported",
         "category_access_granted",
         "category_access_withdrawn",
@@ -41050,6 +41100,17 @@ export const Constants = {
         "accepted",
         "declined",
         "cancelled",
+      ],
+      caregiver_permission: [
+        "view_appointments",
+        "book_appointments",
+        "view_medication",
+        "manage_pharmacy",
+        "view_results",
+        "view_care_plan",
+        "communicate_with_care_team",
+        "manage_payments",
+        "receive_alerts",
       ],
       care_message_author: ["patient", "care_team", "sponsor"],
       care_message_category: [

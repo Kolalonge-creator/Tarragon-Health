@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { koboToNaira } from "@tarragon/shared";
+import { APPOINTMENT_TYPE_LABELS } from "../appointments/appointment-labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -735,6 +736,18 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
               {data.nextScreeningDue && (
                 <p className="text-xs text-charcoal-ink/50">
                   Next {shortDate(data.nextScreeningDue)}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-charcoal-ink/60">Next appointment</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+                {data.nextAppointment ? shortDate(data.nextAppointment.scheduledFor) : "None booked"}
+              </p>
+              {data.nextAppointment && (
+                <p className="text-xs text-charcoal-ink/50">
+                  {APPOINTMENT_TYPE_LABELS[data.nextAppointment.appointmentType] ??
+                    data.nextAppointment.appointmentType}
                 </p>
               )}
             </div>
