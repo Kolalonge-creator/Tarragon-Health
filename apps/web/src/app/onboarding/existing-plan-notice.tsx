@@ -29,7 +29,7 @@ export function ExistingPlanNotice({ planName, status }: { planName: string; sta
         Your account already has{" "}
         <strong className="font-semibold">
           {planName}
-          {status === "trialing" ? " (trial)" : ""}
+          {status === "pending_payment" ? " (payment pending)" : ""}
         </strong>{" "}
         active. You won&apos;t be asked to choose or pay for a plan again: this just finishes
         setting up your account with the plan you already have.

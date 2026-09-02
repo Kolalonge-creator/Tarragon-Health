@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { confirmAppointmentAndSetupVideo } from "@/lib/appointments/confirm-with-video-setup";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type Appointment = Tables<"appointments">;
@@ -145,16 +146,15 @@ export function useHoldAppointmentSlot() {
   });
 }
 
-/** 10.7 confirm — held -> booked/confirmed. */
+/** 10.7 confirm — held -> booked/confirmed. Routed through
+ * confirmAppointmentAndSetupVideo (not a raw RPC call) so a telemedicine/
+ * result_interpretation booking that reaches 'confirmed' also gets a real
+ * Zoom join link the moment it's genuinely confirmed — a no-op for every
+ * other appointment_type. */
 export function useConfirmAppointmentBooking() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (appointmentId: string) => {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("confirm_appointment_booking", { p_appointment_id: appointmentId });
-      if (error) throw error;
-      return data as Appointment;
-    },
+    mutationFn: async (appointmentId: string) => confirmAppointmentAndSetupVideo(appointmentId),
     onSuccess: () => invalidateAppointmentQueries(queryClient),
   });
 }
