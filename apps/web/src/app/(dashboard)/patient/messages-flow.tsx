@@ -61,7 +61,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
   const startThread = () => {
     setError(null);
     start.mutate(
-      { subject, body, category },
+      { subject, body, category, patientId },
       {
         onSuccess: (id) => {
           setSubject("");
@@ -216,6 +216,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                 threadId={openThread.id}
                 patientId={patientId}
                 closed={openThread.status === "closed"}
+                showEmergencyNotice
               />
             </div>
           </div>

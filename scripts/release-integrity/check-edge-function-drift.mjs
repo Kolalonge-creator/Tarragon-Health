@@ -34,6 +34,11 @@ function walk(dir, base = dir, out = []) {
 }
 
 function main() {
+  if (!process.env.SUPABASE_ACCESS_TOKEN) {
+    console.error("SUPABASE_ACCESS_TOKEN is not set — cannot check edge function drift.");
+    process.exit(2);
+  }
+
   const deployedDir = mkdtempSync(join(tmpdir(), "edge-fn-deployed-"));
   const sourceDir = mkdtempSync(join(tmpdir(), "edge-fn-source-"));
 

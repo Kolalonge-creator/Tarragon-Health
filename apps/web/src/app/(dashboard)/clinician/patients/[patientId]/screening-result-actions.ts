@@ -6,10 +6,11 @@ import { screeningResultSchema } from "@/lib/validation/screening-result";
 import { computeNonHdl } from "@/lib/lipids/analytes";
 import { flagCvRiskEscalations } from "@/lib/cv-risk/escalate";
 import {
-  createMlClientFromEnv,
   type AnalyteReadingIn,
   type Json,
+  type MlClient,
 } from "@tarragon/shared";
+import { createGovernedMlClient } from "@/lib/ml/governed-ml-client";
 
 export type SubmitScreeningResultState = { error?: string; success?: boolean } | undefined;
 
@@ -90,7 +91,10 @@ export async function submitScreeningResult(
     }
   }
 
-  const mlClient = createMlClientFromEnv();
+  const mlClient = createGovernedMlClient(supabase, {
+    subjectProfileId: patientId,
+    inputCategory: "screening_result_interpretation",
+  });
   if (!mlClient) {
     return { error: "ML service is not configured, cannot interpret this result" };
   }
@@ -252,7 +256,7 @@ export async function setScreeningResultFollowUpAction(
 }
 
 async function maybeComputeCvdRisk(
-  mlClient: NonNullable<ReturnType<typeof createMlClientFromEnv>>,
+  mlClient: MlClient,
   params: {
     organisationId: string;
     patientId: string;
@@ -317,7 +321,7 @@ async function maybeComputeCvdRisk(
 }
 
 async function maybeComputeHba1cTrajectory(
-  mlClient: NonNullable<ReturnType<typeof createMlClientFromEnv>>,
+  mlClient: MlClient,
   params: { organisationId: string; patientId: string; hasHba1cResult: boolean }
 ): Promise<void> {
   if (!params.hasHba1cResult) return;

@@ -46,7 +46,7 @@ export default async function SubscriptionCheckoutCallbackPage({
             : "We're confirming your payment. If it succeeded, this will activate automatically within a minute or two."}
         </p>
         <Button asChild className="w-full">
-          <Link href="/patient/subscription">Back to my subscription</Link>
+          <Link href="/patient/subscription">Back to my services</Link>
         </Button>
       </div>
     </div>

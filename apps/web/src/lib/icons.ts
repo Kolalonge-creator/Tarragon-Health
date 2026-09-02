@@ -9,6 +9,7 @@ import {
   Users,
   Headphones,
   ShieldCheck,
+  Handshake,
   Link2,
   FileText,
   ShoppingBag,
@@ -79,6 +80,9 @@ import {
   Heart,
   Paperclip,
   Download,
+  HeartHandshake,
+  Flag,
+  Siren,
   type LucideIcon,
 } from "lucide-react";
 
@@ -148,6 +152,7 @@ export const MEAL_TYPE_ICON = {
 export const NAV_ICON = {
   dashboard: LayoutDashboard,
   passport: IdCard,
+  insurance: Handshake,
   lifestyle: Activity,
   vaccination: Syringe,
   review: ClipboardCheck,
@@ -182,6 +187,9 @@ export const NAV_ICON = {
   devices: Bluetooth,
   attachment: Paperclip,
   download: Download,
+  healthyAgeing: HeartHandshake,
+  flag: Flag,
+  siren: Siren,
   // Platform Analytics console category icons — the `analyst` role's sidebar
   // (apps/web/src/lib/analytics/sections.ts is the single source of truth for
   // which category gets which of these).

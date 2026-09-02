@@ -47,7 +47,11 @@ export default async function ResourcesPage() {
                   href={`/resources/${article.slug}`}
                   className="group overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white shadow-sm transition hover:border-brand-green/40 hover:shadow-md"
                 >
-                  <ResourceThumbnail icon={resourceThumbnailIcon(article)} className="aspect-[16/9]" />
+                  <ResourceThumbnail
+                    category={article.category}
+                    icon={resourceThumbnailIcon(article)}
+                    className="aspect-[16/9]"
+                  />
                   <div className="p-6">
                     <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
                       {article.readMinutes} min read

@@ -6,6 +6,7 @@ import { loadCareGaps } from "@/lib/care-gaps/load-care-gaps";
 import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-access";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
+import { loadVaccinationCoverage } from "@/lib/vaccination/load-coverage-analytics";
 
 /** Same shape/reasoning as dashboard/corporate/dashboard-data.ts — see its
  * comment. HMO's waterfall additionally loads care gaps and always attempts
@@ -34,12 +35,14 @@ async function loadHmoDashboardDataUncached() {
     return { state: "suppressed" as const, greeting, organisationId, access };
   }
 
-  const [analytics, contractPerformance, careGaps, medicationOutcomes] = await Promise.all([
-    loadCohortAnalytics(access.client, access.organisationId, access.minCohortSize),
-    getContractPerformance(access.client, access.organisationId),
-    loadCareGaps(access.client, access.organisationId, access.minCohortSize),
-    loadMedicationOutcomes(access.client, access.organisationId),
-  ]);
+  const [analytics, contractPerformance, careGaps, medicationOutcomes, vaccinationCoverage] =
+    await Promise.all([
+      loadCohortAnalytics(access.client, access.organisationId, access.minCohortSize),
+      getContractPerformance(access.client, access.organisationId),
+      loadCareGaps(access.client, access.organisationId, access.minCohortSize),
+      loadMedicationOutcomes(access.client, access.organisationId),
+      loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
+    ]);
 
   if (!analytics) {
     return {
@@ -49,6 +52,7 @@ async function loadHmoDashboardDataUncached() {
       access,
       contractPerformance,
       careGaps,
+      vaccinationCoverage,
     };
   }
 
@@ -68,6 +72,7 @@ async function loadHmoDashboardDataUncached() {
     careGaps,
     costAvoided,
     medicationOutcomes,
+    vaccinationCoverage,
   };
 }
 
