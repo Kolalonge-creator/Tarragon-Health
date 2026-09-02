@@ -75,6 +75,17 @@ begin
     from pg_default_acl
    where defaclobjtype = 'f';
 
+  -- Revoking a privilege from PUBLIC that was never explicitly granted to it
+  -- is a no-op in Postgres's default-privilege system: the Supabase CLI's own
+  -- bootstrap default_acl row for role=postgres/schema=public/type=f never
+  -- listed PUBLIC by name (it enumerated postgres/anon/authenticated/
+  -- service_role individually), so a bare "revoke ... from public" here has
+  -- nothing to remove and a newly created function still gets the hardcoded
+  -- PUBLIC=execute default. GRANT first to force an explicit PUBLIC aclitem
+  -- to exist in defaclacl, then REVOKE it -- only then does the revoke
+  -- actually take effect on future objects.
+  execute 'alter default privileges for role postgres in schema public grant execute on functions to public';
+  execute 'alter default privileges for role postgres in schema public grant usage, select on sequences to public';
   execute 'alter default privileges for role postgres in schema public revoke execute on functions from public, anon, authenticated';
   execute 'alter default privileges for role postgres in schema public revoke usage, select on sequences from public, anon, authenticated';
 
