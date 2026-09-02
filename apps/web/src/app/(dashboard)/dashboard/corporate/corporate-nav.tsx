@@ -6,6 +6,9 @@ import { cn } from "@/lib/utils";
 
 const TABS = [
   { href: "/dashboard/corporate", label: "Overview", exact: true },
+  { href: "/dashboard/corporate/eligibility", label: "Eligibility & benefits", exact: false },
+  { href: "/dashboard/corporate/campaigns", label: "Campaigns & messages", exact: false },
+  { href: "/dashboard/corporate/billing", label: "Billing", exact: false },
   { href: "/dashboard/corporate/reports", label: "Reports & outcomes", exact: false },
 ] as const;
 
