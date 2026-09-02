@@ -50,7 +50,10 @@ export default async function RiskQuestionnaireConfigSettingsPage() {
           to switch the live risk assessment onto this configuration.
         </p>
       </div>
-      <RiskQuestionnaireConfigEditor defaultConfigJson={JSON.stringify(prefillConfig, null, 2)} />
+      <RiskQuestionnaireConfigEditor
+        key={rows[0]?.id ?? "seed"}
+        defaultConfigJson={JSON.stringify(prefillConfig, null, 2)}
+      />
       <RiskQuestionnaireConfigManager configs={rows} />
     </div>
   );

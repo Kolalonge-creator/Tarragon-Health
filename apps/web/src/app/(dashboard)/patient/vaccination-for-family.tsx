@@ -6,6 +6,7 @@ import { useManagedDependents } from "@/lib/queries/care-access";
 import type { PatientLocation } from "./facility-selector";
 import { VaccinationRegistry } from "./vaccination-registry";
 import { VaccinationBooking } from "./vaccination-booking";
+import { VaccinationCardImport } from "./vaccination-card-import";
 import { LogVaccinationForm } from "./log-vaccination-form";
 import { AddChildForm } from "./family/add-child-form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -82,6 +83,7 @@ export function VaccinationForFamily({
         sex={selected.sex}
       />
       <VaccinationBooking patientId={selected.id} patientLocation={patientLocation} />
+      <VaccinationCardImport patientId={selected.id} />
       <LogVaccinationForm
         patientId={selected.id}
         ageYears={selected.ageYears}

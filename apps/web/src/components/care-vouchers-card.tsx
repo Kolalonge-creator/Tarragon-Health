@@ -4,7 +4,7 @@ import { useActionState, useState } from "react";
 import {
   buyCareVoucher,
   payTowardVoucher,
-  redeemSubscriptionVoucher,
+  redeemServiceVoucher,
 } from "@/app/(dashboard)/patient/vouchers/actions";
 import {
   useMyVouchers,
@@ -69,7 +69,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
   const [payState, payAction, payPending] = useActionState(payTowardVoucher, undefined);
   const [buyState, buyAction, buyPending] = useActionState(buyCareVoucher, undefined);
   const [redeemState, redeemAction, redeemPending] = useActionState(
-    redeemSubscriptionVoucher,
+    redeemServiceVoucher,
     undefined
   );
   const [buyOpen, setBuyOpen] = useState(false);
@@ -116,17 +116,17 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
           />
         ))}
 
-        {/* Starting a gifted year is the recipient's own act, never the
-            purchaser's: public.redeem_subscription_voucher refuses anybody but
-            the beneficiary. If they already have a plan running, redeeming
-            extends it rather than opening a second one. */}
+        {/* Starting a gifted service is the recipient's own act, never the
+            purchaser's: public.redeem_service_voucher refuses anybody but
+            the beneficiary. If they already have it active, redeeming
+            extends it rather than opening a second grant. */}
         {live
-          .filter((v) => v.subscription_plan_id && isVoucherSpendable(v))
+          .filter((v) => v.service_product_id && isVoucherSpendable(v))
           .map((v) => (
             <form key={`redeem-${v.id}`} action={redeemAction} className="space-y-2">
               <input type="hidden" name="voucherId" value={v.id} />
               <Button type="submit" size="sm" disabled={redeemPending}>
-                {redeemPending ? "Starting…" : `Start my year of ${v.sku_name ?? "care"}`}
+                {redeemPending ? "Starting…" : `Start my ${v.sku_name ?? "care"}`}
               </Button>
             </form>
           ))}
@@ -134,24 +134,25 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
         {redeemState?.message && (
           <p className="text-xs text-emerald-700">{redeemState.message}</p>
         )}
-        {/* A voucher buys a YEAR OF A PLAN, never a test: tests are paid
-            straight to the laboratory, so there is nothing for us to sell in
-            advance (public.purchase_care_voucher fails closed). A plan is
-            different, because it is the thing we actually provide. */}
+        {/* A voucher buys a fixed window of a SERVICE, never a test: tests
+            are paid straight to the laboratory, so there is nothing for us
+            to sell in advance (public.purchase_care_voucher fails closed).
+            A service is different, because it is the thing we actually
+            provide. */}
         <div className="border-t border-slate-100 pt-4">
           <Button type="button" size="sm" variant="outline" onClick={() => setBuyOpen(!buyOpen)}>
-            {buyOpen ? "Cancel" : "Buy a year of care"}
+            {buyOpen ? "Cancel" : "Buy care for someone"}
           </Button>
 
           {buyOpen && (
             <form action={buyAction} className="space-y-3 pt-3">
               <label className="block text-sm">
-                <span className="text-slate-700">Which plan?</span>
-                <Select name="planId" required className="mt-1">
-                  <option value="">Choose a plan</option>
+                <span className="text-slate-700">Which service?</span>
+                <Select name="serviceProductId" required className="mt-1">
+                  <option value="">Choose a service</option>
                   {(catalogue ?? []).map((plan) => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.name} — {naira(plan.price_minor ?? 0)}
+                      {plan.name} — {naira(plan.price_kobo ?? 0)}
                     </option>
                   ))}
                 </Select>
@@ -178,13 +179,13 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
 
               <p className="text-xs text-slate-500">
                 Reserving is free. You pay separately, in one go or bit by bit, and it becomes
-                usable once it is paid in full. Whoever it is for starts their year when they are
-                ready, so nobody is put on a plan without choosing to be. Tests are still paid at
-                the laboratory.
+                usable once it is paid in full. Whoever it is for starts it when they are ready,
+                so nobody is put on a plan without choosing to be. Tests are still paid at the
+                laboratory.
               </p>
 
               <Button type="submit" size="sm" disabled={buyPending}>
-                {buyPending ? "Reserving…" : "Reserve this plan"}
+                {buyPending ? "Reserving…" : "Reserve this service"}
               </Button>
               {buyState?.error && <p className="text-xs text-red-600">{buyState.error}</p>}
               {buyState?.message && <p className="text-xs text-emerald-700">{buyState.message}</p>}

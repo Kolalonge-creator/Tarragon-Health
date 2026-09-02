@@ -67,7 +67,7 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
 }
 
 export function ClinicianMessagesWorklist() {
-  const { data: threads, isLoading } = useOrgCareThreads();
+  const { data: threads, isLoading, isError } = useOrgCareThreads();
   const open = (threads ?? []).filter((t) => t.status === "open");
   const closed = (threads ?? []).filter((t) => t.status === "closed");
 
@@ -78,7 +78,8 @@ export function ClinicianMessagesWorklist() {
       </CardHeader>
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {!isLoading && (!threads || threads.length === 0) && (
+        {isError && <p className="text-sm text-red-600">Could not load patient messages.</p>}
+        {!isLoading && !isError && (!threads || threads.length === 0) && (
           <p className="text-sm text-charcoal-ink/60">No patient messages.</p>
         )}
         {open.length > 0 && (
