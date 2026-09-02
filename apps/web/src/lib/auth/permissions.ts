@@ -49,10 +49,13 @@ export const PERMISSION_KEYS = [
   "finance.tax.manage",
   "finance.export",
   "leads.manage",
+  "incidents.view",
+  "incidents.manage",
   "feature_flags.manage",
+  "ops.console.view",
+  "support.manage",
   "notification_templates.manage",
   "ai_governance.manage",
-  "ops.console.view",
 ] as const;
 
 export type PermissionKey = (typeof PERMISSION_KEYS)[number];
@@ -110,4 +113,16 @@ export async function hasPermission(perm: PermissionKey): Promise<boolean> {
 export async function hasAnyPermission(...perms: PermissionKey[]): Promise<boolean> {
   const { isSuperAdmin, keys } = await getCallerPermissions();
   return isSuperAdmin || perms.some((p) => keys.has(p));
+}
+
+/**
+ * Mirrors `private.can_view_ops_console()` (20260829094826_ops_control_centre_rpcs.sql):
+ * the `analyst` role (private.is_analyst() is `role in ('analyst', 'admin')`)
+ * or anyone holding `ops.console.view`. Used to page-guard /admin/ops before
+ * the RPCs themselves fail closed for anyone else.
+ */
+export async function canViewOpsConsole(): Promise<boolean> {
+  const profile = await getCurrentProfile();
+  if (profile?.role === "admin" || profile?.role === "analyst") return true;
+  return hasPermission("ops.console.view");
 }
