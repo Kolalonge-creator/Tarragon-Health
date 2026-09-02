@@ -4300,6 +4300,286 @@ export type Database = {
           },
         ]
       }
+      care_management_barriers: {
+        Row: {
+          case_id: string
+          category: Database["public"]["Enums"]["care_management_barrier_category"]
+          created_at: string
+          created_by: string | null
+          description: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          status: Database["public"]["Enums"]["care_management_barrier_status"]
+        }
+        Insert: {
+          case_id: string
+          category?: Database["public"]["Enums"]["care_management_barrier_category"]
+          created_at?: string
+          created_by?: string | null
+          description: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["care_management_barrier_status"]
+        }
+        Update: {
+          case_id?: string
+          category?: Database["public"]["Enums"]["care_management_barrier_category"]
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: Database["public"]["Enums"]["care_management_barrier_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_management_barriers_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "care_management_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_barriers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_barriers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_barriers_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_barriers_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_management_case_events: {
+        Row: {
+          actor_id: string | null
+          case_id: string
+          clinical_staff_id: string | null
+          clinician_alert_id: string | null
+          created_at: string
+          event_type: Database["public"]["Enums"]["care_management_case_event_type"]
+          id: string
+          organisation_id: string
+          patient_id: string
+          reason: string | null
+          target_level: string | null
+        }
+        Insert: {
+          actor_id?: string | null
+          case_id: string
+          clinical_staff_id?: string | null
+          clinician_alert_id?: string | null
+          created_at?: string
+          event_type: Database["public"]["Enums"]["care_management_case_event_type"]
+          id?: string
+          organisation_id: string
+          patient_id: string
+          reason?: string | null
+          target_level?: string | null
+        }
+        Update: {
+          actor_id?: string | null
+          case_id?: string
+          clinical_staff_id?: string | null
+          clinician_alert_id?: string | null
+          created_at?: string
+          event_type?: Database["public"]["Enums"]["care_management_case_event_type"]
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string | null
+          target_level?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_management_case_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_case_events_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "care_management_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_case_events_clinical_staff_id_fkey"
+            columns: ["clinical_staff_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_case_events_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_case_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_case_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      care_management_cases: {
+        Row: {
+          case_manager_id: string | null
+          closed_at: string | null
+          closed_by: string | null
+          closure_summary: string | null
+          created_at: string
+          entry_detail: string | null
+          entry_reason: Database["public"]["Enums"]["care_management_entry_reason"]
+          hospital_admission_id: string | null
+          id: string
+          opened_at: string
+          opened_by: string | null
+          organisation_id: string
+          patient_id: string
+          referring_alert_id: string | null
+          risk_score_id: string | null
+          status: Database["public"]["Enums"]["care_management_case_status"]
+          updated_at: string
+        }
+        Insert: {
+          case_manager_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closure_summary?: string | null
+          created_at?: string
+          entry_detail?: string | null
+          entry_reason: Database["public"]["Enums"]["care_management_entry_reason"]
+          hospital_admission_id?: string | null
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          organisation_id: string
+          patient_id: string
+          referring_alert_id?: string | null
+          risk_score_id?: string | null
+          status?: Database["public"]["Enums"]["care_management_case_status"]
+          updated_at?: string
+        }
+        Update: {
+          case_manager_id?: string | null
+          closed_at?: string | null
+          closed_by?: string | null
+          closure_summary?: string | null
+          created_at?: string
+          entry_detail?: string | null
+          entry_reason?: Database["public"]["Enums"]["care_management_entry_reason"]
+          hospital_admission_id?: string | null
+          id?: string
+          opened_at?: string
+          opened_by?: string | null
+          organisation_id?: string
+          patient_id?: string
+          referring_alert_id?: string | null
+          risk_score_id?: string | null
+          status?: Database["public"]["Enums"]["care_management_case_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "care_management_cases_case_manager_id_fkey"
+            columns: ["case_manager_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_cases_closed_by_fkey"
+            columns: ["closed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_cases_hospital_admission_id_fkey"
+            columns: ["hospital_admission_id"]
+            isOneToOne: false
+            referencedRelation: "patient_hospital_admissions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_cases_opened_by_fkey"
+            columns: ["opened_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_cases_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_cases_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_cases_referring_alert_id_fkey"
+            columns: ["referring_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_management_cases_risk_score_id_fkey"
+            columns: ["risk_score_id"]
+            isOneToOne: false
+            referencedRelation: "patient_risk_scores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       care_plan_decisions: {
         Row: {
           agreed_plan: string
@@ -4386,6 +4666,7 @@ export type Database = {
           approved_at: string | null
           approved_by: string | null
           care_plan_id: string | null
+          case_id: string | null
           created_at: string
           created_by: string | null
           description: string
@@ -4407,6 +4688,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           care_plan_id?: string | null
+          case_id?: string | null
           created_at?: string
           created_by?: string | null
           description: string
@@ -4428,6 +4710,7 @@ export type Database = {
           approved_at?: string | null
           approved_by?: string | null
           care_plan_id?: string | null
+          case_id?: string | null
           created_at?: string
           created_by?: string | null
           description?: string
@@ -4458,6 +4741,13 @@ export type Database = {
             columns: ["care_plan_id"]
             isOneToOne: false
             referencedRelation: "care_plans"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_goals_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "care_management_cases"
             referencedColumns: ["id"]
           },
           {
@@ -4499,40 +4789,58 @@ export type Database = {
       }
       care_plan_interventions: {
         Row: {
-          care_plan_id: string
+          care_plan_id: string | null
+          case_id: string | null
           created_at: string
           created_by: string | null
+          deadline: string | null
           description: string
           frequency: string | null
+          goal_id: string | null
           id: string
           organisation_id: string
+          outcome: string | null
+          owner_id: string | null
           patient_id: string
+          problem: string | null
           removed_at: string | null
           removed_by: string | null
           status: Database["public"]["Enums"]["care_plan_intervention_status"]
         }
         Insert: {
-          care_plan_id: string
+          care_plan_id?: string | null
+          case_id?: string | null
           created_at?: string
           created_by?: string | null
+          deadline?: string | null
           description: string
           frequency?: string | null
+          goal_id?: string | null
           id?: string
           organisation_id: string
+          outcome?: string | null
+          owner_id?: string | null
           patient_id: string
+          problem?: string | null
           removed_at?: string | null
           removed_by?: string | null
           status?: Database["public"]["Enums"]["care_plan_intervention_status"]
         }
         Update: {
-          care_plan_id?: string
+          care_plan_id?: string | null
+          case_id?: string | null
           created_at?: string
           created_by?: string | null
+          deadline?: string | null
           description?: string
           frequency?: string | null
+          goal_id?: string | null
           id?: string
           organisation_id?: string
+          outcome?: string | null
+          owner_id?: string | null
           patient_id?: string
+          problem?: string | null
           removed_at?: string | null
           removed_by?: string | null
           status?: Database["public"]["Enums"]["care_plan_intervention_status"]
@@ -4546,6 +4854,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "care_plan_interventions_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "care_management_cases"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "care_plan_interventions_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -4553,10 +4868,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "care_plan_interventions_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "care_plan_goals"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "care_plan_interventions_organisation_id_fkey"
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "care_plan_interventions_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
           {
@@ -7711,6 +8040,7 @@ export type Database = {
           acknowledged_by: string | null
           assigned_at: string | null
           backup_clinician_id: string | null
+          case_id: string | null
           category: Database["public"]["Enums"]["alert_category"]
           closed_at: string | null
           closed_by: string | null
@@ -7759,7 +8089,20 @@ export type Database = {
           acknowledged_by?: string | null
           assigned_at?: string | null
           backup_clinician_id?: string | null
-          category: Database["public"]["Enums"]["alert_category"]
+          // Module 74: set only when this alert was raised for a
+          // care_management_cases episode (escalate_care_management_case,
+          // or the deterioration-sweep/discharge triggers). Null otherwise.
+          case_id?: string | null
+          // category/type_code are NOT NULL with no column DEFAULT, but are
+          // populated by private.classify_and_assign_clinician_alert()
+          // (BEFORE INSERT trigger) whenever left null -- optional here so a
+          // caller can either omit them (falls back to the trigger's
+          // title/column-based inference) or pass them explicitly to skip
+          // that inference, exactly as apps/web/src/lib/ai-coach/escalate.ts,
+          // cv-risk/escalate.ts and vitals/assess-*.ts do. A hand-maintained
+          // deviation from raw introspection, which cannot see trigger
+          // behaviour -- see severity/dedup_key below for the same reasoning.
+          category?: Database["public"]["Enums"]["alert_category"]
           closed_at?: string | null
           closed_by?: string | null
           created_at?: string
@@ -7807,6 +8150,7 @@ export type Database = {
           acknowledged_by?: string | null
           assigned_at?: string | null
           backup_clinician_id?: string | null
+          case_id?: string | null
           category?: Database["public"]["Enums"]["alert_category"]
           closed_at?: string | null
           closed_by?: string | null
@@ -7863,6 +8207,13 @@ export type Database = {
             columns: ["backup_clinician_id"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clinician_alerts_case_id_fkey"
+            columns: ["case_id"]
+            isOneToOne: false
+            referencedRelation: "care_management_cases"
             referencedColumns: ["id"]
           },
           {
@@ -36830,6 +37181,11 @@ export type Database = {
         Returns: boolean
       }
       claim_health_reset_trial: { Args: never; Returns: Json }
+      case_management_analytics: { Args: never; Returns: Json }
+      close_care_management_case: {
+        Args: { p_case_id: string; p_closure_summary: string }
+        Returns: undefined
+      }
       claim_integration_outbound_batch: {
         Args: { p_limit?: number }
         Returns: {
@@ -39745,6 +40101,7 @@ export type Database = {
         | "provider_unavailable"
         | "appointment_failure"
         | "laboratory_failure"
+        | "case_escalation"
         | "support_ticket_escalation"
         | "safeguarding_concern"
         | "message_safety_flag"
@@ -39924,6 +40281,27 @@ export type Database = {
         | "monitoring_reminder"
         | "general"
       care_message_thread_status: "open" | "closed"
+      care_management_barrier_category:
+        | "financial"
+        | "transport"
+        | "health_literacy"
+        | "social_support"
+        | "access"
+        | "other"
+      care_management_barrier_status: "open" | "resolved"
+      care_management_case_event_type:
+        | "opened"
+        | "escalated"
+        | "deterioration_detected"
+        | "closed"
+        | "reopened"
+      care_management_case_status: "active" | "closed"
+      care_management_entry_reason:
+        | "risk_engine"
+        | "clinician_referral"
+        | "hospital_discharge"
+        | "repeated_alerts"
+        | "care_coordinator_escalation"
       care_plan_condition:
         | "hypertension"
         | "diabetes"
@@ -41804,6 +42182,7 @@ export const Constants = {
         "provider_unavailable",
         "appointment_failure",
         "laboratory_failure",
+        "case_escalation",
         "support_ticket_escalation",
         "safeguarding_concern",
         "message_safety_flag",
@@ -42003,6 +42382,30 @@ export const Constants = {
         "general",
       ],
       care_message_thread_status: ["open", "closed"],
+      care_management_barrier_category: [
+        "financial",
+        "transport",
+        "health_literacy",
+        "social_support",
+        "access",
+        "other",
+      ],
+      care_management_barrier_status: ["open", "resolved"],
+      care_management_case_event_type: [
+        "opened",
+        "escalated",
+        "deterioration_detected",
+        "closed",
+        "reopened",
+      ],
+      care_management_case_status: ["active", "closed"],
+      care_management_entry_reason: [
+        "risk_engine",
+        "clinician_referral",
+        "hospital_discharge",
+        "repeated_alerts",
+        "care_coordinator_escalation",
+      ],
       care_plan_condition: [
         "hypertension",
         "diabetes",
