@@ -12,6 +12,7 @@ import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
 import { ProfileMenu } from "./profile-menu";
 import { Avatar } from "@/components/avatar";
+import { FeatureSearch } from "@/components/patient/feature-search";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
 
 function isActive(pathname: string, href: string, exact?: boolean) {
@@ -100,13 +101,63 @@ function SidebarNav({
 }) {
   return (
     <nav aria-label="Main" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
-      {sections.map((section, i) => (
+      {sections.map((section, i) => {
+        // A section with `groupHref` is a collapsible band: at rest it is one
+        // link to its directory page, and it opens in place only while the
+        // reader is somewhere inside it. That is what holds the patient menu
+        // at six entries no matter how many features exist (see the comment
+        // on the patient case in lib/navigation.ts). Sections without it —
+        // every staff role — render exactly as they always have.
+        const inGroup =
+          section.groupHref !== undefined &&
+          (isActive(pathname, section.groupHref) ||
+            section.items.some((item) => isActive(pathname, item.href, item.exact)));
+        const collapsed = section.groupHref !== undefined && !inGroup;
+
+        if (collapsed && section.groupHref) {
+          const GroupIcon = APP_ICON[section.items[0]?.icon ?? "dashboard"];
+          return (
+            <div key={section.label ?? i}>
+              <Link
+                href={section.groupHref}
+                onClick={onNavigate}
+                prefetch={false}
+                className="group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-charcoal-ink/70 transition-colors hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
+              >
+                <GroupIcon
+                  className="h-4.5 w-4.5 shrink-0 text-charcoal-ink/40 group-hover:text-charcoal-ink/60"
+                  strokeWidth={2}
+                />
+                <span className="truncate">{section.label}</span>
+                <NAV_ICON.chevronRight
+                  className="ml-auto h-4 w-4 shrink-0 text-charcoal-ink/25"
+                  strokeWidth={2}
+                />
+              </Link>
+            </div>
+          );
+        }
+
+        return (
         <div key={section.label ?? i}>
-          {section.label && (
-            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40">
-              {section.label}
-            </p>
-          )}
+          {section.label &&
+            (section.groupHref ? (
+              // Expanded: the band heading stays a link, so "show me
+              // everything in Your health" is always one click from inside it.
+              <Link
+                href={section.groupHref}
+                onClick={onNavigate}
+                prefetch={false}
+                className="flex items-center gap-1 px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40 hover:text-charcoal-ink/70"
+              >
+                {section.label}
+                <NAV_ICON.chevronRight className="h-3 w-3" strokeWidth={2.5} />
+              </Link>
+            ) : (
+              <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40">
+                {section.label}
+              </p>
+            ))}
           <ul className="space-y-0.5">
             {section.items.map((item) => {
               const active = isActive(pathname, item.href, item.exact);
@@ -146,7 +197,8 @@ function SidebarNav({
             })}
           </ul>
         </div>
-      ))}
+        );
+      })}
     </nav>
   );
 }
@@ -180,6 +232,10 @@ export function AppShell({
   idValue,
   profileHref,
   navSections,
+  /** Patients only: the registry-backed search box in the header. Staff have
+   * their own domain-specific search inside each console, and the patient
+   * feature registry describes nothing they can act on. */
+  showFeatureSearch = false,
   signOutAction,
   children,
 }: {
@@ -193,6 +249,7 @@ export function AppShell({
    * user block both point — role-dependent, computed by the caller. */
   profileHref: string;
   navSections: NavSection[];
+  showFeatureSearch?: boolean;
   signOutAction: () => Promise<void>;
   children: React.ReactNode;
 }) {
@@ -307,6 +364,7 @@ export function AppShell({
               </span>
             </div>
             <div className="flex items-center gap-3 text-sm">
+              {showFeatureSearch && <FeatureSearch />}
               <DeviceHeartbeat />
               <PushSubscribePrompt />
               <NotificationBell />

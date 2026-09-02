@@ -10,6 +10,7 @@ import { CareAccessRequestsList, type CareAccessRequestRow } from "./care-access
 import { CareVisibilityList } from "./care-visibility-list";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { FeatureAnchor } from "@/components/patient/feature-anchor";
 
 /**
  * The people around one person's care.
@@ -123,9 +124,13 @@ export default async function CareCirclePage() {
         <AdultsYouManageList />
       </div>
 
-      <NextOfKinForm current={nextOfKin} />
+      <FeatureAnchor id="next-of-kin">
+        <NextOfKinForm current={nextOfKin} />
+      </FeatureAnchor>
 
-      <CareVisibilityList />
+      <FeatureAnchor id="care-visibility">
+        <CareVisibilityList />
+      </FeatureAnchor>
 
       <Card>
         <CardHeader>

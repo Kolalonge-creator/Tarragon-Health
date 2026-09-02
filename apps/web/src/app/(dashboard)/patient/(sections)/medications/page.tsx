@@ -8,6 +8,7 @@ import { AdherenceCheckins } from "@/app/(dashboard)/patient/adherence-checkins"
 import { CheckMyPack } from "@/app/(dashboard)/patient/check-my-pack";
 import { LabMonitoringCard } from "@/app/(dashboard)/patient/lab-monitoring-card";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
+import { FeatureAnchor } from "@/components/patient/feature-anchor";
 
 export default async function PatientMedicationsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -26,22 +27,34 @@ export default async function PatientMedicationsPage() {
     >
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr] lg:items-start">
         <div className="space-y-4">
-          <MedicationsList
-            patientId={subjectId}
-            refillCoordinationEnabled={refillCoordinationEnabled ?? false}
-            canStop
-          />
-          <AddMedicationForm patientId={subjectId} source="patient" />
+          <FeatureAnchor id="my-medications">
+            <MedicationsList
+              patientId={subjectId}
+              refillCoordinationEnabled={refillCoordinationEnabled ?? false}
+              canStop
+            />
+          </FeatureAnchor>
+          <FeatureAnchor id="add-medication">
+            <AddMedicationForm patientId={subjectId} source="patient" />
+          </FeatureAnchor>
         </div>
 
         <div className="space-y-4">
-          <TodaysDoses patientId={subjectId} />
-          <AdherenceCheckins patientId={subjectId} />
+          <FeatureAnchor id="todays-doses">
+            <TodaysDoses patientId={subjectId} />
+          </FeatureAnchor>
+          <FeatureAnchor id="adherence">
+            <AdherenceCheckins patientId={subjectId} />
+          </FeatureAnchor>
           {/* Patients buy from any pharmacy now, so nobody here sees the box.
               Reads it back and compares it with what was prescribed — and points
               at NAFDAC for the authenticity question we cannot answer. */}
-          <CheckMyPack />
-          <LabMonitoringCard patientId={subjectId} />
+          <FeatureAnchor id="check-my-pack">
+            <CheckMyPack />
+          </FeatureAnchor>
+          <FeatureAnchor id="lab-monitoring">
+            <LabMonitoringCard patientId={subjectId} />
+          </FeatureAnchor>
         </div>
       </div>
       {/* Pharmacy ORDERING is dormant while no pharmacy partner is

@@ -84,6 +84,7 @@ export default async function DashboardLayout({
         idValue={idValue}
         profileHref={profileHref}
         navSections={getNavSections(profile?.role, profile?.receives_care)}
+        showFeatureSearch={isPatient}
         signOutAction={signOut}
       >
         <MfaNudgeBanner role={profile?.role ?? null} />

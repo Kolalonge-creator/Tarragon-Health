@@ -9,6 +9,7 @@ import { WellnessPointsCard } from "./points-card";
 import { BadgesGrid } from "./badges-grid";
 import { ChallengesSection } from "./challenges-section";
 import { ClassesSection } from "./classes-section";
+import { FeatureAnchor } from "@/components/patient/feature-anchor";
 
 /**
  * Wellness hub — points, badges, challenges, meal log, and workout classes.
@@ -43,7 +44,9 @@ export default async function WellnessHubPage() {
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <BadgesGrid patientId={profile.id} />
-        <ChallengesSection patientId={profile.id} />
+        <FeatureAnchor id="challenges">
+          <ChallengesSection patientId={profile.id} />
+        </FeatureAnchor>
       </div>
 
       <RequiresEntitlement
@@ -59,7 +62,9 @@ export default async function WellnessHubPage() {
         </div>
       </RequiresEntitlement>
 
-      <ClassesSection patientId={profile.id} organisationId={profile.organisation_id} />
+      <FeatureAnchor id="classes">
+        <ClassesSection patientId={profile.id} organisationId={profile.organisation_id} />
+      </FeatureAnchor>
     </div>
   );
 }

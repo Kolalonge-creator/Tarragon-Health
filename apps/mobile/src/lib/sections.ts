@@ -6,6 +6,15 @@ export type SectionId =
   | "medications"
   | "labs"
   | "devices"
+  | "healthDirectory"
+  | "stayWellDirectory"
+  | "supportDirectory"
+  | "accountDirectory"
+  | "appointments"
+  | "weightManagement"
+  | "nutrition"
+  | "activity"
+  | "privacy"
   | "prevention"
   | "healthCheck"
   | "lifestyle"
@@ -45,6 +54,20 @@ export const MAX_PRIMARY_SECTIONS = 4;
 
 /**
  * Every section the patient app offers, in drawer order.
+ *
+ * The "See everything in ..." row that closes each band is the app's half of
+ * the 2026-09-02 discovery pass: on web, a group is a real directory page
+ * listing every feature in it with a line about what it is for
+ * (apps/web/src/lib/patient/feature-registry.ts), and this is how a phone
+ * reaches the same page. It matters more here than on desktop, because this
+ * drawer has no room to name eighty features and a patient on a phone has
+ * even less patience for hunting.
+ *
+ * Note the registry itself deliberately still lives in apps/web: its icon
+ * names are lucide, not Ionicons, so sharing it would mean abstracting icons
+ * across two design systems for no immediate gain. These WebView rows get the
+ * whole directory today; a native search screen is the thing that would
+ * justify moving it into packages/shared later.
  *
  * Five destinations that exist on web were missing from the app entirely —
  * not merely un-implemented natively, but absent from the drawer with no way
@@ -98,6 +121,13 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
     webviewPath: "/patient/health-check",
   },
+  {
+    id: "healthDirectory",
+    label: "See everything in Your health",
+    icon: "list-outline",
+    group: "Your health",
+    webviewPath: "/patient/health",
+  },
 
   {
     id: "lifestyle",
@@ -119,6 +149,36 @@ export const SECTIONS: SectionDef[] = [
     icon: "trophy-outline",
     group: "Stay well",
     webviewPath: "/patient/wellness",
+  },
+  // Three real web destinations the app had no route to at all, found in the
+  // 2026-09-02 discovery audit alongside Appointments and Privacy below.
+  {
+    id: "weightManagement",
+    label: "Weight management",
+    icon: "barbell-outline",
+    group: "Stay well",
+    webviewPath: "/patient/weight-management",
+  },
+  {
+    id: "nutrition",
+    label: "Food & meals",
+    icon: "restaurant-outline",
+    group: "Stay well",
+    webviewPath: "/patient/nutrition",
+  },
+  {
+    id: "activity",
+    label: "Movement",
+    icon: "walk-outline",
+    group: "Stay well",
+    webviewPath: "/patient/activity",
+  },
+  {
+    id: "stayWellDirectory",
+    label: "See everything in Stay well",
+    icon: "list-outline",
+    group: "Stay well",
+    webviewPath: "/patient/stay-well",
   },
 
   {
@@ -143,7 +203,21 @@ export const SECTIONS: SectionDef[] = [
     group: "Support",
     webviewPath: "/patient/family",
   },
+  {
+    id: "appointments",
+    label: "Appointments",
+    icon: "calendar-outline",
+    group: "Support",
+    webviewPath: "/patient/appointments",
+  },
   { id: "supporting", label: "People you support", icon: "hand-left-outline", group: "Support" },
+  {
+    id: "supportDirectory",
+    label: "See everything in Support",
+    icon: "list-outline",
+    group: "Support",
+    webviewPath: "/patient/support",
+  },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
   {
@@ -153,8 +227,25 @@ export const SECTIONS: SectionDef[] = [
     group: "Your account",
     webviewPath: "/patient/subscription",
   },
+  {
+    // Privacy & data rights had NO route in the app at all. Given NDPR, "the
+    // screen where you download or delete your data is unreachable on a
+    // phone" is not a wayfinding nicety.
+    id: "privacy",
+    label: "Privacy & data",
+    icon: "lock-closed-outline",
+    group: "Your account",
+    webviewPath: "/patient/privacy",
+  },
   { id: "emergency", label: "Emergency card", icon: "alert-circle-outline", group: "Your account" },
   { id: "settings", label: "Settings", icon: "settings-outline", group: "Your account" },
+  {
+    id: "accountDirectory",
+    label: "See everything in Your account",
+    icon: "list-outline",
+    group: "Your account",
+    webviewPath: "/patient/account",
+  },
 ];
 
 /** Drawer band order. "top" is rendered unlabelled, above the rest. */

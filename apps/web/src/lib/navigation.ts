@@ -33,6 +33,15 @@ export const MAX_PRIMARY_NAV_ITEMS = 4;
 export interface NavSection {
   label?: string;
   items: NavItem[];
+  /**
+   * The group's own directory page. When set, the sidebar renders the group
+   * as ONE link at rest and expands its items only while the patient is
+   * inside it (see AppShell's SidebarNav) — which is what keeps the resting
+   * menu at six entries however many features the registry grows to. A
+   * section without this keeps the old always-expanded behaviour, so every
+   * staff role below is untouched.
+   */
+  groupHref?: string;
 }
 
 /** Role → sidebar navigation. Routes listed here must be real pages; pages
@@ -94,26 +103,28 @@ export function getNavSections(
           },
         ];
       }
-      // Grouped into four labelled bands (2026-08-12 patient-navigation pass),
-      // replacing the flat single-level list of the 2026-08-09 redesign. The
-      // flat list was right to promote every section out of the old
-      // second-level PatientNav pill bar, but it kept growing: fifteen
-      // equally-weighted links with no headings is past the point where a
-      // patient scans rather than reads, and "Wellness" sat two rows from
-      // "Subscription" with nothing to say they belong to different parts of
-      // their life. Nothing is hidden or demoted — the same links, banded by
-      // the question each one answers:
-      //   (top)        where am I / what needs me today
-      //   Your health  the clinical record they log into and read back
-      //   Stay well    the things that keep a well person well
-      //   Support      the humans: care team, messages, family
-      //   Your account admin they touch a few times a year
-      // Two real pages that were previously reachable only through an inline
-      // link from another page are now listed: Lifestyle coaching
-      // (/patient/lifestyle, the hub the nutrition/weight/activity trackers
-      // all link "back" to, which nothing in the sidebar ever pointed at) and
-      // Health Check (/patient/health-check). Both were being missed, which
-      // is the same failure the Learn tab had before it was promoted.
+      // Six entries, permanently. Everything else lives on the group
+      // directory pages (see lib/patient/feature-registry.ts).
+      //
+      // The 2026-08-12 pass banded a flat fifteen-link list into four labelled
+      // groups, which was right and is kept. But the list itself kept growing
+      // — twenty-one links by 2026-09-02 — and a labelled band of six links is
+      // still six links a patient reads past every time. Worse, the menu was
+      // the app's ONLY map, so anything not in it (cycle tracking, the
+      // FINDRISC check, Check my pack, foot risk, data rights) was reachable
+      // only by knowing where it already was.
+      //
+      // So the menu stops being the map. A group is now a real page listing
+      // its features with a line each about what they are for, search reaches
+      // any of them by name, and the sidebar's job shrinks to "which part of
+      // my life is this". The bands below are exactly FEATURE_GROUPS, and
+      // `groupHref` is what AppShell expands in place when the patient is
+      // inside that part of the app: at rest six links, in context the
+      // siblings you would want to move between, and never the whole app at
+      // once.
+      //
+      // The four `primary` links are unchanged, so the phone bottom bar and
+      // the everyday one-tap routes are exactly as they were.
       return [
         {
           items: [
@@ -129,6 +140,7 @@ export function getNavSections(
         },
         {
           label: "Your health",
+          groupHref: "/patient/health",
           items: [
             {
               label: "Vitals & symptoms",
@@ -152,15 +164,19 @@ export function getNavSections(
         },
         {
           label: "Stay well",
+          groupHref: "/patient/stay-well",
           items: [
             { label: "Lifestyle coaching", href: "/patient/lifestyle", icon: "lifestyle" },
             { label: "Weight management", href: "/patient/weight-management", icon: "weight" },
+            { label: "Food & meals", href: "/patient/nutrition", icon: "nutrition" },
+            { label: "Movement", href: "/patient/activity", icon: "steps" },
             { label: "Learn", href: "/patient/learn", icon: "learn" },
             { label: "Wellness rewards", href: "/patient/wellness", icon: "wellness" },
           ],
         },
         {
           label: "Support",
+          groupHref: "/patient/support",
           items: [
             {
               label: "Messages",
@@ -172,18 +188,23 @@ export function getNavSections(
             { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
             { label: "Appointments", href: "/patient/appointments", icon: "booking" },
             { label: "Family", href: "/patient/family", icon: "family" },
-            // Real feature a single-persona mock doesn't happen to show (that
-            // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
           ],
         },
         {
           label: "Your account",
+          groupHref: "/patient/account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Subscription", href: "/patient/subscription", icon: "billing" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
             { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
+          ],
+        },
+        {
+          // Never inside a collapsed group. Safety-critical, and a patient
+          // reaching for it is not browsing.
+          items: [
             {
               label: "Emergency card",
               href: "/patient/emergency-card",

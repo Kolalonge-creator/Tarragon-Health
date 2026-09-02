@@ -11,6 +11,7 @@ import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { RiskSignalsCard } from "../risk-signals-card";
+import { FeatureAnchor } from "@/components/patient/feature-anchor";
 
 /**
  * Stage 3 ("Your measurements") requires a real spread of readings taken
@@ -258,10 +259,10 @@ export default async function HealthCheckPage() {
 
       <MentalHealthSummary patientId={profile.id} />
 
-      <div>
+      <FeatureAnchor id="wellbeing">
         <h2 className="mb-2 font-heading text-lg font-semibold text-charcoal-ink">Mental wellbeing check-in</h2>
         <MentalHealthScreenForm patientId={profile.id} />
-      </div>
+      </FeatureAnchor>
     </div>
   );
 }

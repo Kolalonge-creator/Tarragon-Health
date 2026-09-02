@@ -5,6 +5,7 @@ import { CareVisibilityList } from "../family/care-visibility-list";
 import { ConsentStatusPanel } from "./consent-status-panel";
 import { ConnectedDevicesSummary } from "./connected-devices-summary";
 import { DataRightsPanel } from "./data-rights-panel";
+import { FeatureAnchor } from "@/components/patient/feature-anchor";
 
 /**
  * Privacy & data centre, docs spec §87.7. Composes what already exists
@@ -42,21 +43,21 @@ export default async function PrivacyCentrePage() {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+      <FeatureAnchor id="consents" className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <ConsentStatusPanel patientId={profile.id} />
         <ConnectedDevicesSummary patientId={profile.id} />
-      </div>
+      </FeatureAnchor>
 
       <CareVisibilityList />
 
-      <div>
+      <FeatureAnchor id="data-rights">
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Your data rights</h2>
         <p className="mb-3 text-sm text-charcoal-ink/60">
           Under Nigeria&apos;s Data Protection Act, you can ask to see, correct, or delete the data we
           hold about you.
         </p>
         <DataRightsPanel organisationId={profile.organisation_id} patientId={profile.id} />
-      </div>
+      </FeatureAnchor>
     </div>
   );
 }

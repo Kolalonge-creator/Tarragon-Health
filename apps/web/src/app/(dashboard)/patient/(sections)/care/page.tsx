@@ -19,6 +19,7 @@ import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
 import { WellnessPointsSummary } from "@/app/(dashboard)/patient/wellness-points-summary";
 import { TestimonialForm } from "@/components/testimonial-form";
+import { FeatureAnchor } from "@/components/patient/feature-anchor";
 
 export default async function PatientCarePage() {
   const { profile, subjectId } = await getPatientDashboardContext();
@@ -40,20 +41,28 @@ export default async function PatientCarePage() {
           (2026-07-30 patient-experience pass). */}
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4">
-          <RequiresEntitlement feature="clinician_review" fallback={<UpgradePrompt feature="clinician_review" />}>
-            <CarePlanDisplay patientId={subjectId} />
-            <ObesitySummary
-              patientId={subjectId}
-              conditionLanguagePreference={profile.condition_language_preference}
-            />
-          </RequiresEntitlement>
+          <FeatureAnchor id="care-plan">
+            <RequiresEntitlement feature="clinician_review" fallback={<UpgradePrompt feature="clinician_review" />}>
+              <CarePlanDisplay patientId={subjectId} />
+              <ObesitySummary
+                patientId={subjectId}
+                conditionLanguagePreference={profile.condition_language_preference}
+              />
+            </RequiresEntitlement>
+          </FeatureAnchor>
           {/* Not entitlement-gated: the obstetric-led guard (§20.2) needs to
               fire for anyone on a diabetes care plan regardless of tier, and
               self-reporting pregnancy shouldn't require a paid plan. Renders a
               plain status card for everyone else. */}
-          <PregnancyStatus patientId={subjectId} />
-          <PatientEscalations patientId={subjectId} />
-          <HospitalAdmissionsCard patientId={subjectId} />
+          <FeatureAnchor id="pregnancy">
+            <PregnancyStatus patientId={subjectId} />
+          </FeatureAnchor>
+          <FeatureAnchor id="escalations">
+            <PatientEscalations patientId={subjectId} />
+          </FeatureAnchor>
+          <FeatureAnchor id="hospital-admissions">
+            <HospitalAdmissionsCard patientId={subjectId} />
+          </FeatureAnchor>
           <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>
             <LifestyleProgressSummary patientId={subjectId} />
           </RequiresEntitlement>
@@ -62,21 +71,37 @@ export default async function PatientCarePage() {
         <div className="space-y-4">
           {/* Paid per-visit service — no plan gate; the card itself carries the
               availability + not-for-emergencies copy. */}
-          <BookVideoVisit patientId={subjectId} />
-          <RequiresEntitlement feature="async_doctor_visit" fallback={<UpgradePrompt feature="async_doctor_visit" />}>
-            <AskADoctor patientId={subjectId} organisationId={profile.organisation_id} />
-          </RequiresEntitlement>
-          {coachAccess && <AiCoachChat patientId={subjectId} />}
-          <CareCircleCard />
-          <YourReferrals patientId={subjectId} />
+          <FeatureAnchor id="video-visit">
+            <BookVideoVisit patientId={subjectId} />
+          </FeatureAnchor>
+          <FeatureAnchor id="ask-a-doctor">
+            <RequiresEntitlement feature="async_doctor_visit" fallback={<UpgradePrompt feature="async_doctor_visit" />}>
+              <AskADoctor patientId={subjectId} organisationId={profile.organisation_id} />
+            </RequiresEntitlement>
+          </FeatureAnchor>
+          {coachAccess && (
+            <FeatureAnchor id="ai-coach">
+              <AiCoachChat patientId={subjectId} />
+            </FeatureAnchor>
+          )}
+          <FeatureAnchor id="care-circle">
+            <CareCircleCard />
+          </FeatureAnchor>
+          <FeatureAnchor id="referrals">
+            <YourReferrals patientId={subjectId} />
+          </FeatureAnchor>
         </div>
       </div>
 
       {/* Discretionary / engagement surfaces — real features, deliberately
           lower priority than anything above. */}
-      <CareVouchersCard patientId={subjectId} />
+      <FeatureAnchor id="vouchers">
+        <CareVouchersCard patientId={subjectId} />
+      </FeatureAnchor>
       <WellnessPointsSummary patientId={subjectId} />
-      <TestimonialForm />
+      <FeatureAnchor id="testimonial">
+        <TestimonialForm />
+      </FeatureAnchor>
     </DashboardSection>
   );
 }

@@ -22,6 +22,7 @@ import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
+import { FeatureDiscoveryCard } from "@/app/(dashboard)/patient/feature-discovery-card";
 
 // Clinical dashboard status colours (a separate system from brand colour, per
 // the brand guide) — same convention as vitals-history.tsx's LEVEL_STYLE,
@@ -210,6 +211,13 @@ export default async function PatientOverviewPage() {
           has moved across several results. Renders nothing until there is
           genuinely enough history for a pattern. */}
       <HealthTrendsCard patientId={subjectId} audience="patient" />
+
+      {/* Quiet, capped at two, and gone the moment there is nothing left to
+          say. Placed here rather than at the top on purpose: it must never
+          outrank the patient's own numbers or anything their care team is
+          waiting on. See feature-discovery-card.tsx for the rules it holds
+          itself to. */}
+      <FeatureDiscoveryCard patientId={subjectId} />
 
       {/* Who's looking after you, and how to reach them. Full-width like the
           clinical cards above, matching the same "a two-column row whose

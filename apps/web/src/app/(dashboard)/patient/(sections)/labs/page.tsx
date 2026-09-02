@@ -9,6 +9,7 @@ import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card
 import { LabResults } from "@/app/(dashboard)/patient/lab-results";
 import { ResultDocuments } from "@/app/(dashboard)/patient/result-documents";
 import { BookingRequestsList } from "@/app/(dashboard)/patient/booking-requests-list";
+import { FeatureAnchor } from "@/components/patient/feature-anchor";
 
 export default async function PatientLabsPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -37,19 +38,19 @@ export default async function PatientLabsPage() {
       {screeningBookingEnabled ? (
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
           <div className="space-y-4">
-            <LabResults patientId={subjectId} />
-            <ResultDocuments patientId={subjectId} />
-            <ResultsTrendsCard patientId={subjectId} />
+            <FeatureAnchor id="results"><LabResults patientId={subjectId} /></FeatureAnchor>
+            <FeatureAnchor id="documents"><ResultDocuments patientId={subjectId} /></FeatureAnchor>
+            <FeatureAnchor id="trends"><ResultsTrendsCard patientId={subjectId} /></FeatureAnchor>
           </div>
           <div className="space-y-4">
-            <LabOrdersList patientId={subjectId} />
-            <LabCatalogue />
+            <FeatureAnchor id="orders"><LabOrdersList patientId={subjectId} /></FeatureAnchor>
+            <FeatureAnchor id="catalogue"><LabCatalogue /></FeatureAnchor>
             {/* No facility directory. Labs, pharmacies and specialists are all
                 suspended (founder decision 2026-08-03): the platform takes no
                 payment for a test and has inspected no laboratory, so it lists
                 none. BookingRequestsList stays because vaccination bookings
                 still create real requests a patient needs to see. */}
-            <BookingRequestsList patientId={subjectId} />
+            <FeatureAnchor id="booking-requests"><BookingRequestsList patientId={subjectId} /></FeatureAnchor>
           </div>
         </div>
       ) : (
@@ -61,11 +62,11 @@ export default async function PatientLabsPage() {
               results stay visible below the prompt. */}
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.5fr_1fr]">
             <div className="space-y-4">
-              <LabResults patientId={subjectId} />
-              <ResultDocuments patientId={subjectId} />
-              <ResultsTrendsCard patientId={subjectId} />
+              <FeatureAnchor id="results"><LabResults patientId={subjectId} /></FeatureAnchor>
+              <FeatureAnchor id="documents"><ResultDocuments patientId={subjectId} /></FeatureAnchor>
+              <FeatureAnchor id="trends"><ResultsTrendsCard patientId={subjectId} /></FeatureAnchor>
             </div>
-            <LabOrdersList patientId={subjectId} />
+            <FeatureAnchor id="orders"><LabOrdersList patientId={subjectId} /></FeatureAnchor>
           </div>
         </>
       )}

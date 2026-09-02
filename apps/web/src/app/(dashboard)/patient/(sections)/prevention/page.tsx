@@ -17,6 +17,9 @@ import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
 import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-campaigns-card";
+import { FeatureAnchor } from "@/components/patient/feature-anchor";
+import { getPatientSignals } from "@/lib/patient/feature-signals";
+import { getFeature, isFeatureRelevant } from "@/lib/patient/feature-registry";
 
 /**
  * The prevention hub — one destination for everything that keeps a healthy
@@ -59,6 +62,26 @@ export default async function PreventionHubPage() {
 
   const location = { state: profile.state, city: profile.city, area: profile.area };
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);
+
+  // Whether to show the cycle card is decided by the SAME predicate the
+  // registry uses to decide whether to mention it, rather than by a second,
+  // stricter rule living here.
+  //
+  // They used to disagree, and the disagreement was a dead end: this page
+  // required `sex === "female"` exactly, while most accounts have no sex
+  // recorded at all (it is not asked for at signup). So a woman whose profile
+  // was simply incomplete searched "period", was correctly offered "Cycle and
+  // reproductive health", followed it, and landed on a page with no such card
+  // and no explanation. A silent nothing is the worst possible answer to
+  // somebody who just told us exactly what they wanted.
+  //
+  // isFeatureRelevant treats an unrecorded signal as permissive on purpose:
+  // an empty column is a gap in our record, not a statement about the patient,
+  // which is the same null-gating principle reviewed_by and doctor_tier follow.
+  // The card itself asks for a life stage and defaults to "prefer not to say",
+  // so somebody it does not apply to simply leaves it alone.
+  const signals = await getPatientSignals(subjectId);
+  const showReproductiveHealth = isFeatureRelevant(getFeature("cycle-tracking")!, signals);
 
   const tabs: PreventionTab[] = [
     {
@@ -113,13 +136,15 @@ export default async function PreventionHubPage() {
     {
       id: "risk-assessment",
       label: "Risk Assessment",
-      anchorIds: ["risk-assessment"],
+      anchorIds: ["risk-assessment", "findrisc"],
       content: (
         <div id="risk-assessment" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
           <div className="space-y-4">
             <RiskAssessmentForm patientId={subjectId} />
             <RiskAssessmentDisplay patientId={subjectId} />
-            <FindriscCheck />
+            <FeatureAnchor id="findrisc">
+              <FindriscCheck />
+            </FeatureAnchor>
           </div>
           <CareProgrammeRecommendations
             patientId={subjectId}
@@ -131,12 +156,28 @@ export default async function PreventionHubPage() {
     {
       id: "programmes",
       label: "Programmes",
+      // Cycle tracking lived in here with no anchor of its own, so nothing
+      // outside this file could link to it and a patient reached it only by
+      // opening the fourth tab and scrolling. The registry now points at
+      // #cycle, which is why these anchorIds matter: PreventionTabs resolves
+      // a hash to its owning tab before the browser can try to scroll to a
+      // hidden panel (see prevention-tabs.tsx).
+      anchorIds: ["programmes", "campaigns", "cycle"],
       content: (
         <div className="space-y-6">
-          <PreventionCampaignsCard patientId={subjectId} />
-          <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
-          {profile.sex === "female" && profile.organisation_id && (
-            <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
+          <FeatureAnchor id="campaigns">
+            <PreventionCampaignsCard patientId={subjectId} />
+          </FeatureAnchor>
+          <FeatureAnchor id="programmes">
+            <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
+          </FeatureAnchor>
+          {showReproductiveHealth && profile.organisation_id && (
+            <FeatureAnchor id="cycle">
+              <ReproductiveHealthCard
+                patientId={subjectId}
+                organisationId={profile.organisation_id}
+              />
+            </FeatureAnchor>
           )}
         </div>
       ),
