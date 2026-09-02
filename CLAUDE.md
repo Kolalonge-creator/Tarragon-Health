@@ -63,6 +63,24 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   before being fixed at the root with an `alter default privileges` migration — see
   `reference_authenticated_table_grants_root_cause.md` in memory for the full mechanism, and note
   the failure mode looks like an empty result, not an error.
+- **A fresh local `supabase db reset` grants `anon` a default table ACL the live cloud project never
+  had.** The `alter default privileges ... to authenticated` fix above never implied a matching
+  `anon` revoke, because it was written against the live project's own privilege history (checked at
+  the time via `pg_default_acl`, genuinely no anon default there) — that assumption doesn't hold for
+  a brand-new local Postgres instance provisioned by the Supabase CLI's own Docker image, which
+  carries its own bootstrap default-privilege template independent of any specific cloud project. The
+  result: a migration's own closing self-check (`has_table_privilege('anon', ..., 'SELECT')` expected
+  false) can pass live and still abort a fresh CI replay on `supabase db reset` — and did, repeatedly,
+  on essentially every PR merged 2026-08-30 through 2026-09-02, none of which was blocked from
+  merging because `main-dev`'s branch protection has no required status checks at all (a separate,
+  still-open gap as of 2026-09-02 — see Known standing follow-ups). Fixed at the root, not file-by-
+  file, in `20260731232750_default_privileges_never_grant_anon_on_public_tables.sql`
+  (`alter default privileges for role postgres in schema public revoke all on tables from anon`,
+  deliberately positioned right after the `authenticated`-grant migration it completes) — this
+  protects every table created later in migration order regardless of whether that table's own
+  migration remembers an explicit revoke, so don't reintroduce a per-migration `revoke ... from anon`
+  as the fix for a new instance of this; confirm this migration still sorts before the failing table
+  first.
 - **`anon`'s EXECUTE on a function is revoked via `revoke ... from public`, not `from anon`** — it
   inherits execute through the PUBLIC pseudo-role (the leading `=X/postgres` entry in
   `pg_proc.proacl`), not a direct grant. This was believed "fixed" and found still-broken multiple
@@ -217,11 +235,15 @@ rules and let the git history / PR descriptions be the record of what shipped wh
 
 **Known standing follow-ups, as last recorded — verify each before acting, none of these should be
 taken on faith:**
-- ⚠️ **The `doctor`→`clinician` account-role merge migration
-  (`20260731020000_merge_doctor_into_clinician.sql`) was applied and released to production
-  2026-08-03, but the committed version of that migration is reported to be missing a policy fix it
-  needed live** — it may fail on a fresh `supabase db reset`. Check the `project_doctor_clinician_role_merge_parked` memory file and diff the committed migration against what's actually applied on the
-  live project before relying on a clean local reset working.
+- **`main-dev` branch protection has no required status checks at all** (confirmed 2026-09-02 via
+  the GitHub API — `required_status_checks` is absent from the protection object). The "Supabase
+  migration replay" CI job (`.github/workflows/ci.yml`) is correctly configured and genuinely runs a
+  fresh `supabase db reset` in GHA — it was not the problem — but because nothing requires it to pass,
+  it failed on essentially every PR merged 2026-08-30 through 2026-09-02 (a run of version collisions
+  and the anon-default-privilege gap described above) without blocking a single one of those merges.
+  All of that specific backlog is now fixed and the check is green on the current tip, but the
+  structural gap — a red required check still can't block a merge — is unresolved and needs the
+  founder's go-ahead before an agent changes branch protection settings.
 - The Diabetes (`guideline/Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md`) and Hypertension
   (`guideline/Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md`) clinical pathways each had
   a handful of items still open the last time they were reviewed — mostly Clinical Director
