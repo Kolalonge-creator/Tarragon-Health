@@ -207,7 +207,7 @@ export function PlanSelector() {
           >
             refresh the page and try again
           </button>
-          . If a charge does go through after a refresh, it will show on your Subscription page
+          . If a charge does go through after a refresh, it will show on your My services page
           and we&apos;ll never charge you twice for the same plan.
         </p>
       )}

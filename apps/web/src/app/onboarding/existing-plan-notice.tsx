@@ -62,7 +62,7 @@ export function ExistingPlanNotice({ planName, status }: { planName: string; sta
       {error && <p className="text-sm text-red-600">{error}</p>}
       <p className="text-center text-xs text-charcoal-ink/50">
         This isn&apos;t right, or you meant to change plans? You can do that any time from your
-        dashboard&apos;s Subscription page instead.
+        dashboard&apos;s My services page instead.
       </p>
     </div>
   );
