@@ -30,6 +30,7 @@ import {
   openTheirAccount,
   paySomeonesBill,
   paySomeonesPlan,
+  splitBillWithThem,
   type SponsorActionState,
 } from "./actions";
 import { useActiveServiceProducts } from "@/lib/queries/service-products";
@@ -446,6 +447,47 @@ function PayBillOnMyCard({
         {pending ? "Starting…" : `Pay ${naira(bill.amount_kobo)} on my card`}
       </Button>
       {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
+    </form>
+  );
+}
+
+/**
+ * §91.9 two-simultaneous-charges subsidy: pays only the sponsor's share of
+ * this bill, on the sponsor's own card, leaving the person owing the
+ * reduced remainder themselves — they pay that from their own account.
+ * Whether there is anything to split and by how much is decided entirely
+ * server-side by whatever subsidy_split_rules their organisation has
+ * configured; splitBillWithThem() itself never states a split, so this
+ * button is safe to show unconditionally and simply reports back if there
+ * turned out to be nothing configured to split.
+ *
+ * Only lab, pharmacy, and referral bills can be split — a video visit is
+ * out of §91.9's scope for now.
+ */
+function SplitBillWithThem({
+  person,
+  bill,
+}: {
+  person: SupportedPerson;
+  bill: SponsorPayableOrder;
+}) {
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    splitBillWithThem,
+    undefined,
+  );
+
+  if (bill.order_type === "video_visit") return null;
+
+  return (
+    <form action={action} className="inline-flex flex-col items-end gap-1">
+      <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
+      <input type="hidden" name="orderId" value={bill.order_id} />
+      <input type="hidden" name="orderType" value={bill.order_type} />
+      <Button type="submit" variant="outline" disabled={pending}>
+        {pending ? "Starting…" : "Split this bill with them"}
+      </Button>
+      {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
+      {state?.message && <span className="text-xs text-charcoal-ink/60">{state.message}</span>}
     </form>
   );
 }
@@ -949,6 +991,7 @@ function ManageActions({ person }: { person: SupportedPerson }) {
                       option here, and it read "No voucher for this" against a
                       bill the supporter could see and could not settle. */}
                   <PayBillOnMyCard person={person} bill={bill} />
+                  <SplitBillWithThem person={person} bill={bill} />
                   {person.readyVouchers.length > 0 && (
                     <Button
                       type="button"

@@ -21868,6 +21868,60 @@ export type Database = {
           },
         ]
       }
+      patient_notification_preferences: {
+        Row: {
+          category: Database["public"]["Enums"]["notification_preference_category"]
+          created_at: string
+          email_enabled: boolean
+          id: string
+          organisation_id: string
+          patient_id: string
+          push_enabled: boolean
+          sms_enabled: boolean
+          updated_at: string
+          whatsapp_enabled: boolean
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["notification_preference_category"]
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          organisation_id: string
+          patient_id: string
+          push_enabled?: boolean
+          sms_enabled?: boolean
+          updated_at?: string
+          whatsapp_enabled?: boolean
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["notification_preference_category"]
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          push_enabled?: boolean
+          sms_enabled?: boolean
+          updated_at?: string
+          whatsapp_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_notification_preferences_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_notification_preferences_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_pregnancy: {
         Row: {
           created_at: string
@@ -37932,7 +37986,13 @@ export type Database = {
         | "foot_check"
         | "symptom"
         | "side_effect"
-      lpe_module: "diet" | "activity" | "behaviour" | "sleep" | "stress"
+      lpe_module:
+        | "diet"
+        | "activity"
+        | "behaviour"
+        | "sleep"
+        | "stress"
+        | "smoking"
       lpe_phase_kind:
         | "foundation"
         | "build"
@@ -38056,8 +38116,23 @@ export type Database = {
         | "push"
         | "voice"
       notification_content_class: "clinical" | "non_clinical"
+      notification_preference_category:
+        | "appointments"
+        | "medications"
+        | "labs_results"
+        | "screenings_vaccinations"
+        | "referrals"
+        | "care_messages"
+        | "education_wellness"
+        | "billing"
       notification_priority: "routine" | "critical"
-      notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
+      notification_status:
+        | "pending"
+        | "sent"
+        | "delivered"
+        | "failed"
+        | "read"
+        | "suppressed"
       obesity_bmi_category:
         | "underweight"
         | "healthy"
@@ -39899,7 +39974,7 @@ export const Constants = {
         "symptom",
         "side_effect",
       ],
-      lpe_module: ["diet", "activity", "behaviour", "sleep", "stress"],
+      lpe_module: ["diet", "activity", "behaviour", "sleep", "stress", "smoking"],
       lpe_phase_kind: [
         "foundation",
         "build",
@@ -40039,8 +40114,25 @@ export const Constants = {
         "voice",
       ],
       notification_content_class: ["clinical", "non_clinical"],
+      notification_preference_category: [
+        "appointments",
+        "medications",
+        "labs_results",
+        "screenings_vaccinations",
+        "referrals",
+        "care_messages",
+        "education_wellness",
+        "billing",
+      ],
       notification_priority: ["routine", "critical"],
-      notification_status: ["pending", "sent", "delivered", "failed", "read"],
+      notification_status: [
+        "pending",
+        "sent",
+        "delivered",
+        "failed",
+        "read",
+        "suppressed",
+      ],
       obesity_bmi_category: [
         "underweight",
         "healthy",

@@ -230,6 +230,22 @@ export async function setScreeningResultFollowUpAction(
     return { error: "Keep the follow-up action under 500 characters" };
   }
 
+  // Optional: this result needs an earlier repeat than the screen type's
+  // routine cadence (spec's screening "recall" — a borderline/inconclusive
+  // finding, not an abnormal/critical one, which already escalates to a
+  // doctor via the existing abnormal-result trigger instead). Setting this
+  // fires private.apply_screening_result_recall, which tightens or creates
+  // the patient's next schedule row for this screen type.
+  const recallMonthsRaw = String(formData.get("recall_months") ?? "").trim();
+  let recallMonths: number | null = null;
+  if (recallMonthsRaw) {
+    const parsed = Number(recallMonthsRaw);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 60) {
+      return { error: "Recall interval must be a whole number of months, 1-60" };
+    }
+    recallMonths = parsed;
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -248,7 +264,10 @@ export async function setScreeningResultFollowUpAction(
 
   const { error } = await supabase
     .from("screening_results")
-    .update({ follow_up_action: followUpAction })
+    .update({
+      follow_up_action: followUpAction,
+      ...(recallMonths !== null ? { recall_months: recallMonths } : {}),
+    })
     .eq("id", resultId);
   if (error) return { error: error.message };
 

@@ -9564,8 +9564,8 @@ export type Database = {
         Row: {
           created_at: string
           expires_at: string
-          grantee_user_id: string
           granted_at: string
+          grantee_user_id: string
           id: string
           profile_id: string
           reason: string
@@ -9575,8 +9575,8 @@ export type Database = {
         Insert: {
           created_at?: string
           expires_at?: string
-          grantee_user_id: string
           granted_at?: string
+          grantee_user_id: string
           id?: string
           profile_id: string
           reason: string
@@ -9586,8 +9586,8 @@ export type Database = {
         Update: {
           created_at?: string
           expires_at?: string
-          grantee_user_id?: string
           granted_at?: string
+          grantee_user_id?: string
           id?: string
           profile_id?: string
           reason?: string
@@ -9596,15 +9596,15 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "emergency_access_grants_profile_id_fkey"
-            columns: ["profile_id"]
+            foreignKeyName: "emergency_access_grants_grantee_user_id_fkey"
+            columns: ["grantee_user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "emergency_access_grants_grantee_user_id_fkey"
-            columns: ["grantee_user_id"]
+            foreignKeyName: "emergency_access_grants_profile_id_fkey"
+            columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -21868,6 +21868,60 @@ export type Database = {
           },
         ]
       }
+      patient_notification_preferences: {
+        Row: {
+          category: Database["public"]["Enums"]["notification_preference_category"]
+          created_at: string
+          email_enabled: boolean
+          id: string
+          organisation_id: string
+          patient_id: string
+          push_enabled: boolean
+          sms_enabled: boolean
+          updated_at: string
+          whatsapp_enabled: boolean
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["notification_preference_category"]
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          organisation_id: string
+          patient_id: string
+          push_enabled?: boolean
+          sms_enabled?: boolean
+          updated_at?: string
+          whatsapp_enabled?: boolean
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["notification_preference_category"]
+          created_at?: string
+          email_enabled?: boolean
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          push_enabled?: boolean
+          sms_enabled?: boolean
+          updated_at?: string
+          whatsapp_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_notification_preferences_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_notification_preferences_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_pregnancy: {
         Row: {
           created_at: string
@@ -33572,7 +33626,6 @@ export type Database = {
           tier: string
         }[]
       }
-      admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_merge_patient_records: {
         Args: {
           p_allow_cross_org?: boolean
@@ -33583,6 +33636,7 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_member_activity: { Args: { p_member: string }; Returns: Json }
       admin_refresh_public_impact_metrics: { Args: never; Returns: undefined }
       admin_reject_pharmacy_partner_onboarding: {
         Args: { p_partner_id: string; p_reason: string }
@@ -36990,7 +37044,6 @@ export type Database = {
       adolescent_transition_milestone:
         | "shared_access_nudge_13"
         | "independence_downgrade_18"
-      patient_duplicate_flag_status: "open" | "dismissed" | "merged"
       ageing_assessment_domain:
         | "mobility"
         | "falls"
@@ -37932,7 +37985,13 @@ export type Database = {
         | "foot_check"
         | "symptom"
         | "side_effect"
-      lpe_module: "diet" | "activity" | "behaviour" | "sleep" | "stress"
+      lpe_module:
+        | "diet"
+        | "activity"
+        | "behaviour"
+        | "sleep"
+        | "stress"
+        | "smoking"
       lpe_phase_kind:
         | "foundation"
         | "build"
@@ -38056,8 +38115,23 @@ export type Database = {
         | "push"
         | "voice"
       notification_content_class: "clinical" | "non_clinical"
+      notification_preference_category:
+        | "appointments"
+        | "medications"
+        | "labs_results"
+        | "screenings_vaccinations"
+        | "referrals"
+        | "care_messages"
+        | "education_wellness"
+        | "billing"
       notification_priority: "routine" | "critical"
-      notification_status: "pending" | "sent" | "delivered" | "failed" | "read"
+      notification_status:
+        | "pending"
+        | "sent"
+        | "delivered"
+        | "failed"
+        | "read"
+        | "suppressed"
       obesity_bmi_category:
         | "underweight"
         | "healthy"
@@ -38145,6 +38219,7 @@ export type Database = {
         | "specialist_letter"
         | "previous_hospital_record"
         | "other"
+      patient_duplicate_flag_status: "open" | "dismissed" | "merged"
       patient_engagement_tier:
         | "highly_engaged"
         | "moderately_engaged"
@@ -38846,7 +38921,6 @@ export const Constants = {
         "shared_access_nudge_13",
         "independence_downgrade_18",
       ],
-      patient_duplicate_flag_status: ["open", "dismissed", "merged"],
       ageing_assessment_domain: [
         "mobility",
         "falls",
@@ -39899,7 +39973,7 @@ export const Constants = {
         "symptom",
         "side_effect",
       ],
-      lpe_module: ["diet", "activity", "behaviour", "sleep", "stress"],
+      lpe_module: ["diet", "activity", "behaviour", "sleep", "stress", "smoking"],
       lpe_phase_kind: [
         "foundation",
         "build",
@@ -40039,8 +40113,25 @@ export const Constants = {
         "voice",
       ],
       notification_content_class: ["clinical", "non_clinical"],
+      notification_preference_category: [
+        "appointments",
+        "medications",
+        "labs_results",
+        "screenings_vaccinations",
+        "referrals",
+        "care_messages",
+        "education_wellness",
+        "billing",
+      ],
       notification_priority: ["routine", "critical"],
-      notification_status: ["pending", "sent", "delivered", "failed", "read"],
+      notification_status: [
+        "pending",
+        "sent",
+        "delivered",
+        "failed",
+        "read",
+        "suppressed",
+      ],
       obesity_bmi_category: [
         "underweight",
         "healthy",
@@ -40138,6 +40229,7 @@ export const Constants = {
         "previous_hospital_record",
         "other",
       ],
+      patient_duplicate_flag_status: ["open", "dismissed", "merged"],
       patient_engagement_tier: [
         "highly_engaged",
         "moderately_engaged",
