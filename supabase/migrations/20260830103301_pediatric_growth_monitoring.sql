@@ -301,7 +301,7 @@ create policy child_growth_measurements_select on public.child_growth_measuremen
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id)
+    or private.can_read_clinical(patient_id, 'medical_history'::public.care_access_category)
   );
 
 drop policy if exists child_growth_measurements_insert on public.child_growth_measurements;

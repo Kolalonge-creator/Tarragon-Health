@@ -308,7 +308,7 @@ create policy developmental_screenings_select on public.developmental_screenings
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id)
+    or private.can_read_clinical(patient_id, 'medical_history'::public.care_access_category)
   );
 
 drop policy if exists developmental_screenings_insert on public.developmental_screenings;

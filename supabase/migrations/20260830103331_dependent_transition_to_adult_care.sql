@@ -65,7 +65,7 @@ create policy dependent_transition_status_select on public.dependent_transition_
   using (
     patient_id = (select auth.uid())
     or (organisation_id is not null and private.is_org_staff(organisation_id))
-    or private.can_read_clinical(patient_id)
+    or private.can_read_clinical(patient_id, 'medical_history'::public.care_access_category)
   );
 
 grant select on public.dependent_transition_status to authenticated;

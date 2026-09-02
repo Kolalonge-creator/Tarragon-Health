@@ -17,7 +17,7 @@ create policy chronic_enrolments_select on public.chronic_programme_enrolments
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id)
+    or private.can_read_clinical(patient_id, 'medical_history'::public.care_access_category)
   );
 
 do $$
