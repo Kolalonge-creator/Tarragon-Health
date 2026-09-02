@@ -45,14 +45,14 @@ interface CoachTurnOutcome {
    * ai_assistant_turns provenance write after runGovernedAi() returns has
    * something to log regardless of which of run()/fallback() produced this
    * outcome. */
-  readonly modelId?: string;
+  readonly modelId?: string | null;
   readonly retrievedSourceIds?: string[];
   readonly clinicianAlertId?: string | null;
   readonly referralRequestClinicianAlertId?: string | null;
   readonly careMessageThreadId?: string | null;
   readonly referralRequestCareMessageThreadId?: string | null;
   readonly degraded?: boolean;
-  readonly errorMessage?: string;
+  readonly errorMessage?: string | null;
   readonly inputSnapshotForAudit?: Record<string, unknown>;
 }
 
@@ -229,12 +229,13 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
 
       let escalationId: string | null = null;
       try {
-        escalationId = await logAiCoachEscalation(getServiceRoleSupabase(), {
+        const escalation = await logAiCoachEscalation(supabase, getServiceRoleSupabase(), {
           organisationId,
           patientId: profileId,
           conversationId: threadId,
           triggerMessage: message,
         });
+        escalationId = escalation.escalationId;
       } catch (error) {
         // The patient still gets the emergency copy. Losing the alert is bad;
         // withholding "go to the nearest hospital" because a write failed
