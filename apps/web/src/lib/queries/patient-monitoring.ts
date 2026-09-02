@@ -3,6 +3,7 @@ import type { Database } from "@tarragon/shared";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { classifyBpLevel } from "@/lib/rules/bp-classification";
 import { classifySpo2Level } from "@/lib/rules/spo2-classification";
+import { classifyPulseLevel } from "@/lib/rules/pulse-classification";
 import { classifyTemperatureLevel } from "@/lib/rules/temperature-classification";
 import { classifyLatestGlucoseLevel } from "@/lib/rules/glucose-classification";
 import {
@@ -27,12 +28,14 @@ export interface PatientMonitoringRow {
     spo2: { value: number | null; level: VitalLevel; takenAt: string | null };
     temperature: { value: number | null; level: VitalLevel; takenAt: string | null };
     glucose: { value: number | null; level: VitalLevel; takenAt: string | null };
-    // Deliberately no `level` on pulse/weight: no single-reading clinical
-    // threshold exists for either anywhere on the platform (heart rate is
-    // only ever pattern-assessed over a trailing window — see
-    // assess-heart-rate.ts — and weight carries no red-flag logic at all).
-    // Shown as plain informational tiles rather than inventing a threshold.
-    pulse: { value: number | null; takenAt: string | null };
+    // pulse gained a real single-reading threshold (pulse_red_flag_engine,
+    // classify_pulse_level) — extreme-value triage only, never
+    // arrhythmia/AF detection; assess-heart-rate.ts's 30-day pattern check is
+    // the separate, complementary mechanism for a sustained abnormal pattern.
+    pulse: { value: number | null; level: VitalLevel; takenAt: string | null };
+    // Deliberately no `level` on weight: no single-reading clinical threshold
+    // exists for it anywhere on the platform. Shown as a plain informational
+    // tile rather than inventing one.
     weight: { value: number | null; takenAt: string | null };
   };
   // Wearable-only metrics (steps, sleep, HRV) have no clinical severity bands
@@ -109,6 +112,7 @@ export async function loadPatientMonitoringRoster(
     const spo2Level = classifySpo2Level(r?.spo2_pct);
     const temperatureLevel = classifyTemperatureLevel(r?.temperature_c);
     const glucoseLevel = classifyLatestGlucoseLevel(r?.glucose_mmol_l);
+    const pulseLevel = classifyPulseLevel(r?.pulse_bpm);
 
     return {
       id: p.id,
@@ -119,7 +123,7 @@ export async function loadPatientMonitoringRoster(
       ageYears: ageFromDateOfBirth(p.date_of_birth),
       status: computeMonitoringStatus({
         hasOpenAlert: (r?.open_alert_count ?? 0) > 0,
-        vitalLevels: [bpLevel, spo2Level, temperatureLevel, glucoseLevel],
+        vitalLevels: [bpLevel, spo2Level, temperatureLevel, glucoseLevel, pulseLevel],
       }),
       vitals: {
         bp: {
@@ -139,7 +143,7 @@ export async function loadPatientMonitoringRoster(
           level: glucoseLevel,
           takenAt: r?.glucose_taken_at ?? null,
         },
-        pulse: { value: r?.pulse_bpm ?? null, takenAt: r?.pulse_taken_at ?? null },
+        pulse: { value: r?.pulse_bpm ?? null, level: pulseLevel, takenAt: r?.pulse_taken_at ?? null },
         weight: { value: r?.weight_kg ?? null, takenAt: r?.weight_taken_at ?? null },
       },
       wearable: {

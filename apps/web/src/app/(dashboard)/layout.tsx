@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
+import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { getNavSections } from "@/lib/navigation";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { isEmbeddedInApp } from "@/lib/embedded-webview";
@@ -85,6 +86,7 @@ export default async function DashboardLayout({
         navSections={getNavSections(profile?.role, profile?.receives_care)}
         signOutAction={signOut}
       >
+        <MfaNudgeBanner role={profile?.role ?? null} />
         {children}
       </AppShell>
     </Providers>

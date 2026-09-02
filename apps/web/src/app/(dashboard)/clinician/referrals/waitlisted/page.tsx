@@ -10,10 +10,13 @@ function formatDate(value: string): string {
 }
 
 /**
- * Waitlisted referrals with a live count of currently-active matching
- * providers, refreshed every 60s. No real-time slot/cancellation system
- * exists — this is a polling worklist, not push-notified; staff must open
- * this tab and manually re-trigger assignment once a match appears.
+ * Referrals a clinician has waitlisted with a documented interim plan
+ * (67.14) while the patient arranges their own specialist visit —
+ * self-arranged fulfilment means there is never a Tarragon-side provider
+ * pool to poll for availability, so this is a plain worklist of "still
+ * needs an active interim plan followed", not a live-matching view. Actual
+ * time-based follow-up is handled server-side by
+ * private.escalate_stalled_specialist_referrals, not by this page.
  */
 export default function WaitlistedReferralsPage() {
   const { data, isLoading, isError } = useWaitlistedReferrals();
@@ -34,7 +37,7 @@ export default function WaitlistedReferralsPage() {
         )}
         {data && data.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
-            {data.map(({ referral, matchingProviderCount }) => (
+            {data.map((referral) => (
               <li key={referral.id} className="space-y-2 py-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="amber">Waitlisted</Badge>
@@ -52,16 +55,12 @@ export default function WaitlistedReferralsPage() {
                 {referral.interim_management_plan && (
                   <p className="text-xs text-charcoal-ink/60">Interim plan: {referral.interim_management_plan}</p>
                 )}
-                {matchingProviderCount > 0 ? (
-                  <p className="text-xs font-medium text-brand-green">
-                    {matchingProviderCount} matching provider{matchingProviderCount === 1 ? "" : "s"} now active:{" "}
-                    <Link href="/clinician/referrals" className="hover:underline">
-                      go assign
-                    </Link>
-                  </p>
-                ) : (
-                  <p className="text-xs text-charcoal-ink/60">Still no active providers for {referral.specialist_type}.</p>
-                )}
+                <Link
+                  href={`/clinician/referrals/${referral.id}`}
+                  className="text-xs text-brand-green hover:underline"
+                >
+                  Open referral
+                </Link>
               </li>
             ))}
           </ul>

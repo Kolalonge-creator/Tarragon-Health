@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { ProtocolVersionsManager } from "./protocol-versions-manager";
+import { ProtocolDraftsManager } from "./protocol-drafts-manager";
 
 export default async function ProtocolsSettingsPage() {
   const profile = await getCurrentProfile();
@@ -26,6 +27,7 @@ export default async function ProtocolsSettingsPage() {
           org&apos;s active Clinical Director can sign.
         </p>
       </div>
+      <ProtocolDraftsManager />
       <ProtocolVersionsManager />
     </div>
   );

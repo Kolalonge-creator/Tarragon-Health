@@ -7,14 +7,25 @@
  */
 export type BpLevel = "green" | "amber" | "red" | "emergency" | "unknown";
 
+/** Overridable via threshold-sync.ts's loadActiveThresholds() if the server
+ * reports a newer version than this bundled default. */
+export const BP_THRESHOLDS = {
+  emergency: { systolic: 200, diastolic: 120 },
+  red: { systolic: 160, diastolic: 100 },
+  amber: { systolic: 135, diastolic: 85 },
+} as const;
+
+export type BpThresholds = typeof BP_THRESHOLDS;
+
 export function classifyBpLevel(
   systolic: number | null | undefined,
-  diastolic: number | null | undefined
+  diastolic: number | null | undefined,
+  thresholds: BpThresholds = BP_THRESHOLDS
 ): BpLevel {
   if (systolic == null || diastolic == null) return "unknown";
-  if (diastolic >= 120 || systolic >= 200) return "emergency";
-  if (systolic >= 160 || diastolic >= 100) return "red";
-  if (systolic >= 135 || diastolic >= 85) return "amber";
+  if (diastolic >= thresholds.emergency.diastolic || systolic >= thresholds.emergency.systolic) return "emergency";
+  if (systolic >= thresholds.red.systolic || diastolic >= thresholds.red.diastolic) return "red";
+  if (systolic >= thresholds.amber.systolic || diastolic >= thresholds.amber.diastolic) return "amber";
   return "green";
 }
 

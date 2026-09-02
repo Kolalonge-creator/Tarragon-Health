@@ -8,7 +8,17 @@ export type PharmacyPartner = Tables<"pharmacy_partners">;
 export type PharmacyMedicationWithPartner = PharmacyMedication & {
   pharmacy_partner: Pick<
     PharmacyPartner,
-    "id" | "name" | "delivery" | "regions" | "address" | "latitude" | "longitude" | "state" | "city" | "area"
+    | "id"
+    | "name"
+    | "delivery"
+    | "regions"
+    | "address"
+    | "latitude"
+    | "longitude"
+    | "state"
+    | "city"
+    | "area"
+    | "delivery_fee_kobo"
   > | null;
 };
 
@@ -21,7 +31,7 @@ export function usePharmacyCatalogue() {
       const { data, error } = await supabase
         .from("pharmacy_medications")
         .select(
-          "*, pharmacy_partner:pharmacy_partners!pharmacy_medications_pharmacy_partner_id_fkey(id, name, delivery, regions, address, latitude, longitude, state, city, area)",
+          "*, pharmacy_partner:pharmacy_partners!pharmacy_medications_pharmacy_partner_id_fkey(id, name, delivery, regions, address, latitude, longitude, state, city, area, delivery_fee_kobo)",
         )
         .eq("is_active", true)
         .order("drug_name", { ascending: true });
@@ -166,6 +176,7 @@ export function useCreatePharmacyOrder() {
       medication,
       quantity,
       fulfilmentMethod = "pickup",
+      deliveryFeeKobo,
     }: {
       organisationId: string;
       patientId: string;
@@ -174,6 +185,10 @@ export function useCreatePharmacyOrder() {
       quantity: number;
       /** Delivery is model-ready but gated in the UI until logistics partners onboard — defaults to pickup. */
       fulfilmentMethod?: "pickup" | "delivery";
+      /** The pharmacy's own flat fee (pharmacy_partners.delivery_fee_kobo) —
+       * only added to the total when fulfilmentMethod is "delivery"; ignored
+       * for pickup, matching §12.7's "delivery fee" price-visibility line. */
+      deliveryFeeKobo?: number | null;
     }) => {
       const supabase = createClient();
       const item: PharmacyOrderItem = {
@@ -183,12 +198,15 @@ export function useCreatePharmacyOrder() {
         price_kobo: medication.price_kobo,
         quantity,
       };
+      const totalKobo =
+        medication.price_kobo * quantity +
+        (fulfilmentMethod === "delivery" ? (deliveryFeeKobo ?? 0) : 0);
       const { error } = await supabase.from("pharmacy_orders").insert({
         organisation_id: organisationId,
         patient_id: patientId,
         pharmacy_partner_id: pharmacyPartnerId,
         items: [item],
-        total_kobo: medication.price_kobo * quantity,
+        total_kobo: totalKobo,
         status: "pending_payment",
         fulfilment_method: fulfilmentMethod,
       });

@@ -97,6 +97,33 @@ export const ledgerEntriesSchema = z.array(
     lines: z.array(ledgerLineSchema).nullable().default([]),
   }),
 );
+
+// §91.12 unified transaction ledger — one row per payer-facing transaction,
+// joining the payment-event log to the GL read-only (see
+// supabase/migrations/20260830101217_finance_unified_ledger.sql). Unlike the
+// journal-entry rows above, `payment_transaction_id`/`entry_id` may each be
+// null (a failed payment never posts a journal entry; a manual/adjustment
+// entry never has a payment behind it).
+export const unifiedLedgerSchema = z.array(
+  z.object({
+    entry_id: z.string().nullable(),
+    payment_transaction_id: z.string().nullable(),
+    entry_date: z.string(),
+    posted_at: z.string(),
+    source: z.string(),
+    service_label: z.string(),
+    payer_profile_id: z.string().nullable(),
+    payer_label: z.string(),
+    recipient_label: z.string(),
+    direction: z.enum(["money_in", "money_out"]),
+    amount_minor: num,
+    currency: z.string(),
+    status: z.enum(["completed", "failed"]),
+    method: z.string().nullable(),
+    memo: z.string().nullable(),
+  }),
+);
+export type UnifiedLedgerRow = z.infer<typeof unifiedLedgerSchema>[number];
 export type LedgerEntry = z.infer<typeof ledgerEntriesSchema>[number];
 
 export const taxSummarySchema = z.object({
@@ -305,6 +332,26 @@ export const budgetsListSchema = z.array(
 );
 export type FinanceBudget = z.infer<typeof budgetsListSchema>[number];
 
+// --- Employer billing --------------------------------------------------------
+export const employerBillingSummarySchema = z.array(
+  z.object({
+    organisation_id: z.string(),
+    organisation_name: z.string(),
+    organisation_type: z.string(),
+    eligible_count: int,
+    activated_count: int,
+    pending_count: int,
+    billing_config_id: z.string().nullable(),
+    price_per_member_minor: num.nullable(),
+    currency: z.string().nullable(),
+    effective_from: z.string().nullable(),
+    effective_to: z.string().nullable(),
+    notes: z.string().nullable(),
+    monthly_invoice_estimate_minor: num.nullable(),
+  }),
+);
+export type EmployerBillingSummaryRow = z.infer<typeof employerBillingSummarySchema>[number];
+
 export const budgetVarianceSchema = z.array(
   z.object({
     account_code: z.string(),
@@ -459,18 +506,23 @@ export const reconciliationFlagsSchema = z.array(
 );
 export type ReconciliationFlag = z.infer<typeof reconciliationFlagsSchema>[number];
 
-/**
- * payment_fraud_signals — financial fraud controls, phase 1
- * (20260829001257_payment_fraud_signals.sql). Detection only; see that
- * migration and apps/web/src/lib/finance/fraud-sweep.ts for how a signal
- * gets written.
- */
+// §91.17 fraud detection signals — a real signal_type (algorithmic
+// duplicate_transaction/rapid_velocity/refund_concentration/unusual_amount
+// from the fraud-sweep cron, or chargeback from a dispute webhook), not to
+// be confused with payment_reconciliation_flags above (that's gateway-vs-
+// internal-ledger bookkeeping drift, a different kind of "flag").
 export const fraudSignalsSchema = z.array(
   z.object({
     id: z.string(),
     organisation_id: z.string().nullable(),
     patient_id: z.string().nullable(),
-    signal_type: z.enum(["duplicate_transaction", "rapid_velocity", "refund_concentration", "unusual_amount"]),
+    signal_type: z.enum([
+      "duplicate_transaction",
+      "rapid_velocity",
+      "refund_concentration",
+      "unusual_amount",
+      "chargeback",
+    ]),
     severity: z.enum(["low", "medium", "high"]),
     dedupe_key: z.string(),
     payment_transaction_id: z.string().nullable(),

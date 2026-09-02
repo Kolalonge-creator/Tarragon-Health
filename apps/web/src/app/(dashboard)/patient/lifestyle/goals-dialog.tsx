@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { APP_ICON } from "@/lib/icons";
 
-type GoalModule = "diet" | "activity" | "behaviour" | "sleep" | "stress";
+type GoalModule = "diet" | "activity" | "behaviour" | "sleep" | "stress" | "smoking";
 
 type Tile =
   | {
@@ -73,6 +73,15 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         placeholder: "e.g. Try one mindful moment a day",
         enrollmentId: primary.id,
         tint: "bg-amber-50",
+      },
+      {
+        kind: "module",
+        module: "smoking",
+        label: "Stop smoking",
+        icon: "warning",
+        placeholder: "e.g. Smoke-free by the end of the month",
+        enrollmentId: primary.id,
+        tint: "bg-rose-50",
       },
     );
   }
@@ -294,6 +303,7 @@ function GoalForm({
             <option value="activity">Activity</option>
             <option value="behaviour">Mood & mindset</option>
             <option value="sleep">Sleep</option>
+            <option value="smoking">Stop smoking</option>
           </select>
         </div>
       )}

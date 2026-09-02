@@ -111,7 +111,7 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
       <CalloutCard
         icon="wallet-outline"
         title="What you've funded"
-        subtitle="Vouchers, subscriptions and statements for everyone you support open in the full patient app."
+        subtitle="Vouchers and statements for everyone you support open in the full patient app."
         ctaLabel="Manage what you fund"
         onPress={() => setManageOpen(true)}
       />

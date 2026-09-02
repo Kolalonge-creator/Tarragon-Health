@@ -11,16 +11,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 /**
  * Doctor "Review & communicate" control for the annual Health Check
  * (AHC pathway §5 stage 4). Gated server-side on a current red-flag
- * attestation (§26). `reviewedAt`/`reviewedByName` show existing attribution.
+ * attestation (§26). `reviewedAt` plus `children` (the caller's
+ * <ReviewedResultLine reviewedByKey="staff" />) show existing attribution —
+ * the single shared null-gated component, not a hand-rolled name string.
  */
 export function HealthCheckReview({
   patientId,
   reviewedAt,
-  reviewedByName,
+  children,
 }: {
   patientId: string;
   reviewedAt: string | null;
-  reviewedByName: string | null;
+  children?: React.ReactNode;
 }) {
   const action = completeHealthCheckReview.bind(null, patientId);
   const [state, formAction, pending] = useActionState(action, undefined);
@@ -37,15 +39,17 @@ export function HealthCheckReview({
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {reviewedAt && (
-          <p className="text-charcoal-ink/70">
-            This year&apos;s check is completed
-            {reviewedByName ? ` · Reviewed by ${reviewedByName}` : ""} ·{" "}
-            {new Date(reviewedAt).toLocaleDateString("en-GB", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            })}
-          </p>
+          <div className="space-y-1">
+            <p className="text-charcoal-ink/70">
+              This year&apos;s check is completed ·{" "}
+              {new Date(reviewedAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+              })}
+            </p>
+            {children}
+          </div>
         )}
         <form action={formAction} className="space-y-2">
           <Textarea
