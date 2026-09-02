@@ -2607,6 +2607,7 @@ export type Database = {
           is_high_priority: boolean
           location: string | null
           no_show_marked_at: string | null
+          no_show_reason: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
@@ -2640,6 +2641,7 @@ export type Database = {
           is_high_priority?: boolean
           location?: string | null
           no_show_marked_at?: string | null
+          no_show_reason?: string | null
           organisation_id: string
           patient_id: string
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
@@ -2673,6 +2675,7 @@ export type Database = {
           is_high_priority?: boolean
           location?: string | null
           no_show_marked_at?: string | null
+          no_show_reason?: string | null
           organisation_id?: string
           patient_id?: string
           payment_status?: Database["public"]["Enums"]["appointment_payment_status"]
@@ -7921,6 +7924,87 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      consultation_patient_summaries: {
+        Row: {
+          clinical_encounter_note_id: string
+          created_at: string
+          id: string
+          medicines_note: string | null
+          next_appointment_note: string | null
+          organisation_id: string
+          patient_id: string
+          published_by_staff: string
+          tests_note: string | null
+          video_consultation_id: string | null
+          what_we_discussed: string
+          what_you_need_to_do: string | null
+        }
+        Insert: {
+          clinical_encounter_note_id: string
+          created_at?: string
+          id?: string
+          medicines_note?: string | null
+          next_appointment_note?: string | null
+          organisation_id: string
+          patient_id: string
+          published_by_staff: string
+          tests_note?: string | null
+          video_consultation_id?: string | null
+          what_we_discussed: string
+          what_you_need_to_do?: string | null
+        }
+        Update: {
+          clinical_encounter_note_id?: string
+          created_at?: string
+          id?: string
+          medicines_note?: string | null
+          next_appointment_note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          published_by_staff?: string
+          tests_note?: string | null
+          video_consultation_id?: string | null
+          what_we_discussed?: string
+          what_you_need_to_do?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "consultation_patient_summaries_clinical_encounter_note_id_fkey"
+            columns: ["clinical_encounter_note_id"]
+            isOneToOne: true
+            referencedRelation: "clinical_encounter_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_patient_summaries_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_patient_summaries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_patient_summaries_published_by_staff_fkey"
+            columns: ["published_by_staff"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "consultation_patient_summaries_video_consultation_id_fkey"
+            columns: ["video_consultation_id"]
+            isOneToOne: false
+            referencedRelation: "video_consultations"
             referencedColumns: ["id"]
           },
         ]
@@ -30803,6 +30887,8 @@ export type Database = {
           escalation_id: string | null
           host_start_url: string | null
           id: string
+          identity_verified_at: string | null
+          identity_verified_by: string | null
           initiated_by: string | null
           join_url: string | null
           organisation_id: string
@@ -30826,6 +30912,8 @@ export type Database = {
           escalation_id?: string | null
           host_start_url?: string | null
           id?: string
+          identity_verified_at?: string | null
+          identity_verified_by?: string | null
           initiated_by?: string | null
           join_url?: string | null
           organisation_id: string
@@ -30849,6 +30937,8 @@ export type Database = {
           escalation_id?: string | null
           host_start_url?: string | null
           id?: string
+          identity_verified_at?: string | null
+          identity_verified_by?: string | null
           initiated_by?: string | null
           join_url?: string | null
           organisation_id?: string
@@ -30877,6 +30967,13 @@ export type Database = {
             columns: ["escalation_id"]
             isOneToOne: false
             referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "video_consultations_identity_verified_by_fkey"
+            columns: ["identity_verified_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
           {
@@ -32442,6 +32539,7 @@ export type Database = {
           is_high_priority: boolean
           location: string | null
           no_show_marked_at: string | null
+          no_show_reason: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
@@ -32629,6 +32727,7 @@ export type Database = {
       advance_appointment_status: {
         Args: {
           p_appointment_id: string
+          p_no_show_reason?: string
           p_to: Database["public"]["Enums"]["appointment_status"]
         }
         Returns: {
@@ -32650,6 +32749,7 @@ export type Database = {
           is_high_priority: boolean
           location: string | null
           no_show_marked_at: string | null
+          no_show_reason: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
@@ -33140,6 +33240,7 @@ export type Database = {
           is_high_priority: boolean
           location: string | null
           no_show_marked_at: string | null
+          no_show_reason: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
@@ -33297,6 +33398,7 @@ export type Database = {
           is_high_priority: boolean
           location: string | null
           no_show_marked_at: string | null
+          no_show_reason: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
@@ -33314,6 +33416,40 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "appointments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      confirm_consultation_identity: {
+        Args: { p_video_consultation_id: string }
+        Returns: {
+          annual_review_id: string | null
+          context: Database["public"]["Enums"]["video_consultation_context"]
+          created_at: string
+          ended_at: string | null
+          escalation_id: string | null
+          host_start_url: string | null
+          id: string
+          identity_verified_at: string | null
+          identity_verified_by: string | null
+          initiated_by: string | null
+          join_url: string | null
+          organisation_id: string
+          patient_confirmed_at: string | null
+          patient_id: string
+          patient_prep_notes: string | null
+          patient_prep_submitted_at: string | null
+          proposed_slots: string[] | null
+          scheduled_at: string | null
+          specialist_referral_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at: string
+          zoom_meeting_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "video_consultations"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -33544,6 +33680,40 @@ export type Database = {
       enrol_in_wellness_challenge: {
         Args: { p_challenge_id: string }
         Returns: string
+      }
+      ensure_appointment_video_consultation: {
+        Args: { p_appointment_id: string }
+        Returns: {
+          annual_review_id: string | null
+          context: Database["public"]["Enums"]["video_consultation_context"]
+          created_at: string
+          ended_at: string | null
+          escalation_id: string | null
+          host_start_url: string | null
+          id: string
+          identity_verified_at: string | null
+          identity_verified_by: string | null
+          initiated_by: string | null
+          join_url: string | null
+          organisation_id: string
+          patient_confirmed_at: string | null
+          patient_id: string
+          patient_prep_notes: string | null
+          patient_prep_submitted_at: string | null
+          proposed_slots: string[] | null
+          scheduled_at: string | null
+          specialist_referral_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at: string
+          zoom_meeting_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "video_consultations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       escalate_complaint_to_incident: {
         Args: {
@@ -34230,6 +34400,7 @@ export type Database = {
           is_high_priority: boolean
           location: string | null
           no_show_marked_at: string | null
+          no_show_reason: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
@@ -34844,6 +35015,36 @@ export type Database = {
       }
       public_response_commitments: { Args: never; Returns: Json }
       public_service_coverage: { Args: never; Returns: Json }
+      publish_consultation_summary: {
+        Args: {
+          p_clinical_encounter_note_id: string
+          p_medicines_note?: string
+          p_next_appointment_note?: string
+          p_tests_note?: string
+          p_what_we_discussed: string
+          p_what_you_need_to_do?: string
+        }
+        Returns: {
+          clinical_encounter_note_id: string
+          created_at: string
+          id: string
+          medicines_note: string | null
+          next_appointment_note: string | null
+          organisation_id: string
+          patient_id: string
+          published_by_staff: string
+          tests_note: string | null
+          video_consultation_id: string | null
+          what_we_discussed: string
+          what_you_need_to_do: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "consultation_patient_summaries"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       purchase_care_voucher: {
         Args: {
           p_beneficiary: string
@@ -35201,6 +35402,7 @@ export type Database = {
           is_high_priority: boolean
           location: string | null
           no_show_marked_at: string | null
+          no_show_reason: string | null
           organisation_id: string
           patient_id: string
           payment_status: Database["public"]["Enums"]["appointment_payment_status"]
@@ -35621,6 +35823,43 @@ export type Database = {
       }
       set_usd_processing_fee: { Args: { p_fee_pct: number }; Returns: Json }
       set_usd_reference_rate: { Args: { p_ngn_per_usd: number }; Returns: Json }
+      set_video_consultation_call_state: {
+        Args: {
+          p_status: Database["public"]["Enums"]["video_consultation_status"]
+          p_video_consultation_id: string
+        }
+        Returns: {
+          annual_review_id: string | null
+          context: Database["public"]["Enums"]["video_consultation_context"]
+          created_at: string
+          ended_at: string | null
+          escalation_id: string | null
+          host_start_url: string | null
+          id: string
+          identity_verified_at: string | null
+          identity_verified_by: string | null
+          initiated_by: string | null
+          join_url: string | null
+          organisation_id: string
+          patient_confirmed_at: string | null
+          patient_id: string
+          patient_prep_notes: string | null
+          patient_prep_submitted_at: string | null
+          proposed_slots: string[] | null
+          scheduled_at: string | null
+          specialist_referral_id: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["video_consultation_status"]
+          updated_at: string
+          zoom_meeting_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "video_consultations"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       settle_lab_result_consult_claim: {
         Args: { p_document_id: string; p_request_id: string }
         Returns: undefined
