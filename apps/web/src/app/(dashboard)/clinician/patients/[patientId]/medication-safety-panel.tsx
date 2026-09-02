@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { loadMedicationSafety } from "@/lib/clinical/patient-clinical-context";
 import type { DrugSafetySeverity, FindingKind } from "@/lib/rules/drug-safety";
+import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
 
 const SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {
   contraindicated: { label: "Avoid", variant: "red" },
@@ -48,11 +49,16 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Medication safety</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          Medication safety
+          {isPolypharmacy(medicationCount) && <Badge variant="amber">Polypharmacy</Badge>}
+        </CardTitle>
         <CardDescription>
           Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing across the{" "}
           {medicationCount} active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory:
           nothing here changes a prescription.
+          {isPolypharmacy(medicationCount) &&
+            ` ${POLYPHARMACY_THRESHOLD} or more active medicines at once is worth a deliberate review — not automatic discontinuation of any of them.`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

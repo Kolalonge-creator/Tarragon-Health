@@ -44,6 +44,7 @@ import { HealthCheckVideoConsult } from "./health-check-video-consult";
 import { CarePlanManagementSection } from "./care-plan-management-section";
 import { ChronicProgrammeReviewSection } from "./chronic-programme-review-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
+import { HealthyAgeingClinicianPanel } from "./healthy-ageing-clinician-panel";
 import { CreateReferralForm } from "./create-referral-form";
 import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
@@ -354,6 +355,11 @@ export default async function ClinicianPatientPage({
                 <ObesityEdScreenForm patientId={patient.id} />
               </>
             ),
+          },
+          {
+            id: "healthy-ageing",
+            label: "Healthy ageing",
+            content: <HealthyAgeingClinicianPanel patientId={patient.id} />,
           },
           {
             id: "clinical-notes",

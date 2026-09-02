@@ -14,9 +14,9 @@ function allowancesKey(packageId: string) {
 }
 
 /** Module 26 §26.6/§26.7 — what an employer purchases. Reuses the platform's
- * own subscription_plans catalogue (see the migration header on
- * 20260829093527_employer_platform_benefit_packages_entitlement_wiring.sql)
- * rather than a second feature-toggle system. */
+ * own service_products catalogue (rewired off subscription_plans by
+ * 20260831160547_rewire_employer_benefits_to_service_products.sql, part of
+ * the pay-per-service cutover) rather than a second feature-toggle system. */
 export function useBenefitPackages(organisationId: string) {
   return useQuery({
     queryKey: packagesKey(organisationId),
@@ -35,11 +35,9 @@ export function useBenefitPackages(organisationId: string) {
   });
 }
 
-/** The service-product tiers a package can reference — same catalogue
- * individual patients buy from directly (pay-per-service, since the
- * 2026-09-02 subscriptions→pay-per-service cutover; subscription_plans is
- * no longer the live entitlement catalogue). */
-export function useSubscriptionPlanCatalog() {
+/** The plan tiers a package can reference — same catalogue individual
+ * patients buy from directly. */
+export function useServiceProductCatalog() {
   return useQuery({
     queryKey: ["service-product-catalog"],
     queryFn: async () => {
