@@ -68,42 +68,49 @@ alter default privileges for role postgres in schema public
 
 do $$
 declare
-  v_diag record;
+  v_diag text := '';
+  v_default_acl_dump text := '';
   v_found_default_acl boolean := false;
+  r record;
 begin
-  raise notice 'DIAG identity: current_user=%, session_user=%, current_role=%',
-    current_user, session_user, current_role;
+  select string_agg(
+    format('role=%s,schema=%s,objtype=%s,acl=%s',
+      defaclrole::regrole::text, defaclnamespace::regnamespace::text, defaclobjtype, defaclacl::text),
+    ' | '
+  )
+  into v_default_acl_dump
+  from pg_default_acl
+  where defaclnamespace = 'public'::regnamespace;
 
-  for v_diag in
-    select defaclrole::regrole::text as role,
-           defaclnamespace::regnamespace::text as schema,
-           defaclobjtype as objtype,
-           defaclacl::text as acl
-    from pg_default_acl
-    where defaclnamespace = 'public'::regnamespace
-  loop
-    v_found_default_acl := true;
-    raise notice 'DIAG pg_default_acl row: role=%, schema=%, objtype=%, acl=%',
-      v_diag.role, v_diag.schema, v_diag.objtype, v_diag.acl;
-  end loop;
-  if not v_found_default_acl then
-    raise notice 'DIAG pg_default_acl: NO ROWS AT ALL for schema public';
+  if v_default_acl_dump is null then
+    v_default_acl_dump := 'NO ROWS AT ALL for schema public';
   end if;
 
   create function public._default_priv_probe_fn_20260902174504()
     returns void language sql as $probe$ select 1 $probe$;
   create sequence public._default_priv_probe_seq_20260902174504;
 
-  raise notice 'DIAG probe fn: proowner=%, proacl=%',
+  v_diag := format(
+    'DIAG current_user=%s session_user=%s current_role=%s || pg_default_acl(public)=[%s] || probe_fn proowner=%s proacl=%s',
+    current_user, session_user, current_role,
+    v_default_acl_dump,
     (select proowner::regrole::text from pg_proc where proname = '_default_priv_probe_fn_20260902174504'),
-    (select proacl::text from pg_proc where proname = '_default_priv_probe_fn_20260902174504');
+    (select proacl::text from pg_proc where proname = '_default_priv_probe_fn_20260902174504')
+  );
 
   if has_function_privilege('anon', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE')
      or has_function_privilege('authenticated', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE') then
     drop function public._default_priv_probe_fn_20260902174504();
     drop sequence public._default_priv_probe_seq_20260902174504;
-    raise exception 'FAIL: anon/authenticated still get a default EXECUTE privilege on a brand-new public-schema function';
+    raise exception 'FAIL: anon/authenticated still get a default EXECUTE privilege on a brand-new public-schema function -- %', v_diag;
   end if;
+
+  -- Always fail during this diagnostic pass, even on the success path, so
+  -- the full diagnostic string is guaranteed to land in the CI log exactly
+  -- once (RAISE NOTICE is silently swallowed by `supabase db reset`'s
+  -- migration runner -- confirmed empirically, zero "NOTICE" strings appear
+  -- anywhere in a full replay log -- but RAISE EXCEPTION text is captured).
+  raise exception 'DIAGNOSTIC PASS (not a real failure) -- %', v_diag;
 
   if has_sequence_privilege('anon', 'public._default_priv_probe_seq_20260902174504', 'USAGE')
      or has_sequence_privilege('authenticated', 'public._default_priv_probe_seq_20260902174504', 'USAGE') then
