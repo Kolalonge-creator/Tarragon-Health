@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -51,7 +52,7 @@ const BP_DELTA_DIRECTION: Record<Exclude<BpLevel, "unknown">, "up" | "down" | "f
 };
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting } = await getPatientDashboardContext();
+  const { subjectId, acting, subjectSex } = await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
 
@@ -95,7 +96,7 @@ export default async function PatientOverviewPage() {
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
           Above the stat tiles deliberately: doing beats reading, and on a
           phone this row is what's on screen when the page opens. */}
-      <QuickActions />
+      <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
       {/* Dual-state overview: a patient in a chronic programme leads with
           monitoring numbers; a healthy patient leads with prevention. Both

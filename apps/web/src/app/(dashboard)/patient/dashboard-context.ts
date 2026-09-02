@@ -61,16 +61,22 @@ export async function getPatientDashboardContext() {
   // profile fields are correct.
   let subjectState = profile.state ?? null;
   let subjectHasEmergencyContact = !!profile.emergency_contact_phone;
+  // Sex belongs in the same set and for the same reason: it decides whether
+  // sex-specific surfaces (cycle tracking) are offered, and that question is
+  // about the SUBJECT. Testing the caller's sex meant a husband supporting
+  // his wife's account saw her cycle tracker suppressed on her own dashboard.
+  let subjectSex = profile.sex ?? null;
   if (acting) {
     const supabase = await createClient();
     const { data: subjectProfile } = await supabase
       .from("profiles")
-      .select("state, emergency_contact_phone")
+      .select("state, emergency_contact_phone, sex")
       .eq("id", subjectId)
       .maybeSingle();
     subjectState = subjectProfile?.state ?? null;
     subjectHasEmergencyContact = !!subjectProfile?.emergency_contact_phone;
+    subjectSex = subjectProfile?.sex ?? null;
   }
 
-  return { profile, acting, subjectId, subjectState, subjectHasEmergencyContact };
+  return { profile, acting, subjectId, subjectState, subjectSex, subjectHasEmergencyContact };
 }

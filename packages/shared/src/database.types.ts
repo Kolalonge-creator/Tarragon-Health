@@ -18497,6 +18497,114 @@ export type Database = {
           },
         ]
       }
+      menstrual_cycles: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          period_end_date: string | null
+          period_start_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          period_end_date?: string | null
+          period_start_date: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          period_end_date?: string | null
+          period_start_date?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menstrual_cycles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menstrual_cycles_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      menstrual_daily_logs: {
+        Row: {
+          basal_body_temperature_c: number | null
+          created_at: string
+          flow: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id: string
+          log_date: string
+          moods: Database["public"]["Enums"]["menstrual_mood"][]
+          notes: string | null
+          organisation_id: string
+          ovulation_test_result: Database["public"]["Enums"]["menstrual_ovulation_test_result"] | null
+          patient_id: string
+          symptoms: Database["public"]["Enums"]["menstrual_symptom"][]
+          updated_at: string
+        }
+        Insert: {
+          basal_body_temperature_c?: number | null
+          created_at?: string
+          flow?: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id?: string
+          log_date: string
+          moods?: Database["public"]["Enums"]["menstrual_mood"][]
+          notes?: string | null
+          organisation_id: string
+          ovulation_test_result?: Database["public"]["Enums"]["menstrual_ovulation_test_result"] | null
+          patient_id: string
+          symptoms?: Database["public"]["Enums"]["menstrual_symptom"][]
+          updated_at?: string
+        }
+        Update: {
+          basal_body_temperature_c?: number | null
+          created_at?: string
+          flow?: Database["public"]["Enums"]["menstrual_flow_level"] | null
+          id?: string
+          log_date?: string
+          moods?: Database["public"]["Enums"]["menstrual_mood"][]
+          notes?: string | null
+          organisation_id?: string
+          ovulation_test_result?: Database["public"]["Enums"]["menstrual_ovulation_test_result"] | null
+          patient_id?: string
+          symptoms?: Database["public"]["Enums"]["menstrual_symptom"][]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "menstrual_daily_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "menstrual_daily_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       monitoring_schedule_items: {
         Row: {
           acceptable_range: Json | null
@@ -37830,6 +37938,35 @@ export type Database = {
       medication_review_outcome: "continue" | "change" | "stop" | "escalate"
       medication_review_status: "pending" | "completed" | "cancelled"
       medication_source: "clinician" | "patient" | "specialist" | "fhir_import"
+      menstrual_flow_level:
+        | "none"
+        | "spotting"
+        | "light"
+        | "medium"
+        | "heavy"
+        | "flooding"
+      menstrual_ovulation_test_result: "negative" | "positive" | "peak"
+      menstrual_mood:
+        | "calm"
+        | "happy"
+        | "energetic"
+        | "irritable"
+        | "anxious"
+        | "low"
+        | "mood_swings"
+      menstrual_symptom:
+        | "cramps"
+        | "headache"
+        | "bloating"
+        | "breast_tenderness"
+        | "acne"
+        | "fatigue"
+        | "nausea"
+        | "back_pain"
+        | "diarrhoea"
+        | "constipation"
+        | "food_cravings"
+        | "insomnia"
       monitoring_baseline_source: "first_reading" | "clinician_set"
       monitoring_item_status: "active" | "paused" | "completed"
       navigation_request_category:
@@ -39816,6 +39953,38 @@ export const Constants = {
       medication_review_outcome: ["continue", "change", "stop", "escalate"],
       medication_review_status: ["pending", "completed", "cancelled"],
       medication_source: ["clinician", "patient", "specialist", "fhir_import"],
+      menstrual_flow_level: [
+        "none",
+        "spotting",
+        "light",
+        "medium",
+        "heavy",
+        "flooding",
+      ],
+      menstrual_ovulation_test_result: ["negative", "positive", "peak"],
+      menstrual_mood: [
+        "calm",
+        "happy",
+        "energetic",
+        "irritable",
+        "anxious",
+        "low",
+        "mood_swings",
+      ],
+      menstrual_symptom: [
+        "cramps",
+        "headache",
+        "bloating",
+        "breast_tenderness",
+        "acne",
+        "fatigue",
+        "nausea",
+        "back_pain",
+        "diarrhoea",
+        "constipation",
+        "food_cravings",
+        "insomnia",
+      ],
       monitoring_baseline_source: ["first_reading", "clinician_set"],
       monitoring_item_status: ["active", "paused", "completed"],
       navigation_request_category: [
