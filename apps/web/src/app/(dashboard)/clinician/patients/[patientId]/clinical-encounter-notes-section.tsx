@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { PatientIdentityConfirm } from "@/components/patient-identity-confirm";
 import { ConsultationFollowUpsPanel } from "./consultation-follow-ups-panel";
 
 const ENCOUNTER_TYPE_LABEL: Record<ClinicalEncounterNote["encounter_type"], string> = {
@@ -239,10 +240,14 @@ function DraftNoteCard({
   note,
   patientId,
   organisationId,
+  patientName,
+  patientDateOfBirth,
 }: {
   note: ClinicalEncounterNote;
   patientId: string;
   organisationId: string;
+  patientName: string;
+  patientDateOfBirth: string | null;
 }) {
   const [fields, setFields] = useState({
     reasonForEncounter: note.reason_for_encounter,
@@ -254,6 +259,7 @@ function DraftNoteCard({
     followUpInstructions: note.follow_up_instructions ?? "",
   });
   const [outcome, setOutcome] = useState<NonNullable<ClinicalEncounterNote["outcome"]> | "">("");
+  const [identityConfirmed, setIdentityConfirmed] = useState(false);
   const update = useUpdateEncounterNoteDraft();
   const finalize = useFinalizeEncounterNote();
 
@@ -295,26 +301,46 @@ function DraftNoteCard({
             {update.isPending ? "Saving…" : "Save changes"}
           </Button>
         </div>
-        <div className="flex flex-wrap items-end gap-2 border-t border-charcoal-ink/10 pt-3">
-          <div className="min-w-[14rem]">
-            <Label>Outcome (required to sign)</Label>
-            <Select value={outcome} onChange={(e) => setOutcome(e.target.value as typeof outcome)}>
-              <option value="">Choose an outcome…</option>
-              {Object.entries(OUTCOME_LABEL).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </Select>
+        <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
+          <PatientIdentityConfirm
+            patientName={patientName}
+            patientDateOfBirth={patientDateOfBirth}
+            confirmed={identityConfirmed}
+            onConfirmedChange={setIdentityConfirmed}
+          />
+          <div className="flex flex-wrap items-end gap-2">
+            <div className="min-w-[14rem]">
+              <Label>Outcome (required to sign)</Label>
+              <Select value={outcome} onChange={(e) => setOutcome(e.target.value as typeof outcome)}>
+                <option value="">Choose an outcome…</option>
+                {Object.entries(OUTCOME_LABEL).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <Button
+              size="sm"
+              disabled={
+                fields.reasonForEncounter.trim().length === 0 ||
+                outcome === "" ||
+                !identityConfirmed ||
+                finalize.isPending
+              }
+              title="Locks this note permanently — no further edits after signing"
+              onClick={() =>
+                finalize.mutate({
+                  noteId: note.id,
+                  patientId,
+                  outcome: outcome as NonNullable<ClinicalEncounterNote["outcome"]>,
+                  identityConfirmed,
+                })
+              }
+            >
+              {finalize.isPending ? "Signing…" : "Sign & finalize"}
+            </Button>
           </div>
-          <Button
-            size="sm"
-            disabled={fields.reasonForEncounter.trim().length === 0 || outcome === "" || finalize.isPending}
-            title="Locks this note permanently — no further edits after signing"
-            onClick={() => finalize.mutate({ noteId: note.id, patientId, outcome: outcome as NonNullable<ClinicalEncounterNote["outcome"]> })}
-          >
-            {finalize.isPending ? "Signing…" : "Sign & finalize"}
-          </Button>
         </div>
         <ConsultationFollowUpsPanel
           encounterNoteId={note.id}
@@ -426,6 +452,8 @@ export function ClinicalEncounterNotesSection({
   videoConsultationId,
   startOpen,
   hideHeader = false,
+  patientName,
+  patientDateOfBirth,
 }: {
   patientId: string;
   organisationId: string;
@@ -445,6 +473,9 @@ export function ClinicalEncounterNotesSection({
   /** The video-consultation screen already has its own "Clinical notes"
    * heading via its own card layout. */
   hideHeader?: boolean;
+  /** Shown on the identity-confirmation step before signing a note — §89.4. */
+  patientName: string;
+  patientDateOfBirth: string | null;
 }) {
   const { data: notes, isLoading } = usePatientEncounterNotes(patientId);
 
@@ -465,7 +496,14 @@ export function ClinicalEncounterNotesSection({
       )}
       {notes?.map((note) =>
         note.status === "draft" && canWrite ? (
-          <DraftNoteCard key={note.id} note={note} patientId={patientId} organisationId={organisationId} />
+          <DraftNoteCard
+            key={note.id}
+            note={note}
+            patientId={patientId}
+            organisationId={organisationId}
+            patientName={patientName}
+            patientDateOfBirth={patientDateOfBirth}
+          />
         ) : (
           <FinalizedNoteCard
             key={note.id}

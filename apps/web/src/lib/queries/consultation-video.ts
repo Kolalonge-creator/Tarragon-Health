@@ -174,10 +174,10 @@ export function usePublishConsultationSummary() {
       const { data, error } = await supabase.rpc("publish_consultation_summary", {
         p_clinical_encounter_note_id: input.clinicalEncounterNoteId,
         p_what_we_discussed: input.whatWeDiscussed,
-        p_what_you_need_to_do: input.whatYouNeedToDo || null,
-        p_medicines_note: input.medicinesNote || null,
-        p_tests_note: input.testsNote || null,
-        p_next_appointment_note: input.nextAppointmentNote || null,
+        p_what_you_need_to_do: input.whatYouNeedToDo || undefined,
+        p_medicines_note: input.medicinesNote || undefined,
+        p_tests_note: input.testsNote || undefined,
+        p_next_appointment_note: input.nextAppointmentNote || undefined,
       });
       if (error) throw error;
       return data as ConsultationPatientSummary;

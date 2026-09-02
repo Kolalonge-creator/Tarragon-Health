@@ -384,6 +384,8 @@ export function ConsultationScreen({
             defaultEncounterType="video_consult"
             videoConsultationId={consultationId}
             hideHeader
+            patientName={patientName}
+            patientDateOfBirth={null}
           />
         </CardContent>
       </Card>
