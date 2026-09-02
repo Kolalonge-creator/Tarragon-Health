@@ -89,9 +89,9 @@ export function CareAccessLog({ events }: { events: CareAccessLogRow[] }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>What's happened with your access</CardTitle>
+        <CardTitle>What&rsquo;s happened with your access</CardTitle>
         <CardDescription>
-          Every time someone's access to a record changed, on your record or on one you help
+          Every time someone&rsquo;s access to a record changed, on your record or on one you help
           look after.
         </CardDescription>
       </CardHeader>
