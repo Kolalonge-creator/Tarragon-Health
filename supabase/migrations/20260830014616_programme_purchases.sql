@@ -230,6 +230,12 @@ create policy programme_purchases_update on public.programme_purchases
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert, update on public.programme_purchases to authenticated;
+-- A from-scratch environment's base Supabase template grants table DML to
+-- anon by default at CREATE TABLE time too (see
+-- 20260829095837_mdm_data_retention_policies.sql's identical note for
+-- CREATE FUNCTION/EXECUTE) -- revoke explicitly rather than relying on "no
+-- grant statement" to mean "no access".
+revoke all on public.programme_purchases from anon;
 
 -- ---------------------------------------------------------------------------
 -- Assert.

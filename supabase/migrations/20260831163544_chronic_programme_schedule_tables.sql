@@ -92,6 +92,10 @@ create policy chronic_programme_schedule_occurrences_update on public.chronic_pr
 
 grant select, insert, update, delete on public.chronic_programme_schedule_templates to authenticated;
 grant select, update on public.chronic_programme_schedule_occurrences to authenticated;
+-- A from-scratch environment's base Supabase template grants table DML to
+-- anon by default at CREATE TABLE time too -- revoke explicitly on both.
+revoke all on public.chronic_programme_schedule_templates from anon;
+revoke all on public.chronic_programme_schedule_occurrences from anon;
 
 -- Materialises ALL 12 weeks' occurrences in one pass on the transition INTO
 -- 'enrolled' — the programme is fixed-length and fully known up front

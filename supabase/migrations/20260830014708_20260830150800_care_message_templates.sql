@@ -45,6 +45,9 @@ create policy care_message_templates_update on public.care_message_templates
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert, update on public.care_message_templates to authenticated;
+-- A from-scratch environment's base Supabase template grants table DML to
+-- anon by default at CREATE TABLE time too -- revoke explicitly.
+revoke all on public.care_message_templates from anon;
 
 create or replace function private.enforce_care_message_template_author()
 returns trigger
