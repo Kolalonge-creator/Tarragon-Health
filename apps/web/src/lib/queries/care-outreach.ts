@@ -8,6 +8,7 @@ export type OutreachTriggerType = Enums<"outreach_trigger_type">;
 
 export type OutreachTaskWithPatient = OutreachTask & {
   patient: { full_name: string | null; patient_number: string | null; phone: string | null } | null;
+  assigned_owner: { full_name: string | null } | null;
 };
 
 export type OutreachContact = Tables<"care_outreach_contacts">;
@@ -18,7 +19,7 @@ export type OutreachContactWithPatient = OutreachContact & {
 };
 
 const TASK_SELECT =
-  "*, patient:profiles!care_outreach_tasks_patient_id_fkey(full_name, patient_number, phone)";
+  "*, patient:profiles!care_outreach_tasks_patient_id_fkey(full_name, patient_number, phone), assigned_owner:profiles!care_outreach_tasks_assigned_to_fkey(full_name)";
 
 const CONTACT_SELECT =
   "*, patient:profiles!care_outreach_contacts_patient_id_fkey(full_name, patient_number, phone)";

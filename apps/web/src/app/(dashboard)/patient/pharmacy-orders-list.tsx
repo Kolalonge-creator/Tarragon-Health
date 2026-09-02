@@ -179,7 +179,11 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                 <p className="text-xs text-charcoal-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
                 {order.status === "pending_payment" && (
                   <>
-                    <PayForPharmacyOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                    <PayForPharmacyOrderButton
+                      orderId={order.id}
+                      amountKobo={order.payable_kobo ?? order.total_kobo}
+                      totalKobo={order.total_kobo}
+                    />
                     <RedeemVoucherButton
                       orderType="pharmacy"
                       orderId={order.id}

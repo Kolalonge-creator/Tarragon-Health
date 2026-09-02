@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { BP_LEVEL_COLORS, BP_LEVEL_LABEL } from "@/lib/bp-classification";
 import {
+  classifyVitalOffline,
   computeSevenDayAverage,
   loadRecentBpReadings,
   logBpReading,
@@ -9,6 +10,8 @@ import {
   type BpReading,
 } from "@/lib/vitals";
 import type { VitalReadingPayload } from "@/lib/api";
+import { getPendingCount } from "@/lib/offline-vitals-queue";
+import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
 import { colors, radius, spacing } from "@/ui/theme";
 import {
   CalloutCard,
@@ -22,6 +25,27 @@ import {
   SectionLabel,
 } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
+import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+
+interface GuidanceState {
+  detail: string;
+  synced: boolean;
+}
+
+function UrgentBanner({ detail }: { detail: string }) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#FEF3C7",
+        borderRadius: radius.control,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+      }}
+    >
+      <Text style={{ fontSize: 12.5, color: "#B45309", lineHeight: 18 }}>{detail}</Text>
+    </View>
+  );
+}
 
 interface VitalsScreenProps {
   patientId: string;
@@ -71,14 +95,24 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [symptomOpen, setSymptomOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [guidance, setGuidance] = useState<GuidanceState | null>(null);
+  const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
+  const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
 
   const load = useCallback(async () => {
     setReadings(await loadRecentBpReadings(patientId));
   }, [patientId]);
 
+  const refreshPending = useCallback(async () => {
+    setPendingCount(await getPendingCount());
+  }, []);
+
   useEffect(() => {
     load().finally(() => setLoading(false));
-  }, [load]);
+    refreshPending();
+    loadCachedEmergencyFacts().then((facts) => setEmergencyContact(facts?.emergencyContact ?? null));
+  }, [load, refreshPending]);
 
   async function handleSave() {
     const systolic = parseInt(sys, 10);
@@ -89,12 +123,22 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     }
     setSaving(true);
     setError(null);
+    setUrgentBanner(null);
+
+    const payload: VitalReadingPayload = { vital_type: "blood_pressure", systolic, diastolic };
+    const flag = await classifyVitalOffline(payload);
+    if (flag?.severity === "emergency") setGuidance({ detail: flag.detail, synced: false });
+    if (flag?.severity === "urgent") setUrgentBanner(flag.detail);
+
     const result = await logBpReading(systolic, diastolic, beneficiaryProfileId);
     setSaving(false);
+    await refreshPending();
     if (result.error) {
       setError(result.error);
+      setGuidance(null);
       return;
     }
+    if (flag?.severity === "emergency") setGuidance({ detail: flag.detail, synced: !!result.synced });
     setSys("");
     setDia("");
     await load();
@@ -108,6 +152,25 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Vitals &amp; symptoms</Text>
         <MutedText>Log readings and see how they trend over time.</MutedText>
       </View>
+
+      {pendingCount > 0 ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            backgroundColor: colors.groupBg,
+            borderRadius: radius.control,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+          }}
+        >
+          <ActivityIndicator size="small" color={colors.muted} />
+          <Text style={{ fontSize: 12.5, color: colors.muted }}>
+            {pendingCount} reading{pendingCount === 1 ? "" : "s"} saved on this device, waiting to sync.
+          </Text>
+        </View>
+      ) : null}
 
       <Card style={{ gap: 10 }}>
         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Log a blood pressure reading</Text>
@@ -130,6 +193,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           />
         </View>
         {error ? <ErrorText>{error}</ErrorText> : null}
+        {urgentBanner ? <UrgentBanner detail={urgentBanner} /> : null}
         <PrimaryButton title="Save reading" onPress={handleSave} loading={saving} />
       </Card>
 
@@ -172,7 +236,13 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         )}
       </View>
 
-      <OtherVitalCard beneficiaryProfileId={beneficiaryProfileId} />
+      <OtherVitalCard
+        beneficiaryProfileId={beneficiaryProfileId}
+        onLogged={async () => {
+          await refreshPending();
+        }}
+        onEmergency={(detail, synced) => setGuidance({ detail, synced })}
+      />
 
       <CalloutCard
         icon="clipboard-outline"
@@ -190,6 +260,14 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           <WebViewScreen path="/patient/vitals" />
         </View>
       </Modal>
+
+      <EmergencyGuidanceModal
+        visible={guidance !== null}
+        detail={guidance?.detail ?? ""}
+        synced={guidance?.synced ?? false}
+        emergencyContact={emergencyContact}
+        onDismiss={() => setGuidance(null)}
+      />
     </ScrollView>
   );
 }
@@ -197,7 +275,15 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 /** Glucose, weight, temperature, SpO2, pulse — the rest of MOBILE_APP_SPEC.md
  * §2.2's native quick-log list, alongside the always-visible BP card above
  * (BP stays its own card since it's the highest-frequency write). */
-function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: string }) {
+function OtherVitalCard({
+  beneficiaryProfileId,
+  onLogged,
+  onEmergency,
+}: {
+  beneficiaryProfileId?: string;
+  onLogged: () => void;
+  onEmergency: (detail: string, synced: boolean) => void;
+}) {
   const [type, setType] = useState<OtherVitalType>("glucose");
   const [value, setValue] = useState("");
   const [glucoseUnit, setGlucoseUnit] = useState<"mmol_l" | "mg_dl">("mmol_l");
@@ -205,6 +291,7 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
+  const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
 
   const selected = OTHER_VITAL_TYPES.find((t) => t.id === type)!;
 
@@ -213,6 +300,7 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
     setValue("");
     setError(null);
     setSavedLabel(null);
+    setUrgentBanner(null);
   }
 
   async function handleSave() {
@@ -224,6 +312,7 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
     setSaving(true);
     setError(null);
     setSavedLabel(null);
+    setUrgentBanner(null);
 
     let payload: Exclude<VitalReadingPayload, { vital_type: "blood_pressure" }>;
     switch (type) {
@@ -244,12 +333,21 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
         break;
     }
 
+    // Only glucose has an offline red-flag path today (see
+    // classifyVitalOffline) — weight/temperature/spo2/pulse still get the
+    // offline write queue below, just no on-device guidance/banner.
+    const flag = type === "glucose" ? await classifyVitalOffline(payload) : null;
+    if (flag?.severity === "emergency") onEmergency(flag.detail, false);
+    if (flag?.severity === "urgent") setUrgentBanner(flag.detail);
+
     const result = await logOtherVital(payload, beneficiaryProfileId);
     setSaving(false);
+    onLogged();
     if (result.error) {
       setError(result.error);
       return;
     }
+    if (flag?.severity === "emergency") onEmergency(flag.detail, !!result.synced);
     setSavedLabel(`Saved: ${value} ${selected.unit}`);
     setValue("");
   }
@@ -335,6 +433,7 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
 
       {error ? <ErrorText>{error}</ErrorText> : null}
       {savedLabel ? <MutedText>{savedLabel}</MutedText> : null}
+      {urgentBanner ? <UrgentBanner detail={urgentBanner} /> : null}
       <PrimaryButton title="Save reading" onPress={handleSave} loading={saving} />
     </Card>
   );

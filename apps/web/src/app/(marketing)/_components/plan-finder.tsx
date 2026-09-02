@@ -52,7 +52,7 @@ function monthlyPrice(tier: PricingTier): string {
  */
 export function recommendPlan(who: Who, health: Health, from: From): Recommendation {
   const forSomeoneElse =
-    "They hold their own Tarragon account and their own subscription. Name each other as next of kin and you can follow their care and fund their plan; their lab tests are still paid straight to the laboratory.";
+    "They hold their own Tarragon account and their own plan. Name each other as next of kin and you can follow their care and fund their plan; their lab tests are still paid straight to the laboratory.";
 
   const rec: Recommendation =
     health === "none"

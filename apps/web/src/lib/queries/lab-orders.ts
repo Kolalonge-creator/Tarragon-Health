@@ -34,6 +34,36 @@ export function findSingleTestBundle(bundles: PanelBundle[], screenTypeCode: str
   );
 }
 
+/**
+ * screen_types.price_kobo, keyed by code — the authoritative signal for
+ * whether a specific test is covered by the active contracted partner
+ * (Synlab). The 2026-08-21 pricing migration nulls this out for any test
+ * without a real contract price, so "every code in a bundle has a price
+ * here" is a reliable enough client-side check for whether that bundle can
+ * be billed through the partner path, without duplicating
+ * private.compute_partner_cost's logic.
+ */
+export function useScreenTypePrices() {
+  return useQuery({
+    queryKey: ["screen-type-prices"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("screen_types").select("code, price_kobo");
+      if (error) throw error;
+      return new Map((data ?? []).map((row) => [row.code, row.price_kobo]));
+    },
+  });
+}
+
+/** True only when every test in the bundle has a contracted partner price on file. */
+export function bundleIsPartnerBillable(
+  bundle: Pick<PanelBundle, "test_codes">,
+  prices: Map<string, number | null> | undefined
+): boolean {
+  if (!prices || bundle.test_codes.length === 0) return false;
+  return bundle.test_codes.every((code) => !!prices.get(code));
+}
+
 /** Active lab_providers — the schema has no bundle->provider relationship, so this is every active provider, not a filtered "who offers this bundle" list. */
 export function useLabProviders() {
   return useQuery({
@@ -239,6 +269,56 @@ export function useOrderLabTest() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
+    },
+  });
+}
+
+/**
+ * Patient opts in to having Tarragon arrange and bill this bundle through
+ * the active contracted partner lab (Synlab), instead of the default
+ * self-arranged path — never a required step, same "opt-in upgrade"
+ * precedent as useRequestLabOrderPartnerVisit below, but this one actually
+ * bills: fulfilment='partner' + status='pending_payment' on insert satisfies
+ * private.enforce_lab_order_origin (which only special-cases
+ * fulfilment='self_arranged') and fires private.set_lab_order_computed_price
+ * (BEFORE INSERT only), which authoritatively computes total_kobo,
+ * partner_cost_kobo and resolves the provider — the client never sends a
+ * price. Only offered for a bundle bundleIsPartnerBillable() said yes to;
+ * the trigger re-validates regardless.
+ */
+export function useCreatePartnerLabOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      organisationId,
+      patientId,
+      panelBundleId,
+      screeningScheduleId,
+    }: {
+      organisationId: string;
+      patientId: string;
+      panelBundleId: string;
+      screeningScheduleId?: string;
+    }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_orders")
+        .insert({
+          organisation_id: organisationId,
+          patient_id: patientId,
+          panel_bundle_id: panelBundleId,
+          fulfilment: "partner",
+          status: "pending_payment",
+          screening_schedule_id: screeningScheduleId ?? null,
+        })
+        .select("id, total_kobo")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
+      queryClient.invalidateQueries({ queryKey: ["screening-schedules", variables.patientId] });
     },
   });
 }
