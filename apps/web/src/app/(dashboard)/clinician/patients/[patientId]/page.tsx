@@ -21,6 +21,7 @@ import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
+import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
@@ -235,10 +236,16 @@ export default async function ClinicianPatientPage({
                 <MedicationSafetyPanel patientId={patient.id} />
                 <MedicationEffectivenessCard patientId={patient.id} />
                 <MedicationReconciliationPanel patientId={patient.id} />
+                {/* Spec §62.12 — every repeat request needs a clinician's
+                    decision; canReview mirrors canConfirmRefill (any active
+                    clinical tier, never a Care Coordinator) since approving a
+                    routine repeat is that same class of act. */}
+                <MedicationRepeatRequestsPanel patientId={patient.id} canReview={canConfirmRefill} />
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled
                   canConfirmRefill={canConfirmRefill}
+                  canAmend={canPrescribe}
                   isClinicianView
                 />
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/

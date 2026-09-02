@@ -45,6 +45,7 @@ create policy care_message_templates_update on public.care_message_templates
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert, update on public.care_message_templates to authenticated;
+revoke all on public.care_message_templates from anon;
 
 create or replace function private.enforce_care_message_template_author()
 returns trigger

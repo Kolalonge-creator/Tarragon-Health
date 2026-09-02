@@ -41,6 +41,7 @@ create policy care_message_attachments_insert on public.care_message_attachments
   );
 
 grant select, insert on public.care_message_attachments to authenticated;
+revoke all on public.care_message_attachments from anon;
 
 create or replace function private.enforce_care_message_attachment_scope()
 returns trigger

@@ -230,6 +230,7 @@ create policy programme_purchases_update on public.programme_purchases
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert, update on public.programme_purchases to authenticated;
+revoke all on public.programme_purchases from anon;
 
 -- ---------------------------------------------------------------------------
 -- Assert.
