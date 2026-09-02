@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables, Enums } from "@tarragon/shared";
 
@@ -36,10 +36,18 @@ const TIMELINE_SELECT =
  * same query is safe everywhere. No UI currently renders this for a grantee
  * viewing someone else's timeline — the capability exists at the data layer
  * ahead of any consuming surface.
+ *
+ * `offset` defaults to 0, preserving every existing 2-arg call site exactly
+ * (Overview's `limit={6}` preview, the clinician views' own PatientTimeline
+ * usages). It exists for the full-history page (/patient/timeline), whose
+ * client wrapper instead grows `limit` on each "Load more" click rather than
+ * paging via `offset` — see timeline-client.tsx — but `.range()` is still the
+ * right offset-pagination primitive to expose here for any future caller
+ * that does want true offset paging.
  */
-export function usePatientTimeline(patientId: string, limit = 50) {
+export function usePatientTimeline(patientId: string, limit = 50, offset = 0) {
   return useQuery({
-    queryKey: ["patient-timeline", patientId, limit],
+    queryKey: ["patient-timeline", patientId, limit, offset],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
@@ -47,12 +55,18 @@ export function usePatientTimeline(patientId: string, limit = 50) {
         .select(TIMELINE_SELECT)
         .eq("patient_id", patientId)
         .order("occurred_at", { ascending: false })
-        .limit(limit);
+        .range(offset, offset + limit - 1);
       if (error) throw error;
       // The embedded actor alias defeats the generated row typing; the runtime
       // shape matches TimelineEvent.
       return data as unknown as TimelineEvent[];
     },
     enabled: !!patientId,
+    // A growing `limit` (the full-history page's pagination strategy) changes
+    // the queryKey on every "Load more" click, which would otherwise drop
+    // back to a loading state and blank the already-rendered list for a
+    // moment. Keeping the previous page's data on screen while the larger
+    // page loads makes that feel like an append, not a reset.
+    placeholderData: keepPreviousData,
   });
 }

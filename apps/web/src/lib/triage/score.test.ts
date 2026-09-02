@@ -18,12 +18,12 @@ function input(overrides: Partial<TriageInput> = {}): TriageInput {
 }
 
 describe("scoreCase — severity banding", () => {
-  it("orders the four levels strictly by severity when nothing else differs", () => {
-    const scores = (["emergency", "urgent_escalation", "clinician_review", "routine"] as const).map(
-      (level) => scoreCase(input({ level }), NOW).score
-    );
+  it("orders the five levels strictly by severity when nothing else differs", () => {
+    const scores = (
+      ["emergency", "specialist_review", "urgent_escalation", "clinician_review", "routine"] as const
+    ).map((level) => scoreCase(input({ level }), NOW).score);
     expect(scores).toEqual([...scores].sort((a, b) => b - a));
-    expect(new Set(scores).size).toBe(4);
+    expect(new Set(scores).size).toBe(5);
   });
 
   it("ranks by a clinician's override, not the system's own classification", () => {
@@ -45,9 +45,9 @@ describe("scoreCase — severity banding", () => {
  */
 describe("scoreCase — severity is never outweighed by modifiers", () => {
   it("keeps the modifier budget below the narrowest gap between two bands", () => {
-    const bands = (["emergency", "urgent_escalation", "clinician_review", "routine"] as const).map(
-      (level) => scoreCase(input({ level }), NOW).score
-    );
+    const bands = (
+      ["emergency", "specialist_review", "urgent_escalation", "clinician_review", "routine"] as const
+    ).map((level) => scoreCase(input({ level }), NOW).score);
     const gaps = bands.slice(1).map((score, i) => bands[i] - score);
     expect(Math.min(...gaps)).toBeGreaterThan(MAX_MODIFIER_POINTS);
   });

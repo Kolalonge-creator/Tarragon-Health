@@ -1,26 +1,48 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
-import type { ActiveTriageProtocol, TriageProtocolConfig } from "./types";
+import "server-only";
+import { createClient } from "@/lib/supabase/server";
+import {
+  parseTriageProtocolConfig,
+  type PresentingComplaintProtocol,
+  type TriageProtocolConfig,
+} from "@tarragon/symptom-triage-engine";
 
 /**
- * The active, signed protocol -- or null. triage_protocols has exactly one
- * draft/unsigned row as of this writing (is_active: false, approved_by:
- * null); RLS lets anyone read triage_protocols, but nothing here or in the
- * caller ever treats an unsigned row as active. A patient asking to use the
- * symptom checker before one is signed sees a plain "not yet available"
- * message (checkSymptomTriagePathwaysAction), same as case-briefs when no
- * signed protocol is in force for a condition.
+ * Fetches the ACTIVE, Clinical-Director-signed triage protocol config
+ * (private.active_triage_protocol_config(), exposed here via a plain
+ * select since RLS already lets any authenticated caller read
+ * triage_protocols — the private fn is for trigger-internal SQL use, this
+ * is the app-layer equivalent). Returns null when nothing is signed yet —
+ * the caller must treat that as "the symptom checker is not available"
+ * (fail closed on an unreviewed clinical ruleset, see the
+ * triage_protocols migration).
  */
-export async function getActiveProtocol(
-  supabase: SupabaseClient<Database>
-): Promise<ActiveTriageProtocol | null> {
+export async function getActiveTriageProtocolConfig(): Promise<{
+  config: TriageProtocolConfig;
+  protocolVersion: number;
+} | null> {
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("triage_protocols")
-    .select("id, version, config")
+    .select("config, version")
     .eq("is_active", true)
-    .order("version", { ascending: false })
-    .limit(1)
     .maybeSingle();
+
   if (error || !data) return null;
-  return { id: data.id, version: data.version, config: data.config as unknown as TriageProtocolConfig };
+
+  const config = parseTriageProtocolConfig(data.config);
+  if (!config) return null;
+
+  return { config, protocolVersion: data.version };
+}
+
+export async function getActivePathway(
+  presentingComplaintKey: string
+): Promise<{ pathway: PresentingComplaintProtocol; protocolVersion: number } | null> {
+  const active = await getActiveTriageProtocolConfig();
+  if (!active) return null;
+
+  const pathway = active.config.pathways.find((p) => p.key === presentingComplaintKey);
+  if (!pathway) return null;
+
+  return { pathway, protocolVersion: active.protocolVersion };
 }

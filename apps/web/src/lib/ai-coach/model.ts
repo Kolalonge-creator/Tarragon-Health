@@ -1,10 +1,11 @@
 import { ChatAnthropic } from "@langchain/anthropic";
 
-/** The model id every buildAnthropicModel() call actually resolves to --
- * exported so a caller can stamp it onto a persisted record (e.g. a
- * CoachChatMessage's `model` field) without duplicating the env-override
- * expression, and so it stays in sync if that expression ever changes. */
-export const AI_COACH_MODEL_ID = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
+/** Single source of truth for which model id a coach turn actually ran on —
+ * used both to build the client below and to record `model_id` on the
+ * ai_assistant_turns audit row (audit.ts), so the two can never drift. */
+export function getConfiguredModelId(): string {
+  return process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
+}
 
 /** Shared Claude client builder for every LangGraph-based coaching surface
  * in this codebase (the general AI Coach in graph.ts, and the lifestyle
@@ -14,7 +15,7 @@ export const AI_COACH_MODEL_ID = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5
 export function buildAnthropicModel(opts: { maxTokens?: number } = {}): ChatAnthropic {
   return new ChatAnthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
-    model: AI_COACH_MODEL_ID,
+    model: getConfiguredModelId(),
     maxTokens: opts.maxTokens ?? 500,
     // @langchain/anthropic@0.3.x unconditionally sends temperature/top_p/
     // top_k on every request (defaulting top_p/top_k to a -1 "unset"

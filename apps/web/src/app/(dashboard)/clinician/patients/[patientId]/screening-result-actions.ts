@@ -6,10 +6,11 @@ import { screeningResultSchema } from "@/lib/validation/screening-result";
 import { computeNonHdl } from "@/lib/lipids/analytes";
 import { flagCvRiskEscalations } from "@/lib/cv-risk/escalate";
 import {
-  createMlClientFromEnv,
   type AnalyteReadingIn,
   type Json,
+  type MlClient,
 } from "@tarragon/shared";
+import { createGovernedMlClient } from "@/lib/ml/governed-ml-client";
 
 export type SubmitScreeningResultState = { error?: string; success?: boolean } | undefined;
 
@@ -90,7 +91,10 @@ export async function submitScreeningResult(
     }
   }
 
-  const mlClient = createMlClientFromEnv();
+  const mlClient = createGovernedMlClient(supabase, {
+    subjectProfileId: patientId,
+    inputCategory: "screening_result_interpretation",
+  });
   if (!mlClient) {
     return { error: "ML service is not configured, cannot interpret this result" };
   }
@@ -226,6 +230,22 @@ export async function setScreeningResultFollowUpAction(
     return { error: "Keep the follow-up action under 500 characters" };
   }
 
+  // Optional: this result needs an earlier repeat than the screen type's
+  // routine cadence (spec's screening "recall" — a borderline/inconclusive
+  // finding, not an abnormal/critical one, which already escalates to a
+  // doctor via the existing abnormal-result trigger instead). Setting this
+  // fires private.apply_screening_result_recall, which tightens or creates
+  // the patient's next schedule row for this screen type.
+  const recallMonthsRaw = String(formData.get("recall_months") ?? "").trim();
+  let recallMonths: number | null = null;
+  if (recallMonthsRaw) {
+    const parsed = Number(recallMonthsRaw);
+    if (!Number.isInteger(parsed) || parsed < 1 || parsed > 60) {
+      return { error: "Recall interval must be a whole number of months, 1-60" };
+    }
+    recallMonths = parsed;
+  }
+
   const supabase = await createClient();
   const {
     data: { user },
@@ -244,7 +264,10 @@ export async function setScreeningResultFollowUpAction(
 
   const { error } = await supabase
     .from("screening_results")
-    .update({ follow_up_action: followUpAction })
+    .update({
+      follow_up_action: followUpAction,
+      ...(recallMonths !== null ? { recall_months: recallMonths } : {}),
+    })
     .eq("id", resultId);
   if (error) return { error: error.message };
 
@@ -252,7 +275,7 @@ export async function setScreeningResultFollowUpAction(
 }
 
 async function maybeComputeCvdRisk(
-  mlClient: NonNullable<ReturnType<typeof createMlClientFromEnv>>,
+  mlClient: MlClient,
   params: {
     organisationId: string;
     patientId: string;
@@ -317,7 +340,7 @@ async function maybeComputeCvdRisk(
 }
 
 async function maybeComputeHba1cTrajectory(
-  mlClient: NonNullable<ReturnType<typeof createMlClientFromEnv>>,
+  mlClient: MlClient,
   params: { organisationId: string; patientId: string; hasHba1cResult: boolean }
 ): Promise<void> {
   if (!params.hasHba1cResult) return;

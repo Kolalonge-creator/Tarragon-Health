@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { attestRedFlags } from "./attestation-actions";
 import { Button } from "@/components/ui/button";
 
 export function AttestButton({ alreadyCurrent }: { alreadyCurrent: boolean }) {
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
+  const router = useRouter();
 
   return (
     <div className="space-y-1">
@@ -19,6 +21,7 @@ export function AttestButton({ alreadyCurrent }: { alreadyCurrent: boolean }) {
           startTransition(async () => {
             const res = await attestRedFlags();
             setMsg(res?.error ?? (res?.success ? "Attestation recorded." : null));
+            if (res?.success) router.refresh();
           })
         }
       >

@@ -8,11 +8,11 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { ActivityClient } from "./activity-client";
 
 /**
- * Steps/activity tracking (Omada-style "Today" screen) — manual entry only.
- * Real wearable step counts have no live provider configured yet (see
- * CLAUDE.md "Device & Wearable Integration"); when one lands, it should
- * write into activity_log_entries (entry_type='steps') rather than a
- * separate store, same "no dual source of truth" rule as vitals_readings.
+ * Steps/activity tracking (Omada-style "Today" screen). A connected wearable
+ * (Connect card on the Vitals page) syncs its step counts straight into
+ * activity_log_entries (entry_type='steps', source='wearable') via
+ * lib/wearables/ingest.ts's recordStepDays — same table and meter a manual
+ * "log my steps" entry writes to, per the "no dual source of truth" rule.
  */
 export default async function ActivityPage() {
   const profile = await getCurrentProfile();
@@ -27,8 +27,11 @@ export default async function ActivityPage() {
         </Link>
       </div>
       <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Log your steps and workouts. There&apos;s no automatic step counter yet, wearable sync is
-        coming, but for now this tracks whatever you log yourself.
+        Log your steps and workouts, or connect a wearable on your{" "}
+        <Link href="/patient/vitals" className="text-brand-green underline hover:no-underline">
+          Vitals page
+        </Link>{" "}
+        to have them sync automatically.
       </p>
       <RequiresEntitlement
         feature="lifestyle_coaching"

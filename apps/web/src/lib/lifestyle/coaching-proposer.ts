@@ -11,6 +11,7 @@ import {
   type ProgrammeSignals,
 } from "@tarragon/lifestyle-engine";
 import { buildAnthropicModel } from "@/lib/ai-coach/model";
+import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
 import type { Embedder } from "./embed-content";
 import { findRelevantLifestyleContent, type RelevantContentBlock } from "./find-relevant-content";
 
@@ -61,6 +62,29 @@ Rules:
  * selection in @tarragon/lifestyle-engine is unchanged. The LLM's only job
  * is writing the nudge text; applyGuardrails still runs on the result via
  * runCoachingLoop, same as any other proposer. */
+/** The model call itself, shared by the governed and un-attributable paths.
+ * Never throws: on any failure the bare deterministic action is returned, and
+ * coaching-run.ts renders the generic template. */
+async function proposeWithModel(
+  base: CoachingAction,
+  context: LifestyleProposerContext,
+  referenceMaterial: RelevantContentBlock[],
+  model: ChatAnthropic | undefined,
+  governedPrompt: string | null
+): Promise<CoachingAction> {
+  try {
+    const chat = model ?? buildAnthropicModel({ maxTokens: 200 });
+    const structured = chat.withStructuredOutput(messageSchema);
+    const result = await structured.invoke([
+      new SystemMessage(governedPrompt ?? PROPOSER_SYSTEM_PROMPT),
+      new HumanMessage(JSON.stringify({ context, referenceMaterial })),
+    ]);
+    return { ...base, message: result.message };
+  } catch {
+    return base;
+  }
+}
+
 export function createLifestyleCoachingProposer(
   context: LifestyleProposerContext,
   opts: {
@@ -71,6 +95,10 @@ export function createLifestyleCoachingProposer(
     /** `undefined`/`null` skips retrieval gracefully — same no-op contract
      * as the rest of the embedding pipeline. */
     embedder?: Embedder | null;
+    /** The patient this nudge is for. Required for the AI-002 audit trail
+     * (40.11); without it the interaction cannot be attributed and the
+     * governance check is skipped rather than logged against nobody. */
+    patientId?: string;
   } = {},
 ): CoachingProposer {
   return {
@@ -86,22 +114,48 @@ export function createLifestyleCoachingProposer(
         referenceMaterial = await findRelevantLifestyleContent(opts.supabase, opts.embedder, queryText, {
           matchCount: 1,
           conditionFilter: context.condition,
+          subjectProfileId: opts.patientId,
         });
       }
 
-      try {
-        const model = opts.model ?? buildAnthropicModel({ maxTokens: 200 });
-        const structured = model.withStructuredOutput(messageSchema);
-        const result = await structured.invoke([
-          new SystemMessage(PROPOSER_SYSTEM_PROMPT),
-          new HumanMessage(JSON.stringify({ context, referenceMaterial })),
-        ]);
-        return { ...base, message: result.message };
-      } catch {
-        // Never throws — falls back to the bare deterministic action (no
-        // `message`), which coaching-run.ts renders as the generic template.
-        return base;
+      // AI-002. The fallback here is the deterministic action with no
+      // `message`, which coaching-run.ts renders as the generic template --
+      // i.e. the patient still gets a nudge, just not a personalised one.
+      // That is the fallback_behaviour recorded for this system, and it is
+      // the same path the pre-governance catch block already took.
+      const supabase = opts.supabase;
+      if (!supabase || !opts.patientId) {
+        // No client or no subject means nothing to attribute an audit row to.
+        // Kept working rather than blocked: AI-002 is moderate-risk and
+        // fails open (see system-codes.ts), and this branch only occurs for
+        // a caller that has not been given a service-role client at all.
+        return await proposeWithModel(base, context, referenceMaterial, opts.model, null);
       }
+
+      const governed = await runGovernedAi<CoachingAction>({
+        supabase,
+        systemCode: AI_SYSTEMS.lifestyleNudgeProposer.code,
+        inputCategory: "lifestyle_nudge_draft",
+        subjectProfileId: opts.patientId,
+        run: async ({ config }) => {
+          const action = await proposeWithModel(
+            base,
+            context,
+            referenceMaterial,
+            opts.model,
+            governedSystemPrompt(config)
+          );
+          return {
+            value: action,
+            modelIdentifier: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
+            outputSummary: action.kind === "send_nudge" ? (action.message ?? null) : null,
+            resultingAction: "nudge_message_drafted",
+          };
+        },
+        fallback: () => base,
+      });
+
+      return governed.value;
     },
   };
 }
