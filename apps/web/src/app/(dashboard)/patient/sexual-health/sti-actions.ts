@@ -67,6 +67,19 @@ export async function submitStiRiskCheck(
   // A reported symptom or a high risk level gets a real person to look at
   // it — never just left as a self-serve recommendation screen.
   if (symptomFlag || riskLevel === "high") {
+    // category/type_code set explicitly rather than left for
+    // private.classify_and_assign_clinician_alert's BEFORE INSERT fallback
+    // to fill in — both columns are NOT NULL now (they weren't when this was
+    // first written), so the fallback is no longer reachable from a client
+    // insert that omits them. The symptom case has an obvious, honest
+    // type_code; the plain high-risk-no-symptoms case is given the exact
+    // values the trigger's own fallback would otherwise have derived for it
+    // (no screening_result_id/diagnostic_report_id/vital_reading_id and no
+    // matching title pattern -> type_code 'abnormal_result', which isn't in
+    // the trigger's category map -> category 'clinical') — same behaviour,
+    // just made explicit, matching the pattern this codebase now uses
+    // everywhere else a clinician_alerts row is opened from app code (see
+    // ai-coach/referral-request.ts).
     const alertRow: TablesInsert<"clinician_alerts"> = {
       organisation_id: profile.organisation_id,
       patient_id: user.id,
@@ -75,15 +88,9 @@ export async function submitStiRiskCheck(
       detail: symptomFlag
         ? `Patient reported a symptom on their sexual health risk check (risk level: ${riskLevel}). Recommended screens: ${recommendedScreenCodes.join(", ")}.`
         : `Patient's sexual health risk check came back high risk with no reported symptoms. Recommended screens: ${recommendedScreenCodes.join(", ")}.`,
+      category: "clinical",
+      type_code: symptomFlag ? "symptom_escalation" : "abnormal_result",
     };
-    // Only the symptom case has an obvious, honest type_code — a plain
-    // high-risk-no-symptoms check is left for
-    // private.classify_and_assign_clinician_alert's own default rather than
-    // guessing one.
-    if (symptomFlag) {
-      alertRow.category = "clinical";
-      alertRow.type_code = "symptom_escalation";
-    }
     await service.from("clinician_alerts").insert(alertRow);
   }
 
