@@ -35347,7 +35347,7 @@ export type Database = {
       public_price_list: {
         Args: never
         Returns: {
-          billing_interval: Database["public"]["Enums"]["billing_interval"]
+          access_duration_days: number
           code: string
           currency: Database["public"]["Enums"]["currency"]
           price_minor: number
