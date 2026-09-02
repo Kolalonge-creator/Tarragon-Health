@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/ai-coach-embed-content",
+      "schedule": "20 8 * * *"
+    },
+    {
       "path": "/api/cron/data-quality-scan",
       "schedule": "0 2 * * *"
     },

@@ -11,7 +11,7 @@ import {
 } from "@/lib/queries/employer-accounts";
 import {
   useBenefitPackages,
-  useSubscriptionPlanCatalog,
+  useServiceProductCatalog,
   useCreateBenefitPackage,
   useBenefitAllowances,
   useSetBenefitAllowance,
@@ -167,7 +167,7 @@ function AllowancesEditor({ packageId }: { packageId: string }) {
 
 function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
   const packages = useBenefitPackages(organisationId);
-  const plans = useSubscriptionPlanCatalog();
+  const plans = useServiceProductCatalog();
   const createPackage = useCreateBenefitPackage(organisationId);
   const [name, setName] = useState("");
   const [planId, setPlanId] = useState("");
