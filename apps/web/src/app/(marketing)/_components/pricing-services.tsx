@@ -40,6 +40,22 @@ export function PricingServices({
         <p className="mt-3 max-w-3xl text-sm leading-relaxed text-charcoal-ink/75">
           {programme.description}
         </p>
+        {programme.breakdown ? (
+          <ul className="mt-4 space-y-1.5 border-t border-charcoal-ink/10 pt-4">
+            {programme.breakdown.map((line) => (
+              <li key={line} className="flex items-start gap-2 text-sm text-charcoal-ink/80">
+                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-green" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {programme.optionalNote ? (
+          <div className="mt-4 flex items-start gap-3 rounded-xl bg-clinical-navy/[0.04] p-3">
+            <PricingLabelBadge label="YOU PAY THE LAB" />
+            <p className="text-xs leading-relaxed text-charcoal-ink/70">{programme.optionalNote}</p>
+          </div>
+        ) : null}
         <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/60">
           {programme.availability}
         </p>

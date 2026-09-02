@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   demographicsSchema,
@@ -255,68 +254,4 @@ export async function submitIdentityVerification(
   // Provider unavailable (unconfigured) or unreachable (transient error):
   // leave the request pending for a retry / ops resolution.
   return { status: result.reason === "unavailable" ? "unavailable" : "pending" };
-}
-
-export type StartCheckoutState = { error?: string } | undefined;
-
-/**
- * A free service_product activates immediately — no charge to run, see
- * record_service_purchase_intent's price_kobo<=0 branch — then finishes
- * onboarding the same way the old "Continue to my dashboard" button did. A
- * paid one starts a real one-off charge via purchaseServiceProduct and
- * redirects the browser to the provider's hosted checkout — activation
- * itself only happens later, when private.apply_service_purchase_payment
- * confirms the charge. Onboarding is only marked complete for the paid path
- * once the patient lands back on /onboarding/checkout-callback.
- */
-export async function startCheckout(
-  _prevState: StartCheckoutState,
-  formData: FormData,
-): Promise<StartCheckoutState> {
-  const serviceProductCode = formData.get("planCode");
-  if (typeof serviceProductCode !== "string" || !serviceProductCode) {
-    return { error: "Choose a plan first" };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/login");
-  }
-
-  // Hard safeguard, independent of whatever the UI shows: never start a
-  // second purchase for an account that already has an active grant. This is
-  // the actual money-charging code path, so it has to be safe on its own
-  // even if onboarding's reconciliation screen (existing-plan-notice.tsx) is
-  // ever reached in a state where a plan somehow got resubmitted anyway.
-  const { data: existing } = await supabase
-    .from("service_purchases")
-    .select("id")
-    .eq("patient_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
-  if (existing) {
-    await completeOnboarding();
-    return;
-  }
-
-  const result = await purchaseServiceProduct({
-    serviceProductCode,
-    callbackPath: "/onboarding/checkout-callback",
-  });
-
-  if (result?.error) {
-    return { error: result.error };
-  }
-  if (result?.activated) {
-    await completeOnboarding();
-    return;
-  }
-  if (result?.checkoutUrl) {
-    redirect(result.checkoutUrl);
-  }
-  return { error: "Could not start checkout" };
 }

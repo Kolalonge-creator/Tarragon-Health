@@ -24,7 +24,13 @@
  *    never existed in the catalogue, so those prices were unbuyable fiction.
  *    The diaspora tier is retired anyway (2026-07-31: someone abroad SPONSORS
  *    another person's care, they are not a patient tier), which is why there is
- *    no currency toggle here any more.
+ *    no currency toggle here any more. Corrected further 2026-09-02: the
+ *    diaspora/USD path is removed from the app entirely, not just this page —
+ *    there is no registered Stripe account behind it (needs a UK business
+ *    registration that has not happened), so the onboarding currency selector
+ *    and the admin diaspora-pricing screen are gone too, not repaired. Do not
+ *    reintroduce a currency picker or USD price anywhere until Stripe is
+ *    actually configured (`isStripeConfigured()` returns true).
  * 2. Do not describe anything as recurring, auto-renewing or cancellable.
  *    Nothing on this platform charges a card twice. When something runs out you
  *    buy it again, or you don't.
@@ -197,6 +203,15 @@ export type PaidService = {
   price: string;
   description: string;
   availability: string;
+  /** What the price is actually made of, shown as a short breakdown under
+   * the description. Only the programme uses this — the one-off credits are
+   * already a single unit of work, so there is nothing to break down. */
+  breakdown?: string[];
+  /** A "you pay the lab" style note distinct from `breakdown`: something
+   * genuinely optional and priced by a third party, not part of what the
+   * `price` above pays for. Kept separate from the description so it can be
+   * styled and read as its own disclosure rather than buried in prose. */
+  optionalNote?: string;
 };
 
 export const PAID_SERVICES: PaidService[] = [
@@ -204,9 +219,15 @@ export const PAID_SERVICES: PaidService[] = [
     id: "chronic-programme",
     code: "chronic_doctor_supported_pack",
     name: "12-week doctor-supported programme",
-    price: "₦15,000",
+    price: "₦40,000",
     description:
-      "Twelve weeks of actual clinical management for hypertension, diabetes or weight: a doctor sets your care plan, reviews your readings on a schedule, checks in on you, adjusts your medication, and is alerted when one of your readings is dangerous. It also covers asking a doctor questions in writing and having your uploaded results read back to you for the length of the programme. The self-monitoring track of the same programme is free.",
+      "Twelve weeks of actual clinical management for hypertension, diabetes or weight: a doctor sets your care plan, checks in on you, adjusts your medication, and is alerted when one of your readings is dangerous. It also covers asking a doctor questions in writing and having your uploaded results read back to you for the length of the programme. The self-monitoring track of the same programme, with no doctor attached, stays free.",
+    breakdown: [
+      "Three doctor reviews across the twelve weeks, ₦10,000 each",
+      "One medication review, ₦10,000",
+    ],
+    optionalNote:
+      "Essential bloods before you start are optional, and recommended so your doctor has a real baseline. Like every test on the platform, you take the request to any laboratory you choose and pay them directly — Tarragon adds nothing on top.",
     availability: "The one recurring thing we sell. Buy it again when it ends; nothing renews on its own.",
   },
   {
@@ -426,7 +447,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What exactly do I pay for, then?",
     answer:
-      "A doctor's time. That comes two ways. One-off: a written question to a doctor (₦2,500), a prescription renewal review (₦3,500), a verified document (₦4,000), a video or audio visit (₦5,000), a second opinion (₦7,500), a result interpretation session (₦10,000), or a senior case review (₦15,000). Or ongoing: the 12-week doctor-supported programme (₦15,000), where a doctor sets your care plan, reviews your readings on a schedule, checks in on you, and is alerted if one of your readings is dangerous.",
+      "A doctor's time. That comes two ways. One-off: a written question to a doctor (₦2,500), a prescription renewal review (₦3,500), a verified document (₦4,000), a video or audio visit (₦5,000), a second opinion (₦7,500), a result interpretation session (₦10,000), or a senior case review (₦15,000). Or ongoing: the 12-week doctor-supported programme (₦40,000, three doctor reviews plus one medication review across the twelve weeks), where a doctor sets your care plan, checks in on you, and is alerted if one of your readings is dangerous.",
   },
   {
     question: "There used to be Prevent, Essential and Complete Care plans. What happened to them?",

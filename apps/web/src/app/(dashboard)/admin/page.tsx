@@ -296,13 +296,6 @@ export default async function AdminPage() {
           visible: can("subscriptions.manage"),
         },
         {
-          href: "/admin/settings/diaspora-pricing",
-          label: "Diaspora pricing (USD)",
-          blurb: "USD pricing at the admin-set exchange rate",
-          icon: SEMANTIC_ICON.billing,
-          visible: can("subscriptions.manage"),
-        },
-        {
           href: "/admin/bookings",
           label: "Booking requests",
           blurb: "Every facility booking request and its status",
