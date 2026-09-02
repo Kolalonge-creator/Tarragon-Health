@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ReminderFrequencySelector } from "./reminder-frequency-selector";
 
 type PatientFilter = "mine" | "recent" | "high_risk" | "programme";
 
@@ -161,29 +162,7 @@ export default async function ClinicianPatientsPage({
                   : "No patients enrolled yet."}
             </p>
           ) : (
-            <ul className="divide-y divide-charcoal-ink/10">
-              {patients.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={`/clinician/patients/${p.id}`}
-                    className="flex items-center justify-between gap-3 py-3 hover:bg-charcoal-ink/2"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate text-sm font-medium text-charcoal-ink">
-                        {p.full_name ?? "Unnamed patient"}
-                      </span>
-                      <span className="block text-xs text-charcoal-ink/50">
-                        {p.patient_number ?? "No patient number"}
-                        {p.phone ? ` · ${p.phone}` : ""}
-                      </span>
-                    </span>
-                    <span aria-hidden className="text-charcoal-ink/30">
-                      →
-                    </span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
+            <ReminderFrequencySelector patients={patients} />
           )}
         </CardContent>
       </Card>

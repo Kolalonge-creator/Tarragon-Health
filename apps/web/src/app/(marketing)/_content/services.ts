@@ -296,7 +296,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Is there a Tarragon app?",
     answer:
-      "Yes. Open Tarragon in your phone's browser and add it to your home screen (Safari's Share menu on iPhone, Chrome's Install option on Android). It opens like a regular app, with no app-store download needed.",
+      "Yes. TarragonHealth is available for iPhone and Android, search for it in the App Store or Google Play. It uses the same secure record as the web dashboard, so you can move between your phone and a computer without losing anything.",
   },
   {
     category: "general",
@@ -308,7 +308,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "What if I'm not comfortable with health tech?",
     answer:
-      "You don't need to be. Adding Tarragon to your home screen takes one tap and no app-store account, logging a reading takes seconds, and WhatsApp or SMS will still remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
+      "You don't need to be. Downloading the app takes a minute, logging a reading takes seconds, and WhatsApp or SMS will still remind you when something's due. If you ever get stuck, you can message your care team directly in the app and a person answers.",
   },
   {
     category: "general",

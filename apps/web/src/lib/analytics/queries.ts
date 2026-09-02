@@ -4,6 +4,7 @@ import {
   accountingSummarySchema,
   acquisitionFunnelSchema,
   activeUsersTimeseriesSchema,
+  alertBurdenSchema,
   alertQualitySchema,
   appointmentCapacitySchema,
   auditLogSchema,
@@ -11,7 +12,9 @@ import {
   businessSummarySchema,
   clinicalOutcomesSchema,
   deliverabilitySchema,
+  diseaseSurveillanceSchema,
   doctorPerformanceSchema,
+  engagementOutcomeCorrelationSchema,
   engagementSummarySchema,
   escalationQualitySchema,
   executiveSummarySchema,
@@ -27,10 +30,12 @@ import {
   patientActivitySchema,
   patientSearchSchema,
   populationSummarySchema,
+  programmeFunnelSchema,
   providerCapacitySchema,
   referralTurnaroundSchema,
   retentionCohortsSchema,
   riskRegisterSchema,
+  safetyDashboardSummarySchema,
   screeningReferralFunnelSchema,
   serviceCoverageSchema,
   staffActivitySchema,
@@ -130,6 +135,32 @@ export function useGeoHealthAggregates() {
       const { data, error } = await createClient().rpc("get_geo_health_aggregates");
       if (error) throw error;
       return geoHealthAggregatesSchema.parse(data);
+    },
+  });
+}
+
+/** Trend-over-time surveillance (spec §12.4) — new enrollments, risk scoring, screening results. */
+export function useDiseaseSurveillance(period: GrowthPeriod = "month") {
+  return useQuery({
+    queryKey: ["analytics", "disease-surveillance", period],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_disease_surveillance", {
+        p_period: period,
+      });
+      if (error) throw error;
+      return diseaseSurveillanceSchema.parse(data);
+    },
+  });
+}
+
+/** Per-condition Enrolled -> Monitoring -> Controlled/Uncontrolled -> Lost-to-follow-up (spec §12.8/§12.10). */
+export function useProgrammeFunnel() {
+  return useQuery({
+    queryKey: ["analytics", "programme-funnel"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_programme_funnel");
+      if (error) throw error;
+      return programmeFunnelSchema.parse(data);
     },
   });
 }
@@ -256,6 +287,17 @@ export function useRetentionCohorts() {
       const { data, error } = await createClient().rpc("analytics_retention_cohorts");
       if (error) throw error;
       return retentionCohortsSchema.parse(data);
+    },
+  });
+}
+
+export function useEngagementOutcomeCorrelation() {
+  return useQuery({
+    queryKey: ["analytics", "engagement-outcome-correlation"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_engagement_outcome_correlation");
+      if (error) throw error;
+      return engagementOutcomeCorrelationSchema.parse(data);
     },
   });
 }
@@ -415,6 +457,29 @@ export function useGovernanceSummary() {
       const { data, error } = await createClient().rpc("analytics_governance_summary");
       if (error) throw error;
       return governanceSummarySchema.parse(data);
+    },
+  });
+}
+
+// ---- Patient safety (docs spec §89.14) -------------------------------------
+export function useSafetyDashboardSummary() {
+  return useQuery({
+    queryKey: ["analytics", "safety-dashboard-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_safety_dashboard_summary");
+      if (error) throw error;
+      return safetyDashboardSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useAlertBurden() {
+  return useQuery({
+    queryKey: ["analytics", "alert-burden"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_alert_burden");
+      if (error) throw error;
+      return alertBurdenSchema.parse(data);
     },
   });
 }
