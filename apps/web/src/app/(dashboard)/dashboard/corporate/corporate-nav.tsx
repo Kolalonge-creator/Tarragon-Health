@@ -10,6 +10,7 @@ const TABS = [
   { href: "/dashboard/corporate/campaigns", label: "Campaigns & messages", exact: false },
   { href: "/dashboard/corporate/billing", label: "Billing", exact: false },
   { href: "/dashboard/corporate/reports", label: "Reports & outcomes", exact: false },
+  { href: "/dashboard/corporate/programmes", label: "Programmes", exact: false },
 ] as const;
 
 export function CorporateNav() {

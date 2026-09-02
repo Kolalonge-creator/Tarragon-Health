@@ -167,6 +167,8 @@ export const auditLogSchema = z.object({
         actor_name: z.string().nullable(),
         organisation_name: z.string().nullable(),
         event: z.unknown(),
+        reason: z.string().nullable(),
+        result: z.string(),
       })
     )
     .default([]),
@@ -239,6 +241,17 @@ export const retentionCohortsSchema = z
   )
   .default([]);
 export type RetentionCohorts = z.infer<typeof retentionCohortsSchema>;
+
+export const engagementOutcomeCorrelationSchema = z
+  .array(
+    z.object({
+      tier: z.enum(["highly_engaged", "moderately_engaged", "at_risk", "disengaged"]),
+      cohort_size: z.number(),
+      bp_in_range_count: z.number(),
+    })
+  )
+  .default([]);
+export type EngagementOutcomeCorrelation = z.infer<typeof engagementOutcomeCorrelationSchema>;
 
 // ---- Clinical outcomes & quality ------------------------------------------
 const controlRate = z.object({
@@ -751,18 +764,144 @@ export const alertBurdenSchema = z.object({
   unassigned_important_open: z.number().default(0),
 });
 export type AlertBurden = z.infer<typeof alertBurdenSchema>;
+export type Deliverability = z.infer<typeof deliverabilitySchema>;
 
-// analytics_alert_quality() — same migration as alertBurdenSchema above.
+// ---- Executive dashboard (Operations & Command Centre §96.3) --------------
+export const executiveSummarySchema = z.object({
+  active_patients: z.number().default(0),
+  active_care_programmes: z.number().default(0),
+  appointments_90d: z
+    .object({
+      booked: z.number().default(0),
+      completed: z.number().default(0),
+      no_show: z.number().default(0),
+    })
+    .default({ booked: 0, completed: 0, no_show: 0 }),
+  referrals: z
+    .object({
+      open: z.number().default(0),
+      overdue: z.number().default(0),
+    })
+    .default({ open: 0, overdue: 0 }),
+  lab_orders_by_status: z
+    .array(z.object({ status: z.string(), count: z.number() }))
+    .default([]),
+  clinical_alerts: z
+    .object({
+      open: z.number().default(0),
+      critical: z.number().default(0),
+    })
+    .default({ open: 0, critical: 0 }),
+  care_gaps_by_type: z
+    .array(z.object({ gap_type: z.string(), count: z.number() }))
+    .default([]),
+});
+export type ExecutiveSummary = z.infer<typeof executiveSummarySchema>;
+
+// ---- Screening -> referral -> treatment funnel (§96.4) ---------------------
+export const screeningReferralFunnelSchema = z
+  .array(
+    z.object({
+      stage: z.string(),
+      count: z.number(),
+      drop_off_pct: z.number(),
+    })
+  )
+  .default([]);
+export type ScreeningReferralFunnel = z.infer<typeof screeningReferralFunnelSchema>;
+
+// ---- Service levels (§96.8) -------------------------------------------------
+export const appointmentCapacitySchema = z.object({
+  by_appointment_type_90d: z
+    .array(
+      z.object({
+        appointment_type: z.string(),
+        total: z.number(),
+        completed: z.number(),
+        cancelled: z.number(),
+        no_show: z.number(),
+        cancellation_rate_pct: z.number().nullable(),
+        no_show_rate_pct: z.number().nullable(),
+      })
+    )
+    .default([]),
+  upcoming_7_days_by_type: z
+    .array(z.object({ appointment_type: z.string(), count: z.number() }))
+    .default([]),
+  waiting_list_by_type: z
+    .array(
+      z.object({
+        appointment_type: z.string(),
+        currently_waiting: z.number(),
+        avg_wait_hours: z.number().nullable(),
+      })
+    )
+    .default([]),
+  demand_by_location_90d: z
+    .array(z.object({ location: z.string(), count: z.number() }))
+    .default([]),
+  avg_lead_time_days_by_type: z
+    .array(z.object({ appointment_type: z.string(), avg_lead_time_days: z.number().nullable() }))
+    .default([]),
+});
+export type AppointmentCapacity = z.infer<typeof appointmentCapacitySchema>;
+
 export const alertQualitySchema = z.object({
   total: z.number().default(0),
   by_category: z.record(z.string(), z.number()).default({}),
   by_severity: z.record(z.string(), z.number()).default({}),
   avg_ack_minutes: z.number().nullable().default(null),
   avg_resolution_hours: z.number().nullable().default(null),
-  escalation_rate_pct: z.number().default(0),
-  duplicate_rate_pct: z.number().default(0),
-  false_positive_rate_pct: z.number().default(0),
+  escalation_rate_pct: z.number().nullable().default(null),
+  duplicate_rate_pct: z.number().nullable().default(null),
+  false_positive_rate_pct: z.number().nullable().default(null),
   suppressed_count: z.number().default(0),
 });
 export type AlertQuality = z.infer<typeof alertQualitySchema>;
-export type Deliverability = z.infer<typeof deliverabilitySchema>;
+
+export const referralTurnaroundSchema = z
+  .array(
+    z.object({
+      specialist_type: z.string(),
+      referrals_90d: z.number(),
+      avg_hours_to_booking: z.number().nullable(),
+      median_hours_to_booking: z.number().nullable(),
+      avg_hours_to_treatment: z.number().nullable(),
+    })
+  )
+  .default([]);
+export type ReferralTurnaround = z.infer<typeof referralTurnaroundSchema>;
+
+export const supportResponseTimeSchema = z.object({
+  threads_90d: z.number().default(0),
+  threads_with_reply: z.number().default(0),
+  avg_first_response_minutes: z.number().nullable().default(null),
+});
+export type SupportResponseTime = z.infer<typeof supportResponseTimeSchema>;
+
+// ---- Geographic capacity (§96.9) -------------------------------------------
+export const serviceCoverageSchema = z
+  .array(
+    z.object({
+      state: z.string(),
+      display_name: z.string(),
+      is_active: z.boolean(),
+      services: z
+        .object({
+          lab: z.boolean(),
+          pharmacy: z.boolean(),
+          specialist: z.boolean(),
+          home_visit: z.boolean(),
+          delivery: z.boolean(),
+        })
+        .default({
+          lab: false,
+          pharmacy: false,
+          specialist: false,
+          home_visit: false,
+          delivery: false,
+        }),
+    })
+  )
+  .default([]);
+export type ServiceCoverage = z.infer<typeof serviceCoverageSchema>;

@@ -181,3 +181,12 @@ export type CommissionStatus = Enums<"commission_status">;
 
 /** commissions.rate_type (and lab_tests/pharmacy_medications/panel_bundles/specialist_providers' matching columns) — percentage vs. flat-kobo. */
 export type CommissionRateType = Enums<"commission_rate_type">;
+
+/** specialist_providers.provider_tier — descriptive directory classification, never inferred/defaulted, never a pricing/ranking signal. */
+export type SpecialistProviderTier = Enums<"specialist_provider_tier">;
+
+/** specialist_providers.verification_stage — the Specialist Network onboarding pipeline (application -> ... -> active). */
+export type SpecialistVerificationStage = Enums<"specialist_verification_stage">;
+
+/** platform_consultation_duration_defaults.duration_type / specialist_provider_availability_rules.duration_type. */
+export type ConsultationDurationType = Enums<"consultation_duration_type">;

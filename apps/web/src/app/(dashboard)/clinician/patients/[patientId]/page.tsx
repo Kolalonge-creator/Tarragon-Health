@@ -20,6 +20,7 @@ import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { MedicationAdherenceHistory } from "./medication-adherence-history";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
@@ -52,6 +53,7 @@ import { HealthyAgeingClinicianPanel } from "./healthy-ageing-clinician-panel";
 import { CreateReferralForm } from "./create-referral-form";
 import { PatientReferralsList } from "./patient-referrals-list";
 import { PatientRecordTabs, type PatientRecordTab } from "./patient-record-tabs";
+import { RequestEmergencyAccessPanel } from "./request-emergency-access-panel";
 
 export default async function ClinicianPatientPage({
   params,
@@ -72,6 +74,26 @@ export default async function ClinicianPatientPage({
     .maybeSingle();
 
   if (!patient) {
+    // The normal lookup is RLS-blocked either because this patient doesn't
+    // exist, or because they exist in a different organisation -- the two
+    // look identical to the query above by design. This second, deliberately
+    // narrow lookup (name and org only, no clinical field) is what tells
+    // them apart, and is what lets a genuine cross-org emergency offer a
+    // real path instead of a dead end.
+    const { data: crossOrg } = await supabase.rpc("patient_exists_cross_org", {
+      p_patient_id: patientId,
+    });
+    const crossOrgPatient = crossOrg as { full_name: string | null } | null;
+
+    if (crossOrgPatient) {
+      return (
+        <RequestEmergencyAccessPanel
+          patientId={patientId}
+          patientName={crossOrgPatient.full_name ?? "This patient"}
+        />
+      );
+    }
+
     return (
       <Card>
         <CardHeader>
@@ -238,6 +260,7 @@ export default async function ClinicianPatientPage({
                   canAmend={canPrescribe}
                   isClinicianView
                 />
+                <MedicationAdherenceHistory patientId={patient.id} />
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
                     continues existing prescriptions but has no new-prescribing
                     authority — the DB RLS policy is the real gate
