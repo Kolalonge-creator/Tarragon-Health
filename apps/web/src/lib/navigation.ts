@@ -194,6 +194,7 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
             { label: "Insurance", href: "/patient/insurance", icon: "insurance" },
             { label: "My services", href: "/patient/subscription", icon: "billing" },
             {
@@ -395,6 +396,7 @@ export function getNavSections(
             { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
             { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
             { label: "Care vouchers", href: "/admin/settings/vouchers", icon: "payables" },
+            { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
             { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
           ],
         },
@@ -480,12 +482,15 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/finance", icon: "dashboard", exact: true },
             { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
+            { label: "Transactions", href: "/finance/transactions", icon: "billing" },
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
             { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
+            { label: "Fraud signals", href: "/finance/fraud", icon: "warning" },
+            { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
             { label: "Compliance calendar", href: "/finance/compliance", icon: "compliance" },
             { label: "Reports & filings", href: "/finance/reports", icon: "statements" },

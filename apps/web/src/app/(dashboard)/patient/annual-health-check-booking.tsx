@@ -220,7 +220,11 @@ export function AnnualHealthCheckBooking({
                 <p className="text-sm text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Health check"}
                 </p>
-                <PayForLabOrderButton orderId={order.id} amountKobo={order.payable_kobo ?? order.total_kobo} />
+                <PayForLabOrderButton
+                  orderId={order.id}
+                  amountKobo={order.payable_kobo ?? order.total_kobo}
+                  totalKobo={order.total_kobo}
+                />
               </div>
             ))}
           </div>
