@@ -7,6 +7,7 @@ import { loadAgeBandDistribution } from "@/lib/corporate/load-age-band-distribut
 import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
 import { loadVaccinationCoverage } from "@/lib/vaccination/load-coverage-analytics";
+import { loadActivationFunnel, loadDepartmentBreakdown } from "@/lib/corporate/load-activation-funnel";
 
 /**
  * The corporate dashboard's single data-loading waterfall, extracted so the
@@ -49,12 +50,15 @@ async function loadCorporateDashboardDataUncached() {
     return { state: "no-analytics" as const, greeting, organisationId, access, contractPerformance };
   }
 
-  const [ageBands, costAvoided, medicationOutcomes, vaccinationCoverage] = await Promise.all([
-    loadAgeBandDistribution(access.client, access.organisationId),
-    estimateCostAvoided(access.client, access.organisationId, analytics.abnormal_findings_count),
-    loadMedicationOutcomes(access.client, access.organisationId),
-    loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
-  ]);
+  const [ageBands, costAvoided, medicationOutcomes, vaccinationCoverage, activationFunnel, departmentBreakdown] =
+    await Promise.all([
+      loadAgeBandDistribution(access.client, access.organisationId),
+      estimateCostAvoided(access.client, access.organisationId, analytics.abnormal_findings_count),
+      loadMedicationOutcomes(access.client, access.organisationId),
+      loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
+      loadActivationFunnel(access.client, access.organisationId, access.minCohortSize),
+      loadDepartmentBreakdown(access.client, access.organisationId, access.minCohortSize),
+    ]);
 
   return {
     state: "ready" as const,
@@ -67,6 +71,8 @@ async function loadCorporateDashboardDataUncached() {
     costAvoided,
     medicationOutcomes,
     vaccinationCoverage,
+    activationFunnel,
+    departmentBreakdown,
   };
 }
 

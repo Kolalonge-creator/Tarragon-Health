@@ -174,10 +174,10 @@ begin
 
   v_alert_id := private.raise_clinician_alert(
     new.organisation_id, new.patient_id,
-    case
+    (case
       when new.severity = 'severe' and 'allergic_reaction' = any(new.symptoms) then 'emergency'
       else 'urgent_escalation'
-    end,
+    end)::public.alert_level,
     'Vaccination adverse event reported',
     format('%s reaction reported after %s: %s.%s',
       initcap(new.severity::text), coalesce(v_vaccine_name, 'a vaccination'),

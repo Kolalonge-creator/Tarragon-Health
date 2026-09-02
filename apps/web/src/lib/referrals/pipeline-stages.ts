@@ -10,7 +10,7 @@ export interface ReferralPipelineInput {
   shared_care_handback_at: string | null;
 }
 
-const BOOKED_STATUSES: ReferralStatus[] = ["booked", "confirmed", "completed"];
+const BOOKED_STATUSES: ReferralStatus[] = ["booked", "confirmed", "completed", "closed"];
 
 /**
  * Derives the master plan's 9-stage referral pipeline
@@ -29,7 +29,7 @@ export function deriveReferralPipelineStages(referral: ReferralPipelineInput): S
   const urgencySet = referral.urgency !== null;
   const providerAssigned = referral.specialist_provider_id !== null;
   const booked = BOOKED_STATUSES.includes(referral.status) || referral.booking_confirmed_at !== null;
-  const completed = referral.status === "completed";
+  const completed = referral.status === "completed" || referral.status === "closed";
   const planReceived = referral.treatment_plan_received_at !== null;
   const handedBack = referral.shared_care_handback_at !== null;
 
