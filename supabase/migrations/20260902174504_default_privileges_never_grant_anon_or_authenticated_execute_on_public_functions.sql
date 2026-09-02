@@ -69,6 +69,7 @@ declare
   v_current_user text;
   v_session_user text;
   v_proowner text;
+  v_proacl text;
   v_default_acl text;
 begin
   create function public._default_priv_probe_fn_20260902174504()
@@ -76,19 +77,19 @@ begin
   create sequence public._default_priv_probe_seq_20260902174504;
 
   select current_user, session_user into v_current_user, v_session_user;
-  select proowner::regrole::text into v_proowner from pg_proc
+  select proowner::regrole::text, proacl::text into v_proowner, v_proacl from pg_proc
    where oid = 'public._default_priv_probe_fn_20260902174504()'::regprocedure;
-  select string_agg(format('role=%s type=%s acl=%s', coalesce(defaclrole::regrole::text,'(none)'), defaclobjtype, defaclacl::text), ' | ')
+  select string_agg(format('role=%s ns=%s type=%s acl=%s', coalesce(defaclrole::regrole::text,'(none)'), coalesce(defaclnamespace::regnamespace::text,'(db-wide)'), defaclobjtype, defaclacl::text), ' | ')
     into v_default_acl
     from pg_default_acl
-   where defaclnamespace::regnamespace::text = 'public' and defaclobjtype = 'f';
+   where defaclobjtype = 'f';
 
   if has_function_privilege('anon', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE')
      or has_function_privilege('authenticated', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE') then
     drop function public._default_priv_probe_fn_20260902174504();
     drop sequence public._default_priv_probe_seq_20260902174504;
-    raise exception 'FAIL: anon/authenticated still get a default EXECUTE privilege on a brand-new public-schema function. DIAG current_user=% session_user=% proowner=% default_acl_f=%',
-      v_current_user, v_session_user, v_proowner, v_default_acl;
+    raise exception 'FAIL: anon/authenticated still get a default EXECUTE privilege on a brand-new public-schema function. DIAG current_user=% session_user=% proowner=% proacl=% default_acl_f(all_ns)=%',
+      v_current_user, v_session_user, v_proowner, v_proacl, v_default_acl;
   end if;
 
   if has_sequence_privilege('anon', 'public._default_priv_probe_seq_20260902174504', 'USAGE')
