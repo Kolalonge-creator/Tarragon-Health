@@ -153,20 +153,52 @@ create trigger audit_row_change_trg
   for each row execute function private.audit_row_change();
 
 -- Extend the shared clinical-read predicate: an active (unexpired, unrevoked) emergency grant
--- reads exactly like an owner-approved clinical_access toggle — read only, never write (nothing
--- below touches a write policy, same invariant the original migration's own assertion enforces).
-create or replace function private.can_read_clinical(p_patient uuid)
+-- reads like an owner-approved category grant across every category except
+-- reproductive_health — the same "translate a blanket/legacy grant into the category system"
+-- convention already used twice elsewhere in this migration chain: the B1 backfill in
+-- 20260830103251_category_scoped_clinical_access_and_emergency_access.sql (which seeds
+-- profile_access_categories from a legacy clinical_access=true row, excluding
+-- reproductive_health) and that same migration's private.has_emergency_access() — the
+-- *other*, cross-org break-glass grant it introduces, gated with the identical exclusion.
+--
+-- This extends the 2-arg private.can_read_clinical(uuid, category), not the 1-arg overload
+-- this migration originally targeted — not a style choice. By the time this migration runs,
+-- 20260830103251_category_scoped_clinical_access_and_emergency_access.sql (which sorts before
+-- it) has already rewired every clinical-table SELECT policy plus 5 helper functions onto the
+-- 2-arg form and dropped profile_access.clinical_access and the 1-arg overload outright.
+-- Neither comes back until 20260902190500_preserve_legacy_can_read_clinical_overload_for_pr377_
+-- compat.sql — timestamped AFTER this migration — so a fresh migration replay never has the
+-- 1-arg overload or the clinical_access column available at this point in the sequence (that
+-- compat migration exists for two other, unrelated legacy readers — see its own header — not
+-- for this call site). Redefining the 2-arg overload here reaches every one of those
+-- already-rewired policies for free, with no policy text to touch, and its non-emergency branch
+-- below is an exact copy of that function's body as of 20260830103251 — the version live at
+-- this point in the sequence — plus this migration's emergency_access_grants OR-branch.
+--
+-- Known follow-up, out of scope for this fix: private.can_read_clinical(uuid, category) is
+-- redefined again later by 20260830123653_resolve_category_scoping_governance_gaps.sql (already
+-- committed/applied ahead of this branch, off limits to edit here), and that later definition
+-- does not carry this emergency_access_grants branch forward. That's a pre-existing gap in how
+-- this migration chain reconciles with this branch, not something introduced by this fix —
+-- flagging it for the PR #377 reconciliation pass rather than leaving it silently undiscovered.
+create or replace function private.can_read_clinical(p_patient uuid, p_category public.care_access_category)
 returns boolean
 language sql
 stable
+security definer
 set search_path to ''
 as $$
   select exists (
-    select 1
-    from public.profile_access pa
+    select 1 from public.profile_access pa join public.profiles p on p.id = pa.profile_id
     where pa.profile_id = p_patient
       and pa.grantee_user_id = (select auth.uid())
-      and pa.clinical_access
+      and (
+        (pa.permission_level = 'manage' and p.is_dependent_account and p_category <> 'reproductive_health')
+        or exists (
+          select 1 from public.profile_access_categories pac
+          where pac.profile_access_id = pa.id and pac.category = p_category
+        )
+      )
   )
   or exists (
     select 1
@@ -175,6 +207,7 @@ as $$
       and eag.grantee_user_id = (select auth.uid())
       and eag.revoked_at is null
       and eag.expires_at > now()
+      and p_category <> 'reproductive_health'
   );
 $$;
 
@@ -282,6 +315,22 @@ begin
   -- that in production and this migration doesn't change that.
   if has_function_privilege('anon', 'private.enforce_emergency_access_grant_rules()', 'EXECUTE') then
     raise exception 'FAIL: anon can execute private.enforce_emergency_access_grant_rules';
+  end if;
+
+  if not exists (
+    select 1 from pg_proc
+    where proname = 'can_read_clinical' and pronamespace = 'private'::regnamespace
+      and pg_get_function_identity_arguments(oid) like '%care_access_category%'
+  ) then
+    raise exception 'FAIL: private.can_read_clinical(uuid, care_access_category) does not exist';
+  end if;
+
+  if (
+    select pg_get_functiondef(oid) from pg_proc
+    where proname = 'can_read_clinical' and pronamespace = 'private'::regnamespace
+      and pg_get_function_identity_arguments(oid) like '%care_access_category%'
+  ) not like '%emergency_access_grants%' then
+    raise exception 'FAIL: private.can_read_clinical(uuid, category) does not check emergency_access_grants';
   end if;
 
   raise notice 'PASS: emergency_access_grants table + rules + notifications + can_read_clinical extension in place';
