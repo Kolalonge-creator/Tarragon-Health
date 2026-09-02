@@ -199,6 +199,7 @@ $$;
 -- The function itself rejects a null auth.uid() with an exception, but
 -- the grant should not admit an unauthenticated caller in the first place.
 revoke all on function public.patient_receipts() from public;
+revoke all on function public.patient_receipts() from anon;
 grant execute on function public.patient_receipts() to authenticated;
 
 do $$

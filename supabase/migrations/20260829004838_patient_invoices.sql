@@ -389,6 +389,8 @@ $$;
 -- job note in 20260812041044_service_role_write_actor_attribution.sql).
 revoke all on function public.get_or_create_invoice(text, uuid) from public;
 revoke all on function public.invoice_letterhead_details() from public;
+revoke all on function public.get_or_create_invoice(text, uuid) from anon;
+revoke all on function public.invoice_letterhead_details() from anon;
 grant execute on function public.get_or_create_invoice(text, uuid) to authenticated;
 grant execute on function public.invoice_letterhead_details() to authenticated;
 
