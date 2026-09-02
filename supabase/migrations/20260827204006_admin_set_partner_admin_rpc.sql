@@ -51,6 +51,7 @@ $$;
 
 grant execute on function public.admin_set_partner_admin(uuid, boolean) to authenticated;
 revoke execute on function public.admin_set_partner_admin(uuid, boolean) from public;
+revoke execute on function public.admin_set_partner_admin(uuid, boolean) from anon;
 
 do $$
 begin
