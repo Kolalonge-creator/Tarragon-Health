@@ -28,8 +28,11 @@ function humanCondition(condition: string): string {
  * conditions/screenings, useVaccinationSchedules for the vaccination card)
  * — this is purely a rollup, no new tables, no new consent rule. What
  * private.can_read_clinical already refuses to return, this cannot show
- * either: a 'none'-level grant renders name and "ask them to share their
- * health information" only, same message /patient/supporting already uses.
+ * either: a grant with zero categories renders name and "ask them to share
+ * their health information" only, same message /patient/supporting already
+ * uses. Reconciled 2026-09-02 to read the category-scoped grant
+ * (profile_access_categories, 20260830103251) rather than the superseded
+ * clinical_access_level column — see docs/FAMILY_CARE_CIRCLE_SPEC.md §3.4.
  */
 export function HouseholdOverview() {
   const { data: members, isLoading, isError } = useHouseholdCareCircle();
@@ -57,7 +60,7 @@ export function HouseholdOverview() {
 }
 
 function HouseholdMemberRow({ member }: { member: HouseholdMember }) {
-  const hasClinicalAccess = member.clinicalAccessLevel !== "none";
+  const hasClinicalAccess = member.categories.length > 0;
   const { data: health } = useSupportedPersonHealth(member.profileId, hasClinicalAccess);
   const { data: schedules } = useVaccinationSchedules(member.profileId);
 

@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
-import { useThreadMessages, usePostMessage, type CareMessage } from "@/lib/queries/care-messages";
+import { useEffect, useRef, useState } from "react";
+import {
+  useThreadMessages,
+  usePostMessage,
+  useMarkThreadRead,
+  useCareMessageTemplates,
+  useUploadCareMessageAttachment,
+  type CareMessage,
+  type CareMessageAttachment,
+} from "@/lib/queries/care-messages";
+import { validateCareMessageAttachment } from "@/lib/validation/care-messages";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
+import { NAV_ICON } from "@/lib/icons";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -60,27 +70,122 @@ const BUBBLE: Record<string, string> = {
   sponsor: "rounded-lg border border-clinical-navy/20 bg-clinical-navy/5 p-3",
 };
 
+function AttachmentChip({ attachment }: { attachment: CareMessageAttachment }) {
+  return (
+    <a
+      href={`/api/care-messages/attachments/${attachment.id}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 rounded-md border border-charcoal-ink/15 bg-white px-2 py-1 text-xs text-charcoal-ink/70 hover:border-brand-green/40 hover:text-charcoal-ink"
+    >
+      <NAV_ICON.attachment className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+      <span className="max-w-[160px] truncate">{attachment.original_filename ?? "Attachment"}</span>
+      <NAV_ICON.download className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+    </a>
+  );
+}
+
+/** 77.7 — a template's body drops into the compose box, still fully
+ * editable before sending. Staff-only (org-staff-authored replies); a
+ * patient composing a message never sees this. */
+function TemplatePicker({ onPick }: { onPick: (body: string) => void }) {
+  const { data: templates } = useCareMessageTemplates();
+
+  if (!templates || templates.length === 0) return null;
+
+  return (
+    <select
+      aria-label="Use a template"
+      className="h-8 rounded-md border border-charcoal-ink/15 bg-white px-2 text-xs text-charcoal-ink/70"
+      value=""
+      onChange={(e) => {
+        const picked = templates.find((t) => t.id === e.target.value);
+        if (picked) onPick(picked.body);
+      }}
+    >
+      <option value="" disabled>
+        Use a template…
+      </option>
+      {templates.map((t) => (
+        <option key={t.id} value={t.id}>
+          {t.title}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 export function CareMessageThread({
   threadId,
+  patientId,
   closed,
+  isStaff = false,
+  showEmergencyNotice = false,
 }: {
   threadId: string;
+  patientId: string;
   closed: boolean;
+  /** Renders the 77.7 template picker and skips the 77.10 attach control —
+   * only a patient's own session can upload into their own storage folder
+   * (see care-message-attachments.sql's storage policies). */
+  isStaff?: boolean;
+  /** Messaging boundaries (17.11): this channel is read by the care team
+   * during normal hours, not watched continuously — a patient composing
+   * here needs to know that before they rely on it for something urgent.
+   * Opt-in per caller so the clinician worklist (where staff are the ones
+   * reading, not relying on a reply) stays unchanged. */
+  showEmergencyNotice?: boolean;
 }) {
   const { data: messages, isLoading } = useThreadMessages(threadId);
   const post = usePostMessage();
+  const markRead = useMarkThreadRead();
+  const upload = useUploadCareMessageAttachment();
   const [body, setBody] = useState("");
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // 77.13 — stamp this side's read clock whenever the thread is open, so an
+  // unread clinical message doesn't stay "unread" once someone has actually
+  // looked at it.
+  useEffect(() => {
+    markRead.mutate(threadId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [threadId]);
 
   const send = () => {
     setError(null);
     post.mutate(
       { threadId, body },
       {
-        onSuccess: () => setBody(""),
+        onSuccess: (messageId) => {
+          setBody("");
+          if (pendingFile) {
+            upload.mutate(
+              { messageId, threadId, patientId, file: pendingFile },
+              { onError: (err) => setError(err instanceof Error ? err.message : "Message sent, but the file couldn't attach") },
+            );
+            setPendingFile(null);
+          }
+        },
         onError: (err) => setError(err instanceof Error ? err.message : "Couldn't send"),
       },
     );
+  };
+
+  const onFilePicked = (file: File | null) => {
+    if (!file) {
+      setPendingFile(null);
+      return;
+    }
+    const problem = validateCareMessageAttachment(file);
+    if (problem) {
+      setError(problem);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+    setError(null);
+    setPendingFile(file);
   };
 
   return (
@@ -104,6 +209,13 @@ export function CareMessageThread({
               <span className="text-xs text-charcoal-ink/50">{when(message.created_at)}</span>
             </div>
             <p className="mt-1 whitespace-pre-wrap text-sm text-charcoal-ink">{message.body}</p>
+            {message.attachments.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {message.attachments.map((a) => (
+                  <AttachmentChip key={a.id} attachment={a} />
+                ))}
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -112,6 +224,16 @@ export function CareMessageThread({
         <p className="text-sm text-charcoal-ink/50">This conversation is closed.</p>
       ) : (
         <div className="space-y-2">
+          {isStaff && (
+            <TemplatePicker onPick={(templateBody) => setBody(templateBody)} />
+          )}
+          {showEmergencyNotice && (
+            <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Your care team reads messages here during working hours — this isn&apos;t a monitored
+              emergency line. If something feels urgent right now, use the emergency guidance on
+              your dashboard instead of waiting for a reply here.
+            </p>
+          )}
           <Textarea
             value={body}
             onChange={(e) => setBody(e.target.value)}
@@ -119,6 +241,19 @@ export function CareMessageThread({
             rows={3}
             maxLength={4000}
           />
+          {pendingFile && (
+            <div className="flex items-center gap-2 text-xs text-charcoal-ink/60">
+              <NAV_ICON.attachment className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
+              {pendingFile.name}
+              <button
+                type="button"
+                onClick={() => onFilePicked(null)}
+                className="text-charcoal-ink/40 hover:text-charcoal-ink/70"
+              >
+                Remove
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <Button
               type="button"
@@ -126,8 +261,27 @@ export function CareMessageThread({
               disabled={post.isPending || body.trim().length === 0}
               onClick={send}
             >
-              {post.isPending ? "Sending…" : "Send"}
+              {post.isPending || upload.isPending ? "Sending…" : "Send"}
             </Button>
+            {!isStaff && (
+              <>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,application/pdf"
+                  className="hidden"
+                  onChange={(e) => onFilePicked(e.target.files?.[0] ?? null)}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-1 text-xs font-medium text-charcoal-ink/60 hover:text-charcoal-ink"
+                >
+                  <NAV_ICON.attachment className="h-4 w-4" strokeWidth={2} aria-hidden />
+                  Attach a file
+                </button>
+              </>
+            )}
             {error && <span className="text-sm text-red-600">{error}</span>}
           </div>
         </div>

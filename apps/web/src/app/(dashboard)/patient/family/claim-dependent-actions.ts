@@ -12,6 +12,16 @@ import { claimDependentAccountSchema } from "@/lib/validation/elder-proxy-depend
  * (20260829082711): the sweep only flags majority_review_at, this is what a
  * parent actually does about it.
  *
+ * Accepts a 'view' grant here too, not only 'manage' (reconciled 2026-09-02):
+ * a separately-shipped migration, 20260830103331_dependent_transition_to_adult_care.sql,
+ * independently steps every 'manage' grant on a dependent down to 'view' the
+ * same day they turn 18 (its own daily cron runs at 03:30, ahead of this
+ * sweep's 07:00) — so by the time majority_review_at is set and this action
+ * becomes reachable, the calling parent's grant has very often already been
+ * downgraded. Requiring 'manage' here would silently break the claim flow
+ * for most families; the original grantee relationship is what should gate
+ * this action, not whichever level it happens to sit at today.
+ *
  * Attaches the now-adult's real phone number to their existing auth user
  * (unconfirmed — they still complete their own verification, exactly like
  * any other login) and flips is_dependent_account to false. That flip
@@ -46,9 +56,9 @@ export async function claimDependentAccountAction(
     .select("id")
     .eq("profile_id", dependent_id)
     .eq("grantee_user_id", parent.id)
-    .eq("permission_level", "manage")
+    .in("permission_level", ["manage", "view"])
     .maybeSingle();
-  if (!grant) return { error: "You don't manage this record" };
+  if (!grant) return { error: "You don't have access to this record" };
 
   const { data: dependent } = await supabase
     .from("profiles")

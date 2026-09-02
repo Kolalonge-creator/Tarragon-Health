@@ -1,0 +1,23 @@
+-- Tarragon Health — Women's Health platform, part 4: pregnancy red flags
+-- (§44.8) — enum value only.
+--
+-- §44.8 asks for a "dedicated safety pathway" for pregnancy-related symptom
+-- reporting. Rather than building a parallel emergency system, this reuses
+-- the existing emergency_events -> handle_emergency_event ->
+-- clinician_alerts('emergency') pathway end to end (acknowledge-gated
+-- guidance, emergency-contact auto-notify, follow-up-after-discharge --
+-- CLAUDE.md's "the acknowledge-gated 'go to the nearest hospital now'
+-- guidance" is exactly this mechanism) and adds one distinguishing
+-- emergency_source value so a pregnancy-specific report is identifiable in
+-- the clinician_alerts inbox and in analytics, the same way 'intake_screen'
+-- was added for the mental-health crisis pathway (20260719144000).
+--
+-- Split into its own migration: Postgres cannot use a newly-added enum value
+-- inside the same transaction that added it -- same precedent as
+-- 20260828013522_alert_status_add_snoozed_closed.sql /
+-- 20260716113000_referral_status_add_waitlisted.sql. The value is used from
+-- application code (a later, separate transaction at request time), not from
+-- another SQL statement in this file, so no follow-up "part b" migration is
+-- needed the way those two required.
+
+alter type public.emergency_source add value if not exists 'pregnancy_symptom_checklist';

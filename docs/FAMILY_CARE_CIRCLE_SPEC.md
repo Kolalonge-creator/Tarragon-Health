@@ -21,17 +21,41 @@
 > (`20260829082917_elder_proxy_dependent_provisioning.sql`); (3) `appointments` SELECT plus
 > `cancel_appointment`/`reschedule_appointment` now admit a `manage`-level grantee, and
 > `private.queue_appointment_reminders` sends them an `in_app` reminder alongside the patient's own
-> (`20260829083319_appointment_grantee_access_and_reminders.sql`); (4)
-> `profile_access.clinical_access_level` (`none`/`summary`/`full`) replaces the boolean toggle —
-> `clinical_access` is now a generated column so the ~20 existing `can_read_clinical` call sites are
-> untouched, with `lab_analyte_readings`/`patient_blood_profile` narrowed to `full` via the new
-> `private.can_read_clinical_full`
-> (`20260829083614_graded_clinical_access_levels.sql`); (5) `HouseholdOverview` (family page) rolls
+> (`20260829083319_appointment_grantee_access_and_reminders.sql`); (4) ~~`profile_access.clinical_access_level`
+> (`none`/`summary`/`full`) replacing the boolean toggle~~ — **superseded before merge, 2026-09-02: this
+> pass's original item 4 (`20260829083614_graded_clinical_access_levels.sql`) was dropped from the branch
+> during main-dev reconciliation.** It was overtaken by a separately-shipped, more complete answer to the
+> same gap — the 8-category `profile_access_categories` model
+> (`20260830103251_category_scoped_clinical_access_and_emergency_access.sql`), which replaces the boolean
+> `clinical_access` outright (not a generated column) and rewrites `private.can_read_clinical` to a
+> 2-arg `(patient_id, category)` form across every RLS policy this pass's item 4 also touched. Item 4 is
+> now closed by that migration instead; do not resurrect `clinical_access_level` or
+> `can_read_clinical_full`; (5) `HouseholdOverview` (family page) rolls
 > up every person in the caller's consent graph — conditions, screenings/follow-ups due, vaccinations
 > due — by composing the existing `useSupportedPersonHealth`/`useVaccinationSchedules` hooks per
-> person, no new tables. §3's items 6–7 (a shared relationship vocabulary; confirming
+> person, no new tables, reading the category-scoped grant rather than the dropped `clinical_access_level`.
+> §3's items 6–7 (a shared relationship vocabulary; confirming
 > reschedule/cancel parity, now built as part of item 3 above) were out of this pass's explicit scope
 > and remain open.
+>
+> **A second overlap found and fixed during the same 2026-09-02 reconciliation, on item 1 this time:**
+> a separately-shipped migration, `20260830103331_dependent_transition_to_adult_care.sql` (Child
+> Health Platform §48.14), independently built its own "dependent turns 18" behaviour —
+> `private.refresh_dependent_transition_statuses()`, on a `03:30` daily cron, automatically steps
+> every `manage` grant on that dependent down to `view` the moment it computes their
+> `transition_state` as `independent`. This item's own `private.sweep_dependent_majority_review()`
+> runs later, at `07:00`, and originally only notified — and `claimDependentAccountAction` only
+> accepted — a currently-`manage` grantee. No SQL-level collision (different function/table/cron-job
+> names, so a migration replay would not catch it), but a real functional one: by 07:00 the 03:30 job
+> has already downgraded the grant, so the sweep would find nobody to notify and the claim action
+> would refuse the very parent who provisioned the account. Fixed forward
+> (`20260902222941_fix_majority_review_sweep_notifies_downgraded_grantee.sql` plus the matching
+> `claimDependentAccountAction` change) to accept `manage` **or** `view` in both places — the
+> provisioning relationship is what should gate this, not whichever level a separate, independent
+> process has already stepped it to. The two features are still NOT unified into one system (no
+> clinician-facing checklist wiring, no shared `transition_state` concept) — that remains a product
+> decision for a human, same as `20260830103331`'s own header flags for its overlap with
+> `adolescent_transition_plans` (PR #329).
 
 ## 0. What this document is
 

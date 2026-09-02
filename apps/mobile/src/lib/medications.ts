@@ -11,7 +11,13 @@ export interface DoseChecklistItem {
 }
 
 type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times">;
-type LogForChecklist = Pick<Tables<"medication_logs">, "medication_id" | "scheduled_time" | "status">;
+// Sourced from medication_logs_latest_per_slot (20260830224528), not the raw
+// append-only table — a view's columns are nullable regardless of the
+// underlying column, hence the broader types here versus medication_logs'.
+type LogForChecklist = Pick<
+  Tables<"medication_logs_latest_per_slot">,
+  "medication_id" | "scheduled_time" | "status"
+>;
 
 /** Mirrors apps/web/src/lib/medication-schedule/checklist.ts's buildTodaysDoseChecklist —
  * duplicated rather than imported since apps/web isn't a shared package the
@@ -43,6 +49,12 @@ export function todayIsoDate(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" });
 }
 
+/**
+ * medication_logs is append-only (20260830224528): a slot can carry more
+ * than one row once a dose is corrected. medication_logs_latest_per_slot
+ * keeps only the latest row per (medication, date, time) — freeform/
+ * as-needed logs (no scheduled slot) are never deduped, each stands alone.
+ */
 export async function loadTodaysDoses(patientId: string): Promise<DoseChecklistItem[]> {
   const today = todayIsoDate();
   const [{ data: medications }, { data: logs }] = await Promise.all([
@@ -52,7 +64,7 @@ export async function loadTodaysDoses(patientId: string): Promise<DoseChecklistI
       .eq("patient_id", patientId)
       .eq("is_active", true),
     supabase
-      .from("medication_logs")
+      .from("medication_logs_latest_per_slot")
       .select("medication_id, scheduled_time, status")
       .eq("patient_id", patientId)
       .eq("scheduled_for_date", today),
@@ -61,8 +73,8 @@ export async function loadTodaysDoses(patientId: string): Promise<DoseChecklistI
 }
 
 /**
- * Select-then-upsert against the (medication_id, scheduled_for_date,
- * scheduled_time) partial unique index — mirrors useLogDose in
+ * Append-only (20260830224528): every dose action is a new row, never an
+ * update of a previous one — mirrors useLogDose in
  * apps/web/src/lib/queries/medications.ts exactly (a bare client insert is
  * safe here: the adherence-streak/alert side effect is a DB trigger on
  * medication_logs, not app code, so it fires the same way regardless of
@@ -75,26 +87,13 @@ export async function logDose(
   status: Exclude<DoseStatus, "pending">
 ): Promise<{ error?: string }> {
   const scheduled_for_date = todayIsoDate();
-  const { data: existing } = await supabase
-    .from("medication_logs")
-    .select("id")
-    .eq("medication_id", item.medicationId)
-    .eq("scheduled_for_date", scheduled_for_date)
-    .eq("scheduled_time", item.time)
-    .maybeSingle();
-
-  const { error } = existing
-    ? await supabase
-        .from("medication_logs")
-        .update({ status, logged_at: new Date().toISOString() })
-        .eq("id", existing.id)
-    : await supabase.from("medication_logs").insert({
-        medication_id: item.medicationId,
-        scheduled_time: item.time,
-        scheduled_for_date,
-        status,
-        patient_id: patientId,
-        organisation_id: organisationId,
-      });
+  const { error } = await supabase.from("medication_logs").insert({
+    medication_id: item.medicationId,
+    scheduled_time: item.time,
+    scheduled_for_date,
+    status,
+    patient_id: patientId,
+    organisation_id: organisationId,
+  });
   return error ? { error: error.message } : {};
 }

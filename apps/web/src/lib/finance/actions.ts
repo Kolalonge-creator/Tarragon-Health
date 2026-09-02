@@ -196,6 +196,22 @@ export async function resolveReconciliationFlagAction(
   return { ok: true };
 }
 
+export async function resolveFraudSignalAction(
+  id: string,
+  status: "resolved" | "ignored",
+  note?: string,
+): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_resolve_fraud_signal", {
+    p_id: id,
+    p_status: status,
+    p_note: note,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
 export async function postSettlementAction(settlementId: string): Promise<FinanceActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("finance_post_settlement", { p_settlement_id: settlementId });
@@ -291,6 +307,40 @@ export async function upsertBudgetAction(input: {
 export async function deleteBudgetAction(id: string): Promise<FinanceActionResult> {
   const supabase = await createClient();
   const { error } = await supabase.rpc("finance_delete_budget", { p_id: id });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true };
+}
+
+export async function upsertEmployerBillingConfigAction(input: {
+  id?: string;
+  organisation_id: string;
+  price_per_member_minor: number;
+  currency: string;
+  effective_from: string;
+  effective_to?: string;
+  is_active: boolean;
+  notes?: string;
+}): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("finance_upsert_employer_billing_config", {
+    p_id: (input.id ?? null) as unknown as string,
+    p_organisation_id: input.organisation_id,
+    p_price_per_member_minor: input.price_per_member_minor,
+    p_currency: input.currency,
+    p_effective_from: input.effective_from,
+    p_effective_to: (input.effective_to ?? null) as unknown as string,
+    p_is_active: input.is_active,
+    p_notes: (input.notes ?? null) as unknown as string,
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidateFinance();
+  return { ok: true, data };
+}
+
+export async function deleteEmployerBillingConfigAction(id: string): Promise<FinanceActionResult> {
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("finance_delete_employer_billing_config", { p_id: id });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
   return { ok: true };

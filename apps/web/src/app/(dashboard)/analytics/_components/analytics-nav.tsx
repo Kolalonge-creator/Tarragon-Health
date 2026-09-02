@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   Activity,
   BarChart3,
+  Briefcase,
   Building,
   Calculator,
   Gavel,
@@ -12,14 +13,18 @@ import {
   HeartPulse,
   LayoutDashboard,
   Landmark,
+  Map,
   ScrollText,
   Clock4,
   Network,
+  ShieldAlert,
   Stethoscope,
+  Timer,
   UserRound,
   UserSearch,
   Users,
   Wallet,
+  Workflow,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -34,13 +39,18 @@ const TABS = [
   { href: "/analytics/accounting", label: "Accounting", icon: Calculator },
   { href: "/analytics/population", label: "Population health", icon: HeartPulse },
   { href: "/analytics/outcomes", label: "Clinical outcomes", icon: Stethoscope },
+  { href: "/analytics/executive", label: "Executive", icon: Briefcase },
+  { href: "/analytics/patient-flow", label: "Patient flow", icon: Workflow },
   { href: "/analytics/operations", label: "Operations", icon: Activity },
+  { href: "/analytics/service-levels", label: "Service levels", icon: Timer },
   { href: "/analytics/facilities", label: "Facilities", icon: Building },
   { href: "/analytics/doctors", label: "Doctor performance", icon: Stethoscope },
   { href: "/analytics/capacity", label: "Provider capacity", icon: Network },
+  { href: "/analytics/geographic-capacity", label: "Geographic capacity", icon: Map },
   { href: "/analytics/team", label: "Team activity", icon: Clock4 },
   { href: "/analytics/patient-activity", label: "Patient activity", icon: UserSearch },
   { href: "/analytics/governance", label: "Governance", icon: Gavel },
+  { href: "/analytics/safety", label: "Patient safety", icon: ShieldAlert },
   { href: "/analytics/audit", label: "Audit log", icon: ScrollText },
 ] as const;
 
