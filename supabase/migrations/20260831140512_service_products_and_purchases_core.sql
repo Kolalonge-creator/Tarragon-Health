@@ -143,6 +143,7 @@ create policy service_purchases_delete on public.service_purchases
 
 grant select, insert, update, delete on public.service_products to authenticated;
 grant select, insert, update, delete on public.service_purchases to authenticated;
+revoke all on public.service_products from anon;
 
 -- ---------------------------------------------------------------------------
 -- Seed: reuse today's live tier feature-groupings verbatim (confirmed live

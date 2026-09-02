@@ -43,6 +43,7 @@ create policy chronic_coordinator_tasks_update on public.chronic_programme_coord
   with check (private.is_org_staff(organisation_id));
 
 grant select, update on public.chronic_programme_coordinator_tasks to authenticated;
+revoke all on public.chronic_programme_coordinator_tasks from anon;
 
 -- Daily sweep, same idiom as private.queue_vitals_reminders(): a 7-day grace
 -- window before "missed" (a non-punitive default matching the platform's

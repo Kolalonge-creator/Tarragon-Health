@@ -131,6 +131,7 @@ create policy medication_dose_history_select on public.medication_dose_history
   );
 
 grant select on public.medication_dose_history to authenticated;
+revoke all on public.medication_dose_history from anon;
 
 do $$
 begin
