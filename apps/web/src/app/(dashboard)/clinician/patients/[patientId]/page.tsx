@@ -41,6 +41,7 @@ import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
 import { ReferToSpecialistForm } from "./refer-to-specialist-form";
 import { HealthCheckReview } from "./health-check-review";
+import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { HealthCheckVideoConsult } from "./health-check-video-consult";
 import { CarePlanManagementSection } from "./care-plan-management-section";
 import { ChronicProgrammeReviewSection } from "./chronic-programme-review-section";
@@ -126,24 +127,6 @@ export default async function ClinicianPatientPage({
     .eq("patient_id", patientId)
     .eq("year", year)
     .maybeSingle();
-  let reviewedByName: string | null = null;
-  if (healthCheck?.reviewed_by) {
-    const { data: reviewer } = await supabase
-      .from("clinical_staff")
-      .select("full_name, credential_type, credential_number")
-      .eq("id", healthCheck.reviewed_by)
-      .maybeSingle();
-    if (reviewer) {
-      reviewedByName = [
-        `Dr. ${reviewer.full_name}`,
-        reviewer.credential_type && reviewer.credential_number
-          ? `${reviewer.credential_type} ${reviewer.credential_number}`
-          : null,
-      ]
-        .filter(Boolean)
-        .join(" · ");
-    }
-  }
   // Confirm/continue an existing prescription (master plan §4/§8) —
   // characteristically Tier 1's half of the job, but NOT Tier-1-exclusive.
   // Clinical authority is monotonic, so a senior doctor covering a shift with
@@ -341,11 +324,13 @@ export default async function ClinicianPatientPage({
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />
                 <HealthCheckVideoConsult consult={healthCheck?.video_consult ?? null} />
-                <HealthCheckReview
-                  patientId={patient.id}
-                  reviewedAt={healthCheck?.reviewed_at ?? null}
-                  reviewedByName={reviewedByName}
-                />
+                <HealthCheckReview patientId={patient.id} reviewedAt={healthCheck?.reviewed_at ?? null}>
+                  <ReviewedResultLine
+                    reviewedBy={healthCheck?.reviewed_by ?? null}
+                    reviewedAt={healthCheck?.reviewed_at ?? null}
+                    reviewedByKey="staff"
+                  />
+                </HealthCheckReview>
                 {patient.organisation_id && (
                   <OrderLabTestForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}

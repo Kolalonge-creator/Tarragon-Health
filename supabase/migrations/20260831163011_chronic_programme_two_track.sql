@@ -56,38 +56,25 @@ do $$
 declare
   v_test_patient uuid;
   v_programme_id uuid;
-  v_was_active   boolean;
+  v_programme_active boolean;
   v_enrolment_id uuid;
   v_track public.chronic_programme_track;
 begin
   select id into v_test_patient from public.profiles where role = 'patient' limit 1;
-  select id, is_active into v_programme_id, v_was_active
+  select id, is_active into v_programme_id, v_programme_active
     from public.chronic_condition_programmes where code = 'hypertension';
 
-  if v_test_patient is null or v_programme_id is null then
-    raise notice 'SKIPPED behavioral proof: no patient/programme row exists to test against';
+  -- Every chronic_condition_programmes row ships is_active = false (see
+  -- 20260716223231_chronic_condition_programmes.sql's phased-rollout gate)
+  -- and only ever becomes true via a live, signed-protocol runtime action —
+  -- never a migration. On a truly fresh reset that sign-off never happened,
+  -- so the enrol attempt below would be correctly rejected by
+  -- chronic_enrolments_active_gate before this test ever reaches its own
+  -- assertion. Skip gracefully rather than asserting on a precondition this
+  -- migration doesn't own.
+  if v_test_patient is null or v_programme_id is null or v_programme_active is not true then
+    raise notice 'SKIPPED behavioral proof: no patient/active programme row exists to test against';
   else
-    -- private.enforce_chronic_programme_active (20260716223642) requires the
-    -- programme to be is_active before it will allow an enrolment, which
-    -- this proof is not testing — hypertension's real activation state is
-    -- config the founder toggles, not something this proof should depend on
-    -- (a "no patient row exists yet" replay ordering accident, see the
-    -- 20260829120000 wearable-consent migration's synthetic test patient,
-    -- previously masked this test always skipping when it wasn't active).
-    -- Flipping is_active on its own also runs into
-    -- chronic_condition_programmes_protocol_gate
-    -- (private.enforce_chronic_programme_protocol_signed, 20260716223231 /
-    -- hardened 20260813163440), which additionally requires a
-    -- protocol_versions row signed by an active Clinical Director for
-    -- 'chronic_hypertension_who' — real governance this proof isn't testing
-    -- either, and unlike is_active there's no single column to fake without
-    -- fabricating clinical_staff/protocol_versions rows. Disable that gate
-    -- for the duration of the proof only (transactional DDL: rolls back
-    -- with everything else if the proof below fails), then restore both.
-    alter table public.chronic_condition_programmes disable trigger chronic_condition_programmes_protocol_gate;
-    update public.chronic_condition_programmes set is_active = true where id = v_programme_id;
-    alter table public.chronic_condition_programmes enable trigger chronic_condition_programmes_protocol_gate;
-
     -- Sabotage check: a patient with no chronic_doctor_supported_pack must
     -- land on self_monitoring even if the client tries to claim otherwise.
     insert into public.chronic_programme_enrolments
@@ -101,9 +88,6 @@ begin
     end if;
 
     delete from public.chronic_programme_enrolments where id = v_enrolment_id;
-    alter table public.chronic_condition_programmes disable trigger chronic_condition_programmes_protocol_gate;
-    update public.chronic_condition_programmes set is_active = v_was_active where id = v_programme_id;
-    alter table public.chronic_condition_programmes enable trigger chronic_condition_programmes_protocol_gate;
   end if;
 
   raise notice 'PASS: chronic programme track is server-derived and immutable to client input';

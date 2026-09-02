@@ -1,4 +1,37 @@
--- see supabase/migrations/20260829094857_ai_governance_guardrails_prompts_knowledge.sql
+-- Tarragon Health — AI Governance, Safety & Model Management, part 2/6:
+-- guardrails (40.5), centrally-controlled prompts (40.6), and approved
+-- knowledge sources (40.7).
+--
+-- Today every prompt on the platform is a string constant in a .ts file
+-- (lib/ai-coach/prompts.ts, lib/case-briefs/generate.ts, and six more).
+-- That means the safety instructions governing a patient-facing clinical
+-- assistant can be changed by anyone with commit access, with no approval
+-- step, no version history a Clinical Director can point at, and no way to
+-- roll one back without a deploy. 40.6's requirement -- "developers should
+-- not casually modify production prompts" -- is implemented here as three
+-- things working together:
+--   1. ai_prompt_versions holds the governed text (system prompt, safety
+--      instructions, retrieval config, output constraints, model config);
+--   2. RLS admits only unapproved, inactive drafts, so nobody can insert a
+--      pre-approved row;
+--   3. a BEFORE UPDATE trigger freezes the substantive fields once a version
+--      is approved, so "edit the live prompt" is not an available move --
+--      changing it means proposing a new version and having it activated.
+-- Activation itself is public.activate_ai_prompt_version(), which requires
+-- an active Clinical Director for any clinically meaningful or high-risk
+-- system and an admin otherwise.
+--
+-- The runtime does NOT have to reach these tables to work. Every reader
+-- here returns null rather than raising when a system has no governed
+-- record yet, and the TypeScript layer falls back to its in-repo constant.
+-- That is deliberate: 40.18 says AI must never be a single point of
+-- failure, and a governance table that can hard-fail a patient-facing
+-- feature would make governance itself the new single point of failure.
+
+-- ---------------------------------------------------------------------------
+-- Guardrails (40.5)
+-- ---------------------------------------------------------------------------
+
 create type public.ai_guardrail_kind as enum (
   'prohibited_diagnosis',
   'prohibited_prescribing',
@@ -57,6 +90,9 @@ create policy ai_guardrails_write on public.ai_guardrails
 
 grant select, insert, update, delete on public.ai_guardrails to authenticated;
 
+-- A max_autonomy guardrail is only coherent if the system it caps does not
+-- already exceed the cap. Checked here rather than in the app because the
+-- registry and the guardrail are edited on different screens.
 create or replace function private.guard_ai_guardrail_autonomy_ceiling()
 returns trigger
 language plpgsql
@@ -123,6 +159,10 @@ comment on function private.ai_guardrails_for(text) is
 
 revoke all on function private.ai_guardrails_for(text) from public, anon;
 
+-- ---------------------------------------------------------------------------
+-- Prompt management (40.6)
+-- ---------------------------------------------------------------------------
+
 create table public.ai_prompt_versions (
   id                  uuid primary key default gen_random_uuid(),
   ai_system_id        uuid not null references public.ai_systems (id) on delete cascade,
@@ -134,6 +174,12 @@ create table public.ai_prompt_versions (
   model_config        jsonb not null default '{}'::jsonb,
   change_summary      text,
   is_active           boolean not null default false,
+  -- Two separate approval facts, deliberately not collapsed into one.
+  -- activated_by is the accountable human and is ALWAYS recorded; approved_by
+  -- is the Clinical Director's clinical signature and is null-gated -- an
+  -- admin activating a low-risk, non-clinical system's prompt leaves it null
+  -- rather than having a signature invented for them, the same discipline
+  -- reviewed_by/reviewed_at follow everywhere else on the platform.
   approved_by         uuid references public.clinical_staff (id) on delete restrict,
   approved_at         timestamptz,
   activated_by        uuid references public.profiles (id) on delete set null,
@@ -148,6 +194,8 @@ create table public.ai_prompt_versions (
     check ((activated_by is null) = (activated_at is null)),
   constraint ai_prompt_versions_signature_implies_approval
     check (approved_by is null or approved_at is not null),
+  -- Nothing goes live unapproved. This is the structural half of "developers
+  -- should not casually modify production prompts".
   constraint ai_prompt_versions_active_requires_approval
     check (not is_active or (approved_at is not null and activated_by is not null))
 );
@@ -161,6 +209,7 @@ comment on column public.ai_prompt_versions.safety_instructions is
 comment on column public.ai_prompt_versions.model_config is
   'Model configuration governed alongside the prompt -- e.g. {"model":"claude-sonnet-5","max_tokens":500}. The runtime treats a governed model identifier as the expected one for ai_vendor_model_observations (40.19).';
 
+-- One active version per system.
 create unique index ai_prompt_versions_one_active_per_system
   on public.ai_prompt_versions (ai_system_id) where is_active;
 
@@ -172,8 +221,12 @@ create trigger ai_prompt_versions_set_updated_at
 
 alter table public.ai_prompt_versions enable row level security;
 
+-- Prompt text is operational configuration, not PHI, but it is also not
+-- something a patient account needs; staff only.
 create policy ai_prompt_versions_select on public.ai_prompt_versions
   for select to authenticated using (private.is_org_staff(private.current_org_id()));
+-- Only an unapproved, inactive draft may be proposed, and only by an admin.
+-- Approval and activation are the RPC's job, never the client's.
 create policy ai_prompt_versions_insert on public.ai_prompt_versions
   for insert to authenticated
   with check (
@@ -189,6 +242,14 @@ create policy ai_prompt_versions_update on public.ai_prompt_versions
 
 grant select, insert, update on public.ai_prompt_versions to authenticated;
 
+-- The behavioural half of "developers should not casually modify production
+-- prompts": once approved, the governed text is frozen. Changing it means a
+-- new version row that has to be approved and activated on its own merits.
+-- SECURITY INVOKER on purpose. Inside a SECURITY DEFINER RPC, current_user
+-- is the function owner (postgres); a client UPDATE arriving through
+-- PostgREST runs as 'authenticated'. An invoker-rights trigger can therefore
+-- tell the two apart, which a definer-rights one cannot -- it would see
+-- 'postgres' either way.
 create or replace function private.guard_ai_prompt_version_immutability()
 returns trigger
 language plpgsql
@@ -207,6 +268,7 @@ begin
     end if;
   end if;
 
+  -- Self-approval through a plain UPDATE is not a route around the RPC.
   if old.approved_at is null and new.approved_at is not null
      and current_user in ('authenticated', 'anon', 'authenticator')
   then
@@ -224,6 +286,8 @@ create trigger ai_prompt_versions_immutable_after_approval
   before update on public.ai_prompt_versions
   for each row execute function private.guard_ai_prompt_version_immutability();
 
+-- Activation. Clinical-Director-gated where it matters, admin-gated
+-- otherwise; retires whatever was active; audit-logged either way.
 create or replace function public.activate_ai_prompt_version(p_id uuid, p_note text default null)
 returns uuid
 language plpgsql
@@ -274,6 +338,10 @@ begin
          change_summary = coalesce(p_note, change_summary)
    where id = p_id;
 
+  -- A non-director admin may only activate a low/moderate-risk,
+  -- non-clinical system's prompt, and has no clinical_staff row to stamp;
+  -- approved_by stays null in that case rather than being faked, the same
+  -- null-gating discipline reviewed_by follows.
   insert into public.audit_log
     (organisation_id, actor_id, action, entity_type, entity_id, event)
   values (
@@ -296,6 +364,7 @@ comment on function public.activate_ai_prompt_version(uuid, text) is
 revoke all on function public.activate_ai_prompt_version(uuid, text) from public, anon;
 grant execute on function public.activate_ai_prompt_version(uuid, text) to authenticated;
 
+-- Runtime reader. Fail-soft by design (see the migration header).
 create or replace function private.active_ai_prompt(p_system_code text)
 returns jsonb
 language sql
@@ -323,6 +392,16 @@ comment on function private.active_ai_prompt(text) is
 
 revoke all on function private.active_ai_prompt(text) from public, anon;
 
+-- ---------------------------------------------------------------------------
+-- Amendment to part 1's ai_system_versions, now that the approval model is
+-- settled: a version approval carries TWO facts, and collapsing them loses
+-- one. approval_actor_id is the accountable human and is always recorded;
+-- approved_by is the Clinical Director's clinical signature and stays
+-- null-gated for a low-risk, non-clinical system approved by an admin who
+-- has no clinical_staff record. Part 1's strict "both or neither" pairing
+-- would have forced a fake signature in exactly that case.
+-- ---------------------------------------------------------------------------
+
 alter table public.ai_system_versions
   add column approval_actor_id uuid references public.profiles (id) on delete set null;
 
@@ -340,6 +419,10 @@ alter table public.ai_system_versions
   add constraint ai_system_versions_signature_implies_approval
     check (approved_by is null or approved_at is not null);
 
+-- Same posture as ai_prompt_versions: approval happens through
+-- public.approve_ai_system_version() (part 5), which checks the required
+-- evaluation runs first. A client cannot approve a version by writing
+-- approved_at itself. SECURITY INVOKER for the same current_user reason.
 create or replace function private.guard_ai_system_version_approval_route()
 returns trigger
 language plpgsql
@@ -362,6 +445,10 @@ create trigger ai_system_versions_approval_route
   before update on public.ai_system_versions
   for each row execute function private.guard_ai_system_version_approval_route();
 
+-- ---------------------------------------------------------------------------
+-- Knowledge-source governance (40.7)
+-- ---------------------------------------------------------------------------
+
 create table public.ai_knowledge_sources (
   id              uuid primary key default gen_random_uuid(),
   source_code     text not null unique check (source_code ~ '^[a-z0-9_]+$'),
@@ -369,9 +456,15 @@ create table public.ai_knowledge_sources (
   source_type     text not null check (source_type in (
                     'education_material', 'clinical_protocol', 'pathway_document',
                     'formulary', 'external_guideline', 'platform_record')),
+  -- Polymorphic pointer at the row this source actually is, where one
+  -- exists. Deliberately not an FK: the referenced tables span
+  -- health_education_content, protocol_versions, lifestyle content and
+  -- documents that live outside the database entirely.
   reference_table text,
   reference_id    uuid,
   external_url    text,
+  -- What the patient or clinician is shown when an answer draws on this
+  -- source: "Based on Tarragon's approved hypertension education material."
   citation_label  text not null,
   ai_system_id    uuid references public.ai_systems (id) on delete cascade,
   is_active       boolean not null default true,
@@ -401,6 +494,7 @@ create trigger ai_knowledge_sources_set_updated_at
 
 alter table public.ai_knowledge_sources enable row level security;
 
+-- Patients see citation labels in AI answers, so they may read this table.
 create policy ai_knowledge_sources_select on public.ai_knowledge_sources
   for select to authenticated using (true);
 create policy ai_knowledge_sources_write on public.ai_knowledge_sources
@@ -444,6 +538,10 @@ comment on function private.approved_ai_knowledge_sources(text) is
 
 revoke all on function private.approved_ai_knowledge_sources(text) from public, anon;
 
+-- ---------------------------------------------------------------------------
+-- Assertions
+-- ---------------------------------------------------------------------------
+
 do $$
 declare
   v_sys uuid;
@@ -465,6 +563,10 @@ begin
     raise exception 'a part-2 AI governance table was created without row level security';
   end if;
 
+  -- anon must not be able to execute the runtime readers. This is checked
+  -- with has_function_privilege rather than trusted from the revoke above --
+  -- anon inherits EXECUTE through PUBLIC, and this project has believed
+  -- this "fixed" and found it broken more than once.
   if has_function_privilege('anon', 'private.ai_guardrails_for(text)', 'EXECUTE')
     or has_function_privilege('anon', 'private.active_ai_prompt(text)', 'EXECUTE')
     or has_function_privilege('anon', 'private.approved_ai_knowledge_sources(text)', 'EXECUTE')
@@ -473,6 +575,7 @@ begin
     raise exception 'anon can still execute an AI governance function';
   end if;
 
+  -- The prompt immutability guard actually discriminates.
   insert into public.ai_systems
     (system_code, name, purpose, owner_role, risk_class, autonomy_level,
      clinically_meaningful, fallback_behaviour)
@@ -492,6 +595,8 @@ begin
       if sqlerrm not like '%propose a new version%' then raise; end if;
   end;
 
+  -- ...and that an unapproved draft is still editable, so the guard is not
+  -- passing vacuously by blocking everything.
   update public.ai_prompt_versions
      set approved_at = null, approved_by = null, is_active = false where id = v_pv;
   update public.ai_prompt_versions set system_prompt = 'edited' where id = v_pv;
@@ -500,6 +605,9 @@ begin
     raise exception 'an unapproved draft prompt could not be edited -- the guard is over-broad';
   end if;
 
+  -- The amended ai_system_versions approval model holds: a clinical
+  -- signature without an approval timestamp is impossible, and an approval
+  -- without an accountable actor is impossible.
   begin
     insert into public.ai_system_versions
       (ai_system_id, version, model_identifier, intended_population, excluded_population, approved_at)

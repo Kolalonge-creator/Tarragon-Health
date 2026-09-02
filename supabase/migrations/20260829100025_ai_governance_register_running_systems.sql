@@ -1,4 +1,36 @@
--- see supabase/migrations/20260829101507_ai_governance_register_running_systems.sql
+-- Tarragon Health — AI Governance, Safety & Model Management, part 6/6:
+-- registering the ten AI capabilities that are already running in
+-- production, plus their vendors, first-version metadata, guardrails and
+-- evaluation suites (40.1, 40.2, 40.5, 40.9, 40.10).
+--
+-- This migration is deliberately a record of REALITY, not of an aspiration.
+-- Every one of these ten has been live and answering patients or clinicians
+-- for weeks, and not one has been through a formal validation, a red-team
+-- pass, or a bias assessment. So each is registered:
+--   * enabled and live, because it is (see part 5's grandfather note --
+--     switching production AI off to satisfy paperwork would be the wrong
+--     trade, and pretending the registry is complete would be worse);
+--   * with a v1 version row whose validation_summary says plainly that no
+--     formal validation has been done;
+--   * with its real guardrails, transcribed from the guard code that
+--     actually runs today rather than invented for the record;
+--   * with required evaluation suites and real red-team cases attached but
+--     NO runs, so the release gate reads "not_run" and the console shows
+--     exactly what each system still owes.
+--
+-- The result is that /admin/settings/ai-governance opens on an honest
+-- picture: ten live systems, each with its outstanding acceptance criteria
+-- listed. That is the useful state. A registry seeded with fabricated
+-- passing evaluations would be worse than no registry at all.
+--
+-- Nothing here changes runtime behaviour. No prompt is activated (the one
+-- prompt row seeded is a draft transcription of what the code already
+-- sends), no knowledge source is approved, and every system stays enabled.
+
+-- ---------------------------------------------------------------------------
+-- Vendors (40.19)
+-- ---------------------------------------------------------------------------
+
 insert into public.ai_vendors
   (name, vendor_type, data_processing_summary, data_processing_region,
    contractual_controls, service_availability_target, change_notification_channel)
@@ -22,6 +54,10 @@ values
    'Best-effort. packages/shared/ml-client.ts never throws and returns null on error, so the platform keeps working when the service is down.',
    'Internal release notes; the service reports its own version on /health.')
 on conflict (name) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- The registry (40.1) -- ten systems, grandfathered as already-running
+-- ---------------------------------------------------------------------------
 
 insert into public.ai_systems (
   system_code, name, purpose, owner_role, vendor_id, risk_class, autonomy_level,
@@ -101,6 +137,10 @@ from (values
        clinically_meaningful, fallback_behaviour, code_reference, review_days)
 on conflict (system_code) do nothing;
 
+-- ---------------------------------------------------------------------------
+-- v1 version metadata (40.2), unapproved on purpose
+-- ---------------------------------------------------------------------------
+
 insert into public.ai_system_versions (
   ai_system_id, version, model_identifier, training_data_description,
   intended_population, excluded_population, validation_summary, change_summary
@@ -157,11 +197,16 @@ where not exists (
   select 1 from public.ai_system_versions x where x.ai_system_id = s.id and x.version = 'v1'
 );
 
+-- ---------------------------------------------------------------------------
+-- Guardrails (40.5) -- transcribed from the guard code that runs today
+-- ---------------------------------------------------------------------------
+
 insert into public.ai_guardrails (ai_system_id, rule_code, kind, description, enforcement, config)
 select s.id, g.rule_code, g.kind::public.ai_guardrail_kind, g.description,
        g.enforcement::public.ai_guardrail_enforcement, g.config::jsonb
 from public.ai_systems s
 join (values
+  -- AI-001 AI Health Coach
   ('AI-001', 'no_diagnosis', 'prohibited_diagnosis',
    'Never state or imply a diagnosis, or tell the patient what disease they have. Transcribed from COACH_SYSTEM_PROMPT.',
    'blocking', '{"source":"apps/web/src/lib/ai-coach/prompts.ts"}'),
@@ -181,6 +226,7 @@ join (values
    'The coach may classify and escalate, but may never take a clinical action on its own.',
    'blocking', '{"max_level":"assist"}'),
 
+  -- AI-002 Lifestyle nudge proposer
   ('AI-002', 'no_clinical_advice', 'prohibited_diagnosis',
    'A nudge is encouragement about a programme, never clinical advice or an interpretation of a reading.',
    'blocking', '{}'),
@@ -194,6 +240,7 @@ join (values
    'A drafted nudge is a proposal; the sending path decides whether it goes out.',
    'blocking', '{"max_level":"recommend"}'),
 
+  -- AI-003 Patient result explainer
   ('AI-003', 'explains_only_recorded_results', 'output_constraint',
    'Explains only the result already in the patient''s record, from the snapshot supplied. Never introduces a new finding, number or recommendation.',
    'blocking', '{}'),
@@ -204,6 +251,7 @@ join (values
    'Information only. The explanation has no effect on the record, the risk score or any escalation.',
    'blocking', '{"max_level":"inform_only"}'),
 
+  -- AI-004 Clinician case briefs
   ('AI-004', 'draft_only_never_closes_a_case', 'mandatory_human_review',
    'A brief is a reading aid for the clinician working the alert. No case is ever closed, and no clinical decision recorded, on the strength of a brief.',
    'blocking', '{}'),
@@ -214,6 +262,7 @@ join (values
    'Information only.',
    'blocking', '{"max_level":"inform_only"}'),
 
+  -- AI-005 Lab report extraction
   ('AI-005', 'extraction_not_interpretation', 'prohibited_diagnosis',
    'Transcribes the analyte values printed on the report. Never interprets them, and never infers a value that is not printed.',
    'blocking', '{}'),
@@ -224,6 +273,7 @@ join (values
    'Performs part of the workflow; the clinical decision stays with a person.',
    'blocking', '{"max_level":"assist"}'),
 
+  -- AI-006 ECG report extraction
   ('AI-006', 'transcribes_human_interpretation_only', 'prohibited_diagnosis',
    'Carries across the reporting clinician''s own stated interpretation. Never generates an ECG interpretation of its own.',
    'blocking', '{}'),
@@ -234,6 +284,7 @@ join (values
    'Performs part of the workflow; the clinical decision stays with a person.',
    'blocking', '{"max_level":"assist"}'),
 
+  -- AI-007 Medication pack recognition
   ('AI-007', 'patient_confirms_before_saving', 'mandatory_human_review',
    'Recognised medication details are pre-filled for the patient to confirm or correct; nothing is saved unconfirmed.',
    'blocking', '{}'),
@@ -241,6 +292,7 @@ join (values
    'Pre-fills a form. It does not add a medication.',
    'blocking', '{"max_level":"assist"}'),
 
+  -- AI-008 Meal photo nutrition estimation
   ('AI-008', 'indicative_not_clinical', 'output_constraint',
    'Estimates are indicative and feed no clinical threshold, alert or escalation. They must never be presented as a measurement.',
    'warn', '{}'),
@@ -248,6 +300,7 @@ join (values
    'Pre-fills a food log entry.',
    'blocking', '{"max_level":"assist"}'),
 
+  -- AI-009 Lifestyle content embeddings
   ('AI-009', 'approved_content_only', 'output_constraint',
    'Only clinician-approved educational content is embedded. Patient-authored text is never sent to the embedding provider.',
    'blocking', '{}'),
@@ -255,6 +308,7 @@ join (values
    'Retrieval only. This system generates no text and reaches no patient directly.',
    'blocking', '{"max_level":"inform_only"}'),
 
+  -- AI-010 Clinical risk scoring service
   ('AI-010', 'score_is_not_a_diagnosis', 'prohibited_diagnosis',
    'A risk score is an input to clinical judgement, never a diagnosis and never a treatment decision.',
    'blocking', '{}'),
@@ -271,6 +325,11 @@ join (values
   on g.system_code = s.system_code
 on conflict (ai_system_id, rule_code) do nothing;
 
+-- ---------------------------------------------------------------------------
+-- Evaluation suites (40.9) and red-team cases (40.10)
+-- ---------------------------------------------------------------------------
+
+-- Shared baseline: applies to every registered system, present and future.
 insert into public.ai_evaluation_suites (ai_system_id, name, kind, description, is_required_for_release, pass_threshold_pct)
 values (
   null, 'Platform AI safety baseline', 'safety',
@@ -296,6 +355,10 @@ join (values
 where s.name = 'Platform AI safety baseline' and s.ai_system_id is null
 on conflict (suite_id, case_code) do nothing;
 
+-- AI-001's own suites. The Coach is the highest-exposure system on the
+-- platform -- patient-facing, clinically meaningful, and the only one that
+-- can raise an escalation on its own -- so it gets the full 40.10 red-team
+-- set, a clinical accuracy suite and a Nigerian-population fairness suite.
 insert into public.ai_evaluation_suites (ai_system_id, name, kind, description, is_required_for_release, pass_threshold_pct)
 select s.id, v.name, v.kind::public.ai_evaluation_kind, v.description, true, v.threshold
 from public.ai_systems s
@@ -376,12 +439,18 @@ join (values
 where s.system_code = 'AI-001' and su.name = 'AI Coach fairness across Nigerian populations'
 on conflict (suite_id, case_code) do nothing;
 
+-- AI-010's performance suite. Threshold below 100 on purpose: a risk model
+-- is judged on calibration across a sample, not on getting every case right.
 insert into public.ai_evaluation_suites (ai_system_id, name, kind, description, is_required_for_release, pass_threshold_pct)
 select s.id, 'Risk model calibration', 'performance',
   'Calibration of each risk score against observed outcomes in the served population. The open question this suite exists to answer is whether the published source equations hold for Nigerian patients -- see the v1 excluded_population note.',
   true, 90.00
 from public.ai_systems s where s.system_code = 'AI-010'
 on conflict do nothing;
+
+-- ---------------------------------------------------------------------------
+-- Knowledge sources (40.7) -- registered as drafts, deliberately unapproved
+-- ---------------------------------------------------------------------------
 
 insert into public.ai_knowledge_sources
   (source_code, title, source_type, citation_label, ai_system_id, review_due_on)
@@ -397,6 +466,14 @@ values
   ('tarragon_lifestyle_content', 'Clinician-approved lifestyle programme content', 'platform_record',
    'Based on the lifestyle guidance your care team has approved.', null, current_date + 365)
 on conflict (source_code) do nothing;
+
+-- ---------------------------------------------------------------------------
+-- One draft prompt version (40.6): a verbatim transcription of what the AI
+-- Coach already sends, so the first governed version is a faithful record
+-- of the status quo rather than a rewrite nobody has reviewed. It is a
+-- DRAFT -- is_active false, unapproved -- so the runtime keeps using the
+-- in-repo constant until a Clinical Director activates it.
+-- ---------------------------------------------------------------------------
 
 insert into public.ai_prompt_versions (
   ai_system_id, version, system_prompt, safety_instructions,
@@ -457,6 +534,10 @@ where s.system_code = 'AI-001'
     select 1 from public.ai_prompt_versions p where p.ai_system_id = s.id and p.version = 1
   );
 
+-- ---------------------------------------------------------------------------
+-- Assertions
+-- ---------------------------------------------------------------------------
+
 do $$
 declare
   v_count int;
@@ -483,6 +564,8 @@ begin
     raise exception 'a registered AI system has no version metadata';
   end if;
 
+  -- Nothing was approved or activated. This migration records the gap; it
+  -- does not close it, and it must not look as though it did.
   if exists (select 1 from public.ai_system_versions where approved_at is not null) then
     raise exception 'a version was seeded as approved -- no evaluation has been run, so nothing may be recorded as validated';
   end if;
@@ -499,6 +582,7 @@ begin
     raise exception 'an evaluation run was seeded -- the suites are real, the runs have not happened';
   end if;
 
+  -- All seven 40.10 red-team categories are covered for the Coach.
   select count(distinct c.redteam_category) into v_count
   from public.ai_evaluation_cases c
   join public.ai_evaluation_suites s on s.id = c.suite_id
@@ -507,6 +591,8 @@ begin
     raise exception 'the AI Coach red-team suite covers % of the 7 categories in 40.10', v_count;
   end if;
 
+  -- The acceptance report on a grandfathered system is honest: validation
+  -- is outstanding, and the system is still enabled.
   select private.ai_acceptance_criteria(id) into v_rep
   from public.ai_systems where system_code = 'AI-001';
 
