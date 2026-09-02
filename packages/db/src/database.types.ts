@@ -145,6 +145,199 @@ export type Database = {
           },
         ]
       }
+      adolescent_confidentiality_waivers: {
+        Row: {
+          domain: string
+          granted_at: string
+          grantee_user_id: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          revoked_at: string | null
+          revoked_by: string | null
+        }
+        Insert: {
+          domain: string
+          granted_at?: string
+          grantee_user_id: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Update: {
+          domain?: string
+          granted_at?: string
+          grantee_user_id?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          revoked_at?: string | null
+          revoked_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adolescent_confidentiality_waivers_grantee_user_id_fkey"
+            columns: ["grantee_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_confidentiality_waivers_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_confidentiality_waivers_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_confidentiality_waivers_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adolescent_psychosocial_screens: {
+        Row: {
+          abuse_neglect_exploitation_flagged: boolean
+          created_at: string
+          domain_responses: Json
+          id: string
+          immediate_danger_flagged: boolean
+          organisation_id: string
+          patient_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          self_harm_flagged: boolean
+          sexual_health_follow_up_requested: boolean
+          substance_use_concern_flagged: boolean
+        }
+        Insert: {
+          abuse_neglect_exploitation_flagged?: boolean
+          created_at?: string
+          domain_responses?: Json
+          id?: string
+          immediate_danger_flagged?: boolean
+          organisation_id: string
+          patient_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          self_harm_flagged?: boolean
+          sexual_health_follow_up_requested?: boolean
+          substance_use_concern_flagged?: boolean
+        }
+        Update: {
+          abuse_neglect_exploitation_flagged?: boolean
+          created_at?: string
+          domain_responses?: Json
+          id?: string
+          immediate_danger_flagged?: boolean
+          organisation_id?: string
+          patient_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          self_harm_flagged?: boolean
+          sexual_health_follow_up_requested?: boolean
+          substance_use_concern_flagged?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adolescent_psychosocial_screens_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_psychosocial_screens_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_psychosocial_screens_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      adolescent_transition_plans: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          current_stage: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          stage_log: Json
+          started_at: string
+          target_transition_age: number
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_stage?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          stage_log?: Json
+          started_at?: string
+          target_transition_age?: number
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_stage?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          stage_log?: Json
+          started_at?: string
+          target_transition_age?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adolescent_transition_plans_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_transition_plans_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adolescent_transition_plans_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       adolescent_transition_events: {
         Row: {
           created_at: string
@@ -28458,6 +28651,8 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          linked_emergency_event_id: string | null
+          linked_screen_id: string | null
           organisation_id: string
           patient_id: string
           reported_at: string
@@ -28465,6 +28660,7 @@ export type Database = {
           review_outcome: string | null
           reviewed_at: string | null
           reviewed_by_staff: string | null
+          source: string | null
           status: string
           updated_at: string
         }
@@ -28477,6 +28673,8 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          linked_emergency_event_id?: string | null
+          linked_screen_id?: string | null
           organisation_id: string
           patient_id: string
           reported_at?: string
@@ -28484,6 +28682,7 @@ export type Database = {
           review_outcome?: string | null
           reviewed_at?: string | null
           reviewed_by_staff?: string | null
+          source?: string | null
           status?: string
           updated_at?: string
         }
@@ -28496,6 +28695,8 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          linked_emergency_event_id?: string | null
+          linked_screen_id?: string | null
           organisation_id?: string
           patient_id?: string
           reported_at?: string
@@ -28503,6 +28704,7 @@ export type Database = {
           review_outcome?: string | null
           reviewed_at?: string | null
           reviewed_by_staff?: string | null
+          source?: string | null
           status?: string
           updated_at?: string
         }
@@ -28519,6 +28721,20 @@ export type Database = {
             columns: ["closed_by_staff"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safeguarding_concerns_linked_emergency_event_id_fkey"
+            columns: ["linked_emergency_event_id"]
+            isOneToOne: false
+            referencedRelation: "emergency_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "safeguarding_concerns_linked_screen_id_fkey"
+            columns: ["linked_screen_id"]
+            isOneToOne: false
+            referencedRelation: "adolescent_psychosocial_screens"
             referencedColumns: ["id"]
           },
           {
