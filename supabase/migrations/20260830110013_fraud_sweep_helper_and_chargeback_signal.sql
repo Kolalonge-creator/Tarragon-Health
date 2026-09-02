@@ -65,10 +65,8 @@ begin
     from pg_default_acl
    where defaclnamespace::regnamespace::text = 'public';
 
-  raise notice 'DIAG proacl=% anon.rolsuper=% anon.rolbypassrls=% authenticated.rolsuper=%',
-    v_proacl, v_anon_rolsuper, v_anon_rolbypassrls, v_authenticated_rolsuper;
-  raise notice 'DIAG default_acl_public=%', v_default_acl;
-  raise notice 'DIAG has_priv_anon=% has_priv_authenticated=%',
+  raise exception 'DIAG proacl=% anon.rolsuper=% anon.rolbypassrls=% authenticated.rolsuper=% default_acl_public=% has_priv_anon=% has_priv_authenticated=%',
+    v_proacl, v_anon_rolsuper, v_anon_rolbypassrls, v_authenticated_rolsuper, v_default_acl,
     has_function_privilege('anon', 'public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz)', 'EXECUTE'),
     has_function_privilege('authenticated', 'public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz)', 'EXECUTE');
 end $$;
