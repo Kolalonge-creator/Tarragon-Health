@@ -49,7 +49,14 @@ export function SubscriptionManager() {
 
   const active = (purchases ?? []).filter(isPurchaseCurrentlyActive);
   const activeProductIds = new Set(active.map((p) => p.service_product_id));
-  const buyable = (catalogue ?? []).filter((product) => !activeProductIds.has(product.id));
+  // NGN only — USD/GBP service_products (e.g. lifestyle-coaching_usd_pack)
+  // exist for the diaspora sponsor-checkout flow (sponsor-bill-checkout.ts),
+  // never for a patient buying their own access. See
+  // docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md's "diaspora is a sponsor, not a
+  // patient" decision — there is no diaspora patient-facing tier.
+  const buyable = (catalogue ?? []).filter(
+    (product) => product.currency === "NGN" && !activeProductIds.has(product.id),
+  );
 
   return (
     <div className="space-y-4">
