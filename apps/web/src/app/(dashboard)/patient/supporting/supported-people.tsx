@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { CareMessageThread } from "@/components/care-message-thread";
+import { EmergencyAccessRequest } from "./emergency-access-request";
 import { useCareThreads, useStartThread } from "@/lib/queries/care-messages";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -343,11 +344,14 @@ function PersonCard({
             <SupporterConversation person={person} />
           </>
         ) : (
-          <p className="text-xs text-charcoal-ink/50">
-            You can see what their care costs and what it paid for, and nothing else. If they want
-            you to follow how they are doing, they can turn that on themselves under &ldquo;Who can
-            see your health information&rdquo;.
-          </p>
+          <div className="space-y-2">
+            <p className="text-xs text-charcoal-ink/50">
+              You can see what their care costs and what it paid for, and nothing else. If they want
+              you to follow how they are doing, they can turn that on themselves under &ldquo;Who can
+              see your health information&rdquo;.
+            </p>
+            <EmergencyAccessRequest profileId={person.profileId} name={name} />
+          </div>
         )}
       </CardContent>
     </Card>

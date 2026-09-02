@@ -18,6 +18,11 @@ import { patientLocationSchema } from "@/lib/validation/patient-location";
 import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
 import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
 import {
+  paediatricDangerReportSchema,
+  paediatricDangerSignsSummary,
+  type PaediatricDangerSign,
+} from "@/lib/validation/pediatric-emergency";
+import {
   hospitalAdmissionSchema,
   hospitalAdmissionUpdateSchema,
 } from "@/lib/validation/hospital-admissions";
@@ -760,6 +765,61 @@ export async function reportDangerSymptoms(
       organisation_id: profile.organisation_id,
       source: "danger_symptom_checklist",
       trigger_detail: dangerSignsSummary(parsed.data.signs as DangerSign[]),
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true, eventId: data.id };
+}
+
+/**
+ * Paediatric variant of reportDangerSymptoms — a different, age-appropriate
+ * sign list (see docs on PAEDIATRIC_DANGER_SIGNS in
+ * lib/validation/pediatric-emergency.ts for why the adult list is not reused),
+ * the exact same emergency_events pathway. Shown instead of the adult
+ * checklist when acting for a dependent under 5 (see danger-symptom-check.tsx).
+ */
+export async function reportPaediatricDangerSymptoms(
+  _prevState: ReportDangerState,
+  formData: FormData
+): Promise<ReportDangerState> {
+  const parsed = paediatricDangerReportSchema.safeParse({
+    signs: formData.getAll("signs"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Select at least one sign" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const subjectId = await resolveSubjectId(user.id);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", subjectId)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "No organisation on file" };
+  }
+
+  const { data, error } = await supabase
+    .from("emergency_events")
+    .insert({
+      patient_id: subjectId,
+      organisation_id: profile.organisation_id,
+      source: "danger_symptom_checklist",
+      trigger_detail: paediatricDangerSignsSummary(parsed.data.signs as PaediatricDangerSign[]),
       status: "active",
     })
     .select("id")

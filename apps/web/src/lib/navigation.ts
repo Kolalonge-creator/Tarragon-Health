@@ -157,8 +157,15 @@ export function getNavSections(
             },
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
+            { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
+            {
+              label: "Sexual & reproductive health",
+              href: "/patient/sexual-health",
+              icon: "family",
+            },
             { label: "Wellbeing", href: "/patient/wellbeing", icon: "mood" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Adolescent Health", href: "/patient/adolescent-health", icon: "mood" },
             { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
             { label: "Healthy ageing", href: "/patient/healthy-ageing", icon: "healthyAgeing" },
             { label: "Get a device", href: "/patient/devices", icon: "devices" },
@@ -240,6 +247,7 @@ export function getNavSections(
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
                 {
                   label: "Operations queue",
                   href: "/clinician/operations-queue",
@@ -282,6 +290,7 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
                 {
                   label: "Operations queue",
                   href: "/clinician/operations-queue",
@@ -307,6 +316,7 @@ export function getNavSections(
                 { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive" },
+                { label: "Sexual health cases", href: "/clinician/sexual-health", icon: "escalation" },
               ],
             },
             {

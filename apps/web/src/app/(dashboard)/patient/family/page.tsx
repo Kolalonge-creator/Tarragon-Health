@@ -8,6 +8,7 @@ import { DependantsList } from "./dependants-list";
 import { AdultsYouManageList } from "./adults-you-manage-list";
 import { CareAccessRequestsList, type CareAccessRequestRow } from "./care-access-requests-list";
 import { CareVisibilityList } from "./care-visibility-list";
+import { EmergencyAccessBanner } from "./emergency-access-banner";
 import { CareAccessLog, type CareAccessLogRow } from "./care-access-log";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -137,6 +138,8 @@ export default async function CareCirclePage() {
           whose records you keep. Everyone keeps their own account and their own subscription.
         </p>
       </div>
+
+      <EmergencyAccessBanner />
 
       <CareAccessRequestsList requests={requests} currentUserId={profile.id} />
 

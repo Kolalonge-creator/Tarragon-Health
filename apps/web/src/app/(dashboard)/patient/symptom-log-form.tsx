@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { logSymptom } from "./actions";
 import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { SYMPTOM_TYPES, type SymptomLogInput } from "@/lib/validation/symptoms";
+import { PAEDIATRIC_SYMPTOM_TYPES, shouldOfferPaediatricSymptomTypes } from "@/lib/rules/pediatric-symptom-triage";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,8 +24,16 @@ const SYMPTOM_LABEL: Record<SymptomLogInput["symptom_type"], string> = {
   severe_headache: "Severe headache",
   visual_disturbance: "Vision changes (blurred, dimmed, or lost)",
   confusion: "Confusion or drowsiness",
+  poor_feeding: "Feeding much less than usual, or refusing to feed",
+  lethargy: "Unusually sleepy, floppy, or hard to wake",
+  grunting_or_retractions: "Grunting, or the chest pulling in with each breath",
+  dehydration_signs: "Fewer wet nappies, dry mouth, or no tears when crying",
   other: "Other",
 };
+
+const PEDIATRIC_TYPE_SET = new Set<string>(PAEDIATRIC_SYMPTOM_TYPES);
+/** Adult symptom types, in their existing order, with 'other' always last. */
+const ADULT_SYMPTOM_TYPES = SYMPTOM_TYPES.filter((t) => !PEDIATRIC_TYPE_SET.has(t));
 
 /** Severity-slider track colour: calm green low, amber mid, red only at the
  * top end. Purely a visual cue, matches SYMPTOM_LABEL's own tone, never a
@@ -38,10 +47,16 @@ function severityTrackColor(severity: number): string {
 
 export function SymptomLogForm({
   patientId,
+  ageYears = null,
   medicationId,
   drugName,
 }: {
   patientId: string;
+  /** The account being logged for, not the caller — pass the acting-for
+   * subject's age (dashboard-context.ts's subjectDateOfBirth) so a parent
+   * logging for a young child sees the paediatric-specific options
+   * (§48.8: "must not simply reuse adult rules"). */
+  ageYears?: number | null;
   /** Medication safety pathway 64.9: scopes this to "I'm experiencing a side effect" for one medication. */
   medicationId?: string;
   drugName?: string;
@@ -49,6 +64,9 @@ export function SymptomLogForm({
   const [severity, setSeverity] = useState(5);
   const [state, formAction, pending] = useActionState(logSymptom, undefined);
   const queryClient = useQueryClient();
+  const visibleTypes = shouldOfferPaediatricSymptomTypes(ageYears)
+    ? [...ADULT_SYMPTOM_TYPES.filter((t) => t !== "other"), ...PAEDIATRIC_SYMPTOM_TYPES, "other" as const]
+    : ADULT_SYMPTOM_TYPES;
 
   useEffect(() => {
     if (state?.success) {
@@ -78,7 +96,7 @@ export function SymptomLogForm({
           <div className="space-y-1.5">
             <Label htmlFor="symptom_type">Symptom</Label>
             <Select id="symptom_type" name="symptom_type" defaultValue="other" required>
-              {SYMPTOM_TYPES.map((value) => (
+              {visibleTypes.map((value) => (
                 <option key={value} value={value}>
                   {SYMPTOM_LABEL[value]}
                 </option>

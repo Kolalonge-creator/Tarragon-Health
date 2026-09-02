@@ -52,25 +52,35 @@ export async function getPatientDashboardContext() {
   // private.stamp_acting_supporter.
   const subjectId = acting?.profileId ?? profile.id;
 
-  // The emergency safety net must show the SUBJECT's state and emergency
-  // contact, not the caller's — a supporter in Lagos acting for a parent in
-  // Kano needs Kano's (or the national default's) emergency number, and
-  // "alert my emergency contact" must alert the SUBJECT's contact, not the
-  // caller's own. ActingFor only carries id/name, so fetch these separately
-  // in the rare acting case; when not acting, the caller's own already-loaded
-  // profile fields are correct.
+  // The emergency safety net must show the SUBJECT's state, date of birth
+  // (for age-band-aware framing — spec §49.3 — and the paediatric surfaces
+  // below), and emergency contact, not the caller's — a supporter in Lagos
+  // acting for a parent in Kano needs Kano's (or the national default's)
+  // emergency number, and "alert my emergency contact" must alert the
+  // SUBJECT's contact, not the caller's own. ActingFor only carries id/name,
+  // so fetch these separately in the rare acting case; when not acting, the
+  // caller's own already-loaded profile fields are correct.
   let subjectState = profile.state ?? null;
+  let subjectDateOfBirth: string | null = profile.date_of_birth ?? null;
   let subjectHasEmergencyContact = !!profile.emergency_contact_phone;
   if (acting) {
     const supabase = await createClient();
     const { data: subjectProfile } = await supabase
       .from("profiles")
-      .select("state, emergency_contact_phone")
+      .select("state, date_of_birth, emergency_contact_phone")
       .eq("id", subjectId)
       .maybeSingle();
     subjectState = subjectProfile?.state ?? null;
+    subjectDateOfBirth = subjectProfile?.date_of_birth ?? null;
     subjectHasEmergencyContact = !!subjectProfile?.emergency_contact_phone;
   }
 
-  return { profile, acting, subjectId, subjectState, subjectHasEmergencyContact };
+  return {
+    profile,
+    acting,
+    subjectId,
+    subjectState,
+    subjectDateOfBirth,
+    subjectHasEmergencyContact,
+  };
 }
