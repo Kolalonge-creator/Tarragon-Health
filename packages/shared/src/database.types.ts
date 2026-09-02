@@ -27030,6 +27030,8 @@ export type Database = {
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
           full_name: string | null
+          height_cm: number | null
+          height_reconciled_at: string | null
           id: string
           identity_verified_at: string | null
           is_active: boolean
@@ -27078,6 +27080,8 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           full_name?: string | null
+          height_cm?: number | null
+          height_reconciled_at?: string | null
           id: string
           identity_verified_at?: string | null
           is_active?: boolean
@@ -27126,6 +27130,8 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           full_name?: string | null
+          height_cm?: number | null
+          height_reconciled_at?: string | null
           id?: string
           identity_verified_at?: string | null
           is_active?: boolean

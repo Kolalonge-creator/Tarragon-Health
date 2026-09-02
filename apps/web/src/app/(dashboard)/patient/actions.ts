@@ -16,6 +16,7 @@ import { symptomLogSchema } from "@/lib/validation/symptoms";
 import { medicationAccessBarrierSchema } from "@/lib/validation/medication-access-barriers";
 import { patientLocationSchema } from "@/lib/validation/patient-location";
 import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
+import { heightSchema } from "@/lib/validation/height";
 import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
 import {
   paediatricDangerReportSchema,
@@ -709,6 +710,89 @@ export async function updateEmergencyContact(
       next_of_kin_phone: norm(parsed.data.next_of_kin_phone),
     })
     .eq("id", user.id);
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+export type UpdateHeightState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Sets the patient's canonical height (profiles.height_cm) — used both by
+ * the profile page's plain height field and by the vitals page's "which
+ * height is right?" prompt when it disagrees with the latest risk-assessment
+ * answer. Either way, this becomes the recorded value for BMI (vitals trend,
+ * Health Score, Health Passport — see lib/health-metrics/height.ts).
+ * height_reconciled_at is stamped so a later questionnaire retake with a
+ * different height correctly re-flags rather than deferring to this pick
+ * forever.
+ */
+export async function updatePatientHeight(
+  _prevState: UpdateHeightState,
+  formData: FormData
+): Promise<UpdateHeightState> {
+  const parsed = heightSchema.safeParse({ height_cm: formData.get("height_cm") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      height_cm: parsed.data.height_cm,
+      height_reconciled_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Resolves a height discrepancy flagged on the vitals page (profiles.height_cm
+ * vs. the latest risk-assessment answer — see lib/health-metrics/height.ts).
+ * Unlike updatePatientHeight (the plain settings-page field, always the
+ * caller's own account), the vitals page can be showing an acting-for
+ * subject's data, so this resolves the target the same way
+ * submitRiskAssessment does rather than assuming the caller's own row.
+ */
+export async function resolveHeightDiscrepancy(
+  _prevState: UpdateHeightState,
+  formData: FormData
+): Promise<UpdateHeightState> {
+  const parsed = heightSchema.safeParse({ height_cm: formData.get("height_cm") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+  const subjectId = await resolveSubjectId(user.id);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      height_cm: parsed.data.height_cm,
+      height_reconciled_at: new Date().toISOString(),
+    })
+    .eq("id", subjectId);
   if (error) {
     return { error: error.message };
   }
