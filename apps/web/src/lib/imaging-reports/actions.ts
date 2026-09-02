@@ -112,12 +112,14 @@ export async function createIncidentalFinding(
 
   const { data: report } = await supabase
     .from("imaging_reports")
-    .select("id, patient_id")
+    .select("id, organisation_id, patient_id")
     .eq("id", imagingReportId)
     .maybeSingle();
   if (!report) return { error: "That imaging report isn't on your record." };
 
   const { error } = await supabase.from("imaging_incidental_findings").insert({
+    organisation_id: report.organisation_id,
+    patient_id: report.patient_id,
     imaging_report_id: imagingReportId,
     description,
     is_urgent: isUrgent,

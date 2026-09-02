@@ -36,12 +36,14 @@ export async function submitImagingSafetyQuestionnaire(
 
   const { data: order } = await supabase
     .from("imaging_orders")
-    .select("id, patient_id")
+    .select("id, organisation_id, patient_id")
     .eq("id", imagingOrderId)
     .maybeSingle();
   if (!order) return { error: "That imaging order isn't on your record." };
 
   const { error } = await supabase.from("imaging_safety_questionnaires").insert({
+    organisation_id: order.organisation_id,
+    patient_id: order.patient_id,
     imaging_order_id: imagingOrderId,
     template_key: templateKey,
     questions,
