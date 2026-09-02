@@ -54,9 +54,6 @@ comment on column public.consultation_feedback.appointment_id is
 comment on column public.consultation_feedback.clinician_id is
   'The provider this feedback is about, derived server-side by private.enforce_consultation_feedback_scope and never client-supplied. NULL when the source record carries no resolvable clinician (video_consultations has no clinician column; some consultations are created by paths that record neither a booked slot nor an accepting doctor). A null here means "unattributed", never "no provider involved" — per-provider figures exclude it and report the unattributed share separately.';
 
--- Widening the source: video_consultation_id was NOT NULL and is now one of
--- two mutually exclusive sources. Existing rows all carry it, so no backfill
--- is needed for the check to hold.
 alter table public.consultation_feedback
   alter column video_consultation_id drop not null;
 
@@ -66,9 +63,6 @@ alter table public.consultation_feedback
     or (video_consultation_id is null and appointment_id is not null)
   );
 
--- video_consultation_id already has consultation_feedback_one_per_consult;
--- a unique index treats NULLs as distinct, so appointment-sourced rows do not
--- collide with each other there and need their own.
 create unique index consultation_feedback_one_per_appointment
   on public.consultation_feedback (appointment_id) where appointment_id is not null;
 
@@ -134,9 +128,6 @@ begin
       raise exception 'feedback can only be left once the consultation is completed';
     end if;
 
-    -- Client-supplied scope is never trusted -- always re-derived from the
-    -- consultation itself. clinician_id joins that rule: a patient must not
-    -- be able to aim their rating at a doctor who was not on the call.
     new.organisation_id := v_consult.organisation_id;
     new.patient_id := v_consult.patient_id;
     new.clinician_id := private.video_consultation_clinician(v_consult.id);
@@ -159,16 +150,9 @@ begin
 
     new.organisation_id := v_appt.organisation_id;
     new.patient_id := v_appt.patient_id;
-    -- appointments.clinician_id is nullable (an unassigned booking); a null
-    -- here is carried through as unattributed rather than rejected, since the
-    -- patient's experience of the visit is still real and still counts for
-    -- the organisation.
     new.clinician_id := v_appt.clinician_id;
 
   else
-    -- Unreachable through the check constraint, kept so a future source
-    -- column added without updating this trigger fails loudly instead of
-    -- silently storing client-supplied scope.
     raise exception 'feedback must reference either a video consultation or an appointment';
   end if;
 
@@ -212,10 +196,6 @@ begin
     raise exception 'FAIL: consultation_feedback_one_source check missing';
   end if;
 
-  -- The widening must not have created a way to write a row with no source.
-  -- The FAIL is raised OUTSIDE the block that catches the expected error --
-  -- a raise inside it would be swallowed by its own handler and the
-  -- assertion would pass vacuously.
   v_sourceless_accepted := false;
   begin
     insert into public.consultation_feedback (organisation_id, patient_id, overall_rating)
@@ -223,13 +203,12 @@ begin
     v_sourceless_accepted := true;
   exception
     when others then
-      null; -- expected: the scope trigger rejects a row with neither source
+      null;
   end;
   if v_sourceless_accepted then
     raise exception 'FAIL: a sourceless consultation_feedback row was accepted';
   end if;
 
-  -- Still immutable: no UPDATE/DELETE policy may have been introduced.
   if exists (
     select 1 from pg_policies
     where schemaname = 'public' and tablename = 'consultation_feedback' and cmd in ('UPDATE', 'DELETE')
@@ -237,7 +216,6 @@ begin
     raise exception 'FAIL: consultation_feedback gained an UPDATE/DELETE policy';
   end if;
 
-  -- §29.4: no clinical-quality field may have crept in with this widening.
   select count(*) into v_bad
   from information_schema.columns
   where table_schema = 'public' and table_name = 'consultation_feedback'

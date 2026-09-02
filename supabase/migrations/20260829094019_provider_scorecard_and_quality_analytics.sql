@@ -1,47 +1,3 @@
--- Tarragon Health — Provider Quality & Performance Management, part 6/6:
--- §29.2 the provider scorecard, §29.3 clinical quality indicators, §29.9
--- provider/management analytics, §29.10 governance separation, §29.11
--- acceptance.
---
--- WHAT MAKES THIS DIFFERENT FROM my_provider_performance (20260827203759),
--- which stays exactly as it is: that RPC is an activity feed for a doctor's
--- own dashboard — counts of what they did. A scorecard is a judgement: a
--- figure next to a target, on a record other people read. The two have
--- different failure modes, so this one is built with three protections that
--- an activity feed does not need:
---
---   * NO COMPOSITE. There is no key named score, rating, rank, or grade
---     anywhere in the returned document, and no arithmetic combines two
---     domains. §29.10 forbids exactly that, and the assertion at the bottom
---     of this migration fails the migration if such a key ever appears in
---     the RPC's source. A reader who wants one number is being asked to
---     accept a wrong one.
---
---   * SMALL SAMPLES REFUSE TO PRODUCE A RATE. Below the metric's
---     min_denominator the RPC returns status='insufficient_volume' and the
---     denominator, and OMITS the value entirely — not a greyed-out number a
---     UI might still render. §29.10's "a clinician who sees fewer patients
---     should not automatically be classified as worse" is only real if the
---     rate is unavailable rather than merely caveated.
---
---   * UNGOVERNED CLINICAL QUALITY IS NOT REPORTED AT ALL. §29.1 permits
---     clinical quality metrics "only where validated and clinically
---     governed". Part 1 ships every clinical_quality metric with
---     clinically_governed=false, so this RPC returns an EMPTY
---     clinical_quality domain plus a note saying why. That is the honest
---     current state of this platform: no provider-level clinical quality
---     measure here has been validated by a Clinical Director. The code path
---     to report them exists and switches on entirely through policy — no
---     further migration is needed once governance signs one off.
---
--- Every metric's denominator is returned alongside its value, always. A rate
--- with no visible denominator is the mechanism by which "96% completion"
--- gets compared against "100% completion" from four appointments.
-
--- ---------------------------------------------------------------------------
--- One metric's reportable result
--- ---------------------------------------------------------------------------
-
 create or replace function private.provider_quality_metric_entry(
   p_metric      public.provider_quality_metric,
   p_value       numeric,
@@ -97,9 +53,6 @@ begin
     'min_denominator', v_min,
     'denominator', coalesce(p_denominator, 0),
     'status', v_status,
-    -- The value is present only where it is defensible. Below
-    -- min_denominator the key is absent, not null-with-a-flag, so no client
-    -- can render "0%" or fall back to a stale value it happened to hold.
     'value', case when v_status in ('on_target', 'watch', 'below_target')
                   then round(p_value, 2) else null end,
     'note', v_policy ->> 'note'
@@ -110,11 +63,7 @@ $$;
 comment on function private.provider_quality_metric_entry(public.provider_quality_metric, numeric, integer) is
   'Builds one scorecard entry from the active policy. Returns null for a metric that is not reportable (unconfigured, or an ungoverned clinical_quality metric — §29.1). Omits the value key entirely below min_denominator so a small sample cannot be rendered as a rate (§29.10).';
 
-revoke all on function private.provider_quality_metric_entry(public.provider_quality_metric, numeric, integer) from public;
-
--- ---------------------------------------------------------------------------
--- §29.2 the scorecard
--- ---------------------------------------------------------------------------
+revoke all on function private.provider_quality_metric_entry(public.provider_quality_metric, numeric, integer) from public, anon;
 
 create or replace function public.provider_scorecard(
   p_clinical_staff_id uuid default null,
@@ -156,9 +105,6 @@ begin
     return '{}'::jsonb;
   end if;
 
-  -- §29.9: a provider sees their own; management sees others' according to
-  -- permissions. is_org_staff is deliberately NOT the gate — a colleague's
-  -- performance record is not care-team information.
   if v_staff.profile_id is distinct from v_uid and not private.is_complaints_handler() then
     return '{}'::jsonb;
   end if;
@@ -166,10 +112,6 @@ begin
   v_grace := coalesce(
     (private.provider_quality_metric_policy('appointment_punctuality_rate') ->> 'grace_minutes')::int, 10);
 
-  -- ---- Operational -------------------------------------------------------
-  -- Attribution is appointments.clinician_id. An appointment with no
-  -- clinician assigned belongs to nobody's scorecard rather than to whoever
-  -- happened to touch it.
   select
     count(*) filter (where status in ('completed', 'no_show', 'cancelled', 'patient_cancelled', 'provider_cancelled')),
     count(*) filter (where status = 'completed'),
@@ -202,13 +144,6 @@ begin
     and sla_due_at is not null
     and acknowledged_at >= v_from and acknowledged_at <= v_to;
 
-  -- ---- Documentation -----------------------------------------------------
-  -- Scoped to video consultations, the one encounter type where both an
-  -- attributable clinician (part 2's resolver) and a note link
-  -- (clinical_encounter_notes.video_consultation_id) exist. Appointments have
-  -- no note FK and async consults have no clinician column, so counting them
-  -- would mean guessing; the denominator says how many encounters this
-  -- figure actually covers.
   select count(*), count(*) filter (where n.finalized_at is not null)
   into v_note_n, v_note_done
   from public.video_consultations vc
@@ -228,18 +163,12 @@ begin
   where set_by = v_staff.profile_id
     and created_at >= v_from and created_at <= v_to;
 
-  -- "Results acknowledged" uses the alert OWNERSHIP column
-  -- (responsible_clinician_id, added 20260828014055) rather than
-  -- acknowledged_by: acknowledged_by can only ever produce 100%, because an
-  -- unacknowledged alert has nobody in it. Owned-but-unacknowledged is the
-  -- entire thing this metric is meant to catch.
   select count(*), count(*) filter (where acknowledged_at is not null)
   into v_res_n, v_res_ack
   from public.clinician_alerts
   where responsible_clinician_id = v_staff.id
     and created_at >= v_from and created_at <= v_to;
 
-  -- ---- Assemble ----------------------------------------------------------
   for v_e in
     select e from unnest(array[
       private.provider_quality_metric_entry('appointment_completion_rate',
@@ -266,7 +195,6 @@ begin
     v_entries := v_entries || v_e;
   end loop;
 
-  -- ---- Patient experience (§29.4 feedback, part 2) ------------------------
   for v_e in
     select private.provider_quality_metric_entry(m.metric, m.avg_rating, m.n)
     from (
@@ -293,9 +221,6 @@ begin
     v_entries := v_entries || v_e;
   end loop;
 
-  -- How complete is feedback attribution overall? Reported so a reader can
-  -- weigh the experience figures instead of assuming every rating found its
-  -- provider. See part 2: video_consultations has no clinician column.
   select count(*), count(*) filter (where clinician_id is null)
   into v_fb_total, v_fb_unattributed
   from public.consultation_feedback
@@ -317,7 +242,6 @@ begin
                                 'approved_at', approved_at)
       from public.provider_quality_policy where is_active limit 1
     ),
-    -- Grouped by domain, never summed across them (§29.10).
     'domains', jsonb_build_object(
       'operational', (select coalesce(jsonb_agg(e), '[]'::jsonb)
                       from jsonb_array_elements(v_entries) e where e ->> 'domain' = 'operational'),
@@ -359,8 +283,6 @@ begin
     'open_interventions', (
       select count(*) from public.provider_interventions
       where clinical_staff_id = v_staff.id and status in ('open', 'in_progress')),
-    -- §29.8 advisory only — what a human might consider, never acted on
-    -- automatically. See part 5's header.
     'suggested_interventions',
       coalesce(private.provider_quality_policy_config() -> 'intervention_triggers', '[]'::jsonb)
   );
@@ -372,10 +294,6 @@ comment on function public.provider_scorecard(uuid, timestamptz, timestamptz) is
 
 revoke execute on function public.provider_scorecard(uuid, timestamptz, timestamptz) from public, anon;
 grant execute on function public.provider_scorecard(uuid, timestamptz, timestamptz) to authenticated;
-
--- ---------------------------------------------------------------------------
--- §29.9 / §29.11 — management view of the whole network
--- ---------------------------------------------------------------------------
 
 create or replace function public.provider_quality_network_summary(
   p_from timestamptz default null,
@@ -405,10 +323,6 @@ begin
     'period', jsonb_build_object('from', v_from, 'to', v_to),
     'provider_count', jsonb_array_length(v_cards),
 
-    -- §29.11 "where is the network performing well, where is it failing":
-    -- a count of providers per status, PER METRIC. Not a league table — the
-    -- unit of the answer is the metric, not the person, so the output tells
-    -- management which part of the service is weak before it names anyone.
     'metric_health', (
       select coalesce(jsonb_agg(m), '[]'::jsonb) from (
         select jsonb_build_object(
@@ -421,10 +335,6 @@ begin
           'below_target', count(*) filter (where e ->> 'status' = 'below_target'),
           'insufficient_volume', count(*) filter (where e ->> 'status' = 'insufficient_volume'),
           'no_data', count(*) filter (where e ->> 'status' = 'no_data'),
-          -- Median rather than mean across providers, and only over the
-          -- providers who actually produced a value: a mean here would be
-          -- dominated by whoever had the most appointments, quietly turning
-          -- a quality figure back into a volume figure.
           'median_value', percentile_cont(0.5) within group (
             order by (e ->> 'value')::numeric) filter (where e ? 'value')
         ) as m
@@ -438,7 +348,6 @@ begin
       ) s
     ),
 
-    -- §29.11 "what corrective action is required": the open work, by state.
     'corrective_action', jsonb_build_object(
       'complaints_by_stage', (
         select coalesce(jsonb_object_agg(stage, n), '{}'::jsonb) from (
@@ -481,14 +390,6 @@ comment on function public.provider_quality_network_summary(timestamptz, timesta
 
 revoke execute on function public.provider_quality_network_summary(timestamptz, timestamptz) from public, anon;
 grant execute on function public.provider_quality_network_summary(timestamptz, timestamptz) to authenticated;
-
--- ---------------------------------------------------------------------------
--- my_provider_performance: patient_feedback_available was hardcoded false
--- because, when it was written, no patient-satisfaction data existed anywhere
--- on the platform. Part 2 changed that. Leaving the flag false would make the
--- RPC lie about its own gap; recomputing it is a one-key change, and the rest
--- of the function is untouched.
--- ---------------------------------------------------------------------------
 
 create or replace function public.my_provider_performance(
   p_from timestamptz default null, p_to timestamptz default null)
@@ -570,9 +471,6 @@ begin
   );
 
   return v_base || jsonb_build_object(
-    -- No longer hardcoded: §29.4 feedback now carries a derived clinician_id
-    -- (20260829091744). Still per-provider — a doctor with no attributed
-    -- feedback yet correctly gets false and the empty state, not a zero.
     'patient_feedback_available', exists (
       select 1 from public.consultation_feedback where clinician_id = v_uid
     )
@@ -582,19 +480,12 @@ end; $$;
 comment on function public.my_provider_performance(timestamptz, timestamptz) is
   'Self-scoped clinician activity dashboard (Care Team / Provider Workspace §5.21). An activity feed, NOT the §29.2 scorecard — see public.provider_scorecard for measured-against-target figures with denominators and governance gating. patient_feedback_available is now computed rather than hardcoded (§29.4 feedback gained clinician attribution in 20260829091744).';
 
--- ---------------------------------------------------------------------------
--- Assertions
--- ---------------------------------------------------------------------------
-
 do $$
 declare
   v_src text;
   v_card jsonb;
   v_e jsonb;
 begin
-  -- §29.10 enforced structurally: no composite/ranking vocabulary may appear
-  -- in the scorecard or the network summary. If a future edit adds an overall
-  -- score, this migration's own assertion is what fails.
   v_src := pg_get_functiondef('public.provider_scorecard(uuid, timestamptz, timestamptz)'::regprocedure)
         || pg_get_functiondef('public.provider_quality_network_summary(timestamptz, timestamptz)'::regprocedure);
 
@@ -602,10 +493,6 @@ begin
     raise exception 'FAIL: the provider scorecard emits a composite/ranking key — §29.10 forbids collapsing domains into one provider score';
   end if;
 
-  -- The small-sample rule must actually withhold the value, and the control
-  -- must show the same metric DOES report once the denominator clears
-  -- min_denominator — otherwise the rule could be passing by suppressing
-  -- everything.
   v_e := private.provider_quality_metric_entry('appointment_completion_rate', 100.0, 3);
   if v_e ->> 'status' <> 'insufficient_volume' then
     raise exception 'FAIL: a 3-appointment sample was not marked insufficient_volume';
@@ -619,18 +506,15 @@ begin
     raise exception 'FAIL: a 40-appointment sample at 100%% was not reported — the volume rule is over-suppressing';
   end if;
 
-  -- Direction must be respected: a cancellation rate is lower_is_better.
   v_e := private.provider_quality_metric_entry('provider_cancellation_rate', 40.0, 40);
   if v_e ->> 'status' <> 'below_target' then
     raise exception 'FAIL: a 40%% provider cancellation rate was not flagged below_target — direction is being ignored';
   end if;
 
-  -- §29.1/§29.3: no clinical quality metric may be reportable at policy v1.
   if private.provider_quality_metric_entry('guideline_adherence_rate', 95.0, 100) is not null then
     raise exception 'FAIL: an ungoverned clinical_quality metric produced a scorecard entry';
   end if;
 
-  -- The scorecard runs, and denies an unauthenticated/unauthorised caller.
   v_card := public.provider_scorecard(null, now() - interval '30 days', now());
   if v_card is null then
     raise exception 'FAIL: provider_scorecard returned SQL NULL rather than an empty document';

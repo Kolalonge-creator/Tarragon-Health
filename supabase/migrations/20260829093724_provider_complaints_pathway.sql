@@ -1,46 +1,3 @@
--- Tarragon Health — Provider Quality & Performance Management, part 3/6:
--- §29.5 the formal provider complaints pathway.
---
--- Nothing like this exists anywhere in the platform (grepped: the only
--- "complaint" strings in the repo are patient-symptom copy in health-education
--- content and a partner-billing dispute field). §29.4's requirement that
--- "clinical complaints should have a separate formal pathway" from the 1-5
--- star experience ratings therefore had no pathway to be separate from — this
--- migration is it.
---
--- The stage machine is exactly §29.5's diagram, as data with a forward-only
--- trigger rather than as an app-layer convention:
---
---   received -> triage -> investigation -> provider_response -> resolution
---            -> governance_review -> closed
---
--- Three properties are enforced in the database, not left to the UI:
---
---  1. FORWARD-ONLY, NO SKIPPING. A complaint cannot jump from received to
---     closed. Each transition must be to the next stage in ordinal order (or
---     to a terminal withdrawal), and each stage requires its own evidence
---     field before it may be left — a complaint cannot be "investigated" with
---     no investigation record or "resolved" with no outcome.
---
---  2. GOVERNANCE REVIEW IS MANDATORY FOR A CLINICAL COMPLAINT. §29.4/§29.10
---     keep clinical judgement inside clinical governance. A complaint
---     categorised `clinical` may not reach `closed` except through
---     `governance_review` signed by a Clinical Director. A non-clinical one
---     (punctuality, admin) may close from `resolution` without occupying
---     governance time.
---
---  3. THE SUBJECT PROVIDER CANNOT SEE THE COMPLAINT BEFORE THEY ARE ASKED TO
---     RESPOND, AND CAN NEVER SEE THE INVESTIGATION FILE. The provider's own
---     right of reply is real (§29.5 has a provider_response stage), but
---     tipping off the subject during triage/investigation would compromise
---     it. Investigation notes live in their own table with its own policy
---     rather than as a column an RLS policy would have to leave readable.
---
--- DELIBERATELY NOT BUILT: no automatic disciplinary consequence. A complaint
--- being upheld records a fact; what follows is a human decision recorded in
--- part 5 (provider_interventions). §29.8 lists interventions as things poor
--- performance "should trigger" — a person triggering them, not a cron job.
-
 create type public.provider_complaint_stage as enum (
   'received', 'triage', 'investigation', 'provider_response',
   'resolution', 'governance_review', 'closed', 'withdrawn'
@@ -59,9 +16,6 @@ create type public.provider_complaint_outcome as enum (
   'upheld', 'partially_upheld', 'not_upheld', 'no_further_action'
 );
 
--- Stage ordinal, used by the transition trigger. A function rather than an
--- array literal inside the trigger so the ordering is one named, testable
--- thing.
 create or replace function private.provider_complaint_stage_ordinal(p_stage public.provider_complaint_stage)
 returns integer
 language sql
@@ -83,11 +37,7 @@ $$;
 comment on function private.provider_complaint_stage_ordinal(public.provider_complaint_stage) is
   'Position of a stage in the §29.5 pipeline. ''withdrawn'' is 99 (off-pipeline terminal) so ordinal comparison never treats it as "further along" than closed by accident.';
 
-revoke all on function private.provider_complaint_stage_ordinal(public.provider_complaint_stage) from public;
-
--- ---------------------------------------------------------------------------
--- The complaint
--- ---------------------------------------------------------------------------
+revoke all on function private.provider_complaint_stage_ordinal(public.provider_complaint_stage) from public, anon;
 
 create table public.provider_complaints (
   id                     uuid primary key default gen_random_uuid(),
@@ -131,9 +81,6 @@ create table public.provider_complaints (
   updated_at              timestamptz not null default now(),
 
   constraint provider_complaints_reference_unique unique (reference),
-  -- Attribution is null-gated the same way reviewed_by/reviewed_at is: a
-  -- stamped actor and a stamped time always travel together, so the UI can
-  -- never show "triaged" with nobody attached to it.
   constraint provider_complaints_triage_paired
     check ((triaged_by is null) = (triaged_at is null)),
   constraint provider_complaints_investigation_paired
@@ -148,12 +95,6 @@ create table public.provider_complaints (
     check (stage <> 'withdrawn' or withdrawn_at is not null),
   constraint provider_complaints_closed_has_timestamp
     check (stage <> 'closed' or closed_at is not null),
-  -- A resolved complaint always names an outcome. "Resolved, unspecified" is
-  -- the shape that makes a complaints register useless six months later.
-  -- Enum list inlined rather than a call to
-  -- private.provider_complaint_stage_ordinal: a CHECK expression is evaluated
-  -- with the WRITING role's privileges, and that function is revoked from
-  -- public, so a function call here would fail every authenticated insert.
   constraint provider_complaints_resolution_has_outcome
     check (stage not in ('resolution', 'governance_review', 'closed') or outcome is not null)
 );
@@ -177,11 +118,6 @@ create trigger provider_complaints_set_updated_at
   before update on public.provider_complaints
   for each row execute function private.set_updated_at();
 
--- ---------------------------------------------------------------------------
--- Investigation file — separate table so the subject provider's read access
--- to their own complaint can never leak the investigation into it.
--- ---------------------------------------------------------------------------
-
 create table public.provider_complaint_investigation_notes (
   id            uuid primary key default gen_random_uuid(),
   complaint_id  uuid not null references public.provider_complaints (id) on delete cascade,
@@ -195,10 +131,6 @@ comment on table public.provider_complaint_investigation_notes is
 
 create index provider_complaint_investigation_notes_complaint_idx
   on public.provider_complaint_investigation_notes (complaint_id, created_at);
-
--- ---------------------------------------------------------------------------
--- Immutable stage-change audit trail
--- ---------------------------------------------------------------------------
 
 create table public.provider_complaint_events (
   id            uuid primary key default gen_random_uuid(),
@@ -215,10 +147,6 @@ comment on table public.provider_complaint_events is
 
 create index provider_complaint_events_complaint_idx
   on public.provider_complaint_events (complaint_id, created_at);
-
--- ---------------------------------------------------------------------------
--- Reference generator
--- ---------------------------------------------------------------------------
 
 create sequence public.provider_complaint_reference_seq;
 
@@ -237,15 +165,11 @@ begin
 end;
 $$;
 
-revoke all on function private.set_provider_complaint_reference() from public;
+revoke all on function private.set_provider_complaint_reference() from public, anon;
 
 create trigger provider_complaints_set_reference
   before insert on public.provider_complaints
   for each row execute function private.set_provider_complaint_reference();
-
--- ---------------------------------------------------------------------------
--- Stage machine
--- ---------------------------------------------------------------------------
 
 create or replace function private.enforce_provider_complaint_stage()
 returns trigger
@@ -261,7 +185,6 @@ begin
     return new;
   end if;
 
-  -- Withdrawal is reachable from any non-terminal stage, and is terminal.
   if new.stage = 'withdrawn' then
     if old.stage in ('closed', 'withdrawn') then
       raise exception 'a % complaint cannot be withdrawn', old.stage;
@@ -275,8 +198,6 @@ begin
       old.reference, old.stage;
   end if;
 
-  -- Forward-only, one step at a time. The one legitimate skip is
-  -- governance_review for a non-clinical complaint: resolution -> closed.
   if v_to <> v_from + 1 then
     if not (old.stage = 'resolution' and new.stage = 'closed' and new.category <> 'clinical') then
       raise exception 'invalid complaint transition % -> % (the pipeline is forward-only, one stage at a time; only a non-clinical complaint may close straight from resolution)',
@@ -284,7 +205,6 @@ begin
     end if;
   end if;
 
-  -- Each stage may only be LEFT once it has produced its own evidence.
   if old.stage = 'triage' and (new.triaged_by is null or new.severity is null) then
     raise exception 'triage must record who triaged the complaint and assign a severity before it advances';
   end if;
@@ -303,8 +223,6 @@ begin
     raise exception 'a resolution must record an outcome and who resolved it';
   end if;
 
-  -- §29.4/§29.10: a clinical complaint closes only through clinical
-  -- governance, signed by a Clinical Director.
   if new.stage = 'closed' and new.category = 'clinical' then
     if new.governance_reviewed_by is null then
       raise exception 'a clinical complaint may not be closed without a signed governance review';
@@ -335,7 +253,7 @@ $$;
 comment on function private.enforce_provider_complaint_stage() is
   '§29.5 pipeline as an enforced state machine: forward-only, one stage at a time, each stage gated on its own evidence, clinical complaints closable only through a Clinical-Director-signed governance review. The one permitted skip (resolution -> closed for a non-clinical complaint) is explicit rather than implied.';
 
-revoke all on function private.enforce_provider_complaint_stage() from public;
+revoke all on function private.enforce_provider_complaint_stage() from public, anon;
 
 create trigger provider_complaints_enforce_stage
   before update on public.provider_complaints
@@ -376,22 +294,11 @@ begin
 end;
 $$;
 
-revoke all on function private.log_provider_complaint_event() from public;
+revoke all on function private.log_provider_complaint_event() from public, anon;
 
 create trigger provider_complaints_log_event
   after insert or update on public.provider_complaints
   for each row execute function private.log_provider_complaint_event();
-
--- ---------------------------------------------------------------------------
--- Access
---
--- A complaint about a named doctor is not ordinary care-team information, so
--- private.is_org_staff() (which admits every clinician and care coordinator in
--- the org, ~110 tables' worth of patient-scoped access) is deliberately NOT
--- the gate here. Handling is admin + Clinical Director only, plus the
--- complainant's view of their own case, plus the subject's view from the
--- point they are asked to respond.
--- ---------------------------------------------------------------------------
 
 create or replace function private.is_complaints_handler()
 returns boolean
@@ -409,7 +316,7 @@ $$;
 comment on function private.is_complaints_handler() is
   'Who may run the §29.5 complaints process: platform admin, or an active Clinical Director. Deliberately NOT private.is_org_staff() — a complaint about a colleague is not care-team-wide reading.';
 
-revoke all on function private.is_complaints_handler() from public;
+revoke all on function private.is_complaints_handler() from public, anon;
 
 alter table public.provider_complaints enable row level security;
 alter table public.provider_complaint_investigation_notes enable row level security;
@@ -420,8 +327,6 @@ create policy provider_complaints_select on public.provider_complaints
   using (
     private.is_complaints_handler()
     or raised_by = (select auth.uid())
-    -- The subject provider sees their own case only once they are being
-    -- asked to answer it, never during triage or investigation.
     or (
       stage in ('provider_response', 'resolution', 'governance_review', 'closed')
       and subject_staff_id in (
@@ -430,8 +335,6 @@ create policy provider_complaints_select on public.provider_complaints
     )
   );
 
--- A patient raises a complaint about a provider; raised_by is forced to the
--- caller and the stage must start at intake.
 create policy provider_complaints_insert on public.provider_complaints
   for insert to authenticated
   with check (
@@ -442,9 +345,6 @@ create policy provider_complaints_insert on public.provider_complaints
     and governance_reviewed_by is null
   );
 
--- Handlers drive the pipeline. The subject provider gets exactly one write:
--- their own response, at their own stage, and nothing else — enforced by the
--- column guard below rather than by trusting the UI to send a narrow update.
 create policy provider_complaints_update on public.provider_complaints
   for update to authenticated
   using (
@@ -473,18 +373,10 @@ security definer
 set search_path = ''
 as $$
 begin
-  -- A null auth.uid() is service_role or a migration -- contexts that already
-  -- bypass RLS entirely, so a trigger blocking them adds no security, only an
-  -- obstacle. anon never reaches here: every policy on this table is `to
-  -- authenticated`.
   if (select auth.uid()) is null or private.is_complaints_handler() then
     return new;
   end if;
 
-  -- Not a handler: the only writer the UPDATE policy admits is the subject
-  -- provider at the provider_response stage. Everything except their own
-  -- response must be byte-identical to what was already there — the same
-  -- posture as private.guard_profiles_self_update().
   if new.stage is distinct from old.stage
      or new.category is distinct from old.category
      or new.severity is distinct from old.severity
@@ -519,10 +411,8 @@ $$;
 comment on function private.guard_provider_complaint_subject_update() is
   'Column-level guard for the one non-handler writer the UPDATE policy admits: the subject provider adding their own response. Everything else on the row must be unchanged, and a submitted response is immutable.';
 
-revoke all on function private.guard_provider_complaint_subject_update() from public;
+revoke all on function private.guard_provider_complaint_subject_update() from public, anon;
 
--- BEFORE the stage trigger (alphabetical firing order within the same
--- timing/event: guard_... sorts before provider_complaints_enforce_stage).
 create trigger a_provider_complaints_guard_subject_update
   before update on public.provider_complaints
   for each row execute function private.guard_provider_complaint_subject_update();
@@ -561,10 +451,6 @@ revoke update, delete on public.provider_complaint_investigation_notes from auth
 grant select on public.provider_complaint_events to authenticated;
 revoke insert, update, delete on public.provider_complaint_events from authenticated;
 
--- ---------------------------------------------------------------------------
--- Assertions
--- ---------------------------------------------------------------------------
-
 do $$
 declare
   v_org  uuid;
@@ -576,9 +462,6 @@ begin
     raise exception 'FAIL: provider_complaints missing';
   end if;
 
-  -- The stage machine must actually discriminate. Proven inside a savepoint
-  -- against a real row, then rolled back — a policy/trigger asserted only by
-  -- reading its own source is not proven at all.
   select id into v_org from public.organisations limit 1;
   select id into v_staff from public.clinical_staff limit 1;
 
@@ -589,7 +472,6 @@ begin
     values (v_org, v_staff, 'clinical', 'assertion probe')
     returning id into v_id;
 
-    -- 1. received -> closed must be refused (no skipping).
     v_bad := true;
     begin
       update public.provider_complaints set stage = 'closed', closed_at = now() where id = v_id;
@@ -600,14 +482,11 @@ begin
       raise exception 'FAIL: a complaint jumped received -> closed';
     end if;
 
-    -- 2. Control: the legal next step must be ALLOWED, so assertion 1 is not
-    --    passing because every transition is blocked.
     update public.provider_complaints set stage = 'triage' where id = v_id;
     if (select stage from public.provider_complaints where id = v_id) <> 'triage' then
       raise exception 'FAIL: the legal received -> triage transition was refused';
     end if;
 
-    -- 3. Leaving triage without a severity/triager must be refused.
     v_bad := true;
     begin
       update public.provider_complaints set stage = 'investigation' where id = v_id;
@@ -618,7 +497,6 @@ begin
       raise exception 'FAIL: triage advanced with no severity or triager recorded';
     end if;
 
-    -- 4. Intake wrote its own event row.
     if not exists (select 1 from public.provider_complaint_events
                    where complaint_id = v_id and from_stage is null and to_stage = 'received') then
       raise exception 'FAIL: no intake event was logged';

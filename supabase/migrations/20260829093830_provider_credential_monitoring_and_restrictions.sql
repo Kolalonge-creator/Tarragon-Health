@@ -1,49 +1,3 @@
--- Tarragon Health — Provider Quality & Performance Management, part 4/6:
--- §29.6 credential monitoring and §29.7 the restriction/suspension ladder.
---
--- WHAT ALREADY EXISTED, and why this is not a rebuild of it:
---   * clinical_staff.license_expires_at + a daily notify-only sweep
---     (20260827200538) — the MDCN/NMCN practicing licence.
---   * clinical_staff.indemnity_expires_at + its own lapse notifier
---     (20260713183000, 20260826224913), with a tier-gated exemption concept.
---   * clinical_staff_attestations + private.has_current_attestation()
---     (20260719143000) — the annual red-flag self-attestation.
---   * clinical_staff.license_verified_at — Tarragon's own re-check date.
--- Four credential facts, four separate notifiers, no single answer to §29.6's
--- actual question: "is this provider currently cleared to work, and if not,
--- what happens next?" This migration adds the monitor that answers it and the
--- §29.7 ladder that acts on it. It does NOT re-implement the underlying
--- checks or move the columns.
---
--- §29.7's ladder is stored as data (part 1's policy config
--- `credential_ladder`), read at sweep time, so governance can lengthen a
--- grace period without a migration — the same "escalation SLA as data, not
--- code" discipline ported from v3 and already used by escalation_slas.
---
---   Credential expires -> warning -> grace period -> service restriction
---   -> suspension if unresolved
---
--- A DELIBERATE DEPARTURE FROM THE EXISTING NOTIFY-ONLY POSTURE, and the
--- reasoning for it: 20260827200538 and 20260826224913 are both explicitly
--- notify-only and neither deactivates anybody. That was right for a lone
--- notifier with no policy behind it and no way to undo itself. §29.7 asks for
--- a real consequence, so this migration adds one — but narrowly:
---   * Nothing here ever writes clinical_staff.active. Deactivating a staff
---     record is an administrative act with side effects across ~110 tables of
---     access; a lapsed licence is not the same event as leaving the company,
---     and conflating them would make the ladder unreversible in practice.
---   * A restriction is a row in its own table with a lift path, an actor, and
---     a reason. It restricts NEW clinical work only: a suspended provider
---     cannot be booked for new appointments (enforced by trigger below).
---     Existing records, messages, and their own performance page stay
---     readable — a suspended doctor still has notes to finish and a case to
---     answer in a complaint.
---   * The ladder only ever advances a provider whose credential expiry date
---     is actually ON FILE. A null expiry is "nobody has typed this in yet",
---     not "expired" — the same rule 20260827200538 established, and turning
---     a blank field into a suspension would be the single most damaging
---     possible reading of it.
-
 create type public.provider_restriction_stage as enum (
   'warning', 'grace_period', 'service_restriction', 'suspension'
 );
@@ -65,12 +19,9 @@ create table public.provider_restrictions (
   reason            public.provider_restriction_reason not null,
   detail            text,
 
-  -- Provenance: which credential/complaint drove this. Null for a manual
-  -- governance directive.
   credential_expires_at timestamptz,
   complaint_id      uuid references public.provider_complaints (id) on delete set null,
 
-  -- Null actor = the automated sweep. Never defaulted to a person.
   imposed_by        uuid references public.profiles (id) on delete set null,
   imposed_at        timestamptz not null default now(),
 
@@ -80,10 +31,6 @@ create table public.provider_restrictions (
 
   created_at        timestamptz not null default now(),
 
-  -- Deliberately NOT paired the way imposed_by/imposed_at would suggest:
-  -- lifted_by is null when the sweep itself supersedes a rung with the next
-  -- one up, which is a real lift with no human actor. What IS mandatory is a
-  -- reason -- a restriction must never disappear unexplained.
   constraint provider_restrictions_lift_has_reason
     check (lifted_at is null or (lift_reason is not null and length(btrim(lift_reason)) > 0))
 );
@@ -106,10 +53,6 @@ comment on index public.provider_restrictions_one_live_per_reason is
 create index provider_restrictions_live_idx
   on public.provider_restrictions (clinical_staff_id) where lifted_at is null;
 
--- ---------------------------------------------------------------------------
--- Is this provider restricted right now?
--- ---------------------------------------------------------------------------
-
 create or replace function private.provider_work_restricted(p_clinical_staff_id uuid)
 returns boolean
 language sql
@@ -128,7 +71,7 @@ $$;
 comment on function private.provider_work_restricted(uuid) is
   'True when the provider has a live service_restriction or suspension. warning/grace_period deliberately do not restrict — they are the notice period §29.7 requires before a consequence lands.';
 
-revoke all on function private.provider_work_restricted(uuid) from public;
+revoke all on function private.provider_work_restricted(uuid) from public, anon;
 
 create or replace function private.profile_work_restricted(p_profile_id uuid)
 returns boolean
@@ -147,11 +90,7 @@ as $$
   );
 $$;
 
-revoke all on function private.profile_work_restricted(uuid) from public;
-
--- ---------------------------------------------------------------------------
--- The one real consequence: no NEW bookings onto a restricted provider.
--- ---------------------------------------------------------------------------
+revoke all on function private.profile_work_restricted(uuid) from public, anon;
 
 create or replace function private.block_restricted_provider_booking()
 returns trigger
@@ -164,10 +103,6 @@ begin
     return new;
   end if;
 
-  -- Only newly-scheduled work is blocked. Cancelling, completing, or writing
-  -- up an appointment a restricted provider already has must stay possible —
-  -- a restriction is not a reason to strand a patient mid-episode or to stop
-  -- a doctor finishing their documentation.
   if tg_op = 'UPDATE'
      and new.clinician_id is not distinct from old.clinician_id
      and new.scheduled_for is not distinct from old.scheduled_for then
@@ -190,15 +125,11 @@ $$;
 comment on function private.block_restricted_provider_booking() is
   '§29.7 "service restriction" made real: a provider with a live restriction cannot be assigned NEW appointment work. Existing appointments remain fully manageable (cancel/complete/document) — the restriction stops new clinical exposure, it does not strand patients already booked.';
 
-revoke all on function private.block_restricted_provider_booking() from public;
+revoke all on function private.block_restricted_provider_booking() from public, anon;
 
 create trigger appointments_block_restricted_provider
   before insert or update on public.appointments
   for each row execute function private.block_restricted_provider_booking();
-
--- ---------------------------------------------------------------------------
--- §29.6 monitor
--- ---------------------------------------------------------------------------
 
 create or replace function public.provider_credential_monitor()
 returns jsonb
@@ -211,8 +142,6 @@ declare
   v_ladder jsonb;
   v_rows   jsonb;
 begin
-  -- Credential status across the roster is administrative/governance
-  -- information, not care-team information.
   if not private.is_complaints_handler() then
     return '{}'::jsonb;
   end if;
@@ -230,8 +159,6 @@ begin
       'credential_type', cs.credential_type,
       'credential_number', cs.credential_number,
 
-      -- §29.6 licence. A null expiry is reported as its own state
-      -- ('not_recorded'), never folded in with 'expired'.
       'license_expires_at', cs.license_expires_at,
       'license_state', case
         when cs.license_expires_at is null then 'not_recorded'
@@ -244,10 +171,6 @@ begin
         else floor(extract(epoch from (cs.license_expires_at - now())) / 86400.0)::int end,
       'license_verified_at', cs.license_verified_at,
 
-      -- §29.6 insurance "where applicable" — indemnity is genuinely not
-      -- required for every tier (employed Tiers 1-3 sit under Tarragon's
-      -- institutional policy), so an exempt record reports 'not_applicable'
-      -- rather than a false gap.
       'indemnity_expires_at', cs.indemnity_expires_at,
       'indemnity_state', case
         when cs.indemnity_exempt then 'not_applicable'
@@ -257,7 +180,6 @@ begin
                days => coalesce((v_ladder ->> 'warning_days_before_expiry')::int, 30)) then 'expiring_soon'
         else 'current' end,
 
-      -- §29.6 mandatory documentation — the annual red-flag attestation.
       'attestation_current', private.has_current_attestation(cs.id),
       'attestation_expires_at', (
         select max(a.expires_at) from public.clinical_staff_attestations a
@@ -297,10 +219,6 @@ comment on function public.provider_credential_monitor() is
 revoke execute on function public.provider_credential_monitor() from public, anon;
 grant execute on function public.provider_credential_monitor() to authenticated;
 
--- ---------------------------------------------------------------------------
--- §29.7 sweep — advances the ladder, reading the day offsets from policy
--- ---------------------------------------------------------------------------
-
 create or replace function private.advance_provider_credential_ladder()
 returns void
 language plpgsql
@@ -321,9 +239,6 @@ declare
 begin
   v_ladder := private.provider_quality_policy_config() -> 'credential_ladder';
 
-  -- No active policy means governance has not defined the ladder. Doing
-  -- nothing is correct; inventing defaults and suspending somebody on them
-  -- is not.
   if v_ladder is null then
     return;
   end if;
@@ -337,7 +252,6 @@ begin
     select cs.id, cs.organisation_id, cs.full_name, cs.license_expires_at
     from public.clinical_staff cs
     where cs.active
-      -- A blank expiry date is never laddered. See this migration's header.
       and cs.license_expires_at is not null
       and cs.license_expires_at < now() + make_interval(days => v_warn_days)
   loop
@@ -350,8 +264,6 @@ begin
       else 'warning'
     end;
 
-    -- Grace period is only meaningful while it lasts; past it the next rung
-    -- applies, which the ordering above already produces.
     if v_target = 'grace_period' and v_days_past > v_grace_days then
       v_target := 'service_restriction';
     end if;
@@ -360,9 +272,6 @@ begin
     from public.provider_restrictions
     where clinical_staff_id = r.id and reason = 'license_expiry' and lifted_at is null;
 
-    -- Already at or beyond the target rung: nothing to do. The ladder never
-    -- walks backwards on its own — a renewed licence is lifted by a human
-    -- via lift_provider_restriction, which records who and why.
     if v_current.id is not null and array_position(
          array['warning', 'grace_period', 'service_restriction', 'suspension']::text[],
          v_current.stage::text)
@@ -400,9 +309,6 @@ begin
               'pending', 'non_clinical');
     end loop;
 
-    -- The provider themselves is told, on every rung. §29.7's ladder is a
-    -- due-process sequence; a provider learning about their own suspension
-    -- from a failed booking would defeat the point of having stages.
     insert into public.notifications
       (recipient_id, organisation_id, channel, template, payload, status, content_class)
     select cs.profile_id, r.organisation_id, 'in_app', 'provider_credential_ladder_self',
@@ -430,17 +336,13 @@ $$;
 comment on function private.advance_provider_credential_ladder() is
   '§29.7 sweep: advances a provider up warning -> grace_period -> service_restriction -> suspension based on the day offsets in the active provider_quality_policy. Never advances a record with no license_expires_at on file, never walks the ladder back down (that needs a human lift, recorded), and never touches clinical_staff.active.';
 
-revoke all on function private.advance_provider_credential_ladder() from public;
+revoke all on function private.advance_provider_credential_ladder() from public, anon;
 
 select cron.schedule(
   'provider-credential-ladder-advance',
   '45 6 * * *',
   $$select private.advance_provider_credential_ladder()$$
 );
-
--- ---------------------------------------------------------------------------
--- Lifting — always a human, always with a reason
--- ---------------------------------------------------------------------------
 
 create or replace function public.lift_provider_restriction(p_restriction_id uuid, p_reason text)
 returns public.provider_restrictions
@@ -483,10 +385,6 @@ comment on function public.lift_provider_restriction(uuid, text) is
 revoke execute on function public.lift_provider_restriction(uuid, text) from public, anon;
 grant execute on function public.lift_provider_restriction(uuid, text) to authenticated;
 
--- ---------------------------------------------------------------------------
--- Access
--- ---------------------------------------------------------------------------
-
 alter table public.provider_restrictions enable row level security;
 
 create policy provider_restrictions_select on public.provider_restrictions
@@ -503,13 +401,7 @@ create policy provider_restrictions_insert on public.provider_restrictions
   with check (private.is_complaints_handler() and lifted_at is null);
 
 grant select, insert on public.provider_restrictions to authenticated;
--- Lifting goes through lift_provider_restriction(), which forces an actor and
--- a reason; a direct UPDATE could clear lifted_at and erase the history.
 revoke update, delete on public.provider_restrictions from authenticated;
-
--- ---------------------------------------------------------------------------
--- Assertions
--- ---------------------------------------------------------------------------
 
 do $$
 declare
@@ -526,16 +418,11 @@ begin
     raise exception 'FAIL: provider-credential-ladder-advance cron job was not scheduled';
   end if;
 
-  -- Nothing in this module may write clinical_staff.active.
   if pg_get_functiondef('private.advance_provider_credential_ladder()'::regprocedure)
        ~* 'update\s+public\.clinical_staff' then
     raise exception 'FAIL: the credential sweep issues an UPDATE against clinical_staff — the ladder must never write .active';
   end if;
 
-  -- The booking block must actually discriminate, proven against a real
-  -- restricted provider and then rolled back. Sabotage control included: the
-  -- same insert must SUCCEED once the restriction is lifted, so the test
-  -- cannot be passing because the insert was invalid for some other reason.
   select cs.id, cs.organisation_id, cs.profile_id into v_staff, v_org, v_prof
   from public.clinical_staff cs where cs.profile_id is not null limit 1;
 
@@ -564,7 +451,6 @@ begin
       raise exception 'FAIL: a suspended provider was booked for a new appointment';
     end if;
 
-    -- Control: lift it, and confirm the restriction was the thing blocking.
     update public.provider_restrictions
       set lifted_at = now(), lifted_by = null, lift_reason = 'assertion control'
       where id = v_rest;

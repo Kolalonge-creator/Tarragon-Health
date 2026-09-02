@@ -12,6 +12,10 @@ name: Release Integrity
 #      merged into main-dev/main (or, going the other way, committed locally but never applied) —
 #      recurred at least three separate times per the reference_migration_filename_version_drift
 #      memory note, most recently confirmed live again on 2026-08-12.
+#   4. A new SECURITY DEFINER function in the public schema is anon-executable because its
+#      migration granted EXECUTE to authenticated without first revoking the implicit PUBLIC
+#      grant — the anon-inherits-EXECUTE-via-PUBLIC bug, shipped to production three times
+#      (2026-07-27, swept 2026-07-29, recurred 2026-08-29 in five brand-new functions).
 #
 # Required repo secrets (Settings -> Secrets and variables -> Actions):
 #   VERCEL_TOKEN            Personal or team token with read access to the tarragon-health-web
@@ -77,3 +81,16 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: node scripts/release-integrity/check-migration-drift.mjs
+
+  check-anon-security-definer-execute:
+    name: Anon EXECUTE on SECURITY DEFINER functions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check no non-allowlisted public SECURITY DEFINER function is anon-executable
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: node scripts/release-integrity/check-anon-security-definer-execute.mjs

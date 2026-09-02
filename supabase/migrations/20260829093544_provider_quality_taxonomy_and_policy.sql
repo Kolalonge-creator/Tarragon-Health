@@ -151,7 +151,7 @@ $$;
 comment on function private.provider_quality_policy_config() is
   'The live policy document, or null when no version is active. Callers must treat null as "do not compute" rather than falling back to a hardcoded default — an unconfigured platform must not silently invent quality thresholds.';
 
-revoke all on function private.provider_quality_policy_config() from public;
+revoke all on function private.provider_quality_policy_config() from public, anon;
 
 create or replace function private.provider_quality_metric_policy(p_metric public.provider_quality_metric)
 returns jsonb
@@ -171,7 +171,7 @@ $$;
 comment on function private.provider_quality_metric_policy(public.provider_quality_metric) is
   'One metric''s policy entry from the active document, or null if the metric is not configured. Null means "not measured here" — never "measured with defaults".';
 
-revoke all on function private.provider_quality_metric_policy(public.provider_quality_metric) from public;
+revoke all on function private.provider_quality_metric_policy(public.provider_quality_metric) from public, anon;
 
 create or replace function private.provider_quality_metric_is_reportable(p_metric public.provider_quality_metric)
 returns boolean
@@ -198,7 +198,7 @@ $$;
 comment on function private.provider_quality_metric_is_reportable(public.provider_quality_metric) is
   '§29.1 clinical-governance gate. False for an unconfigured metric and for any clinical_quality metric whose clinically_governed flag is not explicitly true — part 6 omits such a metric from the scorecard entirely rather than reporting an ungoverned clinical number.';
 
-revoke all on function private.provider_quality_metric_is_reportable(public.provider_quality_metric) from public;
+revoke all on function private.provider_quality_metric_is_reportable(public.provider_quality_metric) from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- Signing (Clinical Director only, same gate shape as sign_alert_rules)
@@ -318,19 +318,12 @@ values (
         'direction', 'higher_is_better', 'target', 90, 'warning', 75, 'min_denominator', 10, 'unit', 'percent',
         'clinically_governed', false)
     ),
-    -- §29.7, as data. Offsets are days relative to the credential's expiry
-    -- date: negative = before expiry. A sweep reads these, it does not
-    -- hardcode them, so governance can lengthen a grace period without a
-    -- migration.
     'credential_ladder', jsonb_build_object(
       'warning_days_before_expiry', 30,
       'grace_days_after_expiry', 14,
       'restriction_days_after_expiry', 15,
       'suspension_days_after_expiry', 30
     ),
-    -- §29.8: which observed states are worth a human looking at. Advisory —
-    -- part 5 records interventions a person decides on; nothing in this
-    -- module opens an intervention automatically.
     'intervention_triggers', jsonb_build_array(
       jsonb_build_object('when', 'metric_below_warning_two_consecutive_periods', 'suggest', 'feedback'),
       jsonb_build_object('when', 'upheld_complaint', 'suggest', 'supervision'),
@@ -357,8 +350,6 @@ begin
     raise exception 'FAIL: no active provider_quality_policy after seeding v1';
   end if;
 
-  -- Every enum member must be configured, so a metric can never be silently
-  -- unmeasurable because someone added it to the enum and forgot the policy.
   select count(*) into v_enum_count
   from pg_enum e join pg_type t on t.oid = e.enumtypid
   where t.typname = 'provider_quality_metric';
@@ -370,8 +361,6 @@ begin
     raise exception 'FAIL: % provider_quality_metric enum values but % configured in policy v1', v_enum_count, v_metric_count;
   end if;
 
-  -- §29.1/§29.3 gate must actually discriminate: a clinical_quality metric is
-  -- not reportable at v1, an operational one is.
   if private.provider_quality_metric_is_reportable('guideline_adherence_rate') then
     raise exception 'FAIL: an ungoverned clinical_quality metric is reportable — the §29.1 governance gate does not discriminate';
   end if;
@@ -379,8 +368,6 @@ begin
     raise exception 'FAIL: a configured operational metric is not reportable — the gate is over-blocking';
   end if;
 
-  -- §29.3: the crude-metric guard is structural. Assert no volume/revenue
-  -- metric has crept into the enum.
   if exists (
     select 1 from pg_enum e join pg_type t on t.oid = e.enumtypid
     where t.typname = 'provider_quality_metric'

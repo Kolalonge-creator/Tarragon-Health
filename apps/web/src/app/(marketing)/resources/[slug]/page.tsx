@@ -117,6 +117,7 @@ export default async function ResourceArticlePage({
             ← All resources
           </Link>
           <ResourceThumbnail
+            category={article.category}
             icon={resourceThumbnailIcon(article)}
             className="mt-6 aspect-[16/7] rounded-2xl"
           />

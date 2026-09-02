@@ -29,7 +29,7 @@ export type VoucherCheckoutResult =
  */
 export async function initiateVoucherPaymentCheckout(args: {
   voucherId: string;
-  creditKobo: number;
+  instalmentKobo: number;
   payerCurrency: Currency;
   email: string;
   callbackUrl: string;
@@ -41,7 +41,7 @@ export async function initiateVoucherPaymentCheckout(args: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  let chargeAmountMinor = args.creditKobo;
+  let chargeAmountMinor = args.instalmentKobo;
   if (args.payerCurrency !== "NGN") {
     const { data: fx } = await supabase
       .from("platform_currency_settings")
@@ -55,7 +55,7 @@ export async function initiateVoucherPaymentCheckout(args: {
         error: `${args.payerCurrency} payments aren't set up yet — pay in NGN for now.`,
       };
     }
-    chargeAmountMinor = Math.round(args.creditKobo / rate);
+    chargeAmountMinor = Math.round(args.instalmentKobo / rate);
   }
 
   const metadata: CheckoutMetadata = {
@@ -103,7 +103,7 @@ export async function initiateVoucherPaymentCheckout(args: {
     p_voucher: args.voucherId,
     p_amount_minor: chargeAmountMinor,
     p_currency: args.payerCurrency,
-    p_credit_kobo: args.creditKobo,
+    p_instalment_kobo: args.instalmentKobo,
     p_provider: provider,
     p_reference: reference,
   });

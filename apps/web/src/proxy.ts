@@ -185,9 +185,14 @@ export async function proxy(request: NextRequest) {
     // below.
     const isCoordinatorClinicianPath =
       profile.role === "care_coordinator" &&
-      ["/clinician/patients", "/clinician/messages", "/clinician/escalations", "/clinician/orders", "/clinician/support-inbox"].some(
-        (allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`)
-      );
+      [
+        "/clinician/patients",
+        "/clinician/messages",
+        "/clinician/escalations",
+        "/clinician/orders",
+        "/clinician/support-inbox",
+        "/clinician/safety-incidents",
+      ].some((allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`));
     if (isCoordinatorClinicianPath) {
       return response;
     }
@@ -227,13 +232,21 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     {
+      // `/.well-known/*` is excluded outright: those files are read by
+      // machines that are never signed in (Paystack/Apple fetching
+      // apple-developer-merchantid-domain-association to verify the domain
+      // owns its Apple Pay merchant ID). Running the session/role logic on
+      // them buys nothing and couples domain verification to Supabase Auth
+      // being reachable — a proxy error there turns a plain static file into
+      // a 500 and fails verification for a reason that has nothing to do
+      // with the file.
       // `missing` skips proxy entirely for Next's own Link-hover/viewport
       // prefetch requests — every prefetched dashboard link independently
       // ran this function's getUser() Supabase call, and a page with N
       // links produced N concurrent Auth API calls per render. Real
       // navigations never carry these headers, so page-level auth checks
       // (layout.tsx, RLS) remain the enforcement boundary either way.
-      source: "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+      source: "/((?!_next/static|_next/image|favicon.ico|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
