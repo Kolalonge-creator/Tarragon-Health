@@ -12,7 +12,14 @@ alter table public.care_voucher_payments rename column credit_kobo to instalment
 comment on column public.care_voucher_payments.instalment_kobo is
   'Kobo amount of this single instalment toward the voucher''s face value. Named "instalment", not "credit" — this is layaway against one named voucher_id, never a spendable balance. See care_vouchers_purchase_and_layaway.sql for the cap enforcement.';
 
-create or replace function public.record_voucher_payment_intent(
+-- CREATE OR REPLACE can't rename an existing parameter (SQLSTATE 42P13,
+-- "cannot change name of input parameter") -- the live function's 4th
+-- parameter was p_credit_kobo before this migration, so it must be dropped
+-- first. Grants are re-applied below (lines 153-155), same as every other
+-- drop+recreate in this codebase's history.
+drop function if exists public.record_voucher_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text);
+
+create function public.record_voucher_payment_intent(
   p_voucher uuid,
   p_amount_minor bigint,
   p_currency text,
