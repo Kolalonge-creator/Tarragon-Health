@@ -1,5 +1,22 @@
 -- Healthy Ageing & Elderly Care — comprehensive ageing assessment (spec §50.3).
 --
+-- RENAMED from 20260829121740_ageing_assessments.sql (2026-09-02) -- this
+-- collided on version `20260829121740` with
+-- 20260829121740_20260829120000_ageing_assessments.sql, an earlier,
+-- differently-named migration for the same feature built by a concurrent
+-- session (same class of round-timestamp collision CLAUDE.md warns about).
+-- Confirmed against the live koiplnmbgnqnbywhpjlf project
+-- (supabase_migrations.schema_migrations) that only the OTHER file's version
+-- is actually applied in production -- this one never landed live, so
+-- renaming it here is a pure git-history fix, not a live-state change.
+-- Content is untouched: every `create table`/`create index` is
+-- `if not exists`, every `create trigger`/`create policy` is preceded by its
+-- own `drop ... if exists`, so this still applies cleanly on top of the
+-- already-existing tables/policies from the original migration and layers in
+-- its one real addition -- `private.can_act_for(patient_id)` on the RLS
+-- policies, so a caregiver acting for a patient can read/insert/update that
+-- patient's ageing assessments, not just the patient themselves.
+--
 -- One header row per assessment episode (an annual-review-style check-in, not
 -- a diagnosis) plus one child row per domain covered. Deliberately does NOT
 -- carry cardiovascular, diabetes, or medication domains: those already have a
