@@ -13,6 +13,7 @@ import {
   deliverabilitySchema,
   diseaseSurveillanceSchema,
   doctorPerformanceSchema,
+  engagementOutcomeCorrelationSchema,
   engagementSummarySchema,
   escalationQualitySchema,
   facilityEngagementSchema,
@@ -280,6 +281,17 @@ export function useRetentionCohorts() {
       const { data, error } = await createClient().rpc("analytics_retention_cohorts");
       if (error) throw error;
       return retentionCohortsSchema.parse(data);
+    },
+  });
+}
+
+export function useEngagementOutcomeCorrelation() {
+  return useQuery({
+    queryKey: ["analytics", "engagement-outcome-correlation"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_engagement_outcome_correlation");
+      if (error) throw error;
+      return engagementOutcomeCorrelationSchema.parse(data);
     },
   });
 }
