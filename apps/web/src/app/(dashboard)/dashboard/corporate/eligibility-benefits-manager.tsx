@@ -178,7 +178,7 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
     e.preventDefault();
     if (!name.trim() || !planId) return;
     createPackage.mutate(
-      { name: name.trim(), subscription_plan_id: planId, lab_discount_percent: Number(discount) || 0 },
+      { name: name.trim(), service_product_id: planId, lab_discount_percent: Number(discount) || 0 },
       { onSuccess: () => setName("") }
     );
   }

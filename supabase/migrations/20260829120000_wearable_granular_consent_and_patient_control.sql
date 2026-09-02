@@ -164,10 +164,27 @@ begin
   -- provider_active_idx allows only one active connection per (patient,
   -- provider), so reusing a real patient row here could collide with a
   -- fitbit connection that already exists for them.
+  -- private.handle_new_user() (the on_auth_user_created trigger) already
+  -- inserts a public.profiles row as soon as the auth.users row lands --
+  -- an explicit `insert into public.profiles` here would collide on the
+  -- primary key, so this deliberately does not insert one. It also
+  -- deliberately does NOT update that row afterwards (e.g. to force
+  -- organisation_id = v_org): profiles.capture_record_correction_trg fires
+  -- on every UPDATE and writes an append-only public.record_corrections row
+  -- keyed to this patient, which then makes the profile itself undeletable
+  -- at cleanup time below (record_corrections' ON DELETE SET NULL fk action
+  -- is itself an UPDATE, and record_corrections rejects all updates/deletes
+  -- by design). Using the trigger-assigned organisation_id as-is avoids
+  -- ever creating that row, so the synthetic patient stays cleanly
+  -- deletable.
+  -- @tarragon.test (not .invalid): this row is deliberately left behind
+  -- (see the cleanup comment below) rather than deleted, and
+  -- private.real_patient_ids() only excludes %tarragon.test% from real-
+  -- patient counts/analytics -- an .invalid address would silently pollute
+  -- those.
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_patient, 'wgcpc-migration-test@example.invalid', 'x', now(), '{}', '{}');
-  insert into public.profiles (id, organisation_id, role, full_name)
-  values (v_patient, v_org, 'patient', 'WGCPC Migration Test Patient');
+  values (v_patient, 'wgcpc-migration-test@tarragon.test', 'x', now(), '{}', '{}');
+  select organisation_id into v_org from public.profiles where id = v_patient;
 
   insert into public.wearable_connections
     (organisation_id, patient_id, provider, status, external_id, access_token, refresh_token)
@@ -192,13 +209,19 @@ begin
       end if;
   end;
 
-  -- Unlike the fixtures in most of this repo's migration DO blocks (which
-  -- reuse a pre-existing org/profile), this one created a synthetic
-  -- auth.users + profiles row above and must remove all three itself, or a
-  -- fake patient would persist in production forever. wearable_connections
-  -- already cascades off profiles, but deleting it explicitly first keeps
-  -- the cleanup order obvious rather than relying on the cascade.
+  -- The wearable_connections row is safe to remove outright (no trigger
+  -- captures its deletion anywhere). The synthetic profiles/auth.users row
+  -- deliberately is NOT deleted here: profiles' capture_record_correction_trg
+  -- fires AFTER DELETE too, and tries to INSERT a record_corrections row
+  -- pointing at the patient_id that was just removed -- which fails its own
+  -- FK check (the profile no longer exists to reference) with a 23503
+  -- violation. That is a genuine, pre-existing platform bug (deleting *any*
+  -- patient profile is currently broken this way, verified live 2026-09-02,
+  -- not something this migration introduces or should silently work around
+  -- by disabling a trigger) and out of scope to fix here. Leaving one
+  -- @tarragon.test-domain synthetic profile behind matches this codebase's
+  -- existing convention for such fixtures (see private.real_patient_ids(),
+  -- which already excludes %tarragon.test% from real-patient counts)
+  -- rather than papering over the bug inside this migration.
   delete from public.wearable_connections where id = v_connection;
-  delete from public.profiles where id = v_patient;
-  delete from auth.users where id = v_patient;
 end $$;

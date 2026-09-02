@@ -273,6 +273,102 @@ export type Database = {
           },
         ]
       }
+      ai_assistant_turns: {
+        Row: {
+          clinician_alert_id: string | null
+          conversation_id: string
+          created_at: string
+          error_message: string | null
+          escalation_id: string | null
+          final_action: string
+          generated_at: string
+          id: string
+          input_snapshot: Json
+          interaction_type: string
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          prompt_version: string | null
+          retrieved_source_ids: string[]
+          safety_classification: string | null
+          status: string
+        }
+        Insert: {
+          clinician_alert_id?: string | null
+          conversation_id: string
+          created_at?: string
+          error_message?: string | null
+          escalation_id?: string | null
+          final_action: string
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          interaction_type: string
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          prompt_version?: string | null
+          retrieved_source_ids?: string[]
+          safety_classification?: string | null
+          status: string
+        }
+        Update: {
+          clinician_alert_id?: string | null
+          conversation_id?: string
+          created_at?: string
+          error_message?: string | null
+          escalation_id?: string | null
+          final_action?: string
+          generated_at?: string
+          id?: string
+          input_snapshot?: Json
+          interaction_type?: string
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          prompt_version?: string | null
+          retrieved_source_ids?: string[]
+          safety_classification?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_assistant_turns_clinician_alert_id_fkey"
+            columns: ["clinician_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_assistant_turns_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "ai_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_assistant_turns_escalation_id_fkey"
+            columns: ["escalation_id"]
+            isOneToOne: false
+            referencedRelation: "escalations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_assistant_turns_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_assistant_turns_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_bias_assessments: {
         Row: {
           ai_system_id: string
@@ -12608,6 +12704,7 @@ export type Database = {
           content_version: number
           created_at: string
           drip_week: number | null
+          embedding: string | null
           estimated_minutes: number | null
           evidence_source: string | null
           id: string
@@ -12645,6 +12742,7 @@ export type Database = {
           content_version?: number
           created_at?: string
           drip_week?: number | null
+          embedding?: string | null
           estimated_minutes?: number | null
           evidence_source?: string | null
           id?: string
@@ -12682,6 +12780,7 @@ export type Database = {
           content_version?: number
           created_at?: string
           drip_week?: number | null
+          embedding?: string | null
           estimated_minutes?: number | null
           evidence_source?: string | null
           id?: string
@@ -30804,6 +30903,182 @@ export type Database = {
           },
         ]
       }
+      vaccination_adverse_events: {
+        Row: {
+          alert_id: string | null
+          clinical_note: string | null
+          created_at: string
+          description: string | null
+          id: string
+          onset_at: string | null
+          organisation_id: string
+          patient_id: string
+          reported_at: string
+          reported_by: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          severity: Database["public"]["Enums"]["vaccination_adverse_event_severity"]
+          symptoms: Database["public"]["Enums"]["vaccination_adverse_event_symptom"][]
+          updated_at: string
+          vaccination_record_id: string
+        }
+        Insert: {
+          alert_id?: string | null
+          clinical_note?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          onset_at?: string | null
+          organisation_id: string
+          patient_id: string
+          reported_at?: string
+          reported_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity: Database["public"]["Enums"]["vaccination_adverse_event_severity"]
+          symptoms: Database["public"]["Enums"]["vaccination_adverse_event_symptom"][]
+          updated_at?: string
+          vaccination_record_id: string
+        }
+        Update: {
+          alert_id?: string | null
+          clinical_note?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          onset_at?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reported_at?: string
+          reported_by?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          severity?: Database["public"]["Enums"]["vaccination_adverse_event_severity"]
+          symptoms?: Database["public"]["Enums"]["vaccination_adverse_event_symptom"][]
+          updated_at?: string
+          vaccination_record_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vaccination_adverse_events_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_adverse_events_vaccination_record_id_fkey"
+            columns: ["vaccination_record_id"]
+            isOneToOne: false
+            referencedRelation: "vaccination_records"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vaccination_card_extractions: {
+        Row: {
+          card_holder_name: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          confirmed_record_ids: Json
+          created_at: string
+          error_message: string | null
+          id: string
+          model_id: string | null
+          organisation_id: string
+          patient_id: string
+          rows: Json
+          source_path: string
+          status: string
+          unreadable_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          card_holder_name?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_record_ids?: Json
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          model_id?: string | null
+          organisation_id: string
+          patient_id: string
+          rows?: Json
+          source_path: string
+          status?: string
+          unreadable_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          card_holder_name?: string | null
+          confirmed_at?: string | null
+          confirmed_by?: string | null
+          confirmed_record_ids?: Json
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          model_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          rows?: Json
+          source_path?: string
+          status?: string
+          unreadable_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vaccination_card_extractions_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_card_extractions_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vaccination_card_extractions_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vaccination_catalog: {
         Row: {
           code: string
@@ -30836,16 +31111,20 @@ export type Database = {
       }
       vaccination_records: {
         Row: {
+          batch_lot_number: string | null
           booking_request_id: string | null
           certificate_url: string | null
           created_at: string
           date_administered: string
           dose_number: number
           id: string
+          location: string | null
           organisation_id: string
           physical_certificate_path: string | null
           profile_id: string
           provider: string | null
+          route: Database["public"]["Enums"]["vaccination_route"] | null
+          site: string | null
           tarragon_certificate_issued_at: string | null
           tarragon_certificate_serial: string | null
           updated_at: string
@@ -30856,16 +31135,20 @@ export type Database = {
           verified_by: string | null
         }
         Insert: {
+          batch_lot_number?: string | null
           booking_request_id?: string | null
           certificate_url?: string | null
           created_at?: string
           date_administered: string
           dose_number?: number
           id?: string
+          location?: string | null
           organisation_id: string
           physical_certificate_path?: string | null
           profile_id: string
           provider?: string | null
+          route?: Database["public"]["Enums"]["vaccination_route"] | null
+          site?: string | null
           tarragon_certificate_issued_at?: string | null
           tarragon_certificate_serial?: string | null
           updated_at?: string
@@ -30876,16 +31159,20 @@ export type Database = {
           verified_by?: string | null
         }
         Update: {
+          batch_lot_number?: string | null
           booking_request_id?: string | null
           certificate_url?: string | null
           created_at?: string
           date_administered?: string
           dose_number?: number
           id?: string
+          location?: string | null
           organisation_id?: string
           physical_certificate_path?: string | null
           profile_id?: string
           provider?: string | null
+          route?: Database["public"]["Enums"]["vaccination_route"] | null
+          site?: string | null
           tarragon_certificate_issued_at?: string | null
           tarragon_certificate_serial?: string | null
           updated_at?: string
@@ -30982,6 +31269,12 @@ export type Database = {
           created_at: string
           due_date: string
           id: string
+          non_administration_note: string | null
+          non_administration_reason:
+            | Database["public"]["Enums"]["vaccination_non_administration_reason"]
+            | null
+          non_administration_recorded_at: string | null
+          non_administration_recorded_by: string | null
           organisation_id: string
           patient_id: string
           reminder_sent_at: string | null
@@ -30994,6 +31287,12 @@ export type Database = {
           created_at?: string
           due_date: string
           id?: string
+          non_administration_note?: string | null
+          non_administration_reason?:
+            | Database["public"]["Enums"]["vaccination_non_administration_reason"]
+            | null
+          non_administration_recorded_at?: string | null
+          non_administration_recorded_by?: string | null
           organisation_id: string
           patient_id: string
           reminder_sent_at?: string | null
@@ -31006,6 +31305,12 @@ export type Database = {
           created_at?: string
           due_date?: string
           id?: string
+          non_administration_note?: string | null
+          non_administration_reason?:
+            | Database["public"]["Enums"]["vaccination_non_administration_reason"]
+            | null
+          non_administration_recorded_at?: string | null
+          non_administration_recorded_by?: string | null
           organisation_id?: string
           patient_id?: string
           reminder_sent_at?: string | null
@@ -31015,6 +31320,13 @@ export type Database = {
           vaccination_catalog_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "vaccination_schedules_non_administration_recorded_by_fkey"
+            columns: ["non_administration_recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vaccination_schedules_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -31817,6 +32129,10 @@ export type Database = {
         Row: {
           access_token: string | null
           connected_at: string
+          consent_activity: boolean
+          consent_heart_rate: boolean
+          consent_sleep: boolean
+          consent_weight: boolean
           created_at: string
           external_id: string | null
           id: string
@@ -31833,6 +32149,10 @@ export type Database = {
         Insert: {
           access_token?: string | null
           connected_at?: string
+          consent_activity?: boolean
+          consent_heart_rate?: boolean
+          consent_sleep?: boolean
+          consent_weight?: boolean
           created_at?: string
           external_id?: string | null
           id?: string
@@ -31849,6 +32169,10 @@ export type Database = {
         Update: {
           access_token?: string | null
           connected_at?: string
+          consent_activity?: boolean
+          consent_heart_rate?: boolean
+          consent_sleep?: boolean
+          consent_weight?: boolean
           created_at?: string
           external_id?: string | null
           id?: string
@@ -33796,6 +34120,10 @@ export type Database = {
         }
         Returns: Json
       }
+      confirm_vaccination_card_extraction: {
+        Args: { p_extraction_id: string; p_records: Json }
+        Returns: number
+      }
       consultation_prep_bundle: {
         Args: { p_consultation_id: string }
         Returns: Json
@@ -33903,6 +34231,13 @@ export type Database = {
       decline_video_visit_request: {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
+      }
+      delete_wearable_connection_data: {
+        Args: { p_connection_id: string }
+        Returns: {
+          vitals_deleted: number
+          wearable_readings_deleted: number
+        }[]
       }
       emergency_card_by_token: { Args: { p_token: string }; Returns: Json }
       employer_accept_invitation: { Args: { p_token: string }; Returns: string }
@@ -34946,6 +35281,22 @@ export type Database = {
       mark_result_document_action_completed: {
         Args: { p_document_id: string }
         Returns: undefined
+      }
+      match_health_education_content: {
+        Args: {
+          filter_condition?: Database["public"]["Enums"]["care_plan_condition"]
+          match_count?: number
+          query_embedding: string
+        }
+        Returns: {
+          body: string
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          id: string
+          similarity: number
+          summary: string
+          title: string
+        }[]
       }
       match_lpe_content_blocks: {
         Args: {
@@ -36478,6 +36829,7 @@ export type Database = {
         | "message_safety_flag"
         | "unread_clinical_care_message"
         | "medication_access_barrier"
+        | "referral_requested"
       allergy_severity: "mild" | "moderate" | "severe"
       allergy_source: "patient" | "clinician" | "fhir_import"
       allergy_verification_status: "unverified" | "confirmed" | "refuted"
@@ -36971,6 +37323,7 @@ export type Database = {
         | "exposure_report"
         | "support_ticket_intake"
         | "symptom_triage"
+        | "pulse_red_flag"
       employer_allowance_type:
         | "gp_consultation"
         | "specialist_consultation"
@@ -37998,6 +38351,25 @@ export type Database = {
         | "lab_partner"
         | "payer_admin"
         | "provider_org_staff"
+      vaccination_adverse_event_severity: "mild" | "moderate" | "severe"
+      vaccination_adverse_event_symptom:
+        | "pain_at_site"
+        | "swelling_at_site"
+        | "redness_at_site"
+        | "fever"
+        | "allergic_reaction"
+        | "fatigue"
+        | "headache"
+        | "nausea"
+        | "other"
+      vaccination_non_administration_reason: "declined" | "contraindicated"
+      vaccination_route:
+        | "oral"
+        | "intramuscular"
+        | "subcutaneous"
+        | "intradermal"
+        | "intranasal"
+        | "other"
       vaccination_verification_status:
         | "self_reported"
         | "pending_verification"
@@ -38040,7 +38412,7 @@ export type Database = {
         | "respiratory_rate"
         | "peak_flow"
       vitals_validation_status: "valid" | "requires_validation"
-      wearable_connection_status: "active" | "disconnected" | "error"
+      wearable_connection_status: "active" | "disconnected" | "error" | "paused"
       wearable_provider:
         | "apple_health"
         | "oura"
@@ -38320,6 +38692,7 @@ export const Constants = {
         "message_safety_flag",
         "unread_clinical_care_message",
         "medication_access_barrier",
+        "referral_requested",
       ],
       allergy_severity: ["mild", "moderate", "severe"],
       allergy_source: ["patient", "clinician", "fhir_import"],
@@ -38873,6 +39246,7 @@ export const Constants = {
         "exposure_report",
         "support_ticket_intake",
         "symptom_triage",
+        "pulse_red_flag",
       ],
       employer_allowance_type: [
         "gp_consultation",
@@ -40022,6 +40396,27 @@ export const Constants = {
         "payer_admin",
         "provider_org_staff",
       ],
+      vaccination_adverse_event_severity: ["mild", "moderate", "severe"],
+      vaccination_adverse_event_symptom: [
+        "pain_at_site",
+        "swelling_at_site",
+        "redness_at_site",
+        "fever",
+        "allergic_reaction",
+        "fatigue",
+        "headache",
+        "nausea",
+        "other",
+      ],
+      vaccination_non_administration_reason: ["declined", "contraindicated"],
+      vaccination_route: [
+        "oral",
+        "intramuscular",
+        "subcutaneous",
+        "intradermal",
+        "intranasal",
+        "other",
+      ],
       vaccination_verification_status: [
         "self_reported",
         "pending_verification",
@@ -40069,7 +40464,7 @@ export const Constants = {
         "peak_flow",
       ],
       vitals_validation_status: ["valid", "requires_validation"],
-      wearable_connection_status: ["active", "disconnected", "error"],
+      wearable_connection_status: ["active", "disconnected", "error", "paused"],
       wearable_provider: [
         "apple_health",
         "oura",

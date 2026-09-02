@@ -4,7 +4,7 @@ import type { Tables } from "@tarragon/shared";
 
 export type EmployerBenefitPackage = Tables<"employer_benefit_packages">;
 export type EmployerBenefitAllowance = Tables<"employer_benefit_allowances">;
-export type SubscriptionPlan = Tables<"subscription_plans">;
+export type SubscriptionPlan = Tables<"service_products">;
 
 function packagesKey(organisationId: string) {
   return ["employer-benefit-packages", organisationId];
@@ -14,8 +14,12 @@ function allowancesKey(packageId: string) {
 }
 
 /** Module 26 §26.6/§26.7 — what an employer purchases. Reuses the platform's
- * own subscription_plans catalogue (see the migration header on
- * 20260829093527_employer_platform_benefit_packages_entitlement_wiring.sql)
+ * own service_products catalogue (see the migration header on
+ * 20260829093527_employer_platform_benefit_packages_entitlement_wiring.sql;
+ * employer_benefit_packages.subscription_plan_id was later rewired to
+ * service_product_id / service_products as part of the 2026-09-02
+ * subscriptions-to-pay-per-service cutover — see
+ * project_subscription_to_pay_per_service_cutover_20260902 in memory)
  * rather than a second feature-toggle system. */
 export function useBenefitPackages(organisationId: string) {
   return useQuery({
@@ -43,7 +47,7 @@ export function useSubscriptionPlanCatalog() {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("subscription_plans")
+        .from("service_products")
         .select("*")
         .eq("is_active", true)
         .order("name");
@@ -58,7 +62,7 @@ export function useCreateBenefitPackage(organisationId: string) {
   return useMutation({
     mutationFn: async (input: {
       name: string;
-      subscription_plan_id: string;
+      service_product_id: string;
       lab_discount_percent?: number;
       is_default?: boolean;
     }) => {
@@ -66,7 +70,7 @@ export function useCreateBenefitPackage(organisationId: string) {
       const { error } = await supabase.from("employer_benefit_packages").insert({
         organisation_id: organisationId,
         name: input.name,
-        subscription_plan_id: input.subscription_plan_id,
+        service_product_id: input.service_product_id,
         lab_discount_percent: input.lab_discount_percent ?? 0,
         is_default: input.is_default ?? false,
       });
