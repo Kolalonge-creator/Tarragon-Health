@@ -78,6 +78,7 @@ import {
   Thermometer,
   Wind,
   Heart,
+  HeartHandshake,
   Flag,
   Siren,
   type LucideIcon,
@@ -182,6 +183,7 @@ export const NAV_ICON = {
   chevronRight: ChevronRight,
   security: KeyRound,
   devices: Bluetooth,
+  healthyAgeing: HeartHandshake,
   flag: Flag,
   siren: Siren,
   // Platform Analytics console category icons — the `analyst` role's sidebar

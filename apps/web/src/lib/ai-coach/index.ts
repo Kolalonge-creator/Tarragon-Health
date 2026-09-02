@@ -1,12 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CoachChatMessage, CoachTier, Database, Json } from "@tarragon/shared";
+import type { CoachChatMessage, CoachTier, Database } from "@tarragon/shared";
 import { buildCoachGraph, type CoachGraphDeps } from "./graph";
 import { COACH_ACCESS_DENIED_REPLY, hasCoachAccess } from "./entitlement";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
 import { detectEmergencyKeywords } from "./keyword-guardrail";
-import { COACH_UNAVAILABLE_REPLY, EMERGENCY_SAFETY_REPLY } from "./prompts";
+import { COACH_UNAVAILABLE_REPLY, EMERGENCY_SAFETY_REPLY, COACH_PROMPT_VERSION } from "./prompts";
 import { logAiCoachEscalation } from "./escalate";
 import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
+import { logAssistantTurn } from "./audit";
+import { appendMessages, resolveOrCreateConversation } from "./conversation-store";
 
 export interface RunCoachTurnParams {
   supabase: SupabaseClient<Database>;
@@ -36,6 +38,22 @@ interface CoachTurnOutcome {
   readonly tier: CoachTier;
   readonly reply: string;
   readonly escalationId: string | null;
+  /** Present only on paths that actually reached graph.invoke() — absent on
+   * the kill-switch fallback path, which never ran the graph at all. Carried
+   * through governed.value (rather than closing over the graph's own
+   * `result`, which is only in scope inside the run() callback) so the
+   * ai_assistant_turns provenance write after runGovernedAi() returns has
+   * something to log regardless of which of run()/fallback() produced this
+   * outcome. */
+  readonly modelId?: string;
+  readonly retrievedSourceIds?: string[];
+  readonly clinicianAlertId?: string | null;
+  readonly referralRequestClinicianAlertId?: string | null;
+  readonly careMessageThreadId?: string | null;
+  readonly referralRequestCareMessageThreadId?: string | null;
+  readonly degraded?: boolean;
+  readonly errorMessage?: string;
+  readonly inputSnapshotForAudit?: Record<string, unknown>;
 }
 
 /** Cap on how much history is sent to Claude for context — not a cap on
@@ -44,52 +62,27 @@ interface CoachTurnOutcome {
  * silently dropped everything older than the window on every single turn. */
 const CONTEXT_HISTORY_LIMIT = 20;
 
-async function appendMessages(
-  supabase: SupabaseClient<Database>,
-  conversationId: string,
-  fullMessages: CoachChatMessage[],
-  newMessages: CoachChatMessage[]
-): Promise<void> {
-  await supabase
-    .from("ai_conversations")
-    .update({ messages: [...fullMessages, ...newMessages] as unknown as Json })
-    .eq("id", conversationId);
-}
-
 /** Transport-agnostic AI Coach turn — takes a profile + message, runs the
  * LangGraph flow, and returns the reply. Callable from a server action
  * today; the same function is what a future WhatsApp webhook route would
- * call too, so it doesn't assume anything about how it was invoked. */
+ * call too, so it doesn't assume anything about how it was invoked.
+ *
+ * Every return path also writes one ai_assistant_turns audit row
+ * (audit.ts) — the §36.17 provenance record docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md
+ * §4.3 identified as missing, including on the two short-circuit paths
+ * (access denied, rate limited) that never reach the graph at all. The
+ * audit write is best-effort (logAssistantTurn never throws) — a failed
+ * audit write must never be the reason a patient-facing turn breaks.
+ */
 export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoachTurnResult> {
   const { supabase, getServiceRoleSupabase, profileId, organisationId, message } = params;
 
-  let conversationId = params.conversationId;
-  let fullMessages: CoachChatMessage[] = [];
-
-  if (conversationId) {
-    const { data } = await supabase
-      .from("ai_conversations")
-      .select("id, messages")
-      .eq("id", conversationId)
-      .maybeSingle();
-    if (data) {
-      fullMessages = (data.messages as CoachChatMessage[] | null) ?? [];
-    } else {
-      conversationId = undefined;
-    }
-  }
-
-  if (!conversationId) {
-    const { data, error } = await supabase
-      .from("ai_conversations")
-      .insert({ organisation_id: organisationId, profile_id: profileId })
-      .select("id")
-      .single();
-    if (error || !data) {
-      throw new Error(error?.message ?? "Could not start a conversation");
-    }
-    conversationId = data.id;
-  }
+  const { conversationId, fullMessages } = await resolveOrCreateConversation(
+    supabase,
+    organisationId,
+    profileId,
+    params.conversationId
+  );
 
   // Defense in depth: care/page.tsx and lifestyle/page.tsx only render the
   // chat UI when hasCoachAccess() is true, but neither of them re-checks it
@@ -109,6 +102,14 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       created_at: now,
     };
     await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+    await logAssistantTurn(getServiceRoleSupabase(), {
+      organisationId,
+      patientId: profileId,
+      conversationId,
+      interactionType: "chat_turn",
+      finalAction: "declined",
+      status: "access_denied",
+    });
     return { conversationId, reply: COACH_ACCESS_DENIED_REPLY, tier: "routine", aiInteractionId: null };
   }
 
@@ -129,6 +130,14 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
       created_at: now,
     };
     await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+    await logAssistantTurn(getServiceRoleSupabase(), {
+      organisationId,
+      patientId: profileId,
+      conversationId,
+      interactionType: "chat_turn",
+      finalAction: "declined",
+      status: "rate_limited",
+    });
     return { conversationId, reply: COACH_LIMIT_REACHED_REPLY, tier: "routine", aiInteractionId: null };
   }
 
@@ -169,7 +178,20 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
 
       const tier: CoachTier = result.tier ?? "routine";
       return {
-        value: { tier, reply: result.reply, escalationId: result.escalationId ?? null },
+        value: {
+          tier,
+          reply: result.reply,
+          escalationId: result.escalationId ?? null,
+          modelId: result.modelId,
+          retrievedSourceIds: result.retrievedSourceIds,
+          clinicianAlertId: result.clinicianAlertId,
+          referralRequestClinicianAlertId: result.referralRequestClinicianAlertId,
+          careMessageThreadId: result.careMessageThreadId,
+          referralRequestCareMessageThreadId: result.referralRequestCareMessageThreadId,
+          degraded: result.degraded,
+          errorMessage: result.errorMessage,
+          inputSnapshotForAudit: result.inputSnapshotForAudit,
+        },
         // What actually answered. Mirrors buildAnthropicModel()'s own default
         // so a drifting ANTHROPIC_MODEL shows up in
         // ai_vendor_model_observations rather than passing unnoticed (40.19).
@@ -234,6 +256,46 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     created_at: now,
   };
   await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);
+
+  // A referral request (referral-tool.ts) can create a real clinician_alerts
+  // row on ANY tier, including 'routine' — so finalAction reflects that even
+  // when the tier-driven classification alone would have said 'replied'.
+  // governed.value.clinicianAlertId (the tier-driven escalation/review alert)
+  // and governed.value.referralRequestClinicianAlertId (the referral-tool
+  // alert) are both, in principle, independently settable in the same turn —
+  // the audit row's single clinician_alert_id column prefers the tier-driven
+  // one when both exist; the referral one is always recorded in
+  // input_snapshot too. On the kill-switch fallback path (no graph run at
+  // all) governed.value carries none of these extra fields, so this block
+  // degrades to a plain "replied"/"escalation_created" classification with
+  // no model/retrieval detail — there is nothing more to log.
+  const finalAction: "replied" | "clinician_alert_created" | "escalation_created" =
+    tier === "emergency"
+      ? "escalation_created"
+      : tier === "clinician_review" || governed.value.referralRequestClinicianAlertId
+        ? "clinician_alert_created"
+        : "replied";
+
+  await logAssistantTurn(getServiceRoleSupabase(), {
+    organisationId,
+    patientId: profileId,
+    conversationId,
+    interactionType: "chat_turn",
+    modelId: governed.value.modelId,
+    promptVersion: governed.value.modelId ? COACH_PROMPT_VERSION : null,
+    safetyClassification: tier,
+    retrievedSourceIds: governed.value.retrievedSourceIds,
+    clinicianAlertId: governed.value.clinicianAlertId ?? governed.value.referralRequestClinicianAlertId,
+    escalationId: governed.value.escalationId,
+    finalAction,
+    status: governed.value.degraded ? "degraded" : "completed",
+    errorMessage: governed.value.errorMessage,
+    inputSnapshot: {
+      ...governed.value.inputSnapshotForAudit,
+      careMessageThreadId: governed.value.careMessageThreadId,
+      referralRequestCareMessageThreadId: governed.value.referralRequestCareMessageThreadId,
+    },
+  });
 
   return { conversationId, reply, tier, aiInteractionId: governed.interactionId };
 }

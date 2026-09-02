@@ -35,6 +35,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
 
 const SOURCE_BADGE: Record<
   string,
@@ -102,7 +103,18 @@ export function MedicationsList({
         <CardTitle className="flex items-center gap-2">
           <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
           Medications
+          {data && isPolypharmacy(data.length) && (
+            <Badge variant="amber" title={`${data.length} active medicines — this is a lot to keep track of, worth a review`}>
+              Polypharmacy
+            </Badge>
+          )}
         </CardTitle>
+        {data && isPolypharmacy(data.length) && (
+          <p className="text-xs text-charcoal-ink/60">
+            {data.length} active medicines on file — {POLYPHARMACY_THRESHOLD} or more is worth a clinician
+            review for duplicate therapy or interactions, not a reason to stop anything on your own.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <CabinetSummary patientId={patientId} />

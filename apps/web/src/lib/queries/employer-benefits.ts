@@ -4,7 +4,7 @@ import type { Tables } from "@tarragon/shared";
 
 export type EmployerBenefitPackage = Tables<"employer_benefit_packages">;
 export type EmployerBenefitAllowance = Tables<"employer_benefit_allowances">;
-export type SubscriptionPlan = Tables<"subscription_plans">;
+export type ServiceProduct = Tables<"service_products">;
 
 function packagesKey(organisationId: string) {
   return ["employer-benefit-packages", organisationId];
@@ -14,9 +14,9 @@ function allowancesKey(packageId: string) {
 }
 
 /** Module 26 §26.6/§26.7 — what an employer purchases. Reuses the platform's
- * own subscription_plans catalogue (see the migration header on
- * 20260829093527_employer_platform_benefit_packages_entitlement_wiring.sql)
- * rather than a second feature-toggle system. */
+ * own service_products catalogue (rewired off subscription_plans by
+ * 20260831160547_rewire_employer_benefits_to_service_products.sql, part of
+ * the pay-per-service cutover) rather than a second feature-toggle system. */
 export function useBenefitPackages(organisationId: string) {
   return useQuery({
     queryKey: packagesKey(organisationId),
@@ -37,18 +37,18 @@ export function useBenefitPackages(organisationId: string) {
 
 /** The plan tiers a package can reference — same catalogue individual
  * patients buy from directly. */
-export function useSubscriptionPlanCatalog() {
+export function useServiceProductCatalog() {
   return useQuery({
-    queryKey: ["subscription-plan-catalog"],
+    queryKey: ["service-product-catalog"],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("subscription_plans")
+        .from("service_products")
         .select("*")
         .eq("is_active", true)
         .order("name");
       if (error) throw error;
-      return data as SubscriptionPlan[];
+      return data as ServiceProduct[];
     },
   });
 }
@@ -58,7 +58,7 @@ export function useCreateBenefitPackage(organisationId: string) {
   return useMutation({
     mutationFn: async (input: {
       name: string;
-      subscription_plan_id: string;
+      service_product_id: string;
       lab_discount_percent?: number;
       is_default?: boolean;
     }) => {
@@ -66,7 +66,7 @@ export function useCreateBenefitPackage(organisationId: string) {
       const { error } = await supabase.from("employer_benefit_packages").insert({
         organisation_id: organisationId,
         name: input.name,
-        subscription_plan_id: input.subscription_plan_id,
+        service_product_id: input.service_product_id,
         lab_discount_percent: input.lab_discount_percent ?? 0,
         is_default: input.is_default ?? false,
       });
