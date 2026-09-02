@@ -69,6 +69,8 @@ declare
   v_after text;
   v_proowner text;
   v_proacl text;
+  v_proacl2 text;
+  v_still_has_exec boolean;
 begin
   select string_agg(format('role=%s ns=%s type=%s acl=%s', coalesce(defaclrole::regrole::text,'(none)'), coalesce(defaclnamespace::regnamespace::text,'(db-wide)'), defaclobjtype, defaclacl::text), ' | ')
     into v_before
@@ -102,25 +104,18 @@ begin
   select proowner::regrole::text, proacl::text into v_proowner, v_proacl from pg_proc
    where oid = 'public._default_priv_probe_fn_20260902174504()'::regprocedure;
 
-  if has_function_privilege('anon', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE')
-     or has_function_privilege('authenticated', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE') then
-    drop function public._default_priv_probe_fn_20260902174504();
-    drop sequence public._default_priv_probe_seq_20260902174504;
-    raise exception 'DIAG FAIL: before=[%] after=[%] current_user=% session_user=% proowner=% proacl=%',
-      coalesce(v_before, '(no rows)'), coalesce(v_after, '(no rows)'), v_current_user, v_session_user,
-      v_proowner, coalesce(v_proacl, '(null)');
-  end if;
-
-  if has_sequence_privilege('anon', 'public._default_priv_probe_seq_20260902174504', 'USAGE')
-     or has_sequence_privilege('authenticated', 'public._default_priv_probe_seq_20260902174504', 'USAGE') then
-    drop function public._default_priv_probe_fn_20260902174504();
-    drop sequence public._default_priv_probe_seq_20260902174504;
-    raise exception 'FAIL: anon/authenticated still get a default USAGE privilege on a brand-new public-schema sequence';
-  end if;
+  -- Sanity check: does a DIRECT, per-object revoke (not via default
+  -- privileges) actually stick? If PUBLIC persists even after this, an event
+  -- trigger or extension is re-granting it, not a default-privilege quirk.
+  execute 'revoke execute on function public._default_priv_probe_fn_20260902174504() from public, anon, authenticated';
+  select proacl::text into v_proacl2 from pg_proc
+   where oid = 'public._default_priv_probe_fn_20260902174504()'::regprocedure;
+  v_still_has_exec := has_function_privilege('anon', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE')
+    or has_function_privilege('authenticated', 'public._default_priv_probe_fn_20260902174504()', 'EXECUTE');
 
   drop function public._default_priv_probe_fn_20260902174504();
   drop sequence public._default_priv_probe_seq_20260902174504;
-  raise exception 'DIAG PASS (forced to surface diagnostics): before=[%] after=[%] current_user=% session_user=% proowner=% proacl=%',
+  raise exception 'DIAG: before=[%] after=[%] current_user=% session_user=% proowner=% proacl_default=% proacl_after_direct_revoke=% still_has_execute_after_direct_revoke=%',
     coalesce(v_before, '(no rows)'), coalesce(v_after, '(no rows)'), v_current_user, v_session_user,
-    v_proowner, coalesce(v_proacl, '(null)');
+    v_proowner, coalesce(v_proacl, '(null)'), coalesce(v_proacl2, '(null)'), v_still_has_exec;
 end $$;
