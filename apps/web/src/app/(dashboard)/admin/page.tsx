@@ -171,6 +171,13 @@ export default async function AdminPage() {
           icon: SEMANTIC_ICON.commission,
           visible: can("commissions.view"),
         },
+        {
+          href: "/admin/settings/outcomes-contracts",
+          label: "Fee-at-risk contracts",
+          blurb: "Review HMO/corporate-proposed fee-at-risk terms before they go live",
+          icon: SEMANTIC_ICON.commission,
+          visible: can("commissions.view"),
+        },
       ],
     },
     {

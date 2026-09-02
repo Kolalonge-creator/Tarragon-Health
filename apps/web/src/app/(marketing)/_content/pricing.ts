@@ -1,4 +1,29 @@
 /**
+ * Corrected 2026-09-02 — founder decision, executed via PR #418: recurring
+ * subscriptions are retired platform-wide, replaced by pay-per-service.
+ * Every plan below (Free/Prevent/Essential/Complete) is now a fixed-duration
+ * "pack" (service_products.access_duration_days — 30 days monthly, 365 days
+ * yearly), not an auto-renewing subscription: nothing on this page ever
+ * charges a card again on its own, and there is no cancel/auto-renewal
+ * toggle to manage — buying again when a pack runs out is the only
+ * "renewal" there is. The tier names, features, and NGN prices below were
+ * already correct against the live `service_products` catalogue at the time
+ * of this correction (spot-checked directly); what changed is the FAQ/promise
+ * copy describing auto-renewal and cancellation, which no longer applies, the
+ * "Online Doctor Consultation" price (was quoting a stale ₦10,000/48-hour-
+ * acceptance flow; the real live path is a real-time slot booking at
+ * ₦5,000, no acceptance window), and the addition of several one-off,
+ * pay-per-use clinical products (`service_products`, all `is_active`) that
+ * had no pricing-page presence at all: Ask a Doctor, a Prescription Renewal
+ * Review, a Verified Digital Document, an AI Coach 30-day pass, a Second
+ * Opinion Review, a Result Interpretation Session, and a Senior Case Review.
+ * Two more real products exist in the catalogue but are deliberately NOT
+ * listed here because `is_active: false` (not yet purchasable): the 12-Week
+ * Doctor-Supported Programme Add-On (price pending founder sign-off — the
+ * 12-week chronic programme's base self-monitoring track has no price at
+ * all and is free) and the Full Panel Annual Health Check add-on. Re-check
+ * both live before adding them.
+ *
  * Pricing content, sourced from Tarragon_Health_Pricing_Guide_v3.docx (the
  * authoritative plans & pricing doc, regenerated 2026-07-21; it absorbs the
  * decisions below and drops v2's "nurse" wording for "doctor" platform-wide,
@@ -206,8 +231,8 @@ export const PRICING_PROMISES: string[] = [
   "We will always tell you clearly how each thing is paid for and to whom: whether it is already included in your plan, something you pay the laboratory or pharmacy for directly, or something that is actually free elsewhere and we are just reminding you about it. You will never have to guess where your money is going.",
   "You will always know exactly what you are paying for: every plan and every add-on is fully listed below, with nothing left out.",
   "Paying in dollars from abroad includes a disclosed 10% international card-processing fee on top of the converted naira price: a real, cost-based charge shown as its own line next to the price, never folded silently into a bigger number.",
-  "You can cancel a monthly plan at any time. Annual plans are paid upfront for the year, but you can turn off auto-renewal whenever you like: no penalty, no argument, no hard sell.",
-  "Naira prices are reviewed once a year to keep pace with cost changes, but we will always tell you at least 30 days before any change takes effect, and anything you've already paid for (like an annual plan) is honoured at the price you paid until it's time to renew.",
+  "Nothing here auto-renews or charges your card again on its own. Every plan and add-on is a one-off purchase for a fixed period; when it runs out, you simply buy it again if you want to continue. No cancellation to remember, no penalty, no hard sell.",
+  "Naira prices are reviewed once a year to keep pace with cost changes, but we will always tell you at least 30 days before any change takes effect, and anything you've already paid for (like a year of a plan) is honoured at the price you paid until it runs out.",
 ];
 
 export const NGN_TIERS: PricingTier[] = [
@@ -561,12 +586,73 @@ export const ADD_ONS: PricingAddOn[] = [
   // Two separately-named "annual ___" products was confusing; there's one now.
   {
     id: "video-visit",
-    name: "Online Doctor Consultation",
-    price: "₦10,000/visit",
+    name: "On-Demand Video/Audio Visit",
+    price: "₦5,000/visit",
     label: "ADD-ON",
     description:
-      "A 15-minute online consultation with a doctor, over video. Pick a published time and pay to request it. Your payment is held by Tarragon and only goes through once a time is confirmed: a doctor accepts your slot or offers a different one that works, within 48 hours. If nobody can take it, you're refunded in full. Not a substitute for emergency care.",
+      "A one-off online consultation with a doctor, over video or audio call. Pick an open slot from the next two weeks and pay for it; the visit is confirmed on booking, no waiting for a doctor to accept. Not a substitute for emergency care.",
     availability: "Available on any plan, priced per visit rather than as a subscription.",
+  },
+  {
+    id: "async-consult",
+    name: "Ask a Doctor (Written)",
+    price: "₦2,500",
+    label: "ADD-ON",
+    description:
+      "One written question, answered by a doctor on your care team, usually within 72 hours. Included free on Complete Care; buy it as a one-off on any other plan.",
+    availability: "Available on any plan, priced per question.",
+  },
+  {
+    id: "prescription-renewal",
+    name: "Prescription Renewal Review",
+    price: "₦3,500",
+    label: "ADD-ON",
+    description: "A doctor reviews and signs off on renewing one of your existing prescriptions.",
+    availability: "Available on any plan.",
+  },
+  {
+    id: "verified-document",
+    name: "Verified Digital Document",
+    price: "₦4,000",
+    label: "ADD-ON",
+    description:
+      "A doctor-attested fit-to-work letter or travel health certificate, delivered as a signed PDF.",
+    availability: "Available on any plan.",
+  },
+  {
+    id: "ai-coach-day-pass",
+    name: "AI Coach Daily Pass (30 days)",
+    price: "₦5,000",
+    label: "ADD-ON",
+    description:
+      "Raises your AI Health Coach daily message limit for 30 days. Buy it again any time to extend; nothing auto-renews.",
+    availability: "Available on any plan. Already included on Complete Care.",
+  },
+  {
+    id: "second-opinion",
+    name: "Second Opinion Review",
+    price: "₦7,500",
+    label: "ADD-ON",
+    description:
+      "A doctor reviews an existing result or diagnosis and writes back their own assessment. No visit needed.",
+    availability: "Available on any plan.",
+  },
+  {
+    id: "result-interpretation",
+    name: "Result Interpretation Session",
+    price: "₦10,000",
+    label: "ADD-ON",
+    description: "A 15-minute doctor walkthrough of a specific lab or imaging result, over video.",
+    availability: "Available on any plan.",
+  },
+  {
+    id: "senior-case-review",
+    name: "Senior Case Review",
+    price: "₦15,000",
+    label: "ADD-ON",
+    description:
+      "A senior doctor coordinates your case across every condition you're managing and delivers a written plan in the app.",
+    availability: "Available on any plan.",
   },
   // 'hpv-catchup' (Catch-Up HPV Vaccine) removed as a standalone pricing card
   // 2026-08-05 — Tarragon doesn't set, quote, or collect a price for it (same
@@ -659,7 +745,7 @@ export const FREE_TRIALS: { title: string; body: string }[] = [
 
 export const FREE_TRIAL_TERMS: string[] = [
   "Both trials are limited to one per person and apply to Complete Care.",
-  "No card is required to start a trial, and you will always see the price and confirm before you're ever charged: the trial does not roll into a paid subscription automatically.",
+  "No card is required to start a trial, and you will always see the price and confirm before you're ever charged: the trial does not roll into a paid plan automatically.",
   "At the end of the trial, you simply return to Tarragon Free unless you choose to continue on a paid plan.",
 ];
 
@@ -690,7 +776,7 @@ export const NEVER_DO: string[] = [
   "Never charge you without showing the price and getting your confirmation first",
   "Never diagnose you or change your medication without a doctor's review",
   "Never share your health information with a family member without your consent",
-  "Never lock you into a long contract: monthly plans cancel anytime; annual plans let you turn off auto-renewal anytime",
+  "Never lock you into a long contract or auto-renew a charge without you buying it again",
   "Never disguise a paid add-on as something “included,” and never disguise something genuinely free (like the HPV vaccine for girls 9–14) as something you need to pay us for",
   "Never let a free trial roll into a paid plan without you confirming first, and never put an expiry date on Tarragon Free",
 ];
@@ -742,14 +828,14 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
       "No. We review Naira pricing once a year at most, and we'll always tell you at least 30 days beforehand. Anything you've already paid for, including a prepaid annual plan, is honoured until it's time to renew.",
   },
   {
-    question: "Can I cancel anytime?",
+    question: "Do I need to cancel anything, or will I be charged again automatically?",
     answer:
-      "Yes. Paid plans renew automatically at the end of each month or year so your care never lapses, and you can turn off auto-renewal any time from your subscription page. When you do, your plan stays active until the end of the period you've already paid for and simply doesn't renew after that. You won't be charged again.",
+      "You'll never be charged again automatically. A plan is a one-off purchase that lasts a fixed period, a month or a year depending on which you bought, and simply ends when that period is up. There's nothing to turn off and nothing that renews on its own. If you want to keep going, buy it again from your My services page whenever you're ready.",
   },
   {
-    question: "Are subscriptions refundable?",
+    question: "Are plans refundable?",
     answer:
-      "Subscriptions are non-refundable. The month or year you've paid for runs to the end, and turning off auto-renewal stops the next charge rather than refunding the current period. You keep full access until that period ends.",
+      "Plans are non-refundable once bought. The month or year you've paid for runs to the end and you keep full access for all of it; it just doesn't renew on its own afterwards.",
   },
   {
     question: "I already have an HMO. Do I still need Tarragon?",
@@ -793,7 +879,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Can I speak to a doctor directly, not just wait for my scheduled review?",
     answer:
-      "Yes, two ways. Send a written question through the app and get a doctor's reply within 72 hours, included free on Complete Care. Or book a 15-minute online consultation with a doctor for ₦10,000 on any plan: payment is only taken once a doctor accepts your slot, with a full refund if none can.",
+      "Yes, two ways. Send a written question through the app and get a doctor's reply within 72 hours (₦2,500 on any plan, included free on Complete Care). Or book a video or audio visit for ₦5,000 on any plan: pick an open slot from the next two weeks and it's confirmed on booking, no waiting for a doctor to accept.",
   },
 ];
 
