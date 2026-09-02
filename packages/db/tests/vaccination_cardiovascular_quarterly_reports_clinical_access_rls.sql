@@ -1,8 +1,7 @@
 -- ===========================================================================
 -- Verification: vaccination_records, vaccination_schedules,
 -- patient_cardiovascular_profile, and patient_quarterly_reports SELECT respect
--- clinical_access, after
--- 20260830101935_vaccination_cardiovascular_quarterly_reports_gate_on_can_read_clinical.sql.
+-- category-scoped clinical access.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -10,14 +9,24 @@
 -- Wrapped in BEGIN/ROLLBACK — this is a verification script, not seed data; it
 -- always leaves the database exactly as it found it.
 --
--- Same fixture shape as packages/db/tests/reproductive_health_profiles_clinical_access_rls.sql
--- -- read that file's header for the full rationale (the enforce_clinical_access_
--- consent_owner trigger forces clinical_access=false on INSERT, so this script
--- flips it on via an owner-session UPDATE, not directly on insert). Each check
--- re-does its own set_config + set local role + reset role around exactly one
--- SELECT — writing to the result temp table while `role authenticated` is set
--- fails with a permission error (the temp table is owned by the connecting
--- role), so the switch must be scoped tightly around the read alone.
+-- Rewritten 2026-09-03: this test originally flipped the flat
+-- profile_access.clinical_access boolean on 20260830101935's design. That was
+-- superseded the same day by 20260830103251_category_scoped_clinical_access_
+-- and_emergency_access.sql, which rewrote all four of these tables' SELECT
+-- policies onto the category-scoped private.can_read_clinical(patient,
+-- category) — confirmed live via pg_policies: vaccination_records/
+-- vaccination_schedules require the 'vaccinations' category,
+-- patient_cardiovascular_profile/patient_quarterly_reports require
+-- 'medical_history'. clinical_access still exists as a column (kept live for
+-- PR #377 compatibility, see 20260902190500) but no longer gates any of
+-- these four tables at all, so flipping it had stopped proving anything.
+-- Rewritten to grant categories via public.set_care_access_categories()
+-- instead, same pattern as packages/db/tests/reproductive_health_profiles_
+-- rls_regression_fix.sql. Each check re-does its own set_config + set local
+-- role + reset role around exactly one SELECT — writing to the result temp
+-- table while `role authenticated` is set fails with a permission error (the
+-- temp table is owned by the connecting role), so the switch must be scoped
+-- tightly around the read alone.
 -- ===========================================================================
 
 begin;
@@ -30,6 +39,7 @@ declare
   v_patient           uuid;
   v_view_grantee      uuid := gen_random_uuid();
   v_clinical_grantee  uuid := gen_random_uuid();
+  v_clinical_grant_id uuid;
   v_vaccine           uuid;
   v_count             bigint;
 begin
@@ -64,14 +74,15 @@ begin
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
   values (v_patient, v_view_grantee, 'view', v_patient);
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
-  values (v_patient, v_clinical_grantee, 'manage', v_patient);
+  values (v_patient, v_clinical_grantee, 'manage', v_patient)
+  returning id into v_clinical_grant_id;
 
-  -- Owner-session flip, same reason as the reproductive_health_profiles test:
-  -- INSERT always forces clinical_access=false regardless of what's requested.
+  -- Owner session grants the two categories these four tables actually check
+  -- (vaccinations, medical_history) — only the patient themselves may call
+  -- set_care_access_categories on their own grant.
   perform set_config('request.jwt.claims', json_build_object('sub', v_patient::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  update public.profile_access set clinical_access = true
-    where profile_id = v_patient and grantee_user_id = v_clinical_grantee;
+  perform public.set_care_access_categories(v_clinical_grant_id, array['vaccinations', 'medical_history']::public.care_access_category[]);
   reset role;
 
   insert into public.vaccination_records (organisation_id, profile_id, vaccination_catalog_id, date_administered)
@@ -84,7 +95,7 @@ begin
   insert into public.patient_quarterly_reports (patient_id, organisation_id, period_start, period_end, snapshot)
   values (v_patient, v_org, current_date - 90, current_date, '{}'::jsonb);
 
-  -- 1. View-only grantee, clinical_access=false — must be BLOCKED on all 4 tables.
+  -- 1. View-only grantee, no category grants — must be BLOCKED on all 4 tables.
   perform set_config('request.jwt.claims', json_build_object('sub', v_view_grantee::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_count from public.vaccination_records where profile_id = v_patient;
@@ -109,7 +120,7 @@ begin
   reset role;
   insert into vcqr_result values ('view-only grantee: patient_quarterly_reports', v_count, '0', case when v_count = 0 then 'PASS' else 'FAIL' end);
 
-  -- 2. Manage grantee, clinical_access=true — must see all 4.
+  -- 2. Manage grantee with vaccinations+medical_history categories — must see all 4.
   perform set_config('request.jwt.claims', json_build_object('sub', v_clinical_grantee::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_count from public.vaccination_records where profile_id = v_patient;
