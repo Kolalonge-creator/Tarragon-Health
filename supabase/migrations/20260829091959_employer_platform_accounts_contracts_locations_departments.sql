@@ -509,7 +509,7 @@ begin
 end;
 $$;
 
-revoke all on function public.employer_set_verification(uuid, text, text) from public;
+revoke all on function public.employer_set_verification(uuid, text, text) from public, anon;
 grant execute on function public.employer_set_verification(uuid, text, text) to authenticated;
 revoke execute on function public.employer_set_verification(uuid, text, text) from anon;
 
@@ -542,7 +542,7 @@ begin
 end;
 $$;
 
-revoke all on function public.employer_go_live(uuid) from public;
+revoke all on function public.employer_go_live(uuid) from public, anon;
 grant execute on function public.employer_go_live(uuid) to authenticated;
 revoke execute on function public.employer_go_live(uuid) from anon;
 

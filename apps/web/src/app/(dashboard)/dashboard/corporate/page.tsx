@@ -1,6 +1,7 @@
 import { InstitutionPrivacyNotice, CohortTooSmallNotice } from "@/components/institution-privacy-notice";
 import { ContractStatusCard } from "@/components/contract-status-card";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ProposeContractCard } from "../propose-contract-card";
 import { RosterManager } from "./roster-manager";
 import { CohortSummary } from "./cohort-summary";
 import { ActivationFunnelCard, DepartmentBreakdownTable } from "./activation-funnel-card";
@@ -52,6 +53,7 @@ export default async function CorporateOverviewPage() {
       <ContractStatusCard performance={data.contractPerformance} />
       <ActivationFunnelCard funnel={data.activationFunnel} />
       <DepartmentBreakdownTable rows={data.departmentBreakdown} />
+      <ProposeContractCard organisationId={data.organisationId} />
       <RosterManager organisationId={data.organisationId} />
       <CohortSummary analytics={data.analytics} />
     </div>
