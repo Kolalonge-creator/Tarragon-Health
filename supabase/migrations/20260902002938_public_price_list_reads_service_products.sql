@@ -59,7 +59,15 @@ begin
   -- It must actually be sourced from service_products now, not the retired
   -- subscription_plans/add_ons tables (a stale price there could otherwise
   -- silently keep matching by coincidence and mask this check being wrong).
-  if not exists (select 1 from public.public_price_list() where code = 'prevent_pack') then
+  -- Not a row-presence check (e.g. "prevent_pack must be returned"): every
+  -- service_products.is_active flag is earned by a live Paystack/Stripe sync
+  -- (see 20260729130000_restore_subscription_price_book.sql's own header --
+  -- "is_active is never copied from seed"), so a from-scratch replay never
+  -- has a single active row and any such check would always fail there.
+  -- Checking the function body itself proves the same fact regardless of
+  -- environment or activation state.
+  if pg_get_functiondef('public.public_price_list()'::regprocedure) !~ 'service_products'
+     or pg_get_functiondef('public.public_price_list()'::regprocedure) ~ 'subscription_plans|add_ons' then
     raise exception 'the public price list is not reading service_products';
   end if;
 end $$;
