@@ -20,6 +20,7 @@ import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { MedicationAdherenceHistory } from "./medication-adherence-history";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
@@ -238,6 +239,7 @@ export default async function ClinicianPatientPage({
                   canAmend={canPrescribe}
                   isClinicianView
                 />
+                <MedicationAdherenceHistory patientId={patient.id} />
                 {/* Pharmacy-authority-by-tier (master plan §4/§8): Tier 1 confirms/
                     continues existing prescriptions but has no new-prescribing
                     authority — the DB RLS policy is the real gate
