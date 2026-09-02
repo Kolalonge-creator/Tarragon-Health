@@ -21,6 +21,7 @@ import { ScreenOrderResultsSection } from "./screen-order-results-section";
 import { ResultDocumentsSection } from "./result-documents-section";
 import { EcgReportDocumentsSection } from "./ecg-report-documents-section";
 import { MedicationSafetyPanel } from "./medication-safety-panel";
+import { CdsPanel } from "./cds-panel";
 import { MedicationAdherenceHistory } from "./medication-adherence-history";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
@@ -234,6 +235,13 @@ export default async function ClinicianPatientPage({
                 <HandOverCareSection patientId={patient.id} />
               </>
             ),
+          },
+          {
+            id: "decision-support",
+            label: "Decision support",
+            content: patient.organisation_id ? (
+              <CdsPanel patientId={patient.id} organisationId={patient.organisation_id} />
+            ) : null,
           },
           {
             id: "medications",
