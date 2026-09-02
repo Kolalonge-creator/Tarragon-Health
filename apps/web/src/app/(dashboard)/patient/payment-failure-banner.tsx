@@ -22,10 +22,12 @@ import { koboToNaira } from "@tarragon/shared";
  * grace period avoids nagging someone mid-checkout who simply hasn't reached
  * the provider's hosted page yet.
  */
-export async function PaymentFailureBanner({ patientId }: { patientId: string }) {
+/** Data + date work lives outside the component body (react-hooks/purity),
+ * same pattern as next-best-action.tsx's resolveNextAction. */
+async function findStalePendingPurchase(patientId: string) {
   const supabase = await createClient();
   const staleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
-  const { data: purchase } = await supabase
+  const { data } = await supabase
     .from("service_purchases")
     .select("id, payable_kobo, currency, created_at, service_product:service_products(code, name)")
     .eq("patient_id", patientId)
@@ -34,6 +36,11 @@ export async function PaymentFailureBanner({ patientId }: { patientId: string })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  return data;
+}
+
+export async function PaymentFailureBanner({ patientId }: { patientId: string }) {
+  const purchase = await findStalePendingPurchase(patientId);
 
   if (!purchase || !purchase.service_product?.code) return null;
 
