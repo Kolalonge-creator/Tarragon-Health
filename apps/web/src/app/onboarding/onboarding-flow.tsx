@@ -8,7 +8,7 @@ import { ConsentStep } from "./consent-step";
 import { DemographicsForm } from "./demographics-form";
 import { IntakeStep } from "./intake-step";
 import { PlanPreview } from "./plan-preview";
-import { PlanSelector } from "./plan-selector";
+import { ReadyNotice } from "./ready-notice";
 import { ExistingPlanNotice } from "./existing-plan-notice";
 
 function DoneRow({ label }: { label: string }) {
@@ -30,8 +30,8 @@ function DoneRow({ label }: { label: string }) {
  * Client-side onboarding orchestrator. Steps reveal in order:
  *   1. Consent (required)   2. About you, DOB/sex (required)
  *   3. Where you are (finds labs near you)
- *   4. Health profile (skippable)   5. Choose your plan
- * Required steps gate the plan step both here and structurally in the DB
+ *   4. Health profile (skippable)   5. Confirmation (the app is free)
+ * Required steps gate the final step both here and structurally in the DB
  * (private.enforce_onboarding_prereqs), so this ordering can't be bypassed to
  * finish onboarding without consent + demographics.
  *
@@ -152,29 +152,20 @@ export function OnboardingFlow({
         <IntakeStep patientId={profile.id} onSkip={() => setIntakeCollapsed(true)} />
       )}
 
-      {/* Step 4 — already-subscribed patients skip choosing/paying for a
-          plan entirely; everyone else sees the honest intake-driven preview
-          then chooses a plan. */}
+      {/* Step 4 — a patient who already has something active (a legacy pack
+          still running, or a paid service bought before finishing onboarding)
+          sees that instead; everyone else sees the honest intake-driven
+          preview, then a plain confirmation that the app is free. There is no
+          plan to choose here any more. */}
       {readyForPlan && intakeCollapsed && existingPlan && (
         <ExistingPlanNotice planName={existingPlan.name} status={existingPlan.status} />
       )}
       {readyForPlan && intakeCollapsed && !existingPlan && <PlanPreview patientId={profile.id} />}
-      {readyForPlan && intakeCollapsed && !existingPlan && (
-        <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
-          <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
-            Choose your plan
-          </h2>
-          <p className="text-sm text-charcoal-ink/60">
-            Start free, or pick a paid plan now — you can change or cancel any time from your
-            dashboard.
-          </p>
-          <PlanSelector />
-        </div>
-      )}
+      {readyForPlan && intakeCollapsed && !existingPlan && <ReadyNotice />}
 
       {!readyForPlan && (
         <p className="text-center text-xs text-charcoal-ink/50">
-          Complete the steps above to choose your plan.
+          Complete the steps above to finish setting up your account.
         </p>
       )}
     </div>

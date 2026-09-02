@@ -42,7 +42,6 @@ const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, stri
   whatsapp: "WhatsApp",
   termii: "Termii SMS",
   paystack: "Paystack",
-  stripe: "Stripe",
   resend: "Resend (email)",
 };
 
@@ -312,13 +311,6 @@ export default async function AdminPage() {
           href: "/admin/settings/subscriptions",
           label: "Subscription plans & add-ons",
           blurb: "Legacy plan/add-on editor — no longer sets live patient pricing",
-          icon: SEMANTIC_ICON.billing,
-          visible: can("subscriptions.manage"),
-        },
-        {
-          href: "/admin/settings/diaspora-pricing",
-          label: "Diaspora pricing (USD)",
-          blurb: "USD pricing at the admin-set exchange rate",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },

@@ -10,7 +10,6 @@ import {
   type SubsidizedOrderType,
 } from "@/lib/billing/subsidy-checkout";
 import { startActingFor, stopActingFor } from "@/lib/acting/acting-for";
-import type { Currency } from "@tarragon/shared";
 
 export type SponsorActionState = { error?: string; message?: string } | undefined;
 
@@ -32,7 +31,6 @@ export async function paySomeonesPlan(
 
   const beneficiaryProfileId = formData.get("beneficiaryProfileId") as string;
   const planCode = formData.get("planCode") as string;
-  const currency = (formData.get("currency") as Currency) || "NGN";
 
   if (!beneficiaryProfileId) return { error: "Who is this plan for?" };
   if (!planCode) return { error: "Choose a plan first." };
@@ -41,7 +39,6 @@ export async function paySomeonesPlan(
   const result = await initiateSponsoredSubscriptionCheckout({
     beneficiaryProfileId,
     planCode,
-    payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,
   });
@@ -68,7 +65,6 @@ export async function paySomeonesBill(
 
   const beneficiaryProfileId = formData.get("beneficiaryProfileId") as string;
   const orderId = formData.get("orderId") as string;
-  const currency = (formData.get("currency") as Currency) || "NGN";
 
   if (!beneficiaryProfileId || !orderId) return { error: "Which bill are you paying?" };
 
@@ -78,7 +74,6 @@ export async function paySomeonesBill(
   const result = await initiateSponsorBillCheckout({
     beneficiaryProfileId,
     orderId,
-    payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,
   });

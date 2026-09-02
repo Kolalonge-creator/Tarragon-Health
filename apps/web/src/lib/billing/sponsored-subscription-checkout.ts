@@ -1,41 +1,44 @@
 import { createClient } from "@/lib/supabase/server";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
-import { isStripeConfigured } from "@/lib/stripe/client";
-import { createOneOffCheckoutSession } from "@/lib/stripe/checkout";
-import { resolveProvider } from "@/lib/billing/provider";
 import type { CheckoutMetadata } from "@/lib/billing/checkout-metadata";
-import type { Currency } from "@tarragon/shared";
 
 export type SponsoredSubscriptionCheckoutResult =
   | { ok: true; checkoutUrl: string }
   | { ok: false; error: string };
 
 /**
- * Puts someone you support on a paid plan and bills you.
+ * Puts someone you support on a paid service and bills you.
  *
- * "Put my mother on Complete Care and bill my card monthly" is the most common
- * thing a diaspora buyer actually wants, and before this there was no path to
- * it at any price — a sponsor could buy single vouchers and nothing else, so
- * the recurring monitoring that makes the product worth having was the one
+ * "Pay for my mother's 12-week programme and bill my card" is the most
+ * common thing a sponsor abroad actually wants, and before this there was no
+ * path to it at any price — a sponsor could buy single vouchers and nothing
+ * else, so the ongoing care that makes the product worth having was the one
  * thing they could not fund.
  *
  * What this deliberately does NOT change: the person keeps their own account,
  * their own record, their own consent and their own control. The only thing
  * that moves is who the card belongs to. `subscriptions.paid_by_profile_id`
  * records that and nothing else, and both people are notified when it starts —
- * nobody should discover they have been put on a paid plan by noticing new
+ * nobody should discover they have been put on a paid service by noticing new
  * features appear.
  *
  * Authorisation is checked here for a fast, friendly failure AND again inside
  * private.activate_sponsored_subscription when the money actually lands, which
  * is what makes it real: a grant revoked between checkout and webhook buys
  * nothing. That second check is the one under test.
+ *
+ * NGN via Paystack only. A payer-currency conversion path for a sponsor
+ * abroad used to sit here, converting at the admin-set reference rate and
+ * billing through Stripe. Removed 2026-09-03: there was never a registered
+ * Stripe account behind it (needs a UK business registration that hasn't
+ * happened), so a non-NGN sponsor payment could never actually complete.
+ * Every service_products row is NGN-priced anyway — a sponsor abroad funds
+ * the same naira price everyone else pays, via Paystack, same as anyone else.
  */
 export async function initiateSponsoredSubscriptionCheckout(args: {
   beneficiaryProfileId: string;
   planCode: string;
-  payerCurrency: Currency;
   email: string;
   callbackUrl: string;
 }): Promise<SponsoredSubscriptionCheckoutResult> {
@@ -67,30 +70,11 @@ export async function initiateSponsoredSubscriptionCheckout(args: {
   if (!plan || !plan.is_active) {
     return { ok: false, error: "That service isn't available." };
   }
-
-  // The service is priced in naira because the care is delivered in Nigeria.
-  // A payer abroad is charged the same care at the admin-set reference rate,
-  // not a diaspora premium. An unset rate means dollar payment is simply not
-  // offered yet, rather than a silent wrong-price charge.
-  let chargeAmountMinor = plan.price_kobo;
-  if (args.payerCurrency !== plan.currency) {
-    if (args.payerCurrency === "NGN" || plan.currency !== "NGN") {
-      return { ok: false, error: "That service can't be paid in your currency yet." };
-    }
-    const { data: fx } = await supabase
-      .from("platform_currency_settings")
-      .select("ngn_per_usd")
-      .eq("id", true)
-      .single();
-    const rate = fx?.ngn_per_usd;
-    if (!rate) {
-      return {
-        ok: false,
-        error: `${args.payerCurrency} payments aren't set up yet — pay in NGN for now.`,
-      };
-    }
-    chargeAmountMinor = Math.round(plan.price_kobo / rate);
+  if (plan.currency !== "NGN") {
+    return { ok: false, error: "That service can't be paid in your currency yet." };
   }
+
+  if (!isPaystackConfigured()) return { ok: false, error: "Card payments aren't set up yet" };
 
   const metadata: CheckoutMetadata = {
     kind: "sponsored_subscription",
@@ -101,31 +85,13 @@ export async function initiateSponsoredSubscriptionCheckout(args: {
     sponsor_profile_id: user.id,
   };
 
-  const provider = resolveProvider(args.payerCurrency);
-
-  if (provider === "paystack") {
-    if (!isPaystackConfigured()) return { ok: false, error: "Card payments aren't set up yet" };
-    const result = await initializeOneOffTransaction({
-      email: args.email,
-      amountMinor: chargeAmountMinor,
-      currency: "NGN",
-      callbackUrl: args.callbackUrl,
-      metadata,
-    });
-    if (!result.ok) return { ok: false, error: result.error };
-    return { ok: true, checkoutUrl: result.data.authorizationUrl };
-  }
-
-  if (!isStripeConfigured()) return { ok: false, error: "Card payments aren't set up yet" };
-  const result = await createOneOffCheckoutSession({
+  const result = await initializeOneOffTransaction({
     email: args.email,
-    amountMinor: chargeAmountMinor,
-    currency: args.payerCurrency as "GBP" | "USD",
-    description: `${plan.name} for someone you support`,
-    successUrl: args.callbackUrl,
-    cancelUrl: args.callbackUrl,
+    amountMinor: plan.price_kobo,
+    currency: "NGN",
+    callbackUrl: args.callbackUrl,
     metadata,
   });
   if (!result.ok) return { ok: false, error: result.error };
-  return { ok: true, checkoutUrl: result.data.checkoutUrl };
+  return { ok: true, checkoutUrl: result.data.authorizationUrl };
 }

@@ -6,9 +6,11 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 /**
  * Factual trust signals only; every claim here maps to something the
  * platform actually enforces (MDCN verification gates on clinical_staff,
- * consent-gated family sharing, hosted Paystack/Stripe checkout, the
- * pricing page's no-hidden-cost promise). Never add a claim that isn't
- * structurally true in the product.
+ * consent-gated family sharing, hosted Paystack checkout, the pricing
+ * page's no-hidden-cost promise). Never add a claim that isn't structurally
+ * true in the product — Stripe is dropped from the payments line below for
+ * exactly this reason: there is no registered Stripe account behind it, so
+ * naming it here would claim a live payment method that doesn't exist.
  */
 const TRUST_ITEMS = [
   {
@@ -32,8 +34,8 @@ const TRUST_ITEMS = [
     ),
   },
   {
-    title: "Payments handled by Paystack & Stripe",
-    body: "Every payment is processed by Paystack (Nigeria) or Stripe (diaspora). Tarragon never stores your card details.",
+    title: "Payments handled by Paystack",
+    body: "Every payment is processed by Paystack. Tarragon never stores your card details.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <rect x="3" y="6" width="18" height="13" rx="2" />

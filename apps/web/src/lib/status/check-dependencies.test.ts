@@ -119,7 +119,6 @@ describe("checkDependencies", () => {
     expect(report.supabase.status).toBe("up");
     expect(report.ml_service.status).toBe("down");
     expect(report.whatsapp).toEqual({ status: "configured" });
-    expect(report.stripe).toEqual({ status: "unconfigured" });
     expect(typeof report.checked_at).toBe("string");
   });
 });

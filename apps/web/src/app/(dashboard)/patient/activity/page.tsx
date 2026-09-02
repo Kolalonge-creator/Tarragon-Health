@@ -2,8 +2,6 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ActivityClient } from "./activity-client";
 
@@ -33,12 +31,7 @@ export default async function ActivityPage() {
         </Link>{" "}
         to have them sync automatically.
       </p>
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <ActivityClient patientId={profile.id} />
-      </RequiresEntitlement>
+      <ActivityClient patientId={profile.id} />
     </DashboardPlaceholder>
   );
 }
