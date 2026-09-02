@@ -144,7 +144,7 @@ create policy care_management_cases_select on public.care_management_cases
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id)
+    or private.can_read_clinical(patient_id, 'appointments_care_plan'::care_access_category)
   );
 
 create policy care_management_cases_write on public.care_management_cases
@@ -194,7 +194,7 @@ create policy care_management_case_events_select on public.care_management_case_
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id)
+    or private.can_read_clinical(patient_id, 'appointments_care_plan'::care_access_category)
   );
 
 create policy care_management_case_events_insert on public.care_management_case_events
@@ -246,7 +246,7 @@ create policy care_management_barriers_select on public.care_management_barriers
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id)
+    or private.can_read_clinical(patient_id, 'appointments_care_plan'::care_access_category)
   );
 
 create policy care_management_barriers_write on public.care_management_barriers
