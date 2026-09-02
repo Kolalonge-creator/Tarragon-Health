@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   useOrgMedicationReviews,
   useCompleteMedicationReview,
+  type MedicationReviewOutcome,
   type MedicationReviewWithContext,
 } from "@/lib/queries/medication-reviews";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +12,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select } from "@/components/ui/select";
+
+/** Medication safety pathway 64.14: what the reviewing doctor decided. */
+const OUTCOME_LABEL: Record<MedicationReviewOutcome, string> = {
+  continue: "Continue — regimen unchanged",
+  change: "Change — dose or drug",
+  stop: "Stop",
+  escalate: "Escalate to a senior tier",
+};
 
 function formatCondition(condition: string): string {
   return condition
@@ -29,6 +39,7 @@ function formatDueDate(value: string): string {
 function ReviewRow({ review }: { review: MedicationReviewWithContext }) {
   const complete = useCompleteMedicationReview();
   const [notes, setNotes] = useState("");
+  const [outcome, setOutcome] = useState<MedicationReviewOutcome | "">("");
   const overdue = new Date(review.due_date) < new Date(new Date().toDateString());
 
   return (
@@ -57,12 +68,30 @@ function ReviewRow({ review }: { review: MedicationReviewWithContext }) {
           className="text-sm"
         />
       </div>
+      <div className="space-y-1">
+        <Label htmlFor={`outcome_${review.id}`} className="text-xs">
+          Outcome
+        </Label>
+        <Select
+          id={`outcome_${review.id}`}
+          value={outcome}
+          onChange={(event) => setOutcome(event.target.value as MedicationReviewOutcome | "")}
+          className="h-9 w-64 text-sm"
+        >
+          <option value="">Select an outcome…</option>
+          {(Object.keys(OUTCOME_LABEL) as MedicationReviewOutcome[]).map((value) => (
+            <option key={value} value={value}>
+              {OUTCOME_LABEL[value]}
+            </option>
+          ))}
+        </Select>
+      </div>
       <Button
         size="sm"
         variant="outline"
-        disabled={complete.isPending}
+        disabled={complete.isPending || !outcome}
         onClick={() =>
-          complete.mutate({ reviewId: review.id, notes: notes.trim() || null })
+          outcome && complete.mutate({ reviewId: review.id, outcome, notes: notes.trim() || null })
         }
       >
         {complete.isPending ? "Completing…" : "Complete review"}
