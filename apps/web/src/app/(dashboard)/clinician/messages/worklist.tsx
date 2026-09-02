@@ -7,9 +7,22 @@ import {
   type CareThreadWithPatient,
 } from "@/lib/queries/care-messages";
 import { CareMessageThread } from "@/components/care-message-thread";
+import { CareMessageTemplateManager } from "@/components/care-message-template-manager";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import type { Enums } from "@tarragon/shared";
+
+const CATEGORY_LABEL: Record<Enums<"care_message_category">, string> = {
+  clinical: "Clinical",
+  appointment: "Appointment",
+  medication: "Medication",
+  laboratory: "Lab result",
+  pharmacy: "Pharmacy",
+  billing: "Billing",
+  technical: "Technical",
+  general: "General",
+};
 
 function when(iso: string): string {
   return new Date(iso).toLocaleString("en-GB", {
@@ -40,6 +53,7 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
           </span>
         </button>
         <span className="flex items-center gap-2">
+          <Badge variant="grey">{CATEGORY_LABEL[thread.category]}</Badge>
           <Badge variant={thread.status === "open" ? "amber" : "grey"}>
             {thread.status === "open" ? "Open" : "Closed"}
           </Badge>
@@ -50,7 +64,9 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
         <div className="mt-3 space-y-3">
           <CareMessageThread
             threadId={thread.id}
+            patientId={thread.patient_id}
             closed={thread.status === "closed"}
+            isStaff
             showDraftAssist
           />
           {thread.status === "open" && (
@@ -71,18 +87,28 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
 }
 
 export function ClinicianMessagesWorklist() {
-  const { data: threads, isLoading } = useOrgCareThreads();
+  const { data: threads, isLoading, isError } = useOrgCareThreads();
+  const [showTemplates, setShowTemplates] = useState(false);
   const open = (threads ?? []).filter((t) => t.status === "open");
   const closed = (threads ?? []).filter((t) => t.status === "closed");
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle>Patient messages</CardTitle>
+        <Button type="button" variant="outline" size="sm" onClick={() => setShowTemplates((v) => !v)}>
+          {showTemplates ? "Hide templates" : "Manage templates"}
+        </Button>
       </CardHeader>
+      {showTemplates && (
+        <CardContent className="border-b border-charcoal-ink/10 pb-6">
+          <CareMessageTemplateManager />
+        </CardContent>
+      )}
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {!isLoading && (!threads || threads.length === 0) && (
+        {isError && <p className="text-sm text-red-600">Could not load patient messages.</p>}
+        {!isLoading && !isError && (!threads || threads.length === 0) && (
           <p className="text-sm text-charcoal-ink/60">No patient messages.</p>
         )}
         {open.length > 0 && (

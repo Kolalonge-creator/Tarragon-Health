@@ -97,7 +97,7 @@ as $$
   limit 1;
 $$;
 
-revoke all on function private.resolve_cancellation_policy(uuid, public.appointment_type) from public;
+revoke all on function private.resolve_cancellation_policy(uuid, public.appointment_type) from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- 10.7 hold
@@ -365,7 +365,7 @@ begin
 end;
 $$;
 
-revoke all on function private.offer_next_waiting_list_candidate(uuid, uuid, public.appointment_type, public.appointment_consultation_method, text, timestamptz, timestamptz) from public;
+revoke all on function private.offer_next_waiting_list_candidate(uuid, uuid, public.appointment_type, public.appointment_consultation_method, text, timestamptz, timestamptz) from public, anon;
 
 create or replace function public.accept_waiting_list_offer(p_waiting_list_id uuid)
 returns public.appointments
@@ -582,7 +582,7 @@ as $$
     where status = 'held' and hold_expires_at < now();
 $$;
 
-revoke all on function private.expire_stale_appointment_holds() from public;
+revoke all on function private.expire_stale_appointment_holds() from public, anon;
 
 create or replace function private.expire_waiting_list_offers()
 returns void
@@ -617,7 +617,7 @@ begin
 end;
 $$;
 
-revoke all on function private.expire_waiting_list_offers() from public;
+revoke all on function private.expire_waiting_list_offers() from public, anon;
 
 select cron.schedule(
   'appointment-hold-expiry',

@@ -2,8 +2,16 @@
 
 import { useScreeningSchedules } from "@/lib/queries/screening";
 import { todayIsoDate } from "@/lib/queries/medications";
-import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
+import {
+  useLabCatalogue,
+  useCreateLabOrder,
+  useScreenTypePrices,
+  bundleIsPartnerBillable,
+  findSingleTestBundle,
+} from "@/lib/queries/lab-orders";
 import { ConfirmScreeningDoneForm } from "./confirm-screening-done-form";
+import { DeclineScreeningForm } from "./decline-screening-form";
+import { PartnerLabBillingOption } from "./partner-lab-billing-option";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +22,7 @@ const STATUS_BADGE: Record<string, { variant: BadgeProps["variant"]; label: stri
   booked: { variant: "blue", label: "Booked" },
   completed: { variant: "green", label: "Completed" },
   overdue: { variant: "red", label: "Overdue" },
+  declined: { variant: "grey", label: "Declined" },
 };
 
 export function PreventiveScreeningCalendar({
@@ -29,6 +38,7 @@ export function PreventiveScreeningCalendar({
 }) {
   const { data, isLoading, isError } = useScreeningSchedules(patientId);
   const { data: bundles } = useLabCatalogue();
+  const { data: screenTypePrices } = useScreenTypePrices();
   const createOrder = useCreateLabOrder();
   const today = todayIsoDate();
 
@@ -69,6 +79,10 @@ export function PreventiveScreeningCalendar({
                 schedule.screen_type?.code && bundles
                   ? findSingleTestBundle(bundles, schedule.screen_type.code)
                   : null;
+              const canDecline =
+                schedule.status === "pending" ||
+                schedule.status === "booked" ||
+                schedule.status === "overdue";
 
               return (
                 <li key={schedule.id} className="space-y-2 py-3">
@@ -77,10 +91,21 @@ export function PreventiveScreeningCalendar({
                       {schedule.screen_type?.name ?? "Screening"}
                     </p>
                     <Badge variant={badge.variant}>{badge.label}</Badge>
+                    {schedule.is_recall && <Badge variant="amber">Repeat requested</Badge>}
                   </div>
                   <p className="text-xs text-charcoal-ink/60">
                     Due {new Date(schedule.due_date).toLocaleDateString()}
                   </p>
+                  {schedule.is_recall && schedule.recall_reason && (
+                    <p className="text-xs text-charcoal-ink/70">
+                      Your care team asked you to repeat this: {schedule.recall_reason}
+                    </p>
+                  )}
+                  {schedule.status === "declined" && schedule.declined_reason && (
+                    <p className="text-xs text-charcoal-ink/60">
+                      You declined this: {schedule.declined_reason}
+                    </p>
+                  )}
                   {isDue && canBook && bundle && (
                     <div className="space-y-2">
                       <Button
@@ -108,15 +133,30 @@ export function PreventiveScreeningCalendar({
                           Could not set that up just now. Please try again.
                         </p>
                       )}
+                      {bundleIsPartnerBillable(bundle, screenTypePrices) && (
+                        <PartnerLabBillingOption
+                          patientId={patientId}
+                          organisationId={organisationId!}
+                          panelBundleId={bundle.id}
+                          screeningScheduleId={schedule.id}
+                          bundleName={bundle.name}
+                          priceKobo={bundle.price_kobo}
+                        />
+                      )}
                     </div>
                   )}
-                  <ConfirmScreeningDoneForm
-                    patientId={patientId}
-                    scheduleId={schedule.id}
-                    screenTypeId={schedule.screen_type_id}
-                    screenTypeName={schedule.screen_type?.name ?? "screening"}
-                    alreadyCompleted={schedule.status === "completed"}
-                  />
+                  <div className="flex flex-wrap items-start gap-2">
+                    <ConfirmScreeningDoneForm
+                      patientId={patientId}
+                      scheduleId={schedule.id}
+                      screenTypeId={schedule.screen_type_id}
+                      screenTypeName={schedule.screen_type?.name ?? "screening"}
+                      alreadyCompleted={schedule.status === "completed"}
+                    />
+                    {canDecline && (
+                      <DeclineScreeningForm patientId={patientId} scheduleId={schedule.id} />
+                    )}
+                  </div>
                 </li>
               );
             })}

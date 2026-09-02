@@ -10,20 +10,44 @@ import { Textarea } from "@/components/ui/textarea";
 import { API_KEY_SCOPES } from "@/lib/integrations/api-key-scopes";
 import {
   createApiKeyAction,
+  deleteWebhookEndpointAction,
   revokeApiKeyAction,
+  saveWebhookEndpointAction,
   savePartnerIntegrationAction,
   setPartnerIntegrationActiveAction,
+  setWebhookEndpointActiveAction,
   testPartnerConnectionAction,
 } from "./actions";
+
+const WEBHOOK_EVENT_TYPES = [
+  "result.available",
+  "result.amended",
+  "lab_order.created",
+  "lab_order.cancelled",
+  "appointment.booked",
+  "appointment.cancelled",
+  "appointment.rescheduled",
+  "prescription.created",
+  "prescription.cancelled",
+  "dispense.completed",
+  "patient.registered",
+  "patient.consent_changed",
+  "payment.settled",
+  "payment.refunded",
+  "claim.status_changed",
+] as const;
 
 interface ApiKeyRow {
   id: string;
   name: string;
   key_prefix: string;
   scopes: string[];
+  environment: "sandbox" | "live";
+  rate_limit_per_minute: number;
   created_at: string;
   last_used_at: string | null;
   revoked_at: string | null;
+  expires_at: string | null;
 }
 
 interface PartnerRow {
@@ -38,6 +62,20 @@ interface PartnerRow {
   has_secret: boolean;
 }
 
+interface WebhookEndpointRow {
+  id: string;
+  partner_integration_id: string;
+  name: string;
+  url: string;
+  event_types: string[];
+  environment: "sandbox" | "live";
+  is_active: boolean;
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  consecutive_failures: number;
+  created_at: string;
+}
+
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleString() : "never";
 }
@@ -45,14 +83,17 @@ function formatDate(value: string | null): string {
 export function IntegrationsManager({
   apiKeys,
   partners,
+  webhookEndpoints,
 }: {
   apiKeys: ApiKeyRow[];
   partners: PartnerRow[];
+  webhookEndpoints: WebhookEndpointRow[];
 }) {
   return (
     <div className="space-y-6">
       <ApiKeysSection apiKeys={apiKeys} />
       <PartnersSection partners={partners} />
+      <WebhookEndpointsSection partners={partners} webhookEndpoints={webhookEndpoints} />
     </div>
   );
 }
@@ -60,6 +101,7 @@ export function IntegrationsManager({
 function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
   const [name, setName] = useState("");
   const [scopes, setScopes] = useState<string[]>(["device_readings:write"]);
+  const [environment, setEnvironment] = useState<"sandbox" | "live">("live");
   const [issuedKey, setIssuedKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -71,7 +113,7 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
   function handleCreate() {
     setMessage(null);
     startTransition(async () => {
-      const result = await createApiKeyAction({ name, scopes });
+      const result = await createApiKeyAction({ name, scopes, environment });
       if ("error" in result) {
         setMessage(result.error);
       } else {
@@ -143,10 +185,33 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
               ))}
             </div>
           </div>
+          <div className="space-y-1">
+            <Label>Environment</Label>
+            <div className="flex gap-2">
+              {(["live", "sandbox"] as const).map((env) => (
+                <button
+                  key={env}
+                  type="button"
+                  onClick={() => setEnvironment(env)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                    environment === env
+                      ? "border-brand-green bg-brand-green/10 text-deep-forest"
+                      : "border-charcoal-ink/15 text-charcoal-ink/60"
+                  }`}
+                >
+                  {env}
+                </button>
+              ))}
+            </div>
+          </div>
           <Button onClick={handleCreate} disabled={pending || name.trim().length < 2 || scopes.length === 0}>
             Issue key
           </Button>
         </div>
+        <p className="text-xs text-charcoal-ink/50">
+          A sandbox key (<code>th_test_…</code>) is for §33.17 partner certification before going
+          live — use it to test an integration without touching real patient data.
+        </p>
         {message && <p className="text-sm text-red-600">{message}</p>}
 
         {apiKeys.length === 0 ? (
@@ -158,11 +223,13 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-charcoal-ink">
                     {key.name}{" "}
-                    <code className="text-xs text-charcoal-ink/50">{key.key_prefix}…</code>
+                    <code className="text-xs text-charcoal-ink/50">{key.key_prefix}…</code>{" "}
+                    {key.environment === "sandbox" && <Badge variant="amber">Sandbox</Badge>}
                   </p>
                   <p className="text-xs text-charcoal-ink/50">
-                    {key.scopes.join(", ")} · created {formatDate(key.created_at)} · last used{" "}
-                    {formatDate(key.last_used_at)}
+                    {key.scopes.join(", ")} · {key.rate_limit_per_minute}/min · created{" "}
+                    {formatDate(key.created_at)} · last used {formatDate(key.last_used_at)}
+                    {key.expires_at ? ` · expires ${formatDate(key.expires_at)}` : ""}
                   </p>
                 </div>
                 {key.revoked_at ? (
@@ -347,6 +414,230 @@ function PartnersSection({ partners }: { partners: PartnerRow[] }) {
                 {testResult[partner.id] && (
                   <p className="text-xs text-charcoal-ink/60">{testResult[partner.id]}</p>
                 )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const EMPTY_WEBHOOK = {
+  partnerIntegrationId: "",
+  name: "",
+  url: "",
+  eventTypes: [] as string[],
+  environment: "live" as "sandbox" | "live",
+  description: "",
+};
+
+function WebhookEndpointsSection({
+  partners,
+  webhookEndpoints,
+}: {
+  partners: PartnerRow[];
+  webhookEndpoints: WebhookEndpointRow[];
+}) {
+  const [form, setForm] = useState<typeof EMPTY_WEBHOOK & { id?: string }>(EMPTY_WEBHOOK);
+  const [issuedSecret, setIssuedSecret] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function toggleEventType(type: string) {
+    setForm((prev) => ({
+      ...prev,
+      eventTypes: prev.eventTypes.includes(type)
+        ? prev.eventTypes.filter((t) => t !== type)
+        : [...prev.eventTypes, type],
+    }));
+  }
+
+  function handleSave() {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await saveWebhookEndpointAction(form);
+      if ("error" in result) {
+        setMessage(result.error);
+      } else {
+        if (result.secret) setIssuedSecret(result.secret);
+        setForm(EMPTY_WEBHOOK);
+      }
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Webhook endpoints</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-charcoal-ink/60">
+          A partner receives events (result available, appointment cancelled, prescription
+          created — §33.15) as a signed POST. Verify{" "}
+          <code>X-Tarragon-Signature: sha256=…</code> against the raw body with the secret below
+          before trusting a delivery.
+        </p>
+
+        {issuedSecret && (
+          <div className="space-y-2 rounded-lg border border-brand-green/40 bg-brand-green/5 p-4">
+            <p className="text-sm font-medium text-deep-forest">
+              Copy this signing secret now; it will never be shown again.
+            </p>
+            <code className="block break-all rounded bg-white p-2 text-xs text-charcoal-ink">
+              {issuedSecret}
+            </code>
+            <Button size="sm" variant="outline" onClick={() => setIssuedSecret(null)}>
+              I&apos;ve copied it
+            </Button>
+          </div>
+        )}
+
+        {partners.length === 0 ? (
+          <p className="text-sm text-charcoal-ink/60">
+            Register an outbound partner connection above first — a webhook endpoint belongs to one.
+          </p>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="wh-partner">Partner</Label>
+                <select
+                  id="wh-partner"
+                  value={form.partnerIntegrationId}
+                  onChange={(e) => setForm({ ...form, partnerIntegrationId: e.target.value })}
+                  className="h-9 w-full rounded-md border border-charcoal-ink/15 bg-white px-3 text-sm"
+                >
+                  <option value="">Select a partner…</option>
+                  {partners.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="wh-name">Endpoint name</Label>
+                <Input
+                  id="wh-name"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder="e.g. Results webhook"
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="wh-url">URL</Label>
+                <Input
+                  id="wh-url"
+                  value={form.url}
+                  onChange={(e) => setForm({ ...form, url: e.target.value })}
+                  placeholder="https://partner.example.com/webhooks/tarragon"
+                />
+              </div>
+              <div className="space-y-1 sm:col-span-2">
+                <Label>Event types</Label>
+                <div className="flex flex-wrap gap-2">
+                  {WEBHOOK_EVENT_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => toggleEventType(type)}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        form.eventTypes.includes(type)
+                          ? "border-brand-green bg-brand-green/10 text-deep-forest"
+                          : "border-charcoal-ink/15 text-charcoal-ink/60"
+                      }`}
+                    >
+                      {type}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label>Environment</Label>
+                <div className="flex gap-2">
+                  {(["live", "sandbox"] as const).map((env) => (
+                    <button
+                      key={env}
+                      type="button"
+                      onClick={() => setForm({ ...form, environment: env })}
+                      className={`rounded-full border px-3 py-1.5 text-xs font-medium capitalize transition-colors ${
+                        form.environment === env
+                          ? "border-brand-green bg-brand-green/10 text-deep-forest"
+                          : "border-charcoal-ink/15 text-charcoal-ink/60"
+                      }`}
+                    >
+                      {env}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSave}
+                disabled={pending || !form.partnerIntegrationId || form.name.trim().length < 2 || !form.url || form.eventTypes.length === 0}
+              >
+                {form.id ? "Save changes" : "Add endpoint"}
+              </Button>
+              {form.id && (
+                <Button variant="outline" onClick={() => setForm(EMPTY_WEBHOOK)}>
+                  Cancel edit
+                </Button>
+              )}
+            </div>
+          </>
+        )}
+        {message && <p className="text-sm text-red-600">{message}</p>}
+
+        {webhookEndpoints.length === 0 ? (
+          <p className="text-sm text-charcoal-ink/60">No webhook endpoints registered yet.</p>
+        ) : (
+          <ul className="divide-y divide-charcoal-ink/10">
+            {webhookEndpoints.map((endpoint) => (
+              <li key={endpoint.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-charcoal-ink">
+                    {endpoint.name}{" "}
+                    {endpoint.is_active ? (
+                      <Badge variant="green">Active</Badge>
+                    ) : (
+                      <Badge variant="grey">Inactive</Badge>
+                    )}{" "}
+                    {endpoint.environment === "sandbox" && <Badge variant="amber">Sandbox</Badge>}
+                    {endpoint.consecutive_failures >= 3 && <Badge variant="red">Failing</Badge>}
+                  </p>
+                  <p className="truncate text-xs text-charcoal-ink/50">
+                    {endpoint.url} · {endpoint.event_types.join(", ")} · last success{" "}
+                    {formatDate(endpoint.last_success_at)}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        await setWebhookEndpointActiveAction(endpoint.id, !endpoint.is_active);
+                      })
+                    }
+                  >
+                    {endpoint.is_active ? "Deactivate" : "Activate"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={pending}
+                    onClick={() =>
+                      startTransition(async () => {
+                        await deleteWebhookEndpointAction(endpoint.id);
+                      })
+                    }
+                  >
+                    Delete
+                  </Button>
+                </div>
               </li>
             ))}
           </ul>
