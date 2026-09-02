@@ -48,12 +48,16 @@ const PAID_APPOINTMENT_PRODUCT_CODE: Partial<Record<AppointmentType, string>> = 
 export function BookAppointment({
   organisationId,
   patientId,
+  initialAppointmentType,
 }: {
   organisationId: string;
   patientId: string;
+  /** Preselects the type picker — e.g. the Wellbeing page linking straight
+   * into "Therapy session" rather than defaulting to GP. */
+  initialAppointmentType?: AppointmentType;
 }) {
   const router = useRouter();
-  const [appointmentType, setAppointmentType] = useState<AppointmentType>("gp");
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>(initialAppointmentType ?? "gp");
   const [consultationMethod, setConsultationMethod] = useState<"telemedicine" | "in_person" | "">("");
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [pendingPaymentAppointment, setPendingPaymentAppointment] = useState<{
