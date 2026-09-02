@@ -272,13 +272,7 @@ export async function createGoalAction(
 
   const { error } = await ctx.supabase.rpc("create_personalised_lifestyle_goal", {
     p_enrollment_id: enrollmentId,
-    // Cast: 20260829222454_lpe_module_smoking.sql adds 'smoking' to the DB
-    // enum, but database.types.ts hasn't been regenerated against it yet —
-    // the generated public.lpe_module type here is still the 5 pre-existing
-    // values. `module` (validated above by GOAL_MODULES, which does include
-    // "smoking") is the real, correct value; only this compile-time type is
-    // stale. Safe to delete once types are regenerated.
-    p_module: module as "diet" | "activity" | "behaviour" | "sleep" | "stress",
+    p_module: module,
     p_title: title,
     p_target_value: targetValue ?? undefined,
     p_target_unit: targetUnit ?? undefined,
