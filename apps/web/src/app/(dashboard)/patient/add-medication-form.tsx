@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAddMedication } from "@/lib/queries/medications";
+import { checkMedicationSafetyAfterAdd } from "./actions";
 import { medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
@@ -15,6 +16,13 @@ const SEVERITY_STYLE: Record<DrugSafetySeverity, string> = {
   caution: "text-amber-700",
   info: "text-charcoal-ink/70",
 };
+
+/** Medication safety pathway 64.7 — Morning/Afternoon/Evening, so a patient doesn't need to translate "morning" into a clock time themselves. Custom entry (below) covers everything else. */
+const DOSE_TIME_PRESETS: { label: string; time: string }[] = [
+  { label: "Morning", time: "08:00" },
+  { label: "Afternoon", time: "13:00" },
+  { label: "Evening", time: "20:00" },
+];
 
 export function AddMedicationForm({
   patientId,
@@ -65,9 +73,14 @@ export function AddMedicationForm({
   const [controlledAcknowledged, setControlledAcknowledged] = useState(false);
 
   function addTime() {
-    if (newTime && !scheduleTimes.includes(newTime)) {
-      setScheduleTimes((prev) => [...prev, newTime].sort());
-      setNewTime("");
+    addScheduleTime(newTime);
+    setNewTime("");
+  }
+
+  /** Medication safety pathway 64.7 — Morning/Afternoon/Evening presets, alongside the free-entry "custom" time above. */
+  function addScheduleTime(time: string) {
+    if (time && !scheduleTimes.includes(time)) {
+      setScheduleTimes((prev) => [...prev, time].sort());
     }
   }
 
@@ -104,6 +117,14 @@ export function AddMedicationForm({
         onSuccess: () => {
           setSuccess(true);
           resetForm();
+          // Medication safety pathway 64.16-64.18: only a clinician actually
+          // driving this form satisfies the underlying RPC's org-staff check
+          // (see checkMedicationSafetyAfterAdd) — never fired for a patient's
+          // own self-add, even one attributed to a specialist. Fire-and-forget:
+          // never awaited, never blocks or affects the success state above.
+          if (source === "clinician") {
+            void checkMedicationSafetyAfterAdd(patientId);
+          }
         },
       }
     );
@@ -386,6 +407,19 @@ export function AddMedicationForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="new_time">Dose times</Label>
+            <div className="flex flex-wrap gap-2">
+              {DOSE_TIME_PRESETS.map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addScheduleTime(preset.time)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
             <div className="flex gap-2">
               <Input
                 id="new_time"
@@ -395,7 +429,7 @@ export function AddMedicationForm({
                 className="w-32"
               />
               <Button type="button" variant="outline" size="sm" onClick={addTime}>
-                Add time
+                Add custom time
               </Button>
             </div>
             {scheduleTimes.length > 0 && (

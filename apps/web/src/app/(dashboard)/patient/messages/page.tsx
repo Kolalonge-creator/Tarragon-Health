@@ -1,17 +1,14 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
 import { MessagesFlow } from "../messages-flow";
 
 export default async function MessagesPage() {
-  const profile = await getCurrentProfile();
-  if (!profile) {
-    redirect("/login");
-  }
-  if (!profile.onboarding_completed_at) {
-    redirect("/onboarding");
-  }
+  // Resolved the same way as every other /patient/* section (and the way
+  // your-care-team.tsx links here) so a supporter acting for someone sees
+  // and sends THAT person's messages, not their own — see the acting-for bug
+  // fixed alongside this route in the 2026-09-01 patient dashboard audit.
+  const { subjectId } = await getPatientDashboardContext();
 
   return (
     <DashboardPlaceholder greeting="Messages" roleLabel="Patient" comingUp={[]}>
@@ -24,7 +21,7 @@ export default async function MessagesPage() {
         Message your care team in the app and they&apos;ll reply here. For anything urgent, use the
         emergency options on your dashboard rather than a message.
       </p>
-      <MessagesFlow patientId={profile.id} />
+      <MessagesFlow patientId={subjectId} />
     </DashboardPlaceholder>
   );
 }

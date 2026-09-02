@@ -8,6 +8,7 @@ import {
   phoneOtpVerifySchema,
 } from "@/lib/validation/auth";
 import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
+import { recordLoginDevice } from "@/lib/auth/record-login-device";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
@@ -24,6 +25,10 @@ async function redirectAfterLogin(
   userId: string,
   redirectTo: FormDataEntryValue | null
 ) {
+  // Best-effort new-device detection/notification — never blocks a real
+  // sign-in (see record-login-device.ts). Runs for every successful login
+  // path that calls this shared helper.
+  await recordLoginDevice(supabase);
   redirect(await resolveLoginDestination(supabase, userId, redirectTo?.toString()));
 }
 
