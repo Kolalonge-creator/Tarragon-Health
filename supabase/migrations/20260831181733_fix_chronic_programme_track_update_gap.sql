@@ -48,15 +48,36 @@ declare
   v_test_patient uuid;
   v_org uuid;
   v_programme_id uuid;
+  v_was_active   boolean;
   v_enrolment_id uuid;
   v_track public.chronic_programme_track;
 begin
   select id, organisation_id into v_test_patient, v_org from public.profiles where role = 'patient' limit 1;
-  select id into v_programme_id from public.chronic_condition_programmes where code = 'hypertension';
+  select id, is_active into v_programme_id, v_was_active
+    from public.chronic_condition_programmes where code = 'hypertension';
 
-  if v_test_patient is null then
-    raise notice 'SKIPPED behavioral proof: no patient row exists to test against';
+  if v_test_patient is null or v_programme_id is null then
+    raise notice 'SKIPPED behavioral proof: no patient/programme row exists to test against';
   else
+    -- The enrolment INSERT below requires the programme to be is_active
+    -- (private.enforce_chronic_programme_active, 20260716223642), which
+    -- this proof is not testing — hypertension's real activation state is
+    -- config the founder toggles. Flipping is_active also runs into
+    -- chronic_condition_programmes_protocol_gate
+    -- (private.enforce_chronic_programme_protocol_signed), which requires a
+    -- protocol_versions row signed by an active Clinical Director — real
+    -- governance this proof isn't testing either, and a fresh reset has no
+    -- such row yet. Disable that gate for the duration of the is_active
+    -- flip only (transactional DDL, rolls back with everything else if the
+    -- proof fails), then restore both. See the identical reasoning on
+    -- 20260831163011_chronic_programme_two_track.sql's own proof, which hit
+    -- this same "no patient row exists yet" replay-ordering accident once
+    -- 20260829120000_wearable_granular_consent_and_patient_control.sql
+    -- started leaving a persistent synthetic patient behind.
+    alter table public.chronic_condition_programmes disable trigger chronic_condition_programmes_protocol_gate;
+    update public.chronic_condition_programmes set is_active = true where id = v_programme_id;
+    alter table public.chronic_condition_programmes enable trigger chronic_condition_programmes_protocol_gate;
+
     insert into public.chronic_programme_enrolments
       (organisation_id, patient_id, programme_id, status)
     values (v_org, v_test_patient, v_programme_id, 'enrolled')
@@ -71,6 +92,9 @@ begin
     end if;
 
     delete from public.chronic_programme_enrolments where id = v_enrolment_id;
+    alter table public.chronic_condition_programmes disable trigger chronic_condition_programmes_protocol_gate;
+    update public.chronic_condition_programmes set is_active = v_was_active where id = v_programme_id;
+    alter table public.chronic_condition_programmes enable trigger chronic_condition_programmes_protocol_gate;
   end if;
 
   raise notice 'PASS: track re-derives on every insert/update, including a bare UPDATE of track alone';
