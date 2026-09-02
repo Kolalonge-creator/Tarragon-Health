@@ -5,15 +5,14 @@ const QUARTERLY_REPORT_FEATURE = "quarterly_report";
 const DUE_AFTER_DAYS = 85; // slightly under 90 so a daily cron run never skips a boundary
 
 /**
- * Scheduled generation of quarterly reports for every subscriber entitled to
+ * Scheduled generation of quarterly reports for every patient entitled to
  * one who doesn't already have one from the last ~90 days.
  *
- * Eligibility is read from the plan's own features[] rather than a hardcoded
- * list of plan codes. The old list named Family Premium, Diaspora Premium and
- * ParentCare — all three deleted by removals 3 and 4 — so a code-prefix check
- * would now match nothing and the cron would quietly do nothing forever. The
- * feature key is the thing that actually grants the report, and reading it
- * directly means a future plan carrying it is picked up with no code change.
+ * Eligibility is read from the service_product's own features[] (repointed
+ * 2026-08-31 off subscription_plans/subscriptions when the platform moved to
+ * pay-per-service — see private.patient_has_feature_access) rather than a
+ * hardcoded list of plan codes, so a future pack carrying the feature is
+ * picked up with no code change.
  *
  * One report per subscriber: with individual enrolment there is no plan
  * membership to fan out to. Someone who looks after another person's record
@@ -35,18 +34,19 @@ export async function GET(request: Request): Promise<Response> {
 
   const supabase = createServiceRoleClient();
 
-  const { data: subscriptions } = await supabase
-    .from("subscriptions")
+  const { data: purchases } = await supabase
+    .from("service_purchases")
     .select(
-      "subscriber_id, organisation_id, plan:subscription_plans!subscriptions_plan_id_fkey!inner(features)"
+      "patient_id, organisation_id, expires_at, service_product:service_products!inner(features)"
     )
-    .in("status", ["active", "trialing"]);
+    .eq("status", "active");
 
+  const now = Date.now();
   const patientOrgPairs = new Map<string, string>();
-  for (const sub of subscriptions ?? []) {
-    if (sub.subscriber_id === null) continue;
-    if (!(sub.plan.features ?? []).includes(QUARTERLY_REPORT_FEATURE)) continue;
-    patientOrgPairs.set(sub.subscriber_id, sub.organisation_id);
+  for (const purchase of purchases ?? []) {
+    if (purchase.expires_at && new Date(purchase.expires_at).getTime() <= now) continue;
+    if (!(purchase.service_product.features ?? []).includes(QUARTERLY_REPORT_FEATURE)) continue;
+    patientOrgPairs.set(purchase.patient_id, purchase.organisation_id);
   }
 
   const dueBefore = new Date();
