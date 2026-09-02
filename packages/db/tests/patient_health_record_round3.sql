@@ -123,30 +123,68 @@ end $$;
 
 -- ==========================================================================
 -- 3. imaging_reports: an org-staff upload raises a clinician_review alert
---    (same shape as lab_result_documents), and a patient cannot upload
---    tagged as another source.
+--    (same shape as lab_result_documents).
+--
+-- Reshaped 2026-09-03: imaging_reports was rebuilt by the Imaging &
+-- Diagnostic Procedure Platform (20260902220000_imaging_reports.sql,
+-- PR #324) into a structured report tied to an imaging_order_id, replacing
+-- the original lightweight (modality, file_path, source) shape this check
+-- was written against — confirmed live via information_schema.columns that
+-- file_path no longer exists on this table at all. Fixture now follows the
+-- same providers -> studies -> orders -> reports chain proven in
+-- packages/db/tests/imaging_platform_rls_and_pathway.sql. is_abnormal=true
+-- with urgency='routine' maps to the 'clinician_review' alert level in the
+-- new trigger (private schema, see that migration's v_level branches),
+-- preserving this check's original intent.
 -- ==========================================================================
 do $$
 declare
   v_org uuid := (select v from phr3_fixture where k = 'org');
   v_patient uuid := (select v from phr3_fixture where k = 'patient');
   v_clinician uuid := (select v from phr3_fixture where k = 'clinician');
+  v_provider uuid;
+  v_study uuid;
+  v_order uuid;
   v_report uuid;
   v_alert_id uuid;
   v_alert_status text;
 begin
+  insert into public.clinical_staff
+    (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at, verified_by)
+  values (v_org, v_clinician, 'PHR3 Test Clinician', 'tier_2', true, now(), v_patient);
+
+  insert into public.imaging_providers (name) values ('PHR3 Test Imaging Centre ' || v_org::text)
+  returning id into v_provider;
+  insert into public.imaging_studies (provider_id, modality, code, name, price_kobo)
+  values (v_provider, 'xray', 'PHR3-XRAY-CHEST', 'PHR3 Chest X-Ray', 500000)
+  returning id into v_study;
+
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clinician::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
 
+  insert into public.imaging_orders (organisation_id, patient_id, study_id, indication)
+  values (v_org, v_patient, v_study, 'PHR3: routine chest x-ray')
+  returning id into v_order;
+
   insert into public.imaging_reports
-    (organisation_id, patient_id, modality, file_path, source)
-  values (v_org, v_patient, 'xray', v_patient::text || '/chest-xray.pdf', 'clinician')
-  returning id, clinician_alert_id into v_report, v_alert_id;
+    (organisation_id, patient_id, imaging_order_id, modality, body_region, study_date,
+     radiologist_name, findings, impression, is_abnormal, urgency, source)
+  values (
+    v_org, v_patient, v_order, 'xray', 'Chest', current_date,
+    'PHR3 Dr. Radiologist', 'PHR3: small opacity, right lower lobe.',
+    'PHR3: findings warrant clinician review.', true, 'routine', 'clinician'
+  )
+  returning id into v_report;
   reset role;
 
   insert into phr3_fixture(k, v) values ('imaging_report', v_report);
 
+  -- clinician_alert_id is backfilled by an AFTER INSERT trigger (see
+  -- 20260902230423_fix_imaging_reports_before_insert_fk_ordering.sql), so it
+  -- is not present in the INSERT statement's own RETURNING output -- read it
+  -- back from the row instead.
+  select clinician_alert_id into v_alert_id from public.imaging_reports where id = v_report;
   select status::text into v_alert_status from public.clinician_alerts where id = v_alert_id;
 
   insert into phr3_result values
