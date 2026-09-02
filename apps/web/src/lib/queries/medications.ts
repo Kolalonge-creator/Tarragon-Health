@@ -350,6 +350,7 @@ export function useLogDose() {
               .update({
                 status: rest.status,
                 reason: rest.reason ?? null,
+                missed_reason: rest.missed_reason ?? null,
                 logged_at: new Date().toISOString(),
               })
               .eq("id", existing.id)
