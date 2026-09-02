@@ -92,6 +92,23 @@ export default async function DiasporaPricingPage() {
           the buyer as its own line rather than folded into the price.
         </p>
       </div>
+      <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="font-semibold">This page no longer controls live pricing.</p>
+        <p className="mt-1">
+          Since the 2026-09-02 pay-per-service cutover, real prices live on{" "}
+          <code className="rounded bg-amber-100 px-1 py-0.5">service_products</code>, not the{" "}
+          <code className="rounded bg-amber-100 px-1 py-0.5">subscription_plans</code>/
+          <code className="rounded bg-amber-100 px-1 py-0.5">add_ons</code> tables this page reads and
+          edits below — there is no trigger linking the rate you set here to any
+          <code className="rounded bg-amber-100 px-1 py-0.5"> service_products</code> row, so saving a
+          new rate here has no effect on what a patient is actually charged. The one live USD product
+          (Lifestyle Coaching, USD) is priced as a flat value and currently has no admin UI at all — it
+          can only be repriced via a direct migration. Fixing this properly (wiring{" "}
+          <code className="rounded bg-amber-100 px-1 py-0.5">service_products</code> into the same
+          derived-price mechanism, or building it a real admin UI) is tracked as a follow-up, not done
+          on this page yet.
+        </p>
+      </div>
       <CurrencyRateManager
         initialUsd={settings?.ngn_per_usd == null ? null : Number(settings.ngn_per_usd)}
         initialFeePct={
