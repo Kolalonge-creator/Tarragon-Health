@@ -1,24 +1,46 @@
--- Tarragon Health — Paediatric symptom triage + emergency red flags
+-- Tarragon Health — Paediatric symptom triage red flags
 -- (Child Health Platform §48.8/§48.9: "Paediatric triage must not simply
 -- reuse adult rules" / "dedicated red-flag protocols")
 --
--- Two additive engines, both age-aware via profiles.date_of_birth, both
--- reusing the existing emergency_events/clinician_alerts machinery rather
--- than inventing a parallel one (same reasoning as the BP/symptom engines
--- this migration sits alongside):
+-- Four new symptom_type values a parent can log for a young child (poor
+-- feeding, lethargy, grunting/retractions, dehydration signs — IMCI-
+-- recognised danger signs with no honest adult-symptom equivalent),
+-- escalating at a lower severity bar than the adult low-threshold bucket for
+-- a patient under 5. Adult thresholds for every existing symptom type are
+-- UNCHANGED.
 --
---   1. Four new symptom_type values a parent can log for a young child
---      (poor feeding, lethargy, grunting/retractions, dehydration signs —
---      IMCI-recognised danger signs with no honest adult-symptom
---      equivalent), escalating at a lower severity bar than the adult
---      low-threshold bucket for a patient under 5. Adult thresholds for
---      every existing symptom type are UNCHANGED.
---   2. A temperature-reading trigger on vitals_readings applying WHO IMCI's
---      well-established age-banded fever thresholds (a neonate's fever
---      workup is categorically different from an adult's — treating it as
---      just "temperature >= 39" would under-triage a genuine emergency).
---      Only acts when the patient's age is known and under 5; every other
---      vitals_readings insert is untouched.
+-- NOTE on reconciliation (2026-09-02): private.handle_symptom_red_flag has
+-- materially evolved since this branch was authored (2026-08-29) — the
+-- 2026-08-10 Free-tier correction (CLAUDE.md: "Tarragon Free consumes no
+-- doctor time") gated escalation behind private.patient_has_feature_access,
+-- added an AI-suggestion fallback (private.raise_dangerous_reading_ai_
+-- suggestion) for patients without that access, and switched the emergency
+-- path from an emergency_events insert to a gated clinician_alerts insert
+-- with private.escalation_sla_minutes-derived SLAs. The branch's original
+-- migration would have clobbered all of that with a stale, pre-2026-08-10
+-- version of the function (no feature gating, no AI fallback, an
+-- emergency_events insert that no longer matches the live pattern). What
+-- ships below is the CURRENT live function definition with only the
+-- paediatric v_paediatric_types branch added to v_is_red_flag — nothing else
+-- about live severity/escalation/gating/paging behaviour changes.
+--
+-- ALSO DEFERRED (2026-09-02): this branch originally added a second,
+-- independent vitals_readings trigger (private.handle_paediatric_fever_red_
+-- flag) applying WHO IMCI age-banded fever thresholds. A general, already-
+-- wired private.handle_temperature_reading_red_flag trigger (via private.
+-- classify_temperature_level) now exists live on the same table/vital_type,
+-- with its own feature-gating, escalation dedup, clinician paging and audit
+-- logging — none of which IMCI age-awareness was designed against. Adding a
+-- second, uncoordinated trigger on the same insert would double-fire (two
+-- independent alerts/pages per reading) and bypass the paid-plan gate the
+-- live trigger now enforces. Folding IMCI's neonate/infant-specific
+-- thresholds into private.classify_temperature_level (or otherwise giving
+-- the live trigger age-awareness) is the right shape, but is a clinical-
+-- engineering decision for a human to make, not something to guess at while
+-- reconciling a merge — left for a deliberate follow-up. Today, a neonate/
+-- infant fever still gets the live trigger's adult-threshold protection
+-- (>=39C red, >=40C/<35C emergency); it does not yet get IMCI's more
+-- sensitive <29-day/29-90-day bands. See docs/PEDIATRIC_CHILD_HEALTH_SPEC.md.
 
 -- ---------------------------------------------------------------------------
 -- 1. New symptom_type values for danger signs with no adult equivalent
@@ -29,12 +51,9 @@ alter type public.symptom_type add value if not exists 'grunting_or_retractions'
 alter type public.symptom_type add value if not exists 'dehydration_signs';
 
 -- ---------------------------------------------------------------------------
--- 2. Age-aware symptom red-flag trigger
+-- 2. Age-aware symptom red-flag trigger (rebased onto the current live
+--    function — see this file's header note)
 -- ---------------------------------------------------------------------------
--- Byte-for-byte identical to 20260810003553's adult logic EXCEPT the new
--- v_paediatric_types branch, which only ever applies to a patient under 5
--- with a known date_of_birth — an unknown DOB or age >= 5 falls straight
--- through to the exact same adult rule this replaces.
 create or replace function private.handle_symptom_red_flag()
 returns trigger
 language plpgsql
@@ -52,6 +71,7 @@ declare
   v_dob date;
   v_age_years integer;
   v_is_red_flag boolean;
+  v_has_escalation_access boolean;
 begin
   select date_of_birth into v_dob from public.profiles where id = new.patient_id;
   if v_dob is not null then
@@ -70,111 +90,54 @@ begin
   new.is_red_flag := v_is_red_flag;
 
   if v_is_red_flag then
-    insert into public.emergency_events
-      (organisation_id, patient_id, source, trigger_detail, status)
-    values (
-      new.organisation_id,
-      new.patient_id,
-      'symptom_log',
-      format('Patient reported %s at severity %s/10.%s',
-             new.symptom_type, new.severity,
-             case when new.description is not null then ' Note: ' || new.description else '' end),
-      'active'
-    );
+    v_has_escalation_access := private.patient_has_feature_access(new.patient_id, 'vitals_red_flag_doctor_escalation');
+    if v_has_escalation_access then
+      insert into public.clinician_alerts
+        (organisation_id, patient_id, level, status, title, detail, sla_due_at)
+      values (
+        new.organisation_id,
+        new.patient_id,
+        'urgent_escalation',
+        'open',
+        format('Priority 1: red-flag symptom (%s)', new.symptom_type),
+        format('Patient reported %s at severity %s/10.%s',
+               new.symptom_type, new.severity,
+               case when new.description is not null then ' Note: ' || new.description else '' end),
+        now() + (private.escalation_sla_minutes('symptom_red_flag', 'urgent_escalation') * interval '1 minute')
+      );
+    else
+      perform private.raise_dangerous_reading_ai_suggestion(
+        new.organisation_id, new.patient_id, replace(new.symptom_type::text, '_', ' '), 'Needs prompt attention',
+        format('You reported %s at a high severity. This is described in our emergency guidance as needing prompt in-person care — please go to the nearest hospital if it does not settle quickly.', new.symptom_type)
+      );
+    end if;
   elsif new.severity >= 5 then
-    insert into public.clinician_alerts
-      (organisation_id, patient_id, level, status, title, detail)
-    values (
-      new.organisation_id,
-      new.patient_id,
-      'clinician_review',
-      'open',
-      format('Symptom check: %s', new.symptom_type),
-      format('Patient reported %s at severity %s/10.%s',
-             new.symptom_type, new.severity,
-             case when new.description is not null then ' Note: ' || new.description else '' end)
-    );
+    v_has_escalation_access := private.patient_has_feature_access(new.patient_id, 'vitals_red_flag_doctor_escalation');
+    if v_has_escalation_access then
+      insert into public.clinician_alerts
+        (organisation_id, patient_id, level, status, title, detail, sla_due_at)
+      values (
+        new.organisation_id,
+        new.patient_id,
+        'clinician_review',
+        'open',
+        format('Symptom check: %s', new.symptom_type),
+        format('Patient reported %s at severity %s/10.%s',
+               new.symptom_type, new.severity,
+               case when new.description is not null then ' Note: ' || new.description else '' end),
+        now() + (private.escalation_sla_minutes('symptom_red_flag', 'clinician_review') * interval '1 minute')
+      );
+    else
+      perform private.raise_dangerous_reading_ai_suggestion(
+        new.organisation_id, new.patient_id, replace(new.symptom_type::text, '_', ' '), 'Review needed',
+        format('You reported %s at a moderate severity. Keep an eye on it and note if it changes; if it persists beyond a day or two, or gets worse, please seek in-person care.', new.symptom_type)
+      );
+    end if;
   end if;
 
   return new;
 end;
 $$;
-
--- ---------------------------------------------------------------------------
--- 3. Paediatric fever red-flag engine (vitals_readings, temperature_c)
--- ---------------------------------------------------------------------------
--- WHO IMCI (Integrated Management of Childhood Illness) age bands — well-
--- established public guidance, not a precision-sensitive statistic:
---   < 29 days (neonate):  any fever >= 38.0C OR hypothermia < 36.0C -> EMERGENCY
---   29 days - 3 months:   fever >= 38.0C -> EMERGENCY (sepsis-workup age band)
---   3 months - 5 years:   fever >= 39.0C -> urgent clinician review
--- Mirrors private.handle_bp_reading_red_flag's shape exactly: EMERGENCY hands
--- off to emergency_events (which raises the Priority-1 alert itself); the
--- lower band raises a clinician_alerts row directly. A patient/dependent with
--- no known DOB, or aged 5+, is untouched — falls through with no alert from
--- this trigger (existing engines for that vital_type, if any, are unaffected).
-alter type public.emergency_source add value if not exists 'paediatric_fever';
-
-create or replace function private.handle_paediatric_fever_red_flag()
-returns trigger
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_dob date;
-  v_age_days integer;
-  v_detail text;
-begin
-  if new.vital_type <> 'temperature' or new.temperature_c is null then
-    return new;
-  end if;
-
-  select date_of_birth into v_dob from public.profiles where id = new.patient_id;
-  if v_dob is null then
-    return new;
-  end if;
-  v_age_days := new.taken_at::date - v_dob;
-  if v_age_days < 0 or v_age_days >= (5 * 365) then
-    return new;
-  end if;
-
-  v_detail := format('Temperature %s C logged %s (age %s days).',
-                     new.temperature_c, to_char(new.taken_at, 'YYYY-MM-DD HH24:MI'), v_age_days);
-
-  if v_age_days < 29 and (new.temperature_c >= 38.0 or new.temperature_c < 36.0) then
-    insert into public.emergency_events
-      (organisation_id, patient_id, source, trigger_detail, status, vital_reading_id)
-    values (new.organisation_id, new.patient_id, 'paediatric_fever',
-            'Neonate (under 29 days) with fever or low temperature. ' || v_detail, 'active', new.id);
-    return new;
-  end if;
-
-  if v_age_days < 90 and new.temperature_c >= 38.0 then
-    insert into public.emergency_events
-      (organisation_id, patient_id, source, trigger_detail, status, vital_reading_id)
-    values (new.organisation_id, new.patient_id, 'paediatric_fever',
-            'Infant under 3 months with fever. ' || v_detail, 'active', new.id);
-    return new;
-  end if;
-
-  if new.temperature_c >= 39.0 then
-    insert into public.clinician_alerts
-      (organisation_id, patient_id, level, status, title, detail, sla_due_at)
-    values (
-      new.organisation_id, new.patient_id, 'urgent_escalation', 'open',
-      'High fever in a young child', v_detail, now() + interval '4 hours'
-    );
-  end if;
-
-  return new;
-end;
-$$;
-
-drop trigger if exists vitals_readings_paediatric_fever_flag on public.vitals_readings;
-create trigger vitals_readings_paediatric_fever_flag
-  after insert on public.vitals_readings
-  for each row execute function private.handle_paediatric_fever_red_flag();
 
 -- Assertions.
 do $$
@@ -190,8 +153,17 @@ begin
   end if;
 
   if not exists (
-    select 1 from pg_trigger where tgname = 'vitals_readings_paediatric_fever_flag'
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'private' and p.proname = 'handle_symptom_red_flag'
+      and pg_get_functiondef(p.oid) like '%v_paediatric_types%'
   ) then
-    raise exception 'paediatric fever red-flag trigger was not created';
+    raise exception 'handle_symptom_red_flag is missing the paediatric red-flag branch';
+  end if;
+  if not exists (
+    select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'private' and p.proname = 'handle_symptom_red_flag'
+      and pg_get_functiondef(p.oid) like '%patient_has_feature_access%'
+  ) then
+    raise exception 'handle_symptom_red_flag must keep the live Free-tier escalation gate (patient_has_feature_access)';
   end if;
 end $$;

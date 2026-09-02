@@ -255,13 +255,25 @@ update public.panel_bundles set self_bookable = true
 -- uses_platform_login flags the one demo partner that logs into the dashboard
 -- (Phase 8); the rest are notification-only. ON CONFLICT DO UPDATE backfills
 -- these columns onto partners already seeded before this migration.
+--
+-- is_active/onboarding_status added so a fresh `db reset` matches live
+-- production instead of pre-dating it by two decisions: the 2026-08-03
+-- dormancy reversal (every real pharmacy_partners row is_active=false —
+-- "Tarragon has no contracted pharmacy") and
+-- 20260828232205_pharmacy_partner_onboarding_pipeline.sql's new
+-- onboarding_status column + pharmacy_partners_active_requires_activated_onboarding
+-- CHECK, which these 4 demo rows previously violated on replay (this insert
+-- never set is_active, so it silently took the column default of true, which
+-- the new CHECK now rejects without onboarding_status='activated' alongside
+-- it). onboarding_status='activated' mirrors exactly what that migration's
+-- own backfill set on these same 4 rows in production.
 insert into public.pharmacy_partners
-  (name, delivery, regions, contact_phone, contact_email, address, latitude, longitude, uses_platform_login)
+  (name, delivery, regions, contact_phone, contact_email, address, latitude, longitude, uses_platform_login, is_active, onboarding_status)
 values
-  ('Medplus',        true, array['Lagos', 'Abuja'], '+2348030000001', 'orders@medplus.example',        'Allen Avenue, Ikeja, Lagos',        6.6018, 3.3515, false),
-  ('HealthPlus',     true, array['Lagos', 'Abuja'], '+2348030000002', 'orders@healthplus.example',     'Adeola Odeku St, Victoria Island, Lagos', 6.4281, 3.4219, true),
-  ('Alpha Pharmacy', true, array['Lagos'],          '+2348030000003', 'care@alphapharmacy.example',    'Adeniran Ogunsanya, Surulere, Lagos', 6.5010, 3.3552, false),
-  ('MedsPal',        true, array['Lagos'],          '+2348030000004', 'orders@medspal.example',        'Admiralty Way, Lekki Phase 1, Lagos', 6.4698, 3.5852, false)
+  ('Medplus',        true, array['Lagos', 'Abuja'], '+2348030000001', 'orders@medplus.example',        'Allen Avenue, Ikeja, Lagos',        6.6018, 3.3515, false, false, 'activated'),
+  ('HealthPlus',     true, array['Lagos', 'Abuja'], '+2348030000002', 'orders@healthplus.example',     'Adeola Odeku St, Victoria Island, Lagos', 6.4281, 3.4219, true, false, 'activated'),
+  ('Alpha Pharmacy', true, array['Lagos'],          '+2348030000003', 'care@alphapharmacy.example',    'Adeniran Ogunsanya, Surulere, Lagos', 6.5010, 3.3552, false, false, 'activated'),
+  ('MedsPal',        true, array['Lagos'],          '+2348030000004', 'orders@medspal.example',        'Admiralty Way, Lekki Phase 1, Lagos', 6.4698, 3.5852, false, false, 'activated')
 on conflict (name) do update set
   delivery           = excluded.delivery,
   regions            = excluded.regions,
@@ -270,7 +282,9 @@ on conflict (name) do update set
   address            = excluded.address,
   latitude           = excluded.latitude,
   longitude          = excluded.longitude,
-  uses_platform_login = excluded.uses_platform_login;
+  uses_platform_login = excluded.uses_platform_login,
+  is_active          = excluded.is_active,
+  onboarding_status  = excluded.onboarding_status;
 
 -- pharmacy_medications — starter formulary (chronic-disease staples; price in kobo).
 -- Staple drugs are deliberately stocked by SEVERAL partners so "choose your

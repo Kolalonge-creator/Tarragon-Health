@@ -26,7 +26,8 @@ export default async function PatientSectionsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile, acting, subjectId, subjectState, subjectDateOfBirth } = await getPatientDashboardContext();
+  const { profile, acting, subjectId, subjectState, subjectDateOfBirth, subjectHasEmergencyContact } =
+    await getPatientDashboardContext();
 
   return (
     <DashboardPlaceholder
@@ -36,7 +37,6 @@ export default async function PatientSectionsLayout({
           : `Hi${profile.full_name ? `, ${profile.full_name}` : ""}`
       }
       roleLabel={acting ? "Acting for them" : "Patient"}
-      comingUp={[]}
     >
       {/* Whose account this is must never be in doubt. It sits above the
           safety surfaces because mistaking one person's record for another is
@@ -46,7 +46,7 @@ export default async function PatientSectionsLayout({
       {/* Safety surfaces stay above everything, outside any section. */}
       <EmergencyAlert
         patientId={subjectId}
-        hasEmergencyContact={!!profile.emergency_contact_phone}
+        hasEmergencyContact={subjectHasEmergencyContact}
         state={subjectState}
       />
       <DangerSymptomCheck patientId={subjectId} ageYears={ageFromDateOfBirth(subjectDateOfBirth)} />

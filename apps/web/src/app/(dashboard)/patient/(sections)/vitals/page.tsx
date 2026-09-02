@@ -10,12 +10,18 @@ import { VitalsTrendChart } from "@/components/vitals-trend-chart";
 import { SymptomLogForm } from "@/app/(dashboard)/patient/symptom-log-form";
 import { SymptomLogHistory } from "@/app/(dashboard)/patient/symptom-log-history";
 import { WearableConnectSection } from "@/app/(dashboard)/patient/wearable-connect-section";
+import { SleepSummaryCard } from "@/app/(dashboard)/patient/sleep-summary-card";
 import { DiabetesDailyLog } from "@/app/(dashboard)/patient/diabetes-daily-log";
 import { GrowthTrackingCard } from "@/app/(dashboard)/patient/growth-tracking-card";
+import { SymptomTriageCheck } from "@/app/(dashboard)/patient/symptom-triage-check";
+import { listAvailablePresentingComplaints } from "@/app/(dashboard)/patient/symptom-triage-actions";
+import { ComplicationStatus } from "@/app/(dashboard)/patient/complication-status";
+import { FootRiskStatus } from "@/app/(dashboard)/patient/foot-risk-status";
 
 export default async function PatientVitalsPage() {
   const { profile, subjectId, subjectDateOfBirth } = await getPatientDashboardContext();
   const ageYears = ageFromDateOfBirth(subjectDateOfBirth);
+  const presentingComplaints = await listAvailablePresentingComplaints();
 
   return (
     <DashboardSection
@@ -46,11 +52,19 @@ export default async function PatientVitalsPage() {
         organisationId={profile.organisation_id}
         ageYears={ageYears}
       />
+      <SymptomTriageCheck patientId={subjectId} presentingComplaints={presentingComplaints} />
 
       <VitalsHistory patientId={subjectId} />
       {/* Renders nothing unless the patient has an active diabetes care
           plan — see diabetes-daily-log.tsx for the gate. */}
       <DiabetesDailyLog patientId={subjectId} />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ComplicationStatus patientId={subjectId} />
+        <FootRiskStatus patientId={subjectId} />
+      </div>
+      {/* Renders nothing until a connected wearable has synced at least one
+          night — see sleep-summary-card.tsx. */}
+      <SleepSummaryCard patientId={subjectId} />
       <WearableConnectSection patientId={subjectId} />
     </DashboardSection>
   );

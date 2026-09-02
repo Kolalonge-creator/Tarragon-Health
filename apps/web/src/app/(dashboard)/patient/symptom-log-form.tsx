@@ -48,6 +48,8 @@ function severityTrackColor(severity: number): string {
 export function SymptomLogForm({
   patientId,
   ageYears = null,
+  medicationId,
+  drugName,
 }: {
   patientId: string;
   /** The account being logged for, not the caller — pass the acting-for
@@ -55,6 +57,9 @@ export function SymptomLogForm({
    * logging for a young child sees the paediatric-specific options
    * (§48.8: "must not simply reuse adult rules"). */
   ageYears?: number | null;
+  /** Medication safety pathway 64.9: scopes this to "I'm experiencing a side effect" for one medication. */
+  medicationId?: string;
+  drugName?: string;
 }) {
   const [severity, setSeverity] = useState(5);
   const [state, formAction, pending] = useActionState(logSymptom, undefined);
@@ -75,10 +80,19 @@ export function SymptomLogForm({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log a symptom</CardTitle>
+        <CardTitle>{medicationId ? "Report a side effect" : "Log a symptom"}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-4">
+          {medicationId && (
+            <>
+              <input type="hidden" name="medication_id" value={medicationId} />
+              <p className="text-xs text-charcoal-ink/60">
+                Reporting a side effect for {drugName ?? "this medication"}. Your care team will
+                see this alongside your medication list.
+              </p>
+            </>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="symptom_type">Symptom</Label>
             <Select id="symptom_type" name="symptom_type" defaultValue="other" required>

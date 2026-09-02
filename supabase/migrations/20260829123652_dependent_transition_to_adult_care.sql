@@ -23,6 +23,24 @@
 -- reproductive health) that nobody has made yet — see
 -- docs/PEDIATRIC_CHILD_HEALTH_SPEC.md's follow-up list. What ships here is
 -- the account-level access tapering only.
+--
+-- NOTE (2026-09-02 reconciliation): a separately-authored PR (#329,
+-- Adolescent Health module) also introduces its own "transition to adult
+-- care" concept — adolescent_transition_plans, a clinician-driven, staged
+-- readiness checklist (transition_assessment -> independent_account_prep ->
+-- health_literacy -> medication_independence -> adult_care_handoff), gated
+-- on clinical-tier authority to advance a stage. That is NOT the same thing
+-- as this migration's dependent_transition_status: this one is a purely
+-- age-derived (13/16/18), automatic, non-clinical status used only to taper
+-- profile_access from 'manage' to 'view' at 18 — no clinician ever acts on
+-- it. Different table/enum/cron-job names mean there is no live SQL
+-- collision between the two, but they cover real overlapping product
+-- territory (both fire in the 13-18 age band, both are called "transition"
+-- in patient-facing framing) and were built independently the same day. This
+-- was flagged, not resolved here — reconciling the two "transition" concepts
+-- (e.g. should dependent_transition_status become the automatic account-
+-- access layer underneath adolescent_transition_plans's clinical checklist)
+-- is a product decision for a human, not something to guess at mid-merge.
 
 do $$ begin
   if not exists (select 1 from pg_type where typname = 'dependent_transition_state') then
