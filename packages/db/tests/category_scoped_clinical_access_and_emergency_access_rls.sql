@@ -65,7 +65,8 @@ begin
 
   insert into public.profiles (id, organisation_id, role, full_name, is_dependent_account)
   values (v_dependent, v_org_a, 'patient', 'CAT Test Dependent', true)
-  on conflict (id) do update set organisation_id = excluded.organisation_id, is_dependent_account = true;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role,
+    full_name = excluded.full_name, is_dependent_account = true;
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values
@@ -74,7 +75,8 @@ begin
     (v_dependent_manager, v_org_a, 'patient', 'CAT Test Dependent Manager'),
     (v_cross_clinician, v_org_b, 'clinician', 'CAT Test Cross Org Clinician'),
     (v_home_director, v_org_a, 'clinician', 'CAT Test Home Director')
-  on conflict (id) do update set organisation_id = excluded.organisation_id;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role,
+    full_name = excluded.full_name;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, is_clinical_director, license_verified_at)
   values (v_org_b, v_cross_clinician, 'CAT Test Cross Org Clinician', 'tier_1', true, false, now());

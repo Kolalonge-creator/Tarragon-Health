@@ -58,7 +58,8 @@ begin
   values
     (v_view_grantee, v_org, 'patient', 'VCQR Test View Grantee'),
     (v_clinical_grantee, v_org, 'patient', 'VCQR Test Clinical Grantee')
-  on conflict (id) do update set organisation_id = excluded.organisation_id;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
   values (v_patient, v_view_grantee, 'view', v_patient);

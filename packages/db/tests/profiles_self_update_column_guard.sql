@@ -70,11 +70,11 @@ begin
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_clinician, v_org, 'clinician', 'PSUCG Test Clinician')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_admin, null, 'admin', 'PSUCG Test Admin')
-  on conflict (id) do update set role = excluded.role;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.screen_types (code, name)
   values ('hiv', 'HIV')

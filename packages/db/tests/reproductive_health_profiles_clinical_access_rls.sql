@@ -64,14 +64,16 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, is_dependent_account)
   values (v_dependent, v_org, 'patient', 'RHP Test Dependent', true)
   on conflict (id) do update
-    set organisation_id = excluded.organisation_id, is_dependent_account = true;
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name, is_dependent_account = true;
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values
     (v_view_grantee, v_org, 'patient', 'RHP Test View Grantee'),
     (v_clinical_grantee, v_org, 'patient', 'RHP Test Clinical Grantee'),
     (v_dependent_manager, v_org, 'patient', 'RHP Test Dependent Manager')
-  on conflict (id) do update set organisation_id = excluded.organisation_id;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
   values (v_patient, v_view_grantee, 'view', v_patient);

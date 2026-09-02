@@ -53,7 +53,7 @@ begin
   values
     (v_caregiver, v_org, 'patient', 'HAM50 Test Caregiver'),
     (v_clinician, v_org, 'clinician', 'HAM50 Test Clinician')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   -- The caregiver holds a 'manage' grant over the patient — the eldercare
   -- acting-for scenario this whole module builds on top of.

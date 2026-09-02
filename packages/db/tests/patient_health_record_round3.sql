@@ -45,7 +45,8 @@ begin
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_clinician, v_org, 'clinician', 'PHR3 Test Clinician')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 end $$;
 
 -- ==========================================================================

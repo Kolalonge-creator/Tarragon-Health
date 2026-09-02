@@ -78,7 +78,8 @@ begin
   insert into auth.users (id, email) values (v_pharmacist, 'e2etest.pharmacist@example.com');
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_pharmacist, v_org, 'pharmacist', 'E2E Test Pharmacist')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.pharmacy_partners (name, delivery, regions, is_active, contact_phone)
   values ('E2E Test Pharmacy', true, array['Lagos'], false, '+2348000000000')

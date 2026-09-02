@@ -90,7 +90,8 @@ begin
             v_org, r.role_name::public.user_role, format('WPC Test %s', r.key_name),
             case when r.key_name = 'patient' then date '1990-01-01' else null end)
     on conflict (id) do update
-      set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+      set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name,
+          date_of_birth = excluded.date_of_birth;
   end loop;
 
   insert into public.clinical_staff
