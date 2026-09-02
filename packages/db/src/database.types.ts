@@ -4782,9 +4782,9 @@ export type Database = {
         Row: {
           amount_minor: number
           created_at: string
-          instalment_kobo: number
           currency: string
           id: string
+          instalment_kobo: number
           organisation_id: string
           payer_profile_id: string
           payment_transaction_id: string | null
@@ -4796,9 +4796,9 @@ export type Database = {
         Insert: {
           amount_minor: number
           created_at?: string
-          instalment_kobo: number
           currency?: string
           id?: string
+          instalment_kobo: number
           organisation_id: string
           payer_profile_id: string
           payment_transaction_id?: string | null
@@ -4810,9 +4810,9 @@ export type Database = {
         Update: {
           amount_minor?: number
           created_at?: string
-          instalment_kobo?: number
           currency?: string
           id?: string
+          instalment_kobo?: number
           organisation_id?: string
           payer_profile_id?: string
           payment_transaction_id?: string | null
@@ -34961,8 +34961,8 @@ export type Database = {
       record_voucher_payment_intent: {
         Args: {
           p_amount_minor: number
-          p_instalment_kobo: number
           p_currency: string
+          p_instalment_kobo: number
           p_provider: Database["public"]["Enums"]["payment_provider"]
           p_reference: string
           p_voucher: string

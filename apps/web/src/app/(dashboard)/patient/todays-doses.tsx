@@ -1,9 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useMedications, useTodaysDoseLogs, useLogDose, todayIsoDate } from "@/lib/queries/medications";
 import { buildTodaysDoseChecklist, type DoseStatus } from "@/lib/medication-schedule/checklist";
-import type { MissedDoseReason } from "@/lib/validation/medication-logs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
@@ -16,22 +14,10 @@ const STATUS_BADGE: Record<DoseStatus, { variant: BadgeProps["variant"]; label: 
   skipped: { variant: "amber", label: "Skipped" },
 };
 
-/** Pathway §65.9 — a one-tap barrier so the care team can run a targeted
- * intervention instead of a generic "you missed your medication" nudge. */
-const MISSED_REASON_OPTIONS: { value: MissedDoseReason; label: string }[] = [
-  { value: "cost", label: "Cost" },
-  { value: "side_effects", label: "Side effects" },
-  { value: "forgetfulness", label: "Forgot" },
-  { value: "availability", label: "Couldn't get it" },
-  { value: "understanding", label: "Not sure how" },
-  { value: "other", label: "Other" },
-];
-
 export function TodaysDoses({ patientId }: { patientId: string }) {
   const { data: medications, isLoading: medsLoading } = useMedications(patientId);
   const { data: logs, isLoading: logsLoading } = useTodaysDoseLogs(patientId);
   const logDose = useLogDose();
-  const [pickingReasonFor, setPickingReasonFor] = useState<string | null>(null);
 
   const isLoading = medsLoading || logsLoading;
   const checklist =
@@ -41,19 +27,16 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
     medicationId: string,
     time: string,
     organisationId: string,
-    status: "taken" | "missed",
-    missedReason?: MissedDoseReason
+    status: "taken" | "missed"
   ) {
     logDose.mutate({
       medication_id: medicationId,
       status,
-      missed_reason: missedReason,
       scheduled_time: time,
       scheduled_for_date: todayIsoDate(),
       patientId,
       organisationId,
     });
-    setPickingReasonFor(null);
   }
 
   return (
@@ -74,77 +57,42 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
             {checklist.map((item) => {
               const medication = medications?.find((m) => m.id === item.medicationId);
               const badge = STATUS_BADGE[item.status];
-              const rowKey = `${item.medicationId}-${item.time}`;
-              const pickingReason = pickingReasonFor === rowKey;
               return (
-                <li key={rowKey} className="flex flex-col gap-2 py-3">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-charcoal-ink">
-                          {item.time}
-                        </span>
-                        <Badge variant={badge.variant}>{badge.label}</Badge>
-                      </div>
-                      <p className="text-xs text-charcoal-ink/60">{item.drugName}</p>
-                    </div>
-                    {medication && (
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={logDose.isPending}
-                          onClick={() =>
-                            log(item.medicationId, item.time, medication.organisation_id, "taken")
-                          }
-                        >
-                          Taken
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={logDose.isPending}
-                          onClick={() => setPickingReasonFor(pickingReason ? null : rowKey)}
-                        >
-                          Missed
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  {pickingReason && medication && (
-                    <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-charcoal-ink/[0.03] p-2.5">
-                      <span className="w-full text-xs text-charcoal-ink/60">
-                        What got in the way? (Optional — helps your care team help you.)
+                <li
+                  key={`${item.medicationId}-${item.time}`}
+                  className="flex items-center justify-between gap-4 py-3"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-charcoal-ink">
+                        {item.time}
                       </span>
-                      {MISSED_REASON_OPTIONS.map((option) => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          disabled={logDose.isPending}
-                          onClick={() =>
-                            log(
-                              item.medicationId,
-                              item.time,
-                              medication.organisation_id,
-                              "missed",
-                              option.value
-                            )
-                          }
-                          className="rounded-full border border-charcoal-ink/15 bg-white px-3 py-1 text-xs font-medium text-charcoal-ink hover:bg-charcoal-ink/5"
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                      <button
-                        type="button"
+                      <Badge variant={badge.variant}>{badge.label}</Badge>
+                    </div>
+                    <p className="text-xs text-charcoal-ink/60">{item.drugName}</p>
+                  </div>
+                  {medication && (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={logDose.isPending}
+                        onClick={() =>
+                          log(item.medicationId, item.time, medication.organisation_id, "taken")
+                        }
+                      >
+                        Taken
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
                         disabled={logDose.isPending}
                         onClick={() =>
                           log(item.medicationId, item.time, medication.organisation_id, "missed")
                         }
-                        className="rounded-full px-3 py-1 text-xs font-medium text-charcoal-ink/50 hover:text-charcoal-ink/70"
                       >
-                        Skip
-                      </button>
+                        Missed
+                      </Button>
                     </div>
                   )}
                 </li>
