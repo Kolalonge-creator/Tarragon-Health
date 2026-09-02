@@ -27,9 +27,9 @@ export interface PriceBreakdown {
 }
 
 /** A single flat line at the total price, no discounts — the common case for
- * a flow with nothing yet to itemize further (a subscription plan, a video
- * visit). Kept as one small helper rather than repeating this object shape
- * at every call site. */
+ * a flow with nothing yet to itemize further (a service pack purchase, a
+ * video visit). Kept as one small helper rather than repeating this object
+ * shape at every call site. */
 export function flatBreakdown(label: string, amountKobo: number, currency = "NGN"): PriceBreakdown {
   return {
     currency,

@@ -5,23 +5,37 @@ import { NAV_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
 
 /**
- * §91.10 patient-facing payment-failure recovery. Both webhooks already
- * correctly detect a failed charge and flip subscriptions.status='past_due'
- * (supabase/functions/paystack-webhook, stripe-webhook) — this is pure
- * surfacing of that already-authoritative signal, no new schema. Renders
- * above the fold on the patient Overview, next to NextBestAction, since an
- * unpaid plan is a more urgent thing to see than a wellness nudge.
+ * §91.10 patient-facing payment-failure recovery.
+ *
+ * Rewired 2026-09-02 for the 2026-08-31 pay-per-service cutover — the
+ * original design read subscriptions.status='past_due', an authoritative
+ * flag the recurring-billing webhooks set on a declined renewal charge.
+ * service_purchases (which replaced subscriptions/subscription_plans) has no
+ * equivalent status: a one-off purchase is either 'pending_payment' (never
+ * paid) or 'active' (paid) — there is no third "we tried to charge you and
+ * it failed" state, because there is no recurring charge to fail. What IS
+ * still true and useful to surface is a purchase the patient started and
+ * never finished — the checkout session was abandoned, declined, or the
+ * patient just never returned to it — which leaves service_purchases stuck
+ * at 'pending_payment' indefinitely (record_service_purchase_intent always
+ * inserts a fresh row; nothing else here mutates or expires it). A 30-minute
+ * grace period avoids nagging someone mid-checkout who simply hasn't reached
+ * the provider's hosted page yet.
  */
 export async function PaymentFailureBanner({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const { data: subscription } = await supabase
-    .from("subscriptions")
-    .select("id, amount_minor, currency, plan:subscription_plans(name)")
-    .eq("subscriber_id", patientId)
-    .eq("status", "past_due")
+  const staleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+  const { data: purchase } = await supabase
+    .from("service_purchases")
+    .select("id, payable_kobo, currency, created_at, service_product:service_products(code, name)")
+    .eq("patient_id", patientId)
+    .eq("status", "pending_payment")
+    .lt("created_at", staleBefore)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
-  if (!subscription) return null;
+  if (!purchase || !purchase.service_product?.code) return null;
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 p-4">
@@ -29,17 +43,17 @@ export async function PaymentFailureBanner({ patientId }: { patientId: string })
         <NAV_ICON.warning className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" aria-hidden />
         <div>
           <p className="font-medium text-charcoal-ink">
-            We couldn&apos;t collect your last payment for {subscription.plan?.name ?? "your plan"}
+            You started buying {purchase.service_product.name ?? "a service"} but didn&apos;t finish
           </p>
           <p className="text-sm text-charcoal-ink/70">
-            {koboToNaira(subscription.amount_minor).toLocaleString()} {subscription.currency} is
-            outstanding. Retry with the same or a different card to keep your plan active.
+            {koboToNaira(purchase.payable_kobo ?? 0).toLocaleString()} {purchase.currency} is still
+            unpaid. Pick up where you left off with the same or a different card.
           </p>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <RetryPaymentButton subscriptionId={subscription.id} />
-        <EscalatePaymentIssueButton subscriptionId={subscription.id} />
+        <RetryPaymentButton serviceProductCode={purchase.service_product.code} />
+        <EscalatePaymentIssueButton servicePurchaseId={purchase.id} />
       </div>
     </div>
   );

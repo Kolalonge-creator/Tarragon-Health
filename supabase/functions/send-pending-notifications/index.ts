@@ -291,6 +291,34 @@ const TEMPLATE_MAP: Record<
       pushUrl: path,
     };
   },
+  // Sent by medication_logs_route_missed_reason (private.route_missed_dose_reason)
+  // when a patient marks a dose missed and gives a self-resolvable reason
+  // ('forgot' or 'feels_well') — the other four reasons route to a
+  // care_outreach_tasks row instead, not this template. Deliberately specific
+  // (real weekly counts, real drug name) rather than a generic "you missed a
+  // dose" — see the Module 80 audit's behavioural-messaging gap.
+  missed_dose_behavioural_nudge: (payload) => {
+    const drugName = String(payload.drug_name ?? "your medication");
+    const reason = String(payload.reason ?? "");
+    const takenThisWeek = Number(payload.taken_this_week ?? 0);
+    const totalThisWeek = Number(payload.total_this_week ?? 0);
+    const remaining = Number(payload.remaining_this_week ?? 0);
+    const path = "/patient/medications";
+    const message =
+      reason === "feels_well"
+        ? `Feeling better doesn't mean ${drugName} isn't still working — stopping early is one of ` +
+          `the most common reasons control slips back. You've got ${remaining} more dose${remaining === 1 ? "" : "s"} ` +
+          `this week; that's what your care team looks at, not just how you feel today.`
+        : `Easy to lose track — you've taken ${takenThisWeek}/${totalThisWeek} ${drugName} doses ` +
+          `this week. ${remaining} more to go so your care team has a full picture.`;
+    return {
+      metaTemplateName: "missed_dose_behavioural_nudge",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
   // Sent to the patient as a scheduled medication review comes due (see
   // private.queue_medication_review_reminders). Reminder only — the review is
   // completed by a doctor in the clinician worklist, never over WhatsApp.
@@ -1439,6 +1467,53 @@ const TEMPLATE_MAP: Record<
         `See your Tarragon Health worklist. Tarragon Health`,
     };
   },
+  // Sent as the "extra channel" nudge (push/whatsapp/sms, generic non-PHI
+  // copy only — the real alert detail stays in the in_app row, which never
+  // routes through this function at all) when
+  // private.escalate_unacknowledged_clinician_alerts() (20260828015134)
+  // climbs a rung of the ack-timeout ladder: hop 1 = the alert's backup
+  // clinician, hop 2 = senior tier/Clinical Director, hop 3 = every
+  // platform admin. private.notify_clinician_alert() always fans these out
+  // with the same fixed message regardless of which hop fired, so all three
+  // templates share this shape — only the audience (and therefore which
+  // template key gets used) differs, same pattern as the clinician-alert
+  // templates above.
+  clinician_alert_ack_timeout_backup: (payload) => {
+    const message = String(
+      payload.message ?? "An unacknowledged alert needs your attention.",
+    );
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_backup",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} See your Tarragon Health worklist. Tarragon Health`,
+      pushUrl: "/clinician/escalations",
+    };
+  },
+  clinician_alert_ack_timeout_senior: (payload) => {
+    const message = String(
+      payload.message ?? "An unacknowledged alert has escalated to you.",
+    );
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_senior",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} See your Tarragon Health worklist. Tarragon Health`,
+      pushUrl: "/clinician/escalations",
+    };
+  },
+  clinician_alert_ack_timeout_admin: (payload) => {
+    const message = String(
+      payload.message ?? "An alert has gone unacknowledged past its escalation timeout.",
+    );
+    return {
+      metaTemplateName: "clinician_alert_ack_timeout_admin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} See your Tarragon Health worklist. Tarragon Health`,
+      pushUrl: "/clinician/escalations",
+    };
+  },
   // Sent to the patient after the follow-up window on an emergency event
   // (private.notify_emergency_followups). Gentle check-in nudging them to update
   // their care team in the app — the follow-up itself happens in-app, never over
@@ -2084,12 +2159,17 @@ Deno.serve(async () => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // send_after (set by queue_vitals_reminders/queue_medication_checkin_reminders
+  // from profiles.preferred_reminder_hour) holds a non-urgent reminder back
+  // until the patient's preferred local hour — null means "send on next tick"
+  // as before. Never set on critical/escalation rows, so this can never delay one.
   const { data: pending, error: fetchError } = await supabase
     .from("notifications")
     .select("id, recipient_id, channel, template, payload, attempts, priority")
     .eq("status", "pending")
     .in("channel", ["whatsapp", "sms", "email", "voice", "push"])
     .lt("attempts", MAX_ATTEMPTS)
+    .or(`send_after.is.null,send_after.lte.${new Date().toISOString()}`)
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE)
     .returns<NotificationRow[]>();

@@ -100,11 +100,18 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       cta: "Book it now",
     };
   } else if (consult.data) {
+    // proposed_slots lives directly on video_consultations only for the
+    // Health Check's bundled video consult (every Screen tier since
+    // 20260829140114_health_check_video_consult_all_tiers.sql) — the other
+    // video-consult product (paid "Online Doctor Consultation") tracks its
+    // own alternate-time offers on video_visit_requests.proposed_slot_ids
+    // instead, a separate column on a separate table. So this always means
+    // the Health Check page, where the pick-a-time card actually lives.
     action = {
       icon: "booking",
       title: "Your doctor offered times for a video call",
       body: "Pick whichever works for you; it only takes a tap to confirm.",
-      href: "/patient/care",
+      href: "/patient/health-check",
       cta: "Pick a time",
     };
   } else if (checkin.data) {

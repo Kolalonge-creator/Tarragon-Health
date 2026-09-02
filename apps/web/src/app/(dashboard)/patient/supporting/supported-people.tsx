@@ -32,7 +32,7 @@ import {
   splitBillWithThem,
   type SponsorActionState,
 } from "./actions";
-import { useActivePatientPlans } from "@/lib/queries/subscription-plans";
+import { useActiveServiceProducts } from "@/lib/queries/service-products";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -337,7 +337,7 @@ function PersonCard({
           </div>
         )}
 
-        {person.clinicalAccess ? (
+        {person.categories.length > 0 ? (
           <>
             <HealthSummary person={person} />
             <SupporterConversation person={person} />
@@ -502,7 +502,7 @@ function SplitBillWithThem({
  * not a diaspora premium for the same thing.
  */
 function PayTheirPlan({ person }: { person: SupportedPerson }) {
-  const { data: plans } = useActivePatientPlans();
+  const { data: plans } = useActiveServiceProducts();
   const [state, action, pending] = useActionState<SponsorActionState, FormData>(
     paySomeonesPlan,
     undefined,
@@ -510,7 +510,7 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
 
   if (person.permissionLevel !== "manage") return null;
 
-  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_minor > 0);
+  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_kobo > 0);
   if (payable.length === 0) return null;
 
   return (
@@ -523,7 +523,7 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
           <option value="">Choose a plan</option>
           {payable.map((plan) => (
             <option key={plan.code} value={plan.code}>
-              {plan.name} ({naira(plan.price_minor)}
+              {plan.name} ({naira(plan.price_kobo)}
               {plan.interval === "yearly" ? "/yr" : "/mo"})
             </option>
           ))}
@@ -556,7 +556,7 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
  * told the patient.
  */
 function CareTeamStatus({ person, firstName }: { person: SupportedPerson; firstName: string }) {
-  const { data } = useSupportedPersonCareStatus(person.profileId, person.clinicalAccess);
+  const { data } = useSupportedPersonCareStatus(person.profileId, person.categories.length > 0);
   if (!data) return null;
 
   if (data.openCount === 0) {
@@ -654,17 +654,18 @@ function RefillAction({
 /**
  * How they are doing, for someone who has been told they may look.
  *
- * Rendered only when person.clinicalAccess is true, but that flag is a
+ * Rendered only when person.categories is non-empty, but that flag is a
  * courtesy, not the control: every query behind this reads a table whose RLS
- * checks the same consent live, so a revoked supporter gets an empty card
- * rather than stale data even if this component were somehow rendered anyway.
+ * checks the same per-category consent live, so a revoked supporter gets an
+ * empty card rather than stale data even if this component were somehow
+ * rendered anyway.
  *
  * Numbers are shown, never judged. There is no "her blood pressure is too
  * high" anywhere in here: interpretation belongs to the care team, and the
  * conversation below is how a supporter asks for it.
  */
 function HealthSummary({ person }: { person: SupportedPerson }) {
-  const { data, isLoading } = useSupportedPersonHealth(person.profileId, person.clinicalAccess);
+  const { data, isLoading } = useSupportedPersonHealth(person.profileId, person.categories.length > 0);
   const name = person.fullName ?? "They";
   const firstName = (person.fullName ?? "").trim().split(/\s+/)[0] || "They";
 

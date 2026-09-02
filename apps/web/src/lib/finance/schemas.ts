@@ -332,6 +332,26 @@ export const budgetsListSchema = z.array(
 );
 export type FinanceBudget = z.infer<typeof budgetsListSchema>[number];
 
+// --- Employer billing --------------------------------------------------------
+export const employerBillingSummarySchema = z.array(
+  z.object({
+    organisation_id: z.string(),
+    organisation_name: z.string(),
+    organisation_type: z.string(),
+    eligible_count: int,
+    activated_count: int,
+    pending_count: int,
+    billing_config_id: z.string().nullable(),
+    price_per_member_minor: num.nullable(),
+    currency: z.string().nullable(),
+    effective_from: z.string().nullable(),
+    effective_to: z.string().nullable(),
+    notes: z.string().nullable(),
+    monthly_invoice_estimate_minor: num.nullable(),
+  }),
+);
+export type EmployerBillingSummaryRow = z.infer<typeof employerBillingSummarySchema>[number];
+
 export const budgetVarianceSchema = z.array(
   z.object({
     account_code: z.string(),

@@ -1,18 +1,21 @@
 "use client";
 
 import { useActionState } from "react";
-import { retryFailedPayment } from "@/app/(dashboard)/patient/subscription/actions";
+import { buyServiceProduct } from "@/app/(dashboard)/patient/subscription/actions";
 import { Button } from "@/components/ui/button";
 
-export function RetryPaymentButton({ subscriptionId }: { subscriptionId: string }) {
-  const [state, formAction, pending] = useActionState(
-    async (_prev: unknown, formData: FormData) => retryFailedPayment(formData.get("subscriptionId") as string),
-    undefined,
-  );
+/**
+ * Retrying a stuck service_purchases checkout is literally the same
+ * operation as buying it in the first place — record_service_purchase_intent
+ * always opens a fresh pending row, so this reuses buyServiceProduct
+ * unchanged rather than a bespoke "resume this checkout" action.
+ */
+export function RetryPaymentButton({ serviceProductCode }: { serviceProductCode: string }) {
+  const [state, formAction, pending] = useActionState(buyServiceProduct, undefined);
 
   return (
     <form action={formAction}>
-      <input type="hidden" name="subscriptionId" value={subscriptionId} />
+      <input type="hidden" name="serviceProductCode" value={serviceProductCode} />
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Redirecting…" : "Retry payment"}
       </Button>

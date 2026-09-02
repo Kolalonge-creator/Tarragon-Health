@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
  * CLAUDE.md, two-way patient<->care-team contact is in-app only, never
  * WhatsApp, and this is that same channel, not a special case.
  */
-export function EscalatePaymentIssueButton({ subscriptionId }: { subscriptionId: string }) {
+export function EscalatePaymentIssueButton({ servicePurchaseId }: { servicePurchaseId: string }) {
   const startThread = useStartThread();
   const [sent, setSent] = useState(false);
 
@@ -29,7 +29,7 @@ export function EscalatePaymentIssueButton({ subscriptionId }: { subscriptionId:
           startThread.mutate(
             {
               subject: "Payment issue",
-              body: `My payment for subscription ${subscriptionId} keeps failing and I need help sorting it out.`,
+              body: `My payment for purchase ${servicePurchaseId} keeps failing and I need help sorting it out.`,
             },
             { onSuccess: () => setSent(true) },
           )

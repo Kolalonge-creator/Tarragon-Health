@@ -37,7 +37,10 @@ $$;
 -- No grant to authenticated/anon at all — the cron route calls this only via
 -- the service-role client, which bypasses PostgREST grant checks entirely,
 -- the same trust boundary every other cron route already relies on.
-revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from public;
+-- A from-scratch environment's base Supabase template also grants EXECUTE
+-- directly to authenticated at CREATE FUNCTION time (not only via the
+-- PUBLIC pseudo-role anon inherits through) — revoke that explicitly too.
+revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from public, anon, authenticated;
 
 alter table public.payment_fraud_signals drop constraint payment_fraud_signals_signal_type_check;
 alter table public.payment_fraud_signals add constraint payment_fraud_signals_signal_type_check

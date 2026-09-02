@@ -36,7 +36,12 @@ const REFUND_STATUS_VARIANT: Record<string, "green" | "grey" | "amber" | "red"> 
  * existing single-purpose-RPC convention. Reuses:
  *   - Phase 1's finance_unified_ledger for transaction history
  *   - care_vouchers (already patient-readable via RLS) for the voucher wallet
- *   - subscriptions (already patient-readable via RLS) for the plan summary
+ *   - service_purchases (already patient-readable via RLS) for the active
+ *     services summary — rewired 2026-09-02 from subscriptions/
+ *     subscription_plans, retired by the 2026-08-31 pay-per-service cutover.
+ *     Unlike a subscription, a patient can hold several service_purchases
+ *     rows active at once (no single "plan"), so this lists every currently
+ *     active one instead of picking one.
  *   - Phase 3's voucher_refund_queue (patient-readable as of this phase) for
  *     refunds still in flight
  *
@@ -54,7 +59,7 @@ export default async function FinancialProfilePage() {
 
   const [
     ledgerResult,
-    subscriptionResult,
+    servicePurchasesResult,
     vouchersResult,
     refundsResult,
     failedPaymentResult,
@@ -62,12 +67,12 @@ export default async function FinancialProfilePage() {
   ] = await Promise.all([
       supabase.rpc("finance_unified_ledger", { p_profile_id: user.id, p_limit: 20 }),
       supabase
-        .from("subscriptions")
-        .select("id, status, amount_minor, currency, current_period_end, plan:subscription_plans(name)")
-        .eq("subscriber_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
+        .from("service_purchases")
+        .select("id, status, payable_kobo, currency, expires_at, service_product:service_products(name)")
+        .eq("patient_id", user.id)
+        .eq("status", "active")
+        .order("purchased_at", { ascending: false })
+        .limit(10),
       supabase
         .from("care_vouchers")
         .select("id, voucher_number, sku_name, kind, status, face_value_kobo, amount_paid_kobo, expires_at")
@@ -97,7 +102,7 @@ export default async function FinancialProfilePage() {
     ]);
 
   const transactions = ledgerResult.data ?? [];
-  const subscription = subscriptionResult.data;
+  const activeServices = servicePurchasesResult.data ?? [];
   const vouchers = vouchersResult.data ?? [];
   const refunds = refundsResult.data ?? [];
   const recentFailures = failedPaymentResult.data ?? [];
@@ -108,32 +113,35 @@ export default async function FinancialProfilePage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your finances</h1>
         <p className="text-charcoal-ink/60">
-          Your plan, vouchers, transactions, and anything still being refunded — all in one place.
+          Your services, vouchers, transactions, and anything still being refunded — all in one place.
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Your plan</CardTitle>
+            <CardTitle>Your services</CardTitle>
           </CardHeader>
           <CardContent>
-            {!subscription ? (
-              <p className="text-sm text-charcoal-ink/60">No subscription on file yet.</p>
+            {activeServices.length === 0 ? (
+              <p className="text-sm text-charcoal-ink/60">No active services yet.</p>
             ) : (
-              <div className="space-y-1 text-sm">
-                <p className="font-medium text-charcoal-ink">{subscription.plan?.name ?? "Plan"}</p>
-                <p className="text-charcoal-ink/70">
-                  {naira(subscription.amount_minor)} / {subscription.currency}
-                  {subscription.current_period_end &&
-                    ` · renews ${new Date(subscription.current_period_end).toLocaleDateString("en-NG")}`}
-                </p>
-                <Badge variant={subscription.status === "past_due" ? "red" : "green"}>
-                  {subscription.status}
-                </Badge>
+              <div className="space-y-3 text-sm">
+                {activeServices.map((service) => (
+                  <div key={service.id} className="space-y-1">
+                    <p className="font-medium text-charcoal-ink">
+                      {service.service_product?.name ?? "Service"}
+                    </p>
+                    <p className="text-charcoal-ink/70">
+                      {naira(service.payable_kobo ?? 0)} {service.currency}
+                      {service.expires_at &&
+                        ` · runs until ${new Date(service.expires_at).toLocaleDateString("en-NG")}`}
+                    </p>
+                  </div>
+                ))}
                 <p className="pt-1">
                   <Link href="/patient/subscription" className="text-xs font-medium text-deep-forest hover:underline">
-                    Manage your plan →
+                    Manage your services →
                   </Link>
                 </p>
               </div>
