@@ -54,7 +54,10 @@ export interface CareTeamInfo {
 /** Mirrors YourCareTeam in apps/web/src/components/your-care-team.tsx, minus
  * the care-coordinator name (that lookup needs the service-role client, which
  * the mobile app correctly has no access to — coordinator contact stays a
- * WebView-only surface for now). */
+ * WebView-only surface for now). clinicianName/credential exist here purely
+ * as the same existence-check web performs (does an active assignment exist
+ * at all) — like web, the Overview card must never render this as a named
+ * "your doctor" ahead of a review actually happening; see overview-screen.tsx. */
 export async function getCareTeam(patientId: string): Promise<CareTeamInfo | null> {
   const { data: assignment } = await supabase
     .from("care_team_assignment")

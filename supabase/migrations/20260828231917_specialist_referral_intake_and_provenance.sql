@@ -1,3 +1,42 @@
+-- Tarragon Health — Specialist Referral Engine, part 4/7: referral creation
+-- provenance + intake fields (task spec §11.3, §11.4).
+--
+-- Confirmed before writing this: the ONLY place a specialist_referrals row
+-- is ever inserted today is the abnormal-result-handler Edge Function
+-- (automated, Category 2->1 upgrade). There is no clinician/nurse-facing
+-- "create a referral" UI anywhere, even though
+-- 20260715125456_clinician_originated_orders.sql gave lab_orders/
+-- pharmacy_orders an `ordered_by` column + a clinician-facing creation flow
+-- for exactly this reason, and its own comment explicitly left
+-- specialist_referrals out ("has always been staff/trigger-created only").
+-- §11.3 of the task spec lists a Tarragon doctor/nurse and chronic-disease
+-- programmes as referral originators alongside the automated paths — this
+-- closes that gap. Nothing here touches specialist matching/ranking or the
+-- self-arranged fulfilment model; it is purely about who created the
+-- referral and what they asked for.
+--
+-- referred_by is nullable and NEVER inferred/backfilled, same discipline as
+-- doctor_tier and every other null-gated attribution column in this
+-- codebase (CLAUDE.md "What Claude Must Never Do") — existing
+-- trigger-created rows simply have no referred_by, which is the honest
+-- state, not a gap to paper over. It is server-derived by the new
+-- create-referral server action from the acting clinician's own
+-- clinical_staff row, the same trust model clinician_originated_orders
+-- already established for ordered_by (RLS already restricts insert to
+-- is_org_staff; a DB trigger re-deriving it would just be re-proving what
+-- RLS already guarantees for an org's own staff — see that migration's own
+-- comment for the precedent).
+--
+-- preferred_consultation_type/preferred_location capture the referral's OWN
+-- ask (§11.4 "preferred consultation type", "preferred location") as a soft
+-- preference on the letter — never a filter that ranks or auto-assigns a
+-- specific specialist_providers row, which stays exactly as guardrailed.
+--
+-- parent_referral_id links a referral created because an earlier referral's
+-- specialist recommended onward specialist input (§11.16
+-- "specialist-to-specialist referral... chain remains linked to the
+-- original care episode") — self-referencing, nullable, never inferred.
+
 alter table public.specialist_referrals
   add column if not exists referred_by uuid references public.clinical_staff (id) on delete set null,
   add column if not exists preferred_consultation_type text

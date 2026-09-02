@@ -1,1 +1,39 @@
+-- Tarragon Health — Specialist Referral Engine, part 1/7: a real "closed" status.
+--
+-- Complementary to the existing specialist_referrals lifecycle, not a
+-- replacement: the 8-stage referral_status enum (pending_payment ->
+-- payment_confirmed -> pending -> waitlisted -> booked -> confirmed ->
+-- completed -> declined), the urgency/clinical_summary columns, the
+-- waitlist + interim-management-plan workflow, and the referral letter all
+-- stay exactly as they are. Per CLAUDE.md's guardrail, this does NOT touch
+-- specialist matching/ranking (useMatchedSpecialistProviders stays a plain
+-- filter) and does NOT reverse the 2026-08-03 self-arranged-fulfilment
+-- decision (20260803142941_self_arranged_specialist_referrals.sql) — a
+-- patient still takes their referral letter to any specialist of their
+-- choosing; Tarragon does not book or rank specific providers.
+--
+-- What's genuinely missing, confirmed by reading the live schema/code before
+-- writing this: once a referral reaches 'completed' (see
+-- useCloseReferral/pipeline-stages.ts), nothing ever closes the loop. A
+-- clinician can record treatment_plan_note and shared_care_handback_at, but
+-- the row just sits there forever afterward — no distinct closed state, no
+-- enforcement that the outcome was actually captured, the referring
+-- clinician notified, and the care plan updated before the episode is
+-- considered done. That is section 11.15 of the task spec ("Referral
+-- closure... requires: specialist outcome received, relevant clinician
+-- notified, patient informed where appropriate, follow-up action created,
+-- care plan updated") and it is entirely unbuilt today.
+--
+-- This migration adds exactly one new terminal status, 'closed', reusing
+-- this codebase's own established idiom: status stays coarse, fine-grained
+-- pipeline progress is carried by nullable timestamp columns (see
+-- treatment_plan_received_at/shared_care_handback_at) rather than
+-- proliferating enum values. The follow-on migrations in this series add the
+-- columns/triggers that make 'closed' meaningful (enforcing an outcome was
+-- captured before a referral can reach it) — this file only adds the value,
+-- mirroring 20260716113000_referral_status_add_waitlisted.sql's own
+-- single-purpose shape so later migrations in the same deploy can safely use
+-- the new value (Postgres does not allow using an enum value added earlier
+-- in the same transaction).
+
 alter type public.referral_status add value if not exists 'closed' after 'completed';

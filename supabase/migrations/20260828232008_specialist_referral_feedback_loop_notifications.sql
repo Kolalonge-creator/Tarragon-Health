@@ -1,3 +1,23 @@
+-- Tarragon Health — Specialist Referral Engine, part 7/7: the referral
+-- feedback loop (task spec §11.14).
+--
+-- Confirmed before writing this: 20260827203614_provider_notifications.sql
+-- notifies the assigned clinician when a referral is CREATED, and
+-- 20260828015618's failed_referral generator fires when one is DECLINED —
+-- but nothing notifies anyone when the specialist's outcome actually comes
+-- back (treatment_plan_note transcribed, or the new outcome_document_path
+-- uploaded), and nothing tells the patient their referral episode is done.
+-- §11.14's "Specialist recommendation should automatically return to the
+-- referring clinician... Care plan updated... Monitoring schedule updated"
+-- has had no automatic return path at all until now. This closes it with
+-- the same two building blocks the rest of the notification system already
+-- uses: an in_app notifications row (NotificationBell already renders it —
+-- see provider_notifications.sql's own header for why no new UI is needed)
+-- and a patient_timeline entry.
+
+-- ---------------------------------------------------------------------------
+-- 1. Outcome recorded -> notify the referring/assigned clinician
+-- ---------------------------------------------------------------------------
 create or replace function private.notify_clinician_referral_outcome()
 returns trigger
 language plpgsql
@@ -16,6 +36,10 @@ begin
     return new;
   end if;
 
+  -- Prefer the clinician who created the referral, same person who asked
+  -- the clinical question in the first place; fall back to whoever is
+  -- currently the patient's assigned clinician for trigger-created referrals
+  -- with no referred_by on file.
   if new.referred_by is not null then
     select profile_id into v_clinician_id from public.clinical_staff where id = new.referred_by;
   end if;
@@ -56,6 +80,9 @@ create trigger specialist_referrals_notify_outcome
   after update on public.specialist_referrals
   for each row execute function private.notify_clinician_referral_outcome();
 
+-- ---------------------------------------------------------------------------
+-- 2. Referral closed -> tell the patient their referral episode is done
+-- ---------------------------------------------------------------------------
 create or replace function private.notify_patient_referral_closed()
 returns trigger
 language plpgsql

@@ -8,19 +8,19 @@ import type { ReferralStatus } from "@tarragon/shared";
 // (REFERRAL_STATUS_BADGE in clinician/referrals/page.tsx), per CLAUDE.md's
 // brand voice rule: no clinical jargon, no fear-based urgency.
 const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
-  // Never actually shown — YourReferrals excludes drafts (they aren't a
+  // Never actually shown — the query below excludes drafts (they aren't a
   // live episode yet), but Record<ReferralStatus, ...> still needs every
   // key so a future status can't silently fall through unhandled.
-  draft: "Not yet sent",
-  pending: "Your care team has sent this referral",
+  draft: "Not yet submitted",
+  pending: "Your care team is arranging this",
   pending_payment: "Ready to book — payment needed",
   payment_confirmed: "Payment received — booking your appointment",
   booked: "Appointment booked",
   confirmed: "Confirmed",
   completed: "Visit complete",
-  closed: "Closed",
   declined: "Cancelled",
-  waitlisted: "Your care team is helping you plan next steps",
+  waitlisted: "Your care team is finding the right specialist for you",
+  closed: "Closed",
 };
 
 function formatDate(value: string): string {

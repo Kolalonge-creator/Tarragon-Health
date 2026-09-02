@@ -17,9 +17,9 @@ export default async function PatientSubscriptionPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your subscription</h1>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">My services</h1>
         <p className="text-charcoal-ink/60">
-          Manage your plan and add-on services. You can change or cancel any time.
+          One-off purchases covering a fixed window each. Nothing auto-renews — buy again any time to extend.
         </p>
       </div>
       <SubscriptionManager />
