@@ -2,18 +2,22 @@ import { describe, expect, it } from "@jest/globals";
 import { computeCycleNudges } from "./cycle-nudges";
 
 describe("computeCycleNudges", () => {
-  it("estimates the next period from the last period date and average cycle length", () => {
+  // The next-period estimate this file used to produce has moved to
+  // cycle-prediction.ts, which works from observed period history instead of
+  // a self-reported average. What is asserted here is that it did not stay
+  // behind as well: two estimates would eventually contradict each other.
+  it("points at the cycle tracker instead of estimating the next period itself", () => {
     const nudges = computeCycleNudges({
       lifeStage: "menstruating",
       lastPeriodDate: "2026-07-01",
       averageCycleLengthDays: 28,
     });
     expect(nudges).toHaveLength(1);
-    expect(nudges[0]?.id).toBe("next_period_estimate");
-    expect(nudges[0]?.label).toContain("not a prediction");
+    expect(nudges[0]?.id).toBe("open_cycle_tracker");
+    expect(nudges.map((nudge) => nudge.id)).not.toContain("next_period_estimate");
   });
 
-  it("defaults to a 28-day cycle when none is recorded", () => {
+  it("gives the same nudge whether or not an average cycle length is recorded", () => {
     const withDefault = computeCycleNudges({
       lifeStage: "menstruating",
       lastPeriodDate: "2026-07-01",
@@ -27,13 +31,16 @@ describe("computeCycleNudges", () => {
     expect(withDefault[0]?.label).toBe(withExplicit[0]?.label);
   });
 
-  it("gives no next-period nudge when no last period date is on file", () => {
+  // Deliberately unconditional now. The old estimate needed a last-period
+  // date to compute anything, so it stayed silent without one; the tracker
+  // link is most useful to exactly that person, who has nothing logged yet.
+  it("still points at the tracker when no last period date is on file", () => {
     const nudges = computeCycleNudges({
       lifeStage: "menstruating",
       lastPeriodDate: null,
       averageCycleLengthDays: 28,
     });
-    expect(nudges).toHaveLength(0);
+    expect(nudges.map((nudge) => nudge.id)).toEqual(["open_cycle_tracker"]);
   });
 
   it("suggests antenatal booking when pregnant", () => {
