@@ -5,6 +5,7 @@ import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { UploadResultForm } from "./upload-result-form";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
+import { AiResultSummary } from "./ai-result-summary";
 
 function sourceLabel(source: string): string {
   return source === "patient" ? "You uploaded this" : "Uploaded by your care team";
@@ -95,10 +96,13 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-charcoal-ink/60">
-                    Your care team hasn&apos;t reviewed this yet — we&apos;ll let you know here as soon
-                    as they have.
-                  </p>
+                  <>
+                    <p className="text-sm text-charcoal-ink/60">
+                      Your care team hasn&apos;t reviewed this yet — we&apos;ll let you know here as soon
+                      as they have.
+                    </p>
+                    <AiResultSummary status={doc.aiSummaryStatus} />
+                  </>
                 )}
               </li>
             ))}

@@ -12,6 +12,7 @@ import { isReadableDocumentType, normaliseForVision } from "./heic";
 import { worstStatusOf, type PatientContext } from "./reference-ranges";
 import { confirmLabReportExtractionSchema } from "@/lib/validation/lab-report-extraction";
 import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
+import { deriveAiSummaryStatus } from "./ai-summary";
 
 export type ExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -107,6 +108,25 @@ export async function runLabReportExtraction(
       );
     } catch (error) {
       console.error("lab-reports: could not persist failure", error);
+    }
+    // -- Patient-facing AI summary status -------------------------------------
+    // Every failure path above routes through here, so this covers all of them
+    // uniformly rather than duplicating the update at each early return.
+    // Deliberately separate from the escalation bridge below: never reads
+    // worstStatusOf/reference-ranges.ts, never touches clinician_alerts, and
+    // stores no analyte names or values — only a status the patient sees
+    // immediately on their own upload, independent of any doctor review.
+    try {
+      await service
+        .from("lab_result_documents")
+        .update({
+          ai_summary_status: "unavailable",
+          ai_summary_generated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+    } catch (error) {
+      // Never let this block the failure record from persisting.
+      console.error("lab-reports: could not persist AI summary status", error);
     }
     return { status: "failed" as const, readyCount: 0, message };
   };
@@ -314,6 +334,24 @@ export async function runLabReportExtraction(
   );
   if (upsertError) {
     return fail("Could not save the draft.", upsertError.message);
+  }
+
+  // -- Patient-facing AI summary status ---------------------------------------
+  // Deliberately separate from the escalation bridge below: this never reads
+  // worstStatusOf/reference-ranges.ts, never touches clinician_alerts, and
+  // stores no analyte names or values — only a status the patient sees
+  // immediately on their own upload, independent of any doctor review.
+  try {
+    await service
+      .from("lab_result_documents")
+      .update({
+        ai_summary_status: deriveAiSummaryStatus(rows),
+        ai_summary_generated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId);
+  } catch (error) {
+    // Never let this block the draft reaching a doctor either.
+    console.error("lab-reports: could not persist AI summary status", error);
   }
 
   // 40.11. The output summary is counts and provenance, never the analyte
