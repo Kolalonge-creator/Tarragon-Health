@@ -4,7 +4,13 @@ import type { SafetyReport } from "@/lib/rules/drug-safety";
 const NOW = new Date("2026-08-29T10:00:00Z");
 
 function emptySafetyReport(): SafetyReport {
-  return { findings: [], renalCheckSkipped: null, allergyCheckNote: null, isAdvisoryOnly: true };
+  return {
+    findings: [],
+    renalCheckSkipped: null,
+    allergyCheckNote: null,
+    pregnancyCheckNote: null,
+    isAdvisoryOnly: true,
+  };
 }
 
 function baseInput(overrides: Partial<CdsEngineInput> = {}): CdsEngineInput {
@@ -43,6 +49,7 @@ describe("computeCdsRecommendations — medication safety (§38.6/§38.7/§38.8)
       ],
       renalCheckSkipped: null,
       allergyCheckNote: null,
+      pregnancyCheckNote: null,
       isAdvisoryOnly: true,
     };
 
@@ -68,7 +75,13 @@ describe("computeCdsRecommendations — medication safety (§38.6/§38.7/§38.8)
       medicationIds: ["med-9", "med-2"],
       drugNames: ["Ramipril", "Lisinopril"],
     };
-    const report: SafetyReport = { findings: [finding], renalCheckSkipped: null, allergyCheckNote: null, isAdvisoryOnly: true };
+    const report: SafetyReport = {
+      findings: [finding],
+      renalCheckSkipped: null,
+      allergyCheckNote: null,
+      pregnancyCheckNote: null,
+      isAdvisoryOnly: true,
+    };
 
     const a = computeCdsRecommendations(baseInput({ medicationSafety: report }))[0];
     const b = computeCdsRecommendations(baseInput({ medicationSafety: { ...report, findings: [{ ...finding }] } }))[0];
@@ -99,6 +112,7 @@ describe("computeCdsRecommendations — medication safety (§38.6/§38.7/§38.8)
           ],
           renalCheckSkipped: null,
           allergyCheckNote: null,
+          pregnancyCheckNote: null,
           isAdvisoryOnly: true,
         },
       }),
@@ -118,6 +132,7 @@ describe("computeCdsRecommendations — medication safety (§38.6/§38.7/§38.8)
           ],
           renalCheckSkipped: null,
           allergyCheckNote: null,
+          pregnancyCheckNote: null,
           isAdvisoryOnly: true,
         },
       }),
@@ -260,6 +275,7 @@ describe("computeCdsRecommendations — composition", () => {
           ],
           renalCheckSkipped: null,
           allergyCheckNote: null,
+          pregnancyCheckNote: null,
           isAdvisoryOnly: true,
         },
         hbpm: {
