@@ -21,6 +21,7 @@ export interface ReferralLetterData {
   specialistType: string;
   urgency: string | null;
   reason: string | null;
+  requestedService: string | null;
   interimPlan: string | null;
   vitals: ReferralVital[];
   medications: { drug_name: string; dose: string | null; frequency: string | null }[];
@@ -101,6 +102,8 @@ const SPECIALIST_NOUN: Record<string, string> = {
   ophthalmology: "ophthalmologist",
   dietetics: "dietitian",
   podiatry: "podiatrist",
+  psychiatry: "psychiatrist",
+  psychology: "psychologist",
   other: "specialist",
 };
 
@@ -196,6 +199,13 @@ export function ReferralLetterDocument({ data }: { data: ReferralLetterData }) {
           <Text style={styles.sectionTitle}>Reason for referral</Text>
           <Text>{data.reason ?? "Referred for specialist assessment."}</Text>
         </View>
+
+        {data.requestedService && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Requested service</Text>
+            <Text>{data.requestedService}</Text>
+          </View>
+        )}
 
         {data.triggeringResult && (
           <View style={styles.section}>

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { aiGovernanceDashboardSchema } from "./dashboard-schema";
 import {
@@ -21,10 +22,20 @@ import {
  * screen is the list of what each of them still owes, not a wall of green
  * ticks. See the part-6 registration migration for why they are recorded as
  * live-and-grandfathered rather than switched off or quietly omitted.
+ *
+ * Auth is gated the same delegable-permission way every other admin surface
+ * is (`ai_governance.manage`, added to `PERMISSION_KEYS` in
+ * `@/lib/auth/permissions`) rather than a bare `role === "admin"` check — a
+ * super admin can delegate this without granting the full admin role, same
+ * as partners/orgs/roles management. The RPC/RLS layer enforces its own
+ * stricter admin-or-Clinical-Director check regardless; this is only the
+ * page guard.
  */
 export default async function AiGovernancePage() {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  const { isSuperAdmin, keys } = await getCallerPermissions();
+
+  if (!profile || (!isSuperAdmin && !keys.has("ai_governance.manage"))) {
     redirect("/admin");
   }
 

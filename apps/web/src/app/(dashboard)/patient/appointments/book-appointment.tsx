@@ -1,14 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   useAvailableAppointmentSlots,
   useHoldAppointmentSlot,
   useConfirmAppointmentBooking,
   useJoinWaitingList,
+  useEnsureAppointmentVideoConsultation,
   type AppointmentType,
 } from "@/lib/queries/appointments";
 import { APPOINTMENT_TYPE_LABELS } from "./appointment-labels";
+import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
@@ -23,12 +26,24 @@ function formatSlot(iso: string): string {
   });
 }
 
+/** Appointment types that carry a direct charge, satisfied by a pre-bought
+ * single-use service_purchases credit — see the redemption logic inside
+ * confirm_appointment_booking (20260831163838). Everything else stays free
+ * (payment_status defaults 'not_required'). */
+const PAID_APPOINTMENT_PRODUCT_CODE: Partial<Record<AppointmentType, string>> = {
+  telemedicine: "video_visit_credit",
+  result_interpretation: "result_interpretation_credit",
+};
+
 /**
  * Patient-facing search + book flow (10.11): pick an appointment type,
  * see open slots over the next two weeks, and book one. Booking is
- * hold -> confirm in sequence — most appointment types here carry no direct
- * charge (payment_status defaults 'not_required'), so confirm resolves
- * straight to 'confirmed' with no separate payment step to wait on.
+ * hold -> confirm in sequence. For a free appointment type, confirm resolves
+ * straight to 'confirmed'. For a paid type (video/audio visit, result
+ * interpretation session) with no available credit yet, confirm instead
+ * leaves the hold at 'booked' and this component offers to buy the credit —
+ * checkout redirects back here with ?resume_appointment=<id>, which
+ * re-confirms automatically once the purchase has gone through.
  */
 export function BookAppointment({
   organisationId,
@@ -37,9 +52,16 @@ export function BookAppointment({
   organisationId: string;
   patientId: string;
 }) {
+  const router = useRouter();
   const [appointmentType, setAppointmentType] = useState<AppointmentType>("gp");
   const [consultationMethod, setConsultationMethod] = useState<"telemedicine" | "in_person" | "">("");
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [pendingPaymentAppointment, setPendingPaymentAppointment] = useState<{
+    id: string;
+    productCode: string;
+    slotStart: string;
+  } | null>(null);
+  const [isBuying, setIsBuying] = useState(false);
 
   const { data: slots, isLoading } = useAvailableAppointmentSlots({
     organisationId,
@@ -49,8 +71,33 @@ export function BookAppointment({
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
   const joinWaitingList = useJoinWaitingList();
+  const ensureVideo = useEnsureAppointmentVideoConsultation();
 
-  const isBooking = hold.isPending || confirm.isPending;
+  const isBooking = hold.isPending || confirm.isPending || ensureVideo.isPending;
+
+  // Resume a booking left pending payment: checkout redirected back here
+  // with ?resume_appointment=<id> once the credit purchase succeeded. Read
+  // directly off window.location rather than useSearchParams() so this
+  // component doesn't force the whole page into a Suspense boundary just
+  // for a one-time redirect-back check.
+  useEffect(() => {
+    const resumeId = new URLSearchParams(window.location.search).get("resume_appointment");
+    if (!resumeId) return;
+    router.replace("/patient/appointments");
+    confirm
+      .mutateAsync(resumeId)
+      .then((appt) => {
+        setMessage(
+          appt.status === "confirmed"
+            ? { tone: "success", text: "Payment received — your visit is booked." }
+            : { tone: "error", text: "Payment is still processing — check back in a moment." }
+        );
+      })
+      .catch((error) => {
+        setMessage({ tone: "error", text: (error as Error).message || "Could not confirm your booking." });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function bookSlot(slot: {
     clinician_id: string;
@@ -60,6 +107,7 @@ export function BookAppointment({
     location: string | null;
   }) {
     setMessage(null);
+    setPendingPaymentAppointment(null);
     try {
       const held = await hold.mutateAsync({
         organisationId,
@@ -70,10 +118,68 @@ export function BookAppointment({
         endsAt: slot.slot_end,
         location: slot.location ?? undefined,
       });
-      await confirm.mutateAsync(held.id);
-      setMessage({ tone: "success", text: `Booked for ${formatSlot(slot.slot_start)}.` });
+      const confirmed = await confirm.mutateAsync(held.id);
+
+      if (confirmed.status === "confirmed") {
+        // 68.3/68.5 — a telemedicine booking needs a real Zoom meeting
+        // behind it; set that up now rather than waiting for the patient to
+        // click "Join call" later, so the video-visit page shows a real
+        // link straight away.
+        if (slot.consultation_method === "telemedicine") {
+          try {
+            await ensureVideo.mutateAsync(held.id);
+          } catch {
+            // Booking itself succeeded — the join link can still be set up
+            // later from "Your upcoming appointments"; don't fail the whole
+            // booking over it.
+          }
+        }
+        setMessage({ tone: "success", text: `Booked for ${formatSlot(slot.slot_start)}.` });
+        return;
+      }
+
+      const productCode = PAID_APPOINTMENT_PRODUCT_CODE[appointmentType];
+      if (confirmed.status === "booked" && productCode) {
+        setPendingPaymentAppointment({ id: confirmed.id, productCode, slotStart: slot.slot_start });
+        setMessage({
+          tone: "success",
+          text: `Time held for ${formatSlot(slot.slot_start)} — pay to confirm your booking.`,
+        });
+        return;
+      }
+
+      setMessage({ tone: "error", text: "Could not book that slot — try another." });
     } catch (error) {
       setMessage({ tone: "error", text: (error as Error).message || "Could not book that slot — try another." });
+    }
+  }
+
+  async function payForPendingAppointment() {
+    if (!pendingPaymentAppointment) return;
+    setIsBuying(true);
+    setMessage(null);
+    try {
+      const result = await purchaseServiceProduct({
+        serviceProductCode: pendingPaymentAppointment.productCode,
+        callbackPath: `/patient/appointments?resume_appointment=${pendingPaymentAppointment.id}`,
+      });
+      if (result?.error) {
+        setMessage({ tone: "error", text: result.error });
+        setIsBuying(false);
+        return;
+      }
+      if (result?.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      if (result?.activated) {
+        // No charge to run (shouldn't happen for a priced credit, but stay
+        // consistent with purchaseServiceProduct's own contract) — resume
+        // immediately.
+        router.replace(`/patient/appointments?resume_appointment=${pendingPaymentAppointment.id}`);
+      }
+    } finally {
+      setIsBuying(false);
     }
   }
 
@@ -139,6 +245,17 @@ export function BookAppointment({
           <p className={`text-sm ${message.tone === "success" ? "text-brand-green" : "text-red-600"}`}>
             {message.text}
           </p>
+        )}
+
+        {pendingPaymentAppointment && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
+            <p className="text-sm text-charcoal-ink">
+              Your slot for {formatSlot(pendingPaymentAppointment.slotStart)} is held — pay now to confirm it.
+            </p>
+            <Button size="sm" className="ml-auto" disabled={isBuying} onClick={payForPendingAppointment}>
+              {isBuying ? "Redirecting to payment…" : "Pay to confirm"}
+            </Button>
+          </div>
         )}
 
         {isLoading && <p className="text-sm text-charcoal-ink/60">Looking for open times…</p>}

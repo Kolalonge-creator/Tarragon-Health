@@ -9,14 +9,21 @@ import {
   useInAppNotifications,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
+  useRespondToNotification,
   type InAppNotification,
 } from "@/lib/queries/notifications";
+
+interface ResponseOption {
+  label: string;
+  value: string;
+}
 
 /** Renders each in-app template's payload as a short line + a link to where
  * it's actually acted on. Add a case here for every new in_app template —
  * anything unmapped still shows (generic text, dashboard link) rather than
- * silently disappearing from the bell. */
-function describe(n: InAppNotification): { text: string; href: string } {
+ * silently disappearing from the bell. Exported so the communication-history
+ * card (17.8) can reuse the same copy instead of a second, drifting mapping. */
+export function describe(n: InAppNotification): { text: string; href: string } {
   const payload = (n.payload ?? {}) as Record<string, unknown>;
   if (n.template === "health_education_unlock") {
     const title = String(payload.lesson_title ?? "a new lesson");
@@ -83,6 +90,31 @@ function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text: "Your doctor offered a different time for your video visit: pick one",
       href: "/patient/care",
+    };
+  }
+  if (n.template === "lab_result_consult_request_pending") {
+    // From private.notify_new_lab_result_consult_request() — a patient just
+    // paid the self-arranged lab-result consultation fee. Org-wide (any
+    // active, non-Care-Coordinator clinician can pick it up), so this fires
+    // for every clinician on the team, not just one assigned doctor.
+    return {
+      text: "A patient paid for a lab-result consultation: pick a time",
+      href: "/clinician/lab-result-consults",
+    };
+  }
+  if (n.template === "lab_result_consult_booked" || n.template === "lab_result_consult_rescheduled") {
+    const rescheduled = n.template === "lab_result_consult_rescheduled";
+    return {
+      text: rescheduled
+        ? "Your lab-result consultation was rescheduled"
+        : "Your lab-result consultation is booked",
+      href: "/patient/labs",
+    };
+  }
+  if (n.template === "lab_result_consult_needs_rescheduling") {
+    return {
+      text: "Your doctor can no longer make your lab-result consultation — it needs a new time",
+      href: "/patient/labs",
     };
   }
   if (n.template === "care_access_view_request" || n.template === "care_access_manage_request") {
@@ -196,6 +228,17 @@ function describe(n: InAppNotification): { text: string; href: string } {
         ? `You are now paying for ${String(payload.person_name ?? "someone")}'s ${planName}`
         : `${String(payload.sponsor_name ?? "Someone")} is now paying for your ${planName}`,
       href: isPayer ? "/patient/supporting" : "/patient/subscription",
+    };
+  }
+  if (n.template === "care_message_safety_flag") {
+    // From private.after_care_message_insert_safety_screen() (17.12) — a
+    // patient/sponsor care message matched the deterministic danger-phrase
+    // safety screen. Always clinical content, always in_app-first per
+    // private.notify_clinician_alert() — this is the proactive page, the
+    // clinician_alerts worklist entry is the record of it.
+    return {
+      text: "Priority 1: a care message may describe an emergency, needs review now",
+      href: "/clinician/escalations",
     };
   }
   if (n.template === "critical_notification_escalation_exhausted") {
@@ -340,6 +383,90 @@ function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/subscription",
     };
   }
+  if (n.template === "care_access_revoked") {
+    // From private.revoke_care_access() (care_graph_unification.sql).
+    // by_owner tells the RECIPIENT who acted: true when the owner revoked
+    // someone else's access (recipient is the grantee who lost it), false
+    // when the grantee gave up their own access (recipient is the owner).
+    const byOwner = payload.by_owner === true;
+    const ownerName = String(payload.owner_name ?? "Someone");
+    const granteeName = String(payload.grantee_name ?? "Someone");
+    return {
+      text: byOwner ? `${ownerName} revoked your care access` : `${granteeName} gave up their care access`,
+      href: "/patient/family",
+    };
+  }
+  if (n.template === "clinical_staff_indemnity_lapse" || n.template === "clinical_staff_license_lapse") {
+    // From clinical_staff_indemnity_lapse_notify.sql /
+    // clinical_staff_license_expiry_tracking.sql. payload.message is
+    // already the fully-resolved admin-facing sentence -- same
+    // "no branching to reproduce" shape as clinician_alert_ack_timeout_*.
+    return { text: String(payload.message ?? "A clinician's credentials need review"), href: "/admin" };
+  }
+  if (n.template === "clinician_alert_sla_breach") {
+    // From clinician_alert_sla_breach_escalation.sql. Same pre-resolved
+    // payload.message shape.
+    return {
+      text: String(payload.message ?? "An open clinician alert breached its resolution SLA"),
+      href: "/clinician/escalations",
+    };
+  }
+  if (n.template === "data_breach_deadline") {
+    // From data_breach_incidents.sql. Same pre-resolved payload.message shape.
+    return { text: String(payload.message ?? "An NDPC breach-notification deadline needs attention"), href: "/admin" };
+  }
+  if (n.template === "partner_license_expiry") {
+    // From partner_regulatory_license_tracking.sql. Same pre-resolved
+    // payload.message shape.
+    return { text: String(payload.message ?? "A partner facility's license needs review"), href: "/admin" };
+  }
+  if (n.template === "health_passport_attestation_declined") {
+    const reason = String(payload.reason ?? "").trim();
+    return {
+      text: reason ? `Your passport attestation request was declined: ${reason}` : "Your passport attestation request was declined",
+      href: "/patient/health-passport",
+    };
+  }
+  if (n.template === "health_passport_attested") {
+    return { text: "Your health passport attestation is complete", href: "/patient/health-passport" };
+  }
+  if (n.template === "health_passport_revoked") {
+    const serial = String(payload.serial ?? "");
+    const reason = String(payload.reason ?? "").trim();
+    return {
+      text: reason
+        ? `Your health passport credential${serial ? ` (${serial})` : ""} was revoked: ${reason}`
+        : `Your health passport credential${serial ? ` (${serial})` : ""} was revoked`,
+      href: "/patient/health-passport",
+    };
+  }
+  if (n.template === "health_passport_verified") {
+    const serial = String(payload.serial ?? "");
+    return {
+      text: serial ? `Your vaccination certificate is verified (passport ${serial})` : "Your vaccination certificate is verified",
+      href: "/patient/health-passport",
+    };
+  }
+  if (n.template === "screening_upcoming" || n.template === "screening_overdue" || n.template === "screening_escalated") {
+    // From escalating_preventive_reminders.sql -- the overdue/escalated
+    // siblings of screening_due above, same payload shape.
+    const screen = String(payload.screen_type_name ?? "A screening");
+    const label =
+      n.template === "screening_upcoming" ? "is coming up soon"
+      : n.template === "screening_overdue" ? "is overdue"
+      : "is overdue: your care team may follow up";
+    return { text: `${screen} ${label}`, href: "/patient/prevention" };
+  }
+  if (n.template === "vaccination_upcoming" || n.template === "vaccination_overdue" || n.template === "vaccination_escalated") {
+    // From escalating_preventive_reminders.sql -- the overdue/escalated
+    // siblings of vaccination_due above, same payload shape.
+    const vaccine = String(payload.vaccine_name ?? "A vaccination");
+    const label =
+      n.template === "vaccination_upcoming" ? "is coming up soon"
+      : n.template === "vaccination_overdue" ? "is overdue"
+      : "is overdue: your care team may follow up";
+    return { text: `${vaccine} ${label}`, href: "/patient/prevention" };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 
@@ -361,6 +488,7 @@ export function NotificationBell() {
   const { data } = useInAppNotifications();
   const markRead = useMarkNotificationRead();
   const markAllRead = useMarkAllNotificationsRead();
+  const respond = useRespondToNotification();
 
   React.useEffect(() => {
     if (!open) return;
@@ -425,6 +553,14 @@ export function NotificationBell() {
               <ul className="divide-y divide-charcoal-ink/10">
                 {items.map((n) => {
                   const { text } = describe(n);
+                  // Two-way communication (17.9) — a quick-reply option set
+                  // attached at send time (e.g. appointment_reminder's
+                  // confirm/reschedule/cancel/need_help). Rendered as its
+                  // own row of buttons, never folded into the row's own
+                  // click-to-navigate button, so tapping a reply doesn't
+                  // also navigate away.
+                  const options = (n.response_options ?? []) as unknown as ResponseOption[];
+                  const canRespond = options.length > 0 && !n.responded_at;
                   return (
                     <li key={n.id}>
                       <button
@@ -448,6 +584,39 @@ export function NotificationBell() {
                           </span>
                         </span>
                       </button>
+                      {canRespond && (
+                        <div className="flex flex-wrap gap-1.5 px-4 pb-3">
+                          {options.map((o) => (
+                            <button
+                              key={o.value}
+                              type="button"
+                              disabled={respond.isPending}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                respond.mutate(
+                                  { id: n.id, value: o.value },
+                                  {
+                                    onSuccess: (result) => {
+                                      if (result.redirect) {
+                                        setOpen(false);
+                                        router.push(result.redirect);
+                                      }
+                                    },
+                                  },
+                                );
+                              }}
+                              className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-xs font-medium text-charcoal-ink hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+                            >
+                              {o.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {n.responded_at && options.length > 0 && (
+                        <p className="px-4 pb-3 text-xs text-charcoal-ink/50">
+                          You responded: {options.find((o) => o.value === n.response_value)?.label ?? n.response_value}
+                        </p>
+                      )}
                     </li>
                   );
                 })}

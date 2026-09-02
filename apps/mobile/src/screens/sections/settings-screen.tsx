@@ -101,10 +101,10 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
         />
         <ProfileTile
           icon="card-outline"
-          label="Subscription"
+          label="My services"
           // System browser, never the in-app WebView — MOBILE_APP_SPEC.md §7:
           // embedding checkout risks Apple App Store Review 3.1.1 (digital
-          // subscriptions must use IAP unless bought outside the app).
+          // purchases must use IAP unless bought outside the app).
           onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/subscription`)}
         />
       </View>
@@ -184,7 +184,7 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
 }
 
 /** Larger shortcut tile for the two account-level destinations that live
- * outside this screen (profile data in a webview, subscription in the
+ * outside this screen (profile data in a webview, services purchasing in the
  * system browser) — "Profile data / Settings" in the reference design. */
 function ProfileTile({
   icon,
