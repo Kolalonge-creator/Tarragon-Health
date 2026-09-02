@@ -68,7 +68,8 @@ begin
             case when r.key_name = 'adolescent' then (current_date - interval '15 years')::date
                  else date '1990-01-01' end)
     on conflict (id) do update
-      set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+      set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name,
+          date_of_birth = excluded.date_of_birth;
   end loop;
 
   insert into public.reproductive_health_profiles (organisation_id, patient_id, life_stage)
@@ -93,8 +94,8 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_adult::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  insert into public.profile_access (profile_id, grantee_user_id, permission_level)
-  values (v_adult, v_grantee, 'view')
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
+  values (v_adult, v_grantee, 'view', v_adult)
   returning id into v_grant_id;
   reset role;
 
@@ -125,8 +126,8 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_adult::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  insert into public.profile_access (profile_id, grantee_user_id, permission_level)
-  values (v_adult, v_grantee, 'view')
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
+  values (v_adult, v_grantee, 'view', v_adult)
   returning id into v_grant_id;
   perform public.set_care_access_categories(v_grant_id, array['reproductive_health']::public.care_access_category[]);
   reset role;
@@ -153,6 +154,7 @@ do $$
 declare
   v_adolescent uuid := (select v from rhp_fixture where k = 'adolescent');
   v_grantee uuid := (select v from rhp_fixture where k = 'adolescent_waived_to');
+  v_org uuid := (select v from rhp_fixture where k = 'org');
   v_grant_id uuid;
   v_count_before bigint;
   v_count_after bigint;
@@ -160,8 +162,8 @@ begin
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_adolescent::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  insert into public.profile_access (profile_id, grantee_user_id, permission_level)
-  values (v_adolescent, v_grantee, 'view')
+  insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
+  values (v_adolescent, v_grantee, 'view', v_adolescent)
   returning id into v_grant_id;
   perform public.set_care_access_categories(v_grant_id, array['reproductive_health']::public.care_access_category[]);
   reset role;
@@ -183,7 +185,7 @@ begin
     json_build_object('sub', v_adolescent::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into public.adolescent_confidentiality_waivers (organisation_id, patient_id, grantee_user_id, domain)
-  values ((select v from rhp_fixture where k = 'org'), v_adolescent, v_grantee, 'sexual_reproductive_health');
+  values (v_org, v_adolescent, v_grantee, 'sexual_reproductive_health');
   reset role;
 
   perform set_config('request.jwt.claims',
