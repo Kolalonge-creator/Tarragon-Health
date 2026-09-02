@@ -2,7 +2,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 
-export type MenstrualCycleLog = Tables<"menstrual_cycle_logs">;
 export type AntenatalVisit = Tables<"antenatal_visits">;
 export type PostnatalProfile = Tables<"postnatal_profiles">;
 export type PostnatalCheckin = Tables<"postnatal_checkins">;
@@ -17,28 +16,6 @@ export type FertilityAssessmentRequest = Tables<"fertility_assessment_requests">
  * invalidates the matching query key here — see danger-symptom-check.tsx for
  * the pattern this follows.
  */
-
-export function menstrualCycleLogsKey(patientId: string) {
-  return ["menstrual-cycle-logs", patientId];
-}
-
-export function useMenstrualCycleLogs(patientId: string) {
-  return useQuery({
-    queryKey: menstrualCycleLogsKey(patientId),
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("menstrual_cycle_logs")
-        .select("*")
-        .eq("patient_id", patientId)
-        .order("period_start_date", { ascending: false })
-        .limit(12);
-      if (error) throw error;
-      return (data ?? []) as MenstrualCycleLog[];
-    },
-    enabled: !!patientId,
-  });
-}
 
 export function antenatalVisitsKey(patientId: string) {
   return ["antenatal-visits", patientId];
@@ -173,7 +150,6 @@ export function useFertilityAssessmentRequests(patientId: string) {
 export function useInvalidateWomensHealth(patientId: string) {
   const queryClient = useQueryClient();
   return () => {
-    void queryClient.invalidateQueries({ queryKey: menstrualCycleLogsKey(patientId) });
     void queryClient.invalidateQueries({ queryKey: antenatalVisitsKey(patientId) });
     void queryClient.invalidateQueries({ queryKey: postnatalProfilesKey(patientId) });
     void queryClient.invalidateQueries({ queryKey: breastSymptomReportsKey(patientId) });

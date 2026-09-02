@@ -8,45 +8,10 @@ import { z } from "zod";
  */
 
 // --- Menstrual cycle log (§44.3/44.4) ---------------------------------------
-
-export const MENSTRUAL_SYMPTOMS = [
-  "cramps",
-  "bloating",
-  "mood_changes",
-  "headache",
-  "fatigue",
-  "nausea",
-  "breast_tenderness",
-  "other",
-] as const;
-export type MenstrualSymptom = (typeof MENSTRUAL_SYMPTOMS)[number];
-
-export const MENSTRUAL_SYMPTOM_LABEL: Record<MenstrualSymptom, string> = {
-  cramps: "Cramps",
-  bloating: "Bloating",
-  mood_changes: "Mood changes",
-  headache: "Headache",
-  fatigue: "Fatigue",
-  nausea: "Nausea",
-  breast_tenderness: "Breast tenderness",
-  other: "Other",
-};
-
-export const FLOW_LEVELS = ["spotting", "light", "medium", "heavy"] as const;
-export type FlowLevel = (typeof FLOW_LEVELS)[number];
-
-export const menstrualCycleLogSchema = z.object({
-  period_start_date: z.string().refine((v) => !Number.isNaN(Date.parse(v)), "Enter a valid date"),
-  period_end_date: z
-    .string()
-    .refine((v) => v === "" || !Number.isNaN(Date.parse(v)), "Enter a valid date")
-    .optional(),
-  flow_level: z.enum(FLOW_LEVELS).optional(),
-  pain_level: z.coerce.number().int().min(0).max(10).optional(),
-  symptoms: z.array(z.enum(MENSTRUAL_SYMPTOMS)).default([]),
-  notes: z.string().max(1000).optional(),
-});
-export type MenstrualCycleLogInput = z.infer<typeof menstrualCycleLogSchema>;
+//
+// Superseded by the dedicated cycle tracker's own schema/validation
+// (menstrual_cycles / menstrual_daily_logs) — see
+// lib/queries/menstrual-cycle.ts and lib/rules/cycle-prediction.ts.
 
 // --- Pregnancy red-flag safety pathway (§44.8) ------------------------------
 

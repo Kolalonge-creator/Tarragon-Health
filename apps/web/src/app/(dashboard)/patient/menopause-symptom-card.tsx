@@ -15,8 +15,8 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 /**
- * Menopause (§44.12): symptom tracking, informational only (same discipline
- * as menstrual_cycle_logs). Lifestyle support and clinical consultation are
+ * Menopause (§44.12): symptom tracking, informational only. Lifestyle
+ * support and clinical consultation are
  * existing health_education content and the existing appointment engine —
  * no schema for those. Treatment monitoring (e.g. HRT) is the patient's
  * existing Medications list, not a parallel tracker here.

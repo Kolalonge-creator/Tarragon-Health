@@ -3,8 +3,9 @@
 -- reproductive_health_profiles already carries perimenopausal/menopausal as
 -- life_stage values with a nudge ("care-team conversation"). This adds the
 -- actual symptom log the spec asks for (hot flashes, mood, sleep, etc. with
--- severity) — patient-writable, informational, same discipline as
--- menstrual_cycle_logs. "Lifestyle support" and "clinical consultation" are
+-- severity) — patient-writable, informational, same discipline as the
+-- menstrual cycle tracker's own clinical flags. "Lifestyle support" and
+-- "clinical consultation" are
 -- existing health_education content + the existing appointment engine (no
 -- schema needed); "treatment monitoring" reuses the existing medications /
 -- medication_logs tables (HRT is an ordinary prescribed medication) rather

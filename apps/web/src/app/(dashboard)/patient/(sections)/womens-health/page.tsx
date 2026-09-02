@@ -6,7 +6,6 @@ import { contraceptionCautionNote, menopauseTreatmentCautionNote, type CarePlanC
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-health-card";
-import { MenstrualCycleCard } from "@/app/(dashboard)/patient/menstrual-cycle-card";
 import { ContraceptionCard } from "@/app/(dashboard)/patient/contraception-card";
 import { AntenatalCard } from "@/app/(dashboard)/patient/antenatal-card";
 import { PregnancyRedFlagCheck } from "@/app/(dashboard)/patient/pregnancy-red-flag-check";
@@ -75,7 +74,6 @@ export default async function WomensHealthPage() {
       })
     : null;
 
-  const showMenstrualTools = lifeStage === "menstruating" && !isPregnant;
   const showContraception = !isPregnant && lifeStage !== "postpartum";
   const showFertility = lifeStage === "trying_to_conceive";
   const showMenopause = lifeStage === "perimenopausal" || lifeStage === "menopausal";
@@ -126,8 +124,6 @@ export default async function WomensHealthPage() {
       )}
 
       {showPostnatal && <PostnatalCard patientId={subjectId} />}
-
-      {showMenstrualTools && <MenstrualCycleCard patientId={subjectId} />}
 
       {showContraception && (
         <ContraceptionCard

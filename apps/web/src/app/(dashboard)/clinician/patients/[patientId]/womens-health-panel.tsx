@@ -8,8 +8,13 @@ import { FertilityRequestStatusForm } from "./fertility-request-status-form";
  * except for progressing a fertility_assessment_requests row (the one place
  * this pathway is deliberately staff-gated, see the migration's RLS notes).
  * Everything else already surfaces where a clinician already looks: pattern
- * alerts (menstrual/breast/menopause) land in the existing clinician_alerts
- * inbox, not duplicated here.
+ * alerts (breast/menopause) land in the existing clinician_alerts inbox, not
+ * duplicated here. Menstrual cycle history reads from the dedicated tracker's
+ * own tables (menstrual_cycles) — org staff get read-only access there too,
+ * see 20260902195456_menstrual_cycle_tracking.sql. Its own clinical flags
+ * (postmenopausal bleeding, prolonged/heavy bleeding, amenorrhoea) are
+ * deliberately a patient-facing, human-read prompt rather than a
+ * clinician_alerts row — see that migration's notes.
  */
 export async function WomensHealthPanel({ patientId }: { patientId: string }) {
   const supabase = await createClient();
@@ -34,8 +39,8 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
       .eq("patient_id", patientId)
       .order("gestational_week_at_visit", { ascending: true }),
     supabase
-      .from("menstrual_cycle_logs")
-      .select("id, period_start_date, flow_level, pain_level")
+      .from("menstrual_cycles")
+      .select("id, period_start_date, period_end_date")
       .eq("patient_id", patientId)
       .order("period_start_date", { ascending: false })
       .limit(5),
@@ -109,14 +114,13 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
       {cycleLogs && cycleLogs.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Recent menstrual cycle logs</CardTitle>
+            <CardTitle className="text-base">Recent periods logged</CardTitle>
           </CardHeader>
           <CardContent className="space-y-1 text-sm">
             {cycleLogs.map((log) => (
               <p key={log.id}>
                 {log.period_start_date}
-                {log.flow_level ? ` · ${log.flow_level} flow` : ""}
-                {log.pain_level != null ? ` · pain ${log.pain_level}/10` : ""}
+                {log.period_end_date ? ` to ${log.period_end_date}` : " (open)"}
               </p>
             ))}
           </CardContent>

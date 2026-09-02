@@ -3,7 +3,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { resolveSubjectId } from "@/lib/acting/acting-for";
 import {
-  menstrualCycleLogSchema,
   breastSymptomReportSchema,
   menopauseSymptomLogSchema,
   fertilityAssessmentRequestSchema,
@@ -35,37 +34,11 @@ async function currentSubjectOrg(): Promise<
 }
 
 // --- Menstrual cycle log (§44.3/44.4) ---------------------------------------
-
-export async function logMenstrualCycle(
-  _prev: WomensHealthActionState,
-  formData: FormData
-): Promise<WomensHealthActionState> {
-  const parsed = menstrualCycleLogSchema.safeParse({
-    period_start_date: formData.get("period_start_date"),
-    period_end_date: formData.get("period_end_date") || undefined,
-    flow_level: formData.get("flow_level") || undefined,
-    pain_level: formData.get("pain_level") || undefined,
-    symptoms: formData.getAll("symptoms"),
-    notes: formData.get("notes") || undefined,
-  });
-  if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
-
-  const ctx = await currentSubjectOrg();
-  if ("error" in ctx) return { error: ctx.error };
-
-  const { error } = await ctx.supabase.from("menstrual_cycle_logs").insert({
-    patient_id: ctx.subjectId,
-    organisation_id: ctx.organisationId,
-    period_start_date: parsed.data.period_start_date,
-    period_end_date: parsed.data.period_end_date || null,
-    flow_level: parsed.data.flow_level,
-    pain_level: parsed.data.pain_level,
-    symptoms: parsed.data.symptoms,
-    notes: parsed.data.notes,
-  });
-  if (error) return { error: error.message };
-  return { success: true };
-}
+//
+// Superseded by the dedicated cycle tracker (menstrual_cycles /
+// menstrual_daily_logs, lib/queries/menstrual-cycle.ts, /patient/cycle) —
+// see the reconciliation note in the menstrual_cycle_tracking migration.
+// This file no longer owns any menstrual-cycle write path.
 
 // --- Contraception (§44.5) --------------------------------------------------
 
