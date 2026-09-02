@@ -52,6 +52,7 @@ comment on function private.can_handle_support_escalation(uuid) is
 
 revoke all on function private.can_handle_support_escalation(uuid) from public;
 revoke all on function private.can_handle_support_escalation(uuid) from anon;
+revoke all on function private.can_handle_support_escalation(uuid) from public, anon;
 
 -- Redefine once more to add the escalation-authority gate: only
 -- private.can_handle_support_escalation() may set/clear escalated_alert_id,

@@ -39,7 +39,7 @@ $$;
 comment on function public.public_price_list() is
   'Prices of on-sale service products, for the public marketing site. Deliberately returns no features, no provider references and no inactive rows.';
 
-revoke all on function public.public_price_list() from public;
+revoke all on function public.public_price_list() from public, anon;
 grant execute on function public.public_price_list() to anon, authenticated;
 
 do $$

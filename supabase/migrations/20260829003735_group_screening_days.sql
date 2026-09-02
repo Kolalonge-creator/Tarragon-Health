@@ -569,6 +569,11 @@ revoke all on function public.add_screening_day_slot(uuid, text, text) from publ
 revoke all on function public.add_screening_day_slot(uuid, text, text) from anon;
 revoke all on function public.issue_screening_day_voucher(uuid, uuid) from public;
 revoke all on function public.issue_screening_day_voucher(uuid, uuid) from anon;
+revoke all on function public.request_screening_day(text, text, text, date, uuid, integer, text) from public, anon;
+revoke all on function public.confirm_screening_day(uuid, integer, numeric, uuid) from public, anon;
+revoke all on function public.record_screening_day_payment_intent(uuid, bigint, text, bigint, public.payment_provider, text) from public, anon;
+revoke all on function public.add_screening_day_slot(uuid, text, text) from public, anon;
+revoke all on function public.issue_screening_day_voucher(uuid, uuid) from public, anon;
 
 grant execute on function public.request_screening_day(text, text, text, date, uuid, integer, text) to authenticated;
 grant execute on function public.confirm_screening_day(uuid, integer, numeric, uuid) to authenticated;

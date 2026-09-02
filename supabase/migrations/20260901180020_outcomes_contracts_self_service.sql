@@ -111,6 +111,7 @@ $$;
 
 revoke all on function public.propose_outcomes_contract_change(uuid, text, jsonb, text, date) from public;
 revoke all on function public.propose_outcomes_contract_change(uuid, text, jsonb, text, date) from anon;
+revoke all on function public.propose_outcomes_contract_change(uuid, text, jsonb, text, date) from public, anon;
 grant execute on function public.propose_outcomes_contract_change(uuid, text, jsonb, text, date) to authenticated;
 
 -- ---------------------------------------------------------------------------
@@ -157,6 +158,7 @@ $$;
 
 revoke all on function public.approve_outcomes_contract_request(uuid, text) from public;
 revoke all on function public.approve_outcomes_contract_request(uuid, text) from anon;
+revoke all on function public.approve_outcomes_contract_request(uuid, text) from public, anon;
 grant execute on function public.approve_outcomes_contract_request(uuid, text) to authenticated;
 
 create or replace function public.reject_outcomes_contract_request(p_id uuid, p_reason text)
@@ -189,6 +191,7 @@ $$;
 
 revoke all on function public.reject_outcomes_contract_request(uuid, text) from public;
 revoke all on function public.reject_outcomes_contract_request(uuid, text) from anon;
+revoke all on function public.reject_outcomes_contract_request(uuid, text) from public, anon;
 grant execute on function public.reject_outcomes_contract_request(uuid, text) to authenticated;
 
 do $$

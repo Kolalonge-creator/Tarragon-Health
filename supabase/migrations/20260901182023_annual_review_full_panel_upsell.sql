@@ -112,7 +112,7 @@ begin
 end;
 $$;
 
-revoke all on function public.apply_full_panel_to_review(uuid) from public;
+revoke all on function public.apply_full_panel_to_review(uuid) from public, anon;
 grant execute on function public.apply_full_panel_to_review(uuid) to authenticated;
 revoke execute on function public.apply_full_panel_to_review(uuid) from anon;
 

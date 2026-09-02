@@ -454,6 +454,8 @@ revoke execute on function public.lookup_concept(public.reference_concept_domain
 revoke execute on function public.lookup_concept(public.reference_concept_domain, text, numeric, integer) from anon;
 revoke execute on function public.translate_concept(uuid, text) from public;
 revoke execute on function public.translate_concept(uuid, text) from anon;
+revoke execute on function public.lookup_concept(public.reference_concept_domain, text, numeric, integer) from public, anon;
+revoke execute on function public.translate_concept(uuid, text) from public, anon;
 grant execute on function public.lookup_concept(public.reference_concept_domain, text, numeric, integer) to authenticated, service_role;
 grant execute on function public.translate_concept(uuid, text) to authenticated, service_role;
 

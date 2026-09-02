@@ -150,6 +150,7 @@ comment on function private.can_review_complaint_governance(uuid) is
 
 revoke all on function private.can_review_complaint_governance(uuid) from public;
 revoke all on function private.can_review_complaint_governance(uuid) from anon;
+revoke all on function private.can_review_complaint_governance(uuid) from public, anon;
 
 create or replace function private.enforce_complaint_write()
 returns trigger
@@ -204,7 +205,7 @@ begin
 end;
 $$;
 
-revoke all on function private.enforce_complaint_write() from public;
+revoke all on function private.enforce_complaint_write() from public, anon;
 
 create trigger complaints_enforce_write
   before insert or update on public.complaints

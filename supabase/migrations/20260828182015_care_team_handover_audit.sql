@@ -151,7 +151,7 @@ comment on function public.hand_over_care(uuid, text, uuid, text) is
   'See 20260827210136_care_team_handover_audit.sql. The plain CareTeamForm upsert path still '
   'works and still gets logged — just without a note.';
 
-revoke all on function public.hand_over_care(uuid, text, uuid, text) from public;
+revoke all on function public.hand_over_care(uuid, text, uuid, text) from public, anon;
 grant execute on function public.hand_over_care(uuid, text, uuid, text) to authenticated;
 revoke execute on function public.hand_over_care(uuid, text, uuid, text) from anon;
 

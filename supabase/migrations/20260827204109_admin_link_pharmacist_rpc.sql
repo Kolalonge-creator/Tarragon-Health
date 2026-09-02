@@ -40,6 +40,7 @@ $$;
 grant execute on function public.admin_link_pharmacist(uuid, uuid) to authenticated;
 revoke execute on function public.admin_link_pharmacist(uuid, uuid) from public;
 revoke execute on function public.admin_link_pharmacist(uuid, uuid) from anon;
+revoke execute on function public.admin_link_pharmacist(uuid, uuid) from public, anon;
 
 do $$
 begin

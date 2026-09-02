@@ -41,6 +41,7 @@ $$;
 
 revoke execute on function public.get_available_doctor_checkin_slots(uuid, date, date) from public;
 revoke execute on function public.get_available_doctor_checkin_slots(uuid, date, date) from anon;
+revoke execute on function public.get_available_doctor_checkin_slots(uuid, date, date) from public, anon;
 grant execute on function public.get_available_doctor_checkin_slots(uuid, date, date) to authenticated;
 
 -- ---------------------------------------------------------------------------

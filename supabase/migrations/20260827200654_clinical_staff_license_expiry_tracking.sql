@@ -124,6 +124,7 @@ comment on function private.notify_clinical_staff_license_lapses() is
 
 revoke all on function private.notify_clinical_staff_license_lapses() from public;
 revoke all on function private.notify_clinical_staff_license_lapses() from anon;
+revoke all on function private.notify_clinical_staff_license_lapses() from public, anon;
 
 select cron.schedule(
   'clinical-staff-license-lapse-notify',

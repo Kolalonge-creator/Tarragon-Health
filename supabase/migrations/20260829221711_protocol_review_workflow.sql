@@ -142,7 +142,7 @@ create trigger protocol_drafts_enforce_attribution
   before insert or update on public.protocol_drafts
   for each row execute function private.enforce_protocol_draft_attribution();
 
-revoke all on function private.enforce_protocol_draft_attribution() from public;
+revoke all on function private.enforce_protocol_draft_attribution() from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- Review comments -- any clinical staff may leave one on a draft, append-
@@ -212,7 +212,7 @@ create trigger protocol_draft_comments_enforce_attribution
   before insert on public.protocol_draft_comments
   for each row execute function private.enforce_protocol_draft_comment_attribution();
 
-revoke all on function private.enforce_protocol_draft_comment_attribution() from public;
+revoke all on function private.enforce_protocol_draft_comment_attribution() from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- Promote / reject -- Director-only (mirrors stamp_protocol_version_approver
@@ -276,7 +276,7 @@ $$;
 comment on function public.promote_protocol_draft(uuid) is
   'Director-only. Inserts the draft''s content into protocol_versions (the same insert the existing protocol UI performs -- stamp_protocol_version_approver still does the real attribution/authority enforcement) and marks the draft promoted. The one path from a reviewed draft to a signed protocol version.';
 
-revoke all on function public.promote_protocol_draft(uuid) from public;
+revoke all on function public.promote_protocol_draft(uuid) from public, anon;
 revoke all on function public.promote_protocol_draft(uuid) from anon;
 grant execute on function public.promote_protocol_draft(uuid) to authenticated;
 
@@ -319,7 +319,7 @@ $$;
 comment on function public.reject_protocol_draft(uuid, text) is
   'Director-only. Terminal -- a rejected draft cannot be revived; author starts a new one if the protocol still needs the change.';
 
-revoke all on function public.reject_protocol_draft(uuid, text) from public;
+revoke all on function public.reject_protocol_draft(uuid, text) from public, anon;
 revoke all on function public.reject_protocol_draft(uuid, text) from anon;
 grant execute on function public.reject_protocol_draft(uuid, text) to authenticated;
 

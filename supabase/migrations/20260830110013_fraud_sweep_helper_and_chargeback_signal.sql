@@ -43,6 +43,8 @@ $$;
 revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from public;
 revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from anon;
 revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from authenticated;
+-- the same trust boundary every other cron route already relies on.
+revoke all on function public.payments_with_payer_for_fraud_sweep(timestamptz, timestamptz) from public, anon;
 
 alter table public.payment_fraud_signals drop constraint payment_fraud_signals_signal_type_check;
 alter table public.payment_fraud_signals add constraint payment_fraud_signals_signal_type_check

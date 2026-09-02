@@ -179,6 +179,8 @@ grant execute on function public.has_feature_access(text) to authenticated;
 
 revoke execute on function public.has_ai_coach_access() from public;
 revoke execute on function public.has_ai_coach_access() from anon;
+revoke execute on function public.has_feature_access(text) from public, anon;
+revoke execute on function public.has_ai_coach_access() from public, anon;
 grant execute on function public.has_ai_coach_access() to authenticated;
 
 -- private.patient_has_feature_access carries no PostgREST/anon grant surface

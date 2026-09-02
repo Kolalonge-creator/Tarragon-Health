@@ -303,7 +303,7 @@ $$;
 comment on function public.search_patient_record(uuid, text) is
   'Unified ranked search across a single patient''s conditions/allergies/medications/screening results/documents/imaging. Authorization checked explicitly inside (SECURITY DEFINER bypasses RLS): self, org staff, or an explicit clinical-access grantee. See docs/PATIENT_HEALTH_RECORD_ARCHITECTURE.md §1.19.';
 
-revoke execute on function public.search_patient_record(uuid, text) from public;
+revoke execute on function public.search_patient_record(uuid, text) from public, anon;
 revoke execute on function public.search_patient_record(uuid, text) from anon;
 grant execute on function public.search_patient_record(uuid, text) to authenticated;
 

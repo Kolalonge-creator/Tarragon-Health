@@ -318,7 +318,7 @@ begin
 end;
 $$;
 
-revoke all on function public.get_population_members(uuid) from public;
+revoke all on function public.get_population_members(uuid) from public, anon;
 revoke all on function public.get_population_members(uuid) from anon;
 grant execute on function public.get_population_members(uuid) to authenticated;
 
@@ -365,7 +365,7 @@ as $$
   );
 $$;
 
-revoke all on function public.get_population_summary(uuid) from public;
+revoke all on function public.get_population_summary(uuid) from public, anon;
 revoke all on function public.get_population_summary(uuid) from anon;
 grant execute on function public.get_population_summary(uuid) to authenticated;
 
@@ -436,7 +436,7 @@ as $$
   );
 $$;
 
-revoke all on function public.get_population_outcomes(uuid) from public;
+revoke all on function public.get_population_outcomes(uuid) from public, anon;
 revoke all on function public.get_population_outcomes(uuid) from anon;
 grant execute on function public.get_population_outcomes(uuid) to authenticated;
 
@@ -503,7 +503,7 @@ begin
 end;
 $$;
 
-revoke all on function public.get_campaign_effectiveness(uuid) from public;
+revoke all on function public.get_campaign_effectiveness(uuid) from public, anon;
 revoke all on function public.get_campaign_effectiveness(uuid) from anon;
 grant execute on function public.get_campaign_effectiveness(uuid) to authenticated;
 
@@ -598,7 +598,7 @@ begin
 end;
 $$;
 
-revoke all on function public.trigger_population_outreach(uuid) from public;
+revoke all on function public.trigger_population_outreach(uuid) from public, anon;
 revoke all on function public.trigger_population_outreach(uuid) from anon;
 grant execute on function public.trigger_population_outreach(uuid) to authenticated;
 

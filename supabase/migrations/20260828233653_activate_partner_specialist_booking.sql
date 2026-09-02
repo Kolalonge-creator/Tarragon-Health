@@ -48,7 +48,7 @@ $function$;
 comment on function public.set_referral_specialist_provider(uuid, uuid) is
   'Assigns a real, active, specialty-matched partner specialist_providers row to a pending/waitlisted referral, locks in its fee, flips fulfilment self_arranged -> partner, and advances status to pending_payment. Raises if the caller is not org staff, the referral has already moved past assignment, or the chosen provider is not a genuinely active specialty match. Dormant by data, not by code, per the 2026-08-03 migration''s own framing -- this is the "is_active flip" becoming real again.';
 
-revoke all on function public.set_referral_specialist_provider(uuid, uuid) from public;
+revoke all on function public.set_referral_specialist_provider(uuid, uuid) from public, anon;
 revoke all on function public.set_referral_specialist_provider(uuid, uuid) from anon;
 grant execute on function public.set_referral_specialist_provider(uuid, uuid) to authenticated;
 

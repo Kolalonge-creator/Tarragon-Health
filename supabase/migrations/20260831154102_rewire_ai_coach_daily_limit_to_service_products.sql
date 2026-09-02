@@ -60,6 +60,7 @@ $$;
 
 revoke execute on function public.get_ai_coach_daily_limit() from public;
 revoke execute on function public.get_ai_coach_daily_limit() from anon;
+revoke execute on function public.get_ai_coach_daily_limit() from public, anon;
 grant execute on function public.get_ai_coach_daily_limit() to authenticated;
 
 do $$

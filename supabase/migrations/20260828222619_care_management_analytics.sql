@@ -97,6 +97,7 @@ $$;
 
 revoke all on function public.care_management_kpis(uuid) from public;
 revoke all on function public.care_management_kpis(uuid) from anon;
+revoke all on function public.care_management_kpis(uuid) from public, anon;
 grant execute on function public.care_management_kpis(uuid) to authenticated;
 
 do $$

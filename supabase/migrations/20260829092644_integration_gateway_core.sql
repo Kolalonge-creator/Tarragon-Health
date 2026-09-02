@@ -191,6 +191,7 @@ comment on function private.prune_integration_logs(integer) is
 
 revoke all on function private.prune_integration_logs(integer) from public;
 revoke all on function private.prune_integration_logs(integer) from anon;
+revoke all on function private.prune_integration_logs(integer) from public, anon;
 
 do $$
 begin

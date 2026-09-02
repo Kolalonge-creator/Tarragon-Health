@@ -47,7 +47,7 @@ as $$
   );
 $$;
 
-revoke all on function private.resolve_payment_payer(public.payment_transactions) from public;
+revoke all on function private.resolve_payment_payer(public.payment_transactions) from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- Human-readable label for what a payment transaction actually paid for.
@@ -72,7 +72,7 @@ as $$
   end;
 $$;
 
-revoke all on function private.payment_transaction_service_label(public.payment_transactions) from public;
+revoke all on function private.payment_transaction_service_label(public.payment_transactions) from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- The unified ledger read. Two modes, mutually exclusive in practice:
@@ -198,6 +198,7 @@ $$;
 
 revoke all on function public.finance_unified_ledger(uuid, uuid, date, date, integer, integer) from public;
 revoke all on function public.finance_unified_ledger(uuid, uuid, date, date, integer, integer) from anon;
+revoke all on function public.finance_unified_ledger(uuid, uuid, date, date, integer, integer) from public, anon;
 grant execute on function public.finance_unified_ledger(uuid, uuid, date, date, integer, integer) to authenticated;
 
 -- ---------------------------------------------------------------------------

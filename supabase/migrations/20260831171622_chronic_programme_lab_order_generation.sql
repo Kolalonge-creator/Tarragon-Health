@@ -111,6 +111,7 @@ $$;
 
 revoke execute on function public.generate_chronic_programme_lab_order(uuid) from public;
 revoke execute on function public.generate_chronic_programme_lab_order(uuid) from anon;
+revoke execute on function public.generate_chronic_programme_lab_order(uuid) from public, anon;
 grant execute on function public.generate_chronic_programme_lab_order(uuid) to authenticated;
 
 do $$

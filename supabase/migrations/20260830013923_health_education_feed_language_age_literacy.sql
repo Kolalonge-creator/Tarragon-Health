@@ -20,15 +20,17 @@
 --     'getting_started' content first for a patient who self-rated low
 --     confidence on one of their active conditions. Still never touches
 --     patient_risk_scores or escalation.
--- Same exact return signature as live today, but a fresh replay only ever
--- has the narrower 20260723/20260810 signatures on file — `create or
--- replace` can't widen a table-returning function's columns (SQLSTATE
--- 42P13, "cannot change return type of existing function"), so both
--- functions are dropped first. Confirmed via list_migrations that this
--- migration itself has never actually run against the live project (its
--- version isn't in schema_migrations there), so this drop+recreate is safe
--- there too — it lands on the exact same signature/grants the concurrent
--- session already applied directly.
+-- CORRECTION — a clean/local migration replay starts from the narrower
+-- 16-column signature this repo's own migration history left behind
+-- (20260717150000/20260723010123/20260723122000), not from live's already-
+-- reconciled 19-column shape. Postgres refuses to CREATE OR REPLACE a
+-- function whose OUT-parameter row type differs at all (SQLSTATE 42P13),
+-- so both changed functions below must be dropped first. DROP FUNCTION also
+-- wipes the authenticated-only EXECUTE grant set up when each was first
+-- created, so both are re-applied after the recreate — see the recurring
+-- anon-EXECUTE gotcha this project has hit multiple times.
+
+drop function if exists public.health_education_feed();
 
 drop function if exists public.health_education_feed();
 
@@ -132,9 +134,13 @@ as $$
     c.title;
 $$;
 
+revoke execute on function public.health_education_feed() from public;
+revoke execute on function public.health_education_feed() from anon;
+grant execute on function public.health_education_feed() to authenticated;
+
 drop function if exists public.health_education_library(public.health_education_category);
 
-create function public.health_education_library(p_category public.health_education_category default null)
+create or replace function public.health_education_library(p_category public.health_education_category default null)
 returns table (
   content_id        uuid,
   code              text,
@@ -196,6 +202,10 @@ as $$
     and (p_category is null or c.category = p_category)
   order by c.sort_order, c.title;
 $$;
+
+revoke execute on function public.health_education_library(public.health_education_category) from public;
+revoke execute on function public.health_education_library(public.health_education_category) from anon;
+grant execute on function public.health_education_library(public.health_education_category) to authenticated;
 
 -- Named pathways ("Hypertension 101" etc, health_education_programmes/
 -- _programme_modules, built by a concurrent session) get the same language
@@ -269,14 +279,8 @@ as $$
   order by m.module_number;
 $$;
 
-revoke execute on function public.health_education_feed() from public;
-revoke execute on function public.health_education_feed() from anon;
-grant execute on function public.health_education_feed() to authenticated;
-
-revoke execute on function public.health_education_library(public.health_education_category) from public;
-revoke execute on function public.health_education_library(public.health_education_category) from anon;
-grant execute on function public.health_education_library(public.health_education_category) to authenticated;
-
+-- New function, never previously granted — closes the same anon-EXECUTE
+-- gotcha (default PUBLIC execute on a fresh SECURITY DEFINER function).
 revoke execute on function public.health_education_programme_detail(text) from public;
 revoke execute on function public.health_education_programme_detail(text) from anon;
 grant execute on function public.health_education_programme_detail(text) to authenticated;
