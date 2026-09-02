@@ -1,3 +1,4 @@
+import { ageFromDateOfBirth } from "@tarragon/shared";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { getCurrentClinicalStaff } from "@/lib/auth/current-profile";
 import {
@@ -38,11 +39,14 @@ import { TreatmentLadder } from "./treatment-ladder";
 import { ObesityAssessmentPanel } from "./obesity-assessment-panel";
 import { ObesityEdScreenForm } from "./obesity-ed-screen-form";
 import { ObesityAttestationCard } from "./obesity-attestation-card";
+import { ReferToSpecialistForm } from "./refer-to-specialist-form";
 import { HealthCheckReview } from "./health-check-review";
 import { HealthCheckVideoConsult } from "./health-check-video-consult";
 import { CarePlanManagementSection } from "./care-plan-management-section";
 import { ChronicProgrammeReviewSection } from "./chronic-programme-review-section";
 import { ClinicalEncounterNotesSection } from "./clinical-encounter-notes-section";
+import { MarkVaccineContraindicatedForm } from "./mark-vaccine-contraindicated-form";
+import { VaccinationRegistry } from "@/app/(dashboard)/patient/vaccination-registry";
 import { HealthyAgeingClinicianPanel } from "./healthy-ageing-clinician-panel";
 import { CreateReferralForm } from "./create-referral-form";
 import { PatientReferralsList } from "./patient-referrals-list";
@@ -333,6 +337,7 @@ export default async function ClinicianPatientPage({
                 <ResultDocumentsSection patientId={patient.id} />
                 <EcgReportDocumentsSection patientId={patient.id} />
                 <MentalHealthSummary patientId={patient.id} showScores />
+                {isClinicalTier(callerStaff) && <ReferToSpecialistForm patientId={patient.id} />}
                 <ScreenOrderResultsSection patientId={patient.id} />
                 <ScreeningResultForm patientId={patient.id} />
                 <HealthCheckVideoConsult consult={healthCheck?.video_consult ?? null} />
@@ -351,6 +356,20 @@ export default async function ClinicianPatientPage({
                 <ObesityAttestationCard />
                 <ObesityAssessmentPanel patientId={patient.id} patientSex={patient.sex} />
                 <ObesityEdScreenForm patientId={patient.id} />
+                {/* Vaccination & Immunisation Engine (spec §43): the same
+                    registry the patient sees (org-staff RLS already permits
+                    a clinician to read it), plus the one write action that
+                    belongs to a clinician rather than the patient — marking
+                    a vaccine contraindicated is a clinical judgement. */}
+                <VaccinationRegistry
+                  patientId={patient.id}
+                  ageYears={ageFromDateOfBirth(patient.date_of_birth)}
+                  dateOfBirth={patient.date_of_birth}
+                  sex={patient.sex}
+                />
+                {isClinicalTier(callerStaff) && (
+                  <MarkVaccineContraindicatedForm patientId={patient.id} />
+                )}
               </>
             ),
           },
