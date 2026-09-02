@@ -8,8 +8,8 @@ import type { BadgeProps } from "@/components/ui/badge";
  * place so the two sides describe the same scope the same way.
  */
 
-export type DataDeletionScope = Enums<"data_deletion_scope">;
-export type DataDeletionStatus = Enums<"data_deletion_status">;
+export type DataDeletionScope = Enums<"device_data_deletion_scope">;
+export type DataDeletionStatus = Enums<"device_data_deletion_status">;
 
 export const DATA_DELETION_SCOPE_ORDER: DataDeletionScope[] = [
   "wearable_readings",

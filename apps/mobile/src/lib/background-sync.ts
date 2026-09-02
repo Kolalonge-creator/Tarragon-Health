@@ -6,6 +6,8 @@ import { configureIOSBackgroundDelivery, subscribeToIOSHealthChanges } from "./h
 import { syncAppleHealth, syncHealthConnect } from "./health-sync";
 import { flushDeviceReadingsQueue } from "./offline-queue";
 import { recordSyncError } from "./sync-diagnostics";
+import { flushPendingVitals } from "./offline-vitals-queue";
+import { syncThresholdsIfOnline } from "./threshold-sync";
 
 /**
  * The reliable background-sync backbone for both platforms.
@@ -64,6 +66,18 @@ TaskManager.defineTask(TASK_NAME, async () => {
     // reading queued by sync-screen.tsx after a failed upload; see
     // offline-queue.ts.
     const deviceReadingsFlush = await flushDeviceReadingsQueue();
+
+    // Unconditional, unlike the platform-specific health sync below — the
+    // offline vitals queue (offline-vitals-queue.ts) and the threshold
+    // version check (threshold-sync.ts) apply to both platforms equally,
+    // and are the "usually don't have to think about it" layer for the
+    // Vitals screen's own opportunistic flush-on-save/flush-on-mount.
+    try {
+      await flushPendingVitals();
+      await syncThresholdsIfOnline();
+    } catch (error) {
+      recordSyncError("offline_vitals", `${Platform.OS}:backgroundFlush`, error);
+    }
 
     const result =
       Platform.OS === "ios"

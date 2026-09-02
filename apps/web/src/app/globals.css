@@ -29,6 +29,18 @@
   --chart-analytics-4: #1d4ed8;
   --chart-analytics-5: #b91c1c;
   --chart-analytics-6: #0b5c3e;
+
+  /* Menstrual cycle phases — a fourth, separate colour system (brand,
+     clinical-status and chart series are the others, docs/BRAND_GUIDE.md §5).
+     Kept apart from the clinical status colours on purpose: a cycle phase is
+     a normal state of a healthy body, so period days must never borrow the
+     red that means "danger" on a clinical dashboard. */
+  --cycle-period: #be4a6a;
+  --cycle-fertile: #2f8f83;
+  --cycle-ovulation: #c9962b;
+  --cycle-luteal: #7c6bb0;
+  --cycle-follicular: #9aa8b5;
+  --cycle-predicted: #d8a3b4;
 }
 
 @theme inline {
@@ -50,6 +62,12 @@
   --color-chart-analytics-4: var(--chart-analytics-4);
   --color-chart-analytics-5: var(--chart-analytics-5);
   --color-chart-analytics-6: var(--chart-analytics-6);
+  --color-cycle-period: var(--cycle-period);
+  --color-cycle-fertile: var(--cycle-fertile);
+  --color-cycle-ovulation: var(--cycle-ovulation);
+  --color-cycle-luteal: var(--cycle-luteal);
+  --color-cycle-follicular: var(--cycle-follicular);
+  --color-cycle-predicted: var(--cycle-predicted);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-sora);
 }

@@ -4,7 +4,7 @@ import { DataDeletionRequestsDashboard } from "./data-deletion-requests-dashboar
 
 /**
  * 55.19 device/wearable data governance — org staff processing queue. Lists
- * data_deletion_requests for the caller's org (RLS already scopes reads to
+ * device_data_deletion_requests for the caller's org (RLS already scopes reads to
  * private.is_org_staff) and lets staff either process a request via the
  * bounded, audited execute_wearable_data_deletion() RPC or reject it with a
  * plain-text reason. Mirrors device-operations/page.tsx's server-resolves-

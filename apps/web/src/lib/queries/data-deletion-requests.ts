@@ -5,16 +5,16 @@ import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 import type { DataDeletionScope } from "@/lib/device-data-deletion-labels";
 
-export type DataDeletionRequest = Tables<"data_deletion_requests">;
+export type DataDeletionRequest = Tables<"device_data_deletion_requests">;
 
 export type DataDeletionRequestWithPatient = DataDeletionRequest & {
   patient: { full_name: string | null; patient_number: string | null } | null;
 };
 
-export type DataRetentionPolicy = Tables<"data_retention_policies">;
+export type DataRetentionPolicy = Tables<"device_data_retention_policies">;
 
 /** The live retention policy per data category — plain, admin-authored text,
- * readable by any authenticated user (see data_retention_policies_select).
+ * readable by any authenticated user (see device_data_retention_policies_select).
  * Low-priority per spec 55.19: shown as a short transparency note, not a
  * dedicated page. */
 export function useCurrentRetentionPolicies() {
@@ -23,7 +23,7 @@ export function useCurrentRetentionPolicies() {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("data_retention_policies")
+        .from("device_data_retention_policies")
         .select("*")
         .eq("is_current", true)
         .order("data_category");
@@ -45,7 +45,7 @@ export function usePatientDeletionRequests(patientId: string) {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("data_deletion_requests")
+        .from("device_data_deletion_requests")
         .select("*")
         .eq("patient_id", patientId)
         .order("created_at", { ascending: false });
@@ -57,7 +57,7 @@ export function usePatientDeletionRequests(patientId: string) {
 }
 
 /** Submits a new deletion request for the patient's own account. RLS
- * (data_deletion_requests_insert) requires patient_id = auth.uid(), so this
+ * (device_data_deletion_requests_insert) requires patient_id = auth.uid(), so this
  * only ever works for the currently authenticated patient, not someone they
  * support. */
 export function useSubmitDeletionRequest(patientId: string) {
@@ -76,7 +76,7 @@ export function useSubmitDeletionRequest(patientId: string) {
       }
 
       const reason = input.reason.trim();
-      const { error } = await supabase.from("data_deletion_requests").insert({
+      const { error } = await supabase.from("device_data_deletion_requests").insert({
         organisation_id: profile.organisation_id,
         patient_id: patientId,
         scope: input.scope,
@@ -91,7 +91,7 @@ export function useSubmitDeletionRequest(patientId: string) {
 }
 
 /** Every deletion request in the given org (staff worklist) — RLS
- * (data_deletion_requests_select) already scopes reads to the caller's own
+ * (device_data_deletion_requests_select) already scopes reads to the caller's own
  * org via private.is_org_staff; the explicit filter here just matches the
  * organisationId the server-resolved page passed down, newest requested
  * first. */
@@ -101,9 +101,9 @@ export function useOrgDeletionRequests(organisationId: string | null) {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("data_deletion_requests")
+        .from("device_data_deletion_requests")
         .select(
-          "*, patient:profiles!data_deletion_requests_patient_id_fkey(full_name, patient_number)"
+          "*, patient:profiles!device_data_deletion_requests_patient_id_fkey(full_name, patient_number)"
         )
         .eq("organisation_id", organisationId as string)
         .order("requested_at", { ascending: false });
@@ -144,7 +144,7 @@ export function useRejectDeletionRequest() {
         data: { user },
       } = await supabase.auth.getUser();
       const { error } = await supabase
-        .from("data_deletion_requests")
+        .from("device_data_deletion_requests")
         .update({
           status: "rejected",
           rejection_reason: reason.trim(),

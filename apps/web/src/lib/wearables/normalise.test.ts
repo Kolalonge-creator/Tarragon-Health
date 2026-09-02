@@ -1,11 +1,15 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  consentCategoryFor,
+  FULL_WEARABLE_CONSENT,
+  isConsentedTo,
   isPlausible,
   isVitalsEquivalent,
   toIsoInstant,
   vitalsEquivalentFor,
   WEARABLE_READING_TYPES,
   type NormalisedReading,
+  type WearableConsent,
 } from "./normalise";
 
 function build(overrides: Partial<NormalisedReading> & Pick<NormalisedReading, "readingType" | "value">): NormalisedReading {
@@ -104,5 +108,52 @@ describe("toIsoInstant", () => {
     expect(toIsoInstant("not a date")).toBeNull();
     expect(toIsoInstant(undefined)).toBeNull();
     expect(toIsoInstant(null)).toBeNull();
+  });
+});
+
+describe("consent categories (53.3/53.4)", () => {
+  it("categorises every gated reading type into exactly one of the four named categories", () => {
+    expect(consentCategoryFor("steps")).toBe("activity");
+    expect(consentCategoryFor("calories")).toBe("activity");
+    expect(consentCategoryFor("resting_heart_rate")).toBe("heart_rate");
+    expect(consentCategoryFor("hrv_ms")).toBe("heart_rate");
+    expect(consentCategoryFor("respiratory_rate")).toBe("heart_rate");
+    expect(consentCategoryFor("sleep_minutes")).toBe("sleep");
+    expect(consentCategoryFor("sleep_efficiency")).toBe("sleep");
+    expect(consentCategoryFor("weight")).toBe("weight");
+  });
+
+  it("leaves clinically-significant metrics ungated — consent never filters them", () => {
+    // glucose/blood_pressure/spo2 already flow through vitals_readings' own
+    // plan-gated red-flag pipeline; a second consumer-facing checkbox in
+    // front of them would be the wrong kind of friction (see the migration).
+    for (const type of ["glucose", "blood_pressure", "spo2"] as const) {
+      expect(consentCategoryFor(type)).toBeNull();
+    }
+  });
+
+  function reading(readingType: NormalisedReading["readingType"]): NormalisedReading {
+    return build({ readingType, value: 1 });
+  }
+
+  it("permits a reading whose category is granted", () => {
+    expect(isConsentedTo(reading("steps"), FULL_WEARABLE_CONSENT)).toBe(true);
+  });
+
+  it("denies a reading whose category was explicitly turned off", () => {
+    const consent: WearableConsent = { ...FULL_WEARABLE_CONSENT, sleep: false };
+    expect(isConsentedTo(reading("sleep_minutes"), consent)).toBe(false);
+    // A denied category must not leak into an unrelated one.
+    expect(isConsentedTo(reading("steps"), consent)).toBe(true);
+  });
+
+  it("always permits an ungated metric regardless of consent", () => {
+    const consent: WearableConsent = {
+      activity: false,
+      heart_rate: false,
+      sleep: false,
+      weight: false,
+    };
+    expect(isConsentedTo(reading("glucose"), consent)).toBe(true);
   });
 });

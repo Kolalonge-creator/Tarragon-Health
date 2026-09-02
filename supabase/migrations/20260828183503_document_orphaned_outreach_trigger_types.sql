@@ -1,0 +1,21 @@
+-- Tarragon Health — document two outreach_trigger_type enum values found
+-- live with no migration record anywhere (not this codebase's usual
+-- "committed but never applied" drift — the opposite: applied live with
+-- no local file, uncommitted or otherwise, ever adding them). Found while
+-- chasing a typecheck failure in components/clinical/outreach-worklist.tsx,
+-- whose TRIGGER_LABEL Record was missing exactly these two keys.
+--
+-- 'repeated_no_show' and 'consultation_follow_up' are self-explanatory
+-- extensions of the existing outreach_trigger_type ladder (high_risk_score,
+-- overdue_screening, stale_monitoring, unactioned_abnormal, awaiting_result
+-- — see 20260723010019_care_outreach_engine.sql and
+-- 20260803125550_outreach_trigger_awaiting_result.sql for the originals).
+-- No trigger or app code currently inserts an outreach_tasks row with
+-- either value — this migration only records the enum values that are
+-- already live so a fresh `db reset` matches production; it does not add
+-- any new automatic-outreach logic.
+--
+-- `add value if not exists` is a safe no-op here since both values already
+-- exist live — this is documentation, not a live-state change.
+
+alter type public.outreach_trigger_type add value if not exists 'repeated_no_show';

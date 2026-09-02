@@ -7,6 +7,7 @@ import type { LabOrderStatus } from "@tarragon/shared";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { EcgReportUpload } from "@/components/ecg-report-upload";
 import { RequestPartnerLabVisit } from "@/app/(dashboard)/patient/request-partner-lab-visit";
+import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
  * go when you can" and "the result is in". Payment states are retained in the
@@ -19,6 +20,7 @@ const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["vari
   processing: { variant: "blue", label: "In progress" },
   resulted: { variant: "green", label: "Results ready" },
   cancelled: { variant: "grey", label: "Cancelled" },
+  sample_rejected: { variant: "red", label: "Sample rejected" },
 };
 
 /** Still open: the patient has a request and we're waiting on their result. */
@@ -50,11 +52,32 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
               <li key={order.id} className="space-y-2 py-3">
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
+                  {order.urgency === "urgent" && <Badge variant="red">Urgent</Badge>}
                   <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
                 </div>
                 <p className="text-sm font-medium text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Lab test"}
                 </p>
+                {/* Null-gated: only a clinician-generated order ever sets
+                    ordered_by, so this line is absent for a self-service
+                    due-screening order rather than showing "Ordered by"
+                    with nothing after it. */}
+                {order.ordered_by_staff && (
+                  <p className="text-xs text-charcoal-ink/60">
+                    Ordered by Dr. {order.ordered_by_staff.full_name}
+                  </p>
+                )}
+                {order.clinical_indication && (
+                  <p className="text-xs text-charcoal-ink/60">Reason: {order.clinical_indication}</p>
+                )}
+                {order.panel_bundle?.preparation_instructions && (
+                  <p className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
+                    {order.panel_bundle.preparation_instructions}
+                  </p>
+                )}
+                {order.status === "pending_payment" && (
+                  <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                )}
                 {awaiting && (
                   <>
                     <a

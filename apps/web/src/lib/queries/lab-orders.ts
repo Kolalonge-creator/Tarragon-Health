@@ -34,6 +34,36 @@ export function findSingleTestBundle(bundles: PanelBundle[], screenTypeCode: str
   );
 }
 
+/**
+ * screen_types.price_kobo, keyed by code — the authoritative signal for
+ * whether a specific test is covered by the active contracted partner
+ * (Synlab). The 2026-08-21 pricing migration nulls this out for any test
+ * without a real contract price, so "every code in a bundle has a price
+ * here" is a reliable enough client-side check for whether that bundle can
+ * be billed through the partner path, without duplicating
+ * private.compute_partner_cost's logic.
+ */
+export function useScreenTypePrices() {
+  return useQuery({
+    queryKey: ["screen-type-prices"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.from("screen_types").select("code, price_kobo");
+      if (error) throw error;
+      return new Map((data ?? []).map((row) => [row.code, row.price_kobo]));
+    },
+  });
+}
+
+/** True only when every test in the bundle has a contracted partner price on file. */
+export function bundleIsPartnerBillable(
+  bundle: Pick<PanelBundle, "test_codes">,
+  prices: Map<string, number | null> | undefined
+): boolean {
+  if (!prices || bundle.test_codes.length === 0) return false;
+  return bundle.test_codes.every((code) => !!prices.get(code));
+}
+
 /** Active lab_providers — the schema has no bundle->provider relationship, so this is every active provider, not a filtered "who offers this bundle" list. */
 export function useLabProviders() {
   return useQuery({
@@ -56,10 +86,15 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
   // uploader alongside (not instead of — a bundle can mix ecg_resting with
   // blood tests) the generic PatientResultUpload, since an ECG is a separate
   // physical document from a lab panel's combined PDF.
-  panel_bundle: { name: string; test_codes: string[] } | null;
+  panel_bundle: { name: string; test_codes: string[]; preparation_instructions: string | null } | null;
   provider: { name: string; regions: string[] } | null;
   home_visit_provider: { name: string } | null;
   facility: { name: string } | null;
+  // Null-gated "ordered by" attribution (module 57.10) — present only for a
+  // clinician-generated order; the patient self-service due-screening path
+  // never sets ordered_by, so this stays null there by construction, not by
+  // omission from the query.
+  ordered_by_staff: { full_name: string; credential_type: string | null; credential_number: string | null } | null;
 };
 
 /**
@@ -73,7 +108,7 @@ export type LabOrderWithDetails = Tables<"lab_orders"> & {
  * patient-facing availability hint.
  */
 const LAB_ORDER_SELECT =
-  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name)";
+  "*, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), provider:lab_providers!lab_orders_provider_id_fkey(name, regions), home_visit_provider:home_visit_providers!lab_orders_home_visit_provider_id_fkey(name), facility:facilities!lab_orders_facility_id_fkey(name), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name, credential_type, credential_number)";
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
 export function usePatientLabOrders(patientId: string) {
@@ -188,10 +223,15 @@ export function useOrderLabTest() {
       organisationId,
       patientId,
       panelBundleId,
+      clinicalIndication,
+      urgency,
     }: {
       organisationId: string;
       patientId: string;
       panelBundleId: string;
+      /** Required — private.enforce_lab_order_origin rejects a clinician-generated order with none. */
+      clinicalIndication: string;
+      urgency?: Database["public"]["Enums"]["lab_order_urgency"];
     }) => {
       const supabase = createClient();
       const {
@@ -222,11 +262,63 @@ export function useOrderLabTest() {
         status: "ordered",
         origin: "clinically_triggered",
         ordered_by: staff.id,
+        clinical_indication: clinicalIndication,
+        urgency: urgency ?? "routine",
       });
       if (error) throw error;
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
+    },
+  });
+}
+
+/**
+ * Patient opts in to having Tarragon arrange and bill this bundle through
+ * the active contracted partner lab (Synlab), instead of the default
+ * self-arranged path — never a required step, same "opt-in upgrade"
+ * precedent as useRequestLabOrderPartnerVisit below, but this one actually
+ * bills: fulfilment='partner' + status='pending_payment' on insert satisfies
+ * private.enforce_lab_order_origin (which only special-cases
+ * fulfilment='self_arranged') and fires private.set_lab_order_computed_price
+ * (BEFORE INSERT only), which authoritatively computes total_kobo,
+ * partner_cost_kobo and resolves the provider — the client never sends a
+ * price. Only offered for a bundle bundleIsPartnerBillable() said yes to;
+ * the trigger re-validates regardless.
+ */
+export function useCreatePartnerLabOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      organisationId,
+      patientId,
+      panelBundleId,
+      screeningScheduleId,
+    }: {
+      organisationId: string;
+      patientId: string;
+      panelBundleId: string;
+      screeningScheduleId?: string;
+    }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_orders")
+        .insert({
+          organisation_id: organisationId,
+          patient_id: patientId,
+          panel_bundle_id: panelBundleId,
+          fulfilment: "partner",
+          status: "pending_payment",
+          screening_schedule_id: screeningScheduleId ?? null,
+        })
+        .select("id, total_kobo")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
+      queryClient.invalidateQueries({ queryKey: ["screening-schedules", variables.patientId] });
     },
   });
 }

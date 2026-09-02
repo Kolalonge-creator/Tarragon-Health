@@ -89,7 +89,7 @@ This slots into the existing Stage 3 (Patient Profile), Stage 5 (Risk Scoring/Es
 - **Indemnity/malpractice insurance** required for the Clinical Director and every escalation doctor before they're activated in the rota — this is what actually protects them, not the disclaimer text.
 - **No retroactive attribution.** `reviewed_by` and `reviewed_at` are set once, by the reviewing doctor, at time of review. No admin tooling should allow backfilling these fields after the fact.
 - **Consent screen honesty.** Onboarding consent copy should plainly state the real model: day-to-day monitoring by a team of Tarragon-employed physicians, doctor-designed protocols, a separate senior/escalation doctor review triggered by specific clinical criteria. *(Note: "doctor-led" itself was retired as a brand/marketing claim 2026-07-18, see CLAUDE.md's Brand section — describe the actual process instead of using that phrase as a headline adjective.)* This satisfies MDCN telemedicine disclosure expectations and, per the earlier discussion, is itself a trust asset — Nigerian consumers already distrust ambiguity (see the pricing-transparency principle in the Master Plan), and a plainly stated care model reads as more credible than a vague one.
-- **NDPR data residency** already covers `clinical_staff` credential data — no separate infrastructure needed, just make sure it lives in the same af-south-1 Supabase project as everything else.
+- **NDPR data residency** already covers `clinical_staff` credential data — no separate infrastructure needed, just make sure it lives in the same eu-west-1 Supabase project as everything else (Supabase has no Africa region; eu-west-1 is the closest available — see CLAUDE.md's Architecture section for the accepted NDPR-residency gap).
 
 ---
 

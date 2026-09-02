@@ -2,6 +2,7 @@ import {
   scorePhq9,
   scoreGad7,
   scoreAuditC,
+  scoreEpds,
 } from "./mental-health-screening";
 
 describe("scorePhq9", () => {
@@ -46,5 +47,24 @@ describe("scoreAuditC", () => {
     expect(scoreAuditC([0, 0, 0], "male").band).toBe("low_risk");
     expect(scoreAuditC([2, 2, 1], "male").band).toBe("increasing_risk"); // 5
     expect(scoreAuditC([4, 4, 4], "male").band).toBe("higher_risk"); // 12
+  });
+});
+
+describe("scoreEpds", () => {
+  it("bands totals correctly", () => {
+    expect(scoreEpds([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]).band).toBe("minimal");
+    expect(scoreEpds([1, 1, 1, 1, 1, 1, 1, 1, 1, 1]).band).toBe("mild"); // 10
+    expect(scoreEpds([2, 2, 2, 2, 2, 2, 1, 0, 0, 0]).band).toBe("moderate"); // 13
+    expect(scoreEpds([3, 3, 3, 3, 3, 3, 2, 0, 0, 0]).band).toBe("severe"); // 20
+  });
+
+  it("flags a crisis only when the self-harm item (10) is non-zero", () => {
+    expect(scoreEpds([3, 3, 3, 0, 0, 0, 0, 0, 0, 0]).crisis).toBe(false);
+    expect(scoreEpds([0, 0, 0, 0, 0, 0, 0, 0, 0, 1]).crisis).toBe(true);
+  });
+
+  it("rejects malformed input", () => {
+    expect(() => scoreEpds([0, 0, 0])).toThrow();
+    expect(() => scoreEpds([0, 0, 0, 0, 0, 0, 0, 0, 0, 4])).toThrow();
   });
 });

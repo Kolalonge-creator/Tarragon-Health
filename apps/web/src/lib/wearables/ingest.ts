@@ -4,9 +4,12 @@ import type { Database, TablesInsert } from "@tarragon/shared";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import {
+  FULL_WEARABLE_CONSENT,
+  isConsentedTo,
   isPlausible,
   vitalsEquivalentFor,
   type NormalisedReading,
+  type WearableConsent,
 } from "./normalise";
 
 /**
@@ -28,6 +31,12 @@ export interface IngestTarget {
   connectionId: string;
   organisationId: string;
   patientId: string;
+  /** Per-category patient consent for this connection (53.3/53.4). Defaults
+   * to fully consented so every caller that predates granular consent (the
+   * mobile HealthKit/Health Connect bridge, which has no wearable_connections
+   * row and gates categories at the OS permission level instead) keeps its
+   * existing behaviour untouched. */
+  consent?: WearableConsent;
 }
 
 export interface IngestResult {
@@ -37,6 +46,9 @@ export interface IngestResult {
    * or with an unparseable timestamp. Counted rather than silently dropped
    * so a systematically wrong unit mapping shows up as a number. */
   implausible: number;
+  /** Readings dropped because the patient denied that category's consent on
+   * this connection — a real, deliberate outcome, not an error. */
+  deniedByConsent: number;
   /** Days whose step total was written to the patient-facing activity log. */
   stepDaysRecorded: number;
   /** Days skipped because the patient had typed their own step count for
@@ -54,15 +66,24 @@ export async function ingestReadings(
     vitalsInserted: 0,
     wearableInserted: 0,
     implausible: 0,
+    deniedByConsent: 0,
     stepDaysRecorded: 0,
     stepDaysDeferredToManual: 0,
   };
   if (readings.length === 0) return result;
 
+  const consent = target.consent ?? FULL_WEARABLE_CONSENT;
   const usable: NormalisedReading[] = [];
   for (const item of readings) {
-    if (isPlausible(item)) usable.push(item);
-    else result.implausible += 1;
+    if (!isPlausible(item)) {
+      result.implausible += 1;
+      continue;
+    }
+    if (!isConsentedTo(item, consent)) {
+      result.deniedByConsent += 1;
+      continue;
+    }
+    usable.push(item);
   }
   if (usable.length === 0) return result;
 

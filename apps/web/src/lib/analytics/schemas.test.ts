@@ -87,10 +87,14 @@ describe("analytics schemas", () => {
           actor_name: null,
           organisation_name: "Tarragon",
           event: { foo: "bar" },
+          reason: null,
+          result: "success",
         },
       ],
     });
     expect(audit.total).toBe(1);
     expect(audit.rows[0].actor_name).toBeNull();
+    expect(audit.rows[0].reason).toBeNull();
+    expect(audit.rows[0].result).toBe("success");
   });
 });

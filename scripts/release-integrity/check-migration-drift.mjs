@@ -12,7 +12,6 @@
 // remote-only migration can't be traced to any commit in git history at all (true loss risk).
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const PROJECT_REF = process.env.SUPABASE_PROJECT_REF || "koiplnmbgnqnbywhpjlf";
@@ -46,11 +45,17 @@ function findOwningBranch(version) {
 }
 
 function main() {
-  // supabase CLI reads the linked project ref from supabase/.temp/project-ref; write it
-  // directly rather than running interactive `supabase link`.
-  const tempDir = join(REPO_ROOT, "supabase", ".temp");
-  mkdirSync(tempDir, { recursive: true });
-  writeFileSync(join(tempDir, "project-ref"), PROJECT_REF);
+  if (!process.env.SUPABASE_ACCESS_TOKEN) {
+    console.error("SUPABASE_ACCESS_TOKEN is not set — cannot check migration drift.");
+    process.exit(2);
+  }
+
+  // Hand-writing supabase/.temp/project-ref (skipping `supabase link`) leaves the CLI without
+  // pooler connection info, so `migration list --linked` falls back to a direct IPv6-only DB
+  // connection that GitHub-hosted runners can't reach (LegacyDbConfigIpv6Error). Running `link`
+  // itself, non-interactively, makes the CLI default to the IPv4-compatible pooler instead —
+  // confirmed 2026-08-31 by reproducing the failure and the fix locally against the live project.
+  sh("npx", ["--yes", "supabase", "link", "--project-ref", PROJECT_REF, "--yes", "--workdir", REPO_ROOT]);
 
   console.log(`Comparing local migrations against what's applied on project ${PROJECT_REF}...`);
   const raw = sh("npx", ["--yes", "supabase", "migration", "list", "--linked", "--output-format", "json", "--workdir", REPO_ROOT]);

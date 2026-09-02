@@ -128,7 +128,7 @@ function RequestRow({ request }: { request: DataDeletionRequestWithPatient }) {
 }
 
 /**
- * 55.19 staff processing queue — org-scoped data_deletion_requests for
+ * 55.19 staff processing queue — org-scoped device_data_deletion_requests for
  * device/wearable data. Open requests (requested/in_progress) are shown
  * first with actions; completed/rejected ones stay visible underneath as a
  * record of what was already decided.

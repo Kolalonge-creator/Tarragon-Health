@@ -38,7 +38,7 @@ function formatDate(iso: string): string {
  * scopes, see the plain-language explanation of what each one actually does,
  * and track the status of requests they've already made. Processing happens
  * on the staff side via execute_wearable_data_deletion(); this only ever
- * inserts a data_deletion_requests row (RLS ties it to the caller's own
+ * inserts a device_data_deletion_requests row (RLS ties it to the caller's own
  * account — see data-deletion-requests.ts).
  */
 export function DeviceDataDeletionCard({ patientId }: { patientId: string }) {
