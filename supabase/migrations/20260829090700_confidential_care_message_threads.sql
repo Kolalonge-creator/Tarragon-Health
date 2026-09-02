@@ -19,12 +19,53 @@
 --
 -- Every screening_results/clinician_alerts/escalations row from this whole
 -- module is ALREADY excluded from sponsor visibility whenever the patient
--- has not granted clinical_access at all — that part needs no fix. This
+-- has not granted clinical_access at all -- that part needs no fix. This
 -- migration closes the one remaining gap: a thread that must stay hidden
 -- from a sponsor EVEN WHEN clinical_access has been granted for everything
 -- else. A column, not a workaround: `confidential` on the thread, checked in
 -- the same four policies + the one RPC that already reference
 -- can_read_clinical.
+--
+-- RECONCILED 2026-09-02 against main-dev's category-scoped clinical access
+-- (20260830103251/20260830123653, PR #411, merged the same day this branch
+-- was reconciled): private.can_read_clinical is now a 2-arg (patient,
+-- category) function -- the flat profile_access.clinical_access boolean
+-- this migration was originally written against has been replaced by 8
+-- independently toggleable categories, one of them 'messaging'
+-- (care_message_threads/care_messages' own category -- distinct from
+-- 'reproductive_health', which gates reproductive_health_profiles and is
+-- excluded from break-glass emergency access unconditionally). The legacy
+-- 1-arg overload still exists live for an unrelated in-flight branch's
+-- compatibility
+-- (20260902190500_preserve_legacy_can_read_clinical_overload_for_pr377_compat)
+-- and this migration's original text would still have compiled against it
+-- -- but that overload only checks the old boolean, which the category-grant
+-- UI no longer sets, so leaving it as-is would have silently stopped a
+-- legitimately category-granted sponsor from ever reaching a non-confidential
+-- thread, while still letting a pre-cutover blanket clinical_access=true
+-- grantee read one without any explicit 'messaging' category grant --
+-- exactly the bundling category-scoped access exists to prevent. Every
+-- can_read_clinical(patient_id) call below is now
+-- can_read_clinical(patient_id, 'messaging') plus
+-- has_emergency_access(patient_id, 'messaging'), matching the pattern
+-- main-dev already applies to these same two tables for every other
+-- category. The `confidential` flag keeps doing exactly what it always did
+-- -- narrowing visibility further, never widening it. It is unrelated to
+-- the reproductive_health category itself: a thread needs confidential=true
+-- because 'messaging' access and 'reproductive_health' access are two
+-- different grants a caregiver could hold independently, and a thread being
+-- about SRH content is not something care_message_threads can know
+-- structurally.
+--
+-- start_care_thread also gained a 6th parameter (p_category) on main-dev in
+-- the same window (20260830014522, then a self-access fix in 20260902010000),
+-- independently of this migration's own p_confidential addition. Both are
+-- folded into one final 7-arg signature below instead of leaving two
+-- same-arity-6 overloads -- (text,text,uuid,uuid,uuid,care_message_category)
+-- and (text,text,uuid,uuid,uuid,boolean) -- coexisting, which PostgREST
+-- cannot disambiguate. The self-access fix (a patient messaging their own
+-- care team is not "acting for someone else" and needs no staff/caregiver
+-- check) is preserved too.
 --
 -- MODULE-WIDE CONFIDENTIALITY CHOICE (spec §47.13: "confidentiality first")
 -- ---------------------------------------------------------------------------
@@ -32,19 +73,25 @@
 -- sti_partner_notifications, contraception_plans,
 -- emergency_contraception_requests, fertility_assessments,
 -- sexual_health_screens) deliberately has NO profile_access/can_read_clinical
--- clause at all — patient-self or org staff, full stop. That is a stricter
--- posture than reproductive_health_profiles (which already lets any
--- profile_access grantee read it) — a deliberate choice for this module, not
--- an oversight; see each table's own migration header. Any SRH-related
--- care_message_thread the app opens (e.g. from the STI case-review screen, or
--- a patient starting a conversation from inside the Sexual & Reproductive
--- Health section) is expected to always pass confidential = true.
+-- clause at all -- patient-self or org staff, full stop. That is a stricter
+-- posture than reproductive_health_profiles (which lets a profile_access
+-- grantee with an explicit reproductive_health category grant, or a
+-- dependent-account guardian, read it) -- a deliberate choice for this
+-- module, not an oversight; see each table's own migration header. Whether
+-- these tables should also honour that same explicit-grant/guardian path is
+-- flagged back to the founder, not decided here -- unlike
+-- care_message_threads, they never referenced can_read_clinical at all, so
+-- category-scoping does not change their behaviour either way. Any
+-- SRH-related care_message_thread the app opens (e.g. from the STI
+-- case-review screen, or a patient starting a conversation from inside the
+-- Sexual & Reproductive Health section) is expected to always pass
+-- confidential = true.
 
 alter table public.care_message_threads
   add column if not exists confidential boolean not null default false;
 
 comment on column public.care_message_threads.confidential is
-  'True when this thread must stay invisible to a sponsor/supporter even with profile_access.clinical_access granted (spec §47.12). The patient and org staff can always read/post regardless of this flag — it only ever narrows sponsor visibility, never the patient''s own.';
+  'True when this thread must stay invisible to any profile_access grantee with a ''messaging'' category grant (spec section 47.12) -- including a caregiver holding messaging access without a separate reproductive_health grant. The patient and org staff can always read/post regardless of this flag; it only ever narrows category-grant/emergency-access visibility, never the patient''s own.';
 
 drop policy if exists care_message_threads_select on public.care_message_threads;
 create policy care_message_threads_select on public.care_message_threads
@@ -52,7 +99,13 @@ create policy care_message_threads_select on public.care_message_threads
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or (not confidential and private.can_read_clinical(patient_id))
+    or (
+      not confidential
+      and (
+        private.can_read_clinical(patient_id, 'messaging')
+        or private.has_emergency_access(patient_id, 'messaging')
+      )
+    )
   );
 
 drop policy if exists care_message_threads_insert on public.care_message_threads;
@@ -61,7 +114,13 @@ create policy care_message_threads_insert on public.care_message_threads
   with check (
     (patient_id = (select auth.uid()) and organisation_id = private.current_org_id())
     or private.is_org_staff(organisation_id)
-    or (not confidential and private.can_read_clinical(patient_id))
+    or (
+      not confidential
+      and (
+        private.can_read_clinical(patient_id, 'messaging')
+        or private.has_emergency_access(patient_id, 'messaging')
+      )
+    )
   );
 
 drop policy if exists care_messages_select on public.care_messages;
@@ -71,7 +130,10 @@ create policy care_messages_select on public.care_messages
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
     or (
-      private.can_read_clinical(patient_id)
+      (
+        private.can_read_clinical(patient_id, 'messaging')
+        or private.has_emergency_access(patient_id, 'messaging')
+      )
       and exists (
         select 1 from public.care_message_threads t
         where t.id = thread_id and not t.confidential
@@ -89,25 +151,38 @@ create policy care_messages_insert on public.care_messages
         and (
           t.patient_id = (select auth.uid())
           or private.is_org_staff(t.organisation_id)
-          or (not t.confidential and private.can_read_clinical(t.patient_id))
+          or (
+            not t.confidential
+            and (
+              private.can_read_clinical(t.patient_id, 'messaging')
+              or private.has_emergency_access(t.patient_id, 'messaging')
+            )
+          )
         )
     )
   );
 
 -- start_care_thread gains p_confidential (default false, unchanged for every
--- existing caller). A sponsor opening a thread for someone they support can
--- never mark it confidential — that would be a sponsor creating a
--- conversation the patient's OTHER sponsors can't see while the sponsor who
--- created it still can, which is not what confidentiality is for here; only
--- the patient themselves or org staff may set it.
+-- existing caller) folded onto main-dev's own p_category addition -- see this
+-- migration's header. A sponsor/caregiver opening a thread for someone they
+-- support can never mark it confidential -- that would be a caregiver
+-- creating a conversation the patient's OTHER caregivers can't see while the
+-- caregiver who created it still can, which is not what confidentiality is
+-- for here; only the patient themselves or org staff may set it. The
+-- self-access fix (p_patient_id = the caller's own auth.uid() is the patient
+-- messaging about themselves, not "acting for someone else") is preserved
+-- from 20260902010000.
 --
--- Adding a parameter changes the function's signature, so `create or
--- replace` alone would leave the old 5-arg overload behind rather than
--- replacing it (Postgres treats a different arg list as a different
--- function) — drop it explicitly first so exactly one start_care_thread
+-- Both of main-dev's own 6-arg overloads
+-- ((text,text,uuid,uuid,uuid,care_message_category) from
+-- 20260830014522/20260902010000, and any transient
+-- (text,text,uuid,uuid,uuid,boolean) this migration would otherwise have
+-- created) are dropped explicitly first so exactly one start_care_thread
 -- exists, the same requirement PostgREST's RPC dispatch has for any
 -- overloaded function name.
 drop function if exists public.start_care_thread(text, text, uuid, uuid, uuid);
+drop function if exists public.start_care_thread(text, text, uuid, uuid, uuid, public.care_message_category);
+drop function if exists public.start_care_thread(text, text, uuid, uuid, uuid, boolean);
 
 create or replace function public.start_care_thread(
   p_subject text,
@@ -115,6 +190,7 @@ create or replace function public.start_care_thread(
   p_patient_id uuid default null,
   p_escalation_id uuid default null,
   p_care_plan_id uuid default null,
+  p_category public.care_message_category default 'general'::public.care_message_category,
   p_confidential boolean default false
 ) returns uuid
 language plpgsql security definer set search_path = '' as $$
@@ -129,18 +205,19 @@ begin
   if length(coalesce(trim(p_subject), '')) = 0 then raise exception 'subject required'; end if;
   if length(coalesce(trim(p_body), '')) = 0 then raise exception 'message required'; end if;
 
-  if p_patient_id is not null then
-    -- Staff opening a thread for a patient, or a consented sponsor opening one
-    -- for the person they support.
+  if p_patient_id is not null and p_patient_id <> v_uid then
+    -- Staff opening a thread for a patient, or a consented caregiver opening
+    -- one for the person they support.
     select organisation_id into v_org from public.profiles where id = p_patient_id;
     v_patient := p_patient_id;
     v_is_staff_or_self := private.is_org_staff(v_org);
     if v_org is null
-       or not (v_is_staff_or_self or private.can_read_clinical(p_patient_id)) then
+       or not (v_is_staff_or_self or private.can_read_clinical(p_patient_id, 'messaging')) then
       raise exception 'not authorised' using errcode = '42501';
     end if;
   else
-    -- Patient opening their own thread.
+    -- Patient opening their own thread (p_patient_id null, or explicitly
+    -- their own auth.uid()).
     select organisation_id into v_org from public.profiles where id = v_uid;
     v_patient := v_uid;
     v_is_staff_or_self := true;
@@ -148,9 +225,9 @@ begin
   if v_org is null then raise exception 'no organisation'; end if;
 
   insert into public.care_message_threads
-    (organisation_id, patient_id, subject, created_by, escalation_id, care_plan_id, confidential)
+    (organisation_id, patient_id, subject, created_by, escalation_id, care_plan_id, category, confidential)
   values (
-    v_org, v_patient, trim(p_subject), v_uid, p_escalation_id, p_care_plan_id,
+    v_org, v_patient, trim(p_subject), v_uid, p_escalation_id, p_care_plan_id, p_category,
     coalesce(p_confidential, false) and v_is_staff_or_self
   )
   returning id into v_thread_id;
@@ -160,8 +237,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.start_care_thread(text, text, uuid, uuid, uuid, boolean) from public, anon;
-grant execute on function public.start_care_thread(text, text, uuid, uuid, uuid, boolean) to authenticated;
+revoke execute on function public.start_care_thread(text, text, uuid, uuid, uuid, public.care_message_category, boolean) from public, anon;
+grant execute on function public.start_care_thread(text, text, uuid, uuid, uuid, public.care_message_category, boolean) to authenticated;
 
 do $$
 begin
@@ -172,7 +249,7 @@ begin
     raise exception 'FAIL: care_message_threads.confidential was not added';
   end if;
 
-  -- Substring check on the column name only, not on the NOT keyword's case —
+  -- Substring check on the column name only, not on the NOT keyword's case --
   -- Postgres's own expression deparser (pg_get_expr, backing pg_policies.qual)
   -- always renders SQL keywords upper-case regardless of how a migration's
   -- source text wrote them, so a literal 'not confidential' (lower-case)
@@ -192,7 +269,20 @@ begin
     raise exception 'FAIL: care_messages SELECT policy does not check confidential';
   end if;
 
-  -- The patient and org staff must never be narrowed by this flag — check
+  -- Category-scoped access, not the retired flat clinical_access boolean:
+  -- every rewritten policy must call the 2-arg can_read_clinical(uuid,
+  -- care_access_category) with the 'messaging' category, matching the
+  -- pattern main-dev applies everywhere else category-scoped access reads
+  -- care_message_threads/care_messages.
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename in ('care_message_threads', 'care_messages')
+      and qual like '%can_read_clinical(%' and qual not like '%messaging%'
+  ) then
+    raise exception 'FAIL: a care_message_threads/care_messages policy still calls can_read_clinical without the messaging category';
+  end if;
+
+  -- The patient and org staff must never be narrowed by this flag -- check
   -- for the two clauses by function name rather than exact auth.uid()
   -- subselect formatting, which Postgres's own deparser may normalise.
   if not exists (
@@ -203,9 +293,17 @@ begin
     raise exception 'FAIL: care_message_threads SELECT policy lost the patient-self or org-staff clause';
   end if;
 
-  if has_function_privilege('anon', 'public.start_care_thread(text,text,uuid,uuid,uuid,boolean)', 'EXECUTE') then
+  if exists (
+    select 1 from pg_proc
+    where proname = 'start_care_thread' and pronamespace = 'public'::regnamespace
+      and pg_get_function_identity_arguments(oid) <> 'p_subject text, p_body text, p_patient_id uuid, p_escalation_id uuid, p_care_plan_id uuid, p_category care_message_category, p_confidential boolean'
+  ) then
+    raise exception 'FAIL: more than one start_care_thread overload exists, or its signature drifted';
+  end if;
+
+  if has_function_privilege('anon', 'public.start_care_thread(text,text,uuid,uuid,uuid,public.care_message_category,boolean)', 'EXECUTE') then
     raise exception 'FAIL: anon must not be able to open a care conversation';
   end if;
 
-  raise notice 'PASS: care_message_threads.confidential installed and enforced across select/insert policies + start_care_thread';
+  raise notice 'PASS: care_message_threads.confidential installed and enforced across select/insert policies + start_care_thread, category-scoped';
 end $$;
