@@ -5,6 +5,10 @@ import { usePathname } from "next/navigation";
 const SECTIONS: Record<string, { label: string; subtitle: string }> = {
   "/pharmacist": { label: "Overview", subtitle: "Today's dispensing snapshot" },
   "/pharmacist/orders": { label: "Orders", subtitle: "Orders routed to your pharmacy" },
+  "/pharmacist/verify": {
+    label: "Verify a prescription",
+    subtitle: "Check authenticity, medication detail, and validity for any patient's prescription",
+  },
   "/pharmacist/history": { label: "Dispensing history", subtitle: "Everything dispensed against orders" },
   "/pharmacist/profile": { label: "Pharmacy profile", subtitle: "Regions, contact & license details" },
 };

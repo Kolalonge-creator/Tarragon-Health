@@ -9,7 +9,7 @@ import type { RiskAssessmentInput } from "@/lib/validation/risk-assessment";
  * Proves the config-driven engine reproduces risk-scoring.ts's hardcoded
  * CONDITION_RULES exactly, tier-for-tier, across the same scenarios
  * risk-scoring.test.ts covers. Loads the seeded v1 config straight out of
- * migration 20260827200508_risk_questionnaire_configs.sql (the actual
+ * migration 20260828183044_risk_questionnaire_configs.sql (the actual
  * $config$...$config$ jsonb literal, not a hand-copied TS re-transcription)
  * so there is exactly one source of truth for what "v1" contains — a typo
  * in either the SQL or a separate TS fixture could otherwise drift
@@ -17,7 +17,7 @@ import type { RiskAssessmentInput } from "@/lib/validation/risk-assessment";
  */
 const MIGRATION_PATH = path.resolve(
   __dirname,
-  "../../../../../supabase/migrations/20260827200508_risk_questionnaire_configs.sql",
+  "../../../../../supabase/migrations/20260828183044_risk_questionnaire_configs.sql",
 );
 
 function loadSeededV1Config(): RiskQuestionnaireConfigPayload {

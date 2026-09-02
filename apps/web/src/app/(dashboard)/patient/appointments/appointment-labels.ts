@@ -14,6 +14,7 @@ export const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
   follow_up: "Follow-up",
   procedure: "Procedure",
   therapy: "Therapy session",
+  result_interpretation: "Result interpretation session",
 };
 
 export const APPOINTMENT_STATUS_LABELS: Record<

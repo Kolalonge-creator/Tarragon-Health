@@ -5,6 +5,8 @@ import {
   useLabCatalogue,
   useCreateLabOrder,
   usePatientLabOrders,
+  useScreenTypePrices,
+  bundleIsPartnerBillable,
   type PanelBundle,
 } from "@/lib/queries/lab-orders";
 import { useRegionServiceAvailable } from "@/lib/queries/service-regions";
@@ -15,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
+import { PartnerLabBillingOption } from "./partner-lab-billing-option";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReviewPrice } from "./review-price";
 import { cn } from "@/lib/utils";
@@ -82,6 +85,7 @@ export function AnnualHealthCheckBooking({
 }) {
   const { data: bundles } = useLabCatalogue();
   const { data: orders } = usePatientLabOrders(patientId);
+  const { data: screenTypePrices } = useScreenTypePrices();
   const createOrder = useCreateLabOrder();
   const { data: partnerBillingAvailable } = useRegionServiceAvailable(state, "lab");
   const [payState, payAction, payPending] = useActionState(createAndPayForPartnerLabOrder, undefined);
@@ -322,6 +326,19 @@ export function AnnualHealthCheckBooking({
                         Could not set that up just now. Please try again.
                       </p>
                     )}
+                    {/* partnerBillingAvailable already covers this state with the
+                        "Book & pay" flow above — this opt-in is only offered as a
+                        fallback where the state isn't switched on but this specific
+                        bundle still has a contracted price on file. */}
+                    {bundleIsPartnerBillable(selected, screenTypePrices) && (
+                      <PartnerLabBillingOption
+                        patientId={patientId}
+                        organisationId={organisationId}
+                        panelBundleId={selected.id}
+                        bundleName={selected.name}
+                        priceKobo={selected.price_kobo}
+                      />
+                    )}
                   </>
                 )}
               </div>
@@ -333,7 +350,7 @@ export function AnnualHealthCheckBooking({
               The Health Check packages come with a paid plan. You can still upload any result you
               already have and a doctor will read it, on any plan.
             </p>
-            <PatientResultUpload label="Upload a result you already have" />
+            <PatientResultUpload label="Upload a result you already have" patientId={patientId} />
           </div>
         )}
       </CardContent>

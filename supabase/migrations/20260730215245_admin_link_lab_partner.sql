@@ -56,7 +56,7 @@ end;
 $$;
 
 grant execute on function public.admin_link_lab_partner(uuid, uuid) to authenticated;
-revoke execute on function public.admin_link_lab_partner(uuid, uuid) from public;
+revoke execute on function public.admin_link_lab_partner(uuid, uuid) from public, anon;
 revoke execute on function public.admin_link_lab_partner(uuid, uuid) from anon;
 
 do $$

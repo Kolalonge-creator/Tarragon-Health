@@ -1,4 +1,25 @@
-import { validateExtractedParameter, normaliseReportDate } from "./extract";
+import type { ChatAnthropic } from "@langchain/anthropic";
+import { validateExtractedParameter, normaliseReportDate, extractEcgReport } from "./extract";
+
+function fakeModel(raw: Record<string, unknown>, capture: (messages: unknown[]) => void): ChatAnthropic {
+  return {
+    withStructuredOutput: () => ({
+      invoke: async (messages: unknown[]) => {
+        capture(messages);
+        return raw;
+      },
+    }),
+  } as unknown as ChatAnthropic;
+}
+
+const MINIMAL_EXTRACTION = {
+  report_date: null,
+  facility_name: null,
+  patient_name: null,
+  looks_twelve_lead: true,
+  parameters: [],
+  unreadable_reason: null,
+};
 
 function raw(overrides: Partial<Parameters<typeof validateExtractedParameter>[0]> = {}) {
   return {
@@ -76,6 +97,26 @@ describe("validateExtractedParameter", () => {
       raw({ reported_label: "QTc", code: "qt_interval", value: 430, unit: "ms" }),
     );
     expect(result.code).toBe("qtc_interval");
+  });
+});
+
+describe("extractEcgReport prompt caching", () => {
+  it("marks the system prompt as a cache breakpoint", async () => {
+    let captured: unknown[] = [];
+    const model = fakeModel(MINIMAL_EXTRACTION, (messages) => {
+      captured = messages;
+    });
+
+    const result = await extractEcgReport({
+      fileBase64: "ZmFrZQ==",
+      mediaType: "image/png",
+      model,
+    });
+
+    expect(result.ok).toBe(true);
+    const systemMessage = captured[0] as { content: { type: string; cache_control?: unknown }[] };
+    expect(systemMessage.content).toHaveLength(1);
+    expect(systemMessage.content[0].cache_control).toEqual({ type: "ephemeral" });
   });
 });
 

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { COUNTRY_CALLING_CODES, E164_GENERIC } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
@@ -18,6 +19,42 @@ const inputStyle = {
   color: colors.ink,
   backgroundColor: colors.card,
 } as const;
+
+/** Same show/hide affordance as login-screen.tsx's password field. */
+function PasswordField({
+  value,
+  onChangeText,
+  placeholder,
+  accessibilityLabel,
+}: {
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder: string;
+  accessibilityLabel: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <View style={{ justifyContent: "center" }}>
+      <TextInput
+        accessibilityLabel={accessibilityLabel}
+        placeholder={placeholder}
+        placeholderTextColor={colors.faint}
+        secureTextEntry={!visible}
+        value={value}
+        onChangeText={onChangeText}
+        style={[inputStyle, { paddingRight: 44 }]}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={visible ? "Hide password" : "Show password"}
+        onPress={() => setVisible((v) => !v)}
+        style={{ position: "absolute", right: 12, height: "100%", justifyContent: "center" }}
+      >
+        <Ionicons name={visible ? "eye-off" : "eye"} size={20} color={colors.faint} />
+      </Pressable>
+    </View>
+  );
+}
 
 /**
  * Native forgot/reset-password (spec §1). Phone is the primary path — it
@@ -213,23 +250,17 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
             ) : (
               <>
                 <MutedText>Choose a new password for your account.</MutedText>
-                <TextInput
+                <PasswordField
                   accessibilityLabel="New password"
                   placeholder="New password"
-                  placeholderTextColor={colors.faint}
-                  secureTextEntry
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  style={inputStyle}
                 />
-                <TextInput
+                <PasswordField
                   accessibilityLabel="Confirm new password"
                   placeholder="Confirm new password"
-                  placeholderTextColor={colors.faint}
-                  secureTextEntry
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  style={inputStyle}
                 />
                 {error ? <ErrorText>{error}</ErrorText> : null}
                 <PrimaryButton
