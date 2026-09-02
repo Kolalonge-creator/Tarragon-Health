@@ -1,6 +1,22 @@
 -- Healthy Ageing & Elderly Care — social determinants (spec §50.12) and
 -- home-based care (spec §50.13).
 --
+-- RENAMED from 20260829121834_social_determinants_and_home_care.sql
+-- (2026-09-02) -- same collision, same fix, same source PR (#322) as
+-- 20260902180527_ageing_assessments_caregiver_access.sql and
+-- 20260902180833_falls_risk_pathway_caregiver_access.sql: this collided on
+-- version `20260829121834` with
+-- 20260829121834_20260829123000_social_determinants_and_home_care.sql, an
+-- earlier, differently-named migration for the same feature. Confirmed
+-- against the live koiplnmbgnqnbywhpjlf project that only the other file's
+-- version is actually applied in production -- this one never landed live.
+-- Content untouched: every create is `if not exists` or preceded by its
+-- own `drop ... if exists`, so it still applies cleanly on top of the
+-- original migration and layers in its one real addition --
+-- `private.can_act_for(patient_id)` on the RLS policies for both tables, so
+-- a caregiver acting for a patient can screen/request on that patient's
+-- behalf too.
+--
 -- SOCIAL DETERMINANTS: the spec is explicit that these "should trigger
 -- support/navigation rather than become merely demographic data" — so
 -- needs_navigation_support is a generated column (can't be forgotten or

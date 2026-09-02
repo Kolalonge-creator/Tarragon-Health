@@ -1,5 +1,20 @@
 -- Healthy Ageing & Elderly Care — falls-risk pathway (spec §50.4).
 --
+-- RENAMED from 20260829121803_falls_risk_pathway.sql (2026-09-02) -- same
+-- collision, same fix, same source PR (#322) as
+-- 20260902180527_ageing_assessments_caregiver_access.sql: this collided on
+-- version `20260829121803` with
+-- 20260829121803_20260829121500_falls_risk_pathway.sql, an earlier,
+-- differently-named migration for the same feature. Confirmed against the
+-- live koiplnmbgnqnbywhpjlf project that only the other file's version is
+-- actually applied in production -- this one never landed live, so
+-- renaming it here is a pure git-history fix. Content untouched: every
+-- create is `if not exists` or preceded by its own `drop ... if exists`,
+-- so it still applies cleanly on top of the original migration and layers
+-- in its one real addition -- `private.can_act_for(patient_id)` on the RLS
+-- policies, so a caregiver acting for a patient can flag/read that
+-- patient's falls-risk records too.
+--
 -- A dedicated table rather than folding into ageing_assessment_domain_results:
 -- unlike the other new domains, falls risk has its own real multi-stage
 -- clinical pathway (Risk identified -> Clinical assessment -> Intervention ->
