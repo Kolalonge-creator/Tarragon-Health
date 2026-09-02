@@ -48,14 +48,22 @@ declare
   v_test_patient uuid;
   v_org uuid;
   v_programme_id uuid;
+  v_programme_active boolean;
   v_enrolment_id uuid;
   v_track public.chronic_programme_track;
 begin
   select id, organisation_id into v_test_patient, v_org from public.profiles where role = 'patient' limit 1;
-  select id into v_programme_id from public.chronic_condition_programmes where code = 'hypertension';
+  select id, is_active into v_programme_id, v_programme_active
+    from public.chronic_condition_programmes where code = 'hypertension';
 
-  if v_test_patient is null then
-    raise notice 'SKIPPED behavioral proof: no patient row exists to test against';
+  -- Every chronic_condition_programmes row ships is_active = false and only
+  -- ever becomes true via a live, signed-protocol runtime action, never a
+  -- migration (see 20260716223231_chronic_condition_programmes.sql) — on a
+  -- fresh reset that sign-off never happened, so skip gracefully rather than
+  -- tripping chronic_enrolments_active_gate on a precondition this
+  -- migration doesn't own.
+  if v_test_patient is null or v_programme_id is null or v_programme_active is not true then
+    raise notice 'SKIPPED behavioral proof: no patient/active programme row exists to test against';
   else
     insert into public.chronic_programme_enrolments
       (organisation_id, patient_id, programme_id, status)
