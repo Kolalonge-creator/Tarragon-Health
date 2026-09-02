@@ -42,7 +42,6 @@ const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, stri
   whatsapp: "WhatsApp",
   termii: "Termii SMS",
   paystack: "Paystack",
-  stripe: "Stripe",
   resend: "Resend (email)",
 };
 

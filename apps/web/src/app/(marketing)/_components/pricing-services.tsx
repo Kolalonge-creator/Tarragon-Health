@@ -50,10 +50,24 @@ export function PricingServices({
             ))}
           </ul>
         ) : null}
+        {programme.conditions ? (
+          <div className="mt-4 grid gap-3 border-t border-charcoal-ink/10 pt-4 sm:grid-cols-2">
+            {programme.conditions.map((c) => (
+              <div key={c.condition} className="rounded-lg bg-brand-green/[0.04] p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
+                  {c.condition}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-charcoal-ink/70">{c.body}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {programme.optionalNote ? (
-          <div className="mt-4 flex items-start gap-3 rounded-xl bg-clinical-navy/[0.04] p-3">
-            <PricingLabelBadge label="YOU PAY THE LAB" />
-            <p className="text-xs leading-relaxed text-charcoal-ink/70">{programme.optionalNote}</p>
+          <div className="mt-4 rounded-xl bg-clinical-navy/[0.04] p-3">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-clinical-navy">
+              Optional
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-charcoal-ink/70">{programme.optionalNote}</p>
           </div>
         ) : null}
         <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/60">

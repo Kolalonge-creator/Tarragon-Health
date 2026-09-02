@@ -237,9 +237,9 @@ export default function ForYouPage() {
           <p>
             The app is free and stays free: track your own numbers, get your screening calendar,
             read the whole education library, and use the AI Health Coach, with no time limit and no
-            card required. When you want a doctor actually managing a condition with you, the 12-week
-            doctor-supported programme is {CHRONIC_PROGRAMME.price}, and it covers hypertension,
-            diabetes and weight together rather than charging you per condition.
+            card required. When you want a doctor actually managing hypertension or diabetes with
+            you, the 12-week doctor-supported programme is {CHRONIC_PROGRAMME.price}; managing your
+            weight alongside either condition is part of the same review, at no extra charge.
           </p>
           <p>
             Want a doctor for one thing rather than twelve weeks? The{" "}

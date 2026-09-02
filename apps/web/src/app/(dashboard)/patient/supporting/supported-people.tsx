@@ -442,7 +442,6 @@ function PayBillOnMyCard({
     <form action={action} className="inline-flex flex-col items-end gap-1">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
       <input type="hidden" name="orderId" value={bill.order_id} />
-      <input type="hidden" name="currency" value="NGN" />
       <Button type="submit" disabled={pending}>
         {pending ? "Starting…" : `Pay ${naira(bill.amount_kobo)} on my card`}
       </Button>
@@ -520,7 +519,6 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
   return (
     <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-      <input type="hidden" name="currency" value="NGN" />
       <p className="text-xs font-medium text-charcoal-ink">Pay for their plan</p>
       <div className="flex flex-wrap items-center gap-2">
         <Select name="planCode" defaultValue="" className="max-w-xs">
