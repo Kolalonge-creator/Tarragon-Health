@@ -210,7 +210,7 @@ begin
 end;
 $$;
 
-revoke all on function public.employer_generate_invoice(uuid, date, date) from public;
+revoke all on function public.employer_generate_invoice(uuid, date, date) from public, anon;
 grant execute on function public.employer_generate_invoice(uuid, date, date) to authenticated;
 revoke execute on function public.employer_generate_invoice(uuid, date, date) from anon;
 
@@ -261,7 +261,7 @@ begin
 end;
 $$;
 
-revoke all on function public.employer_set_invoice_status(uuid, text, text) from public;
+revoke all on function public.employer_set_invoice_status(uuid, text, text) from public, anon;
 grant execute on function public.employer_set_invoice_status(uuid, text, text) to authenticated;
 revoke execute on function public.employer_set_invoice_status(uuid, text, text) from anon;
 

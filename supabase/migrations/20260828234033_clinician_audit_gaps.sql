@@ -61,7 +61,7 @@ comment on function public.log_result_document_viewed(uuid) is
   'Logs a clinician/doctor opening a specific lab_result_documents row. Same shape as '
   'log_patient_record_view (20260812034612) — call after confirming the document loaded, not before.';
 
-revoke all on function public.log_result_document_viewed(uuid) from public;
+revoke all on function public.log_result_document_viewed(uuid) from public, anon;
 grant execute on function public.log_result_document_viewed(uuid) to authenticated;
 revoke execute on function public.log_result_document_viewed(uuid) from anon;
 

@@ -292,7 +292,7 @@ begin
 end;
 $$;
 
-revoke all on function public.employer_send_announcement(uuid) from public;
+revoke all on function public.employer_send_announcement(uuid) from public, anon;
 grant execute on function public.employer_send_announcement(uuid) to authenticated;
 revoke execute on function public.employer_send_announcement(uuid) from anon;
 

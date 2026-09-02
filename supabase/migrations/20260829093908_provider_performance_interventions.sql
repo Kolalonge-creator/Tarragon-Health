@@ -122,7 +122,7 @@ begin
 end;
 $$;
 
-revoke all on function private.enforce_provider_intervention() from public;
+revoke all on function private.enforce_provider_intervention() from public, anon;
 
 create trigger provider_interventions_enforce
   before insert or update on public.provider_interventions
@@ -161,7 +161,7 @@ begin
 end;
 $$;
 
-revoke all on function private.log_provider_intervention() from public;
+revoke all on function private.log_provider_intervention() from public, anon;
 
 create trigger provider_interventions_log
   after insert or update on public.provider_interventions

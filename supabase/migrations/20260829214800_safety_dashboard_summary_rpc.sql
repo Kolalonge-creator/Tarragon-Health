@@ -77,7 +77,7 @@ $$;
 comment on function public.analytics_safety_dashboard_summary() is
   'The six headline counts from docs spec §89.14''s dashboard mockup, plus open safeguarding concerns (§89.12). analyst-only (private.is_analyst()); returns {} rather than raising if the caller lacks that role, matching analytics_alert_burden/analytics_alert_quality.';
 
-revoke all on function public.analytics_safety_dashboard_summary() from public;
+revoke all on function public.analytics_safety_dashboard_summary() from public, anon;
 revoke all on function public.analytics_safety_dashboard_summary() from anon;
 grant execute on function public.analytics_safety_dashboard_summary() to authenticated;
 

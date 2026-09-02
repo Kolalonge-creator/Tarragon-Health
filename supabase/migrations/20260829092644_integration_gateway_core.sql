@@ -189,7 +189,7 @@ $$;
 comment on function private.prune_integration_logs(integer) is
   'Retention sweep for the two append-only gateway tables. 90 days of request log is enough for §33.9 trend reporting and short enough that the table stays cheap; the floor of 7 days stops a bad argument from erasing the log entirely.';
 
-revoke all on function private.prune_integration_logs(integer) from public;
+revoke all on function private.prune_integration_logs(integer) from public, anon;
 
 do $$
 begin

@@ -387,7 +387,7 @@ $$;
 comment on function public.set_diagnostic_request_booking_preference(uuid, uuid, text, date, public.lab_order_time_of_day, boolean, text) is
   '15.3: patient booking on an already clinician-created diagnostic_requests row — facility, date, coarse time-of-day, price context (read from the linked catalogue row client-side), insurance note. A coarse preference a facility confirms manually, not a real-time slot booking — same posture as request_lab_order_partner_visit.';
 
-revoke all on function public.set_diagnostic_request_booking_preference(uuid, uuid, text, date, public.lab_order_time_of_day, boolean, text) from public;
+revoke all on function public.set_diagnostic_request_booking_preference(uuid, uuid, text, date, public.lab_order_time_of_day, boolean, text) from public, anon;
 grant execute on function public.set_diagnostic_request_booking_preference(uuid, uuid, text, date, public.lab_order_time_of_day, boolean, text) to authenticated;
 revoke execute on function public.set_diagnostic_request_booking_preference(uuid, uuid, text, date, public.lab_order_time_of_day, boolean, text) from anon;
 

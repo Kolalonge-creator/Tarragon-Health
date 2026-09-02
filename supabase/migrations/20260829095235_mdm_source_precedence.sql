@@ -84,7 +84,7 @@ grant select, insert, update, delete on public.source_precedence_rules to authen
 grant select on public.superseded_source_values to authenticated;
 revoke all on public.source_precedence_rules from anon;
 revoke all on public.superseded_source_values from anon;
-revoke execute on function public.resolve_source_precedence(text, text, text) from public;
+revoke execute on function public.resolve_source_precedence(text, text, text) from public, anon;
 grant execute on function public.resolve_source_precedence(text, text, text) to authenticated, service_role;
 
 create or replace function private.enforce_blood_profile_provenance()
