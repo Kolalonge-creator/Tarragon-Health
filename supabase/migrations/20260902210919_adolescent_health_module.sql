@@ -45,6 +45,26 @@
 --      one real gap the routing exposes (see section 4's header) rather than
 --      touching that table's already-tested attribution trigger.
 --
+-- Flagged, not resolved (same posture as 20260830103331_dependent_
+-- transition_to_adult_care.sql's own note, which flagged this same overlap
+-- from its side first): section 6's adolescent_transition_plans is a
+-- clinician-driven, staged readiness checklist (transition_assessment ->
+-- independent_account_prep -> health_literacy -> medication_independence ->
+-- adult_care_handoff), gated on clinical-tier authority to advance a stage.
+-- That is NOT the same thing as dependent_transition_status (§48.14,
+-- 20260830103331): a purely age-derived (13/16/18), automatic, non-clinical
+-- status used only to taper profile_access from 'manage' to 'view' at 18 —
+-- no clinician ever acts on it. Also distinct from adolescent_transition_
+-- events/private.transition_adolescent_dependents (§82.12, 20260830114838):
+-- a notify-at-13/downgrade-at-18 sweep over dependent (no-login) accounts
+-- specifically. Different table/enum/cron-job names across all three mean
+-- there is no live SQL collision, but they cover real overlapping product
+-- territory (all three fire in the 13-18 age band, all three are called
+-- "transition" in some framing) and were built independently. Reconciling
+-- them (e.g. should the two automatic account-access sweeps become the
+-- layer underneath this migration's clinical checklist?) is a product
+-- decision for a human, not something to guess at mid-merge.
+--
 -- Scope note: exact confidentiality/age boundaries are, by the spec's own
 -- wording (49.4), "governed according to applicable law and clinical
 -- policy" — not yet settled. This ships a defensible engineering default
