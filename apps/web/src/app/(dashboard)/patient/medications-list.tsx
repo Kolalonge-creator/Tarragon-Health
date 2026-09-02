@@ -11,11 +11,18 @@ import {
   type MedicationWithCarePlan,
 } from "@/lib/queries/medications";
 import { MedicationCollectionForm } from "./medication-collection-form";
+import { MedicationIssueReportForm } from "./medication-issue-report-form";
 import { SymptomLogForm } from "./symptom-log-form";
 import { MedicationAccessBarrierForm } from "./medication-access-barrier-form";
 import { computeRefillGapSignal, REFILL_GAP_DISCLAIMER } from "@/lib/rules/adherence-signals";
 import { usePatientNextReview } from "@/lib/queries/medication-reviews";
 import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
+import {
+  useMedicationRenewalRequest,
+  useRequestPrescriptionRenewal,
+} from "@/lib/queries/prescription-renewal";
+import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
+import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -165,7 +172,15 @@ export function MedicationsList({
                     // Buy anywhere, tell us afterwards. Ungated: knowing
                     // whether a patient actually has their medicine is a
                     // safety signal, not a paid feature.
-                    <MedicationCollectionForm medication={medication} patientId={patientId} />
+                    <>
+                      <MedicationCollectionForm medication={medication} patientId={patientId} />
+                      <MedicationIssueReportForm medication={medication} patientId={patientId} />
+                      <RequestRenewalButton
+                        medication={medication}
+                        patientId={patientId}
+                        organisationId={medication.organisation_id}
+                      />
+                    </>
                   )}
                   {canStop && (
                     <StopMedicationForm medication={medication} patientId={patientId} />
@@ -479,6 +494,90 @@ function StopMedicationForm({
           {(stopMedication.error as Error).message || "Could not stop this medication."}
         </p>
       )}
+    </div>
+  );
+}
+
+const RENEWAL_CREDIT_CODE = "prescription_renewal_credit";
+
+/**
+ * Pay-per-service item: request a doctor's review to renew this
+ * prescription. Server-side, prescription_renewal_requests_enforce_credit
+ * accepts either plan access (medication_refills) or a redeemed
+ * prescription_renewal_credit — this button doesn't pre-check plan access
+ * itself (has_available_service_purchase only tells us about a credit), so
+ * a plan-covered patient's request just succeeds on submit without ever
+ * needing to buy anything.
+ */
+function RequestRenewalButton({
+  medication,
+  patientId,
+  organisationId,
+}: {
+  medication: MedicationWithCarePlan;
+  patientId: string;
+  organisationId: string;
+}) {
+  const { data: openRequest } = useMedicationRenewalRequest(medication.id);
+  const { data: hasCredit } = useHasAvailableServicePurchase(patientId, RENEWAL_CREDIT_CODE);
+  const requestRenewal = useRequestPrescriptionRenewal();
+  const [isBuying, setIsBuying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (openRequest && (openRequest.status === "submitted" || openRequest.status === "in_review")) {
+    return (
+      <p className="mt-1 text-xs text-charcoal-ink/60">
+        Renewal requested · a doctor will respond by{" "}
+        {new Date(openRequest.sla_due_at).toLocaleDateString()}
+      </p>
+    );
+  }
+  if (openRequest?.status === "approved") {
+    return <p className="mt-1 text-xs text-brand-green">Renewal approved by your care team.</p>;
+  }
+
+  async function onRequest() {
+    setError(null);
+    requestRenewal.mutate(
+      { patientId, organisationId, medicationId: medication.id },
+      {
+        onError: async (err) => {
+          const message = (err as Error).message ?? "";
+          if (!message.includes("renewal credit")) {
+            setError(message || "Could not send this request.");
+            return;
+          }
+          // No plan access and no credit — start checkout, then retry on return.
+          setIsBuying(true);
+          const result = await purchaseServiceProduct({
+            serviceProductCode: RENEWAL_CREDIT_CODE,
+            callbackPath: "/patient",
+          });
+          setIsBuying(false);
+          if (result?.error) setError(result.error);
+          else if (result?.checkoutUrl) window.location.href = result.checkoutUrl;
+        },
+      }
+    );
+  }
+
+  return (
+    <div className="mt-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="h-7 px-2 text-xs text-charcoal-ink/70"
+        disabled={requestRenewal.isPending || isBuying}
+        onClick={onRequest}
+      >
+        {requestRenewal.isPending || isBuying
+          ? "Requesting…"
+          : hasCredit
+            ? "Request renewal (credit ready)"
+            : "Request renewal"}
+      </Button>
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

@@ -2,8 +2,15 @@
 
 import { useScreeningSchedules } from "@/lib/queries/screening";
 import { todayIsoDate } from "@/lib/queries/medications";
-import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
+import {
+  useLabCatalogue,
+  useCreateLabOrder,
+  useScreenTypePrices,
+  bundleIsPartnerBillable,
+  findSingleTestBundle,
+} from "@/lib/queries/lab-orders";
 import { ConfirmScreeningDoneForm } from "./confirm-screening-done-form";
+import { PartnerLabBillingOption } from "./partner-lab-billing-option";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +36,7 @@ export function PreventiveScreeningCalendar({
 }) {
   const { data, isLoading, isError } = useScreeningSchedules(patientId);
   const { data: bundles } = useLabCatalogue();
+  const { data: screenTypePrices } = useScreenTypePrices();
   const createOrder = useCreateLabOrder();
   const today = todayIsoDate();
 
@@ -107,6 +115,16 @@ export function PreventiveScreeningCalendar({
                         <p className="text-xs text-red-600">
                           Could not set that up just now. Please try again.
                         </p>
+                      )}
+                      {bundleIsPartnerBillable(bundle, screenTypePrices) && (
+                        <PartnerLabBillingOption
+                          patientId={patientId}
+                          organisationId={organisationId!}
+                          panelBundleId={bundle.id}
+                          screeningScheduleId={schedule.id}
+                          bundleName={bundle.name}
+                          priceKobo={bundle.price_kobo}
+                        />
                       )}
                     </div>
                   )}

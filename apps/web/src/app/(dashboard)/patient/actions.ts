@@ -787,11 +787,18 @@ export async function acknowledgeEmergency(eventId: string): Promise<EmergencyEv
     return { error: "Not signed in" };
   }
 
+  // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
+  // grant server-side, so a stale or forged cookie resolves back to the
+  // caller's own id. acknowledged_by is still stamped from auth.uid() by the
+  // DB update guard, so a supporter acknowledging is correctly attributed to
+  // them even though the event itself belongs to subjectId.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { error } = await supabase
     .from("emergency_events")
     .update({ acknowledged_at: new Date().toISOString(), status: "acknowledged" })
     .eq("id", eventId)
-    .eq("patient_id", user.id)
+    .eq("patient_id", subjectId)
     .is("acknowledged_at", null);
   if (error) {
     return { error: error.message };
@@ -816,12 +823,19 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     return { error: "Not signed in" };
   }
 
-  // Ownership + contact are read under the patient's own RLS session first.
+  // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
+  // grant server-side, so a stale or forged cookie resolves back to the
+  // caller's own id.
+  const subjectId = await resolveSubjectId(user.id);
+
+  // Ownership + contact are read under the caller's own RLS session first —
+  // both scoped to subjectId (the account the emergency actually belongs to),
+  // not the caller, so a supporter acting for someone alerts THEIR contact.
   const { data: event } = await supabase
     .from("emergency_events")
     .select("id, organisation_id, contact_notified_at")
     .eq("id", eventId)
-    .eq("patient_id", user.id)
+    .eq("patient_id", subjectId)
     .single();
   if (!event) {
     return { error: "Emergency not found" };
@@ -835,7 +849,7 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     .select(
       "full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, emergency_contact_consent"
     )
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.emergency_contact_phone) {
     return { error: "Add an emergency contact number first so we can alert them." };
@@ -855,11 +869,12 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
   } as Json;
 
   // notifications is queue-write only; the deployed dispatcher sends off-session.
+  // recipient_id is the patient this emergency belongs to, not necessarily the caller.
   const serviceRole = createServiceRoleClient();
   const { error: notifyError } = await serviceRole.from("notifications").insert([
     {
       organisation_id: event.organisation_id,
-      recipient_id: user.id,
+      recipient_id: subjectId,
       channel: "sms",
       status: "pending",
       template: "emergency_contact_alert",
@@ -867,7 +882,7 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     },
     {
       organisation_id: event.organisation_id,
-      recipient_id: user.id,
+      recipient_id: subjectId,
       channel: "whatsapp",
       status: "pending",
       template: "emergency_contact_alert",
