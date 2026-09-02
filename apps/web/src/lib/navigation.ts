@@ -181,6 +181,7 @@ export function getNavSections(
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
+            { label: "Insurance", href: "/patient/insurance", icon: "insurance" },
             { label: "My services", href: "/patient/subscription", icon: "billing" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
             { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
@@ -495,6 +496,73 @@ export function getNavSections(
         {
           items: [
             { label: "Dashboard", href: "/dashboard/hmo", icon: "dashboard", exact: true },
+          ],
+        },
+      ];
+    // Module 27 — built dormant (platform_modules.payer_platform, off by
+    // default). Every page under /payer itself checks module + seat
+    // membership server-side and renders a "not yet activated" placeholder
+    // when either is missing, so this nav entry is always safe to render.
+    case "payer_admin":
+      return [
+        {
+          items: [
+            { label: "Overview", href: "/payer", icon: "dashboard", exact: true },
+          ],
+        },
+        {
+          label: "Product",
+          items: [
+            { label: "Plans", href: "/payer/plans", icon: "billing" },
+            { label: "Provider network", href: "/payer/network", icon: "hmo" },
+            { label: "Care programmes", href: "/payer/programmes", icon: "carePlan" },
+          ],
+        },
+        {
+          label: "Operations",
+          items: [
+            { label: "Pre-authorisations", href: "/payer/preauthorizations", icon: "approvals" },
+            { label: "Claims", href: "/payer/claims", icon: "ledger" },
+          ],
+        },
+        {
+          label: "Setup",
+          items: [
+            { label: "Team", href: "/payer/team", icon: "members" },
+          ],
+        },
+      ];
+    // Module 28 — built dormant (platform_modules.provider_org_platform, off
+    // by default). Same posture as the payer nav above: every /provider-org
+    // page checks module + org is_operational + seat membership itself.
+    case "provider_org_staff":
+      return [
+        {
+          items: [
+            { label: "Overview", href: "/provider-org", icon: "dashboard", exact: true },
+          ],
+        },
+        {
+          label: "Organisation",
+          items: [
+            { label: "Locations", href: "/provider-org/locations", icon: "region" },
+            { label: "Staff", href: "/provider-org/staff", icon: "members" },
+            { label: "Services", href: "/provider-org/services", icon: "carePlan" },
+            { label: "Resources", href: "/provider-org/resources", icon: "settings" },
+          ],
+        },
+        {
+          label: "Queues",
+          items: [
+            { label: "Referrals", href: "/provider-org/referrals", icon: "referral" },
+            { label: "Lab orders", href: "/provider-org/lab-orders", icon: "labs" },
+            { label: "Pharmacy orders", href: "/provider-org/pharmacy-orders", icon: "pharmacy" },
+          ],
+        },
+        {
+          label: "Finance",
+          items: [
+            { label: "Settlements", href: "/provider-org/settlements", icon: "statements" },
           ],
         },
       ];

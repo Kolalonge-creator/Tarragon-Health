@@ -359,6 +359,13 @@ export default async function AdminPage() {
           icon: NAV_ICON.review,
           visible: isSuperAdmin,
         },
+        {
+          href: "/admin/settings/platform-modules",
+          label: "Platform modules",
+          blurb: "Activate the payer or provider-organisation platform",
+          icon: NAV_ICON.settings,
+          visible: isSuperAdmin,
+        },
       ],
     },
     {

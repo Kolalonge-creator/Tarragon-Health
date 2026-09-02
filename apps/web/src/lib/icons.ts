@@ -9,6 +9,7 @@ import {
   Users,
   Headphones,
   ShieldCheck,
+  Handshake,
   Link2,
   FileText,
   ShoppingBag,
@@ -148,6 +149,7 @@ export const MEAL_TYPE_ICON = {
 export const NAV_ICON = {
   dashboard: LayoutDashboard,
   passport: IdCard,
+  insurance: Handshake,
   lifestyle: Activity,
   vaccination: Syringe,
   review: ClipboardCheck,

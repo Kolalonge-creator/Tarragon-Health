@@ -246,6 +246,14 @@ taken on faith:**
   meantime.
 - A production-quality Nigerian-language voice/TTS vendor was deliberately never built — the
   platform is English-only by founder decision (2026-08-03). Revisit only on an explicit ask.
+- **2026-08-29 — modules 27 (insurer/payer platform) and 28 (provider organisation platform) are
+  fully built and shipped dormant**, per founder instruction — see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s
+  2026-08-29 entry for the full build. Both stay inert until a superadmin calls
+  `public.set_platform_module('payer_platform'|'provider_org_platform', true, '<why>')`
+  (`public.platform_modules`, checked in RLS, every write RPC, and the `(dashboard)/payer` /
+  `(dashboard)/provider-org` route guards) — do not flip either on without the founder's explicit
+  go-ahead, and confirm a real signed counterparty exists first. Neither platform's activation has
+  ever been exercised against a real insurer or provider organisation.
 - **2026-08-26 — mobile OTA publishing is now automated, but needs one secret added before it runs.**
   `apps/mobile` had no CI path to the actual running app — EAS Update only shipped via a manual
   `eas update`, and a day's worth of merged JS-only UI work (BMW-kit rework, nav-drawer/Devices
