@@ -33,6 +33,20 @@ create policy appointments_select on public.appointments
     or private.can_read_clinical(patient_id, 'view_appointments'::public.caregiver_permission)
   );
 
+-- Reconciled 2026-09-02 against main-dev: 20260831163838_appointment_engine_
+-- service_purchase_payment_gate.sql landed after this migration was first
+-- written and rewrote both hold_appointment_slot and
+-- confirm_appointment_booking to gate telemedicine/result_interpretation
+-- appointments on a service-purchase credit (payment_status, the
+-- redeem_available_service_purchase call, and the auto-created
+-- video_consultations row on a genuine confirm). Redefining these two
+-- against this migration's original, pre-payment-gate bodies would have
+-- silently dropped all of that the moment this migration ran. Both bodies
+-- below are the live ones with that payment-gate logic intact, plus this
+-- migration's own one change to each: a caregiver holding book_appointments
+-- is admitted alongside "is the patient" and "is org staff", and a
+-- log_care_access call records the booking/confirmation as an acted-for
+-- event when the caller isn't the patient.
 create or replace function public.hold_appointment_slot(
   p_organisation_id uuid,
   p_clinician_id uuid,
@@ -58,6 +72,7 @@ declare
   v_patient uuid;
   v_org uuid;
   v_is_high_priority boolean := false;
+  v_payment_status public.appointment_payment_status;
   v_result public.appointments;
 begin
   if v_uid is null then
@@ -88,16 +103,24 @@ begin
     where id = p_specialist_referral_id and organisation_id = p_organisation_id;
   end if;
 
+  v_payment_status := case p_appointment_type
+    when 'telemedicine' then 'pending'
+    when 'result_interpretation' then 'pending'
+    else 'not_required'
+  end;
+
   begin
     insert into public.appointments (
       organisation_id, patient_id, clinician_id, appointment_type, consultation_method,
       scheduled_for, ends_at, status, reason, service, location,
-      specialist_referral_id, care_plan_id, booked_by, is_high_priority, hold_expires_at
+      specialist_referral_id, care_plan_id, booked_by, is_high_priority, hold_expires_at,
+      payment_status
     ) values (
       p_organisation_id, v_patient, p_clinician_id, p_appointment_type, p_consultation_method,
       p_scheduled_for, p_ends_at, 'held', p_reason, p_service, p_location,
       p_specialist_referral_id, p_care_plan_id, v_uid, coalesce(v_is_high_priority, false),
-      now() + (p_hold_minutes * interval '1 minute')
+      now() + (p_hold_minutes * interval '1 minute'),
+      v_payment_status
     )
     returning * into v_result;
   exception
@@ -125,6 +148,9 @@ as $$
 declare
   v_uid uuid := (select auth.uid());
   v_appt public.appointments;
+  v_product_code text;
+  v_consult_context public.video_consultation_context;
+  v_consult_id uuid;
 begin
   select * into v_appt from public.appointments where id = p_appointment_id for update;
   if v_appt.id is null then
@@ -135,30 +161,82 @@ begin
      and not private.can_act_for(v_appt.patient_id, 'book_appointments'::public.caregiver_permission) then
     raise exception 'not authorized';
   end if;
-  if v_appt.status <> 'held' then
+  -- 'held' is the normal first call. 'booked' (payment still pending from an
+  -- earlier confirm attempt) is a valid re-confirm — the caller routes the
+  -- patient to buy a credit, then calls this function again on the same
+  -- appointment once payment succeeds; 'booked' already has no
+  -- hold_expires_at to check (see below).
+  if v_appt.status not in ('held', 'booked') then
     raise exception 'appointment is not on hold';
   end if;
-  if v_appt.hold_expires_at < now() then
+  if v_appt.status = 'held' and v_appt.hold_expires_at < now() then
     update public.appointments set status = 'expired', hold_expires_at = null where id = p_appointment_id;
     raise exception 'hold has expired — pick another slot';
   end if;
 
+  if v_appt.payment_status = 'pending' then
+    v_product_code := case v_appt.appointment_type
+      when 'telemedicine' then 'video_visit_credit'
+      when 'result_interpretation' then 'result_interpretation_credit'
+      else null
+    end;
+    if v_product_code is not null then
+      begin
+        perform public.redeem_available_service_purchase(
+          v_appt.patient_id, v_product_code, 'appointment', v_appt.id
+        );
+        v_appt.payment_status := 'paid';
+      exception when others then
+        if sqlerrm not like 'no available%' then
+          raise;
+        end if;
+        -- No credit yet — leave payment_status 'pending', booking stays 'booked'
+        -- below (the same non-error behaviour this function already had for
+        -- any not-yet-paid appointment); the client routes the patient to buy
+        -- one, then calls this function again.
+      end;
+    end if;
+  end if;
+
   update public.appointments
-    set status = case
-          when payment_status in ('paid', 'not_required', 'waived') then 'confirmed'::public.appointment_status
-          else 'booked'::public.appointment_status
-        end,
-        confirmed_at = case when payment_status in ('paid', 'not_required', 'waived') then now() else confirmed_at end,
+    set payment_status = v_appt.payment_status,
+        status = case when v_appt.payment_status in ('paid', 'not_required', 'waived')
+                      then 'confirmed'::public.appointment_status
+                      else 'booked'::public.appointment_status end,
+        confirmed_at = case when v_appt.payment_status in ('paid', 'not_required', 'waived') then now() else confirmed_at end,
         hold_expires_at = null
     where id = p_appointment_id
     returning * into v_appt;
 
-  insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
-  values (
-    v_appt.organisation_id, v_appt.patient_id, 'whatsapp', 'pending', 'appointment_booking_confirmation',
-    jsonb_build_object('appointment_id', v_appt.id, 'scheduled_for', v_appt.scheduled_for, 'appointment_type', v_appt.appointment_type),
-    'non_clinical'
-  );
+  if v_appt.status = 'confirmed'
+     and v_appt.video_consultation_id is null
+     and v_appt.appointment_type in ('telemedicine', 'result_interpretation') then
+    v_consult_context := case v_appt.appointment_type
+      when 'result_interpretation' then 'lab_result_consult'
+      else 'general_checkin'
+    end;
+
+    insert into public.video_consultations
+      (organisation_id, patient_id, context, initiated_by, status, scheduled_at)
+    values
+      (v_appt.organisation_id, v_appt.patient_id, v_consult_context, v_appt.patient_id, 'scheduled', v_appt.scheduled_for)
+    returning id into v_consult_id;
+
+    update public.appointments set video_consultation_id = v_consult_id where id = v_appt.id
+    returning * into v_appt;
+  end if;
+
+  -- Only on a genuine confirm — a still-'booked' (pending payment) outcome
+  -- can be retried by the caller (buy a credit, call this again), and must
+  -- not spam a notification on every unsuccessful retry.
+  if v_appt.status = 'confirmed' then
+    insert into public.notifications (organisation_id, recipient_id, channel, status, template, payload, content_class)
+    values (
+      v_appt.organisation_id, v_appt.patient_id, 'whatsapp', 'pending', 'appointment_booking_confirmation',
+      jsonb_build_object('appointment_id', v_appt.id, 'scheduled_for', v_appt.scheduled_for, 'appointment_type', v_appt.appointment_type),
+      'non_clinical'
+    );
+  end if;
 
   if v_appt.patient_id <> v_uid then
     perform private.log_care_access(v_appt.patient_id, 'acted_for', 'booking', jsonb_build_object('appointment_id', v_appt.id, 'stage', v_appt.status::text));

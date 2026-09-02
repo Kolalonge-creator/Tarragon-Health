@@ -329,6 +329,19 @@ grant execute on function public.sponsor_payable_orders(uuid) to authenticated;
 -- log_care_access already no-ops whenever the actor is the patient, so no
 -- extra guard is needed here to keep a patient's own redemption out of a
 -- DELEGATED access log.
+--
+-- Reconciled 2026-09-02 against main-dev: 20260901174915_promo_codes_
+-- service_purchases.sql landed after this migration was first written and
+-- added a fourth order type ('service_purchase', paid via
+-- public.service_purchases rather than lab/pharmacy/referral orders, plus
+-- the access_duration_days-driven expiry it sets on full payment).
+-- Redefining this function against this migration's original three-order-type
+-- body would have silently dropped that branch the moment this migration
+-- ran. This body is the live one with that branch intact, plus this
+-- migration's own two changes: the beneficiary check now goes through
+-- private.can_act_for(..., 'manage_payments') instead of an inline
+-- permission_level = 'manage' check, and a log_care_access call records the
+-- redemption as an acted-for event when the caller isn't the beneficiary.
 create or replace function public.redeem_care_voucher(
   p_voucher uuid,
   p_order_type text,
@@ -348,9 +361,10 @@ declare
   v_bundle  uuid;
   v_covered bigint;
   v_fully   boolean;
+  v_access_duration_days integer;
 begin
   if v_caller is null then raise exception 'not authenticated'; end if;
-  if p_order_type not in ('lab', 'pharmacy', 'referral') then
+  if p_order_type not in ('lab', 'pharmacy', 'referral', 'service_purchase') then
     raise exception 'unsupported order type %', p_order_type;
   end if;
 
@@ -381,10 +395,17 @@ begin
     select patient_id, status::text, payable_kobo, null::uuid
       into v_patient, v_status, v_payable, v_bundle
       from public.pharmacy_orders where id = p_order_id for update;
-  else
+  elsif p_order_type = 'referral' then
     select patient_id, status::text, payable_kobo, null::uuid
       into v_patient, v_status, v_payable, v_bundle
       from public.specialist_referrals where id = p_order_id for update;
+  else
+    -- v_bundle is repurposed to carry service_product_id here (both uuid,
+    -- and lab is the only order type that ever reads v_bundle as a bundle
+    -- id) so the final dispatch below doesn't need a second lookup.
+    select patient_id, status::text, payable_kobo, service_product_id
+      into v_patient, v_status, v_payable, v_bundle
+      from public.service_purchases where id = p_order_id for update;
   end if;
 
   if v_patient is null then raise exception 'order not found'; end if;
@@ -429,7 +450,7 @@ begin
            payment_provider_ref = case when v_fully then v_v.voucher_number else payment_provider_ref end,
            pending_payment_provider_ref = case when v_fully then null else pending_payment_provider_ref end
      where id = p_order_id;
-  else
+  elsif p_order_type = 'referral' then
     update public.specialist_referrals
        set voucher_covered_kobo = voucher_covered_kobo + v_covered,
            applied_voucher_id = v_v.id,
@@ -437,6 +458,22 @@ begin
            payment_provider = case when v_fully then 'voucher'::public.payment_provider else payment_provider end,
            payment_provider_ref = case when v_fully then v_v.voucher_number else payment_provider_ref end,
            pending_payment_provider_ref = case when v_fully then null else pending_payment_provider_ref end
+     where id = p_order_id;
+  else
+    select access_duration_days into v_access_duration_days
+      from public.service_products where id = v_bundle;
+
+    update public.service_purchases
+       set voucher_covered_kobo = voucher_covered_kobo + v_covered,
+           applied_voucher_id = v_v.id,
+           status = case when v_fully then 'active'::public.service_purchase_status else status end,
+           payment_provider = case when v_fully then 'voucher'::public.payment_provider else payment_provider end,
+           payment_provider_ref = case when v_fully then v_v.voucher_number else payment_provider_ref end,
+           pending_payment_provider_ref = case when v_fully then null else pending_payment_provider_ref end,
+           purchased_at = case when v_fully then now() else purchased_at end,
+           expires_at = case when v_fully and v_access_duration_days is not null
+                             then now() + (v_access_duration_days || ' days')::interval
+                             else expires_at end
      where id = p_order_id;
   end if;
 
@@ -476,12 +513,31 @@ grant execute on function public.redeem_care_voucher(uuid, text, uuid) to authen
 -- person they support, same log, scope 'messaging' (already in the fixed
 -- vocabulary — care_receipt's own recent-activity read already expects it
 -- there).
+--
+-- Reconciled 2026-09-02 against main-dev: this function has moved twice more
+-- since this migration was first written -- 20260830103251 (category-scoped
+-- access) moved its authorisation check from the 1-arg can_read_clinical
+-- onto the 2-arg category form used below, then 20260902010000 and
+-- 20260902211500 (self-access and confidential threads, both dated the same
+-- day as this reconciliation) added the p_category/p_confidential parameters
+-- and the v_is_staff_or_self-gated confidential flag. This redefinition is
+-- now written against that live 7-parameter signature -- not the 5-parameter
+-- one this migration originally shipped -- so create-or-replace actually
+-- replaces the live function instead of silently adding a second, ambiguous
+-- overload next to it (the exact hazard: two start_care_thread signatures
+-- differing only in trailing defaulted parameters, which Postgres cannot
+-- always resolve as "the newer one" the way an application caller expects).
+-- The only change from the live body is the one this migration actually
+-- owns: logging that a supporter opening a thread on someone else's behalf
+-- is itself an acted-for event.
 create or replace function public.start_care_thread(
   p_subject text,
   p_body text,
   p_patient_id uuid default null,
   p_escalation_id uuid default null,
-  p_care_plan_id uuid default null
+  p_care_plan_id uuid default null,
+  p_category public.care_message_category default 'general',
+  p_confidential boolean default false
 ) returns uuid
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -489,28 +545,33 @@ declare
   v_org uuid;
   v_patient uuid;
   v_thread_id uuid;
+  v_is_staff_or_self boolean;
 begin
   if v_uid is null then raise exception 'not authenticated'; end if;
   if length(coalesce(trim(p_subject), '')) = 0 then raise exception 'subject required'; end if;
   if length(coalesce(trim(p_body), '')) = 0 then raise exception 'message required'; end if;
 
-  if p_patient_id is not null then
+  if p_patient_id is not null and p_patient_id <> v_uid then
     select organisation_id into v_org from public.profiles where id = p_patient_id;
     v_patient := p_patient_id;
+    v_is_staff_or_self := private.is_org_staff(v_org);
     if v_org is null
-       or not (private.is_org_staff(v_org)
-               or private.can_read_clinical(p_patient_id, 'communicate_with_care_team'::public.caregiver_permission)) then
+       or not (v_is_staff_or_self or private.can_read_clinical(p_patient_id, 'messaging'::public.care_access_category)) then
       raise exception 'not authorised' using errcode = '42501';
     end if;
   else
     select organisation_id into v_org from public.profiles where id = v_uid;
     v_patient := v_uid;
+    v_is_staff_or_self := true;
   end if;
   if v_org is null then raise exception 'no organisation'; end if;
 
   insert into public.care_message_threads
-    (organisation_id, patient_id, subject, created_by, escalation_id, care_plan_id)
-  values (v_org, v_patient, trim(p_subject), v_uid, p_escalation_id, p_care_plan_id)
+    (organisation_id, patient_id, subject, created_by, escalation_id, care_plan_id, category, confidential)
+  values (
+    v_org, v_patient, trim(p_subject), v_uid, p_escalation_id, p_care_plan_id, p_category,
+    coalesce(p_confidential, false) and v_is_staff_or_self
+  )
   returning id into v_thread_id;
 
   insert into public.care_messages (thread_id, body) values (v_thread_id, trim(p_body));
@@ -521,8 +582,8 @@ begin
 end;
 $$;
 
-revoke execute on function public.start_care_thread(text, text, uuid, uuid, uuid) from public, anon;
-grant execute on function public.start_care_thread(text, text, uuid, uuid, uuid) to authenticated;
+revoke execute on function public.start_care_thread(text, text, uuid, uuid, uuid, public.care_message_category, boolean) from public, anon;
+grant execute on function public.start_care_thread(text, text, uuid, uuid, uuid, public.care_message_category, boolean) to authenticated;
 
 -- The migration is the test.
 do $$
@@ -538,7 +599,7 @@ begin
      or pg_get_functiondef('public.sponsor_pay_booking_order(uuid,text,uuid)'::regprocedure) not like '%log_care_access%'
      or pg_get_functiondef('public.sponsor_payable_orders(uuid)'::regprocedure) not like '%log_care_access%'
      or pg_get_functiondef('public.redeem_care_voucher(uuid,text,uuid)'::regprocedure) not like '%log_care_access%'
-     or pg_get_functiondef('public.start_care_thread(text,text,uuid,uuid,uuid)'::regprocedure) not like '%log_care_access%' then
+     or pg_get_functiondef('public.start_care_thread(text,text,uuid,uuid,uuid,public.care_message_category,boolean)'::regprocedure) not like '%log_care_access%' then
     raise exception 'a caregiver-acting RPC does not call log_care_access — 23.11 "what they changed" is not covered';
   end if;
 

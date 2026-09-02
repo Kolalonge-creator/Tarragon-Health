@@ -465,59 +465,45 @@ grant execute on function public.redeem_care_voucher(uuid, text, uuid) to authen
 -- supporter) to the 2-arg overload (a consented supporter who also holds
 -- communicate_with_care_team). The patient's own branch and the org-staff
 -- branch are untouched in every policy below — only the supporter branch
--- narrows.
-create or replace function public.start_care_thread(
-  p_subject text,
-  p_body text,
-  p_patient_id uuid default null,
-  p_escalation_id uuid default null,
-  p_care_plan_id uuid default null
-) returns uuid
-language plpgsql security definer set search_path = '' as $$
-declare
-  v_uid uuid := (select auth.uid());
-  v_org uuid;
-  v_patient uuid;
-  v_thread_id uuid;
-begin
-  if v_uid is null then raise exception 'not authenticated'; end if;
-  if length(coalesce(trim(p_subject), '')) = 0 then raise exception 'subject required'; end if;
-  if length(coalesce(trim(p_body), '')) = 0 then raise exception 'message required'; end if;
-
-  if p_patient_id is not null then
-    select organisation_id into v_org from public.profiles where id = p_patient_id;
-    v_patient := p_patient_id;
-    if v_org is null
-       or not (private.is_org_staff(v_org)
-               or private.can_read_clinical(p_patient_id, 'communicate_with_care_team'::public.caregiver_permission)) then
-      raise exception 'not authorised' using errcode = '42501';
-    end if;
-  else
-    select organisation_id into v_org from public.profiles where id = v_uid;
-    v_patient := v_uid;
-  end if;
-  if v_org is null then raise exception 'no organisation'; end if;
-
-  insert into public.care_message_threads
-    (organisation_id, patient_id, subject, created_by, escalation_id, care_plan_id)
-  values (v_org, v_patient, trim(p_subject), v_uid, p_escalation_id, p_care_plan_id)
-  returning id into v_thread_id;
-
-  insert into public.care_messages (thread_id, body) values (v_thread_id, trim(p_body));
-  return v_thread_id;
-end;
-$$;
-
-revoke execute on function public.start_care_thread(text, text, uuid, uuid, uuid) from public, anon;
-grant execute on function public.start_care_thread(text, text, uuid, uuid, uuid) to authenticated;
-
+-- widens (a caregiver may open/read a thread with EITHER the existing
+-- category-scoped 'messaging' access OR the narrower
+-- communicate_with_care_team action permission — the two are additive, not
+-- a replacement of one by the other).
+--
+-- start_care_thread itself is deliberately NOT redefined here: this
+-- migration originally shipped a 5-parameter body (this reconciliation
+-- point predates 20260830103251_category_scoped_clinical_access_and_
+-- emergency_access.sql, which added confidential threads, and
+-- 20260902211500_confidential_care_message_threads.sql, which added
+-- p_category/p_confidential to the live 7-parameter signature). Defining it
+-- here too, ahead of 20260829032500_caregiver_acted_for_audit.sql's own
+-- (now live-signature-matched) redefinition three migrations later, would
+-- have left two start_care_thread overloads differing only in trailing
+-- defaulted parameters permanently coexisting — exactly the ambiguous
+-- overload hazard CLAUDE.md warns about elsewhere in this codebase. See
+-- 20260829032500 for the one, single, live-shaped definition.
+--
+-- Reconciled 2026-09-02 against main-dev: each policy below now layers this
+-- migration's communicate_with_care_team clause onto the live policy body
+-- (which already carries a category-scoped 'messaging' clause,
+-- has_emergency_access, and — for care_message_threads_select/insert and
+-- care_messages_select — the NOT confidential gating a supporter must
+-- respect) rather than the original three-clause body this migration first
+-- shipped against, so as not to silently drop any of that.
 drop policy if exists care_message_threads_select on public.care_message_threads;
 create policy care_message_threads_select on public.care_message_threads
   for select to authenticated
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id, 'communicate_with_care_team'::public.caregiver_permission)
+    or (
+      not confidential
+      and (
+        private.can_read_clinical(patient_id, 'messaging'::public.care_access_category)
+        or private.has_emergency_access(patient_id, 'messaging'::public.care_access_category)
+        or private.can_read_clinical(patient_id, 'communicate_with_care_team'::public.caregiver_permission)
+      )
+    )
   );
 
 drop policy if exists care_messages_select on public.care_messages;
@@ -526,7 +512,17 @@ create policy care_messages_select on public.care_messages
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id, 'communicate_with_care_team'::public.caregiver_permission)
+    or (
+      (
+        private.can_read_clinical(patient_id, 'messaging'::public.care_access_category)
+        or private.has_emergency_access(patient_id, 'messaging'::public.care_access_category)
+        or private.can_read_clinical(patient_id, 'communicate_with_care_team'::public.caregiver_permission)
+      )
+      and exists (
+        select 1 from public.care_message_threads t
+        where t.id = care_messages.thread_id and not t.confidential
+      )
+    )
   );
 
 drop policy if exists care_message_threads_insert on public.care_message_threads;
@@ -535,7 +531,14 @@ create policy care_message_threads_insert on public.care_message_threads
   with check (
     (patient_id = (select auth.uid()) and organisation_id = private.current_org_id())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id, 'communicate_with_care_team'::public.caregiver_permission)
+    or (
+      not confidential
+      and (
+        private.can_read_clinical(patient_id, 'messaging'::public.care_access_category)
+        or private.has_emergency_access(patient_id, 'messaging'::public.care_access_category)
+        or private.can_read_clinical(patient_id, 'communicate_with_care_team'::public.caregiver_permission)
+      )
+    )
   );
 
 drop policy if exists care_messages_insert on public.care_messages;
@@ -547,7 +550,14 @@ create policy care_messages_insert on public.care_messages
       where t.id = thread_id
         and (t.patient_id = (select auth.uid())
              or private.is_org_staff(t.organisation_id)
-             or private.can_read_clinical(t.patient_id, 'communicate_with_care_team'::public.caregiver_permission))
+             or (
+               not t.confidential
+               and (
+                 private.can_read_clinical(t.patient_id, 'messaging'::public.care_access_category)
+                 or private.has_emergency_access(t.patient_id, 'messaging'::public.care_access_category)
+                 or private.can_read_clinical(t.patient_id, 'communicate_with_care_team'::public.caregiver_permission)
+               )
+             ))
     )
   );
 
@@ -559,7 +569,7 @@ begin
      or has_function_privilege('anon', 'public.sponsor_pay_booking_order(uuid,text,uuid)', 'EXECUTE')
      or has_function_privilege('anon', 'public.sponsor_payable_orders(uuid)', 'EXECUTE')
      or has_function_privilege('anon', 'public.redeem_care_voucher(uuid,text,uuid)', 'EXECUTE')
-     or has_function_privilege('anon', 'public.start_care_thread(text,text,uuid,uuid,uuid)', 'EXECUTE') then
+     or has_function_privilege('anon', 'public.start_care_thread(text,text,uuid,uuid,uuid,public.care_message_category,boolean)', 'EXECUTE') then
     raise exception 'anon must not reach any redefined caregiver-acting RPC';
   end if;
 

@@ -2,6 +2,32 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { CAREGIVER_PERMISSIONS, type CaregiverPermission } from "@/lib/validation/care-access";
 
+/**
+ * Matches public.care_access_category exactly. Kept as a plain literal union
+ * (not read from database.types.ts) because the enum was added in the same
+ * migration as this file's rewrite, ahead of the next types regeneration.
+ */
+export type CareAccessCategory =
+  | "appointments_care_plan"
+  | "vitals_readings"
+  | "medications"
+  | "labs_results"
+  | "vaccinations"
+  | "messaging"
+  | "reproductive_health"
+  | "medical_history";
+
+/** Display order and copy for every category checkbox. */
+export const CARE_ACCESS_CATEGORIES: { value: CareAccessCategory; label: string }[] = [
+  { value: "appointments_care_plan", label: "Appointments and care plan" },
+  { value: "vitals_readings", label: "Readings (blood pressure, glucose, weight...)" },
+  { value: "medications", label: "Medications" },
+  { value: "labs_results", label: "Lab and screening results" },
+  { value: "vaccinations", label: "Vaccinations" },
+  { value: "messaging", label: "Messages with the care team" },
+  { value: "medical_history", label: "Medical history (heart, blood, past reports)" },
+];
+
 export interface AccessibleProfile {
   id: string;
   full_name: string | null;
@@ -87,9 +113,8 @@ export interface CareFollower {
   profileId: string;
   fullName: string | null;
   permissionLevel: "view" | "manage";
-  /** They can read this person's health information. */
-  clinicalAccess: boolean;
-  clinicalAccessUpdatedAt: string | null;
+  /** Which categories of health information they can currently see — empty if none. */
+  categories: CareAccessCategory[];
   since: string;
   /** null = unrestricted (every capability a manage/view grant already implies). */
   permissions: CaregiverPermission[] | null;
@@ -100,8 +125,8 @@ export interface CareFollower {
 /**
  * The people who can see the caller's own record, from the caller's side.
  *
- * The mirror image of useSponsorableProfiles, and the list the consent switch
- * hangs off. Reading the grantee's name at all depends on
+ * The mirror image of useSponsorableProfiles, and the list the category
+ * checkboxes hang off. Reading the grantee's name at all depends on
  * profiles_select_my_grantees (20260731181822) — before that policy, a patient
  * could give someone access and never be shown who they were.
  */
@@ -118,9 +143,10 @@ export function useMyCareFollowers() {
       const { data, error } = await supabase
         .from("profile_access")
         .select(
-          `id, permission_level, clinical_access, clinical_access_updated_at, created_at,
+          `id, permission_level, created_at,
            permissions, expires_at,
-           grantee:profiles!profile_access_grantee_user_id_fkey(id, full_name)`
+           grantee:profiles!profile_access_grantee_user_id_fkey(id, full_name),
+           categories:profile_access_categories(category)`
         )
         .eq("profile_id", user.id)
         .order("created_at", { ascending: true });
@@ -134,8 +160,7 @@ export function useMyCareFollowers() {
             profileId: row.grantee.id,
             fullName: row.grantee.full_name,
             permissionLevel: row.permission_level as "view" | "manage",
-            clinicalAccess: row.clinical_access === true,
-            clinicalAccessUpdatedAt: row.clinical_access_updated_at,
+            categories: (row.categories ?? []).map((c) => c.category as CareAccessCategory),
             since: row.created_at,
             permissions: row.permissions as CaregiverPermission[] | null,
             expiresAt: row.expires_at,
@@ -147,22 +172,25 @@ export function useMyCareFollowers() {
 }
 
 /**
- * Turn health visibility on or off for one person.
+ * Set exactly which categories of health information one grantee can see.
  *
- * A plain update: profile_access_update already restricts the row to its owner,
- * and private.enforce_clinical_access_consent_owner refuses the change to
- * anyone else regardless — including a superadmin, so there is no privileged
- * path around this that a server action would need to guard.
+ * A single RPC call rather than a raw insert/delete: public.set_care_access_categories
+ * diffs against the grant's current categories and applies both sides
+ * atomically, and is the one choke point the owner-only trigger and the
+ * category_access_granted/withdrawn lifecycle logging both fire through.
+ * private.enforce_category_access_owner refuses the change to anyone but the
+ * record owner regardless — including a superadmin — so there is no
+ * privileged path around this a server action would need to guard.
  */
-export function useSetClinicalAccess() {
+export function useSetCareAccessCategories() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { grantId: string; allow: boolean }) => {
+    mutationFn: async (input: { grantId: string; categories: CareAccessCategory[] }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("profile_access")
-        .update({ clinical_access: input.allow })
-        .eq("id", input.grantId);
+      const { error } = await supabase.rpc("set_care_access_categories", {
+        p_grant_id: input.grantId,
+        p_categories: input.categories,
+      });
       if (error) throw error;
     },
     onSuccess: () => {

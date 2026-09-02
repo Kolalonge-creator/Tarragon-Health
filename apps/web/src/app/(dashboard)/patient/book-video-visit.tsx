@@ -212,7 +212,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
   if (!hasSlots && !hasUpcoming && !hasRequests && !hasUnrated) return null;
 
   return (
-    <div className="space-y-4">
+    <div id="book-video-visit" className="space-y-4">
     {hasUnrated &&
       (unrated ?? []).map((visit) => <VideoVisitFeedbackPrompt key={visit.id} consultationId={visit.id} />)}
     {(hasSlots || hasUpcoming || hasRequests) && (

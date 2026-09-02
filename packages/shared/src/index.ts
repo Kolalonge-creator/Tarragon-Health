@@ -89,6 +89,27 @@ export function ageFromDateOfBirth(dateOfBirth: string | null): number | null {
   );
 }
 
+/**
+ * Adolescent Health module (spec §49) age band — client-side FRAMING only
+ * ("which check-in / which copy / which nav item to show"), never
+ * enforcement. The real gate is private.adolescent_age_band in
+ * supabase/migrations/20260829121248_adolescent_health_module.sql, which
+ * this mirrors exactly (same thresholds, same 'unknown' fallback for a
+ * missing date_of_birth). Keep the two in sync if the thresholds ever
+ * change — see that migration's header for why they're a placeholder
+ * pending real clinical/legal policy sign-off, not a compliance claim.
+ */
+export type AdolescentAgeBand = "child" | "younger_adolescent" | "older_adolescent" | "adult" | "unknown";
+
+export function adolescentAgeBandFromDateOfBirth(dateOfBirth: string | null): AdolescentAgeBand {
+  const age = ageFromDateOfBirth(dateOfBirth);
+  if (age === null) return "unknown";
+  if (age < 10) return "child";
+  if (age < 15) return "younger_adolescent";
+  if (age < 18) return "older_adolescent";
+  return "adult";
+}
+
 /** Nigerian E.164 phone number, e.g. +234XXXXXXXXXX. */
 export const E164_NG = /^\+234\d{10}$/;
 
@@ -152,6 +173,9 @@ export type ReferralStatus = Enums<"referral_status">;
 /** specialist_referrals.urgency — set by the assigning doctor, never inferred. */
 export type ReferralUrgency = Enums<"referral_urgency">;
 
+/** specialist_referrals.referral_source — clinical origin of the episode (67.2), distinct from the payment-rail `origin` column. */
+export type ReferralSource = Enums<"referral_source">;
+
 /** specialist_referrals.specialist_type / specialist_providers.specialist_type. */
 export type SpecialistType = Enums<"specialist_type">;
 
@@ -161,6 +185,15 @@ export type LabOrderStatus = Enums<"lab_order_status">;
 /** pharmacy_orders.status — payment/fulfillment lifecycle. */
 export type PharmacyOrderStatus = Enums<"pharmacy_order_status">;
 
+/** insurance_policies.status — active/expired/suspended/cancelled. */
+export type InsurancePolicyStatus = Enums<"insurance_policy_status">;
+
+/** insurance_preauthorizations.status — pending/approved/denied/expired. */
+export type InsurancePreauthStatus = Enums<"insurance_preauth_status">;
+
+/** insurance_claims.status — submitted through paid/denied. */
+export type InsuranceClaimStatus = Enums<"insurance_claim_status">;
+
 /** commissions.commission_type — lab/pharmacy/referral partner-revenue source. */
 export type CommissionType = Enums<"commission_type">;
 
@@ -169,3 +202,12 @@ export type CommissionStatus = Enums<"commission_status">;
 
 /** commissions.rate_type (and lab_tests/pharmacy_medications/panel_bundles/specialist_providers' matching columns) — percentage vs. flat-kobo. */
 export type CommissionRateType = Enums<"commission_rate_type">;
+
+/** specialist_providers.provider_tier — descriptive directory classification, never inferred/defaulted, never a pricing/ranking signal. */
+export type SpecialistProviderTier = Enums<"specialist_provider_tier">;
+
+/** specialist_providers.verification_stage — the Specialist Network onboarding pipeline (application -> ... -> active). */
+export type SpecialistVerificationStage = Enums<"specialist_verification_stage">;
+
+/** platform_consultation_duration_defaults.duration_type / specialist_provider_availability_rules.duration_type. */
+export type ConsultationDurationType = Enums<"consultation_duration_type">;

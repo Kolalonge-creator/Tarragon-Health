@@ -60,7 +60,7 @@ $$;
 -- rather than holding a grant of its own, so `revoke ... from public` (not
 -- `from anon`) is what actually clears the blanket grant before re-granting
 -- explicitly by name.
-revoke all on function public.public_partner_locations() from public;
+revoke all on function public.public_partner_locations() from public, anon;
 grant execute on function public.public_partner_locations() to anon, authenticated;
 
 do $$

@@ -74,28 +74,54 @@ revoke all on function public.can_act_for(uuid, public.caregiver_permission) fro
 grant execute on function public.can_act_for(uuid, public.caregiver_permission) to authenticated;
 
 -- --- 2. can_read_clinical: expiry, and a permission-aware overload ------------
--- Byte-identical to the live definition (20260731185243) apart from the
--- expires_at clause, so the is_dependent_account branch — a guardian's
--- 'manage' grant standing in for a child with no login of their own — is
--- preserved exactly.
+-- Reconciled 2026-09-02 against main-dev, not the 20260731185243 body this
+-- migration originally targeted: by the time this branch merges, two other
+-- shipped efforts had already rewritten this exact 1-arg overload out from
+-- under it --
+--   1. 20260830103251_category_scoped_clinical_access_and_emergency_access.sql
+--      dropped it outright, then 20260902190500_preserve_legacy_can_read_
+--      clinical_overload_for_pr377_compat.sql recreated a narrower version
+--      (clinical_access only) for PR #377 compatibility -- the recreated
+--      version does NOT carry the is_dependent_account fallback this
+--      migration used to preserve. That is a founder-owed open question
+--      flagged in 20260902190500's own header, not something to silently
+--      resolve here.
+--   2. PR #377 (Patient Identity & MPI) then added its own OR-branch against
+--      public.emergency_access_grants (24h escalation of an existing
+--      caregiver relationship, revoked_at/expires_at-gated) -- a third,
+--      separate mechanism from both this migration's profile_access.expires_at
+--      (an ordinary caregiver grant expiring on its own schedule) and the
+--      cross-org break-glass emergency_record_access_grants from #1.
+-- Applying this migration's original body verbatim would have silently
+-- deleted that live emergency_access_grants branch the moment it ran --
+-- exactly the "create or replace clobbers a concurrent branch's fix" failure
+-- CLAUDE.md calls out. This body instead layers this migration's one actual
+-- change (the expires_at clause, so an expired caregiver grant stops
+-- passing this check immediately rather than only once the next
+-- private.expire_stale_profile_access sweep deletes the row) onto the
+-- function exactly as it now lives, confirmed via pg_get_functiondef against
+-- the live project rather than assumed from a migration file.
 create or replace function private.can_read_clinical(p_patient uuid)
 returns boolean
 language sql
 stable
-security definer
 set search_path to ''
 as $$
   select exists (
     select 1
     from public.profile_access pa
-    join public.profiles p on p.id = pa.profile_id
     where pa.profile_id = p_patient
       and pa.grantee_user_id = (select auth.uid())
+      and pa.clinical_access
       and (pa.expires_at is null or pa.expires_at > now())
-      and (
-        pa.clinical_access
-        or (pa.permission_level = 'manage' and p.is_dependent_account)
-      )
+  )
+  or exists (
+    select 1
+    from public.emergency_access_grants eag
+    where eag.profile_id = p_patient
+      and eag.grantee_user_id = (select auth.uid())
+      and eag.revoked_at is null
+      and eag.expires_at > now()
   );
 $$;
 

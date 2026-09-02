@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Image, Modal, Pressable, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import appIcon from "../../assets/icon.png";
 import { supabase } from "@/lib/supabase";
 import { colors, radius, spacing } from "@/ui/theme";
@@ -22,6 +23,7 @@ export function LoginScreen() {
   const [error, setError] = useState<string | null>(null);
   const [signupOpen, setSignupOpen] = useState(false);
   const [forgotOpen, setForgotOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function handleSignIn() {
     setLoading(true);
@@ -75,15 +77,25 @@ export function LoginScreen() {
         onChangeText={setEmail}
         style={inputStyle}
       />
-      <TextInput
-        accessibilityLabel="Password"
-        placeholder="Password"
-        placeholderTextColor={colors.faint}
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        style={inputStyle}
-      />
+      <View style={{ justifyContent: "center" }}>
+        <TextInput
+          accessibilityLabel="Password"
+          placeholder="Password"
+          placeholderTextColor={colors.faint}
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+          style={[inputStyle, { paddingRight: 44 }]}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+          onPress={() => setShowPassword((v) => !v)}
+          style={{ position: "absolute", right: 12, height: "100%", justifyContent: "center" }}
+        >
+          <Ionicons name={showPassword ? "eye-off" : "eye"} size={20} color={colors.faint} />
+        </Pressable>
+      </View>
       {error ? <ErrorText>{error}</ErrorText> : null}
       <PrimaryButton title="Sign in" onPress={handleSignIn} loading={loading} />
       <Pressable onPress={() => setForgotOpen(true)} style={{ alignItems: "center", paddingVertical: 4 }}>

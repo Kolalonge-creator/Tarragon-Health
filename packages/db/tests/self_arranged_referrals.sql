@@ -13,14 +13,39 @@ create temp table r(step text, verdict text) on commit drop;
 
 do $$
 declare
-  v_org uuid; v_pt uuid; v_spec uuid; v_ref uuid; v_row public.specialist_referrals%rowtype;
+  v_org uuid; v_pt uuid; v_spec uuid; v_staff_profile uuid; v_ref uuid; v_row public.specialist_referrals%rowtype;
 begin
   select id, organisation_id into v_pt, v_org from public.profiles
    where role='patient' and organisation_id is not null order by created_at limit 1;
   select id into v_spec from public.specialist_providers limit 1;
-  if v_pt is null or v_spec is null then
+  -- Since 20260829160522_specialist_referral_create_gate.sql, creating a
+  -- specialist_referrals row requires a clinical-tier caller
+  -- (private.is_clinical_tier, reading auth.uid()) — simulate one the same
+  -- way tier_authority_monotonicity.sql does, via request.jwt.claims.
+  --
+  -- Note on case 5 below: 20260828233653_activate_partner_specialist_booking.sql
+  -- (concurrent work, recovered into git the same day as this edit)
+  -- reactivated set_referral_specialist_provider for a genuinely active,
+  -- specialty-matched partner — it no longer hard-blocks on fulfilment at
+  -- all. Case 5 still passes today because every specialist_providers row
+  -- is is_active=false (confirmed live), so it still raises check_violation
+  -- — just "not on file as an active partner" rather than "nobody to assign
+  -- here". If a real partner is ever activated, this case would need a
+  -- fresh look at what it's actually proving.
+  select cs.profile_id into v_staff_profile
+  from public.clinical_staff cs
+  where cs.organisation_id = v_org and cs.active
+    and (cs.is_clinical_director or cs.doctor_tier in
+      ('tier_1','tier_2','tier_3','tier_4_senior_registrar','tier_5_partner_specialist'))
+  limit 1;
+  if v_pt is null or v_spec is null or v_staff_profile is null then
     raise exception 'fixture lookup failed - test would be vacuous';
   end if;
+  perform set_config(
+    'request.jwt.claims',
+    json_build_object('sub', v_staff_profile, 'role', 'authenticated')::text,
+    true
+  );
 
   insert into public.specialist_referrals
     (organisation_id, patient_id, specialist_type, referral_reason, status, referral_fee_kobo, urgency)

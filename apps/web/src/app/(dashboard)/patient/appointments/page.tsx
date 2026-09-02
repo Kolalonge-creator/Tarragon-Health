@@ -2,6 +2,23 @@ import { redirect } from "next/navigation";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { BookAppointment } from "./book-appointment";
 import { MyAppointmentsList } from "./my-appointments-list";
+import type { AppointmentType } from "@/lib/queries/appointments";
+
+const VALID_APPOINTMENT_TYPES: AppointmentType[] = [
+  "gp",
+  "specialist",
+  "nurse",
+  "dietitian",
+  "physiotherapist",
+  "laboratory",
+  "imaging",
+  "vaccination",
+  "physical_clinic",
+  "telemedicine",
+  "follow_up",
+  "procedure",
+  "therapy",
+];
 
 /**
  * subjectId, not profile.id: a caregiver who has opened the account of the
@@ -13,11 +30,20 @@ import { MyAppointmentsList } from "./my-appointments-list";
  * nothing real to gate: the only appointment a caregiver could ever reach
  * through this page was their own.
  */
-export default async function PatientAppointmentsPage() {
+export default async function PatientAppointmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ type?: string }>;
+}) {
   const { profile, subjectId } = await getPatientDashboardContext();
   if (!profile.organisation_id) {
     redirect("/login");
   }
+
+  const { type } = await searchParams;
+  const initialAppointmentType = VALID_APPOINTMENT_TYPES.includes(type as AppointmentType)
+    ? (type as AppointmentType)
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -28,7 +54,11 @@ export default async function PatientAppointmentsPage() {
         </p>
       </div>
       <MyAppointmentsList patientId={subjectId} />
-      <BookAppointment organisationId={profile.organisation_id} patientId={subjectId} />
+      <BookAppointment
+        organisationId={profile.organisation_id}
+        patientId={subjectId}
+        initialAppointmentType={initialAppointmentType}
+      />
     </div>
   );
 }

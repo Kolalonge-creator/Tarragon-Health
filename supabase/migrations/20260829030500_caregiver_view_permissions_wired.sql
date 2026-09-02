@@ -39,12 +39,27 @@
 -- misdescribe what unchecking the box actually protects. clinical_access
 -- alone continues to gate all six, exactly as before this migration.
 
+-- Reconciled 2026-09-02 against main-dev: 20260830103251_category_scoped_
+-- clinical_access_and_emergency_access.sql landed after this migration was
+-- first written and rewrote these same five policies onto the 2-arg
+-- can_read_clinical(patient, care_access_category) form plus a
+-- has_emergency_access(...) cross-org break-glass clause. Dropping and
+-- recreating these policies against this migration's original, pre-category
+-- bodies would have silently deleted both of those the moment this
+-- migration ran. Each policy below is the live one with that OR-clause pair
+-- intact, plus this migration's own addition: the caregiver_permission-scoped
+-- check, so a grant narrowed to (for example) exactly view_medication does
+-- not also open results or the care plan through the coarser category grant.
+-- The two mechanisms are additive, not a replacement of one by the other —
+-- either a granted category or a granted permission is enough.
 drop policy if exists care_plans_select on public.care_plans;
 create policy care_plans_select on public.care_plans
   for select to authenticated
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
+    or private.can_read_clinical(patient_id, 'appointments_care_plan'::public.care_access_category)
+    or private.has_emergency_access(patient_id, 'appointments_care_plan'::public.care_access_category)
     or private.can_read_clinical(patient_id, 'view_care_plan'::public.caregiver_permission)
   );
 
@@ -54,6 +69,8 @@ create policy medications_select on public.medications
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
+    or private.can_read_clinical(patient_id, 'medications'::public.care_access_category)
+    or private.has_emergency_access(patient_id, 'medications'::public.care_access_category)
     or private.can_read_clinical(patient_id, 'view_medication'::public.caregiver_permission)
   );
 
@@ -63,6 +80,8 @@ create policy screening_results_select on public.screening_results
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
+    or private.can_read_clinical(patient_id, 'labs_results'::public.care_access_category)
+    or private.has_emergency_access(patient_id, 'labs_results'::public.care_access_category)
     or private.can_read_clinical(patient_id, 'view_results'::public.caregiver_permission)
   );
 
@@ -72,6 +91,8 @@ create policy lab_analyte_readings_select on public.lab_analyte_readings
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
+    or private.can_read_clinical(patient_id, 'labs_results'::public.care_access_category)
+    or private.has_emergency_access(patient_id, 'labs_results'::public.care_access_category)
     or private.can_read_clinical(patient_id, 'view_results'::public.caregiver_permission)
   );
 
@@ -81,6 +102,8 @@ create policy lab_orders_select on public.lab_orders
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
+    or private.can_read_clinical(patient_id, 'labs_results'::public.care_access_category)
+    or private.has_emergency_access(patient_id, 'labs_results'::public.care_access_category)
     or private.can_read_clinical(patient_id, 'view_results'::public.caregiver_permission)
   );
 
