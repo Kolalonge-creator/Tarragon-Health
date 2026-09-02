@@ -45,6 +45,11 @@ export default async function AdminPage() {
   // A member only sees an operational tile if they can actually use that surface.
   // Tiles with no dedicated capability key stay super-admin-only.
   const can = (key: string) => isSuperAdmin || keys.has(key);
+  // Mirrors private.can_view_ops_console(): private.is_analyst() (role in
+  // ('analyst', 'admin')) OR the ops.console.view grant.
+  const canViewOps =
+    isSuperAdmin || profile?.role === "analyst" || keys.has("ops.console.view");
+  const canViewIncidents = isSuperAdmin || keys.has("incidents.view") || keys.has("incidents.manage");
 
   // Live platform KPIs for the welcome banner + stat row. The RPCs return
   // '{}' (parsed to all-zero defaults) for a caller who isn't analyst/admin,
@@ -171,6 +176,13 @@ export default async function AdminPage() {
           icon: SEMANTIC_ICON.commission,
           visible: can("commissions.view"),
         },
+        {
+          href: "/admin/settings/outcomes-contracts",
+          label: "Fee-at-risk contracts",
+          blurb: "Review HMO/corporate-proposed fee-at-risk terms before they go live",
+          icon: SEMANTIC_ICON.commission,
+          visible: can("commissions.view"),
+        },
       ],
     },
     {
@@ -247,7 +259,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/subscriptions",
           label: "Subscription plans & add-ons",
-          blurb: "Create, price, and activate plans, synced to Paystack",
+          blurb: "Legacy plan/add-on editor — no longer sets live patient pricing",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },
@@ -346,6 +358,39 @@ export default async function AdminPage() {
           blurb: "Review consented patient quotes before they go live",
           icon: NAV_ICON.review,
           visible: isSuperAdmin,
+        },
+        {
+          href: "/admin/settings/platform-modules",
+          label: "Platform modules",
+          blurb: "Activate the payer or provider-organisation platform",
+          icon: NAV_ICON.settings,
+          visible: isSuperAdmin,
+        },
+      ],
+    },
+    {
+      label: "Operations & governance",
+      tiles: [
+        {
+          href: "/admin/ops",
+          label: "Operations console",
+          blurb: "Tarragon Today, one exception queue across every domain, system health",
+          icon: NAV_ICON.operations,
+          visible: canViewOps,
+        },
+        {
+          href: "/admin/ops/incidents",
+          label: "Incident register",
+          blurb: "Clinical, technical, privacy, security, financial and operational incidents",
+          icon: NAV_ICON.siren,
+          visible: canViewIncidents,
+        },
+        {
+          href: "/admin/settings/feature-flags",
+          label: "Feature flags",
+          blurb: "Roll a feature out by state, role, org or percentage — no deploy",
+          icon: NAV_ICON.flag,
+          visible: can("feature_flags.manage"),
         },
       ],
     },

@@ -139,7 +139,7 @@ begin
 end;
 $function$;
 
-revoke all on function public.confirm_lab_result_extraction(uuid, jsonb) from public;
+revoke all on function public.confirm_lab_result_extraction(uuid, jsonb) from public, anon;
 revoke all on function public.confirm_lab_result_extraction(uuid, jsonb) from anon;
 grant execute on function public.confirm_lab_result_extraction(uuid, jsonb) to authenticated;
 

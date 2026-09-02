@@ -89,6 +89,42 @@ export async function revokeProtocolApiKeyAction(keyId: string): Promise<{ error
   }
 }
 
+const setLicenseSchema = z.object({
+  organisationId: z.string().uuid(),
+  tier: z.enum(["up_to_10k", "up_to_50k", "unlimited"]),
+  monthlyPriceKobo: z.number().int().min(0),
+  callsIncludedPerMonth: z.number().int().positive().nullable(),
+});
+
+export async function setProtocolApiLicenseAction(input: {
+  organisationId: string;
+  tier: "up_to_10k" | "up_to_50k" | "unlimited";
+  monthlyPriceKobo: number;
+  callsIncludedPerMonth: number | null;
+}): Promise<{ error?: string }> {
+  try {
+    await requireIntegrationsManager();
+    const parsed = setLicenseSchema.safeParse(input);
+    if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("admin_set_protocol_api_license", {
+      p_organisation_id: parsed.data.organisationId,
+      p_tier: parsed.data.tier,
+      p_monthly_price_kobo: parsed.data.monthlyPriceKobo,
+      // The DB function forces this to null for tier='unlimited' regardless
+      // of what's passed, so 0 is a safe placeholder for that case.
+      p_calls_included_per_month: parsed.data.callsIncludedPerMonth ?? 0,
+    });
+    if (error) return { error: error.message };
+
+    revalidatePath("/admin/settings/protocol-api");
+    return {};
+  } catch {
+    return { error: "Not authorised" };
+  }
+}
+
 export async function listProtocolApiKeysAction(
   organisationId: string
 ): Promise<
