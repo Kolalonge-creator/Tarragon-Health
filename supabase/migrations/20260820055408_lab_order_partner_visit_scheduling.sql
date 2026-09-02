@@ -113,7 +113,7 @@ begin
 end;
 $$;
 
-revoke all on function public.request_lab_order_partner_visit(uuid, uuid, date, public.lab_order_time_of_day) from public;
+revoke all on function public.request_lab_order_partner_visit(uuid, uuid, date, public.lab_order_time_of_day) from public, anon;
 grant execute on function public.request_lab_order_partner_visit(uuid, uuid, date, public.lab_order_time_of_day) to authenticated;
 
 -- The migration is the test.
