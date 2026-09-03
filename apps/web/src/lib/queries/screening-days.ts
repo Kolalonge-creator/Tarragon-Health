@@ -13,7 +13,7 @@ const SELF_BOOKABLE_BUNDLES_QUERY_KEY = "self-bookable-panel-bundles";
  * Every screening day the caller can see: RLS already scopes this to ones
  * they requested, ones they pay for, or (for staff) every one on their org —
  * see the screening_days_select policy in
- * supabase/migrations/20260829164213_group_screening_days.sql. No explicit
+ * supabase/migrations/20260829003735_group_screening_days.sql. No explicit
  * filter here on purpose, same reasoning as useAdminCommissions.
  */
 export function useScreeningDays() {

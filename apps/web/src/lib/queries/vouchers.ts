@@ -74,24 +74,28 @@ export function useVoucherPayments(voucherId: string | null | undefined) {
 }
 
 /**
- * What can be bought as a voucher: a year of a plan.
- *
- * Yearly and naira only, matching public.purchase_subscription_voucher's own
- * guards, so the picker can never offer something the RPC will refuse.
+ * What can be bought as a voucher: a year (or other fixed window) of a
+ * service. Naira only and must carry a real access_duration_days, matching
+ * public.purchase_service_voucher's own guards, so the picker can never
+ * offer something the RPC will refuse. Tests are gone from here entirely —
+ * they are paid straight to the laboratory — with one deliberate exception:
+ * a Synlab-priced, self-bookable panel_bundle can still be bought ahead of
+ * time via the separate useHealthCheckVoucherCatalogue/purchase_care_voucher
+ * path below, which is how the diaspora "Gift a Health Check" flow works.
  */
 export function useVoucherCatalogue() {
   return useQuery({
-    queryKey: ["care-vouchers", "plan-catalogue"],
+    queryKey: ["care-vouchers", "service-catalogue"],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("subscription_plans")
-        .select("id, code, name, description, price_minor")
+        .from("service_products")
+        .select("id, code, name, description, price_kobo")
         .eq("is_active", true)
-        .eq("interval", "yearly")
+        .not("access_duration_days", "is", null)
         .eq("currency", "NGN")
-        .gt("price_minor", 0)
-        .order("price_minor");
+        .gt("price_kobo", 0)
+        .order("price_kobo");
       if (error) throw error;
       return data;
     },

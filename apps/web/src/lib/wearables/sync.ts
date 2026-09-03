@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import {
+  consentFromConnection,
   getValidAccessToken,
   WEARABLE_CREDENTIAL_COLUMNS,
   type WearableConnectionCredentials,
@@ -186,6 +187,7 @@ async function ingestFor(
       connectionId: connection.id,
       organisationId: connection.organisation_id,
       patientId: connection.patient_id,
+      consent: consentFromConnection(connection),
     },
     readings
   );

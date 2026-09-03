@@ -30,7 +30,7 @@ export const metadata: Metadata = pageMetadata({
  *  - Price: lab_orders are created pending_payment at the bundle's own
  *    price_kobo, and no charge happens until the patient completes hosted
  *    checkout, so "nothing is taken before you confirm" is structurally true.
- *  - Card details: checkout is hosted by Paystack/Stripe; the platform never
+ *  - Card details: checkout is hosted by Paystack; the platform never
  *    receives or stores a card number.
  *
  * NOTE: this block intentionally does NOT repeat the homepage TrustBand's
@@ -57,7 +57,7 @@ const BOOKING_ASSURANCES = [
   },
   {
     title: "We never see your card",
-    body: "Payment is handled by Paystack or Stripe on their own checkout. Your card number never reaches Tarragon, so it is not ours to lose.",
+    body: "Payment is handled by Paystack on their own checkout. Your card number never reaches Tarragon, so it is not ours to lose.",
   },
 ];
 
@@ -79,8 +79,8 @@ const WHATS_INCLUDED = [
     body: "Measured properly and recorded to your Tarragon record, so next year has something real to compare against.",
   },
   {
-    title: "A doctor reads every result",
-    body: "Checked against your history, and explained plainly: what's fine, what to watch, and what, if anything, to do next.",
+    title: "A doctor walks you through it",
+    body: "A 15-minute video consult with a doctor, checked against your history and explained plainly: what's fine, what to watch, and what, if anything, to do next. Included on every tier.",
   },
   {
     title: "One record, year after year",
@@ -101,8 +101,8 @@ const HOW_IT_WORKS = [
   },
   {
     step: 3,
-    title: "Doctor reviews your results",
-    body: "Every result is read by a doctor. Most people get the best news there is: all clear, see you next year.",
+    title: "A video consult with your doctor",
+    body: "Every result is read by a doctor, then you get a 15-minute video call to walk through it together. Most people get the best news there is: all clear, see you next year.",
   },
   {
     step: 4,
@@ -161,8 +161,9 @@ export default function AnnualHealthCheckPage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Chosen because they catch the conditions that quietly account for most avoidable
               illness in Nigeria: diabetes, heart disease, and late-found cancers. Blood sugar,
-              cholesterol, BP &amp; BMI, and a doctor&apos;s read are on every tier below, starting
-              with Core Screen; cancer screening is added on Advanced Screen.
+              cholesterol, BP &amp; BMI, and a doctor video consult to walk through it all are on
+              every tier below, starting with Core Screen; cancer screening is added on Advanced
+              Screen.
             </p>
           </div>
           <MarketingMediaFrame
@@ -209,7 +210,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Core Screen",
               price: "With a paid plan",
-              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
+              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once), and a 15-minute doctor video consult to walk through your results.",
               highlight: true,
             },
             {
@@ -220,7 +221,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Comprehensive Screen",
               price: "With a paid plan",
-              body: "Everything in Advanced Screen, plus imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set.",
+              body: "Everything in Advanced Screen, plus imaging and a syphilis screen.",
             },
           ].map((tier) => (
             <div
@@ -246,6 +247,25 @@ export default function AnnualHealthCheckPage() {
         </p>
         <div className="mx-auto mt-6 max-w-2xl">
           <ConfidentialResultNotice />
+        </div>
+        <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-dashed border-charcoal-ink/15 bg-white/60 p-6 text-center">
+          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Coming soon</p>
+          <h3 className="mt-1 font-heading text-lg font-semibold text-charcoal-ink">
+            Full Panel: more biomarkers, on top of any tier
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
+            Vitamin D, B12 &amp; folate, iron studies, hs-CRP, a coagulation profile, and an
+            age/sex-appropriate tumour marker screen, added to your next check as a one-time
+            upgrade. We&apos;re holding it back until a Clinical Director has signed off the exact
+            panel, not selling it before it&apos;s reviewed.
+          </p>
+          <p className="mt-3 text-sm text-charcoal-ink/60">
+            Want to look further still?{" "}
+            <Link href={MARKETING_ROUTES.advancedDiagnostics} className="text-brand-green hover:underline">
+              Advanced diagnostic imaging
+            </Link>{" "}
+            is on the same waitlist.
+          </p>
         </div>
       </Section>
 

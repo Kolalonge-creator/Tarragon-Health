@@ -12,7 +12,7 @@ export type ScreeningDayActionState = { error?: string; message?: string } | und
 /**
  * The self-serve half of "bring your church, market association, or SME and
  * get a discounted rate" — see
- * supabase/migrations/20260829164213_group_screening_days.sql. Anyone
+ * supabase/migrations/20260829003735_group_screening_days.sql. Anyone
  * authenticated can request one; staff review and confirm it with a real
  * discounted price before it can be paid for.
  */

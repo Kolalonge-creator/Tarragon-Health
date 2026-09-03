@@ -14,7 +14,7 @@ export type ScreeningDayCheckoutResult =
 /**
  * Starts a checkout for the one payer funding a confirmed group screening
  * day — a church, market association, cooperative, or SME's own bulk booking
- * (see supabase/migrations/20260829164213_group_screening_days.sql). Mirrors
+ * (see supabase/migrations/20260829003735_group_screening_days.sql). Mirrors
  * initiateVoucherPaymentCheckout exactly: no Edge Function involvement,
  * private.apply_screening_day_payment_from_transaction is an AFTER INSERT
  * trigger on payment_transactions, so this only needs to produce a real

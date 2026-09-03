@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  applyNonAdministrationOverrides,
   computeVaccinationStatuses,
   type VaccinationCatalogRow,
   type VaccinationRecordRow,
@@ -445,5 +446,42 @@ describe("computeVaccinationStatuses", () => {
     );
     // Feb has 28 days in 2026 — must clamp to 2026-02-28, not roll to 2026-03-03
     expect(result.nextDueDate).toBe("2026-02-28");
+  });
+});
+
+describe("applyNonAdministrationOverrides", () => {
+  it("leaves statuses untouched when there are no overrides", () => {
+    const [result] = applyNonAdministrationOverrides(
+      computeVaccinationStatuses([TETANUS], [], { ageYears: 40 }, today),
+      []
+    );
+    expect(result.status).toBe("due");
+  });
+
+  it("overrides a due vaccine's status to declined", () => {
+    const [result] = applyNonAdministrationOverrides(
+      computeVaccinationStatuses([TETANUS], [], { ageYears: 40 }, today),
+      [{ vaccination_catalog_id: "tetanus-id", non_administration_reason: "declined" }]
+    );
+    expect(result.status).toBe("declined");
+  });
+
+  it("overrides an overdue vaccine's status to contraindicated", () => {
+    const records = [record("tetanus-id", 1, "2010-01-06")];
+    const [result] = applyNonAdministrationOverrides(
+      computeVaccinationStatuses([TETANUS], records, { ageYears: 40 }, today),
+      [{ vaccination_catalog_id: "tetanus-id", non_administration_reason: "contraindicated" }]
+    );
+    expect(result.status).toBe("contraindicated");
+  });
+
+  it("only overrides the matching catalog entry", () => {
+    const results = applyNonAdministrationOverrides(
+      computeVaccinationStatuses([TETANUS, HEP_B], [], { ageYears: 40 }, today),
+      [{ vaccination_catalog_id: "tetanus-id", non_administration_reason: "declined" }]
+    );
+    const byCode = Object.fromEntries(results.map((r) => [r.code, r]));
+    expect(byCode.tetanus_td_booster.status).toBe("declined");
+    expect(byCode.hepatitis_b.status).toBe("due");
   });
 });

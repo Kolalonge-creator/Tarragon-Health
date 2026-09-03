@@ -1,20 +1,22 @@
 import { createClient } from "@supabase/supabase-js";
-import { DIASPORA_PROCESSING_FEE_NOTE_SHORT } from "@/app/(marketing)/_content/pricing";
+import { PAID_SERVICES } from "@/app/(marketing)/_content/pricing";
 
 /**
  * Live prices for the public pricing page.
  *
- * One price list (v3 §15): the dollar amount is the naira price converted at
- * the admin-set reference rate. When the founder changes that
- * rate the derived prices move, so the marketing page cannot keep shipping
- * hardcoded strings — it would advertise one number while checkout charged
- * another.
+ * One naira price list. The pricing page must never ship a hardcoded price
+ * string as the truth: it would advertise one number while checkout charged
+ * another. USD is gone with the diaspora tier (2026-07-31) — someone abroad
+ * sponsors another person's care in naira, they are not a patient tier.
  *
  * Reads the public_price_list() RPC through a BARE anon supabase-js client,
  * following lib/marketing/resources-data.ts: deliberately not
  * @/lib/supabase/server, so the marketing tree stays free of auth and platform
- * modules per the marketing-boundary rule. The RPC returns only on-sale rows
- * and only code/currency/interval/price, never features or provider ids.
+ * modules per the marketing-boundary rule. The RPC reads service_products
+ * (not the retired subscription_plans/add_ons — see
+ * 20260902002938_public_price_list_reads_service_products.sql) and returns
+ * only on-sale rows, and only code/currency/access_duration_days/price,
+ * never features or provider ids.
  *
  * Returns an empty map on any failure. Callers fall back to the static copy in
  * _content/pricing.ts, so a network blip degrades to slightly stale prices
@@ -62,72 +64,45 @@ export function formatPrice(minor: number, currency: "NGN" | "USD"): string {
 }
 
 /**
- * Which subscription_plans rows back each pricing-page tier.
+ * Which service_products rows back each pricing-page tier.
  *
- * The marketing tier ids and the plan codes were named independently and do
- * not line up (`diaspora-complete` is backed by `complete_usd`), so the mapping
- * is written out rather than derived. A tier missing from here simply keeps its
- * static price.
+ * The marketing tier ids and the product codes were named independently and
+ * do not line up (`prevent` is backed by `prevent_pack`), so the mapping is
+ * written out rather than derived. A tier missing from here simply keeps its
+ * static price. "monthly"/"yearly" here means the 30-day vs 365-day pack
+ * (service_products.access_duration_days), not a recurring billing interval
+ * — nothing in this catalogue auto-renews.
+ *
+ * The three diaspora (USD) entries are deliberately kept even though no
+ * `prevent_usd_pack`/`essential_usd_pack`/`complete_usd_pack` rows exist in
+ * service_products yet (as of 2026-09-02, the only live USD product is
+ * `lifestyle-coaching_usd_pack`) — this is safe (fetchPlanPrices' map simply
+ * won't have these keys, so the diaspora tier cards fall back to their
+ * static price, same as today), and documents the intended codes for
+ * whoever adds those rows next rather than leaving the mapping silently
+ * incomplete.
  */
-const TIER_PLAN_CODES: Record<string, { monthly?: string; yearly?: string; currency: "NGN" | "USD" }> = {
-  // Naira
-  free: { monthly: "free", currency: "NGN" },
-  prevent: { monthly: "prevent", yearly: "prevent_yearly", currency: "NGN" },
-  essential: { monthly: "essential", yearly: "essential_yearly", currency: "NGN" },
-  complete: { monthly: "complete", yearly: "complete_yearly", currency: "NGN" },
-  // Dollars — every one of these is its naira row above, converted.
-  "diaspora-prevent": { monthly: "prevent_usd", yearly: "prevent_yearly_usd", currency: "USD" },
-  "diaspora-essential": { monthly: "essential_usd", yearly: "essential_yearly_usd", currency: "USD" },
-  "diaspora-complete": { monthly: "complete_usd", yearly: "complete_yearly_usd", currency: "USD" },
-};
-
-export type TierPriceOverride = { priceMain?: string; priceSecondary?: string; priceNote?: string };
-
 /**
- * Builds the per-tier price strings from live data. Only tiers whose backing
- * plan is actually on sale get an override; anything unpriced, off sale or
- * unreachable keeps the static string, so the page never shows a blank or a
- * zero where a price belongs.
+ * Live price strings for the paid services, keyed by service_products.code.
  *
- * Naira tiers lead with the monthly price, matching how they're always sold.
- * Dollar tiers lead with the YEARLY price instead (one card charge a year
- * instead of twelve — matches the default onboarding and /patient/subscription
- * already use for USD) and carry a fee-disclosure note, since every dollar
- * price on sale already includes the 10% international processing fee
- * (private.expected_derived_price_minor). If only one interval is on sale
- * (e.g. mid-resync after a rate or fee change), that one becomes priceMain
- * rather than showing nothing.
+ * Replaced the old TIER_PLAN_CODES map when the Prevent/Essential/Complete
+ * packs were retired. That map was also where the diaspora bug lived: it
+ * pointed three tiers at prevent_usd_pack / essential_usd_pack /
+ * complete_usd_pack, none of which ever existed in service_products, so the
+ * page fell back to static dollar strings and advertised prices nobody could
+ * buy. Reading the codes off PAID_SERVICES means a service can only be priced
+ * here if it is actually listed, and only overridden if it is actually on sale.
  */
-export async function fetchTierPriceOverrides(): Promise<Record<string, TierPriceOverride>> {
+export async function fetchServicePriceOverrides(): Promise<Record<string, string>> {
   const prices = await fetchPlanPrices();
   if (prices.size === 0) return {};
 
-  const out: Record<string, TierPriceOverride> = {};
-  for (const [tierId, spec] of Object.entries(TIER_PLAN_CODES)) {
-    const monthly = spec.monthly ? prices.get(spec.monthly) : undefined;
-    const yearly = spec.yearly ? prices.get(spec.yearly) : undefined;
-    const override: TierPriceOverride = {};
-
-    if (spec.currency === "USD") {
-      if (yearly !== undefined) {
-        override.priceMain = formatPrice(yearly, spec.currency);
-        if (monthly !== undefined) {
-          override.priceSecondary = `or ${formatPrice(monthly, spec.currency)}/month`;
-        }
-      } else if (monthly !== undefined) {
-        override.priceMain = formatPrice(monthly, spec.currency);
-      }
-      if (override.priceMain) override.priceNote = DIASPORA_PROCESSING_FEE_NOTE_SHORT;
-    } else if (monthly !== undefined) {
-      override.priceMain = formatPrice(monthly, spec.currency);
-      if (yearly !== undefined) {
-        override.priceSecondary = `or ${formatPrice(yearly, spec.currency)}/year`;
-      }
-    } else if (yearly !== undefined) {
-      override.priceMain = formatPrice(yearly, spec.currency);
+  const out: Record<string, string> = {};
+  for (const service of PAID_SERVICES) {
+    const price = prices.get(service.code);
+    if (price !== undefined) {
+      out[service.code] = formatPrice(price, "NGN");
     }
-
-    if (override.priceMain) out[tierId] = override;
   }
   return out;
 }

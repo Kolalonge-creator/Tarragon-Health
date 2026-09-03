@@ -99,6 +99,7 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
           permission for them in Health Connect&apos;s app settings.
         </MutedText>
         {result.partial ? <PartialSyncNote /> : null}
+        {result.recovered ? <RecoveredSyncNote count={result.recovered} /> : null}
       </View>
     );
   }
@@ -116,6 +117,8 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
           : `Added ${saved} ${saved === 1 ? "reading" : "readings"} to your record.`}
       </Text>
       {result.partial ? <PartialSyncNote /> : null}
+      {result.recovered ? <RecoveredSyncNote count={result.recovered} /> : null}
+      {result.queued ? <QueuedSyncNote count={result.queued} /> : null}
     </View>
   );
 }
@@ -126,4 +129,27 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
  * retries the same delta. */
 function PartialSyncNote() {
   return <MutedText>Some readings couldn&apos;t be checked this time — we&apos;ll try again.</MutedText>;
+}
+
+/** Shown when this sync's offline-queue flush (offline-queue.ts) uploaded
+ * readings that had failed to send on an earlier, likely offline, attempt —
+ * a positive note that nothing from that earlier attempt was actually lost. */
+function RecoveredSyncNote({ count }: { count: number }) {
+  return (
+    <MutedText>
+      Also caught up on {count} {count === 1 ? "reading" : "readings"} from earlier.
+    </MutedText>
+  );
+}
+
+/** Shown when this sync itself couldn't reach the server — the readings are
+ * saved to the queue (offline-queue.ts) rather than lost, and will go up
+ * automatically once the connection is back. */
+function QueuedSyncNote({ count }: { count: number }) {
+  return (
+    <MutedText>
+      {count} {count === 1 ? "reading" : "readings"} saved and waiting to finish uploading once
+      you&apos;re back online.
+    </MutedText>
+  );
 }

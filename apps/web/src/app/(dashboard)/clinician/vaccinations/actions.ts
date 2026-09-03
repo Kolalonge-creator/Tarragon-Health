@@ -5,8 +5,12 @@ import { ageFromDateOfBirth } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
-import { vaccinationVerificationDecisionSchema } from "@/lib/validation/vaccination";
+import {
+  markVaccinationContraindicatedSchema,
+  vaccinationVerificationDecisionSchema,
+} from "@/lib/validation/vaccination";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
+import { setVaccinationNonAdministration } from "@/lib/vaccination/set-non-administration";
 
 export type VerificationActionResult = { error?: string; success?: boolean };
 
@@ -173,4 +177,49 @@ async function issueCertificateSideEffects(
   } catch {
     // Best-effort — verification already stands.
   }
+}
+
+/**
+ * A clinical-tier doctor records that a vaccine is contraindicated for a
+ * patient (spec §43.3). Mirrors decideVaccinationVerification's dual-check
+ * shape: this app-layer isClinicalTier check only gives a friendly early
+ * refusal — private.enforce_vaccination_non_administration's own
+ * is_clinical_tier check on the trigger is the real enforcement boundary.
+ */
+export async function markVaccinationContraindicatedAction(input: {
+  patientId: string;
+  vaccinationCatalogId: string;
+  note: string;
+}): Promise<VerificationActionResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("doctor_tier, is_clinical_director")
+    .eq("profile_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
+  if (!isClinicalTier(staff ?? null)) {
+    return { error: "Only a Tarragon care-team doctor can mark a vaccine as contraindicated" };
+  }
+
+  const parsed = markVaccinationContraindicatedSchema.safeParse(input);
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const result = await setVaccinationNonAdministration({
+    patientId: parsed.data.patientId,
+    vaccinationCatalogId: parsed.data.vaccinationCatalogId,
+    reason: "contraindicated",
+    note: parsed.data.note,
+  });
+  if (result.error) return { error: result.error };
+
+  revalidatePath(`/clinician/patients/${parsed.data.patientId}`);
+  return { success: true };
 }

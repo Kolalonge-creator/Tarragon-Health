@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   useMyUpcomingAppointments,
   useCancelAppointment,
@@ -8,11 +9,14 @@ import {
   useMyWaitingListEntries,
   useCancelWaitingListEntry,
   useAcceptWaitingListOffer,
+  useEnsureAppointmentVideoConsultation,
 } from "@/lib/queries/appointments";
 import { APPOINTMENT_TYPE_LABELS, APPOINTMENT_STATUS_LABELS } from "./appointment-labels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+
+const JOINABLE_STATUSES = ["booked", "confirmed", "checked_in", "in_progress"];
 
 function formatSlot(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -34,6 +38,8 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
   const confirm = useConfirmAppointmentBooking();
   const acceptOffer = useAcceptWaitingListOffer();
   const cancelWaitingListEntry = useCancelWaitingListEntry();
+  const ensureVideo = useEnsureAppointmentVideoConsultation();
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
 
   async function handleCancel(appointmentId: string) {
@@ -42,6 +48,19 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
       await cancel.mutateAsync({ appointmentId });
     } catch (e) {
       setError((e as Error).message || "Could not cancel that appointment.");
+    }
+  }
+
+  /** 68.3/68.7 — routes into the same waiting-room page a booking under the
+   * older video-visit-request flow uses, creating the Zoom meeting first if
+   * this appointment doesn't have one yet. */
+  async function handleJoinCall(appointmentId: string) {
+    setError(null);
+    try {
+      const result = await ensureVideo.mutateAsync(appointmentId);
+      router.push(`/patient/video-visit/${result.videoConsultationId}`);
+    } catch (e) {
+      setError((e as Error).message || "Could not open the video visit — try again in a moment.");
     }
   }
 
@@ -78,6 +97,11 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
                     {appt.status === "held" && (
                       <Button size="sm" variant="outline" disabled={confirm.isPending} onClick={() => confirm.mutate(appt.id)}>
                         Confirm
+                      </Button>
+                    )}
+                    {appt.consultation_method === "telemedicine" && JOINABLE_STATUSES.includes(appt.status) && (
+                      <Button size="sm" disabled={ensureVideo.isPending} onClick={() => handleJoinCall(appt.id)}>
+                        {ensureVideo.isPending ? "Opening…" : "Join call"}
                       </Button>
                     )}
                     {["held", "booked", "confirmed"].includes(appt.status) && (

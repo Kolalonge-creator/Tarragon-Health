@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@tarragon/shared";
+import type { CoachChatMessage, Database } from "@tarragon/shared";
+import { buildCoachHandoffSummary } from "./handoff-summary";
 
 export interface AiCoachAlertParams {
   organisationId: string;
@@ -8,6 +9,37 @@ export interface AiCoachAlertParams {
   /** The patient's message that triggered the tier, for the clinician's
    * context — never the coach's own reply. */
   triggerMessage: string;
+  /** The last few turns (both roles), for the structured handoff summary —
+   * see buildCoachHandoffSummary. Empty is fine (the keyword-guardrail
+   * emergency path has no prior turns to draw on). */
+  recentMessages: CoachChatMessage[];
+  /** What the coach itself did, for the summary's "AI action" line — e.g.
+   * "Escalated immediately via safety keyword match" vs "Flagged for
+   * clinician review after classifying the message". */
+  aiAction: string;
+}
+
+/** Minimized medication/condition snapshot for the handoff summary — same
+ * "narrow, never the whole chart" discipline as every other generator's
+ * snapshot builder in this codebase. Never throws; an empty snapshot just
+ * means the summary says "none on file" rather than fabricating. */
+export async function loadHandoffSnapshot(
+  serviceRoleSupabase: SupabaseClient<Database>,
+  patientId: string
+): Promise<{ medications: string[]; conditions: string[] }> {
+  try {
+    const [{ data: medications }, { data: plans }] = await Promise.all([
+      serviceRoleSupabase.from("medications").select("drug_name").eq("patient_id", patientId).eq("is_active", true),
+      serviceRoleSupabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
+    ]);
+    return {
+      medications: (medications ?? []).map((m) => m.drug_name),
+      conditions: (plans ?? []).map((p) => p.condition),
+    };
+  } catch (error) {
+    console.error("ai-coach: loadHandoffSnapshot failed, summary will say 'none on file'", error);
+    return { medications: [], conditions: [] };
+  }
 }
 
 /**
@@ -21,12 +53,37 @@ export interface AiCoachAlertParams {
  * directly, but a patient-triggered write is still exactly what should
  * happen.
  */
+export interface EmergencyEscalationResult {
+  clinicianAlertId: string;
+  escalationId: string;
+  /** Null when opening the care_messages thread failed — best-effort, see
+   * the call site below. Never null just because it wasn't attempted; this
+   * function always attempts it for every emergency escalation. */
+  careMessageThreadId: string | null;
+}
+
 export async function logAiCoachEscalation(
+  /** The PATIENT'S OWN RLS-scoped session, not service-role — required to
+   * open a care_messages thread below: start_care_thread() is `security
+   * definer` but still keys off `auth.uid()` internally (see its own
+   * migration comment), which a service-role call carries no JWT for. */
+  patientSupabase: SupabaseClient<Database>,
   serviceRoleSupabase: SupabaseClient<Database>,
   params: AiCoachAlertParams
-): Promise<string> {
-  const { organisationId, patientId, conversationId, triggerMessage } = params;
-  const detail = `AI Coach conversation ${conversationId}: patient wrote "${triggerMessage}"`;
+): Promise<EmergencyEscalationResult> {
+  const { organisationId, patientId, conversationId, triggerMessage, recentMessages, aiAction } = params;
+  // §78.13 structured handoff summary (Patient concern / Symptoms /
+  // Medication / Relevant history / AI action) replaces a raw quoted
+  // message as the clinician_alerts.detail text — see handoff-summary.ts.
+  // Never throws; degrades to a plain templated summary on any failure.
+  const snapshot = await loadHandoffSnapshot(serviceRoleSupabase, patientId);
+  const detail = await buildCoachHandoffSummary({
+    recentMessages,
+    triggerMessage,
+    aiAction,
+    medications: snapshot.medications,
+    conditions: snapshot.conditions,
+  });
 
   const { data: alert, error: alertError } = await serviceRoleSupabase
     .from("clinician_alerts")
@@ -51,15 +108,24 @@ export async function logAiCoachEscalation(
     throw new Error(alertError?.message ?? "Could not create clinician alert");
   }
 
-  const { error: escalationError } = await serviceRoleSupabase.from("escalations").insert({
-    organisation_id: organisationId,
-    patient_id: patientId,
-    clinician_alert_id: alert.id,
-    status: "open",
-    reason: detail,
-  });
-  if (escalationError) {
-    throw new Error(escalationError.message);
+  // .select().single() here (unlike before) so the ai_assistant_turns audit
+  // row (audit.ts, called from index.ts) can record the real escalations.id
+  // alongside clinician_alert_id — previously this function returned only
+  // the alert id and the escalation row's own id was never captured anywhere
+  // in application code.
+  const { data: escalation, error: escalationError } = await serviceRoleSupabase
+    .from("escalations")
+    .insert({
+      organisation_id: organisationId,
+      patient_id: patientId,
+      clinician_alert_id: alert.id,
+      status: "open",
+      reason: detail,
+    })
+    .select("id")
+    .single();
+  if (escalationError || !escalation) {
+    throw new Error(escalationError?.message ?? "Could not create escalation");
   }
 
   // Surface the same acknowledge-gated emergency pathway to the patient that a
@@ -86,10 +152,38 @@ export async function logAiCoachEscalation(
     action: "ai_coach.emergency_escalation",
     entity_type: "clinician_alerts",
     entity_id: alert.id,
-    event: { conversation_id: conversationId },
+    event: { conversation_id: conversationId, ai_action: aiAction },
   });
 
-  return alert.id;
+  // §36.14 "human handoff... conversation continues" — closes the gap
+  // docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §5/§7 Phase D names: before
+  // this, an AI-Coach-flagged emergency opened a clinician_alerts row with
+  // no channel for the clinician's reply to reach the patient in-app. This
+  // opens a real care_messages thread (the platform's actual patient↔care-
+  // team channel per CLAUDE.md's 2026-07-30 rule — never WhatsApp), linked
+  // to the escalation via care_message_threads.escalation_id, with the
+  // trigger message as the opening note. Called with patientSupabase (not
+  // service-role) because start_care_thread() keys off auth.uid() — see
+  // this function's own param doc. Best-effort: a failure here must not
+  // lose the (already-persisted) clinician escalation above, same "log and
+  // continue" discipline as the emergency_events insert just above it.
+  let careMessageThreadId: string | null = null;
+  try {
+    const { data, error } = await patientSupabase.rpc("start_care_thread", {
+      p_subject: "AI Coach: possible emergency reported",
+      p_body: `I mentioned this to the AI Coach just now: "${triggerMessage}". Sharing it here so my care team can follow up.`,
+      p_escalation_id: escalation.id,
+    });
+    if (error) {
+      console.error("ai-coach: could not open care_messages thread for escalation", error);
+    } else {
+      careMessageThreadId = data;
+    }
+  } catch (error) {
+    console.error("ai-coach: start_care_thread threw", error);
+  }
+
+  return { clinicianAlertId: alert.id, escalationId: escalation.id, careMessageThreadId };
 }
 
 /**
@@ -106,9 +200,16 @@ export async function logAiCoachEscalation(
 export async function logAiCoachReviewFlag(
   serviceRoleSupabase: SupabaseClient<Database>,
   params: AiCoachAlertParams
-): Promise<string> {
-  const { organisationId, patientId, conversationId, triggerMessage } = params;
-  const detail = `AI Coach conversation ${conversationId}: patient wrote "${triggerMessage}"`;
+): Promise<{ clinicianAlertId: string }> {
+  const { organisationId, patientId, triggerMessage, recentMessages, aiAction } = params;
+  const snapshot = await loadHandoffSnapshot(serviceRoleSupabase, patientId);
+  const detail = await buildCoachHandoffSummary({
+    recentMessages,
+    triggerMessage,
+    aiAction,
+    medications: snapshot.medications,
+    conditions: snapshot.conditions,
+  });
 
   const { data: alert, error } = await serviceRoleSupabase
     .from("clinician_alerts")
@@ -132,5 +233,5 @@ export async function logAiCoachReviewFlag(
     throw new Error(error?.message ?? "Could not create clinician alert");
   }
 
-  return alert.id;
+  return { clinicianAlertId: alert.id };
 }

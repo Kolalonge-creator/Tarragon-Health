@@ -5,7 +5,7 @@ import { ScreeningDaysPanel } from "./screening-days-panel";
 /**
  * "Bring your church, market association, cooperative, or SME office and get
  * a discounted rate" — the self-serve half of group screening days (see
- * supabase/migrations/20260829164213_group_screening_days.sql). Any patient
+ * supabase/migrations/20260829003735_group_screening_days.sql). Any patient
  * account, support-only included, can request one; staff confirm the
  * discounted price before anyone pays.
  */

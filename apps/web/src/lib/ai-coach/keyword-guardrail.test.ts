@@ -18,4 +18,11 @@ describe("detectEmergencyKeywords", () => {
   it("is case-insensitive", () => {
     expect(detectEmergencyKeywords("CHEST PAIN and sweating")).toBe(true);
   });
+
+  it("flags self-harm and psychotic-symptom phrasing (§46.11)", () => {
+    expect(detectEmergencyKeywords("I've been cutting myself again")).toBe(true);
+    expect(detectEmergencyKeywords("I keep hurting myself when I'm upset")).toBe(true);
+    expect(detectEmergencyKeywords("I've been hearing voices that aren't there")).toBe(true);
+    expect(detectEmergencyKeywords("I keep seeing things that aren't there")).toBe(true);
+  });
 });
