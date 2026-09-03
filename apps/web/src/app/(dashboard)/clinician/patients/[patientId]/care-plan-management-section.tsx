@@ -27,8 +27,6 @@ const STATUS_BADGE: Record<CarePlanRow["status"], { label: string; variant: Badg
   declined: { label: "Declined", variant: "red" },
   transferred: { label: "Transferred", variant: "grey" },
   cancelled: { label: "Cancelled", variant: "grey" },
-  declined: { label: "Declined by patient", variant: "grey" },
-  transferred: { label: "Transferred", variant: "blue" },
 };
 
 function formatCondition(condition: string): string {

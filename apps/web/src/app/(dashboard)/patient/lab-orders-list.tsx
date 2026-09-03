@@ -21,7 +21,6 @@ const LAB_ORDER_STATUS_BADGE: Record<LabOrderStatus, { variant: BadgeProps["vari
   processing: { variant: "blue", label: "In progress" },
   resulted: { variant: "green", label: "Results ready" },
   cancelled: { variant: "grey", label: "Cancelled" },
-  sample_rejected: { variant: "red", label: "Sample rejected — a new sample is needed" },
 };
 
 /** Still open: the patient has a request and we're waiting on their result. */
