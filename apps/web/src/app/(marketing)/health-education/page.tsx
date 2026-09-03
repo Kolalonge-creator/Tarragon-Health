@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Health Education",
   description:
-    "Learning built around your own conditions and risk, reviewed by our clinical team, with short knowledge checks so you can see what's actually sticking.",
+    "Learning built around your own conditions and risk, with clinically reviewed content clearly marked and short knowledge checks so you can see what's actually sticking.",
   path: MARKETING_ROUTES.healthEducation,
 });
 
@@ -20,8 +20,8 @@ const WHATS_INCLUDED = [
     body: "What you see is matched to your own conditions and risk level: a person managing hypertension and a healthy person preparing for a screening see different things.",
   },
   {
-    title: "Reviewed by our clinical team",
-    body: "Every piece is checked for accuracy before it's published: no generic internet health advice, and nothing that contradicts what your own doctor tells you.",
+    title: "Clear about clinical review",
+    body: "Content our clinical team has reviewed carries a visible reviewed mark, so you always know which pieces have had that extra check: no generic internet health advice, and nothing that contradicts what your own doctor tells you.",
   },
   {
     title: "Short knowledge checks",
@@ -69,8 +69,8 @@ export default function HealthEducationPage() {
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             Not a general health blog. A short, personalised list of what&apos;s actually relevant
-            to your own conditions and risk, reviewed by our clinical team, with a quick check to
-            show you what&apos;s sticking.
+            to your own conditions and risk, with clinically reviewed content clearly marked and a
+            quick check to show you what&apos;s sticking.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">
@@ -169,7 +169,7 @@ export default function HealthEducationPage() {
         <CtaBand
           variant="gradient"
           title="Understand your health, not just track it."
-          description="Personalised, clinically reviewed, and updated as your care changes."
+          description="Personalised, clear about what's been clinically reviewed, and updated as your care changes."
           primaryHref="/signup"
           primaryLabel="Start learning"
         />

@@ -5,7 +5,9 @@
 // instant a screening_results row lands with result_status abnormal|critical
 // (see 20260711130000_abnormal_result_handler_trigger.sql). That trigger
 // already wrote the screening_upgrades audit row and the clinician_alerts
-// row with its 4-hour SLA in the same transaction — that DB-level safety
+// row with its two-tier contact SLA (120 min for a critical result, 24 h for
+// a non-critical abnormal result — escalation_slas config) in the same
+// transaction — that DB-level safety
 // net is unconditional and does not depend on this function running at all.
 // This function owns the rest of the flow: draft a care_plan or
 // specialist_referral for clinician review, and alert the org's clinicians
@@ -325,8 +327,12 @@ Deno.serve(async (req) => {
           clinician.phone,
           "abnormal_result_clinician_alert",
           [patientName, conditionLabel],
+          // The payload does not carry result_status, so this fallback cannot
+          // tell a critical result (120 min SLA) from a non-critical abnormal
+          // one (24 h). State the tighter bound: early contact on a
+          // non-critical result costs nothing; the reverse breaches the SLA.
           `New Priority 1 alert: ${patientName}'s screening result needs review (${conditionLabel}). ` +
-            `Contact within 4 hours — see your Tarragon Health worklist. — Tarragon Health`,
+            `Contact within 2 hours. See your Tarragon Health worklist. Tarragon Health`,
         )
       ),
     );

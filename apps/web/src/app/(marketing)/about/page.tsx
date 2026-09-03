@@ -22,9 +22,10 @@ import { pageMetadata } from "@/lib/marketing/site";
  */
 const ABOUT_COMMITMENTS = [
   {
-    value: "4 hrs",
-    label: "contact SLA on abnormal results",
-    detail: "The clock starts the moment a result comes back abnormal, never on a schedule.",
+    value: "2 hrs",
+    label: "contact SLA on critical results",
+    detail:
+      "The clock starts the moment a critical result comes back, never on a schedule. Every other abnormal result is followed up within a day.",
   },
   {
     value: "₦ + $",

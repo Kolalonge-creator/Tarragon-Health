@@ -128,10 +128,36 @@ export async function POST(request: Request): Promise<NextResponse> {
   // sync resumes from there. Uses the batch's own maximum rather than "now":
   // HealthKit writes can land out of order, and a wall-clock cursor would
   // step over a sample the phone had not yet been handed.
-  const newestSample = parsed.data.samples.reduce<string | null>((newest, sample) => {
-    if (!newest || sample.recorded_at > newest) return sample.recorded_at;
-    return newest;
-  }, null);
+  //
+  // The constraint that shapes the truncation handling below: the cursor is
+  // ONE timestamp shared by every reading type, while the app pages its
+  // device-store queries PER TYPE (oldest-first, capped per page). A type
+  // that hit its page cap still has unsent samples older than the batch's
+  // overall newest, so advancing to the overall newest would skip them
+  // permanently. When the app declares which types were capped
+  // (truncated_types), the cursor may only advance as far as the oldest of
+  // those types' own newest samples — everything at or before that point has
+  // been sent for every type. Other types' newer samples simply re-upload
+  // next sync and dedupe on external_reading_id. Clients that predate the
+  // field omit it and get exactly the old behaviour.
+  const newestOf = (samples: typeof parsed.data.samples): string | null =>
+    samples.reduce<string | null>((newest, sample) => {
+      if (!newest || sample.recorded_at > newest) return sample.recorded_at;
+      return newest;
+    }, null);
+
+  const truncatedTypes = parsed.data.truncated_types ?? [];
+  let newestSample = newestOf(parsed.data.samples);
+  for (const readingType of truncatedTypes) {
+    const typeNewest = newestOf(parsed.data.samples.filter((s) => s.reading_type === readingType));
+    if (!typeNewest) {
+      // Declared truncated but sent no samples of that type: no safe bound
+      // exists, so hold the cursor where it is rather than guess.
+      newestSample = null;
+      break;
+    }
+    if (newestSample && typeNewest < newestSample) newestSample = typeNewest;
+  }
 
   await svc
     .from("wearable_connections")
