@@ -9,15 +9,23 @@ import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
-/** The self-bookable STI-relevant bundles (migration 20260829090000 +
- * pre-existing single_hiv/single_syphilis/single_hep_c), in the order we
- * want them to read: individual tests first, the combined panel last. */
+/** The self-bookable STI/BBV-relevant bundles, in the order we want them to
+ * read: individual tests first, the combined panel last.
+ *
+ * `single_chlamydia_gonorrhoea` and `sti_panel_full` were withdrawn in the
+ * 2026-09-03 catalogue rebuild (Synlab's real combined NAAT/PCR price is
+ * ₦200,000 — no viable product at the price these were sold at) and
+ * `sti_panel_full` was replaced by `blood_borne_virus_screen` (HIV + HepB +
+ * HepC only, no chlamydia/gonorrhoea component). Both withdrawn codes would
+ * disappear from this list on their own via the `is_active && self_bookable`
+ * filter below even if left in, but they're removed here rather than kept as
+ * dead entries. */
 const STI_BUNDLE_CODES = [
   "single_hiv",
   "single_syphilis",
+  "single_hep_b",
   "single_hep_c",
-  "single_chlamydia_gonorrhoea",
-  "sti_panel_full",
+  "blood_borne_virus_screen",
 ] as const;
 
 export function StiTestingPanel() {

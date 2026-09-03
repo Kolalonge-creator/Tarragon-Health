@@ -36,7 +36,13 @@ const isPackage = (b: PanelBundle) =>
 /** The WHO-essential confidential screenings (cervical smear, HIV, Hep B,
  * Hep C) vs. other self-bookable single tests (e.g. blood group & genotype,
  * migration 20260724020715) that don't carry the same privacy framing. */
-const CONFIDENTIAL_CODES = ["single_cervical_smear", "single_hiv", "single_hep_b", "single_hep_c"];
+const CONFIDENTIAL_CODES = [
+  "single_cervical_smear",
+  "single_hiv",
+  "single_hep_b",
+  "single_hep_c",
+  "blood_borne_virus_screen",
+];
 const isConfidential = (b: PanelBundle) => CONFIDENTIAL_CODES.includes(b.code);
 
 const REBOOK_AFTER_MONTHS = 11;

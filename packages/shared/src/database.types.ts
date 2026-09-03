@@ -39368,6 +39368,10 @@ export type Database = {
         }
         Returns: string
       }
+      redeem_cancer_screening_purchase: {
+        Args: { p_patient_id: string; p_product_code: string }
+        Returns: boolean
+      }
       redeem_care_voucher: {
         Args: { p_order_id: string; p_order_type: string; p_voucher: string }
         Returns: Json
