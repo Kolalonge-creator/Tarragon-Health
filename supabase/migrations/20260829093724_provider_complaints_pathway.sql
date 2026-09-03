@@ -316,6 +316,8 @@ $$;
 comment on function private.is_complaints_handler() is
   'Who may run the §29.5 complaints process: platform admin, or an active Clinical Director. Deliberately NOT private.is_org_staff() — a complaint about a colleague is not care-team-wide reading.';
 
+revoke all on function private.is_complaints_handler() from public;
+revoke all on function private.is_complaints_handler() from anon;
 revoke all on function private.is_complaints_handler() from public, anon;
 
 alter table public.provider_complaints enable row level security;

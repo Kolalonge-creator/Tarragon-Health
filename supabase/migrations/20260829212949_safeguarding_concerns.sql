@@ -226,6 +226,9 @@ create trigger safeguarding_concerns_enforce_attribution
   before insert or update on public.safeguarding_concerns
   for each row execute function private.enforce_safeguarding_concern_attribution();
 
+revoke all on function private.enforce_safeguarding_concern_attribution() from public;
+revoke all on function private.can_review_safeguarding_concern(uuid) from public;
+revoke all on function private.can_review_safeguarding_concern(uuid) from anon;
 revoke all on function private.enforce_safeguarding_concern_attribution() from public, anon;
 revoke all on function private.can_review_safeguarding_concern(uuid) from public, anon;
 

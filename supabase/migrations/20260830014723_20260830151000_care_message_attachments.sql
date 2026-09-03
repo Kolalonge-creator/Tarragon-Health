@@ -41,6 +41,7 @@ create policy care_message_attachments_insert on public.care_message_attachments
   );
 
 grant select, insert on public.care_message_attachments to authenticated;
+revoke all on public.care_message_attachments from anon;
 -- `revoke ... from public` (not just `from anon`) is what actually removes
 -- the PUBLIC pseudo-grant anon inherits through here — see
 -- 20260830014616_programme_purchases.sql's note for the verified reasoning.

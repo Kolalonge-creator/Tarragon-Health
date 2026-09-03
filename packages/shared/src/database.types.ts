@@ -1957,6 +1957,51 @@ export type Database = {
         }
         Relationships: []
       }
+      alcohol_consumption_logs: {
+        Row: {
+          context: string | null
+          created_at: string
+          drinks_count: number
+          id: string
+          logged_on: string
+          organisation_id: string
+          patient_id: string
+        }
+        Insert: {
+          context?: string | null
+          created_at?: string
+          drinks_count: number
+          id?: string
+          logged_on?: string
+          organisation_id: string
+          patient_id: string
+        }
+        Update: {
+          context?: string | null
+          created_at?: string
+          drinks_count?: number
+          id?: string
+          logged_on?: string
+          organisation_id?: string
+          patient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "alcohol_consumption_logs_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alcohol_consumption_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_deliveries: {
         Row: {
           channel: Database["public"]["Enums"]["notification_channel"]
@@ -12440,6 +12485,122 @@ export type Database = {
           },
         ]
       }
+      exercise_programmes: {
+        Row: {
+          category: Database["public"]["Enums"]["exercise_programme_category"]
+          clinician_reviewed: boolean
+          condition_tags: Database["public"]["Enums"]["care_plan_condition"][]
+          created_at: string
+          id: string
+          intensity_level: Database["public"]["Enums"]["exercise_intensity_level"]
+          is_active: boolean
+          key: string
+          summary: string
+          title: string
+          updated_at: string
+          weekly_plan: Json
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["exercise_programme_category"]
+          clinician_reviewed?: boolean
+          condition_tags?: Database["public"]["Enums"]["care_plan_condition"][]
+          created_at?: string
+          id?: string
+          intensity_level: Database["public"]["Enums"]["exercise_intensity_level"]
+          is_active?: boolean
+          key: string
+          summary: string
+          title: string
+          updated_at?: string
+          weekly_plan?: Json
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["exercise_programme_category"]
+          clinician_reviewed?: boolean
+          condition_tags?: Database["public"]["Enums"]["care_plan_condition"][]
+          created_at?: string
+          id?: string
+          intensity_level?: Database["public"]["Enums"]["exercise_intensity_level"]
+          is_active?: boolean
+          key?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          weekly_plan?: Json
+        }
+        Relationships: []
+      }
+      exercise_readiness_screens: {
+        Row: {
+          any_flag: boolean
+          chest_pain: boolean
+          cleared_for_intensive: boolean
+          created_at: string
+          dizziness_or_balance: boolean
+          doctor_advised_limit: boolean
+          heart_or_bp_condition: boolean
+          id: string
+          joint_bone_problem: boolean
+          organisation_id: string
+          other_concern: string | null
+          patient_id: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+        }
+        Insert: {
+          chest_pain?: boolean
+          cleared_for_intensive?: boolean
+          created_at?: string
+          dizziness_or_balance?: boolean
+          doctor_advised_limit?: boolean
+          heart_or_bp_condition?: boolean
+          id?: string
+          joint_bone_problem?: boolean
+          organisation_id: string
+          other_concern?: string | null
+          patient_id: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Update: {
+          chest_pain?: boolean
+          cleared_for_intensive?: boolean
+          created_at?: string
+          dizziness_or_balance?: boolean
+          doctor_advised_limit?: boolean
+          heart_or_bp_condition?: boolean
+          id?: string
+          joint_bone_problem?: boolean
+          organisation_id?: string
+          other_concern?: string | null
+          patient_id?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "exercise_readiness_screens_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_readiness_screens_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "exercise_readiness_screens_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exposure_retest_rules: {
         Row: {
           basis: string
@@ -18530,6 +18691,54 @@ export type Database = {
           },
         ]
       }
+      lifestyle_barrier_reports: {
+        Row: {
+          barrier_codes: Database["public"]["Enums"]["lifestyle_barrier_code"][]
+          created_at: string
+          domain: Database["public"]["Enums"]["lifestyle_domain"]
+          id: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          reported_at: string
+        }
+        Insert: {
+          barrier_codes?: Database["public"]["Enums"]["lifestyle_barrier_code"][]
+          created_at?: string
+          domain: Database["public"]["Enums"]["lifestyle_domain"]
+          id?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          reported_at?: string
+        }
+        Update: {
+          barrier_codes?: Database["public"]["Enums"]["lifestyle_barrier_code"][]
+          created_at?: string
+          domain?: Database["public"]["Enums"]["lifestyle_domain"]
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          reported_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lifestyle_barrier_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lifestyle_barrier_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       logistics_partners: {
         Row: {
           address: string | null
@@ -23357,6 +23566,57 @@ export type Database = {
           },
         ]
       }
+      patient_alcohol_goals: {
+        Row: {
+          baseline_drinks_per_week: number | null
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          started_at: string
+          status: string
+          target_drinks_per_week: number | null
+          updated_at: string
+        }
+        Insert: {
+          baseline_drinks_per_week?: number | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          started_at?: string
+          status?: string
+          target_drinks_per_week?: number | null
+          updated_at?: string
+        }
+        Update: {
+          baseline_drinks_per_week?: number | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          started_at?: string
+          status?: string
+          target_drinks_per_week?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_alcohol_goals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_alcohol_goals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       patient_allergies: {
         Row: {
           allergen: string
@@ -24299,6 +24559,61 @@ export type Database = {
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_exercise_enrollments: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          programme_id: string
+          started_at?: string
+          status?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          programme_id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_exercise_enrollments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_exercise_enrollments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_exercise_enrollments_programme_id_fkey"
+            columns: ["programme_id"]
+            isOneToOne: false
+            referencedRelation: "exercise_programmes"
             referencedColumns: ["id"]
           },
         ]
@@ -25502,6 +25817,108 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "screen_types"
             referencedColumns: ["code"]
+          },
+        ]
+      }
+      patient_sleep_goals: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          target_bedtime: string | null
+          target_duration_hours: number | null
+          target_waketime: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          target_bedtime?: string | null
+          target_duration_hours?: number | null
+          target_waketime?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          target_bedtime?: string | null
+          target_duration_hours?: number | null
+          target_waketime?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_sleep_goals_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_sleep_goals_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      patient_smoking_profiles: {
+        Row: {
+          cigarettes_per_day: number | null
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          quit_date: string | null
+          quit_motivation: number | null
+          status: Database["public"]["Enums"]["smoking_status"]
+          updated_at: string
+          years_smoking: number | null
+        }
+        Insert: {
+          cigarettes_per_day?: number | null
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          quit_date?: string | null
+          quit_motivation?: number | null
+          status?: Database["public"]["Enums"]["smoking_status"]
+          updated_at?: string
+          years_smoking?: number | null
+        }
+        Update: {
+          cigarettes_per_day?: number | null
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          quit_date?: string | null
+          quit_motivation?: number | null
+          status?: Database["public"]["Enums"]["smoking_status"]
+          updated_at?: string
+          years_smoking?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "patient_smoking_profiles_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "patient_smoking_profiles_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -32487,6 +32904,114 @@ export type Database = {
           },
           {
             foreignKeyName: "sick_day_logs_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sleep_log_entries: {
+        Row: {
+          bedtime: string | null
+          created_at: string
+          daytime_sleepiness: number | null
+          duration_hours: number
+          id: string
+          logged_on: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          quality_rating: number | null
+          waketime: string | null
+        }
+        Insert: {
+          bedtime?: string | null
+          created_at?: string
+          daytime_sleepiness?: number | null
+          duration_hours: number
+          id?: string
+          logged_on?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          quality_rating?: number | null
+          waketime?: string | null
+        }
+        Update: {
+          bedtime?: string | null
+          created_at?: string
+          daytime_sleepiness?: number | null
+          duration_hours?: number
+          id?: string
+          logged_on?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          quality_rating?: number | null
+          waketime?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sleep_log_entries_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sleep_log_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smoking_check_ins: {
+        Row: {
+          cigarettes_smoked: number
+          created_at: string
+          cravings_intensity: number | null
+          id: string
+          logged_on: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          triggers: Database["public"]["Enums"]["smoking_trigger"][]
+        }
+        Insert: {
+          cigarettes_smoked?: number
+          created_at?: string
+          cravings_intensity?: number | null
+          id?: string
+          logged_on?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          triggers?: Database["public"]["Enums"]["smoking_trigger"][]
+        }
+        Update: {
+          cigarettes_smoked?: number
+          created_at?: string
+          cravings_intensity?: number | null
+          id?: string
+          logged_on?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          triggers?: Database["public"]["Enums"]["smoking_trigger"][]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smoking_check_ins_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "smoking_check_ins_patient_id_fkey"
             columns: ["patient_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -41589,6 +42114,13 @@ export type Database = {
         | "care_coordinator_outreach"
         | "clinical_review_flag"
       escalation_status: "open" | "under_review" | "resolved" | "referred"
+      exercise_intensity_level: "beginner" | "moderate" | "vigorous"
+      exercise_programme_category:
+        | "beginner_walking"
+        | "weight_management"
+        | "cardiovascular_fitness"
+        | "mobility"
+        | "chronic_disease_specific"
       exposure_report_status: "open" | "completed" | "withdrawn"
       external_entity_type:
         | "patient"
@@ -41902,6 +42434,25 @@ export type Database = {
         | "admin"
         | "lab_partner"
       lead_role: "patient" | "family" | "employer" | "hmo" | "other"
+      lifestyle_barrier_code:
+        | "cost"
+        | "time"
+        | "family"
+        | "work"
+        | "transport"
+        | "motivation"
+        | "symptoms"
+        | "side_effects"
+        | "access"
+        | "other"
+      lifestyle_domain:
+        | "nutrition"
+        | "activity"
+        | "weight"
+        | "sleep"
+        | "smoking"
+        | "alcohol"
+        | "stress"
       lpe_enrollment_status:
         | "draft"
         | "active"
@@ -42613,6 +43164,16 @@ export type Database = {
         | "mild"
         | "moderate"
         | "severe"
+      smoking_status: "never" | "former" | "current"
+      smoking_trigger:
+        | "stress"
+        | "social"
+        | "alcohol"
+        | "after_meals"
+        | "boredom"
+        | "habit"
+        | "craving"
+        | "other"
       social_navigation_follow_up_status:
         | "none_needed"
         | "pending"
@@ -43830,6 +44391,14 @@ export const Constants = {
         "clinical_review_flag",
       ],
       escalation_status: ["open", "under_review", "resolved", "referred"],
+      exercise_intensity_level: ["beginner", "moderate", "vigorous"],
+      exercise_programme_category: [
+        "beginner_walking",
+        "weight_management",
+        "cardiovascular_fitness",
+        "mobility",
+        "chronic_disease_specific",
+      ],
       exposure_report_status: ["open", "completed", "withdrawn"],
       external_entity_type: [
         "patient",
@@ -44187,6 +44756,27 @@ export const Constants = {
         "lab_partner",
       ],
       lead_role: ["patient", "family", "employer", "hmo", "other"],
+      lifestyle_barrier_code: [
+        "cost",
+        "time",
+        "family",
+        "work",
+        "transport",
+        "motivation",
+        "symptoms",
+        "side_effects",
+        "access",
+        "other",
+      ],
+      lifestyle_domain: [
+        "nutrition",
+        "activity",
+        "weight",
+        "sleep",
+        "smoking",
+        "alcohol",
+        "stress",
+      ],
       lpe_enrollment_status: [
         "draft",
         "active",
@@ -44978,6 +45568,17 @@ export const Constants = {
         "mild",
         "moderate",
         "severe",
+      ],
+      smoking_status: ["never", "former", "current"],
+      smoking_trigger: [
+        "stress",
+        "social",
+        "alcohol",
+        "after_meals",
+        "boredom",
+        "habit",
+        "craving",
+        "other",
       ],
       social_navigation_follow_up_status: [
         "none_needed",

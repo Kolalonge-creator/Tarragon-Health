@@ -1,1 +1,21 @@
+-- Tarragon Health — new video-consult context for the paid self-arranged
+-- lab-result consultation fee (founder rule, 2026-08-30): paying the
+-- one-off consultation fee that gates a self-arranged lab-result upload also
+-- entitles the patient to a 15-minute doctor walkthrough of the result.
+--
+-- Standalone migration because Postgres forbids using a freshly-added enum
+-- value in the same transaction that adds it (same split as the
+-- annual-review/general-checkin context migrations
+-- 20260717120000/121000/20260723010050). The widened
+-- video_consultations_context_link constraint follows in
+-- 20260830085418_lab_result_consult_context_link.sql.
+--
+-- Only the enum value is added here. Turning a claimed consultation credit
+-- into an actual booked video_consultations row (an accept-flow analogous to
+-- accept_video_visit_request) is deliberately NOT built in this migration or
+-- this feature pass — see the PR description. 15 minutes is a product
+-- expectation for this context, not a DB-enforced duration; no duration
+-- column exists anywhere else on video_consultations to follow as precedent,
+-- so none is added here either.
+
 alter type public.video_consultation_context add value if not exists 'lab_result_consult';

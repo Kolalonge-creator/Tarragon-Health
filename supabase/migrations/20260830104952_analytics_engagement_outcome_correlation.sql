@@ -43,6 +43,8 @@ begin
 end;
 $$;
 
+revoke execute on function public.analytics_engagement_outcome_correlation() from public;
+revoke execute on function public.analytics_engagement_outcome_correlation() from anon;
 revoke execute on function public.analytics_engagement_outcome_correlation() from public, anon;
 
 do $$

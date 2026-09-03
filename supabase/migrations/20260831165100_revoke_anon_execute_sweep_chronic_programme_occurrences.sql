@@ -28,10 +28,25 @@
 -- scripts/release-integrity/check-anon-security-definer-execute.mjs while fixing that check's
 -- IPv6/pooler bug on 2026-08-31, not by a manual audit.
 
-revoke all on function private.sweep_chronic_programme_occurrences() from public, anon;
-
+-- On a from-scratch migration replay, this file's own timestamp sorts before
+-- 20260831165033_chronic_programme_coordinator_tasks_and_sweep.sql, which is
+-- what actually creates this function -- so a fresh replay reaches this
+-- statement before the function exists. On the live project this ran
+-- correctly (the function already existed by the time it was actually
+-- applied there, which is why this exact version is recorded in
+-- supabase_migrations.schema_migrations and must not be renamed/deleted).
+-- to_regprocedure returns null instead of raising when the signature does
+-- not (yet) exist, so this is a safe no-op on a fresh replay -- the
+-- companion revoke now lives directly in the creating migration -- and
+-- still a real, correct revoke+assert when the function is already present.
 do $$
 begin
+  if to_regprocedure('private.sweep_chronic_programme_occurrences()') is null then
+    return;
+  end if;
+
+  revoke all on function private.sweep_chronic_programme_occurrences() from public, anon;
+
   if has_function_privilege('anon', 'private.sweep_chronic_programme_occurrences()', 'EXECUTE') then
     raise exception 'FAIL: anon must not be able to execute private.sweep_chronic_programme_occurrences()';
   end if;
