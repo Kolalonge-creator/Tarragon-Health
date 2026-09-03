@@ -80,7 +80,7 @@ function ClaimCard({ dependentId, name }: { dependentId: string; name: string | 
         <CardTitle className="text-lg">{name ?? "They"} turned 18</CardTitle>
         <CardDescription>
           Give them their own Tarragon login with their real phone number, or keep helping as-is for
-          now — you can do this whenever you&apos;re ready.
+          now. You can do this whenever you&apos;re ready.
         </CardDescription>
       </CardHeader>
       <CardContent>

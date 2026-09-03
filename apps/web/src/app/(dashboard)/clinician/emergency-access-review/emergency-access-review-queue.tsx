@@ -66,7 +66,7 @@ export function EmergencyAccessReviewQueue() {
       <Card>
         <CardHeader>
           <CardTitle>Waiting on your review</CardTitle>
-          <CardDescription>Nothing here can happen twice — each grant is reviewed once.</CardDescription>
+          <CardDescription>Nothing here can happen twice: each grant is reviewed once.</CardDescription>
         </CardHeader>
         <CardContent>
           {pending.isLoading ? (
@@ -84,7 +84,7 @@ export function EmergencyAccessReviewQueue() {
                   </p>
                   {grant.isOwnRequest ? (
                     <p className="mt-2 text-xs text-charcoal-ink/50">
-                      You requested this — a different reviewer must confirm it.
+                      You requested this. A different reviewer must confirm it.
                     </p>
                   ) : (
                     <div className="mt-2 flex flex-wrap items-center gap-2">

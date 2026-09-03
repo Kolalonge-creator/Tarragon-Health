@@ -60,7 +60,7 @@ export function DevelopmentalScreeningCard({
         <CardTitle>Development</CardTitle>
         <CardDescription>
           A short, informal check across motor, language, social, cognitive and behavioural
-          milestones for this age — a screening aid that routes concern to a doctor, not a
+          milestones for this age, a screening aid that routes concern to a doctor, not a
           diagnosis.
         </CardDescription>
       </CardHeader>

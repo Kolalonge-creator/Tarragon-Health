@@ -40,7 +40,7 @@ export default async function OpsIncidentsPage() {
         <p className="text-charcoal-ink/60">
           Clinical, technical, privacy, security, financial and operational incidents, each
           against a severity-based SLA. A confirmed personal-data breach should still be logged in
-          its own governed NDPR record (<code>/admin/settings/data-breach-incidents</code>) — link
+          its own governed NDPR record (<code>/admin/settings/data-breach-incidents</code>). Link
           it here from the incident detail page so operations has one place to see everything in
           flight.
         </p>

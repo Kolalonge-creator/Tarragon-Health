@@ -93,8 +93,8 @@ export function BookAppointment({
       .then((appt) => {
         setMessage(
           appt.status === "confirmed"
-            ? { tone: "success", text: "Payment received — your visit is booked." }
-            : { tone: "error", text: "Payment is still processing — check back in a moment." }
+            ? { tone: "success", text: "Payment received. Your visit is booked." }
+            : { tone: "error", text: "Payment is still processing. Check back in a moment." }
         );
       })
       .catch((error) => {
@@ -148,14 +148,14 @@ export function BookAppointment({
         setPendingPaymentAppointment({ id: confirmed.id, productCode, slotStart: slot.slot_start });
         setMessage({
           tone: "success",
-          text: `Time held for ${formatSlot(slot.slot_start)} — pay to confirm your booking.`,
+          text: `Time held for ${formatSlot(slot.slot_start)}. Pay to confirm your booking.`,
         });
         return;
       }
 
-      setMessage({ tone: "error", text: "Could not book that slot — try another." });
+      setMessage({ tone: "error", text: "Could not book that slot. Try another." });
     } catch (error) {
-      setMessage({ tone: "error", text: (error as Error).message || "Could not book that slot — try another." });
+      setMessage({ tone: "error", text: (error as Error).message || "Could not book that slot. Try another." });
     }
   }
 
@@ -201,7 +201,7 @@ export function BookAppointment({
         preferredFrom: now.toISOString(),
         preferredUntil: in30Days.toISOString(),
       });
-      setMessage({ tone: "success", text: "You're on the waiting list — we'll notify you the moment a slot opens." });
+      setMessage({ tone: "success", text: "You're on the waiting list. We'll notify you the moment a slot opens." });
     } catch (error) {
       setMessage({ tone: "error", text: (error as Error).message || "Could not join the waiting list." });
     }
@@ -255,7 +255,7 @@ export function BookAppointment({
         {pendingPaymentAppointment && (
           <div className="flex flex-wrap items-center gap-3 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
             <p className="text-sm text-charcoal-ink">
-              Your slot for {formatSlot(pendingPaymentAppointment.slotStart)} is held — pay now to confirm it.
+              Your slot for {formatSlot(pendingPaymentAppointment.slotStart)} is held. Pay now to confirm it.
             </p>
             <Button size="sm" className="ml-auto" disabled={isBuying} onClick={payForPendingAppointment}>
               {isBuying ? "Redirecting to payment…" : "Pay to confirm"}

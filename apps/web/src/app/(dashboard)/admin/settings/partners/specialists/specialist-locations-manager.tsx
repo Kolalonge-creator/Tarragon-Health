@@ -41,13 +41,13 @@ export function SpecialistLocationsManager({ specialistProviderId }: { specialis
       {isLoading ? (
         <p className="text-xs text-charcoal-ink/60">Loading…</p>
       ) : (locations ?? []).length === 0 ? (
-        <p className="text-xs text-charcoal-ink/60">No locations on file yet — single location fields still apply.</p>
+        <p className="text-xs text-charcoal-ink/60">No locations on file yet. Single location fields still apply.</p>
       ) : (
         <ul className="space-y-2">
           {(locations ?? []).map((loc) => (
             <li key={loc.id} className="flex flex-wrap items-center justify-between gap-2 rounded border border-charcoal-ink/10 p-2">
               <div className="text-xs text-charcoal-ink/80">
-                <span className="font-medium">{loc.name}</span> — {[loc.city, loc.state].filter(Boolean).join(", ")}
+                <span className="font-medium">{loc.name}</span>: {[loc.city, loc.state].filter(Boolean).join(", ")}
                 <div className="text-charcoal-ink/50">{loc.address}</div>
                 <div className="mt-1 flex gap-1">
                   {loc.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}

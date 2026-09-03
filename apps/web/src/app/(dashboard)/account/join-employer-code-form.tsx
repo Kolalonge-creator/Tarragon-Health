@@ -29,7 +29,7 @@ export function JoinEmployerCodeForm() {
           <CardTitle>Employer programme joined</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-green-700">You&apos;re now enrolled — reload to see any benefits it includes.</p>
+          <p className="text-sm text-green-700">You&apos;re now enrolled. Reload to see any benefits it includes.</p>
         </CardContent>
       </Card>
     );

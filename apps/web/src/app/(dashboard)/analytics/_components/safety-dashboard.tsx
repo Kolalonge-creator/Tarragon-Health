@@ -35,7 +35,7 @@ export function SafetyDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Patient safety signal, org-wide — clinician alerts, filed incidents/near-misses, and
+        Patient safety signal, org-wide: clinician alerts, filed incidents/near-misses, and
         safeguarding concerns in one view.
       </p>
 
@@ -86,7 +86,7 @@ export function SafetyDashboard() {
         <p className="flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           <HeartPulse className="h-4 w-4" strokeWidth={2} />
           {summary?.open_safeguarding_concerns} open safeguarding{" "}
-          {summary?.open_safeguarding_concerns === 1 ? "concern" : "concerns"} — visible to Tier
+          {summary?.open_safeguarding_concerns === 1 ? "concern" : "concerns"}, visible to Tier
           3+/Clinical Director only.
         </p>
       )}

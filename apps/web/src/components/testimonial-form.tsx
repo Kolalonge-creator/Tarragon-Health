@@ -26,7 +26,7 @@ export function TestimonialForm() {
         ) : (
           <form action={formAction} className="space-y-3">
             <p className="text-xs text-charcoal-ink/60">
-              A short quote about your Tarragon experience — with your permission, we may share it
+              A short quote about your Tarragon experience. With your permission, we may share it
               on our website (never your medical details, just your words).
             </p>
             <div>

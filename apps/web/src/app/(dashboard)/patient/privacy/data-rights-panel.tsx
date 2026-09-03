@@ -58,7 +58,7 @@ export function DataRightsPanel({
         <CardHeader>
           <CardTitle>Request a correction</CardTitle>
           <CardDescription>
-            See something wrong in your record? Tell us what it is — a member of your care team
+            See something wrong in your record? Tell us what it is. A member of your care team
             reviews every request before anything changes.
           </CardDescription>
         </CardHeader>
@@ -156,7 +156,7 @@ export function DataRightsPanel({
           <CardTitle>Request deletion of your data</CardTitle>
           <CardDescription>
             You can ask us to delete data we hold about you. Some clinical records must be kept
-            for a minimum period under Nigerian healthcare regulation — if that applies, we&apos;ll
+            for a minimum period under Nigerian healthcare regulation. If that applies, we&apos;ll
             explain exactly what can and can&apos;t be deleted when we review your request.
           </CardDescription>
         </CardHeader>

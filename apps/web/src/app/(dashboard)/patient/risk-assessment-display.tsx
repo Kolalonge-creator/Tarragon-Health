@@ -77,7 +77,7 @@ export function RiskAssessmentDisplay({ patientId }: { patientId: string }) {
                   </div>
                   {isUnknown ? (
                     <p className="text-xs text-charcoal-ink/60">
-                      We do not have enough information yet to assess this — it is not the same as
+                      We do not have enough information yet to assess this. It is not the same as
                       being low risk. Complete a few more questions in the assessment above to find out.
                     </p>
                   ) : forcedBy === "existing_diagnosis" ? (

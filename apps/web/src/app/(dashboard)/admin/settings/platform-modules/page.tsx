@@ -25,7 +25,7 @@ export default async function PlatformModulesPage() {
         <p className="text-charcoal-ink/60">
           Whole platforms built ahead of the business that will use them. Each ships
           switched off; activating one is a deliberate, audited act that needs a
-          reason (a signed contract, a go-live date) — switching one off never does.
+          reason (a signed contract, a go-live date). Switching one off never does.
         </p>
       </div>
       <PlatformModulesManager modules={modules} />

@@ -51,8 +51,8 @@ export function HomeCollectionAvailability({
           {homeVisitProviderName}
           {homeVisitScheduledAt && (
             <span className="text-charcoal-ink/60">
-              {" "}
-              — {new Date(homeVisitScheduledAt).toLocaleString("en-GB", {
+              {", "}
+              {new Date(homeVisitScheduledAt).toLocaleString("en-GB", {
                 dateStyle: "medium",
                 timeStyle: "short",
               })}
@@ -76,7 +76,7 @@ export function HomeCollectionAvailability({
           Home collection: coming soon in your area
         </p>
         <p className="text-xs text-charcoal-ink/50">
-          We&apos;re not yet able to send someone to collect a sample here — visit a partner lab
+          We&apos;re not yet able to send someone to collect a sample here. Visit a partner lab
           instead. We&apos;ll let you know as soon as this is available near you.
         </p>
       </div>
@@ -93,7 +93,7 @@ export function HomeCollectionAvailability({
           ? `${providers![0].name} covers your area`
           : `${providers!.length} home-collection providers cover your area`}
         {providers![0].home_visit_fee_kobo > 0 &&
-          ` — from ₦${koboToNaira(providers![0].home_visit_fee_kobo).toLocaleString()}`}
+          ` (from ₦${koboToNaira(providers![0].home_visit_fee_kobo).toLocaleString()})`}
         . Your care team will schedule a visit.
       </p>
     </div>

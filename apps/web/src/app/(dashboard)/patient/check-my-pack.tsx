@@ -143,7 +143,7 @@ export function CheckMyPack() {
                 strength says nothing whatsoever about whether a pack is real. */}
             <div className="rounded border border-charcoal-ink/15 bg-charcoal-ink/[0.02] p-2">
               <p className="text-xs font-medium text-charcoal-ink">
-                Is it genuine? We cannot tell you that — NAFDAC can.
+                Is it genuine? We cannot tell you that. NAFDAC can.
               </p>
               <p className="mt-1 text-xs text-charcoal-ink/70">
                 {reading.has_scratch_panel

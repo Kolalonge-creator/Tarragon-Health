@@ -48,12 +48,12 @@ export default async function ClinicalRulesSettingsPage() {
           Clinical Rules &amp; Care Protocol Engine
         </h1>
         <p className="text-charcoal-ink/60">
-          Configurable clinical decision logic (spec §32) — every rule below is data, versioned and
+          Configurable clinical decision logic (spec §32): every rule below is data, versioned and
           governed, not a hardcoded threshold in application code. A new or edited rule always starts
           as a draft, moves to shadow (evaluated against real events, never acting on a patient) for
           validation, and only a signed, owned, protocol-linked version a Clinical Director activates
-          can ever reach a patient. Every evaluation — including a rule that considered a patient and
-          declined to act — is recorded and explainable; see each rule&apos;s shadow report before
+          can ever reach a patient. Every evaluation (including a rule that considered a patient and
+          declined to act) is recorded and explainable; see each rule&apos;s shadow report before
           promoting it.
         </p>
       </div>

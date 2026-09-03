@@ -45,7 +45,7 @@ export function AdolescentHealthForm() {
           <p>Your answers are saved and stay private to your care team.</p>
           {(state.selfHarmFlagged || state.immediateDangerFlagged) && (
             <p className="rounded-md bg-red-50 p-3 text-red-700">
-              You told us something worrying. You are not alone — a member of your care team will
+              You told us something worrying. You are not alone. A member of your care team will
               reach out to you directly. If you are in immediate danger, please contact emergency
               services or go to the nearest hospital now.
             </p>
@@ -53,7 +53,7 @@ export function AdolescentHealthForm() {
           {state.abuseNeglectExploitationFlagged && !state.selfHarmFlagged && !state.immediateDangerFlagged && (
             <p className="rounded-md bg-amber-50 p-3 text-amber-800">
               You told us something that matters. A senior member of your care team will look into
-              this carefully and privately — this is never shared with anyone else without your
+              this carefully and privately. This is never shared with anyone else without your
               safety being the first priority.
             </p>
           )}
@@ -69,7 +69,7 @@ export function AdolescentHealthForm() {
       </CardHeader>
       <CardContent>
         <p className="mb-4 text-sm text-charcoal-ink/70">
-          A few questions about home, school, activity, and how you&apos;re really doing — the kind
+          A few questions about home, school, activity, and how you&apos;re really doing, the kind
           of thing a doctor might ask in person. There are no wrong answers, and your answers stay
           private to your care team.
         </p>
@@ -164,7 +164,7 @@ export function AdolescentHealthForm() {
             />
             <YesNoQuestion
               name="unsafe_elsewhere"
-              prompt="Do you feel unsafe anywhere else in your life right now — at school, online, or elsewhere?"
+              prompt="Do you feel unsafe anywhere else in your life right now, at school, online, or elsewhere?"
             />
             <YesNoQuestion
               name="immediate_danger"

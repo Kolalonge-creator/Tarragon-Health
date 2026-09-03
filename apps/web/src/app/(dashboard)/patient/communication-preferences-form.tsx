@@ -15,7 +15,7 @@ const CHANNEL_OPTIONS: Array<{ value: string; label: string }> = [
 ];
 
 const HOUR_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "", label: "No preference — send as soon as it's due" },
+  { value: "", label: "No preference (send as soon as it's due)" },
   { value: "8", label: "Morning (around 8am)" },
   { value: "13", label: "Afternoon (around 1pm)" },
   { value: "19", label: "Evening (around 7pm)" },
@@ -47,7 +47,7 @@ export function CommunicationPreferencesForm({
         </CardTitle>
         <CardDescription>
           Choose how you&apos;d like routine reminders and confirmations to reach you. This never
-          affects clinical or emergency alerts — a dangerous reading or an abnormal result always
+          affects clinical or emergency alerts: a dangerous reading or an abnormal result always
           reaches you on every channel we have, regardless of what you choose here.
         </CardDescription>
       </CardHeader>
@@ -101,7 +101,7 @@ export function CommunicationPreferencesForm({
             />
             <span>
               Send me occasional news and offers from Tarragon Health. This is separate from your
-              care reminders — turning it off never affects appointment, medication, or result
+              care reminders: turning it off never affects appointment, medication, or result
               notifications.
             </span>
           </label>

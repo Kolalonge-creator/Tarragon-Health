@@ -80,7 +80,7 @@ export function EmployerDetailManager({
       <Card>
         <CardHeader>
           <CardTitle>Business details</CardTitle>
-          <CardDescription>Module 26 §26.3 — organisation registration.</CardDescription>
+          <CardDescription>Module 26 §26.3: organisation registration.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={profileAction} className="grid gap-3 sm:grid-cols-2">
@@ -131,7 +131,7 @@ export function EmployerDetailManager({
       <Card>
         <CardHeader>
           <CardTitle>Business verification</CardTitle>
-          <CardDescription>Reviewed only against the details above — not a regulator check.</CardDescription>
+          <CardDescription>Reviewed only against the details above, not a regulator check.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={verificationAction} className="flex flex-wrap items-end gap-3">
@@ -160,7 +160,7 @@ export function EmployerDetailManager({
       <Card>
         <CardHeader>
           <CardTitle>Contract & billing</CardTitle>
-          <CardDescription>Module 26 §26.15 — five billing models, all money in kobo.</CardDescription>
+          <CardDescription>Module 26 §26.15: five billing models, all money in kobo.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={contractAction} className="grid gap-3 sm:grid-cols-2">
@@ -224,7 +224,7 @@ export function EmployerDetailManager({
           <CardTitle>Go live</CardTitle>
           <CardDescription>
             Requires a verified business and a signed, active contract with a billing model (enforced at the
-            database level — see employer_accounts_live_is_the_last_step / assert_employer_live_has_contract).
+            database level: see employer_accounts_live_is_the_last_step / assert_employer_live_has_contract).
           </CardDescription>
         </CardHeader>
         <CardContent>

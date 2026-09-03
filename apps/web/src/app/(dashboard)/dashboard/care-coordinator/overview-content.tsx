@@ -83,7 +83,7 @@ export function CareCoordinatorOverview() {
         <CardContent>
           {actFirst.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
-              {tasksLoading ? "Loading…" : "Nothing marked act-first — nice and quiet."}
+              {tasksLoading ? "Loading…" : "Nothing marked act-first. Nice and quiet."}
             </p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10">

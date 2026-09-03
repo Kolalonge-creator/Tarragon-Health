@@ -32,7 +32,7 @@ export default async function PayerLayout({ children }: { children: React.ReactN
         greeting={greeting}
         roleLabel="Payer admin"
         comingUp={[
-          "The insurer/payer platform is built and ready — a Tarragon superadmin has not switched it on yet.",
+          "The insurer/payer platform is built and ready. A Tarragon superadmin has not switched it on yet.",
         ]}
       />
     );
@@ -53,7 +53,7 @@ export default async function PayerLayout({ children }: { children: React.ReactN
       <DashboardPlaceholder
         greeting={greeting}
         roleLabel="Payer admin"
-        comingUp={["Your login isn't linked to an insurer yet — ask a Tarragon admin to add you."]}
+        comingUp={["Your login isn't linked to an insurer yet. Ask a Tarragon admin to add you."]}
       />
     );
   }

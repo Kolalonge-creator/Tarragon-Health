@@ -87,7 +87,7 @@ export function EmergencyCardBody({
       <Section title="Allergies" tone={severeAllergies.length > 0 ? "danger" : "normal"}>
         {facts.allergies.length === 0 ? (
           <p className="text-sm text-charcoal-ink/70">
-            None recorded. That is not the same as none — ask if you can.
+            None recorded. That is not the same as none. Ask if you can.
           </p>
         ) : (
           <ul className="space-y-1">

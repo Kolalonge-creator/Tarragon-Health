@@ -25,7 +25,7 @@ export function DiabetesGuidance({ diabetesType }: { diabetesType?: string | nul
             <p className="font-medium text-amber-800">Type 1: never stop your insulin</p>
             <p className="mt-1">
               Not eating, feeling unwell, fasting, or running low on supplies is never a reason to
-              skip a dose — your body cannot make its own insulin, so stopping it can quickly
+              skip a dose: your body cannot make its own insulin, so stopping it can quickly
               become dangerous (diabetic ketoacidosis). If you&apos;re struggling to get insulin or
               keep it down, contact your care team the same day rather than skipping a dose.
             </p>

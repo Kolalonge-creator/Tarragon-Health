@@ -70,7 +70,7 @@ export default async function AdminPatientDuplicatesPage() {
           <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Duplicate patients</h1>
           <p className="text-charcoal-ink/60">
             Possible duplicate patient records, flagged by name/DOB/phone/email similarity. Flagging
-            never merges anything — review each pair and either dismiss it or hand it to the merge
+            never merges anything. Review each pair and either dismiss it or hand it to the merge
             tool.
           </p>
         </div>

@@ -45,7 +45,7 @@ export default async function PreventionCampaignsSettingsPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Prevention campaigns</h1>
         <p className="text-charcoal-ink/60">
-          Time-boxed, population-level initiatives — education, screening invitations, extra
+          Time-boxed, population-level initiatives: education, screening invitations, extra
           assessments, partner offers, and challenges targeted at an eligible subset of patients
           based on their own risk profile.
         </p>

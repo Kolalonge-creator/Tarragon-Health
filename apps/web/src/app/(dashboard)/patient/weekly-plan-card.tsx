@@ -109,7 +109,7 @@ export function WeeklyPlanCard({ patientId }: { patientId: string }) {
             <p className="rounded-md bg-soft-sage px-3 py-2 text-sm text-deep-forest">
               {LPE_MODULE_LABEL[priorityGoal.module]} · {priorityGoal.title}
               {priorityGoal.streak.shouldRaiseWorklistItem &&
-                " — a few days missed in a row, worth a fresh start today."}
+                ": a few days missed in a row, worth a fresh start today."}
             </p>
           </div>
         )}

@@ -24,7 +24,7 @@ export default async function SmokingPage() {
         </Link>
       </div>
       <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Whether you&apos;re thinking about quitting, mid-quit, or just want to keep track — this is
+        Whether you&apos;re thinking about quitting, mid-quit, or just want to keep track: this is
         yours to log, and your care team can support you along the way.
       </p>
       <RequiresEntitlement

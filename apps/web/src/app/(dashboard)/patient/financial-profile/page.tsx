@@ -113,7 +113,7 @@ export default async function FinancialProfilePage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your finances</h1>
         <p className="text-charcoal-ink/60">
-          Your services, vouchers, transactions, and anything still being refunded — all in one place.
+          Your services, vouchers, transactions, and anything still being refunded, all in one place.
         </p>
       </div>
 
@@ -153,7 +153,7 @@ export default async function FinancialProfilePage() {
           <CardHeader>
             <CardTitle>Recent payment issues</CardTitle>
             <CardDescription>
-              We never store your card — a failed charge means Paystack declined it, not that
+              We never store your card. A failed charge means Paystack declined it, not that
               anything on our side went wrong.
             </CardDescription>
           </CardHeader>
@@ -164,7 +164,7 @@ export default async function FinancialProfilePage() {
               <ul className="space-y-1 text-sm">
                 {recentFailures.map((f) => (
                   <li key={f.id} className="text-charcoal-ink/70">
-                    {new Date(f.created_at).toLocaleDateString("en-NG")} — {f.error}
+                    {new Date(f.created_at).toLocaleDateString("en-NG")}: {f.error}
                   </li>
                 ))}
               </ul>
@@ -178,7 +178,7 @@ export default async function FinancialProfilePage() {
           <CardHeader>
             <CardTitle>Your share of a split bill</CardTitle>
             <CardDescription>
-              Someone supporting you paid part of one of your bills — this is the reduced amount
+              Someone supporting you paid part of one of your bills. This is the reduced amount
               left for you to pay yourself.
             </CardDescription>
           </CardHeader>

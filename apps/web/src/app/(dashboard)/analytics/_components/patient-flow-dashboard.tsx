@@ -73,7 +73,7 @@ export function PatientFlowDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        The &ldquo;clinical review&rdquo; stage is near-1:1 with &ldquo;abnormal result&rdquo; today —
+        The &ldquo;clinical review&rdquo; stage is near-1:1 with &ldquo;abnormal result&rdquo; today:
         a <code className="text-[11px]">screening_upgrades</code> row is auto-created for every
         abnormal or critical result. It is not yet a distinct human-review gate, so treat this stage
         as a marker of when the case entered review, not a measure of review activity.

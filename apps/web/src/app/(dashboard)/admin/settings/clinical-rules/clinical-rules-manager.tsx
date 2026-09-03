@@ -237,7 +237,7 @@ function RuleVersionCard({ rule, signedVersions }: { rule: ClinicalRuleVersionRo
 
         {!isSignable && rule.status !== "active" && rule.status !== "retired" && rule.status !== "rolled_back" && (
           <p className="text-xs text-amber-700">
-            Cannot be signed yet — assign an owner and link a signed protocol version first.
+            Cannot be signed yet. Assign an owner and link a signed protocol version first.
           </p>
         )}
 

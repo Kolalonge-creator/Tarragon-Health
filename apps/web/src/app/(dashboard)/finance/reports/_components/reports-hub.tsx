@@ -78,7 +78,7 @@ export function ReportsHub() {
       <div className="grid gap-6 lg:grid-cols-3">
         <PackCard
           title="Government filings pack"
-          description="Everything due to a Nigerian government agency for the year — CAC, FIRS (CIT/VAT/WHT), PAYE, pension, NHF, NSITF, ITF — with amounts read from the ledger where possible."
+          description="Everything due to a Nigerian government agency for the year: CAC, FIRS (CIT/VAT/WHT), PAYE, pension, NHF, NSITF, ITF, with amounts read from the ledger where possible."
           href={govHref}
         >
           <div>
@@ -139,7 +139,7 @@ export function ReportsHub() {
       </div>
 
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        These packs assemble what the ledger and the compliance calendar already know — they are not
+        These packs assemble what the ledger and the compliance calendar already know. They are not
         filing engines and don&apos;t submit anything to any agency, and none of this is tax or legal
         advice. Confirm figures with a licensed adviser before relying on them for an actual submission.
         Day-to-day tracking of individual filings (mark as filed, remittance references) still lives on

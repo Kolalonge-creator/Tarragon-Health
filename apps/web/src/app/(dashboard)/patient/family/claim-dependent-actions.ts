@@ -102,7 +102,7 @@ export async function claimDependentAccountAction(
     content_class: "non_clinical",
     payload: {
       message:
-        "You're 18 — your Tarragon record is now your own. Download the app and use this number to set up your own login.",
+        "You're 18. Your Tarragon record is now your own. Download the app and use this number to set up your own login.",
     },
   });
 

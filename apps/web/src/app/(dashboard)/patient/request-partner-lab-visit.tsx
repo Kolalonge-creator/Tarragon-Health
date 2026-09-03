@@ -52,7 +52,7 @@ export function RequestPartnerLabVisit({
   if (confirmed) {
     return (
       <p className="text-xs text-charcoal-ink/60">
-        Request sent — the lab will confirm your {timeOfDay} visit on{" "}
+        Request sent. The lab will confirm your {timeOfDay} visit on{" "}
         {new Date(scheduledDate).toLocaleDateString()}.
       </p>
     );

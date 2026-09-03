@@ -15,7 +15,7 @@ export function EscalatePaymentIssueButton({ servicePurchaseId }: { servicePurch
   const [sent, setSent] = useState(false);
 
   if (sent) {
-    return <p className="text-xs text-brand-green">Sent — the care team will follow up.</p>;
+    return <p className="text-xs text-brand-green">Sent. The care team will follow up.</p>;
   }
 
   return (
@@ -37,7 +37,7 @@ export function EscalatePaymentIssueButton({ servicePurchaseId }: { servicePurch
       >
         {startThread.isPending ? "Sending…" : "Message the care team"}
       </Button>
-      {startThread.isError && <p className="pt-1 text-xs text-red-600">Could not send — try again.</p>}
+      {startThread.isError && <p className="pt-1 text-xs text-red-600">Could not send. Try again.</p>}
     </div>
   );
 }

@@ -45,7 +45,7 @@ export default async function PatientWellbeingPage() {
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm text-charcoal-ink/70">
-            Book a session with one of our therapists — over telemedicine or in person,
+            Book a session with one of our therapists, over telemedicine or in person,
             whichever suits you.
           </p>
           <Button asChild>
@@ -66,8 +66,8 @@ export default async function PatientWellbeingPage() {
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
           <p className="text-sm text-charcoal-ink/70">
-            Any medicine your care team has started for you — including for your mental
-            wellbeing — is tracked with your other medications: adherence, side effects, and
+            Any medicine your care team has started for you (including for your mental
+            wellbeing) is tracked with your other medications: adherence, side effects, and
             reviews all in one place.
           </p>
           <Link href="/patient/medications" className="text-sm font-medium text-brand-green underline">

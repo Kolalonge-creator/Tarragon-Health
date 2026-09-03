@@ -67,7 +67,7 @@ export function OrderImagingForm({ patientId }: { patientId: string }) {
           <p className="text-xs text-charcoal-ink/50">Loading catalogue…</p>
         ) : !studies || studies.length === 0 ? (
           <p className="text-xs text-charcoal-ink/50">
-            No imaging studies in the catalogue yet — ask an admin to add one.
+            No imaging studies in the catalogue yet. Ask an admin to add one.
           </p>
         ) : (
           <Select

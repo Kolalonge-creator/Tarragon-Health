@@ -43,7 +43,7 @@ export default async function AdminPatientMergePage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Merge patient records</h1>
         <p className="text-charcoal-ink/60">
           Repoints every table that references the losing record onto the kept record, then retires
-          the losing record. All-or-nothing — a preview always runs first, and a genuine conflict
+          the losing record. All-or-nothing: a preview always runs first, and a genuine conflict
           rolls the whole merge back rather than merging half of it.
         </p>
       </div>
@@ -61,7 +61,7 @@ export default async function AdminPatientMergePage({
         <Card>
           <CardContent className="space-y-2 pt-6">
             <p className="text-sm text-charcoal-ink/70">
-              This tool needs two specific patient records to compare — start from the{" "}
+              This tool needs two specific patient records to compare. Start from the{" "}
               <Link href="/admin/patients/duplicates" className="text-brand-green underline">
                 duplicate patients
               </Link>{" "}

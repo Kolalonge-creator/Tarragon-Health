@@ -40,9 +40,9 @@ const REFERRAL_SOURCE_OPTIONS: { value: ReferralSource; label: string }[] = [
 ];
 
 const URGENCY_OPTIONS: { value: ReferralUrgency; label: string }[] = [
-  { value: "routine", label: "Routine — within weeks" },
-  { value: "priority", label: "Priority — within days" },
-  { value: "urgent", label: "Urgent — same day" },
+  { value: "routine", label: "Routine (within weeks)" },
+  { value: "priority", label: "Priority (within days)" },
+  { value: "urgent", label: "Urgent (same day)" },
   { value: "emergency", label: "Emergency" },
 ];
 
@@ -187,7 +187,7 @@ export function CreateReferralForm({
             ))}
           </Select>
           <p className="text-xs text-charcoal-ink/50">
-            The patient never sets or upgrades this themselves — it is a clinical decision.
+            The patient never sets or upgrades this themselves. It is a clinical decision.
           </p>
         </div>
 
@@ -197,7 +197,7 @@ export function CreateReferralForm({
             id="referral-reason"
             value={referralReason}
             onChange={(e) => setReferralReason(e.target.value)}
-            placeholder="What, specifically, do you want the specialist to assess — not just the reason for referral."
+            placeholder="What, specifically, do you want the specialist to assess, not just the reason for referral."
           />
         </div>
 
@@ -219,7 +219,7 @@ export function CreateReferralForm({
                 <li key={f.code}>{f.message}</li>
               ))}
             </ul>
-            <p className="text-xs text-amber-800/70">Advisory only — you decide whether to proceed.</p>
+            <p className="text-xs text-amber-800/70">Advisory only: you decide whether to proceed.</p>
           </div>
         )}
 

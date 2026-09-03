@@ -352,8 +352,8 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             </h3>
             {existingDiagnoses.length > 0 && (
               <p className="text-xs text-charcoal-ink/50">
-                Pre-filled from your care team&apos;s records and your last assessment —
-                remove anything that&apos;s no longer right.
+                Pre-filled from your care team&apos;s records and your last assessment.
+                Remove anything that&apos;s no longer right.
               </p>
             )}
             <CheckboxGroup

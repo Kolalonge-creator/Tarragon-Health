@@ -41,8 +41,8 @@ export function MedicationAccessBarrierForm({
     <form action={formAction} className="space-y-3 rounded-md bg-charcoal-ink/5 p-3">
       <input type="hidden" name="medication_id" value={medicationId} />
       <p className="text-xs text-charcoal-ink/60">
-        Tell us what&apos;s stopping you from taking {drugName}. Your care team will follow up —
-        we never swap your medicine for a cheaper one on our own.
+        Tell us what&apos;s stopping you from taking {drugName}. Your care team will follow up.
+        We never swap your medicine for a cheaper one on our own.
       </p>
       <div className="space-y-1.5">
         <Label htmlFor={`barrier_reason_${medicationId}`} className="text-xs">
@@ -73,7 +73,7 @@ export function MedicationAccessBarrierForm({
       {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
       {state?.success && (
         <p className="text-xs text-brand-green">
-          Thanks — your care team has been told and will follow up.
+          Thanks. Your care team has been told and will follow up.
         </p>
       )}
       <Button type="submit" size="sm" variant="outline" disabled={pending}>

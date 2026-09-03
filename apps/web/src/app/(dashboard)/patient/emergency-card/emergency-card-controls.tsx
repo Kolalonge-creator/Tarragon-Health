@@ -111,7 +111,7 @@ export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolea
       </div>
       <p className="text-xs text-charcoal-ink/60">
         Replacing issues a new link, resets its 12-month clock, and stops the old one working
-        immediately — use it if you ever share the old one by mistake.
+        immediately. Use it if you ever share the old one by mistake.
       </p>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {message ? <p className="text-sm text-brand-green">{message}</p> : null}

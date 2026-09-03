@@ -96,7 +96,7 @@ function CheckinBooker({
     } catch (error) {
       setMessage({
         tone: "error",
-        text: (error as Error).message || "Could not book that slot — try another.",
+        text: (error as Error).message || "Could not book that slot. Try another.",
       });
     }
   }
@@ -119,7 +119,7 @@ function CheckinBooker({
       {isLoading && <p className="text-xs text-charcoal-ink/60">Looking for open times…</p>}
       {!isLoading && slots && slots.length === 0 && (
         <p className="text-xs text-charcoal-ink/60">
-          No open doctor times in the next two weeks — check back shortly, or contact us if this
+          No open doctor times in the next two weeks. Check back shortly, or contact us if this
           call is due soon.
         </p>
       )}
@@ -231,7 +231,7 @@ function EnrolmentCard({
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-base">{programmeName} — 12-week programme</CardTitle>
+          <CardTitle className="text-base">{programmeName}: 12-week programme</CardTitle>
           <Badge variant={enrolment.track === "doctor_supported" ? "green" : "grey"}>
             {enrolment.track === "doctor_supported" ? "Doctor-supported" : "Self-monitoring"}
           </Badge>

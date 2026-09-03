@@ -87,7 +87,7 @@ export function StiTestingPanel() {
          * codebase uses for dormant imaging screens and wearable providers
          * with no real credentials yet. */}
         <p className="border-t border-charcoal-ink/10 pt-3 text-xs text-charcoal-ink/50">
-          Home test kits aren&apos;t available from a partner yet — for now, book above and
+          Home test kits aren&apos;t available from a partner yet. For now, book above and
           we&apos;ll arrange the sample collection.
         </p>
       </CardContent>

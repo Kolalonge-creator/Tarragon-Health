@@ -14,7 +14,7 @@ export function HomeCareRequestForm() {
       <Label htmlFor="home-care-reason">What&apos;s going on?</Label>
       <Textarea id="home-care-reason" name="reason" maxLength={500} required />
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Sent — your care coordinator will follow up.</p>}
+      {state?.success && <p className="text-sm text-brand-green">Sent. Your care coordinator will follow up.</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Sending…" : "Request a home visit"}
       </Button>

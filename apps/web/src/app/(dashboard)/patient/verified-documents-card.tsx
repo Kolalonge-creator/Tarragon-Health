@@ -136,7 +136,7 @@ export function VerifiedDocumentsCard({
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
           A doctor-attested fit-to-work letter or travel health certificate, delivered as a signed
-          PDF — no printing or courier needed.
+          PDF, no printing or courier needed.
         </p>
 
         {!isCheckingCredit && !hasCredit && (

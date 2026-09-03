@@ -47,7 +47,7 @@ function PrivacyBanner() {
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-clinical-navy/15 bg-clinical-navy/[0.04] p-3">
       <p className="flex items-center gap-1.5 text-xs font-semibold text-clinical-navy">
         <SEMANTIC_ICON.privacy className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-        Your answers here stay between you and your care team — never shown to a family member,
+        Your answers here stay between you and your care team, never shown to a family member,
         an employer, or an HMO, even one that pays for your plan.
       </p>
       <Link
@@ -108,7 +108,7 @@ function ConfidentialMessageCta() {
         {sent && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-brand-green/20 bg-brand-green/5 p-3">
             <p className="text-sm text-charcoal-ink/80">
-              Sent — your care team will reply in Messages.
+              Sent. Your care team will reply in Messages.
             </p>
             <Button asChild size="sm">
               <Link href="/patient/messages">Open Messages</Link>
@@ -181,7 +181,7 @@ function ResultsTab({ patientId }: { patientId: string }) {
     <div className="space-y-4">
       <p className="text-sm text-charcoal-ink/60">
         If a chlamydia, gonorrhoea, or syphilis result needs follow-up, it shows up here
-        automatically — nothing to do here unless you have an open case.
+        automatically. Nothing to do here unless you have an open case.
       </p>
       <StiCaseStatusCard patientId={patientId} />
     </div>
@@ -261,7 +261,7 @@ export function SexualHealthHub({ patientId }: { patientId: string }) {
       <PageHeader
         title="Sexual & reproductive health"
         icon={SEMANTIC_ICON.family}
-        description="Testing, contraception, fertility, and wellness — private, and reviewed by your care team."
+        description="Testing, contraception, fertility, and wellness: private, and reviewed by your care team."
       />
 
       <PrivacyBanner />

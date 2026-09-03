@@ -21,7 +21,7 @@ type CampaignRow = {
 };
 
 const STATUS_LABEL: Record<CampaignRow["status"], string> = {
-  draft: "Requested — awaiting review",
+  draft: "Requested (awaiting review)",
   active: "Active",
   ended: "Ended",
 };
@@ -87,7 +87,7 @@ export default async function CorporateProgrammesPage() {
         <CardHeader>
           <CardTitle>Available programmes</CardTitle>
           <CardDescription>
-            Time-boxed wellness programmes you can request for your organisation — screening
+            Time-boxed wellness programmes you can request for your organisation: screening
             drives, vaccination pushes, activity challenges, and education campaigns. A Tarragon
             admin reviews each request before it goes live; we never share individual employee
             health information as part of running one.
@@ -123,7 +123,7 @@ export default async function CorporateProgrammesPage() {
           <CardHeader>
             <CardTitle>Your programmes</CardTitle>
             <CardDescription>
-              Aggregate participation only — individual employee results are never shown here.
+              Aggregate participation only: individual employee results are never shown here.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

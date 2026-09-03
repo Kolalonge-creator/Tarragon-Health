@@ -73,7 +73,7 @@ export function DeliveryAvailability({
       <div className="rounded-lg border border-dashed border-charcoal-ink/15 bg-charcoal-ink/[0.02] p-3">
         <p className="text-sm font-medium text-charcoal-ink/70">Delivery: coming soon in your area</p>
         <p className="text-xs text-charcoal-ink/50">
-          We can&apos;t yet deliver medication to you directly — please collect from the pharmacy
+          We can&apos;t yet deliver medication to you directly. Please collect from the pharmacy
           partner instead. We&apos;ll let you know as soon as delivery is available near you.
         </p>
       </div>
@@ -90,7 +90,7 @@ export function DeliveryAvailability({
           ? `${partners![0].name} delivers to your area`
           : `${partners!.length} delivery partners cover your area`}
         {partners![0].delivery_fee_kobo > 0 &&
-          ` — from ₦${koboToNaira(partners![0].delivery_fee_kobo).toLocaleString()}`}
+          ` (from ₦${koboToNaira(partners![0].delivery_fee_kobo).toLocaleString()})`}
         . Your care team will arrange courier pickup once your order is confirmed.
       </p>
     </div>

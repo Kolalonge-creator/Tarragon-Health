@@ -56,7 +56,7 @@ export function UnifiedLedgerLookup() {
 
       {submitted && ledger.isError && (
         <CenterNote>
-          Could not load this profile&apos;s transactions — check the ID is correct.
+          Could not load this profile&apos;s transactions. Check the ID is correct.
         </CenterNote>
       )}
 

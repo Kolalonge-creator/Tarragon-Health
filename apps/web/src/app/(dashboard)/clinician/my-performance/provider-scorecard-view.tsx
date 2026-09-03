@@ -131,7 +131,7 @@ export function ProviderScorecardView() {
       <div>
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Your scorecard</h2>
         <p className="text-sm text-charcoal-ink/60">
-          Measured against a target, not against your colleagues — a quieter caseload never reads
+          Measured against a target, not against your colleagues. A quieter caseload never reads
           as worse here. Anything with too few cases this period to be a fair number says so
           instead of showing a rate.
         </p>
@@ -149,7 +149,7 @@ export function ProviderScorecardView() {
               </p>
             ) : null}
             {!credentials.attestation_current ? (
-              <p>Your annual clinical attestation is due or overdue — see Settings.</p>
+              <p>Your annual clinical attestation is due or overdue. See Settings.</p>
             ) : null}
           </CardContent>
         </Card>

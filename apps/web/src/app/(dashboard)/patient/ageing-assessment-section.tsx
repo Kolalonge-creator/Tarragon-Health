@@ -27,7 +27,7 @@ export async function AgeingAssessmentSection({ patientId }: { patientId: string
       <CardHeader>
         <CardTitle>Comprehensive check-in</CardTitle>
         <CardDescription>
-          A few honest answers across the areas that matter most as you age — mobility, cognition,
+          A few honest answers across the areas that matter most as you age: mobility, cognition,
           nutrition, vision and hearing, and more. This isn&apos;t a diagnosis; anything worth a closer
           look gets flagged for your care team to follow up on.
         </CardDescription>

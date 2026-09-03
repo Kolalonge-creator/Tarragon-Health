@@ -101,7 +101,7 @@ export default async function CoveragePage() {
         <SectionHeading
           eyebrow="Partner locations"
           title="Where our contracted partners are"
-          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab, home visit or delivery partner is the exception — a real relationship we hold, not just a listing. This map shows exactly where those partners are, once we have one."
+          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab, home visit or delivery partner is the exception: a real relationship we hold, not just a listing. This map shows exactly where those partners are, once we have one."
         />
         {mapsApiKey && partnerLocations.length > 0 && (
           <PartnerMap locations={partnerLocations} apiKey={mapsApiKey} />
@@ -123,7 +123,7 @@ export default async function CoveragePage() {
                       <span className="font-medium text-charcoal-ink">
                         {location.name}
                       </span>{" "}
-                      — {PARTNER_TYPE_DESCRIPTION[location.type]},{" "}
+                      ({PARTNER_TYPE_DESCRIPTION[location.type]}),{" "}
                       {location.address}
                     </li>
                   ))}
@@ -132,7 +132,7 @@ export default async function CoveragePage() {
             ) : (
               <p className="text-sm text-charcoal-ink/70">
                 We haven&apos;t activated a contracted lab, home visit or
-                delivery partner yet — check back, or{" "}
+                delivery partner yet. Check back, or{" "}
                 <Link href="/contact" className="underline">
                   ask us
                 </Link>{" "}

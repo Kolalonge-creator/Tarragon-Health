@@ -98,7 +98,7 @@ export function AvailabilityRulesManager({
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-charcoal-ink/60">
-            Define a weekly window once — the engine generates bookable slots automatically, netting out
+            Define a weekly window once. The engine generates bookable slots automatically, netting out
             your leave/blocked time and existing bookings.
           </p>
           <div className="flex flex-wrap items-end gap-3">
@@ -245,7 +245,7 @@ export function AvailabilityRulesManager({
                 <li key={row.id} className="py-2 text-sm text-charcoal-ink">
                   {row.kind === "leave" ? "Leave" : "Blocked"}:{" "}
                   {new Date(row.starts_at).toLocaleString()} – {new Date(row.ends_at).toLocaleString()}
-                  {row.reason ? ` — ${row.reason}` : ""}
+                  {row.reason ? ` (${row.reason})` : ""}
                 </li>
               ))}
             </ul>

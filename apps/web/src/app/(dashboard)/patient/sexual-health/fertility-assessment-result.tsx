@@ -11,7 +11,7 @@ const RESULT_COPY: Record<FertilityRecommendedAction, { title: string; descripti
   preconception_advice: {
     title: "You're in a normal range",
     description:
-      "Trying for 6-11 months is still well within the normal window. Your care team has some preconception advice — timing, nutrition, and habits that help — to make the most of this stretch.",
+      "Trying for 6-11 months is still well within the normal window. Your care team has some preconception advice (timing, nutrition, and habits that help) to make the most of this stretch.",
   },
   baseline_labs: {
     title: "Worth a closer look",
@@ -21,7 +21,7 @@ const RESULT_COPY: Record<FertilityRecommendedAction, { title: string; descripti
   specialist_referral: {
     title: "Time to bring in a specialist",
     description:
-      "Based on what you've told us, it's worth seeing a specialist — we've started that referral and your care team will be in touch.",
+      "Based on what you've told us, it's worth seeing a specialist. We've started that referral and your care team will be in touch.",
   },
 };
 

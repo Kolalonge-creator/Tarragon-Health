@@ -92,14 +92,14 @@ export function ResultExplainer({
   return (
     <div className="mt-2 space-y-2 rounded-md border border-mist-grey/60 bg-mist-grey/20 p-3">
       <div className="flex items-center gap-2">
-        <Badge variant="grey">AI-drafted — for understanding, not a diagnosis</Badge>
+        <Badge variant="grey">AI-drafted: for understanding, not a diagnosis</Badge>
       </div>
 
       {isPending && <p className="text-sm text-charcoal-ink/60">Working this out for you…</p>}
 
       {!isPending && result?.status === "failed" && (
         <p className="text-sm text-charcoal-ink/60">
-          Couldn&apos;t put together an explanation right now — nothing else on this page is
+          Couldn&apos;t put together an explanation right now. Nothing else on this page is
           affected. Your care team can walk you through this number any time.
         </p>
       )}

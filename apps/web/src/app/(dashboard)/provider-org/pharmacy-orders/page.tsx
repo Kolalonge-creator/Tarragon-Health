@@ -41,10 +41,10 @@ export default async function ProviderOrgPharmacyOrdersPage({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-            {selected.name} — Pharmacy orders
+            {selected.name}: Pharmacy orders
           </h1>
           <p className="text-sm text-charcoal-ink/60">
-            Dispensing stays a pharmacist login&apos;s job — this is visibility only.
+            Dispensing stays a pharmacist login&apos;s job. This is visibility only.
           </p>
         </div>
         <OrgPicker options={options} selectedId={selected.id} />
@@ -57,7 +57,7 @@ export default async function ProviderOrgPharmacyOrdersPage({
         <CardContent>
           {orders.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
-              No orders yet — or this organisation hasn&apos;t claimed a pharmacy directory row (Admin → Partners).
+              No orders yet, or this organisation hasn&apos;t claimed a pharmacy directory row (Admin → Partners).
             </p>
           ) : (
             <div className="overflow-x-auto">

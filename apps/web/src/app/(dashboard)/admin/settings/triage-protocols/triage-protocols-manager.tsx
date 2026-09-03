@@ -147,10 +147,10 @@ export function TriageProtocolsManager({
       ) : (
         <Card>
           <CardContent className="space-y-2 pt-6">
-            <Badge variant="amber">No signed configuration — symptom checker is OFF for patients</Badge>
+            <Badge variant="amber">No signed configuration: symptom checker is OFF for patients</Badge>
             <p className="text-sm text-charcoal-ink/70">
               The Symptom Assessment &amp; Triage Engine (platform brief §37) stays hidden from patients
-              until a Clinical Director reviews and signs a version below. This is deliberate — see
+              until a Clinical Director reviews and signs a version below. This is deliberate. See
               docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md.
             </p>
           </CardContent>
@@ -190,7 +190,7 @@ export function TriageProtocolsManager({
                   <>
                     <p className="text-xs text-charcoal-ink/60">
                       Signing requires an active Clinical Director account and brings this version into
-                      force, retiring whichever version is currently active — and turns the patient-facing
+                      force, retiring whichever version is currently active, and turns the patient-facing
                       symptom checker on if nothing was signed before.
                     </p>
                     <SignButton versionId={v.id} />

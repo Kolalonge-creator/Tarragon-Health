@@ -13,7 +13,7 @@ function formatDuration(minutes: number): string {
 const CONSISTENCY_LABEL: Record<SleepSummary["consistency"], string> = {
   consistent: "Fairly consistent night to night",
   somewhat_variable: "Somewhat variable night to night",
-  irregular: "Irregular — duration swings a lot night to night",
+  irregular: "Irregular: duration swings a lot night to night",
   unknown: "Not enough nights yet to tell",
 };
 
@@ -52,7 +52,7 @@ export function SleepSummaryCard({ patientId }: { patientId: string }) {
           Sleep
         </CardTitle>
         <CardDescription>
-          Estimate from your connected wearable — not a clinically validated sleep study.
+          Estimate from your connected wearable, not a clinically validated sleep study.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

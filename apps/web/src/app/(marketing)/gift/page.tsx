@@ -20,7 +20,7 @@ export const metadata: Metadata = pageMetadata({
 const WAYS_TO_GIVE = [
   {
     title: "Buy them a named health check",
-    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check — Core Screen, or whichever they need — at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
+    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check (Core Screen, or whichever they need) at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
   },
   {
     title: "Buy them a year of care",
@@ -54,7 +54,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What exactly am I buying?",
     answer:
-      "Either one named health check (Core Screen and others) or a year of one of our care plans, for someone specific — never a top-up balance. It sits on their account with their name on it until they choose to use it.",
+      "Either one named health check (Core Screen and others) or a year of one of our care plans, for someone specific, never a top-up balance. It sits on their account with their name on it until they choose to use it.",
   },
   {
     question: "Who can I buy this for?",
@@ -64,12 +64,12 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "Does a health check gift include a video call with a doctor?",
     answer:
-      "A doctor reads every result in writing and sends a downloadable report — that part is included in every check. A live video consult is a separate, low-cost booking: your recipient can request one whenever they'd like to talk their results through, and you or they can pay for it at that point.",
+      "A doctor reads every result in writing and sends a downloadable report. That part is included in every check. A live video consult is a separate, low-cost booking: your recipient can request one whenever they'd like to talk their results through, and you or they can pay for it at that point.",
   },
   {
     question: "Can I pay for their lab tests too?",
     answer:
-      "For a named health check, yes — that is exactly what you are buying: Tarragon bills one real price and settles with the laboratory directly, so there is nothing further for them to pay at the lab. For a year-of-care plan, laboratories are paid directly by whoever is standing in one, at that lab's price — if you want to help with a test on that plan, the practical way is to send them what it costs.",
+      "For a named health check, yes, that is exactly what you are buying: Tarragon bills one real price and settles with the laboratory directly, so there is nothing further for them to pay at the lab. For a year-of-care plan, laboratories are paid directly by whoever is standing in one, at that lab's price. If you want to help with a test on that plan, the practical way is to send them what it costs.",
   },
   {
     question: "Will I see their results?",
@@ -79,7 +79,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What if I am buying from outside Nigeria?",
     answer:
-      "That's fine — checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The year still sits on their account until they are ready to start it.",
+      "That's fine. Checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The year still sits on their account until they are ready to start it.",
   },
   {
     question: "What if they are already a Tarragon member?",

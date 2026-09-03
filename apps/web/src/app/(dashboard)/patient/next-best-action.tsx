@@ -127,7 +127,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     action = {
       icon: "medication",
       title: "Your medication review is due",
-      body: "A quick review with your care team keeps your treatment on track — book it when you're ready.",
+      body: "A quick review with your care team keeps your treatment on track. Book it when you're ready.",
       href: "/patient/medications",
       cta: "See my review",
     };

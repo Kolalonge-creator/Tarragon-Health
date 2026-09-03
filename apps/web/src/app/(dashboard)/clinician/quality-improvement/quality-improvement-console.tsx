@@ -81,7 +81,7 @@ function CycleCard({ cycle }: { cycle: QualityImprovementCycle }) {
           <p className="text-sm text-charcoal-ink/80">
             <span className="font-medium">Re-measured: </span>
             {cycle.remeasure_value} on {cycle.remeasured_at}
-            {cycle.outcome_note && ` — ${cycle.outcome_note}`}
+            {cycle.outcome_note && `: ${cycle.outcome_note}`}
           </p>
         )}
 

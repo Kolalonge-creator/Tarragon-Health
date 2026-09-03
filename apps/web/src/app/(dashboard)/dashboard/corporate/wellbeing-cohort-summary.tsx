@@ -35,7 +35,7 @@ export function WellbeingCohortSummary({ metric }: { metric: WellbeingCohortMetr
         </CardTitle>
         <CardDescription>
           {metric.respondedCount} of {metric.totalCount} enrolled people have completed a mental
-          wellbeing check-in. Figures are workforce-level percentages only — Tarragon never shares
+          wellbeing check-in. Figures are workforce-level percentages only. Tarragon never shares
           an individual&apos;s mental health information with an employer.
         </CardDescription>
       </CardHeader>

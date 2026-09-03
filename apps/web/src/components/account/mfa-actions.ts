@@ -54,7 +54,7 @@ export async function verifyMfaEnrollment(
   formData: FormData
 ): Promise<MfaVerifyState> {
   const factorId = formData.get("factorId")?.toString();
-  if (!factorId) return { error: "Setup expired — start again" };
+  if (!factorId) return { error: "Setup expired. Start again" };
 
   const parsed = mfaCodeSchema.safeParse({ code: formData.get("code") });
   if (!parsed.success) {
@@ -79,7 +79,7 @@ export async function verifyMfaEnrollment(
     factorId,
   });
   if (challengeError || !challenge) {
-    return { error: challengeError?.message ?? "Could not verify — start again" };
+    return { error: challengeError?.message ?? "Could not verify. Start again" };
   }
 
   const { error: verifyError } = await supabase.auth.mfa.verify({
@@ -88,7 +88,7 @@ export async function verifyMfaEnrollment(
     code: parsed.data.code,
   });
   if (verifyError) {
-    return { error: "That code didn't match — check the app and try again" };
+    return { error: "That code didn't match. Check the app and try again" };
   }
 
   return { success: true };

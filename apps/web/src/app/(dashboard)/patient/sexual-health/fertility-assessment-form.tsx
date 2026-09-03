@@ -46,7 +46,7 @@ export function FertilityAssessmentForm() {
           Fertility check-in
         </CardTitle>
         <CardDescription>
-          A few quick questions to point you toward the right next step — education, advice,
+          A few quick questions to point you toward the right next step: education, advice,
           baseline tests, or a specialist. Never a diagnosis.
         </CardDescription>
       </CardHeader>

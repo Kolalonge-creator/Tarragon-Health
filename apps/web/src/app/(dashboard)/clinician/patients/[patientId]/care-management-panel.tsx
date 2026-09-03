@@ -109,7 +109,7 @@ function CarePlanHistory({ carePlanId }: { carePlanId: string }) {
 
   if (isLoading) return <p className="text-xs text-charcoal-ink/50">Loading history…</p>;
   if (!versions || versions.length === 0) {
-    return <p className="text-xs text-charcoal-ink/50">No prior versions — this plan hasn&apos;t changed yet.</p>;
+    return <p className="text-xs text-charcoal-ink/50">No prior versions. This plan hasn&apos;t changed yet.</p>;
   }
 
   return (
@@ -125,7 +125,7 @@ function CarePlanHistory({ carePlanId }: { carePlanId: string }) {
               minute: "2-digit",
             })}
           </span>
-          {" — "}
+          {": "}
           {formatVersionSnapshot(version.snapshot)}
         </li>
       ))}

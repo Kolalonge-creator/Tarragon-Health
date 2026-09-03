@@ -31,9 +31,9 @@ export default async function PayerNetworkPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name} — Provider network</h1>
+          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}: Provider network</h1>
           <p className="text-sm text-charcoal-ink/60">
-            27.12. No row for a provider means default open-network coverage — add a row only to name an
+            27.12. No row for a provider means default open-network coverage. Add a row only to name an
             exception (in-network, out-of-network, or restricted to one benefit).
           </p>
         </div>

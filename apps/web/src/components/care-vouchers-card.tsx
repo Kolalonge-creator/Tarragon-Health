@@ -161,7 +161,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
                   <option value="">Choose a service</option>
                   {(catalogue ?? []).map((plan) => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.name} — {naira(plan.price_kobo ?? 0)}
+                      {plan.name} ({naira(plan.price_kobo ?? 0)})
                     </option>
                   ))}
                 </Select>
@@ -225,7 +225,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
                   <option value="">Choose a health check</option>
                   {(healthCheckCatalogue ?? []).map((bundle) => (
                     <option key={bundle.id} value={bundle.id}>
-                      {bundle.name} — {naira(bundle.price_kobo ?? 0)}
+                      {bundle.name} ({naira(bundle.price_kobo ?? 0)})
                     </option>
                   ))}
                 </Select>
@@ -253,7 +253,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
               <p className="text-xs text-slate-500">
                 Reserving is free. You pay separately, in naira, in one go or bit by bit. Whoever
                 it is for books it whenever suits them, and a doctor reviews their
-                results the same way as anyone else&apos;s — in writing, with a downloadable
+                results the same way as anyone else&apos;s: in writing, with a downloadable
                 report. If they&apos;d also like a live video consult with a doctor, that&apos;s a
                 separate, low-cost booking they (or you, once they&apos;ve requested it) can pay
                 for whenever they want one.

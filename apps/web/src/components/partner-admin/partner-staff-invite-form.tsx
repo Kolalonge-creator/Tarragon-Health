@@ -27,7 +27,7 @@ export function PartnerStaffInviteForm() {
       <CardHeader>
         <CardTitle>Invite staff</CardTitle>
         <CardDescription>
-          Create another login for your own team — it gets the same access you have, scoped to this
+          Create another login for your own team. It gets the same access you have, scoped to this
           provider.
         </CardDescription>
       </CardHeader>

@@ -33,7 +33,7 @@ export function ConditionLanguageForm({
         <CardDescription>
           We default to gentler wording (&ldquo;weight&rdquo;) across your dashboard. If
           you&apos;d rather see the direct clinical term (&ldquo;obesity&rdquo;) where it
-          applies, you can switch it here — this only changes wording on your own screen, never
+          applies, you can switch it here. This only changes wording on your own screen, never
           your medical record.
         </CardDescription>
       </CardHeader>

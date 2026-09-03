@@ -31,7 +31,7 @@ const CATEGORY_LABEL: Record<ContraceptionMethodCategory, string> = {
 };
 
 const STATUS_LABEL: Record<ContraceptionPlanStatus, string> = {
-  requested: "Requested — awaiting review",
+  requested: "Requested (awaiting review)",
   active: "Active",
   discontinued: "Discontinued",
   completed: "Completed",
@@ -97,7 +97,7 @@ export function ContraceptionPanel({ patientId }: { patientId: string }) {
             Contraception methods
           </CardTitle>
           <CardDescription>
-            Compare methods in plain language, then request the one that fits you — your care
+            Compare methods in plain language, then request the one that fits you. Your care
             team will follow up before anything is prescribed.
           </CardDescription>
         </CardHeader>
@@ -159,7 +159,7 @@ export function ContraceptionPanel({ patientId }: { patientId: string }) {
           {plans.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
           {plans.data?.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">
-              You haven&apos;t requested a method yet — browse above whenever you&apos;re ready.
+              You haven&apos;t requested a method yet. Browse above whenever you&apos;re ready.
             </p>
           )}
           {plans.data?.map((plan) => (

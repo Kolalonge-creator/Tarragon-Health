@@ -71,7 +71,7 @@ export function EmployerBilling() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         Per-member platform pricing for employer/HMO organisations. Eligible/activated counts come
-        straight from each org&apos;s roster. This is an internal estimate for finance review — it
+        straight from each org&apos;s roster. This is an internal estimate for finance review. It
         does not send an invoice.
       </p>
 

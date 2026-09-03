@@ -58,7 +58,7 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
           {medicationCount} active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory:
           nothing here changes a prescription.
           {isPolypharmacy(medicationCount) &&
-            ` ${POLYPHARMACY_THRESHOLD} or more active medicines at once is worth a deliberate review — not automatic discontinuation of any of them.`}
+            ` ${POLYPHARMACY_THRESHOLD} or more active medicines at once is worth a deliberate review, not automatic discontinuation of any of them.`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

@@ -109,7 +109,7 @@ function CaseHeader({ caseRow, canClose }: { caseRow: NonNullable<ReturnType<typ
         <CardDescription>
           Entered via {ENTRY_REASON_LABEL[caseRow.entry_reason]} on{" "}
           {new Date(caseRow.opened_at).toLocaleDateString()}
-          {caseRow.entry_detail ? ` — ${caseRow.entry_detail}` : ""}
+          {caseRow.entry_detail ? `: ${caseRow.entry_detail}` : ""}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -149,7 +149,7 @@ function CaseHeader({ caseRow, canClose }: { caseRow: NonNullable<ReturnType<typ
                 <Textarea
                   value={closureSummary}
                   onChange={(event) => setClosureSummary(event.target.value)}
-                  placeholder="Closure summary — why this case is closing"
+                  placeholder="Closure summary: why this case is closing"
                   className="text-xs"
                 />
                 <div className="flex gap-2">
@@ -187,7 +187,7 @@ function CaseHeader({ caseRow, canClose }: { caseRow: NonNullable<ReturnType<typ
                 <Textarea
                   value={reopenReason}
                   onChange={(event) => setReopenReason(event.target.value)}
-                  placeholder="Reason for reopening — deterioration, new admission, repeated abnormal results, clinician referral (74.15)"
+                  placeholder="Reason for reopening: deterioration, new admission, repeated abnormal results, clinician referral (74.15)"
                   className="text-xs"
                 />
                 <div className="flex gap-2">
@@ -288,7 +288,7 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
     <Card>
       <CardHeader>
         <CardTitle>Case file</CardTitle>
-        <CardDescription>Live from the patient&apos;s record — nothing here is duplicated.</CardDescription>
+        <CardDescription>Live from the patient&apos;s record: nothing here is duplicated.</CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 sm:grid-cols-2">
         <CaseFileList
@@ -298,7 +298,7 @@ function CaseFilePanel({ patientId, organisationId }: { patientId: string; organ
         />
         <CaseFileList
           title="Medications"
-          items={(medications ?? []).map((m) => `${m.drug_name}${m.dose ? " " + m.dose : ""}${m.frequency ? " — " + m.frequency : ""}`)}
+          items={(medications ?? []).map((m) => `${m.drug_name}${m.dose ? " " + m.dose : ""}${m.frequency ? ", " + m.frequency : ""}`)}
         />
         <CaseFileList
           title="Investigations"
@@ -628,7 +628,7 @@ function EscalationSection({ caseId, organisationId, patientId }: { caseId: stri
       <CardHeader>
         <CardTitle>Escalate this case</CardTitle>
         <CardDescription>
-          Raises a case-linked alert through the existing escalation ladder — never claims or
+          Raises a case-linked alert through the existing escalation ladder. It never claims or
           resolves anything on this patient&apos;s behalf.
         </CardDescription>
       </CardHeader>
@@ -686,7 +686,7 @@ function TimelineSection({ caseId }: { caseId: string }) {
             <li key={event.id} className="text-xs text-charcoal-ink/70">
               <span className="font-medium text-charcoal-ink">{event.event_type}</span>{" "}
               {new Date(event.created_at).toLocaleString()}
-              {event.reason ? ` — ${event.reason}` : ""}
+              {event.reason ? `: ${event.reason}` : ""}
             </li>
           ))}
         </ul>

@@ -119,7 +119,7 @@ function DraftCard({ draft }: { draft: ProtocolDraft }) {
             <Button
               size="sm"
               disabled={promote.isPending}
-              title="Signs this as a new protocol_versions row — Director only"
+              title="Signs this as a new protocol_versions row (Director only)"
               onClick={() => promote.mutate(draft.id)}
             >
               {promote.isPending ? "Promoting…" : "Promote & sign"}

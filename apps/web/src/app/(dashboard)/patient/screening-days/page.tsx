@@ -21,7 +21,7 @@ export default async function ScreeningDaysPage() {
           Group screening days
         </h1>
         <p className="max-w-2xl text-charcoal-ink/60">
-          Bring a group — a church, a market association, a cooperative, an office — and get a
+          Bring a group (a church, a market association, a cooperative, an office) and get a
           discounted rate on a health check for everyone. One payer covers the whole group
           upfront; we&apos;ll confirm the price and headcount with you first.
         </p>

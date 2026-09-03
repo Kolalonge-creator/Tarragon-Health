@@ -33,7 +33,7 @@ export function MaskedCallButton({
 
   if (dormant) {
     return (
-      <p className="text-xs text-charcoal-ink/60">Masked calling isn&apos;t set up yet — check back soon.</p>
+      <p className="text-xs text-charcoal-ink/60">Masked calling isn&apos;t set up yet. Check back soon.</p>
     );
   }
 
@@ -41,7 +41,7 @@ export function MaskedCallButton({
     return (
       <div className="space-y-1">
         <p className="text-sm text-charcoal-ink">
-          Dial <span className="font-medium">{call.dialNumber}</span> to reach {otherPartyLabel} — this
+          Dial <span className="font-medium">{call.dialNumber}</span> to reach {otherPartyLabel}. This
           number connects only this call and expires automatically.
         </p>
         <Button

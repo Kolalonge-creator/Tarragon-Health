@@ -210,7 +210,7 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
         </div>
         <p className="text-xs text-charcoal-ink/50">
           A sandbox key (<code>th_test_…</code>) is for §33.17 partner certification before going
-          live — use it to test an integration without touching real patient data.
+          live. Use it to test an integration without touching real patient data.
         </p>
         {message && <p className="text-sm text-red-600">{message}</p>}
 
@@ -474,7 +474,7 @@ function WebhookEndpointsSection({
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/60">
           A partner receives events (result available, appointment cancelled, prescription
-          created — §33.15) as a signed POST. Verify{" "}
+          created, §33.15) as a signed POST. Verify{" "}
           <code>X-Tarragon-Signature: sha256=…</code> against the raw body with the secret below
           before trusting a delivery.
         </p>
@@ -495,7 +495,7 @@ function WebhookEndpointsSection({
 
         {partners.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60">
-            Register an outbound partner connection above first — a webhook endpoint belongs to one.
+            Register an outbound partner connection above first. A webhook endpoint belongs to one.
           </p>
         ) : (
           <>

@@ -147,7 +147,7 @@ export function SecondOpinionRequestCard({
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70">
           Already have a result or diagnosis from somewhere else? A doctor on your care team reviews
-          it and writes back their own assessment — no visit needed.
+          it and writes back their own assessment, no visit needed.
         </p>
 
         {!isCheckingCredit && !hasCredit && (
@@ -168,7 +168,7 @@ export function SecondOpinionRequestCard({
             value={existingDiagnosisOrResult}
             onChange={(e) => setExistingDiagnosisOrResult(e.target.value)}
             rows={3}
-            placeholder="e.g. My GP diagnosed me with X and suggested Y — I'd like another doctor's view."
+            placeholder="e.g. My GP diagnosed me with X and suggested Y. I'd like another doctor's view."
             disabled={!hasCredit}
           />
         </div>

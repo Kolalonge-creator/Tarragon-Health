@@ -62,7 +62,7 @@ export default async function PayerOverviewPage({
             <CardTitle>Not enough members yet</CardTitle>
             <CardDescription>
               {dashboard?.note ??
-                `Fewer than ${dashboard?.min_cohort_size ?? 10} verified members — figures are withheld to protect individual privacy.`}
+                `Fewer than ${dashboard?.min_cohort_size ?? 10} verified members. Figures are withheld to protect individual privacy.`}
             </CardDescription>
           </CardHeader>
         </Card>
@@ -79,7 +79,7 @@ export default async function PayerOverviewPage({
           <Card>
             <CardHeader>
               <CardTitle>Care programmes</CardTitle>
-              <CardDescription>27.13 — members, enrolment, control and overdue review, by programme.</CardDescription>
+              <CardDescription>27.13: members, enrolment, control and overdue review, by programme.</CardDescription>
             </CardHeader>
             <CardContent>
               {!dashboard.programmes || dashboard.programmes.length === 0 ? (

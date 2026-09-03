@@ -276,7 +276,7 @@ export default async function DoctorCaseloadPage() {
           <CardDescription>
             Availability = active recurring rules (Admin &gt; Availability). Completed/cancelled/
             no-show are trailing 30 days from appointments. Utilisation % is completed consultations
-            as a share of all attempted ones (completed + cancelled + no-show) — a visibility figure,
+            as a share of all attempted ones (completed + cancelled + no-show), a visibility figure,
             not a target ratio or a flag.
           </CardDescription>
         </CardHeader>

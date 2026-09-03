@@ -40,7 +40,7 @@ export default async function TriageProtocolsSettingsPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Symptom Triage Protocols</h1>
         <p className="text-charcoal-ink/60">
           The red-flag screening rules and dynamic question trees behind the patient-facing symptom
-          checker (platform brief §37) — what counts as an emergency, what needs a prompt clinical
+          checker (platform brief §37): what counts as an emergency, what needs a prompt clinical
           look, and what&apos;s safe to self-manage, for each presenting complaint. Content changes
           only through a reviewed, tested migration; this page is where a Clinical Director puts a
           signed record on file and turns the patient-facing checker on.

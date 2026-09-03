@@ -116,7 +116,7 @@ function NoteFields({
           onChange={(e) => onChange("plan", e.target.value)}
         />
         <p className="mt-1 text-xs text-charcoal-ink/50">
-          A narrative account only — actual medication/lab/referral orders belong on their own
+          A narrative account only: actual medication/lab/referral orders belong on their own
           tabs, not here.
         </p>
       </div>
@@ -177,7 +177,7 @@ function NewNoteForm({
     <Card>
       <CardHeader>
         <CardTitle>New encounter note</CardTitle>
-        <CardDescription>Saved as a draft — nothing is final until you sign it.</CardDescription>
+        <CardDescription>Saved as a draft. Nothing is final until you sign it.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <div>
@@ -328,7 +328,7 @@ function DraftNoteCard({
                 !identityConfirmed ||
                 finalize.isPending
               }
-              title="Locks this note permanently — no further edits after signing"
+              title="Locks this note permanently, no further edits after signing"
               onClick={() =>
                 finalize.mutate({
                   noteId: note.id,

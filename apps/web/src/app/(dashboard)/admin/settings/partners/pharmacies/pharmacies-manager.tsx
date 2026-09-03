@@ -39,7 +39,7 @@ const ONBOARDING_LABEL: Record<string, string> = {
   location_verification: "Location verification",
   service_configuration: "Service configuration",
   integration_testing: "Integration testing",
-  approved: "Approved — ready to activate",
+  approved: "Approved (ready to activate)",
   activated: "Activated",
   rejected: "Rejected",
 };
@@ -81,7 +81,7 @@ function PharmacyOnboardingPanel({ pharmacy }: { pharmacy: PharmacyPartner }) {
         )}
         {status === "location_verification" && (
           <span className="text-xs text-amber-800">
-            {(locations ?? []).some((l) => l.verified_at) ? "Has a verified location." : "Needs a verified location — see below."}
+            {(locations ?? []).some((l) => l.verified_at) ? "Has a verified location." : "Needs a verified location (see below)."}
           </span>
         )}
       </div>
@@ -90,13 +90,13 @@ function PharmacyOnboardingPanel({ pharmacy }: { pharmacy: PharmacyPartner }) {
         <ul className="space-y-1">
           {(locations ?? []).length === 0 && (
             <li className="text-xs text-charcoal-ink/50">
-              No branch locations yet — add one via this pharmacy&apos;s own self-service page first.
+              No branch locations yet. Add one via this pharmacy&apos;s own self-service page first.
             </li>
           )}
           {(locations ?? []).map((loc) => (
             <li key={loc.id} className="flex items-center justify-between gap-2 text-xs">
               <span>
-                {loc.name} — {[loc.address, loc.state].filter(Boolean).join(", ")}
+                {loc.name}, {[loc.address, loc.state].filter(Boolean).join(", ")}
                 {loc.verified_at && <Badge variant="green" className="ml-1.5">Verified</Badge>}
               </span>
               {!loc.verified_at && (
@@ -255,10 +255,10 @@ function PharmacyCommissionRates() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pharmacy medications — commission rates</CardTitle>
+        <CardTitle>Pharmacy medications: commission rates</CardTitle>
         <CardDescription>
           This is what actually drives every &quot;pharmacy&quot; commission on the Commissions
-          dashboard — computed per medication at order time, not from the pharmacy partner
+          dashboard: computed per medication at order time, not from the pharmacy partner
           itself. Changing a rate here only affects orders placed after the change.
         </CardDescription>
       </CardHeader>
@@ -389,7 +389,7 @@ function PartnerLoginLinker({
         </div>
       ) : (
         <p className="text-xs text-charcoal-ink/50">
-          No unlinked pharmacist logins available — provision one at{" "}
+          No unlinked pharmacist logins available. Provision one at{" "}
           <span className="font-medium">Admin → Members</span> (role: Pharmacist) first.
         </p>
       )}
@@ -418,7 +418,7 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
         <CardHeader>
           <CardTitle>Add a pharmacy partner</CardTitle>
           <CardDescription>
-            Starts the onboarding pipeline (application → verification → activation, below) — a
+            Starts the onboarding pipeline (application → verification → activation, below). A
             new partner is never immediately active. Contact phone/email lets a partner pharmacy
             be notified of orders without logging in.
           </CardDescription>
