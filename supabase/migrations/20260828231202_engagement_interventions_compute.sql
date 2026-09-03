@@ -15,16 +15,24 @@
 -- who stays at_risk for a week gets the escalating sequence once, not the same
 -- message every night.
 --
--- Known v1 limitation: this runs once nightly at a fixed time (06:20 UTC), and
--- private.notification_allowed_now() skips the send entirely (no retry) when that
--- moment falls inside the patient's own quiet hours — a patient whose quiet hours
--- happen to cover 06:20 UTC every day would never receive an engagement nudge, not
--- just a delayed one, and a skipped 'reminder' isn't logged so it can't be picked
--- back up next run once low_engagement_runs has already moved past 1. Revisit with
--- a real deferred-send/retry mechanism if this proves to matter in practice; every
--- other nightly reminder cron in this codebase (care-outreach-daily,
--- medication-checkin-reminders-daily, ...) has the same fixed-time blind spot today,
--- so this is at least no worse than the existing baseline.
+-- Channel-enabled gating: reconciled against main-dev's own
+-- patient_notification_preferences (20260829222502), built independently while this
+-- branch was in flight — that table already gates every routine template by
+-- category via TEMPLATE_CATEGORY in send-pending-notifications/index.ts, so the
+-- three new templates below are simply registered there (mapped to
+-- "education_wellness", the same bucket vitals_reminder/lifestyle_nudge already use)
+-- rather than this migration inventing a second, parallel preferences table/gate —
+-- see the reconciliation notes on this branch for the full reasoning. This
+-- migration therefore inserts unconditionally, same as every other nightly
+-- reminder cron in this codebase (care-outreach-daily,
+-- medication-checkin-reminders-daily, ...); the existing send pipeline is what
+-- decides whether the send actually goes out.
+--
+-- Channel preference: "alternative channel" (step 4) reads
+-- profiles.notification_channel_preference (already shipped,
+-- 20260830002321_communication_preferences_columns.sql) rather than a new column,
+-- so there is exactly one place a patient's preferred routine-notification channel
+-- lives.
 create or replace function private.queue_engagement_interventions()
 returns void
 language plpgsql
@@ -58,7 +66,8 @@ begin
     order by prs.patient_id, prs.computed_at desc
   ),
   preferred as (
-    select np.patient_id, np.preferred_channel from public.notification_preferences np
+    select p.id as patient_id, p.notification_channel_preference as preferred_channel
+    from public.profiles p
   )
   select
     l.patient_id, l.organisation_id, l.engagement_level,
@@ -99,7 +108,6 @@ begin
       jsonb_build_object('lowest_dimension', c.lowest_dimension), 'non_clinical'
     from tmp_engagement_candidates c
     where c.engagement_level in ('at_risk', 'disengaged') and c.low_engagement_runs = 1
-      and private.notification_allowed_now(c.patient_id, 'in_app', 'non_clinical')
       and not exists (
         select 1 from public.patient_engagement_interventions pei
         where pei.patient_id = c.patient_id and pei.intervention_type = 'reminder'
@@ -121,7 +129,6 @@ begin
       jsonb_build_object('lowest_dimension', c.lowest_dimension), 'non_clinical'
     from tmp_engagement_candidates c
     where c.engagement_level in ('at_risk', 'disengaged') and c.low_engagement_runs >= 3
-      and private.notification_allowed_now(c.patient_id, 'in_app', 'non_clinical')
       and not exists (
         select 1 from public.patient_engagement_interventions pei
         where pei.patient_id = c.patient_id and pei.intervention_type = 'support_message'
@@ -167,11 +174,6 @@ begin
       jsonb_build_object('reason', 'unreachable_on_preferred_channel'), 'non_clinical'
     from tmp_engagement_candidates c
     where c.engagement_level = 'unreachable'
-      and private.notification_allowed_now(
-        c.patient_id,
-        case when c.preferred_channel = 'whatsapp' then 'sms' else 'whatsapp' end::public.notification_channel,
-        'non_clinical'
-      )
       and not exists (
         select 1 from public.patient_engagement_interventions pei
         where pei.patient_id = c.patient_id and pei.intervention_type = 'alternative_channel'

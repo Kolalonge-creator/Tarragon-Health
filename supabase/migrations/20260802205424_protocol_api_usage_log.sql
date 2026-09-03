@@ -85,7 +85,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_create_protocol_partner_org(text) from public;
+revoke all on function public.admin_create_protocol_partner_org(text) from public, anon;
 grant execute on function public.admin_create_protocol_partner_org(text) to authenticated;
 revoke execute on function public.admin_create_protocol_partner_org(text) from anon;
 
@@ -118,7 +118,7 @@ as $$
   order by o.created_at desc;
 $$;
 
-revoke all on function public.admin_list_protocol_partners() from public;
+revoke all on function public.admin_list_protocol_partners() from public, anon;
 grant execute on function public.admin_list_protocol_partners() to authenticated;
 revoke execute on function public.admin_list_protocol_partners() from anon;
 
@@ -166,7 +166,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_issue_protocol_api_key(uuid, text, text, text) from public;
+revoke all on function public.admin_issue_protocol_api_key(uuid, text, text, text) from public, anon;
 grant execute on function public.admin_issue_protocol_api_key(uuid, text, text, text) to authenticated;
 revoke execute on function public.admin_issue_protocol_api_key(uuid, text, text, text) from anon;
 
@@ -191,7 +191,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_revoke_protocol_api_key(uuid) from public;
+revoke all on function public.admin_revoke_protocol_api_key(uuid) from public, anon;
 grant execute on function public.admin_revoke_protocol_api_key(uuid) to authenticated;
 revoke execute on function public.admin_revoke_protocol_api_key(uuid) from anon;
 
@@ -216,7 +216,7 @@ as $$
   order by k.created_at desc;
 $$;
 
-revoke all on function public.admin_list_protocol_api_keys(uuid) from public;
+revoke all on function public.admin_list_protocol_api_keys(uuid) from public, anon;
 grant execute on function public.admin_list_protocol_api_keys(uuid) to authenticated;
 revoke execute on function public.admin_list_protocol_api_keys(uuid) from anon;
 

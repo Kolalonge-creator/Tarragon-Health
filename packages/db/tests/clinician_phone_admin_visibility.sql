@@ -72,7 +72,8 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name, phone)
   values (v_other_patient, v_org, 'patient', 'CPAV Test Other Patient', null)
   on conflict (id) do update
-    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name,
+        phone = excluded.phone;
 
   insert into public.profiles (id, organisation_id, role, full_name, phone)
   values (v_clinician, v_org, 'clinician', 'CPAV Test Clinician', '+2348011112222')
@@ -83,7 +84,7 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_admin, null, 'admin', 'CPAV Test Admin')
   on conflict (id) do update
-    set role = excluded.role, full_name = excluded.full_name;
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.care_plans (organisation_id, patient_id, condition, status, assigned_clinician_id)
   values (v_org, v_patient, 'hypertension', 'active', v_clinician)

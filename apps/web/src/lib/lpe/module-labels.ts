@@ -13,4 +13,10 @@ export const LPE_MODULE_LABEL: Record<Database["public"]["Enums"]["lpe_module"],
   sleep: "Sleep",
   stress: "Relax",
   behaviour: "Follow through",
+  // Added by 20260829222454_lpe_module_smoking.sql (spec §76.7, patient
+  // dashboard "health goals") — a personalised goal a patient can set for
+  // themselves via create_personalised_lifestyle_goal, not a clinical
+  // Lifestyle Programme Engine phase-template module (see the Module type
+  // in @tarragon/lifestyle-engine, deliberately still just the 5 above).
+  smoking: "Quit smoking",
 };

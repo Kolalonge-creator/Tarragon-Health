@@ -62,12 +62,6 @@ verify_jwt = false
 [functions.paystack-webhook]
 verify_jwt = false
 
-# Stripe calls this unauthenticated (no Supabase JWT) — validated instead via
-# stripe-signature, checked with the Stripe SDK's constructEventAsync when
-# STRIPE_WEBHOOK_SECRET is set.
-[functions.stripe-webhook]
-verify_jwt = false
-
 # Zoom calls this unauthenticated (no Supabase JWT) — validated instead via
 # x-zm-signature (HMAC-SHA256 of the raw body) when ZOOM_WEBHOOK_SECRET_TOKEN
 # is set. Also answers Zoom's one-time endpoint.url_validation handshake

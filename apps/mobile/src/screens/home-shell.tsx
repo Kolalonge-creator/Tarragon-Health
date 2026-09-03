@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
+import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import { sectionWebviewPath, type SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
@@ -14,11 +15,14 @@ import { VitalsScreen } from "@/screens/sections/vitals-screen";
 import { MedicationsScreen } from "@/screens/sections/medications-screen";
 import { LabsScreen } from "@/screens/sections/labs-screen";
 import { DevicesScreen } from "@/screens/devices-screen";
+import { SyncScreen } from "@/screens/sync-screen";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
 import { HealthPassportScreen } from "@/screens/sections/health-passport-screen";
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
+
+type PatientDevice = Tables<"patient_devices">;
 
 interface HomeShellProps {
   userId: string;
@@ -93,6 +97,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   const [section, setSection] = useState<SectionId>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
+  const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
 
   const refreshActing = useCallback(() => {
     getActingFor().then(setActing);
@@ -105,6 +110,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   function handleSelect(id: SectionId) {
     setSection(id);
     setDrawerOpen(false);
+    if (id !== "devices") setOpenDevice(null);
   }
 
   const subjectId = acting?.profileId ?? userId;
@@ -151,13 +157,16 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           />
         )}
         {section === "labs" && <LabsScreen />}
-        {section === "devices" && (
-          <DevicesScreen
-            patientId={userId}
-            organisationId={organisationId}
-            onOpenDevice={() => handleSelect("vitals")}
-          />
-        )}
+        {section === "devices" &&
+          (openDevice ? (
+            <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />
+          ) : (
+            <DevicesScreen
+              patientId={userId}
+              organisationId={organisationId}
+              onOpenDevice={setOpenDevice}
+            />
+          ))}
         {section === "messages" && <MessagesScreen patientId={userId} />}
         {section === "supporting" && (
           <SupportingScreen userId={userId} acting={acting} onActingChange={refreshActing} />

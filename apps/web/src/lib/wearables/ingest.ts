@@ -4,9 +4,12 @@ import type { Database, TablesInsert } from "@tarragon/shared";
 import { assessBpControlBestEffort } from "@/lib/ml/assess-bp-control";
 import { assessHeartRateBestEffort } from "@/lib/vitals/assess-heart-rate";
 import {
+  FULL_WEARABLE_CONSENT,
+  isConsentedTo,
   isPlausible,
   vitalsEquivalentFor,
   type NormalisedReading,
+  type WearableConsent,
 } from "./normalise";
 
 /**
@@ -28,6 +31,12 @@ export interface IngestTarget {
   connectionId: string;
   organisationId: string;
   patientId: string;
+  /** Per-category patient consent for this connection (53.3/53.4). Defaults
+   * to fully consented so every caller that predates granular consent (the
+   * mobile HealthKit/Health Connect bridge, which has no wearable_connections
+   * row and gates categories at the OS permission level instead) keeps its
+   * existing behaviour untouched. */
+  consent?: WearableConsent;
 }
 
 export interface IngestResult {
@@ -37,6 +46,9 @@ export interface IngestResult {
    * or with an unparseable timestamp. Counted rather than silently dropped
    * so a systematically wrong unit mapping shows up as a number. */
   implausible: number;
+  /** Readings dropped because the patient denied that category's consent on
+   * this connection — a real, deliberate outcome, not an error. */
+  deniedByConsent: number;
   /** Days whose step total was written to the patient-facing activity log. */
   stepDaysRecorded: number;
   /** Days skipped because the patient had typed their own step count for
@@ -54,15 +66,24 @@ export async function ingestReadings(
     vitalsInserted: 0,
     wearableInserted: 0,
     implausible: 0,
+    deniedByConsent: 0,
     stepDaysRecorded: 0,
     stepDaysDeferredToManual: 0,
   };
   if (readings.length === 0) return result;
 
+  const consent = target.consent ?? FULL_WEARABLE_CONSENT;
   const usable: NormalisedReading[] = [];
   for (const item of readings) {
-    if (isPlausible(item)) usable.push(item);
-    else result.implausible += 1;
+    if (!isPlausible(item)) {
+      result.implausible += 1;
+      continue;
+    }
+    if (!isConsentedTo(item, consent)) {
+      result.deniedByConsent += 1;
+      continue;
+    }
+    usable.push(item);
   }
   if (usable.length === 0) return result;
 
@@ -102,12 +123,27 @@ export async function ingestReadings(
     });
   }
 
-  result.vitalsInserted = await insertDeduping(vitalsRows, (batch) =>
+  const vitalsOutcome = await insertDeduping(vitalsRows, (batch) =>
     svc.from("vitals_readings").insert(batch)
   );
-  result.wearableInserted = await insertDeduping(wearableRows, (batch) =>
+  const wearableOutcome = await insertDeduping(wearableRows, (batch) =>
     svc.from("wearable_readings").insert(batch)
   );
+  result.vitalsInserted = vitalsOutcome.inserted;
+  result.wearableInserted = wearableOutcome.inserted;
+
+  // 55.10 data-quality signal: how many of this batch's readings were dropped
+  // as implausible, or turned out to already exist (a redelivered webhook, an
+  // overlapping pull window). Both are silent successes from the caller's
+  // point of view — this is the only place either gets recorded anywhere.
+  const duplicates = vitalsOutcome.duplicates + wearableOutcome.duplicates;
+  if (result.implausible > 0 || duplicates > 0) {
+    await svc.rpc("bump_wearable_connection_ingestion_counters", {
+      p_connection_id: target.connectionId,
+      p_implausible: result.implausible,
+      p_duplicates: duplicates,
+    });
+  }
 
   // wearable_readings is the raw record; it is not what any patient-facing
   // surface reads. The steps meter, the daily activity goal and the wellness
@@ -220,20 +256,30 @@ async function recordStepDays(
  * api/mobile/cgm-readings rather than upsert — one already-seen reading must
  * not cost the batch the genuinely new ones alongside it.
  */
+interface DedupingOutcome {
+  inserted: number;
+  /** Rows that collided on the dedupe index (already-seen readings) rather
+   * than failing for some other reason. Feeds wearable_connections'
+   * duplicate_readings_count (55.10). */
+  duplicates: number;
+}
+
 async function insertDeduping<Row>(
   rows: Row[],
   insert: (batch: Row[]) => PromiseLike<{ error: { code: string } | null }>
-): Promise<number> {
-  if (rows.length === 0) return 0;
+): Promise<DedupingOutcome> {
+  if (rows.length === 0) return { inserted: 0, duplicates: 0 };
 
   const { error } = await insert(rows);
-  if (!error) return rows.length;
-  if (error.code !== "23505") return 0;
+  if (!error) return { inserted: rows.length, duplicates: 0 };
+  if (error.code !== "23505") return { inserted: 0, duplicates: 0 };
 
   let inserted = 0;
+  let duplicates = 0;
   for (const row of rows) {
     const { error: rowError } = await insert([row]);
     if (!rowError) inserted += 1;
+    else if (rowError.code === "23505") duplicates += 1;
   }
-  return inserted;
+  return { inserted, duplicates };
 }

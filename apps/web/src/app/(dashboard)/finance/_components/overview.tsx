@@ -27,6 +27,7 @@ export function FinanceOverview() {
     (flags.data?.pending_approvals_count ?? 0) +
     (flags.data?.aged_unreconciled_count ?? 0) +
     (flags.data?.reconciliation_flags_count ?? 0) +
+    (flags.data?.fraud_signals_count ?? 0) +
     (flags.data?.ap_overdue_count ?? 0) +
     (flags.data?.compliance_overdue_count ?? 0);
 
@@ -54,6 +55,11 @@ export function FinanceOverview() {
             {(flags.data?.reconciliation_flags_count ?? 0) > 0 && (
               <Link href="/finance/reconciliation">
                 <Badge variant="red">{flags.data?.reconciliation_flags_count} reconciliation flag{flags.data?.reconciliation_flags_count === 1 ? "" : "s"}</Badge>
+              </Link>
+            )}
+            {(flags.data?.fraud_signals_count ?? 0) > 0 && (
+              <Link href="/finance/fraud">
+                <Badge variant="red">{flags.data?.fraud_signals_count} fraud signal{flags.data?.fraud_signals_count === 1 ? "" : "s"}</Badge>
               </Link>
             )}
             {(flags.data?.ap_overdue_count ?? 0) > 0 && (
