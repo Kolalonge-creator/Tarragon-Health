@@ -69,7 +69,8 @@ export async function buyCareVoucher(
  * Buys a named health check — a real, self-bookable, Synlab-priced panel
  * (screen_core and friends) — for yourself or for someone who has linked you
  * to their care, ahead of time. This is the diaspora "Gift a Health Check"
- * flow: a supporter abroad reserves the check now, pays in GBP/USD or NGN, in
+ * flow: a supporter abroad reserves the check now, pays in naira (NGN via
+ * Paystack only — see voucher-checkout.ts's 2026-09-03 Stripe removal), in
  * one go or in instalments (payTowardVoucher, unchanged), and their parent
  * redeems it later via RedeemVoucherButton on the annual health check page —
  * no card of the supporter's ever needs to touch the recipient's account.

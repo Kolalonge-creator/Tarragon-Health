@@ -251,8 +251,8 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
               </label>
 
               <p className="text-xs text-slate-500">
-                Reserving is free. You pay separately, in one go or bit by bit, in naira, GBP or
-                USD. Whoever it is for books it whenever suits them, and a doctor reviews their
+                Reserving is free. You pay separately, in naira, in one go or bit by bit. Whoever
+                it is for books it whenever suits them, and a doctor reviews their
                 results the same way as anyone else&apos;s — in writing, with a downloadable
                 report. If they&apos;d also like a live video consult with a doctor, that&apos;s a
                 separate, low-cost booking they (or you, once they&apos;ve requested it) can pay
