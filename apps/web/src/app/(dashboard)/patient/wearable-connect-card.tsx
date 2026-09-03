@@ -111,7 +111,22 @@ export function WearableConnectCard({
                   <span className="text-sm font-medium text-charcoal-ink">
                     {PROVIDER_LABEL[provider]}
                   </span>
-                  {connection ? (
+                  {connection?.status === "error" ? (
+                    <div className="flex items-center gap-2">
+                      <Badge variant="red">Not syncing</Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={setStatus.isPending}
+                        onClick={() => setStatus.mutate({ connectionId: connection.id, status: "disconnected" })}
+                      >
+                        Disconnect
+                      </Button>
+                      <Button size="sm" asChild>
+                        <a href={`/api/wearables/connect/${provider}`}>Reconnect</a>
+                      </Button>
+                    </div>
+                  ) : connection ? (
                     <div className="flex items-center gap-2">
                       <Badge variant={connection.status === "paused" ? "grey" : "green"}>
                         {connection.status === "paused" ? "Paused" : "Connected"}
@@ -147,7 +162,17 @@ export function WearableConnectCard({
                   )}
                 </div>
 
-                {connection && <ConnectionControls connection={connection} patientId={patientId} />}
+                {/* 55.12: an errored connection carries its last_sync_error
+                    (why it stopped syncing) rather than silently looking
+                    identical to a healthy one — see queries/wearable-
+                    connections.ts's 55.12 comment for the query-side half. */}
+                {connection?.status === "error" && connection.last_sync_error && (
+                  <p className="mt-1 text-xs text-charcoal-ink/50">{connection.last_sync_error}</p>
+                )}
+
+                {connection && connection.status !== "error" && (
+                  <ConnectionControls connection={connection} patientId={patientId} />
+                )}
 
                 {consentOpenFor === provider && (
                   <ConsentPanel

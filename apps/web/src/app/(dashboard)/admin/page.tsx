@@ -42,7 +42,6 @@ const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, stri
   whatsapp: "WhatsApp",
   termii: "Termii SMS",
   paystack: "Paystack",
-  stripe: "Stripe",
   resend: "Resend (email)",
 };
 
@@ -249,6 +248,26 @@ export default async function AdminPage() {
           visible: can("protocols.manage"),
         },
         {
+          // The §37 Symptom Assessment & Triage Engine's admin page
+          // (packages/symptom-triage-engine, PR #345) shipped with no nav
+          // entry anywhere -- this points here rather than to a second,
+          // parallel triage-protocol admin surface (see the 2026-09-02
+          // PR #376 reconciliation note in the ai-coach merge history for
+          // why only one symptom-triage implementation was kept).
+          href: "/admin/settings/triage-protocols",
+          label: "Symptom triage protocol",
+          blurb: "The decision tree behind the patient symptom checker",
+          icon: SEMANTIC_ICON.preventive,
+          visible: can("protocols.manage"),
+        },
+        {
+          href: "/admin/settings/lpe-content-library",
+          label: "Lifestyle coaching content",
+          blurb: "The AI Coach's reference material — draft until a Clinical Director signs it off",
+          icon: SEMANTIC_ICON.learn,
+          visible: can("protocols.manage"),
+        },
+        {
           href: "/admin/settings/conditions",
           label: "Chronic conditions",
           blurb: "The phased chronic-disease catalogue",
@@ -292,13 +311,6 @@ export default async function AdminPage() {
           href: "/admin/settings/subscriptions",
           label: "Subscription plans & add-ons",
           blurb: "Legacy plan/add-on editor — no longer sets live patient pricing",
-          icon: SEMANTIC_ICON.billing,
-          visible: can("subscriptions.manage"),
-        },
-        {
-          href: "/admin/settings/diaspora-pricing",
-          label: "Diaspora pricing (USD)",
-          blurb: "USD pricing at the admin-set exchange rate",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },

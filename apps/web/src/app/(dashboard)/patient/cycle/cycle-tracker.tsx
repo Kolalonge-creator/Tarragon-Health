@@ -20,7 +20,10 @@ import {
   type CyclePrediction,
   type ReproductiveLifeStage,
 } from "@/lib/rules/cycle-prediction";
+import { suggestCycleReading } from "@/lib/rules/cycle-reading";
 import { CycleCalendar } from "./cycle-calendar";
+import { CycleInsightsCard } from "./cycle-insights-card";
+import { CycleLengthChart } from "./cycle-length-chart";
 import { CycleDayLog } from "./cycle-day-log";
 import { CycleLegend, CycleRing } from "./cycle-ring";
 
@@ -135,7 +138,7 @@ export function CycleTracker({
   lifeStage: ReproductiveLifeStage;
   selfReportedCycleLengthDays: number | null;
 }) {
-  const { cycles, dailyLogs, prediction, openCycle, today, isLoading, error } = useCycleTracker(
+  const { cycles, dailyLogs, prediction, insights, thermalShift, openCycle, today, isLoading, error } = useCycleTracker(
     patientId,
     lifeStage,
     selfReportedCycleLengthDays
@@ -150,6 +153,11 @@ export function CycleTracker({
   const { stats } = prediction;
   const confidence = CONFIDENCE_BADGE[prediction.confidence];
   const hasHistory = cycles.length > 0;
+  const reading = suggestCycleReading({
+    phase: prediction.currentPhase,
+    lifeStage,
+    isIrregular: stats.regularity === "irregular",
+  });
 
   if (isLoading) {
     return (
@@ -376,6 +384,45 @@ export function CycleTracker({
                   : undefined
               }
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ---------- Patterns over time ---------- */}
+      <CycleInsightsCard
+        insights={insights}
+        thermalShift={thermalShift}
+        hasAnyLogs={dailyLogs.length > 0}
+      />
+
+      <CycleLengthChart stats={stats} />
+
+      {reading.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Worth a read</CardTitle>
+            <CardDescription>
+              From your care team&apos;s health library, picked for where you are right now.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {reading.map((item) => (
+              <Link
+                key={item.code}
+                href="/patient/learn"
+                className="flex items-start justify-between gap-3 rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/5"
+              >
+                <span>
+                  <span className="block text-sm font-medium text-charcoal-ink">
+                    {item.title}
+                  </span>
+                  <span className="block text-xs text-charcoal-ink/60">{item.reason}</span>
+                </span>
+                <span aria-hidden className="text-brand-green">
+                  &rarr;
+                </span>
+              </Link>
+            ))}
           </CardContent>
         </Card>
       )}

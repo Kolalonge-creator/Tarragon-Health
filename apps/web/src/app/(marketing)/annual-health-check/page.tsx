@@ -30,7 +30,7 @@ export const metadata: Metadata = pageMetadata({
  *  - Price: lab_orders are created pending_payment at the bundle's own
  *    price_kobo, and no charge happens until the patient completes hosted
  *    checkout, so "nothing is taken before you confirm" is structurally true.
- *  - Card details: checkout is hosted by Paystack/Stripe; the platform never
+ *  - Card details: checkout is hosted by Paystack; the platform never
  *    receives or stores a card number.
  *
  * NOTE: this block intentionally does NOT repeat the homepage TrustBand's
@@ -57,7 +57,7 @@ const BOOKING_ASSURANCES = [
   },
   {
     title: "We never see your card",
-    body: "Payment is handled by Paystack or Stripe on their own checkout. Your card number never reaches Tarragon, so it is not ours to lose.",
+    body: "Payment is handled by Paystack on their own checkout. Your card number never reaches Tarragon, so it is not ours to lose.",
   },
 ];
 

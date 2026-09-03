@@ -8,6 +8,9 @@ import { chainable } from "./test-support";
 const EMPTY_CONTEXT: PatientContext = {
   demographics: { ageYears: null, sex: null },
   elevatedConditions: [],
+  highRiskConditions: [],
+  isPregnant: false,
+  possibleMinor: null,
   lifestyleProgrammes: [],
   activeConditions: [],
   activeMedications: [],

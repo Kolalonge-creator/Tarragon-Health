@@ -121,6 +121,7 @@ export function BookAppointment({
         scheduledFor: slot.slot_start,
         endsAt: slot.slot_end,
         location: slot.location ?? undefined,
+        patientId,
       });
       const confirmed = await confirm.mutateAsync(held.id);
 

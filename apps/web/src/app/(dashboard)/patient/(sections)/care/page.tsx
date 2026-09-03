@@ -20,6 +20,7 @@ import { LifestyleProgressSummary } from "@/app/(dashboard)/patient/lifestyle-pr
 import { YourReferrals } from "@/components/your-referrals";
 import { NavigationRequests } from "@/app/(dashboard)/patient/navigation-requests";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
+import { ServiceNavigationAssistant } from "@/app/(dashboard)/patient/service-navigation-assistant";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
 import { WellnessPointsSummary } from "@/app/(dashboard)/patient/wellness-points-summary";
@@ -69,9 +70,9 @@ export default async function PatientCarePage() {
           <PregnancyStatus patientId={subjectId} />
           <PatientEscalations patientId={subjectId} />
           <HospitalAdmissionsCard patientId={subjectId} />
-          <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>
-            <LifestyleProgressSummary patientId={subjectId} />
-          </RequiresEntitlement>
+          {/* Not entitlement-gated: lifestyle coaching is free to every
+              patient since the pay-per-service rework. */}
+          <LifestyleProgressSummary patientId={subjectId} />
         </div>
 
         <div className="space-y-4">
@@ -92,6 +93,7 @@ export default async function PatientCarePage() {
           <VerifiedDocumentsCard patientId={subjectId} organisationId={profile.organisation_id} />
           <SeniorCaseReviewCard patientId={subjectId} organisationId={profile.organisation_id} />
           {coachAccess && <AiCoachChat patientId={subjectId} />}
+          <ServiceNavigationAssistant />
           <CareCircleCard />
           <YourReferrals patientId={subjectId} />
           <NavigationRequests patientId={subjectId} />

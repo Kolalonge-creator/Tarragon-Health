@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { NutritionFlow } from "../nutrition-flow";
@@ -46,18 +44,13 @@ export default async function WellnessHubPage() {
         <ChallengesSection patientId={profile.id} />
       </div>
 
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <div>
-          <h2 className="mb-2 flex items-center gap-2 font-heading text-lg font-semibold text-charcoal-ink">
-            <SEMANTIC_ICON.nutrition className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            Meal log
-          </h2>
-          <NutritionFlow patientId={profile.id} visionConfigured={isMealVisionConfigured()} />
-        </div>
-      </RequiresEntitlement>
+      <div>
+        <h2 className="mb-2 flex items-center gap-2 font-heading text-lg font-semibold text-charcoal-ink">
+          <SEMANTIC_ICON.nutrition className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Meal log
+        </h2>
+        <NutritionFlow patientId={profile.id} visionConfigured={isMealVisionConfigured()} />
+      </div>
 
       <ClassesSection patientId={profile.id} organisationId={profile.organisation_id} />
     </div>

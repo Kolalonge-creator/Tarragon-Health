@@ -65,7 +65,8 @@ begin
 
   insert into public.profiles (id, organisation_id, role, full_name, is_dependent_account)
   values (v_dependent, v_org_a, 'patient', 'CAT Test Dependent', true)
-  on conflict (id) do update set organisation_id = excluded.organisation_id, is_dependent_account = true;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role,
+    full_name = excluded.full_name, is_dependent_account = true;
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values
@@ -74,7 +75,8 @@ begin
     (v_dependent_manager, v_org_a, 'patient', 'CAT Test Dependent Manager'),
     (v_cross_clinician, v_org_b, 'clinician', 'CAT Test Cross Org Clinician'),
     (v_home_director, v_org_a, 'clinician', 'CAT Test Home Director')
-  on conflict (id) do update set organisation_id = excluded.organisation_id;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role,
+    full_name = excluded.full_name;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, is_clinical_director, license_verified_at)
   values (v_org_b, v_cross_clinician, 'CAT Test Cross Org Clinician', 'tier_1', true, false, now());
@@ -142,7 +144,19 @@ begin
   insert into cat_result values ('full grantee blocked from reproductive_health_profiles', v_count::text, '0', case when v_count = 0 then 'PASS' else 'FAIL' end);
 
   -- 3. Dependent-account manager: reads vitals via the is_dependent_account bypass
-  --    (no explicit category grant), but still blocked from reproductive_health.
+  --    (no explicit category grant); ALSO reads reproductive_health via that same
+  --    bypass, since 20260830123653 deliberately extended it to every category
+  --    (a legal guardian's authority over a no-login minor is a different consent
+  --    relationship from a next-of-kin grant between two adults) — v_dependent has
+  --    no date_of_birth set, so private.adolescent_age_band() reads 'unknown',
+  --    which private.guardian_may_view_confidential_domain() always allows
+  --    through (only the two protected adolescent bands, 10-17, are gated, and
+  --    only for reproductive_health_profiles specifically). Corrected 2026-09-03
+  --    after finding and fixing untracked drift that had silently re-excluded
+  --    reproductive_health from this bypass — see
+  --    20260902231348_fix_can_read_clinical_dependent_bypass_drift.sql for the
+  --    full incident; this check previously (wrongly, matching the drift) asserted
+  --    the opposite outcome.
   perform set_config('request.jwt.claims', json_build_object('sub', v_dependent_manager::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_count from public.vitals_readings where patient_id = v_dependent;
@@ -153,7 +167,7 @@ begin
   set local role authenticated;
   select count(*) into v_count from public.reproductive_health_profiles where patient_id = v_dependent;
   reset role;
-  insert into cat_result values ('dependent manager blocked from reproductive_health_profiles', v_count::text, '0', case when v_count = 0 then 'PASS' else 'FAIL' end);
+  insert into cat_result values ('dependent manager reads reproductive_health_profiles via dependent bypass', v_count::text, '1', case when v_count = 1 then 'PASS' else 'FAIL' end);
 
   -- 4. Lifecycle logging: granting/revoking a category produces exactly one event each.
   select count(*) into v_event_count from public.care_access_events
