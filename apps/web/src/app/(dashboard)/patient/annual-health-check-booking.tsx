@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
+import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { PartnerLabBillingOption } from "./partner-lab-billing-option";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReviewPrice } from "./review-price";
@@ -220,6 +221,19 @@ export function AnnualHealthCheckBooking({
                 <p className="text-sm text-charcoal-ink">
                   {order.panel_bundle?.name ?? "Health check"}
                 </p>
+                {/* A prepaid Care Voucher for this exact bundle — bought by the
+                    patient themselves or gifted by someone supporting their
+                    care (see supabase/migrations/20260731215226 and the
+                    diaspora gift flow) — settles this order without a card.
+                    voucherCoversOrder does the real matching; this only
+                    offers the button when one actually applies. */}
+                <RedeemVoucherButton
+                  orderType="lab"
+                  orderId={order.id}
+                  patientId={patientId}
+                  panelBundleId={order.panel_bundle_id}
+                  payableKobo={order.payable_kobo ?? order.total_kobo}
+                />
                 <PayForLabOrderButton
                   orderId={order.id}
                   amountKobo={order.payable_kobo ?? order.total_kobo}

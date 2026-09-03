@@ -262,6 +262,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: anyOf("vouchers.manage"),
       },
       {
+        href: "/admin/settings/screening-days",
+        label: "Group screening days",
+        blurb: "Confirm requests, set the cohort discount, and issue attendee vouchers.",
+        icon: SEMANTIC_ICON.booking,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/lab-result-consult-pricing",
         label: "Lab-result consult fee",
         blurb: "The fee charged for a doctor consult triggered by an abnormal lab result.",
