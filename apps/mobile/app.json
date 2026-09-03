@@ -8,7 +8,7 @@
     "userInterfaceStyle": "light",
     "scheme": "tarragonhealth",
     "icon": "./assets/icon.png",
-    "runtimeVersion": "0.1.0",
+    "runtimeVersion": "0.2.0",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
