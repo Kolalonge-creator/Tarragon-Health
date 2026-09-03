@@ -147,6 +147,13 @@ export function MedicationsList({
                     {[medication.dose, medication.frequency].filter(Boolean).join(", ") ||
                       "No dose/frequency set"}
                   </p>
+                  {!isClinicianView && (
+                    <ResultExplainer
+                      kind="medication"
+                      subjectKey={medication.id}
+                      label={medication.drug_name}
+                    />
+                  )}
                   {medication.source === "specialist" && medication.prescriber_name && (
                     <p className="text-xs text-charcoal-ink/60">
                       Started by {medication.prescriber_name}

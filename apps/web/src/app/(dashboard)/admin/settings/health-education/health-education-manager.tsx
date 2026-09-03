@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -489,6 +490,14 @@ export function HealthEducationManager() {
                 sent through clinical review, approved, and published — there is no direct
                 publish shortcut.
               </CardDescription>
+              <div className="mt-1 flex gap-3 text-xs">
+                <Link href="/admin/settings/health-education/feedback" className="text-brand-green hover:underline">
+                  Feedback queue →
+                </Link>
+                <Link href="/admin/settings/health-education/analytics" className="text-brand-green hover:underline">
+                  Analytics →
+                </Link>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Select
