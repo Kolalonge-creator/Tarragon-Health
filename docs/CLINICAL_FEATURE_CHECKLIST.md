@@ -39,7 +39,7 @@ in the PR description rather than silently skipping.
 
 - [ ] **Classification** — does this feature create or touch a new category
       of personal/health data? If so, is it represented in
-      `table_classifications` (§87.2, once that pass lands)?
+      `table_classifications` (built, §87.2 — 20 rows live; see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`)?
 - [ ] **Retention** — does this data type have a `data_retention_policies`
       row, and is it `founder_confirmed`? If not, flag it rather than
       assuming indefinite retention is fine.

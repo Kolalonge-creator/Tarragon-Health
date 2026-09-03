@@ -61,14 +61,18 @@ the full accounting and §4 for what to build.
 
 Legend: 🟢 built and working · 🟡 partially built / schema-only · 🔴 not built · ⚠️ guardrail-adjacent
 
-### 54.2 RPM programme structure — 🔴
-The chain *Programme → Eligible population → Measurements → Frequency → Clinical thresholds →
-Escalation → Review → Outcome* has no single owning entity today. `care_plans`
-(`20260705211129_chronic_disease.sql`) carries `condition`, `status`, `target_ranges jsonb`, and
-`assigned_nurse_id` — close in spirit but has no eligibility criteria, no measurement-type/frequency
-schedule, and no link to a governed threshold config (thresholds today live inside per-vital-type
-trigger functions and `alert_rules`, not per-programme). **This is the core net-new piece** — see
-§4 Phase 1.
+### 54.2 RPM programme structure — 🟡, corrected 2026-09-03
+**This section originally missed that `public.chronic_condition_programmes` already functions as
+the programme entity this chain needs — a pre-existing gap in this doc's own research, not
+2026-09-02 staleness (that table was built 2026-07-16, six weeks before this doc).** It carries
+`condition`, `monitoring_vitals[]` (measurement types), `review_cadence_months` (frequency), and
+`protocol_slug` linking to a Clinical-Director-signed `protocol_versions` record — DB-trigger-
+enforced. `chronic_programme_enrolments` already has `patient_id`/`programme_id`/`status`
+(`enrolled`/`completed`/`withdrawn`) — essentially the shape this section proposed building from
+scratch. Extended further by `20260831163544_chronic_programme_schedule_tables.sql` and
+`20260828190058_heart_failure_rpm_weight_gain_alert.sql` (literally titled "Remote Patient
+Monitoring, first real programme"). **Any RPM work should extend these tables, not build a
+parallel `rpm_programmes`/`rpm_programme_enrolments` pair** — see the corrected §4 Phase 1 below.
 
 ### 54.3 Example: hypertension — 🟡
 *Patient enrolled → BP monitor assigned → 7-day readings → Data received → Trend analysed →
@@ -100,8 +104,15 @@ summary with SLA countdowns and acknowledge/snooze/resolve/escalate actions per 
 *Severity, persistence, trend, symptoms, clinical context, previous baseline.* **Severity** is 🟢:
 deterministic, derived from `level`/threshold bands, never client-settable
 (`private.classify_and_assign_clinician_alert()`, `20260828014055…sql`). **Persistence, trend, and
-previous-baseline deviation are 🔴** — confirmed: no existing generator looks at more than the single
-triggering reading. **Symptoms** are 🟡 — a `symptom_escalation` type_code exists and routes
+previous-baseline deviation are 🟡, corrected 2026-09-03** — this doc's "no existing generator looks
+at more than the single triggering reading" claim was already stale when written:
+`handle_heart_failure_weight_gain_red_flag()` (2026-08-28, predates this doc) looks at a trailing
+3-day window and raises an alert on a >2kg trend. The 2026-09-02 merge separately added
+`detect_case_deterioration_trends()` (alert-count-based persistence, scoped to
+`care_management_cases`) and a whole Predictive Risk & Early Warning Engine (`risk_predictions`/
+`risk_models`) — architecturally separate, not wired into this alert pipeline, but adjacent
+infrastructure worth reusing rather than duplicating. The heart-failure trigger is the pattern to
+replicate per-condition. **Symptoms** are 🟡 — a `symptom_escalation` type_code exists and routes
 correctly, but symptom co-occurrence isn't fused into a vitals reading's own severity (e.g. an
 elevated-but-not-red-flag BP reading with a reported headache is scored identically to one without).
 **Clinical context** is 🟡 — `category`/`type_code` taxonomy plus `alert_rules`' per-type
@@ -190,23 +201,26 @@ finding → treatment change" is real in practice (a clinician who resolves an a
 adjust a prescription) but not provable or queryable after the fact. This is the smallest, most
 concrete gap in the whole spec — a single nullable FK, see §4 Phase 1.
 
-### 54.15 RPM outcomes — 🟡
+### 54.15 RPM outcomes — 🟡, corrected 2026-09-03
 *Baseline, intervention, subsequent measurements, control, adherence, escalation, hospitalisation.*
 `patient_risk_scores` (generic `score_type`/`risk_level`/`inputs jsonb`) is the established reuse
 pattern for exactly this kind of longitudinal tracking (`CLAUDE.md` cites it for the Annual Health
 Review). Adherence and escalation counts are already queryable
 (`medication_adherence_alerts`, `public.analytics_alert_burden()`/`analytics_alert_quality()`,
-`public.analytics_escalation_quality()`). **Hospitalisation has no field anywhere in the schema** —
-confirmed, no table or column tracks it — this needs a founder decision on data source before it can
-be built (see §5). No unified "programme outcome" view exists yet that stitches baseline vs. current
-vs. control-achieved into one row per enrolment.
+`public.analytics_escalation_quality()`). **Hospitalisation data source: this section's claim ("no
+field anywhere in the schema") was wrong, not 2026-09-02-stale** — `patient_hospital_admissions` has
+existed since 2026-07-17, predating this doc. The 2026-09-02 merge's `case_management_analytics()`
+(`20260902232314_care_management_deterioration_and_analytics.sql`) already computes a live
+`hospitalisations_during_cases` count from it. The remaining open founder question is self-reported
+vs. HMO-claims data quality, not "does any field exist." No unified "programme outcome" view exists
+yet that stitches baseline vs. current vs. control-achieved into one row per enrolment.
 
-### 54.16 Programme completion — 🔴
-*Monitoring goal achieved → Clinical review → RPM completed → Routine monitoring.* Depends entirely
-on §54.2's programme entity existing first — there is no state machine to complete because there is
-no programme to be enrolled in. Falls out naturally once `rpm_programme_enrolments` exists (§4
-Phase 1): `status` transitions to `completed`, stamped by a clinician, with the patient's care plan
-continuing under `care_plans` as before (routine monitoring was never a separate system).
+### 54.16 Programme completion — 🟢, corrected 2026-09-03
+*Monitoring goal achieved → Clinical review → RPM completed → Routine monitoring.* **This doc's
+"depends on §54.2's programme entity existing first" premise was already false when written** —
+`chronic_programme_enrolments.status` already transitions `enrolled → completed/withdrawn`, and
+`chronic_programme_end_reviews` (`20260831170512`) is a real week-12 completion-review record with
+null-gated `reviewed_by`/`reviewed_at`. See the corrected §54.2 above.
 
 ### 54.17 Acceptance criteria — restated against the above
 *Continuous data → clinically meaningful signal → accountable review → intervention → measurable
@@ -259,19 +273,18 @@ further explicit ask:
 ## 4. Proposed phasing
 
 ### Phase 1 — additive schema only, no behaviour change to any existing path
+**Corrected 2026-09-03 — the `rpm_programmes`/`rpm_programme_enrolments` pair below should NOT be
+built.** `public.chronic_condition_programmes`/`chronic_programme_enrolments` (built 2026-07-16,
+predating this doc) already function as this exact entity — see the corrected §54.2 above. Extend
+those tables, don't build a parallel pair; doing so would create the dual-source-of-truth problem
+CLAUDE.md's standing rules warn against elsewhere (e.g. the wearables/vitals_readings guidance).
 Safe to build without a further explicit ask, on the same bar this repo applies elsewhere to
 purely-structural, zero-blast-radius additions:
 
-- **`rpm_programmes`** — `organisation_id`, `condition` (reuse `care_plan_condition` enum), `name`,
-  `eligibility_criteria jsonb`, `measurement_types public.vital_type[]`, `measurement_frequency`
-  (e.g. an interval or a cadence descriptor), `status` (`draft`/`active`/`retired`). Deliberately
-  does not duplicate `alert_rules`' threshold governance — a programme *references* the relevant
-  `alert_type_code`(s) it cares about rather than carrying its own copy of clinical thresholds.
-- **`rpm_programme_enrolments`** — `programme_id`, `patient_id`, `care_plan_id` FK (an enrolment
-  rides on the patient's existing `care_plans` row, never a parallel one), `enrolled_at`, `status`
-  (`active`/`completed`/`discontinued`), `baseline_snapshot jsonb` (captured at enrolment, feeds
-  §54.15's outcomes comparison), `completed_at`, `completed_by → clinical_staff`.
-- **`rpm_care_team_members`** — `enrolment_id`, `clinical_staff_id`, `role_in_programme`
+- ~~**`rpm_programmes`**~~ — do not build, `chronic_condition_programmes` already exists.
+- ~~**`rpm_programme_enrolments`**~~ — do not build, `chronic_programme_enrolments` already exists.
+- **`rpm_care_team_members`** — `enrolment_id` (FK to `chronic_programme_enrolments`, not a new
+  parallel table), `clinical_staff_id`, `role_in_programme`
   (`doctor`/`nurse`/`pharmacist`/`care_coordinator`/`specialist`), `assigned_at`. Additive,
   many-to-many, sits alongside `care_team_assignment` rather than replacing it (§3).
 - **`treatment_adjustments`** — the §54.14 causal link: `originating_alert_id → clinician_alerts`,
@@ -292,14 +305,17 @@ pattern, per `CLAUDE.md`'s non-negotiable rule.
   `alert_rules` already uses for its thresholds.
 - **RPM outcomes rollup** — either a `patient_risk_scores` entry per enrolment (reusing the existing
   generic pattern) or a dedicated `analytics_rpm_outcomes()` RPC mirroring
-  `analytics_escalation_quality()`'s shape. Hospitalisation tracking specifically needs a founder
-  decision on data source first (see §5) — there is nothing to roll up yet.
+  `analytics_escalation_quality()`'s shape. **Corrected — hospitalisation data already exists**
+  (`patient_hospital_admissions`, since 2026-07-17; `case_management_analytics()` already computes a
+  live count from it, per the corrected §54.15) — the open question is self-reported vs. HMO-claims
+  data quality, not data-source availability.
 
 ### Phase 3 — build only on explicit ask
 - A programme-specific clinician queue/dashboard view — a **filtered view of the existing worklist**
-  by `rpm_programmes`/`rpm_programme_enrolments`, never a second, parallel queue.
-- Programme-completion UI (the `rpm_programme_enrolments.status → completed` transition and its
-  patient-facing "graduated to routine monitoring" messaging).
+  by `chronic_condition_programmes`/`chronic_programme_enrolments`, never a second, parallel queue.
+- Programme-completion UI — mostly moot, `chronic_programme_end_reviews` (2026-08-31) already covers
+  the completion-review record; a "graduated to routine monitoring" patient-facing message would be
+  additive UI copy on top of that, not a new state machine.
 - A dedicated RPM documentation surface, only if `clinical_encounter_notes` proves insufficient in
   practice — untested assumption, don't build ahead of that finding.
 
@@ -313,9 +329,11 @@ pattern, per `CLAUDE.md`'s non-negotiable rule.
 - Should enrolment in an `rpm_programmes` row be plan-tier-gated (mirroring the existing
   `vitals_red_flag_doctor_escalation` paid-plan feature flag), or open to every patient with a
   matching `care_plans` condition regardless of plan?
-- Hospitalisation outcome tracking (§54.15) has no data source today — is this meant to be
-  patient/family self-reported, sourced from an HMO claims feed, or something else? Worth settling
-  before Phase 2's outcomes rollup is designed in detail.
+- **Corrected — hospitalisation tracking already has a live data source** (`patient_hospital_admissions`,
+  since 2026-07-17, already read by `case_management_analytics()`). The open question is narrower:
+  is that table's data meant to be patient/family self-reported, sourced from an HMO claims feed, or
+  something else — a data-quality question, not a does-it-exist question. Worth settling before
+  Phase 2's outcomes rollup is designed in detail.
 - Should the flat type+patient alert dedup (§54.7) be extended toward a true cross-type clinical
   "episode" model, or is the current shape (visible duplicate linkage + governed suppression)
   sufficient for RPM's needs? No evidence yet that the current shape is causing real alert fatigue —

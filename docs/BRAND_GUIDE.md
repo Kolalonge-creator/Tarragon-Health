@@ -9,7 +9,7 @@ Tarragon Health is not selling healthcare — it's selling **continuity**: "the 
 
 ## 2. Tagline System
 - **Master tagline (use in headers, hero copy, app-store listing, social bio):** "Care that stays with you." — sentence case, full stop, never a question, never all-caps.
-- **Functional descriptor (sits beneath the master line, never replaces it):** "Clinician-led health monitoring for you, your parents, and your loved ones."
+- **Functional descriptor (sits beneath the master line, never replaces it):** "Clinician-led health monitoring for you, your parents, and your loved ones." — **superseded in practice, corrected 2026-09-03:** the live homepage no longer uses this exact line; the current hero copy (`_content/channel-heroes.ts`, `DEFAULT_HERO.description`) is "Health monitoring for chronic disease, prevention, and care coordination, with clinical review and escalation when closer care is needed," matching §3's voice rules more closely than the descriptor here. Treat the live hero copy as the current standard.
 - **Campaign/accessibility line (billboards, paid social, pricing page — not the brand line):** "Well within reach."
 - Only one secondary tagline per page/asset — never stack two.
 
@@ -19,7 +19,7 @@ Tarragon Health is not selling healthcare — it's selling **continuity**: "the 
 | Chronic disease | Better follow-up. Better control. Better health. |
 | Preventive health | Find risks early. Act before crisis. |
 | Corporate/HMO | Smarter monitoring for healthier populations. |
-| Premium ParentCare | Dedicated care coordination for your loved ones. |
+| ~~Premium ParentCare~~ | ~~Dedicated care coordination for your loved ones.~~ — ParentCare deleted entirely 2026-07-29 (individual enrolment only, no family plans, ever); diaspora is now a Care Voucher/gift-a-health-check sponsor, not a tier. Row kept struck through so this doesn't get reintroduced. |
 | Diaspora marketing | Look after home, even from far away. |
 
 ## 3. Voice: Do / Don't
@@ -118,8 +118,11 @@ Card-based, never dense clinical tables for patients/families. Each card: curren
 **WhatsApp check-in:**
 > Good morning! Time for your BP reading. Reply with your numbers (e.g. 128/82) and I'll let you know how you're trending.
 
-**Website hero:**
+**Website hero (superseded — see §2's correction above):**
 > Care that stays with you. Clinician-led health monitoring for you, your parents, and your loved ones.
+
+**Live website hero, current:**
+> Care that stays with you. Health monitoring for chronic disease, prevention, and care coordination, with clinical review and escalation when closer care is needed.
 
 **HMO pitch line:**
 > We don't just manage chronic disease. We catch it earlier — and we can prove it.
@@ -136,9 +139,9 @@ Card-based, never dense clinical tables for patients/families. Each card: curren
 Single master brand — **no independent sub-brands**. Product names are descriptive, not invented.
 | Pattern | Example |
 |---|---|
-| [Tarragon] + [Condition/Audience] + [Care/Plan] | Hypertension Care, Diabetes Care, ParentCare, Family Plan, Chronic Care Plus |
-| [Tarragon] + [Duration/Format] + [Programme] | Tarragon 90-Day Health Reset, Tarragon Free Health Tracker |
-| [Premium] modifier — top diaspora tier only | Premium ParentCare |
+| [Tarragon] + [Condition/Audience] + [Care/Plan] | Hypertension Care, Diabetes Care, Chronic Care Plus (~~ParentCare~~, ~~Family Plan~~ — both deleted 2026-07-29, individual enrolment only) |
+| [Tarragon] + [Duration/Format] + [Programme] | 12-week doctor-supported chronic-care programme (~~Tarragon 90-Day Health Reset~~, ~~Tarragon Free Health Tracker~~ — subscription-tier naming retired 2026-09-02, no tiers exist any more) |
+| ~~[Premium] modifier — top diaspora tier only~~ | ~~Premium ParentCare~~ — no diaspora tiers exist any more (removed entirely 2026-09-02/03); no current example of this pattern |
 
 **Rule:** never coin a standalone brand name (e.g. avoid "VitalTrack by Tarragon") for an internal product.
 
@@ -146,7 +149,7 @@ Single master brand — **no independent sub-brands**. Product names are descrip
 | | |
 |---|---|
 | Master tagline | Care that stays with you. |
-| Descriptor | Clinician-led health monitoring for you, your parents, and your loved ones. |
+| Descriptor (live, corrected 2026-09-03) | Health monitoring for chronic disease, prevention, and care coordination, with clinical review and escalation when closer care is needed. |
 | Campaign line | Well within reach. |
 | Logo | Guard Leaf — shield + sprout crown + checkmark vein |
 | Wordmark | TarragonHealth (camel-case, Ink + Green) |
