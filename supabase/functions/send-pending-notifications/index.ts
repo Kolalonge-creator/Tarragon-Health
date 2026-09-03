@@ -171,6 +171,12 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   lifestyle_review_due: "education_wellness",
   wellness_challenge_ending: "education_wellness",
   region_now_available: "education_wellness",
+  // Patient Engagement Engine (see private.queue_engagement_interventions) —
+  // same bucket as the other keep-up-with-your-care nudges above, rather than
+  // a dedicated engagement preferences table.
+  engagement_reminder_personalized: "education_wellness",
+  engagement_support_offer: "education_wellness",
+  engagement_alternative_channel_checkin: "education_wellness",
 
   sponsor_spend_receipt: "billing",
   sponsor_monthly_report: "billing",
@@ -678,6 +684,76 @@ const TEMPLATE_MAP: Record<
       smsText:
         "Hi, your recent health record suggests a quick check-in would help. Open the " +
         "Tarragon Health app to see what's due; booking takes a minute. Tarragon Health",
+    };
+  },
+  // Patient Engagement Engine (§16.6/§16.13) — personalized reminder on a
+  // patient's first low-engagement reading (see
+  // private.queue_engagement_interventions). `lowest_dimension` names
+  // whichever area is dragging the composite down, so the copy points at
+  // something specific and actionable — the spec's own example ("Your blood
+  // pressure reading is due today. It takes about one minute.") rather than a
+  // vague "review your care obligations."
+  engagement_reminder_personalized: (payload) => {
+    const dimension = typeof payload.lowest_dimension === "string" ? payload.lowest_dimension : null;
+    const DIMENSION_COPY: Record<string, string> = {
+      monitoring: "It looks like a monitoring reading is overdue — logging one takes about a minute.",
+      appointments: "You've got an appointment that could use a bit of attention.",
+      medication: "A medication check-in is waiting — a quick answer helps your care team keep track.",
+      lifestyle: "It's been a little quiet on your lifestyle log — even a small update helps.",
+      prevention: "A screening or vaccination on your schedule is coming up.",
+      app_usage: "We haven't seen you in a little while — everything OK?",
+      messages: "There's a message from your care team waiting on a reply.",
+      care_plan: "There's a step on your care plan that's still open.",
+    };
+    const message =
+      (dimension && DIMENSION_COPY[dimension]) ||
+      "A quick check-in on your health record would help keep things on track.";
+    return {
+      metaTemplateName: "engagement_reminder_personalized",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app. Tarragon Health`,
+      pushUrl: "/patient",
+    };
+  },
+  // Sent once a patient's low engagement has repeated across 3+ nightly
+  // checks — a softer, help-offering tone rather than the same reminder
+  // again (spec §16.6's Patient B example: "You've missed several BP
+  // readings. Would you like help setting up a simpler routine?").
+  engagement_support_offer: (payload) => {
+    const dimension = typeof payload.lowest_dimension === "string" ? payload.lowest_dimension : null;
+    const DIMENSION_COPY: Record<string, string> = {
+      monitoring: "your monitoring readings",
+      appointments: "your appointments",
+      medication: "your medication check-ins",
+      lifestyle: "your lifestyle log",
+      prevention: "your screenings and vaccinations",
+      app_usage: "checking in on the app",
+      messages: "replying to your care team",
+      care_plan: "your care plan",
+    };
+    const area = (dimension && DIMENSION_COPY[dimension]) || "keeping up with your care plan";
+    const message = `We've noticed it's been a bit of a stretch with ${area}. Would a simpler routine help? Your care team is happy to talk it through.`;
+    return {
+      metaTemplateName: "engagement_support_offer",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app, or message your care team. Tarragon Health`,
+      pushUrl: "/patient",
+    };
+  },
+  // Sent when a patient has gone quiet AND recent notification attempts on
+  // their preferred channel haven't landed (compute_care_engagement_scores'
+  // 'unreachable' level) — tried on a different channel than usual, on the
+  // theory the usual one may simply not be working for them right now.
+  engagement_alternative_channel_checkin: () => {
+    const message =
+      "We've been trying to reach you and wanted to check in a different way — is everything OK?";
+    return {
+      metaTemplateName: "engagement_alternative_channel_checkin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app, or reply here. Tarragon Health`,
     };
   },
   // Sent when a doctor answers the patient's ask-a-doctor consult (see

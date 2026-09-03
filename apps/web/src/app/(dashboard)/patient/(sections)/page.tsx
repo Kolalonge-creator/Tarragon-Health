@@ -20,6 +20,7 @@ import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
 import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-completion-card";
+import { HealthProgressCard } from "@/app/(dashboard)/patient/health-progress-card";
 import { YourCareTeam } from "@/components/your-care-team";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -221,6 +222,14 @@ export default async function PatientOverviewPage() {
           prevention completion dashboard is safer and more actionable"),
           answering "what's outstanding" rather than "how am I doing overall". */}
       <PreventionCompletionCard patientId={subjectId} />
+
+      {/* Behavioural engagement across areas (Patient Engagement Engine
+          spec §16.5) — distinct from both cards above: HealthScoreCard is
+          clinical status, PreventionCompletionCard is prevention-specific
+          completion. This one answers "am I keeping up" more broadly
+          (monitoring, appointments, medication, lifestyle, prevention, care
+          plan), same self-hiding + no-single-score conventions. */}
+      <HealthProgressCard patientId={subjectId} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <VitalsTrendChart patientId={subjectId} />
