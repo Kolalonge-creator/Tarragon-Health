@@ -21,7 +21,7 @@ const STATUS_COLOR = {
   red: "text-red-700",
 } as const;
 
-export interface StatTileProps {
+interface StatTileBaseProps {
   icon: LucideIcon;
   /** Brand-tier tint for the icon circle. Ignored if `tintClassName` is set. */
   iconTint?: keyof typeof ICON_TINT;
@@ -33,8 +33,6 @@ export interface StatTileProps {
    * "text-red-700" to match a Badge's text colour on a severity tile). */
   iconClassName?: string;
   label: string;
-  value: string;
-  unit?: string;
   /** Brand-toned directional note ("↑ 2 this week" style). For a clinical
    * severity word, use `status` instead — the two are separate colour systems
    * and must never be blended in one line. */
@@ -44,6 +42,15 @@ export interface StatTileProps {
   status?: { text: string; tone: keyof typeof STATUS_COLOR };
   className?: string;
 }
+
+/** A tile shows either a real display-scale value or a friendly muted hint —
+ * never a bare display-scale "—". The union keeps a caller from passing
+ * both (or a unit with no value to attach it to). */
+export type StatTileProps = StatTileBaseProps &
+  (
+    | { value: string; unit?: string; empty?: undefined }
+    | { empty: { hint: string }; value?: undefined; unit?: undefined }
+  );
 
 export function StatTile({
   icon: Icon,
@@ -55,6 +62,7 @@ export function StatTile({
   unit,
   delta,
   status,
+  empty,
   className,
 }: StatTileProps) {
   return (
@@ -81,16 +89,23 @@ export function StatTile({
           than its cell. */}
       <div className="min-w-0">
         <p className="text-sm text-charcoal-ink/60">{label}</p>
-        <p className="font-heading text-2xl font-semibold break-words text-charcoal-ink sm:text-3xl">
-          {value}
-          {/* whitespace-nowrap: the value may wrap (break-words above), but a
-              unit like "mmHg" must never break mid-word into "mm / Hg". */}
-          {unit && (
-            <span className="ml-1 whitespace-nowrap text-base font-normal text-charcoal-ink/50">
-              {unit}
-            </span>
-          )}
-        </p>
+        {empty ? (
+          <p className="text-base text-charcoal-ink/50">{empty.hint}</p>
+        ) : (
+          // Flat text-3xl: at sm:text-4xl a four-across tile can't hold
+          // "195/120" and the value wraps mid-number. The hero band carries
+          // the page's one display-scale figure; tiles stay a step below.
+          <p className="font-heading text-3xl font-semibold break-words text-charcoal-ink">
+            {value}
+            {/* whitespace-nowrap: the value may wrap (break-words above), but a
+                unit like "mmHg" must never break mid-word into "mm / Hg". */}
+            {unit && (
+              <span className="ml-1 whitespace-nowrap text-base font-normal text-charcoal-ink/50">
+                {unit}
+              </span>
+            )}
+          </p>
+        )}
         {status && (
           <p className={cn("text-xs font-medium", STATUS_COLOR[status.tone])}>{status.text}</p>
         )}

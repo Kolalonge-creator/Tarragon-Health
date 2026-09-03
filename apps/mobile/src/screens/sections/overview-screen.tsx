@@ -15,7 +15,7 @@ import {
   type UpcomingVideoVisit,
 } from "@/lib/overview";
 import { todayIsoDate } from "@/lib/medications";
-import { colors, inkAlpha, spacing } from "@/ui/theme";
+import { colors, radius, spacing, typeScale } from "@/ui/theme";
 import {
   Card,
   CalloutCard,
@@ -73,6 +73,34 @@ function nextBestStep(stats: SummaryStats): NextBestStep {
     ctaLabel: "Log another reading",
     target: "vitals",
   };
+}
+
+interface HeroMetric {
+  label: string;
+  value: string;
+  unit?: string;
+}
+
+/** The one display-scale number at the top of the hero band — picked from
+ * the stats the screen already loads (no extra fetch), most clinically
+ * relevant first: a real BP reading beats glucose beats today's dose count.
+ * Null means no reading of any kind exists yet; the hero shows a warm
+ * prompt instead — never a fake or zeroed value. */
+function heroMetric(stats: SummaryStats): HeroMetric | null {
+  if (stats.latestBp) {
+    return {
+      label: "Latest blood pressure",
+      value: `${stats.latestBp.systolic}/${stats.latestBp.diastolic}`,
+      unit: "mmHg",
+    };
+  }
+  if (stats.latestGlucoseMmolL !== null) {
+    return { label: "Latest glucose", value: String(stats.latestGlucoseMmolL), unit: "mmol/L" };
+  }
+  if (stats.dosesTotal > 0) {
+    return { label: "Doses taken today", value: `${stats.dosesTaken}/${stats.dosesTotal}` };
+  }
+  return null;
 }
 
 /** "Tue, 14:00" reads as this coming Tuesday, which is wrong for a visit
@@ -174,6 +202,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
   }
 
   const step = nextBestStep(stats);
+  const hero = heroMetric(stats);
 
   return (
     <ScrollView
@@ -182,7 +211,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.brand} />}
     >
       <View>
-        <Text style={{ fontSize: 21, fontWeight: "700", color: colors.ink }}>{firstName}&apos;s overview</Text>
+        <Text style={{ fontSize: typeScale.title, fontWeight: "700", color: colors.ink }}>{firstName}&apos;s overview</Text>
         <MutedText>Today at a glance: your numbers, your care team, and recent activity.</MutedText>
       </View>
 
@@ -199,41 +228,96 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
         </Pressable>
       ) : null}
 
-      <Card style={{ gap: 4, borderColor: "rgba(14,124,82,0.3)", backgroundColor: "rgba(14,124,82,0.04)" }}>
-        <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-          <Ionicons name="shield-checkmark-outline" size={20} color={colors.brand} />
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", color: colors.brandPressed, textTransform: "uppercase" }}>
-              Next best step
-            </Text>
-            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
-              {step.title}
-            </Text>
-            <Text style={{ fontSize: 13, color: inkAlpha(0.7), marginTop: 2 }}>
-              {step.body}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={step.ctaLabel}
-              onPress={() => onNavigate(step.target)}
-              hitSlop={8}
-              style={{ alignSelf: "flex-start", paddingVertical: 6 }}
+      {/* Hero band: the one place the screen answers "how am I doing, and
+          what should I do next" at full volume. Deep brand green with white
+          type only — clinical status colours never sit on this surface (they
+          stay on white/card surfaces), and no fake value ever renders: with
+          no reading of any kind the number gives way to a warm prompt. */}
+      <View
+        style={{
+          backgroundColor: colors.brand,
+          borderRadius: radius.card,
+          padding: spacing.screen,
+          gap: spacing.card,
+        }}
+      >
+        {hero ? (
+          <View>
+            <Text
+              style={{
+                fontSize: typeScale.caption,
+                fontWeight: "700",
+                letterSpacing: 0.5,
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.75)",
+              }}
             >
-              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}>{step.ctaLabel} →</Text>
-            </Pressable>
+              {hero.label}
+            </Text>
+            <Text style={{ fontSize: typeScale.hero, fontWeight: "700", color: "#FFFFFF", marginTop: 2 }}>
+              {hero.value}
+              {hero.unit ? (
+                <Text style={{ fontSize: typeScale.body, fontWeight: "500", color: "rgba(255,255,255,0.75)" }}>
+                  {" "}
+                  {hero.unit}
+                </Text>
+              ) : null}
+            </Text>
           </View>
+        ) : (
+          <Text style={{ fontSize: typeScale.body, lineHeight: 20, color: "rgba(255,255,255,0.92)" }}>
+            Your numbers will appear here once you log your first reading.
+          </Text>
+        )}
+
+        <View style={{ height: 1, backgroundColor: "rgba(255,255,255,0.22)" }} />
+
+        <View style={{ gap: 4 }}>
+          <Text
+            style={{
+              fontSize: typeScale.caption,
+              fontWeight: "700",
+              letterSpacing: 0.5,
+              textTransform: "uppercase",
+              color: "rgba(255,255,255,0.75)",
+            }}
+          >
+            Next best step
+          </Text>
+          <Text style={{ fontSize: typeScale.title, fontWeight: "700", color: "#FFFFFF" }}>{step.title}</Text>
+          <Text style={{ fontSize: typeScale.body, lineHeight: 20, color: "rgba(255,255,255,0.85)" }}>
+            {step.body}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={step.ctaLabel}
+            onPress={() => onNavigate(step.target)}
+            hitSlop={8}
+            style={({ pressed }) => ({
+              alignSelf: "flex-start",
+              backgroundColor: pressed ? "rgba(255,255,255,0.85)" : colors.card,
+              borderRadius: 999,
+              paddingVertical: 8,
+              paddingHorizontal: 16,
+              marginTop: 6,
+            })}
+          >
+            <Text style={{ fontSize: typeScale.body, fontWeight: "700", color: colors.brandPressed }}>
+              {step.ctaLabel}
+            </Text>
+          </Pressable>
         </View>
-      </Card>
+      </View>
 
       {videoVisit ? (
         <Card style={{ gap: 8, borderColor: "rgba(18,50,75,0.25)", backgroundColor: "rgba(18,50,75,0.04)" }}>
           <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
             <Ionicons name="videocam-outline" size={20} color={colors.navy} />
             <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.navy, textTransform: "uppercase" }}>
+              <Text style={{ fontSize: typeScale.caption, fontWeight: "700", color: colors.navy, textTransform: "uppercase", letterSpacing: 0.5 }}>
                 Video visit
               </Text>
-              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
+              <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
                 {formatVisitTime(videoVisit.scheduledAt)}
               </Text>
             </View>
@@ -372,10 +456,10 @@ function StatTile({
         <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.brandTint, alignItems: "center", justifyContent: "center" }}>
           <Ionicons name={icon} size={16} color={colors.brandPressed} />
         </View>
-        <View>
-          <Text style={{ fontSize: 11, color: colors.muted }}>{label}</Text>
-          <Text style={{ fontSize: 19, fontWeight: "700", color: colors.ink }}>
-            {value} {unit ? <Text style={{ fontSize: 11, fontWeight: "400", color: colors.faint }}>{unit}</Text> : null}
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: typeScale.caption, color: colors.muted }}>{label}</Text>
+          <Text style={{ fontSize: typeScale.stat, fontWeight: "600", color: colors.ink }}>
+            {value} {unit ? <Text style={{ fontSize: typeScale.caption, fontWeight: "400", color: colors.faint }}>{unit}</Text> : null}
           </Text>
         </View>
       </Card>

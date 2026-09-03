@@ -24,15 +24,6 @@ const RISK_LEVEL_BADGE: Record<HealthScoreRiskLevel, { variant: "green" | "amber
   very_high: { variant: "red", label: "Needs urgent attention" },
 };
 
-// Meter fill/track pairs stay on one hue ramp per risk level (never a grey
-// track) so the state reads across the whole bar, filled or not.
-const RISK_LEVEL_METER: Record<HealthScoreRiskLevel, { fill: string; track: string }> = {
-  low: { fill: "bg-green-500", track: "bg-green-100" },
-  moderate: { fill: "bg-amber-500", track: "bg-amber-100" },
-  high: { fill: "bg-red-500", track: "bg-red-100" },
-  very_high: { fill: "bg-red-500", track: "bg-red-100" },
-};
-
 const COMPONENT_LABEL: Record<HealthScoreComponent["key"], string> = {
   bp_control: "Blood pressure control",
   hba1c: "HbA1c",
@@ -42,6 +33,13 @@ const COMPONENT_LABEL: Record<HealthScoreComponent["key"], string> = {
   smoking: "Smoking",
 };
 
+/**
+ * "Score details" — the breakdown behind the hero band's Health Score: what
+ * feeds it, how it has moved, and where the biggest lift is. The hero
+ * (hero-score-zone.tsx) owns the display-scale figure and the meter; this
+ * card deliberately carries only a small inline chip so the page never shows
+ * two hero numbers for the same score.
+ */
 export function HealthScoreCard({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useLatestHealthScore(patientId);
   const { data: history } = useHealthScoreHistory(patientId);
@@ -58,7 +56,7 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-          Your Health Score
+          Score details
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -71,34 +69,16 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
         )}
         {data && (
           <>
-            <div className="flex items-center gap-3">
-              <span className="text-3xl font-semibold text-charcoal-ink">{data.score}</span>
-              <span className="text-sm text-charcoal-ink/60">/ 100</span>
+            <div className="flex items-center gap-2">
+              <span className="rounded-md bg-warm-ivory px-2 py-0.5 text-sm font-semibold text-charcoal-ink">
+                {data.score}/100
+              </span>
               {data.risk_level && (
                 <Badge variant={RISK_LEVEL_BADGE[data.risk_level as HealthScoreRiskLevel].variant}>
                   {RISK_LEVEL_BADGE[data.risk_level as HealthScoreRiskLevel].label}
                 </Badge>
               )}
             </div>
-            {data.risk_level && typeof data.score === "number" && (
-              <div
-                role="meter"
-                aria-label="Health Score"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={data.score}
-                className={`h-2.5 w-full overflow-hidden rounded-full ${
-                  RISK_LEVEL_METER[data.risk_level as HealthScoreRiskLevel].track
-                }`}
-              >
-                <div
-                  className={`h-full rounded-full transition-[width] duration-500 ease-out ${
-                    RISK_LEVEL_METER[data.risk_level as HealthScoreRiskLevel].fill
-                  }`}
-                  style={{ width: `${Math.min(100, Math.max(0, data.score))}%` }}
-                />
-              </div>
-            )}
             <p className="text-xs text-charcoal-ink/60">
               A non-diagnostic summary of a few everyday habits and numbers we already have on
               file, not a medical diagnosis. Updated {formatPatientDate(data.computed_at)}.

@@ -65,3 +65,25 @@ export const spacing = {
   screen: 20,
   card: 16,
 } as const;
+
+/**
+ * Typography scale for native chrome — sizes distilled from what the shell
+ * already renders (captions cluster at 11-12.5, body copy at 13-14.5,
+ * headings at 20-24) rather than invented. `hero` and `stat` are the display
+ * sizes the Overview hierarchy redesign introduces; `title`/`body`/`caption`
+ * map onto the existing clusters so adopting a token is not a visual jump.
+ * Named `typeScale` rather than `type` because `type` is a modifier keyword
+ * inside TS import clauses and reads ambiguously at every import site.
+ */
+export const typeScale = {
+  /** Display-scale number — the single most important figure on a screen. */
+  hero: 40,
+  /** Stat-tile / secondary metric values. */
+  stat: 26,
+  /** Screen and hero-action headlines. */
+  title: 20,
+  /** Body copy (MutedText, card prose). */
+  body: 14,
+  /** Quiet labels, captions, eyebrows, metadata. */
+  caption: 12,
+} as const;

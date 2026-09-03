@@ -8,7 +8,7 @@ import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
-import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { OverviewHero } from "@/app/(dashboard)/patient/overview-hero";
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
@@ -27,7 +27,6 @@ import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
-import { HealthStatusBanner } from "@/components/health-status-banner";
 import { formatPatientDate } from "@/lib/format-date";
 
 // Clinical dashboard status colours (a separate system from brand colour, per
@@ -93,17 +92,19 @@ export default async function PatientOverviewPage() {
 
   return (
     <div id="overview" className="space-y-6">
-      {/* One warm, human line before the hero — the "how am I doing" framing
-          a patient opening the app first thing wants, without repeating the
-          name DashboardPlaceholder's "Hi, {name}" already gave a moment ago
-          (2026-08-17 patient-experience pass). */}
-      <p className="text-sm text-charcoal-ink/60">{weekSummaryLine}</p>
-      <HealthStatusBanner patientId={subjectId} />
-
       {/* §91.10 — an unpaid plan is more urgent than a wellness nudge, so it
-          renders above NextBestAction. Renders nothing when there's no
+          renders above the hero band. Renders nothing when there's no
           payment problem. */}
       <PaymentFailureBanner patientId={subjectId} />
+
+      {/* The page's identity moment: one band answering "how am I doing"
+          (Health Score, white panel — clinical status colours stay on a
+          neutral surface, never on brand green) and "what's the one thing to
+          do next" (the priority-ordered NextBestAction on the deep-green
+          gradient). The old greeting line rides along as the band's eyebrow,
+          still warm, still Lagos-time-aware, without repeating the name
+          DashboardPlaceholder's "Hi, {name}" already gave a moment ago. */}
+      <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} />
 
       {/* Age-aware framing (spec §49.3/§49.4) — a single soft line, never an
           urgent banner: a self-harm/safety-adjacent check-in doesn't belong
@@ -129,14 +130,6 @@ export default async function PatientOverviewPage() {
           between them and their care team.
         </p>
       )}
-
-      {/* Hero — the one thing the page leads with. Its copy and link are the
-          same real, priority-ordered "next best step" as before; only the
-          presentation moved from an inline card to this banner (Tarragon
-          Health Web Dashboard design, 2026-08-09). */}
-      <Suspense fallback={<CardSkeleton className="h-32 sm:h-28" />}>
-        <NextBestAction patientId={subjectId} />
-      </Suspense>
 
       {/* The everyday jobs, one tap from the top of the page — including the
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
@@ -177,11 +170,21 @@ export default async function PatientOverviewPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatTile
-              icon={SEMANTIC_ICON.preventive}
-              label="Screenings due"
-              value={prevention.hasRiskAssessment ? String(prevention.screeningsDueCount) : "—"}
-            />
+            {/* Without a risk assessment there's no calendar to count against —
+                a friendly hint, never a bare display-scale dash. */}
+            {prevention.hasRiskAssessment ? (
+              <StatTile
+                icon={SEMANTIC_ICON.preventive}
+                label="Screenings due"
+                value={String(prevention.screeningsDueCount)}
+              />
+            ) : (
+              <StatTile
+                icon={SEMANTIC_ICON.preventive}
+                label="Screenings due"
+                empty={{ hint: "None scheduled yet" }}
+              />
+            )}
             <StatTile
               icon={SEMANTIC_ICON.labs}
               label="Next screening"
@@ -194,11 +197,19 @@ export default async function PatientOverviewPage() {
                   : "—"
               }
             />
-            <StatTile
-              icon={NAV_ICON.vaccination}
-              label="Vaccines due"
-              value={prevention.hasRiskAssessment ? String(prevention.vaccinationsDueCount) : "—"}
-            />
+            {prevention.hasRiskAssessment ? (
+              <StatTile
+                icon={NAV_ICON.vaccination}
+                label="Vaccines due"
+                value={String(prevention.vaccinationsDueCount)}
+              />
+            ) : (
+              <StatTile
+                icon={NAV_ICON.vaccination}
+                label="Vaccines due"
+                empty={{ hint: "None scheduled yet" }}
+              />
+            )}
             <StatTile
               icon={SEMANTIC_ICON.bp}
               label="Latest BP"
@@ -220,22 +231,20 @@ export default async function PatientOverviewPage() {
         </>
       )}
 
-      {/* "How am I doing" belongs right under the numbers that answer it, not
-          six cards further down the page where a morning check-in wouldn't
-          reach it (2026-08-17 patient-experience pass). Its own trend line
-          (lib/rules/health-score.ts's computeHealthScoreTrend) is the real,
-          already-computed "you're on track" reassurance — nothing new to
-          fabricate here. */}
-      <HealthScoreCard patientId={subjectId} />
-
-      {/* Deliberately separate from the Health Score above, not a second way
-          to show the same number — this is a completion checklist by area
-          (spec: "avoid presenting a misleading single health score ... a
-          prevention completion dashboard is safer and more actionable"),
-          answering "what's outstanding" rather than "how am I doing overall". */}
-      <Suspense fallback={<CardSkeleton className="h-32" />}>
-        <PreventionCompletionCard patientId={subjectId} />
-      </Suspense>
+      {/* Paired on lg: the breakdown behind the hero's score (the hero band
+          owns the display-scale figure now — this card is "Score details",
+          never a second hero number) beside the preventive-care checklist.
+          The checklist stays deliberately separate from the score — a
+          completion view by area (spec: "avoid presenting a misleading
+          single health score ... a prevention completion dashboard is safer
+          and more actionable"), answering "what's outstanding" rather than
+          "how am I doing overall". */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <HealthScoreCard patientId={subjectId} />
+        <Suspense fallback={<CardSkeleton className="h-32" />}>
+          <PreventionCompletionCard patientId={subjectId} />
+        </Suspense>
+      </div>
 
       {/* Behavioural engagement across areas (Patient Engagement Engine
           spec §16.5) — distinct from both cards above: HealthScoreCard is
@@ -283,8 +292,8 @@ export default async function PatientOverviewPage() {
       {/* Who's looking after you, and how to reach them. Full-width like the
           clinical cards above, matching the same "a two-column row whose
           other half returns null leaves a hole" reasoning — no longer paired
-          with HealthScoreCard now that the score moved up near the stat
-          tiles (2026-08-17 patient-experience pass). Reaching the care team
+          with HealthScoreCard now that the score leads the page in the hero
+          band. Reaching the care team
           no longer depends on scrolling this far — "Message your care team"
           is a quick action at the top of the page — but the thread itself
           still belongs on Overview rather than buried in Care & support

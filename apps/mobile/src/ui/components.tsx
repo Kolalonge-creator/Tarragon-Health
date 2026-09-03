@@ -8,7 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, inkAlpha, radius, spacing } from "./theme";
+import { colors, inkAlpha, radius, spacing, typeScale } from "./theme";
 
 interface ButtonProps {
   title: string;
@@ -115,11 +115,11 @@ export function ScreenTitle({ children }: { children: ReactNode }) {
 }
 
 export function MutedText({ children }: { children: ReactNode }) {
-  return <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 20 }}>{children}</Text>;
+  return <Text style={{ color: colors.muted, fontSize: typeScale.body, lineHeight: 20 }}>{children}</Text>;
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {
-  return <Text style={{ color: colors.danger, fontSize: 14 }}>{children}</Text>;
+  return <Text style={{ color: colors.danger, fontSize: typeScale.body }}>{children}</Text>;
 }
 
 const BADGE_TONES = {

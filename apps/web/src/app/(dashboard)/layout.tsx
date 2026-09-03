@@ -84,6 +84,10 @@ export default async function DashboardLayout({
         idValue={idValue}
         profileHref={profileHref}
         navSections={getNavSections(profile?.role, profile?.receives_care)}
+        // Patient accounts (supporters included — they share the patient
+        // role) get the Warm Ivory ground the mobile app already ships;
+        // staff and clinical consoles keep the white canvas.
+        surface={profile?.role === "patient" ? "warm" : "default"}
         signOutAction={signOut}
       >
         <MfaNudgeBanner role={profile?.role ?? null} />
