@@ -1,0 +1,102 @@
+import { createClient } from "@/lib/supabase/server";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+function pct(n: number | null, d: number | null): string {
+  if (!d || d === 0) return "—";
+  return `${Math.round(((n ?? 0) / d) * 100)}%`;
+}
+
+/**
+ * Hypertension clinical-audit KPIs (docs spec §88.12) — same shape as
+ * diabetes-quality (diabetes_quality_metrics), reading the new
+ * hypertension_quality_metrics security_invoker view.
+ */
+export default async function HypertensionQualityPage() {
+  const supabase = await createClient();
+  const { data } = await supabase.from("hypertension_quality_metrics").select("*").maybeSingle();
+
+  const total = data?.hypertensive_patients ?? 0;
+
+  const rows = [
+    { label: "BP target set", value: pct(data?.target_set ?? 0, total), target: "100%" },
+    { label: "At individual BP target", value: pct(data?.at_target ?? 0, total), target: "" },
+    { label: "Reading within last 30 days", value: pct(data?.reading_within_30d ?? 0, total), target: "≥ 90%" },
+  ];
+
+  const eventRows = [
+    {
+      label: "Severe (hypertensive-crisis) events (90 days)",
+      value: String(data?.severe_events_90d ?? 0),
+      note:
+        data?.severe_events_per_100_patients != null
+          ? `${data.severe_events_per_100_patients} per 100 patients`
+          : "—",
+    },
+    {
+      label: "Avg. time from BP flag to doctor contact",
+      value:
+        data?.avg_bp_flag_to_contact_hours != null
+          ? `${data.avg_bp_flag_to_contact_hours} h`
+          : "No acknowledged flags yet",
+      note: "Last 90 days",
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Hypertension quality metrics</h1>
+        <p className="text-charcoal-ink/60">
+          Complication-prevention KPIs across {total} patient{total === 1 ? "" : "s"} on an active
+          hypertension care plan in your organisation.
+        </p>
+      </div>
+
+      {total === 0 ? (
+        <Card>
+          <CardContent className="pt-6">
+            <p className="text-sm text-charcoal-ink/60">
+              No patients on an active hypertension care plan yet. Metrics appear once patients are
+              enrolled and BP readings are recorded.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2">
+            {rows.map((r) => (
+              <Card key={r.label}>
+                <CardHeader>
+                  <CardTitle className="text-base">{r.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-3xl font-semibold text-deep-forest">{r.value}</p>
+                  {r.target && <p className="text-xs text-charcoal-ink/60">Target {r.target}</p>}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          <div>
+            <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
+              Safety events (last 90 days)
+            </h2>
+            <div className="mt-3 grid gap-4 sm:grid-cols-2">
+              {eventRows.map((r) => (
+                <Card key={r.label}>
+                  <CardHeader>
+                    <CardTitle className="text-base">{r.label}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-3xl font-semibold text-deep-forest">{r.value}</p>
+                    <p className="text-xs text-charcoal-ink/60">{r.note}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}

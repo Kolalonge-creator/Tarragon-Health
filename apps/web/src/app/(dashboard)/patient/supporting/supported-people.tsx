@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { koboToNaira } from "@tarragon/shared";
+import { APPOINTMENT_TYPE_LABELS } from "../appointments/appointment-labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { CareMessageThread } from "@/components/care-message-thread";
+import { EmergencyAccessRequest } from "./emergency-access-request";
 import { useCareThreads, useStartThread } from "@/lib/queries/care-messages";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -29,9 +31,10 @@ import {
   openTheirAccount,
   paySomeonesBill,
   paySomeonesPlan,
+  splitBillWithThem,
   type SponsorActionState,
 } from "./actions";
-import { useActivePatientPlans } from "@/lib/queries/subscription-plans";
+import { useActiveServiceProducts } from "@/lib/queries/service-products";
 
 function naira(kobo: number): string {
   return `₦${koboToNaira(kobo).toLocaleString("en-NG")}`;
@@ -336,17 +339,20 @@ function PersonCard({
           </div>
         )}
 
-        {person.clinicalAccess ? (
+        {person.categories.length > 0 ? (
           <>
             <HealthSummary person={person} />
             <SupporterConversation person={person} />
           </>
         ) : (
-          <p className="text-xs text-charcoal-ink/50">
-            You can see what their care costs and what it paid for, and nothing else. If they want
-            you to follow how they are doing, they can turn that on themselves under &ldquo;Who can
-            see your health information&rdquo;.
-          </p>
+          <div className="space-y-2">
+            <p className="text-xs text-charcoal-ink/50">
+              You can see what their care costs and what it paid for, and nothing else. If they want
+              you to follow how they are doing, they can turn that on themselves under &ldquo;Who can
+              see your health information&rdquo;.
+            </p>
+            <EmergencyAccessRequest profileId={person.profileId} name={name} />
+          </div>
         )}
       </CardContent>
     </Card>
@@ -437,11 +443,51 @@ function PayBillOnMyCard({
     <form action={action} className="inline-flex flex-col items-end gap-1">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
       <input type="hidden" name="orderId" value={bill.order_id} />
-      <input type="hidden" name="currency" value="NGN" />
       <Button type="submit" disabled={pending}>
         {pending ? "Starting…" : `Pay ${naira(bill.amount_kobo)} on my card`}
       </Button>
       {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
+    </form>
+  );
+}
+
+/**
+ * §91.9 two-simultaneous-charges subsidy: pays only the sponsor's share of
+ * this bill, on the sponsor's own card, leaving the person owing the
+ * reduced remainder themselves — they pay that from their own account.
+ * Whether there is anything to split and by how much is decided entirely
+ * server-side by whatever subsidy_split_rules their organisation has
+ * configured; splitBillWithThem() itself never states a split, so this
+ * button is safe to show unconditionally and simply reports back if there
+ * turned out to be nothing configured to split.
+ *
+ * Only lab, pharmacy, and referral bills can be split — a video visit is
+ * out of §91.9's scope for now.
+ */
+function SplitBillWithThem({
+  person,
+  bill,
+}: {
+  person: SupportedPerson;
+  bill: SponsorPayableOrder;
+}) {
+  const [state, action, pending] = useActionState<SponsorActionState, FormData>(
+    splitBillWithThem,
+    undefined,
+  );
+
+  if (bill.order_type === "video_visit") return null;
+
+  return (
+    <form action={action} className="inline-flex flex-col items-end gap-1">
+      <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
+      <input type="hidden" name="orderId" value={bill.order_id} />
+      <input type="hidden" name="orderType" value={bill.order_type} />
+      <Button type="submit" variant="outline" disabled={pending}>
+        {pending ? "Starting…" : "Split this bill with them"}
+      </Button>
+      {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
+      {state?.message && <span className="text-xs text-charcoal-ink/60">{state.message}</span>}
     </form>
   );
 }
@@ -460,7 +506,7 @@ function PayBillOnMyCard({
  * not a diaspora premium for the same thing.
  */
 function PayTheirPlan({ person }: { person: SupportedPerson }) {
-  const { data: plans } = useActivePatientPlans();
+  const { data: plans } = useActiveServiceProducts();
   const [state, action, pending] = useActionState<SponsorActionState, FormData>(
     paySomeonesPlan,
     undefined,
@@ -468,20 +514,19 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
 
   if (person.permissionLevel !== "manage") return null;
 
-  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_minor > 0);
+  const payable = (plans ?? []).filter((plan) => plan.currency === "NGN" && plan.price_kobo > 0);
   if (payable.length === 0) return null;
 
   return (
     <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-      <input type="hidden" name="currency" value="NGN" />
       <p className="text-xs font-medium text-charcoal-ink">Pay for their plan</p>
       <div className="flex flex-wrap items-center gap-2">
         <Select name="planCode" defaultValue="" className="max-w-xs">
           <option value="">Choose a plan</option>
           {payable.map((plan) => (
             <option key={plan.code} value={plan.code}>
-              {plan.name} ({naira(plan.price_minor)}
+              {plan.name} ({naira(plan.price_kobo)}
               {plan.interval === "yearly" ? "/yr" : "/mo"})
             </option>
           ))}
@@ -514,7 +559,7 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
  * told the patient.
  */
 function CareTeamStatus({ person, firstName }: { person: SupportedPerson; firstName: string }) {
-  const { data } = useSupportedPersonCareStatus(person.profileId, person.clinicalAccess);
+  const { data } = useSupportedPersonCareStatus(person.profileId, person.categories.length > 0);
   if (!data) return null;
 
   if (data.openCount === 0) {
@@ -612,17 +657,18 @@ function RefillAction({
 /**
  * How they are doing, for someone who has been told they may look.
  *
- * Rendered only when person.clinicalAccess is true, but that flag is a
+ * Rendered only when person.categories is non-empty, but that flag is a
  * courtesy, not the control: every query behind this reads a table whose RLS
- * checks the same consent live, so a revoked supporter gets an empty card
- * rather than stale data even if this component were somehow rendered anyway.
+ * checks the same per-category consent live, so a revoked supporter gets an
+ * empty card rather than stale data even if this component were somehow
+ * rendered anyway.
  *
  * Numbers are shown, never judged. There is no "her blood pressure is too
  * high" anywhere in here: interpretation belongs to the care team, and the
  * conversation below is how a supporter asks for it.
  */
 function HealthSummary({ person }: { person: SupportedPerson }) {
-  const { data, isLoading } = useSupportedPersonHealth(person.profileId, person.clinicalAccess);
+  const { data, isLoading } = useSupportedPersonHealth(person.profileId, person.categories.length > 0);
   const name = person.fullName ?? "They";
   const firstName = (person.fullName ?? "").trim().split(/\s+/)[0] || "They";
 
@@ -688,6 +734,18 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
               {data.nextScreeningDue && (
                 <p className="text-xs text-charcoal-ink/50">
                   Next {shortDate(data.nextScreeningDue)}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-charcoal-ink/60">Next appointment</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+                {data.nextAppointment ? shortDate(data.nextAppointment.scheduledFor) : "None booked"}
+              </p>
+              {data.nextAppointment && (
+                <p className="text-xs text-charcoal-ink/50">
+                  {APPOINTMENT_TYPE_LABELS[data.nextAppointment.appointmentType] ??
+                    data.nextAppointment.appointmentType}
                 </p>
               )}
             </div>
@@ -874,7 +932,12 @@ function SupporterConversation({ person }: { person: SupportedPerson }) {
             </button>
             {openId === thread.id && (
               <div className="mt-3">
-                <CareMessageThread threadId={thread.id} closed={thread.status === "closed"} showEmergencyNotice />
+                <CareMessageThread
+                  threadId={thread.id}
+                  patientId={thread.patient_id}
+                  closed={thread.status === "closed"}
+                  showEmergencyNotice
+                />
               </div>
             )}
           </li>
@@ -939,6 +1002,7 @@ function ManageActions({ person }: { person: SupportedPerson }) {
                       option here, and it read "No voucher for this" against a
                       bill the supporter could see and could not settle. */}
                   <PayBillOnMyCard person={person} bill={bill} />
+                  <SplitBillWithThem person={person} bill={bill} />
                   {person.readyVouchers.length > 0 && (
                     <Button
                       type="button"

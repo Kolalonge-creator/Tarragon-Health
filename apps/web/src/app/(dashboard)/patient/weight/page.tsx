@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { WeightClient } from "./weight-client";
 
@@ -25,12 +23,7 @@ export default async function WeightPage() {
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
         description="Track your weight against a goal you set. Log weight from your vitals or your lifestyle check-in; either way, it shows up here."
       />
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <WeightClient patientId={profile.id} />
-      </RequiresEntitlement>
+      <WeightClient patientId={profile.id} />
     </div>
   );
 }

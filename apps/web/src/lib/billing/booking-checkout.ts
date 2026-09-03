@@ -1,9 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
-import { isStripeConfigured } from "@/lib/stripe/client";
-import { createOneOffCheckoutSession } from "@/lib/stripe/checkout";
-import { resolveProvider } from "@/lib/billing/provider";
 import { bookingTableFor } from "@/lib/billing/booking-ownership";
 import type { BookingOrderType, CheckoutMetadata } from "@/lib/billing/checkout-metadata";
 import type { Currency } from "@tarragon/shared";
@@ -22,6 +19,14 @@ export type BookingCheckoutResult =
  * never the clinical action itself — a clinically-triggered order never
  * reaches this function with origin='patient_initiated' semantics; it's
  * created already actionable and this path is skipped entirely by callers.
+ *
+ * NGN via Paystack only. Stripe/diaspora billing was removed 2026-09-03 —
+ * there was never a registered Stripe account behind it (needs a UK business
+ * registration that hasn't happened), so no non-NGN order could ever
+ * actually be charged. `currency` stays on the signature because every
+ * caller still passes one and because a booking's own amountKobo/currency
+ * pair is meaningful independent of how it gets paid, but this function now
+ * fails closed on anything other than NGN rather than routing it nowhere.
  */
 export async function initiateBookingCheckout(args: {
   orderType: BookingOrderType;
@@ -34,6 +39,13 @@ export async function initiateBookingCheckout(args: {
   description: string;
   callbackUrl: string;
 }): Promise<BookingCheckoutResult> {
+  if (args.currency !== "NGN") {
+    return { ok: false, error: "This can only be paid in naira right now." };
+  }
+  if (!isPaystackConfigured()) {
+    return { ok: false, error: "Card payments aren't set up yet" };
+  }
+
   const table = bookingTableFor(args.orderType);
   const serviceRole = createServiceRoleClient();
 
@@ -42,7 +54,6 @@ export async function initiateBookingCheckout(args: {
   // payment_confirmed on the grounds that the HMO's per-member fee covered it;
   // capitation is gone (I8), so every order takes the ordinary provider
   // checkout and produces a real payment_transactions row.
-  const provider = resolveProvider(args.currency);
   const metadata: CheckoutMetadata = {
     kind: "booking",
     profile_id: args.patientId,
@@ -51,53 +62,20 @@ export async function initiateBookingCheckout(args: {
     booking_order_type: args.orderType,
   };
 
-  if (provider === "paystack") {
-    if (!isPaystackConfigured()) {
-      return { ok: false, error: "Card payments aren't set up yet" };
-    }
-    if (args.currency !== "NGN") {
-      return { ok: false, error: "Paystack only accepts NGN" };
-    }
-    const result = await initializeOneOffTransaction({
-      email: args.email,
-      amountMinor: args.amountKobo,
-      currency: "NGN",
-      callbackUrl: args.callbackUrl,
-      metadata,
-    });
-    if (!result.ok) return { ok: false, error: result.error };
-
-    const { error } = await serviceRole
-      .from(table)
-      .update({ status: "pending_payment", pending_payment_provider_ref: result.data.reference })
-      .eq("id", args.orderId);
-    if (error) return { ok: false, error: error.message };
-
-    return { ok: true, checkoutUrl: result.data.authorizationUrl };
-  }
-
-  if (!isStripeConfigured()) {
-    return { ok: false, error: "Card payments aren't set up yet" };
-  }
-  if (args.currency === "NGN") {
-    return { ok: false, error: "Stripe does not accept NGN" };
-  }
-  const result = await createOneOffCheckoutSession({
+  const result = await initializeOneOffTransaction({
     email: args.email,
     amountMinor: args.amountKobo,
-    currency: args.currency,
-    description: args.description,
-    successUrl: args.callbackUrl,
-    cancelUrl: args.callbackUrl,
+    currency: "NGN",
+    callbackUrl: args.callbackUrl,
     metadata,
   });
   if (!result.ok) return { ok: false, error: result.error };
 
   const { error } = await serviceRole
     .from(table)
-    .update({ status: "pending_payment", pending_payment_provider_ref: result.data.sessionId })
+    .update({ status: "pending_payment", pending_payment_provider_ref: result.data.reference })
     .eq("id", args.orderId);
   if (error) return { ok: false, error: error.message };
 
-  return { ok: true, checkoutUrl: result.data.checkoutUrl };
+  return { ok: true, checkoutUrl: result.data.authorizationUrl };
 }

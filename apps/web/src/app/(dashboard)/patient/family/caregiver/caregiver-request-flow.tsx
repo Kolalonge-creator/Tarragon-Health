@@ -9,7 +9,13 @@ import {
 import {
   ELDERCARE_RELATIONSHIPS,
   eldercareAccessRequestSchema,
+  CAREGIVER_PERMISSIONS,
+  CAREGIVER_PERMISSION_LABEL,
+  CAREGIVER_ACCESS_DURATIONS,
+  CAREGIVER_ACCESS_DURATION_LABEL,
   type CareAccessRequestDirection,
+  type CaregiverPermission,
+  type CaregiverAccessDuration,
 } from "@/lib/validation/care-access";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,11 +33,12 @@ const RELATIONSHIP_LABEL: Record<string, string> = {
   other: "Other",
 };
 
-type Step = "direction" | "details" | "review" | "done";
+type Step = "direction" | "details" | "permissions" | "review" | "done";
 
 const STEP_LABEL: Record<Exclude<Step, "done">, string> = {
   direction: "Who's this for",
   details: "Their details",
+  permissions: "What they can do",
   review: "Review & send",
 };
 
@@ -55,20 +62,35 @@ export function CaregiverRequestFlow() {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
+  // Every capability checked by default — leaving the wizard alone produces
+  // exactly today's "manage" grant, unrestricted. Unchecking any of these is
+  // what actually narrows what gets sent.
+  const [permissions, setPermissions] = useState<CaregiverPermission[]>([...CAREGIVER_PERMISSIONS]);
+  const [duration, setDuration] = useState<CaregiverAccessDuration>("permanent");
 
-  const steps: StepperStep[] = (["direction", "details", "review"] as const).map((key) => ({
-    key,
-    label: STEP_LABEL[key],
-    state:
-      step === "done" || stepIndex(step) > stepIndex(key)
-        ? "complete"
-        : step === key
-          ? "current"
-          : "upcoming",
-  }));
+  function togglePermission(permission: CaregiverPermission) {
+    setPermissions((current) =>
+      current.includes(permission)
+        ? current.filter((p) => p !== permission)
+        : [...current, permission]
+    );
+  }
+
+  const steps: StepperStep[] = (["direction", "details", "permissions", "review"] as const).map(
+    (key) => ({
+      key,
+      label: STEP_LABEL[key],
+      state:
+        step === "done" || stepIndex(step) > stepIndex(key)
+          ? "complete"
+          : step === key
+            ? "current"
+            : "upcoming",
+    })
+  );
 
   function stepIndex(s: Step): number {
-    return { direction: 0, details: 1, review: 2, done: 3 }[s];
+    return { direction: 0, details: 1, permissions: 2, review: 3, done: 4 }[s];
   }
 
   async function handleLookup() {
@@ -83,7 +105,7 @@ export function CaregiverRequestFlow() {
     try {
       const found = await lookupCareAccessCandidateAction(parsed.data);
       setCandidate(found);
-      if (found) setStep("review");
+      if (found) setStep("permissions");
     } finally {
       setIsPending(false);
     }
@@ -94,7 +116,13 @@ export function CaregiverRequestFlow() {
     setError(null);
     setIsPending(true);
     try {
-      const result = await createEldercareAccessRequestAction({ phone, relationship, direction });
+      const result = await createEldercareAccessRequestAction({
+        phone,
+        relationship,
+        direction,
+        permissions,
+        duration,
+      });
       if ("error" in result) setError(result.error);
       else {
         setDoneMessage(result.message);
@@ -234,6 +262,66 @@ export function CaregiverRequestFlow() {
         </Card>
       )}
 
+      {step === "permissions" && direction && candidate && (
+        <Card>
+          <CardHeader>
+            <CardTitle>What can they do?</CardTitle>
+            <CardDescription>
+              Every box is checked by default, which is today&apos;s full &quot;manage&quot;
+              access. Uncheck anything that should stay off limits — the rest still needs their
+              acceptance, and any of this can be changed or taken back later.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <ul className="space-y-2">
+              {CAREGIVER_PERMISSIONS.map((permission) => (
+                <li key={permission}>
+                  <label className="flex items-center gap-2 text-sm text-charcoal-ink">
+                    <input
+                      type="checkbox"
+                      checked={permissions.includes(permission)}
+                      onChange={() => togglePermission(permission)}
+                      className="h-4 w-4 rounded border-charcoal-ink/30 text-brand-green focus:ring-brand-green"
+                    />
+                    {CAREGIVER_PERMISSION_LABEL[permission]}
+                  </label>
+                </li>
+              ))}
+            </ul>
+            {permissions.length === 0 && (
+              <p className="text-sm text-red-600">Choose at least one thing they can do.</p>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="cg_duration">How long should this last?</Label>
+              <Select
+                id="cg_duration"
+                value={duration}
+                onChange={(event) => setDuration(event.target.value as CaregiverAccessDuration)}
+                className="max-w-xs"
+              >
+                {CAREGIVER_ACCESS_DURATIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {CAREGIVER_ACCESS_DURATION_LABEL[value]}
+                  </option>
+                ))}
+              </Select>
+              <p className="text-xs text-charcoal-ink/50">
+                Useful when travelling or handing something off for a while — access ends itself,
+                nothing to remember to undo.
+              </p>
+            </div>
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setStep("details")}>
+                Back
+              </Button>
+              <Button disabled={permissions.length === 0} onClick={() => setStep("review")}>
+                Continue
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {step === "review" && direction && candidate && (
         <Card>
           <CardHeader>
@@ -250,13 +338,30 @@ export function CaregiverRequestFlow() {
                 {RELATIONSHIP_LABEL[relationship] ?? relationship} · {phone}
               </p>
             </div>
+            <div className="rounded-md border border-charcoal-ink/10 p-3 text-sm">
+              <p className="font-medium text-charcoal-ink">
+                {permissions.length === CAREGIVER_PERMISSIONS.length
+                  ? "Everything — unrestricted manage access"
+                  : "Can do:"}
+              </p>
+              {permissions.length !== CAREGIVER_PERMISSIONS.length && (
+                <ul className="mt-1 list-inside list-disc text-charcoal-ink/70">
+                  {permissions.map((permission) => (
+                    <li key={permission}>{CAREGIVER_PERMISSION_LABEL[permission]}</li>
+                  ))}
+                </ul>
+              )}
+              <p className="mt-2 text-charcoal-ink/60">
+                {CAREGIVER_ACCESS_DURATION_LABEL[duration]}
+              </p>
+            </div>
             <p className="text-sm text-charcoal-ink">
               {direction === "i_will_manage"
                 ? `We'll ask ${candidate.full_name ?? "them"} to accept managing your care. Until they do, nothing changes.`
                 : `We'll ask ${candidate.full_name ?? "them"} to accept you managing their care. Until they do, nothing changes.`}
             </p>
             <div className="flex justify-between">
-              <Button variant="outline" onClick={() => setStep("details")}>
+              <Button variant="outline" onClick={() => setStep("permissions")}>
                 Back
               </Button>
               <Button disabled={isPending} onClick={handleSend}>

@@ -19,8 +19,12 @@ export const metadata: Metadata = pageMetadata({
 
 const WAYS_TO_GIVE = [
   {
+    title: "Buy them a named health check",
+    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check — Core Screen, or whichever they need — at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
+  },
+  {
     title: "Buy them a year of care",
-    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy a year of their plan. Pay for it in one go or bit by bit. They start the year whenever they are ready, nothing renews afterwards so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
+    body: "The wider option: buy a year of their plan instead of one check. Pay for it in one go or bit by bit. They start the year whenever they are ready, nothing renews afterwards so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
   },
   {
     title: "Invite them, you both get a reward",
@@ -30,14 +34,19 @@ const WAYS_TO_GIVE = [
 
 const GIFT_IDEAS = [
   {
+    title: "Core Screen",
+    price: "One check, paid for once",
+    body: "Their once-a-year look at the things worth checking every year: liver, kidneys, blood sugar, cholesterol, urine, blood count and HIV status. A doctor reads every result with them, in writing, with a downloadable report. If they'd also like a live video consult to talk it through, that's a separate low-cost booking they can add whenever they want one.",
+  },
+  {
     title: "A year of Complete Care",
     price: "Bought once, theirs to start",
-    body: "Doctor review of their readings, their whole screening schedule worked out for them, and someone reading every result that comes back. You pay for the plan; they pay their own laboratory when they go, at that lab's price. Results go to them and their doctor, never to you.",
+    body: "Doctor review of their readings, their whole screening schedule worked out for them, and someone reading every result that comes back. Results go to them and their doctor, never to you.",
   },
   {
     title: "A year of Tarragon Prevent",
     price: "The lighter option",
-    body: "Their screening calendar worked out for them, reminders when something is due, and a doctor reading whatever they upload. Tests themselves are paid at the laboratory, so it is worth sending them what a check costs too.",
+    body: "Their screening calendar worked out for them, reminders when something is due, and a doctor reading whatever they upload.",
   },
 ];
 
@@ -45,7 +54,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What exactly am I buying?",
     answer:
-      "A year of one of our care plans for someone specific, not a top-up balance. It sits on their account with their name on it until they choose to start it.",
+      "Either one named health check (Core Screen and others) or a year of one of our care plans, for someone specific — never a top-up balance. It sits on their account with their name on it until they choose to use it.",
   },
   {
     question: "Who can I buy this for?",
@@ -53,19 +62,24 @@ const GIFT_FAQ: FaqItem[] = [
       "Anyone already linked to you as family or next of kin on Tarragon: a parent, spouse, sibling, or child. If they are not linked yet, add them from your Family page first, or send them your referral link instead so they can join and pay their own way.",
   },
   {
+    question: "Does a health check gift include a video call with a doctor?",
+    answer:
+      "A doctor reads every result in writing and sends a downloadable report — that part is included in every check. A live video consult is a separate, low-cost booking: your recipient can request one whenever they'd like to talk their results through, and you or they can pay for it at that point.",
+  },
+  {
     question: "Can I pay for their lab tests too?",
     answer:
-      "Not through us. Laboratories are paid directly, by whoever is standing in one, at that lab's price. If you want to help with a test, the practical way is to send them what it costs.",
+      "For a named health check, yes — that is exactly what you are buying: Tarragon bills one real price and settles with the laboratory directly, so there is nothing further for them to pay at the lab. For a year-of-care plan, laboratories are paid directly by whoever is standing in one, at that lab's price — if you want to help with a test on that plan, the practical way is to send them what it costs.",
   },
   {
     question: "Will I see their results?",
     answer:
-      "No. Results go to them and their doctor, never to you. You will only be told when a plan you paid for is due to renew.",
+      "No. Results go to them and their doctor, never to you. You will only be told when something you paid for is ready to use or due to renew.",
   },
   {
     question: "What if I am buying from outside Nigeria?",
     answer:
-      "That is fine either way: pay in naira from within Nigeria, or in GBP or USD if you are paying from abroad. The year still sits on their account until they are ready to start it.",
+      "That's fine — checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The year still sits on their account until they are ready to start it.",
   },
   {
     question: "What if they are already a Tarragon member?",
@@ -112,8 +126,8 @@ export default function GiftPage() {
         title="Give the Gift of Health"
         description="Buy someone a real health check, already paid for, waiting on their account until they are ready. Not a balance to manage, not a gift card to lose. A specific appointment with their name on it."
         primaryHref="/login"
-        primaryLabel="Buy someone a year of care"
-        secondaryHref="/signup"
+        primaryLabel="Buy someone a health check"
+        secondaryHref="/signup?intent=support"
         secondaryLabel="New here? Get started"
         imageSrc={MARKETING_MEDIA.gift.hero.imageSrc ?? ""}
         imageAlt={MARKETING_MEDIA.gift.hero.imageAlt ?? ""}
@@ -122,8 +136,8 @@ export default function GiftPage() {
 
       <Section className="pb-0 pt-10 sm:pt-14">
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/60">
-          Already a member? Open the care vouchers card on your dashboard to buy a year for
-          someone, or share your referral link.
+          Already a member? Open the care vouchers card on your dashboard to buy a health check or
+          a year of care for someone, or share your referral link.
         </p>
       </Section>
 
@@ -135,7 +149,7 @@ export default function GiftPage() {
         <div className="mx-auto mb-10 grid max-w-4xl items-center gap-10 lg:grid-cols-2 lg:gap-14">
           <div className="text-center lg:text-left">
             <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              Two ways to give
+              Ways to give
             </p>
             <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
               A named check, not a balance
@@ -208,10 +222,10 @@ export default function GiftPage() {
         <CtaBand
           variant="gradient"
           title="Give someone the gift of being looked after."
-          description="Buy them a year of care, or send them your referral link. Either way it is care, not a card that expires."
+          description="Buy them a health check or a year of care, or send them your referral link. Either way it is care, not a card that expires."
           primaryHref="/login"
-          primaryLabel="Buy someone a year of care"
-          secondaryHref="/signup"
+          primaryLabel="Buy someone a health check"
+          secondaryHref="/signup?intent=support"
           secondaryLabel="Get started"
         />
       </Section>

@@ -57,6 +57,7 @@ export default async function PatientProfilePage() {
             initial={{
               notification_channel_preference: profile.notification_channel_preference,
               marketing_opt_in: profile.marketing_opt_in,
+              preferred_reminder_hour: profile.preferred_reminder_hour,
             }}
           />
           <ChangePasswordForm />

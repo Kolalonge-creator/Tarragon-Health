@@ -5,8 +5,11 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { initiateSponsoredSubscriptionCheckout } from "@/lib/billing/sponsored-subscription-checkout";
 import { initiateSponsorBillCheckout } from "@/lib/billing/sponsor-bill-checkout";
+import {
+  initiateSubsidizedCheckout,
+  type SubsidizedOrderType,
+} from "@/lib/billing/subsidy-checkout";
 import { startActingFor, stopActingFor } from "@/lib/acting/acting-for";
-import type { Currency } from "@tarragon/shared";
 
 export type SponsorActionState = { error?: string; message?: string } | undefined;
 
@@ -28,7 +31,6 @@ export async function paySomeonesPlan(
 
   const beneficiaryProfileId = formData.get("beneficiaryProfileId") as string;
   const planCode = formData.get("planCode") as string;
-  const currency = (formData.get("currency") as Currency) || "NGN";
 
   if (!beneficiaryProfileId) return { error: "Who is this plan for?" };
   if (!planCode) return { error: "Choose a plan first." };
@@ -37,7 +39,6 @@ export async function paySomeonesPlan(
   const result = await initiateSponsoredSubscriptionCheckout({
     beneficiaryProfileId,
     planCode,
-    payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,
   });
@@ -64,7 +65,6 @@ export async function paySomeonesBill(
 
   const beneficiaryProfileId = formData.get("beneficiaryProfileId") as string;
   const orderId = formData.get("orderId") as string;
-  const currency = (formData.get("currency") as Currency) || "NGN";
 
   if (!beneficiaryProfileId || !orderId) return { error: "Which bill are you paying?" };
 
@@ -74,13 +74,48 @@ export async function paySomeonesBill(
   const result = await initiateSponsorBillCheckout({
     beneficiaryProfileId,
     orderId,
-    payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/supporting`,
   });
 
   if (!result.ok) return { error: result.error };
   redirect(result.checkoutUrl);
+}
+
+/**
+ * §91.9 two-simultaneous-charges subsidy: the supporter pays their share of
+ * one of the person's bills, and the person is left owing only the reduced
+ * remainder — never a standing arrangement, just this one bill (see
+ * transaction_subsidies' own structural guarantees). Whether there is
+ * anything to split, and by how much, is entirely decided server-side by
+ * whatever subsidy_split_rules the person's organisation has configured —
+ * this form never states a split itself.
+ */
+export async function splitBillWithThem(
+  _prevState: SponsorActionState,
+  formData: FormData,
+): Promise<SponsorActionState> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+  if (!user.email) return { error: "Your account needs an email on file to check out." };
+
+  const orderId = formData.get("orderId") as string;
+  const orderType = formData.get("orderType") as SubsidizedOrderType;
+  if (!orderId || !orderType) return { error: "Which bill are you splitting?" };
+
+  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
+  const result = await initiateSubsidizedCheckout({
+    orderType,
+    orderId,
+    email: user.email,
+    callbackUrl: `${origin}/patient/supporting`,
+  });
+
+  if (!result.ok) return { error: result.error };
+  if (!result.sponsorCheckoutUrl) {
+    return { message: "Nothing configured to split here — pay the full bill on your card instead." };
+  }
+  redirect(result.sponsorCheckoutUrl);
 }
 
 /**

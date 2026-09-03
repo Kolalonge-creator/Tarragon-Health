@@ -32,12 +32,9 @@ export async function GET(): Promise<Response> {
     return new Response("Not found", { status: 404 });
   }
 
-  const { data: hasAccess } = await supabase.rpc("has_feature_access", {
-    feature: "quarterly_report",
-  });
-  if (!hasAccess) {
-    return new Response("Not authorised", { status: 403 });
-  }
+  // No entitlement gate: the quarterly report is free to every patient since
+  // the pay-per-service rework. The patient/organisation checks above are the
+  // real authorisation here — a report is still only ever the caller's own.
 
   const { data: latestReport } = await supabase
     .from("patient_quarterly_reports")

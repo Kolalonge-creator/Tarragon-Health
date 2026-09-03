@@ -5,7 +5,6 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { syncPlanToPaystack } from "@/lib/paystack/plans";
-import { syncPlanToStripe } from "@/lib/stripe/plans";
 import { createPlanSchema } from "@/lib/validation/subscription-plans";
 import { createAddOnSchema } from "@/lib/validation/add-ons";
 import { priceAdjustmentSchema, type PriceAdjustmentInput } from "@/lib/validation/price-adjustment";
@@ -19,9 +18,13 @@ type SyncResult =
   | { ok: true; data: { paystack_plan_code?: string; stripe_price_id?: string; stripe_product_id?: string } }
   | { ok: false; error: string };
 
-/** NGN rows sync to Paystack; GBP/USD rows sync to Stripe — same branch used
- * at create-time and by the "Sync now" retry hooks. Normalizes both
- * providers' differently-shaped results into one write-back patch. */
+/** NGN rows sync to Paystack. Stripe sync for GBP/USD rows is removed
+ * 2026-09-03 along with the rest of the Stripe integration — there was
+ * never a registered Stripe account behind it (needs a UK business
+ * registration that hasn't happened), so it could only ever fail. This
+ * whole editor is already legacy (see the "no longer sets live patient
+ * pricing" label on its admin nav tile), kept for historical rows only; a
+ * non-NGN row simply can't be synced from here any more. */
 async function syncPlanRow(row: {
   currency: Currency;
   paystack_plan_code: string | null;
@@ -31,14 +34,12 @@ async function syncPlanRow(row: {
   price_minor: number;
   interval: "monthly" | "yearly";
 }): Promise<SyncResult> {
-  if (row.currency === "NGN") {
-    const result = await syncPlanToPaystack(row);
-    if (!result.ok) return result;
-    return { ok: true, data: { paystack_plan_code: result.data.planCode } };
+  if (row.currency !== "NGN") {
+    return { ok: false, error: "Non-naira plans can no longer be synced — Stripe billing was removed." };
   }
-  const result = await syncPlanToStripe(row);
+  const result = await syncPlanToPaystack(row);
   if (!result.ok) return result;
-  return { ok: true, data: { stripe_price_id: result.data.priceId, stripe_product_id: result.data.productId } };
+  return { ok: true, data: { paystack_plan_code: result.data.planCode } };
 }
 
 export type AdminActionState = { error?: string; message?: string } | undefined;
@@ -110,9 +111,8 @@ export async function createPlan(
 
   const sync = await syncPlanRow(inserted);
   if (!sync.ok) {
-    const providerLabel = parsed.data.currency === "NGN" ? "Paystack" : "Stripe";
     return {
-      error: `Plan saved but ${providerLabel} sync failed (${sync.error}). It stays inactive until synced. Try "Sync to ${providerLabel}" below.`,
+      error: `Plan saved but sync failed (${sync.error}). It stays inactive until synced.`,
     };
   }
 
@@ -184,9 +184,8 @@ export async function createAddOn(
 
   const sync = await syncPlanRow(inserted);
   if (!sync.ok) {
-    const providerLabel = parsed.data.currency === "NGN" ? "Paystack" : "Stripe";
     return {
-      error: `Add-on saved but ${providerLabel} sync failed (${sync.error}). It stays inactive until synced. Try "Sync to ${providerLabel}" below.`,
+      error: `Add-on saved but sync failed (${sync.error}). It stays inactive until synced.`,
     };
   }
 

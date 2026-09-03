@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { getLifestyleState, getPastLifestyleGoals } from "@/lib/lifestyle/service";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
@@ -39,18 +38,6 @@ export default async function WeightManagementPage() {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
-
-  const { data: hasAccess } = await supabase.rpc("has_feature_access", {
-    feature: "lifestyle_coaching",
-  });
-  if (!hasAccess) {
-    return (
-      <div className="mx-auto max-w-3xl space-y-6 py-6">
-        <h1 className="text-2xl font-semibold">Weight management</h1>
-        <UpgradePrompt feature="lifestyle_coaching" />
-      </div>
-    );
-  }
 
   const [enrollments, pastGoals, { data: profile }] = await Promise.all([
     getLifestyleState(supabase, user.id),
