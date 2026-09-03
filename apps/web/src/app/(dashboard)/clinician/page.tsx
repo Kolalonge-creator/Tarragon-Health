@@ -5,7 +5,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ClinicalStaffSetupWarning } from "@/components/clinical/clinical-staff-setup-warning";
-import { WorklistCountStrip, type WorklistCountTile } from "@/components/clinical/worklist-count-strip";
 import { formatNumber } from "@/lib/analytics/format";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
 import { createClient } from "@/lib/supabase/server";
@@ -13,7 +12,6 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { Worklist } from "./worklist";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
-import { TodaysQueuePanel } from "./todays-queue-panel";
 import type { EscalationLevel } from "@tarragon/shared";
 
 type OverviewEscalationRow = {
@@ -23,35 +21,6 @@ type OverviewEscalationRow = {
   patient: { full_name: string | null } | null;
   clinician_alert: { level: EscalationLevel; sla_due_at: string | null } | null;
 };
-
-/**
- * Every worklist this dashboard links to, each paired with the count query
- * that answers "is there actually anything waiting here" — see
- * lib/queries/worklist-counts.ts. This is the one place that turns 14
- * badge-free pages into a single at-a-glance "today" view.
- */
-const WORKLIST_COUNT_TILES: WorklistCountTile[] = [
-  { key: "escalations", href: "/clinician/escalations", label: "Open escalations", icon: "escalation" },
-  { key: "activeCases", href: "/clinician/case-management", label: "Active cases", icon: "carePlan" },
-  { key: "outreach", href: "/clinician/outreach", label: "Outreach tasks", icon: "messages" },
-  { key: "asyncConsults", href: "/clinician/async-consults", label: "Async consults", icon: "inbox" },
-  { key: "secondOpinionRequests", href: "/clinician/second-opinions", label: "Second opinions", icon: "inbox" },
-  { key: "prescriptionRenewalRequests", href: "/clinician/prescription-renewals", label: "Prescription renewals", icon: "medication" },
-  { key: "verifiedDocumentRequests", href: "/clinician/verified-documents", label: "Verified documents", icon: "inbox" },
-  { key: "seniorCaseReviews", href: "/clinician/senior-case-reviews", label: "Senior case reviews", icon: "escalation" },
-  { key: "referralsNeedingUrgency", href: "/clinician/referrals", label: "Referrals to triage", icon: "referral" },
-  { key: "waitlistedReferrals", href: "/clinician/referrals/waitlisted", label: "Waitlisted referrals", icon: "referral" },
-  { key: "referralsAwaitingClosure", href: "/clinician/referrals", label: "Referrals to review & close", icon: "referral" },
-  { key: "adherenceAlerts", href: "/clinician/adherence", label: "Adherence alerts", icon: "medication" },
-  { key: "recommendations", href: "/clinician/recommendations", label: "Care recommendations", icon: "carePlan" },
-  { key: "vaccinationVerifications", href: "/clinician/vaccinations", label: "Vaccinations to verify", icon: "vaccination" },
-  { key: "lifestyleFlags", href: "/clinician/lifestyle-flags", label: "Lifestyle safety flags", icon: "lifestyle" },
-  { key: "medicationReviews", href: "/clinician/medication-reviews", label: "Medication reviews", icon: "medication" },
-  { key: "annualReviews", href: "/clinician/annual-reviews", label: "Annual reviews", icon: "review" },
-  { key: "preventiveReviews", href: "/clinician/preventive-reviews", label: "Preventive reviews", icon: "preventive" },
-  { key: "lifestyleReviews", href: "/clinician/lifestyle-reviews", label: "Lifestyle reviews", icon: "lifestyle" },
-  { key: "carePlanReviewPrompts", href: "/clinician/care-plan-review", label: "Care plans to review", icon: "carePlan" },
-];
 
 const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
   emergency: 0,
@@ -225,72 +194,67 @@ export default async function ClinicianPage() {
         />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle>Urgent escalations</CardTitle>
-              <Link
-                href="/clinician/escalations"
-                className="shrink-0 text-sm font-medium text-brand-green hover:underline"
-              >
-                View all →
-              </Link>
-            </div>
-            <CardDescription>Ranked by severity, then how close each is to its SLA.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {urgentEscalations.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/60">No open escalations right now.</p>
-            ) : (
-              <ul className="divide-y divide-charcoal-ink/10">
-                {urgentEscalations.map((escalation) => {
-                  const level = escalation.clinician_alert?.level;
-                  const levelBadge = level ? LEVEL_BADGE[level] : null;
-                  const statusBadge = ESCALATION_STATUS_BADGE[escalation.status];
-                  return (
-                    <li key={escalation.id}>
-                      <Link
-                        href={`/clinician/escalations/${escalation.id}`}
-                        className="flex items-center justify-between gap-3 py-2.5 hover:bg-charcoal-ink/[0.02]"
-                      >
-                        <span className="flex min-w-0 items-center gap-3">
-                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-soft-sage font-heading text-xs font-semibold text-deep-forest">
-                            {initials(escalation.patient?.full_name)}
+      {/* Full width, not a half-page card beside a "Today's queue" panel —
+          that panel used to repeat four counts (async consults, outreach,
+          care plan reviews, medication reviews) the sidebar now shows as
+          live badges on every page, so keeping it here just for the
+          landing view was pure duplication on the one screen where both
+          were visible at once. */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3">
+            <CardTitle>Urgent escalations</CardTitle>
+            <Link
+              href="/clinician/escalations"
+              className="shrink-0 text-sm font-medium text-brand-green hover:underline"
+            >
+              View all →
+            </Link>
+          </div>
+          <CardDescription>Ranked by severity, then how close each is to its SLA.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {urgentEscalations.length === 0 ? (
+            <p className="text-sm text-charcoal-ink/60">No open escalations right now.</p>
+          ) : (
+            <ul className="divide-y divide-charcoal-ink/10">
+              {urgentEscalations.map((escalation) => {
+                const level = escalation.clinician_alert?.level;
+                const levelBadge = level ? LEVEL_BADGE[level] : null;
+                const statusBadge = ESCALATION_STATUS_BADGE[escalation.status];
+                return (
+                  <li key={escalation.id}>
+                    <Link
+                      href={`/clinician/escalations/${escalation.id}`}
+                      className="flex items-center justify-between gap-3 py-2.5 hover:bg-charcoal-ink/[0.02]"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-soft-sage font-heading text-xs font-semibold text-deep-forest">
+                          {initials(escalation.patient?.full_name)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-charcoal-ink">
+                            {escalation.patient?.full_name ?? "Unknown patient"}
                           </span>
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-medium text-charcoal-ink">
-                              {escalation.patient?.full_name ?? "Unknown patient"}
-                            </span>
-                            <span className="block truncate text-xs text-charcoal-ink/55">
-                              {escalation.reason}
-                            </span>
+                          <span className="block truncate text-xs text-charcoal-ink/55">
+                            {escalation.reason}
                           </span>
                         </span>
-                        <span className="flex shrink-0 items-center gap-1.5">
-                          {levelBadge && <Badge variant={levelBadge.variant}>{levelBadge.label}</Badge>}
-                          <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
-                        </span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-
-        <TodaysQueuePanel />
-      </div>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-1.5">
+                        {levelBadge && <Badge variant={levelBadge.variant}>{levelBadge.label}</Badge>}
+                        <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </CardContent>
+      </Card>
 
       <Worklist />
-
-      <section aria-labelledby="all-worklists-heading" className="space-y-2">
-        <h2 id="all-worklists-heading" className="font-heading text-sm font-medium text-charcoal-ink/60">
-          All worklists
-        </h2>
-        <WorklistCountStrip tiles={WORKLIST_COUNT_TILES} />
-      </section>
     </div>
   );
 }
