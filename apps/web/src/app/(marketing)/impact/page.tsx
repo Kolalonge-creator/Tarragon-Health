@@ -43,7 +43,7 @@ export default async function ImpactPage() {
           title={anyVisible ? "What the numbers show" : "We're just getting started"}
           description={
             anyVisible
-              ? "Every figure below is a real count from the platform, aggregated across every patient, institution and city, never broken down by organisation or individual."
+              ? "Every figure below is a real count, aggregated across every patient, institution and city, never broken down by organisation or individual."
               : "TarragonHealth is early. We hold back any number small enough that showing it could identify a real person, so most figures here will fill in as more patients join. That's a privacy choice, not a bug."
           }
         />
@@ -86,10 +86,10 @@ export default async function ImpactPage() {
             How we protect privacy in these numbers
           </h2>
           <p className="mt-4 text-charcoal-ink/70">
-            Nothing here is broken down by employer, HMO, hospital or any other group smaller than
-            the whole platform. That&apos;s a stricter rule than we apply even to an institution
-            looking at its own aggregate data. Any count below 25 is held back entirely rather than
-            shown as a small, potentially identifying number.
+            Nothing here is broken down by employer, HMO, hospital or any group smaller than the
+            whole platform, a stricter rule than we apply even to an institution&apos;s own
+            aggregate data. Any count below 25 is held back entirely, rather than shown as a
+            small, potentially identifying number.
           </p>
         </div>
       </Section>

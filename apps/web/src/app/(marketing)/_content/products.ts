@@ -18,7 +18,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Stay ahead of high blood pressure before it causes complications.",
     campaignLine: "High blood pressure needs follow-up, not guesswork.",
     intro:
-      "Tarragon helps you log blood pressure readings, spot trends early, and get doctor review when numbers drift. Reminders keep follow-up consistent between doctor visits, not just at them.",
+      "Log blood pressure, catch drifting numbers early, and get doctor review, with reminders keeping follow-up consistent between visits.",
     included: [
       "BP logging via app or web",
       "Trend view for you and your care team",
@@ -51,7 +51,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Track glucose, HbA1c, medication, labs, and complications in one place.",
     campaignLine: "Diabetes care is more than sugar checks.",
     intro:
-      "Tarragon brings glucose logs, HbA1c tracking, medication adherence, and lab coordination into one platform, with doctor review when your numbers need a closer look.",
+      "Glucose, HbA1c, medication adherence, and lab coordination, all in one platform, with doctor review when your numbers need a closer look.",
     included: [
       "Glucose and HbA1c tracking",
       "Medication reminders and adherence support",
@@ -84,7 +84,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Weight tracked, reviewed, and followed up, not left to willpower alone.",
     campaignLine: "Weight is a health condition, managed with real support.",
     intro:
-      "Tarragon's weight management programme brings weight tracking, a lifestyle plan, related-condition monitoring, and doctor review onto one record. It's a structured, followed-up programme, not a diet, with your care team checking in and escalating when closer care is needed. The plan that works is the one you can actually keep doing, built around your routine rather than an ideal you're supposed to live up to.",
+      "Weight tracking, a lifestyle plan, related-condition monitoring, and doctor review, all on one record. It's a structured programme, not a diet, built around your routine rather than an ideal you're supposed to live up to.",
     included: [
       "Weight and waist tracking on one record",
       "A personalised lifestyle and activity plan",
@@ -95,7 +95,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     howItWorks: [
       {
         title: "Set a plan together",
-        body: "Your care team reviews your history and helps set realistic goals on a structured programme.",
+        body: "Your care team reviews your history and helps set realistic goals.",
       },
       {
         title: "Track and stay supported",
@@ -103,7 +103,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Review and escalate",
-        body: "Progress is reviewed against care protocols, and closer care is arranged through a defined pathway when it's needed.",
+        body: "Progress is reviewed against care protocols, and closer care is arranged when it's needed.",
       },
     ],
     metadata: {
@@ -117,7 +117,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Know how your parent is doing, even when you are not there every day.",
     campaignLine: "Your parents looked after you. Now help look after them.",
     intro:
-      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can fund their plan, in naira or dollars, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
+      "Your parent keeps their own Tarragon account, with the plan that suits their health. Named as their next of kin, you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can fund their plan, in naira or dollars, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
     included: [
       "Their own plan and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
@@ -129,7 +129,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     howItWorks: [
       {
         title: "They sign up, on their own account",
-        body: "One person, their own plan. Their record is theirs, which is what lets a doctor treat them and what keeps their consent meaningful.",
+        body: "One person, their own plan. Their record is theirs: what lets a doctor treat them, and what keeps their consent meaningful.",
       },
       {
         title: "They name you as next of kin",
@@ -137,7 +137,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You cover the cost, if you want to",
-        body: "Buy them a year of their plan whenever suits you, in one go or in instalments. It's for their account alone, and is never exchangeable for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a check costs if you want to help with that too.",
+        body: "Buy them a year of their plan whenever suits you, in one go or in instalments, it's for their account alone and never exchangeable for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a check costs if you want to help with that too.",
       },
     ],
     metadata: {
@@ -171,7 +171,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "Stay confidently well",
-        body: "Most results confirm you're on track. When one doesn't, your care team follows up immediately, and because it's caught early, your options are better and cheaper.",
+        body: "Most results confirm you're on track. When one doesn't, your care team follows up immediately, catching it early while your options are still better and cheaper.",
       },
     ],
     metadata: {
@@ -216,7 +216,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     slug: "labs",
     headline: "Know what tests are due, take the request anywhere, and track follow-up.",
     intro:
-      "Lab work is where care between visits most often goes quiet. Tarragon keeps a running calendar of what's due, writes you a request to take to any laboratory you like, and makes sure every result is reviewed, not just filed away. You pay the lab directly; we take nothing on it.",
+      "Lab work is where care between visits most often goes quiet. Tarragon keeps a running calendar of what's due, gives you a request for any laboratory you like, and makes sure every result gets reviewed, not filed away. You pay the lab directly; we take nothing on it.",
     included: [
       "Lab calendar synced to your chronic and preventive record",
       "A written request you take to any laboratory near you",

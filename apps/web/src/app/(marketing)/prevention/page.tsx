@@ -71,7 +71,7 @@ const SCREENING_GROUPS = [
 const ABNORMAL_STEPS = [
   {
     title: "A doctor is alerted immediately",
-    body: "An abnormal result is never just filed away. It triggers an immediate alert to a doctor, who reviews it against your history, not in next month's batch, but as a priority.",
+    body: "An abnormal result never sits in a queue: it triggers an immediate alert to a doctor, who reviews it against your history as a priority, not in next month's batch.",
   },
   {
     title: "You hear from your care team fast",
@@ -79,7 +79,7 @@ const ABNORMAL_STEPS = [
   },
   {
     title: "Follow-up until the loop is closed",
-    body: "If the result needs ongoing attention, your record upgrades into chronic care monitoring on the same platform: same record, same care team, no starting over. There is never an automatic extra charge for follow-up on a result.",
+    body: "If the result needs ongoing attention, your record upgrades into chronic care monitoring on the same platform: same record, same care team, no starting over, and never an extra charge for the follow-up.",
   },
 ];
 
@@ -107,7 +107,7 @@ export default async function PreventionPage() {
         <SectionHeading
           eyebrow="What we screen for"
           title="The checks your calendar is built from"
-          description="Your personal screening calendar is built from your age, sex, family history, and risk profile, so you only see what's relevant to you. These are the kinds of checks it tracks, reminds you about, and flags when results need attention."
+          description="Your personal screening calendar is built from your age, sex, family history, and risk profile, so you see only what's relevant to you: tracked, reminded, and flagged when a result needs attention."
         />
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2">
           {SCREENING_GROUPS.map((group) => (
@@ -129,10 +129,10 @@ export default async function PreventionPage() {
           ))}
         </div>
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
-          You take your request to whichever laboratory you like and pay them directly, at their
-          own price; we set no price on any test and take no cut. The one-day{" "}
-          <span className="font-medium text-charcoal-ink">Annual Health Check</span> is a ladder
-          pick how deep you want to go. Every tier is doctor-reviewed.
+          You take your request to whichever laboratory you like and pay them directly: we set no
+          price on any test and take no cut. The one-day{" "}
+          <span className="font-medium text-charcoal-ink">Annual Health Check</span> is a ladder:
+          pick how deep you want to go, with every tier doctor-reviewed.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Not sure what applies to you specifically? Walk through the{" "}

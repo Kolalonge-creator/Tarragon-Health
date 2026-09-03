@@ -28,7 +28,7 @@ const WAYS_TO_GIVE = [
   },
   {
     title: "Invite them, you both get a reward",
-    body: "If they are not on Tarragon yet, share your personal referral link. Signing up is free. Once they complete their first paid order, you both receive a ₦500 reward voucher toward your care. It is a discount, not cash, and it cannot be exchanged for money.",
+    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they complete their first paid order, you both get a ₦500 reward voucher toward your care, a discount, not cash.",
   },
 ];
 
@@ -41,7 +41,7 @@ const GIFT_IDEAS = [
   {
     title: "A year of Complete Care",
     price: "Bought once, theirs to start",
-    body: "Doctor review of their readings, their whole screening schedule worked out for them, and someone reading every result that comes back. Results go to them and their doctor, never to you.",
+    body: "Doctor review of their readings, their whole screening schedule worked out for them, and someone reading every result that comes back. You pay for the plan; they pay the lab directly, at that lab's price, and results go to them and their doctor, never to you.",
   },
   {
     title: "A year of Tarragon Prevent",
@@ -155,8 +155,8 @@ export default function GiftPage() {
               A named check, not a balance
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You are buying a service, not topping up an account. That is a real difference, and
-              it is the one that makes the gift worth something.
+              You are buying a service, not topping up an account, and that difference is what
+              makes the gift worth something.
             </p>
           </div>
           <MarketingMediaFrame
@@ -213,8 +213,7 @@ export default function GiftPage() {
             Caring for a parent
           </Link>{" "}
           is the year-round version of this: they keep their own account and name you as next of
-          kin, so you can follow their care and we call you first if something urgent comes up,
-          rather than it being a one-off gift.
+          kin, so you can follow their care and we call you first if something urgent comes up.
         </p>
       </Section>
 

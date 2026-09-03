@@ -21,7 +21,7 @@ const FAQS = [
   },
   {
     q: "Why does vigorous activity count double toward the weekly target?",
-    a: "The World Health Organization's guideline is 150-300 minutes of moderate activity a week, or 75-150 minutes of vigorous activity, because vigorous activity produces roughly the same benefit in about half the time. This tool reflects that by counting vigorous minutes twice toward the same target.",
+    a: "The World Health Organization's guideline is 150-300 minutes of moderate activity a week, or 75-150 minutes of vigorous, because vigorous produces roughly the same benefit in half the time. This tool counts vigorous minutes twice toward that target.",
   },
   {
     q: "Is this exact?",

@@ -49,11 +49,11 @@ export const metadata: Metadata = pageMetadata({
 const BOOKING_ASSURANCES = [
   {
     title: "A verified doctor reads it",
-    body: "No one can review results here until someone else has verified their licence. The database refuses to make a clinician active otherwise, and nobody can verify their own.",
+    body: "No one can review results here until another clinician has verified their licence, and nobody can verify their own. The database enforces it.",
   },
   {
     title: "You confirm the price first",
-    body: "You pick the lab, see its exact price, and confirm before anything is charged. Nothing is taken while your booking sits unpaid, and you can simply walk away.",
+    body: "You pick the lab, see its exact price, and confirm before anything is charged. You can walk away anytime before that.",
   },
   {
     title: "We never see your card",
@@ -97,7 +97,7 @@ const HOW_IT_WORKS = [
   {
     step: 2,
     title: "One lab visit",
-    body: "Samples and measurements in a single visit. We don't yet collect a sample from your home anywhere; that needs a contracted logistics partner, and we'd rather say so than imply otherwise.",
+    body: "Samples and measurements in a single visit. We don't yet offer home sample collection, and we'd rather say so than imply otherwise.",
   },
   {
     step: 3,
@@ -123,10 +123,9 @@ export default function AnnualHealthCheckPage() {
             The Annual Health Check
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            You service your car every year. Your health deserves the same discipline. One lab
-            visit covers your blood sugar, cholesterol, blood pressure, BMI, and the cancer
-            screening that fits your age and sex, all reviewed by a doctor, all kept on one
-            record.
+            You service your car every year. Your health deserves the same discipline: one lab
+            visit for blood sugar, cholesterol, blood pressure, BMI, and the cancer screening
+            that fits your age and sex, all reviewed by a doctor and kept on one record.
           </p>
           <p className="mt-4 font-heading text-2xl font-semibold text-charcoal-ink">
             We take nothing on your tests
@@ -159,11 +158,10 @@ export default function AnnualHealthCheckPage() {
               Six things, one visit
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Chosen because they catch the conditions that quietly account for most avoidable
-              illness in Nigeria: diabetes, heart disease, and late-found cancers. Blood sugar,
-              cholesterol, BP &amp; BMI, and a doctor video consult to walk through it all are on
-              every tier below, starting with Core Screen; cancer screening is added on Advanced
-              Screen.
+              Chosen because they catch what quietly causes most avoidable illness in Nigeria:
+              diabetes, heart disease, and late-found cancers. Blood sugar, cholesterol, BP &amp;
+              BMI, and the doctor consult are on every tier from Core Screen; cancer screening
+              starts at Advanced Screen.
             </p>
           </div>
           <MarketingMediaFrame
@@ -190,7 +188,7 @@ export default function AnnualHealthCheckPage() {
         <SectionHeading
           eyebrow="What we measure"
           title="Every test, laid out plainly"
-          description="No vague promises. Here's exactly what's checked, organised by what it tells you about your body, which tier includes it, and how often it's actually re-checked, since not everything on this list repeats every single visit."
+          description="Exactly what's checked, organised by what it tells you about your body, which tier includes it, and how often it's actually re-checked."
         />
         <WhatWeMeasure />
       </Section>
@@ -240,10 +238,9 @@ export default function AnnualHealthCheckPage() {
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Need just one thing? The WHO-recommended screenings (cervical screening, HIV,
-          Hepatitis B, and Hepatitis C) can each be requested on their own, confidentially.
-          Don&apos;t know your blood group and genotype yet? You can request that directly too.
-          Either way, you take the request to any laboratory you like and pay them directly, at
-          their price; we don&apos;t set or quote one.
+          Hepatitis B, and Hepatitis C) can each be requested on their own and confidentially, as
+          can a blood group and genotype check. Either way, take the request to any laboratory
+          you like and pay them directly, at their price; we don&apos;t set or quote one.
         </p>
         <div className="mx-auto mt-6 max-w-2xl">
           <ConfidentialResultNotice />
@@ -256,8 +253,8 @@ export default function AnnualHealthCheckPage() {
           <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
             Vitamin D, B12 &amp; folate, iron studies, hs-CRP, a coagulation profile, and an
             age/sex-appropriate tumour marker screen, added to your next check as a one-time
-            upgrade. We&apos;re holding it back until a Clinical Director has signed off the exact
-            panel, not selling it before it&apos;s reviewed.
+            upgrade. We&apos;re holding it back until a Clinical Director signs off the exact
+            panel.
           </p>
           <p className="mt-3 text-sm text-charcoal-ink/60">
             Want to look further still?{" "}
@@ -290,12 +287,10 @@ export default function AnnualHealthCheckPage() {
             Honest expectations
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Most years, your check will confirm you&apos;re well; that&apos;s the point, and
-            it&apos;s worth paying for. For the few people whose results show something, catching
-            it at an annual check typically means simpler, cheaper, more successful treatment
-            than waiting for symptoms. This is a screening day, not a hospital admission: if
-            anything needs deeper investigation, your doctor will say so plainly and help you
-            arrange it.
+            Most years, your check will simply confirm you&apos;re well; that&apos;s the point,
+            and it&apos;s worth paying for. If something does show up, catching it early usually
+            means simpler, cheaper treatment, and your doctor will say plainly if it needs deeper
+            investigation.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Looking for the year-round version? <Link href={MARKETING_ROUTES.pricing} className="text-brand-green hover:underline">Tarragon Prevent</Link> keeps

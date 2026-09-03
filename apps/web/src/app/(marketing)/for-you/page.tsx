@@ -35,7 +35,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A team that keeps watching",
-      body: "Message your care team anytime, get an async doctor's answer within 72 hours, and book a paid 15-minute online consultation only when you actually need one.",
+      body: "Message your care team anytime, get an async doctor's answer within 72 hours, and book a paid 15-minute online consultation only when you need one.",
     },
   },
   {
@@ -83,11 +83,11 @@ const CARE_COMPARISON: {
 const MONTH_WITH_TARRAGON = [
   {
     title: "You log, in seconds",
-    body: "A blood pressure reading after breakfast, a glucose check, your weight once a week: each takes under a minute in the app, and lands on one secure record instead of a paper notebook. We're also rolling out automatic sync from Apple Health, Health Connect, and trackers like Fitbit, Garmin, Oura, WHOOP, and Dexcom, connection by connection, for when you'd rather it fill itself in.",
+    body: "A blood pressure reading, a glucose check, your weekly weigh-in: each takes under a minute in the app and lands on one secure record, not a paper notebook. We're also rolling out automatic sync from Apple Health, Health Connect, and trackers like Fitbit, Garmin, Oura, WHOOP, and Dexcom, for when you'd rather it fill itself in.",
   },
   {
     title: "Reminders keep you consistent",
-    body: "WhatsApp and SMS nudges arrive when a dose, reading, or check is due, so consistency stops depending on memory. You can also message your care team any time, right in the app, whenever you have a question.",
+    body: "WhatsApp and SMS nudges arrive when a dose, reading, or check is due, so consistency stops depending on memory. You can also message your care team any time in the app.",
   },
   {
     title: "A doctor actually reviews your numbers",
@@ -99,7 +99,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "Small habits earn real rewards",
-    body: "Logging a reading, finishing a lesson, or completing a challenge earns wellness points, free on every plan. Collect badges along the way, and redeem points any time for a reward voucher that comes off the price of your care.",
+    body: "Logging a reading, finishing a lesson, or completing a challenge earns wellness points and badges, free on every plan. Redeem points any time for a reward voucher that comes off the price of your care.",
   },
   {
     title: "Escalation only when it's needed",
@@ -123,8 +123,7 @@ export default function ForYouPage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Most people only discover a problem when it becomes an emergency. Tarragon gives you
               what a well-run clinic gives its best-followed patients: someone watching your numbers
-              between visits, through your phone, at a fraction of the cost of a single hospital
-              admission.
+              between visits, through your phone, for a fraction of a hospital admission.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild size="lg">

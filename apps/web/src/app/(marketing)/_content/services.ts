@@ -70,7 +70,7 @@ export const PROOF_STATS = [
   {
     value: "1",
     label: "place to message your care team",
-    detail: "Send a message any time in the app and a real person on your care team replies there, no separate number to remember.",
+    detail: "Message any time in the app; a real person replies.",
   },
   {
     value: "4",
@@ -91,7 +91,7 @@ export const PROOF_STATS = [
 export const PREVENTION_CALLOUT = {
   title: "Healthy? Tarragon is built for you too",
   body:
-    "You don't need a diagnosis to belong here. Tarragon Prevent builds you and your children a personal screening and vaccination calendar and a yearly Health Check: most years, that's simply confirmation you're doing fine, and if something's ever found, a doctor follows up the same day.",
+    "A personal screening and vaccination calendar, plus a yearly Health Check. If something's ever found, a doctor follows up the same day.",
 } as const;
 
 /** Everything the shared record actually watches (services page capability
@@ -130,7 +130,7 @@ export const HOW_IT_WORKS_STEPS = [
   {
     step: 6,
     title: "Family updates (optional)",
-    body: "Name someone as your next of kin and they can follow your care and be called first if something urgent comes up. You choose, and you can withdraw it at any time.",
+    body: "Name a next of kin who can follow your care and be called first in an emergency.",
   },
 ] as const;
 
@@ -155,7 +155,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "patient",
     tabLabel: "For you",
     title: "Track your health without carrying it alone.",
-    body: "Blood pressure, blood sugar, weight, medication, lab checks, and preventive reminders, in one secure place, with a doctor behind it when you need one.",
+    body: "Blood pressure, blood sugar, weight, medication, and lab checks, in one secure place, with a doctor behind it when you need one.",
     points: [
       "BP, glucose, and weight logging with trend review",
       "Medication reminders and refill alerts",
@@ -173,7 +173,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "healthy",
     tabLabel: "For staying healthy",
     title: "You don't need a diagnosis to belong here.",
-    body: "Tarragon Prevent builds a personal screening and vaccination calendar matched to your age, sex, and history, books the checks when they're due, and explains what your results mean. Most years, that's simply confirmation you're doing fine.",
+    body: "Tarragon Prevent builds a personal screening and vaccination calendar matched to your age, sex, and history, books the checks when they're due, and explains your results. Most years, that's just confirmation you're doing fine.",
     points: [
       "Screening and vaccination calendar, built for you",
       "Yearly Health Check, booked in minutes",
@@ -191,7 +191,7 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "family",
     tabLabel: "For families",
     title: "Know how your parent is doing, even from far away.",
-    body: "Follow Mum's blood pressure, Dad's medication and their preventive checks without taking over their record. They keep their own account and name you as next of kin, so what you can see is something they chose to share.",
+    body: "Follow Mum's blood pressure, Dad's medication, and their preventive checks without taking over their record. They keep their own account and name you as next of kin, so what you see is something they chose to share.",
     points: [
       "Is my parent okay today? Green, amber, or red.",
       "Are they taking their medication?",
@@ -260,13 +260,13 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "I'm healthy, is Tarragon for me?",
     answer:
-      "Yes: prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check, and education matched to you keep healthy people healthy. Most members just get confirmation each year that all is well; if a check ever finds something, a doctor follows up the same day.",
+      "Yes: prevention is half of what Tarragon does. A personal screening and vaccination calendar, a yearly health check, and matched education keep healthy people healthy. Most years, that's just confirmation all is well; if a check ever finds something, a doctor follows up the same day.",
   },
   {
     category: "general",
     question: "Can I use Tarragon for my parent while I live abroad?",
     answer:
-      "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for their plan from anywhere; the tests and refills themselves are still paid directly to whichever laboratory or pharmacy they use in Nigeria, at their price.",
+      "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for their plan from anywhere; the tests and refills are still paid directly to whichever laboratory or pharmacy they use in Nigeria, at their price.",
   },
   {
     category: "general",
@@ -278,7 +278,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "How do I log my blood pressure, glucose, or weight?",
     answer:
-      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send you reminders and alerts, and you can message your care team any time in the app for support. Logging itself happens on app or web.",
+      "You log readings through the Tarragon app or web dashboard, so your record stays accurate and secure. WhatsApp and SMS send reminders and alerts, and you can message your care team any time in the app for support.",
   },
   {
     category: "general",
@@ -302,7 +302,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Will my health data be kept private?",
     answer:
-      "Your health record is protected by access controls enforced at the database level: only your own care team can see it, and it's never shared with an employer, insurer, or anyone else without your consent. If a relative or institution has visibility into your care, it's because you specifically granted it, not by default.",
+      "Your health record is protected by access controls enforced at the database level: only your own care team can see it, and it's never shared with an employer, insurer, or anyone else without your consent. If a relative or institution can see your care, it's because you granted that access, not by default.",
   },
   {
     category: "general",
@@ -314,7 +314,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "I don't have time for another health app.",
     answer:
-      "You won't need much. Logging a blood pressure reading, a glucose check, or your weight takes under a minute in the app. WhatsApp or SMS tells you when something's due, and your care team does the reviewing in the background, not you. There's no daily routine to keep up, just a few seconds whenever a reading's due.",
+      "You won't need much. Logging a blood pressure reading, a glucose check, or your weight takes under a minute in the app. WhatsApp or SMS tells you when something's due, and your care team does the reviewing in the background, not you.",
   },
   {
     category: "clinical",
@@ -326,7 +326,7 @@ export const HOMEPAGE_FAQS = [
     category: "clinical",
     question: "What's the difference between my Health Score and my Annual Health Check?",
     answer:
-      "Your Health Score is a quick, non-diagnostic read on a handful of things already on your record: blood pressure control, HbA1c, weight, smoking status, and whether you're keeping up with screenings and vaccinations. It updates whenever you log something new, so you can see the effect of what you're actually doing day to day. Your Annual Health Check (or Comprehensive Screen) is the wider, once-a-year safety net: a fuller panel covering areas your Health Score isn't built to see, so nothing important gets missed just because it wasn't one of the things being tracked daily. Anything it flags reaches a doctor the same day.",
+      "Your Health Score is a quick, non-diagnostic read on a handful of things already on your record: blood pressure control, HbA1c, weight, smoking status, and how current your screenings and vaccinations are. It updates whenever you log something new, showing the effect of what you're doing day to day. Your Annual Health Check (or Comprehensive Screen) is the once-a-year safety net: a fuller panel covering what your Health Score isn't built to track, so nothing gets missed for being outside the daily picture. Anything it flags reaches a doctor the same day.",
   },
   {
     category: "clinical",

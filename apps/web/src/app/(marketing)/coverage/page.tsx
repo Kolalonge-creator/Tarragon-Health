@@ -54,27 +54,26 @@ export default async function CoveragePage() {
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             TarragonHealth works anywhere in Nigeria. We tell you which tests
-            are worth doing and when, write you a request to take to any lab you
-            like, read the result with you, and follow up. None of that waits on
-            us signing a partner in your state, so none of it is switched off
-            where you live.
+            are worth doing and when, write you a request to take to any lab
+            you like, read the result with you, and follow up. None of that
+            waits on us signing a partner in your state, so it's never
+            switched off where you live.
           </p>
           <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
             You pay the lab or the pharmacy directly, at their price. We take
             nothing on top.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            What we do not yet do anywhere: collect a sample from your home, or
-            deliver medication to your door. Those still need a contracted
-            partner in your state, and we would rather say so than imply
+            What we do not yet do anywhere: collect a sample from your home,
+            or deliver medication to your door. Those still need a contracted
+            partner in your state, and we'd rather say so than imply
             otherwise.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
             Billing a lab on your behalf is the one exception: for some
             screening bundles, you can opt in to have us arrange it with our
-            contracted lab partner and bill you directly, instead of paying the
-            lab yourself. It is always optional, alongside the self-arranged
-            path above.
+            contracted lab partner and bill you directly instead. It's always
+            optional, alongside the self-arranged path above.
           </p>
           {liveStates.length > 0 && (
             <p className="mt-4 text-sm text-charcoal-ink/60">
@@ -92,7 +91,7 @@ export default async function CoveragePage() {
         <SectionHeading
           eyebrow="Coverage"
           title="Check a state"
-          description="Screening guidance, test requests, uploading a result and doctor review work in every state. This checker shows the extra, partner-fulfilled services on top, and reads the same live list the app itself uses, so it can never promise something the product would then refuse."
+          description="Screening guidance, test requests, uploading a result and doctor review work in every state. This checker shows the extra, partner-fulfilled services on top, and reads the same live list the app uses, so it never promises what the product can't deliver."
         />
         <CoverageChecker coverage={coverage} />
       </Section>
@@ -101,7 +100,7 @@ export default async function CoveragePage() {
         <SectionHeading
           eyebrow="Partner locations"
           title="Where our contracted partners are"
-          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab, home visit or delivery partner is the exception — a real relationship we hold, not just a listing. This map shows exactly where those partners are, once we have one."
+          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab, home visit or delivery partner is the exception: a real relationship we hold, not just a listing. This map shows where those partners are, once we have one."
         />
         {mapsApiKey && partnerLocations.length > 0 && (
           <PartnerMap locations={partnerLocations} apiKey={mapsApiKey} />
@@ -122,8 +121,8 @@ export default async function CoveragePage() {
                     >
                       <span className="font-medium text-charcoal-ink">
                         {location.name}
-                      </span>{" "}
-                      — {PARTNER_TYPE_DESCRIPTION[location.type]},{" "}
+                      </span>
+                      : {PARTNER_TYPE_DESCRIPTION[location.type]},{" "}
                       {location.address}
                     </li>
                   ))}
@@ -132,11 +131,11 @@ export default async function CoveragePage() {
             ) : (
               <p className="text-sm text-charcoal-ink/70">
                 We haven&apos;t activated a contracted lab, home visit or
-                delivery partner yet — check back, or{" "}
+                delivery partner yet. Check back, or{" "}
                 <Link href="/contact" className="underline">
                   ask us
                 </Link>{" "}
-                and we will tell you exactly what is live where you need it.
+                and we&apos;ll tell you what is live where you need it.
               </p>
             )}
           </div>

@@ -21,7 +21,7 @@ export const metadata: Metadata = pageMetadata({
 const FAQS = [
   {
     q: "How is BMI calculated?",
-    a: "Body Mass Index is your weight in kilograms divided by your height in metres, squared (kg/m²). It's a quick screening tool, not a full body-composition measurement, so it's read alongside things like waist size and how you actually feel, not on its own.",
+    a: "Body Mass Index is your weight in kilograms divided by your height in metres, squared (kg/m²). It's a quick screening tool, not a full body-composition measurement, so it's read alongside waist size and how you actually feel, not on its own.",
   },
   {
     q: "How is the calorie estimate worked out?",
@@ -98,7 +98,7 @@ export default async function BmiCalculatorPage() {
                 Weight Health programme
               </Link>{" "}
               is lifestyle-first support, not judgment: a doctor reviews your progress and adjusts
-              medication and lifestyle guidance if it&apos;s needed, built around you.
+              medication or guidance as needed.
             </p>
           </div>
         </div>
