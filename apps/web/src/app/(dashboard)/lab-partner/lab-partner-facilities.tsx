@@ -41,9 +41,9 @@ export function LabPartnerFacilities() {
       <CardHeader>
         <CardTitle>Your branches</CardTitle>
         <CardDescription>
-          Patients pick from this list when booking with your lab — keep it accurate. Retiring a
+          Patients pick from this list when booking with your lab. Keep it accurate. Retiring a
           branch deactivates it rather than deleting it. A branch only appears on the public
-          coverage map once it has coordinates on file — contact support to have one geocoded.
+          coverage map once it has coordinates on file. Contact support to have one geocoded.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

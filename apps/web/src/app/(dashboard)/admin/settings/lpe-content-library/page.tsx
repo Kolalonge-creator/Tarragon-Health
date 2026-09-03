@@ -33,7 +33,7 @@ export default async function LpeContentLibrarySettingsPage() {
           Lifestyle coaching content library
         </h1>
         <p className="text-charcoal-ink/60">
-          Reference copy the AI Coach can draw on when replying to a patient — never quoted
+          Reference copy the AI Coach can draw on when replying to a patient, never quoted
           verbatim, used to inform an answer in the coach&apos;s own voice. A block is only ever
           shown to a patient (indirectly, through the coach) after a Clinical Director approves it
           here; edit anything that needs work first, then sign it.

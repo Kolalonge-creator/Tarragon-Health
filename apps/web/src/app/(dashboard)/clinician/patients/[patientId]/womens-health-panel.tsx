@@ -100,7 +100,7 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
                 {antenatalVisits.map((v) => (
                   <li key={v.id}>
                     {v.gestational_week_at_visit != null ? `Week ${v.gestational_week_at_visit}` : `Visit ${v.visit_number}`}
-                    {" — "}
+                    {", "}
                     {v.status}
                     {v.findings ? `: ${v.findings}` : ""}
                   </li>
@@ -136,7 +136,7 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
             {postnatalProfiles.map((p) => (
               <p key={p.id}>
                 Delivered {p.delivery_date} ({p.delivery_mode})
-                {p.complications ? ` — ${p.complications}` : ""}
+                {p.complications ? ` (${p.complications})` : ""}
               </p>
             ))}
           </CardContent>
@@ -151,7 +151,7 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
           <CardContent className="space-y-1 text-sm">
             {breastReports.map((r) => (
               <p key={r.id}>
-                {new Date(r.created_at).toLocaleDateString()} — {r.symptom_types.join(", ")}
+                {new Date(r.created_at).toLocaleDateString()}: {r.symptom_types.join(", ")}
                 {r.laterality ? ` (${r.laterality})` : ""}
               </p>
             ))}
@@ -167,7 +167,7 @@ export async function WomensHealthPanel({ patientId }: { patientId: string }) {
           <CardContent className="space-y-1 text-sm">
             {menopauseLogs.map((log) => (
               <p key={log.id}>
-                {log.logged_at} — {log.symptom_types.join(", ") || "no symptoms"}
+                {log.logged_at}: {log.symptom_types.join(", ") || "no symptoms"}
                 {log.severity != null ? ` (severity ${log.severity}/10)` : ""}
                 {log.postmenopausal_bleeding ? " · bleeding reported" : ""}
               </p>

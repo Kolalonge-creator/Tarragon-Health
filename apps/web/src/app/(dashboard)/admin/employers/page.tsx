@@ -40,7 +40,7 @@ export default async function AdminEmployersPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Employers</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Module 26 — register, verify, contract and go live for each employer account.
+          Module 26: register, verify, contract and go live for each employer account.
         </p>
       </div>
 

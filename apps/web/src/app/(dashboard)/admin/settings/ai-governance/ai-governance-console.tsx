@@ -375,7 +375,7 @@ export function AiGovernanceConsole({
             {ungoverned.map((s) => s.system_code).join(", ")}{" "}
             {ungoverned.length === 1 ? "is" : "are"} registered, classified and guardrailed on the
             record, but the running code for{" "}
-            {ungoverned.length === 1 ? "it does" : "them does"} not consult this registry yet — so
+            {ungoverned.length === 1 ? "it does" : "them does"} not consult this registry yet, so
             switching{" "}
             {ungoverned.length === 1 ? "it" : "them"} off here would not stop{" "}
             {ungoverned.length === 1 ? "it" : "them"} running. Treat the switch as real only for the
@@ -445,7 +445,7 @@ export function AiGovernanceConsole({
                     <div>
                       <p className="text-charcoal-ink/50">Approved version</p>
                       <p className="text-charcoal-ink">
-                        {entry.approved_version ?? "None — not yet validated"}
+                        {entry.approved_version ?? "None (not yet validated)"}
                       </p>
                     </div>
                     <div>
@@ -453,7 +453,7 @@ export function AiGovernanceConsole({
                       <p className="text-charcoal-ink">
                         {entry.active_prompt_version
                           ? `v${entry.active_prompt_version} active`
-                          : "None active — running the in-repo prompt"}
+                          : "None active (running the in-repo prompt)"}
                       </p>
                     </div>
                     <div>
@@ -474,7 +474,7 @@ export function AiGovernanceConsole({
 
                   <div className="space-y-1.5">
                     <p className="text-sm text-charcoal-ink/50">
-                      Acceptance criteria — purpose, owner, risk, validation, guardrails, monitoring,
+                      Acceptance criteria: purpose, owner, risk, validation, guardrails, monitoring,
                       audit, rollback
                     </p>
                     <AcceptanceChecklist system={entry} />
@@ -495,7 +495,7 @@ export function AiGovernanceConsole({
                           <li key={o.id}>
                             <span className="font-mono">{o.observed_model_identifier}</span> seen{" "}
                             {o.observation_count.toLocaleString("en-GB")}×, last{" "}
-                            {formatDate(o.last_seen_at)} — approved version specifies{" "}
+                            {formatDate(o.last_seen_at)}: approved version specifies{" "}
                             <span className="font-mono">
                               {o.expected_model_identifier ?? "nothing yet"}
                             </span>

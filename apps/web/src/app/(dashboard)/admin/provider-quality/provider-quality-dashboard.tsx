@@ -109,7 +109,7 @@ function NetworkSummarySection() {
           <CardTitle className="text-base">Metric health across the network</CardTitle>
           <CardDescription>
             {data.clinical_quality_note ??
-              "Where the network is performing well vs. failing, by metric — not by provider (§29.10, §29.11)."}
+              "Where the network is performing well vs. failing, by metric, not by provider (§29.10, §29.11)."}
           </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -187,9 +187,9 @@ function CredentialMonitorSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Licence, indemnity, attestation — §29.6</CardTitle>
+        <CardTitle className="text-base">Licence, indemnity, attestation (§29.6)</CardTitle>
         <CardDescription>
-          A blank expiry date shows as &quot;not recorded&quot;, never as expired — nobody has
+          A blank expiry date shows as &quot;not recorded&quot;, never as expired. Nobody has
           typed it in yet, that&apos;s a different fact.
         </CardDescription>
       </CardHeader>
@@ -344,7 +344,7 @@ function ComplaintsSection() {
               >
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">
-                    {c.reference} — {c.subject?.full_name ?? "Unknown provider"}
+                    {c.reference}: {c.subject?.full_name ?? "Unknown provider"}
                   </p>
                   <p className="text-xs text-charcoal-ink/50">
                     {c.category} · {new Date(c.created_at).toLocaleDateString()}

@@ -62,7 +62,7 @@ export function SexualHealthPrivacySettingsCard() {
         </CardTitle>
         <CardDescription>
           {hasPin
-            ? "This section asks for a PIN before it opens — useful on a shared phone."
+            ? "This section asks for a PIN before it opens, useful on a shared phone."
             : "Add a PIN so this section doesn't open right away on a shared phone. Completely optional."}
         </CardDescription>
       </CardHeader>

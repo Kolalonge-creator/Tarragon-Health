@@ -34,13 +34,13 @@ const ecRequestSchema = z.object({
  */
 function computeEcGuidance(hoursSinceIntercourse: number | null): string {
   if (hoursSinceIntercourse == null) {
-    return "No exact time needed — a clinician will review with you directly and help you find the right option quickly.";
+    return "No exact time needed. A clinician will review with you directly and help you find the right option quickly.";
   }
   if (hoursSinceIntercourse < 72) {
-    return "Good news: the emergency pill and the copper IUD are both effective right now — the sooner you can act, the more effective they are.";
+    return "Good news: the emergency pill and the copper IUD are both effective right now. The sooner you can act, the more effective they are.";
   }
   if (hoursSinceIntercourse <= 120) {
-    return "The copper IUD is still effective, and some emergency pills may still work too — a clinician will confirm the best option with you quickly.";
+    return "The copper IUD is still effective, and some emergency pills may still work too. A clinician will confirm the best option with you quickly.";
   }
   return "A clinician will review with you directly to talk through what's still possible and the best next step.";
 }
@@ -59,7 +59,7 @@ export async function requestEmergencyContraception(
 ): Promise<RequestEmergencyContraceptionState> {
   const parsed = ecRequestSchema.safeParse(Object.fromEntries(formData.entries()));
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Something didn't look right — please try again" };
+    return { error: parsed.error.issues[0]?.message ?? "Something didn't look right. Please try again" };
   }
 
   const supabase = await createClient();

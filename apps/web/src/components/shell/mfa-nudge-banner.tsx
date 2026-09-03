@@ -91,7 +91,7 @@ export function MfaNudgeBanner({ role }: { role: UserRole | null | undefined }) 
           Add an extra layer of protection to your account
         </p>
         <p className="text-charcoal-ink/70">
-          Turn on two-factor sign-in whenever you&apos;re ready — it takes about a minute with an
+          Turn on two-factor sign-in whenever you&apos;re ready. It takes about a minute with an
           authenticator app.{" "}
           <Link
             href="/account"

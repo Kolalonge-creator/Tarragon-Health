@@ -14,12 +14,12 @@ const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
   // key so a future status can't silently fall through unhandled.
   draft: "Not yet submitted",
   pending: "Your care team is arranging this",
-  pending_payment: "Ready to book — payment needed",
-  payment_confirmed: "Payment received — booking your appointment",
+  pending_payment: "Ready to book (payment needed)",
+  payment_confirmed: "Payment received, booking your appointment",
   booked: "Appointment booked",
   confirmed: "Confirmed",
   completed: "Visit complete",
-  closed: "Closed — your care plan has been updated",
+  closed: "Closed: your care plan has been updated",
   declined: "Cancelled",
   waitlisted: "Your care team is finding the right specialist for you",
 };
@@ -95,7 +95,7 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
               )
             ) : referral.outcome_document_path ? (
               <p className="text-xs text-brand-green">
-                We have what the specialist gave you — your care team will update your plan.
+                We have what the specialist gave you. Your care team will update your plan.
               </p>
             ) : (
               <ReferralOutcomeDocumentUpload referralId={referral.id} />

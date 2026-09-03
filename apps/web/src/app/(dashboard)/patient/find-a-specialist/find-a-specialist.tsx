@@ -124,7 +124,7 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
             <p className="text-sm text-charcoal-ink/60">Searching…</p>
           ) : (providers ?? []).length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
-              No specialists match yet — your care team is growing the network in your area. Message them and
+              No specialists match yet. Your care team is growing the network in your area. Message them and
               they can help arrange a referral.
             </p>
           ) : (
@@ -137,7 +137,7 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
                   {provider.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
                 </div>
                 <p className="text-xs text-charcoal-ink/60">
-                  {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"} — ₦
+                  {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"}, ₦
                   {koboToNaira(provider.consultation_fee_kobo).toLocaleString()}
                   {provider.years_of_experience != null && ` · ${provider.years_of_experience} yrs experience`}
                 </p>

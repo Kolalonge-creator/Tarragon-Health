@@ -69,7 +69,7 @@ export function MedicationIssuesWorklist({ canResolveConcerns }: { canResolveCon
         <CardHeader>
           <CardTitle>Medication concerns</CardTitle>
           <CardDescription>
-            Prescription, interaction, duplication, or other concerns raised about a medication —
+            Prescription, interaction, duplication, or other concerns raised about a medication,
             by a patient, a pharmacist, or a colleague.
           </CardDescription>
         </CardHeader>
@@ -106,7 +106,7 @@ function AffordabilityReportRow({ report }: { report: AffordabilityReportWithDet
         </Badge>
         <p className="text-sm font-medium text-charcoal-ink">
           {report.patient?.full_name ?? "Unknown patient"}
-          {report.medication?.drug_name ? ` — ${report.medication.drug_name}` : ""}
+          {report.medication?.drug_name ? `: ${report.medication.drug_name}` : ""}
         </p>
       </div>
       {report.note && <p className="text-xs text-charcoal-ink/60">&ldquo;{report.note}&rdquo;</p>}
@@ -181,7 +181,7 @@ function DispenseFlagRow({
         </Badge>
         <p className="text-sm font-medium text-charcoal-ink">
           {flag.patient?.full_name ?? "Unknown patient"}
-          {flag.medication?.drug_name ? ` — ${flag.medication.drug_name}` : ""}
+          {flag.medication?.drug_name ? `: ${flag.medication.drug_name}` : ""}
         </p>
       </div>
       <p className="text-xs text-charcoal-ink/60">

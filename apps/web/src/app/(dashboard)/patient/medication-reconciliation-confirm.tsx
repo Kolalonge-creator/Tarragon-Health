@@ -35,7 +35,7 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/70">
-          Is the medication list above still accurate — nothing missing, nothing you&apos;ve
+          Is the medication list above still accurate, nothing missing, nothing you&apos;ve
           stopped taking? Confirming lets your care team reconcile it at your next visit.
         </p>
         <div className="space-y-1.5">
@@ -54,7 +54,7 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
           </p>
         )}
         {confirm.isSuccess && (
-          <p className="text-sm text-brand-green">Thanks — your care team can now reconcile it.</p>
+          <p className="text-sm text-brand-green">Thanks. Your care team can now reconcile it.</p>
         )}
         <Button
           size="sm"

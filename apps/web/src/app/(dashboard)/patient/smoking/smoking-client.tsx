@@ -100,8 +100,8 @@ export function SmokingClient({ patientId }: { patientId: string }) {
                     {new Date(entry.logged_on).toLocaleDateString(undefined, {
                       month: "long",
                       day: "numeric",
-                    })}{" "}
-                    — {entry.cigarettes_smoked === 0 ? "Smoke-free" : `${entry.cigarettes_smoked} cigarettes`}
+                    })}:{" "}
+                    {entry.cigarettes_smoked === 0 ? "Smoke-free" : `${entry.cigarettes_smoked} cigarettes`}
                   </p>
                   {entry.triggers.length > 0 && (
                     <p className="text-xs text-charcoal-ink/60">

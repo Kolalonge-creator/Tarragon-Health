@@ -11,7 +11,7 @@ export function RequestCampaignButton({ templateId }: { templateId: string }) {
   );
 
   if (state?.success) {
-    return <p className="text-sm text-brand-green">Requested — awaiting review.</p>;
+    return <p className="text-sm text-brand-green">Requested. Awaiting review.</p>;
   }
 
   return (

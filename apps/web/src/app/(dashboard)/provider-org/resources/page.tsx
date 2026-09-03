@@ -32,9 +32,9 @@ export default async function ProviderOrgResourcesPage({
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name} — Resources</h1>
+          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}: Resources</h1>
           <p className="text-sm text-charcoal-ink/60">
-            28.6/28.7 — rooms and equipment, configuration only. Add operating hours from Admin once a
+            28.6/28.7: rooms and equipment, configuration only. Add operating hours from Admin once a
             booking feature is built against them.
           </p>
         </div>

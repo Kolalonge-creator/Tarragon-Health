@@ -50,7 +50,7 @@ export function SettlementsManager({ organisationId, settlements }: { organisati
       <Card>
         <CardHeader>
           <CardTitle>New statement</CardTitle>
-          <CardDescription>28.10 — one billing period.</CardDescription>
+          <CardDescription>28.10: one billing period.</CardDescription>
         </CardHeader>
         <CardContent>
           <form

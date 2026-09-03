@@ -24,7 +24,7 @@ export default async function SleepPage() {
         </Link>
       </div>
       <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Log how you&apos;re sleeping — duration, quality, and how alert you feel during the day.
+        Log how you&apos;re sleeping: duration, quality, and how alert you feel during the day.
       </p>
       <RequiresEntitlement
         feature="lifestyle_coaching"

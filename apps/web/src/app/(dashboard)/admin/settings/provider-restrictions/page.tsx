@@ -21,7 +21,7 @@ export default async function ProviderRestrictionsSettingsPage() {
           Provider restrictions
         </h1>
         <p className="text-charcoal-ink/60">
-          A staged, reason-coded suspension workflow for clinical staff — separate from (and
+          A staged, reason-coded suspension workflow for clinical staff, separate from (and
           more complete than) the plain active/inactive toggle on their account.
         </p>
       </div>

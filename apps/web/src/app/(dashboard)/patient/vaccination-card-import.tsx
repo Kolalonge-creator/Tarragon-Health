@@ -159,7 +159,7 @@ function CardExtractionReview({
       : 0;
     return (
       <li className="py-3 text-xs text-charcoal-ink/70">
-        {filedCount} dose{filedCount === 1 ? "" : "s"} filed from this upload — sent to your care
+        {filedCount} dose{filedCount === 1 ? "" : "s"} filed from this upload, sent to your care
         team for verification.
       </li>
     );
@@ -319,7 +319,7 @@ function CardExtractionReview({
                 {unmappedRows.map((row, i) => (
                   <li key={`${row.reportedLabel}-${i}`}>
                     {row.reportedLabel}
-                    {row.dateAdministered ? ` — ${row.dateAdministered}` : ""}
+                    {row.dateAdministered ? ` (${row.dateAdministered})` : ""}
                   </li>
                 ))}
               </ul>

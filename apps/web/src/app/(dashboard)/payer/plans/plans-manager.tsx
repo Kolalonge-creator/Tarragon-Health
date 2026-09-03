@@ -49,7 +49,7 @@ export function PlansManager({ insurerId, plans }: { insurerId: string; plans: P
       <Card>
         <CardHeader>
           <CardTitle>New plan</CardTitle>
-          <CardDescription>27.2 — a named product this insurer can attach benefits and policies to.</CardDescription>
+          <CardDescription>27.2: a named product this insurer can attach benefits and policies to.</CardDescription>
         </CardHeader>
         <CardContent>
           <form

@@ -43,7 +43,7 @@ const SEVERITY_BUCKET_TINT: Record<ReturnType<typeof severityBucket>, { tintClas
 };
 
 const RESOLUTION_OUTCOME_LABEL: Record<AlertResolutionOutcome, string> = {
-  true_positive: "True positive — real concern",
+  true_positive: "True positive (real concern)",
   false_positive: "False positive",
   duplicate: "Duplicate of another alert",
   no_action_needed: "No action needed",

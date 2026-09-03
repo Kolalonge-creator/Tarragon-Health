@@ -235,7 +235,7 @@ export default async function ResultsInboxPage() {
         <CardHeader>
           <CardTitle>Needs order matching ({unmatchedRows.length})</CardTitle>
           <CardDescription>
-            Result documents with no lab order on file — an emailed or uploaded result that arrived
+            Result documents with no lab order on file: an emailed or uploaded result that arrived
             without (or ahead of) its request. Per module 57.13, nothing here is auto-attached; pick
             the right order below, or leave it if none exists yet.
           </CardDescription>

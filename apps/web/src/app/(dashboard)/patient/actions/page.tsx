@@ -80,7 +80,7 @@ export default async function PatientActionsPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">My actions</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Everything outstanding, in one place — grouped by how soon it needs you.
+          Everything outstanding, in one place, grouped by how soon it needs you.
         </p>
       </div>
 
@@ -89,7 +89,7 @@ export default async function PatientActionsPage() {
           <CardContent className="flex items-center gap-3 py-6">
             <SEMANTIC_ICON.preventive className="h-5 w-5 shrink-0 text-brand-green" strokeWidth={2} />
             <p className="text-sm text-charcoal-ink/70">
-              You&apos;re all caught up — nothing outstanding right now. Keep logging readings and
+              You&apos;re all caught up. Nothing outstanding right now. Keep logging readings and
               we&apos;ll flag anything that needs your attention.
             </p>
           </CardContent>

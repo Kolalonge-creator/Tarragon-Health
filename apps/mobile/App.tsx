@@ -1,8 +1,6 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, Pressable, SafeAreaView, StatusBar, Text, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { ActivityIndicator, Image, SafeAreaView, StatusBar } from "react-native";
 import type { Session } from "@supabase/supabase-js";
-import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
@@ -12,24 +10,20 @@ import { syncThresholdsIfOnline } from "@/lib/threshold-sync";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
 import { LoginScreen } from "@/screens/login-screen";
 import { HomeShell } from "@/screens/home-shell";
-import { DevicesScreen } from "@/screens/devices-screen";
-import { SyncScreen } from "@/screens/sync-screen";
 import { colors } from "@/ui/theme";
 
-type PatientDevice = Tables<"patient_devices">;
-type Tab = "home" | "devices";
-
 /**
- * App-level shape: a native auth gate (Splash → Login) in front of both
- * tabs, then Home (the native shell + per-section WebViews, see
- * home-shell.tsx) and Devices (native BLE pairing/sync + Apple Health) —
- * the two tabs from the Claude Design prototype's iOS frame.
+ * App-level shape: a native auth gate (Splash → Login) in front of the
+ * authenticated shell (home-shell.tsx), which owns all navigation — the
+ * bottom tab bar (Home/Vitals/Meds/Messages/More) plus the drawer behind
+ * More. Devices (native BLE pairing/sync + Apple Health) is one of the
+ * shell's sections, reachable from the drawer; the legacy two-tab
+ * Home/Devices bar this file used to render on top of the shell's own tab
+ * bar (the "two stacked bars" bug) is gone.
  */
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [identity, setIdentity] = useState<PatientIdentity | null | undefined>(undefined);
-  const [tab, setTab] = useState<Tab>("home");
-  const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -91,79 +85,16 @@ export default function App() {
     );
   }
 
-  function renderDevicesTab() {
-    if (openDevice) {
-      return <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />;
-    }
-    return (
-      <DevicesScreen patientId={session!.user.id} organisationId={identity!.organisationId} onOpenDevice={setOpenDevice} />
-    );
-  }
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
       <StatusBar barStyle="dark-content" />
-      <View style={{ flex: 1 }}>
-        {/* Both tabs stay mounted so switching back preserves scroll/section
-            state, same rationale as the old all-WebView Home tab had. */}
-        <View style={{ flex: 1, display: tab === "home" ? "flex" : "none" }}>
-          <HomeShell
-            userId={session.user.id}
-            organisationId={identity.organisationId}
-            patientName={identity.fullName}
-            patientNumber={identity.patientNumber}
-            initials={identity.initials}
-          />
-        </View>
-        <View style={{ flex: 1, display: tab === "devices" ? "flex" : "none" }}>{renderDevicesTab()}</View>
-      </View>
-      <View
-        style={{
-          flexDirection: "row",
-          borderTopWidth: 1,
-          borderTopColor: colors.border,
-          backgroundColor: colors.card,
-        }}
-      >
-        <TabButton label="Home" icon="home" active={tab === "home"} onPress={() => setTab("home")} />
-        <TabButton label="Devices" icon="bluetooth" active={tab === "devices"} onPress={() => setTab("devices")} />
-      </View>
-    </SafeAreaView>
-  );
-}
-
-function TabButton({
-  label,
-  icon,
-  active,
-  onPress,
-}: {
-  label: string;
-  icon: "home" | "bluetooth";
-  active: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="tab"
-      accessibilityState={{ selected: active }}
-      onPress={onPress}
-      style={{ flex: 1, alignItems: "center", paddingVertical: 8, gap: 2 }}
-    >
-      <Ionicons
-        name={active ? icon : (`${icon}-outline` as const)}
-        size={22}
-        color={active ? colors.brand : colors.muted}
+      <HomeShell
+        userId={session.user.id}
+        organisationId={identity.organisationId}
+        patientName={identity.fullName}
+        patientNumber={identity.patientNumber}
+        initials={identity.initials}
       />
-      <Text
-        style={{
-          fontSize: 11,
-          fontWeight: active ? "700" : "500",
-          color: active ? colors.brand : colors.muted,
-        }}
-      >
-        {label}
-      </Text>
-    </Pressable>
+    </SafeAreaView>
   );
 }

@@ -38,7 +38,7 @@ function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
   if (plans.length === 0) {
     return (
       <p className="text-sm text-charcoal-ink/60">
-        No care plan yet — your doctor will assign one after reviewing your health data.
+        No care plan yet. Your doctor will assign one after reviewing your health data.
       </p>
     );
   }
@@ -238,7 +238,7 @@ export function MyCarePlanTasks({
         {isError && <p className="text-sm text-red-600">Could not load your care plan tasks.</p>}
         {!isLoading && !isError && (tasks ?? []).length === 0 && (
           <p className="text-sm text-charcoal-ink/60">
-            No tasks yet — your care team will add these as your plan is set up.
+            No tasks yet. Your care team will add these as your plan is set up.
           </p>
         )}
 

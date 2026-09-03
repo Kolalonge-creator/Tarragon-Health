@@ -13,7 +13,7 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
   },
   "/dashboard/care-coordinator/follow-ups": {
     title: "Follow-ups",
-    subtitle: "Self-arranged lab tests that need a nudge — the patient books and pays their own lab.",
+    subtitle: "Self-arranged lab tests that need a nudge: the patient books and pays their own lab.",
   },
   "/dashboard/care-coordinator/contact-log": {
     title: "Contact log",

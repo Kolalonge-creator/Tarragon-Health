@@ -132,7 +132,7 @@ function MfaSetupView() {
         </CardTitle>
         <CardDescription>
           Optional extra protection for your account using an authenticator app on your phone.
-          Turn it on whenever you&apos;re ready — your password still works on its own until you do.
+          Turn it on whenever you&apos;re ready. Your password still works on its own until you do.
         </CardDescription>
       </CardHeader>
       <CardContent>

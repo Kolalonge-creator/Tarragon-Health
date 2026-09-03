@@ -207,7 +207,7 @@ export function EngagementDashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
           title="Care engagement level"
-          description="Latest computed level per patient — highly_engaged through unreachable."
+          description="Latest computed level per patient, highly_engaged through unreachable."
           actions={<ExportButton filename="care-engagement-levels" rows={levelItems} />}
         >
           {careEngagement.isLoading ? (

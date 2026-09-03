@@ -20,7 +20,7 @@ export const metadata: Metadata = pageMetadata({
 const WAYS_TO_GIVE = [
   {
     title: "Buy them a named health check",
-    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check, Core Screen or whichever they need, at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
+    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check (Core Screen, or whichever they need) at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
   },
   {
     title: "Cover a doctor's time for them",
@@ -64,12 +64,12 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "Does a health check gift include a video call with a doctor?",
     answer:
-      "A doctor reads every result in writing and sends a downloadable report; that part is included in every check. A live video consult is a separate, low-cost booking: your recipient can request one whenever they'd like to talk their results through, and you or they can pay for it at that point.",
+      "A doctor reads every result in writing and sends a downloadable report. That part is included in every check. A live video consult is a separate, low-cost booking: your recipient can request one whenever they'd like to talk their results through, and you or they can pay for it at that point.",
   },
   {
     question: "Can I pay for their lab tests too?",
     answer:
-      "For a named health check bundle, yes, where we have a contracted partner laboratory: Tarragon bills one real price and settles with that laboratory directly, so there is nothing further for them to pay at the lab. For any other test, laboratories are paid directly by whoever is standing in one, at that lab's price; if you want to help with one of those, the practical way is to send them what it costs.",
+      "For a named health check bundle, yes, where we have a contracted partner laboratory: Tarragon bills one real price and settles with that laboratory directly, so there is nothing further for them to pay at the lab. For any other test, laboratories are paid directly by whoever is standing in one, at that lab's price. If you want to help with one of those, the practical way is to send them what it costs.",
   },
   {
     question: "Will I see their results?",

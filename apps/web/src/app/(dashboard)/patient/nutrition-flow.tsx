@@ -176,7 +176,7 @@ function LogMealSection({
             />
             <p className="text-xs text-charcoal-ink/60">
               We&apos;ll match this against our Nigerian food list to estimate calories, carbs, protein,
-              fat, fibre and sodium — you can describe portions in everyday terms like a plate, cup,
+              fat, fibre and sodium. You can describe portions in everyday terms like a plate, cup,
               spoon, handful, piece or serving.
             </p>
           </div>
@@ -247,7 +247,7 @@ function NutritionAnalysisBlock({
             <li key={i}>
               {item.matched
                 ? `${item.foodName ?? item.raw}${item.grams != null ? ` (~${Math.round(item.grams)}g)` : ""}`
-                : `"${item.raw}" — not recognised, not included in the totals above`}
+                : `"${item.raw}": not recognised, not included in the totals above`}
             </li>
           ))}
         </ul>
@@ -258,7 +258,7 @@ function NutritionAnalysisBlock({
         </p>
       )}
       <p className="mt-2 text-xs text-charcoal-ink/50">
-        From our Nigerian food list — an estimate to guide you, not a lab measurement.
+        From our Nigerian food list: an estimate to guide you, not a lab measurement.
       </p>
     </div>
   );
@@ -387,7 +387,7 @@ function EntryCard({
             </ul>
           )}
           <p className="mt-1 text-xs text-charcoal-ink/50">
-            Photo estimate — coaching guidance only, not a medical measurement.
+            Photo estimate: coaching guidance only, not a medical measurement.
           </p>
         </div>
       )}
@@ -554,7 +554,7 @@ function BudgetHelperSection() {
         {result && "error" in result && <p className="text-sm text-red-600">{result.error}</p>}
         {result && "notFound" in result && (
           <p className="text-sm text-charcoal-ink/60">
-            We don&apos;t have a specific suggestion for that yet — generally affordable everyday
+            We don&apos;t have a specific suggestion for that yet. Generally affordable everyday
             options include beans, eggs, garri and seasonal vegetables.
           </p>
         )}

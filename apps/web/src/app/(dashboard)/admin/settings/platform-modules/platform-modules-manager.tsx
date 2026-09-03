@@ -55,7 +55,7 @@ export function PlatformModulesManager({ modules }: { modules: PlatformModuleRow
               <>
                 {m.activation_note && (
                   <p className="text-sm text-charcoal-ink/70">
-                    Activated {m.enabled_at ? new Date(m.enabled_at).toLocaleString() : ""} —{" "}
+                    Activated {m.enabled_at ? new Date(m.enabled_at).toLocaleString() : ""}:{" "}
                     {m.activation_note}
                   </p>
                 )}
@@ -70,7 +70,7 @@ export function PlatformModulesManager({ modules }: { modules: PlatformModuleRow
             ) : (
               <>
                 <Textarea
-                  placeholder="Why now — e.g. signed contract with Reliance HMO, go-live 2026-09-01"
+                  placeholder="Why now (e.g. signed contract with Reliance HMO, go-live 2026-09-01)"
                   value={notes[m.key] ?? ""}
                   onChange={(e) => setNotes((prev) => ({ ...prev, [m.key]: e.target.value }))}
                   rows={2}

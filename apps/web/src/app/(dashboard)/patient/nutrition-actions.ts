@@ -247,7 +247,7 @@ export async function requestNutritionReferralAction(
   const risk = detectNutritionRisk(conditions, recentAnalyses);
   const riskReason = risk.reasons.map((r) => RISK_REASON_LABELS[r]).join(" ");
   const reason =
-    [parsed.data.note, riskReason].filter((s): s is string => Boolean(s && s.trim())).join(" — ") ||
+    [parsed.data.note, riskReason].filter((s): s is string => Boolean(s && s.trim())).join("; ") ||
     "Patient requested nutrition support.";
 
   const row: TablesInsert<"nutrition_referrals"> = {
@@ -281,7 +281,7 @@ export async function getBudgetAlternativeAction(foodQuery: string): Promise<Bud
 
   const catalogue = await fetchFoodCatalogue(ctx.supabase);
   if (catalogue.length === 0) {
-    return { error: "Couldn't load the food list right now — try again shortly." };
+    return { error: "Couldn't load the food list right now. Try again shortly." };
   }
 
   const suggestion = suggestBudgetAlternative(parsed.data.food_query, catalogue);
@@ -331,7 +331,7 @@ export async function generateMealPlanAction(
 
   const catalogue = await fetchFoodCatalogue(ctx.supabase);
   if (catalogue.length === 0) {
-    return { status: "error", error: "Couldn't load the food list right now — try again shortly." };
+    return { status: "error", error: "Couldn't load the food list right now. Try again shortly." };
   }
 
   const result = await generateMealPlan({
@@ -365,7 +365,7 @@ export async function generateMealPlanAction(
       error:
         result.reason === "unavailable"
           ? "Meal plan generation isn't switched on yet."
-          : "Couldn't generate a plan right now — please try again.",
+          : "Couldn't generate a plan right now. Please try again.",
     };
   }
 

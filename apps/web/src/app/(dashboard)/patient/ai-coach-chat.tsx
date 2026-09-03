@@ -196,7 +196,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         {limitReached && (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
             <p className="text-xs text-charcoal-ink/70">
-              Need more room today? A 30-day pass raises your daily message limit — buy again any
+              Need more room today? A 30-day pass raises your daily message limit. Buy again any
               time, no auto-renewal.
             </p>
             <Button size="sm" variant="outline" asChild>
@@ -234,7 +234,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
           )}
           {handoff.status === "done" && (
             <p className="text-xs text-charcoal-ink">
-              Sent — your care team has what you&apos;ve talked about here.{" "}
+              Sent. Your care team has what you&apos;ve talked about here.{" "}
               <Link href="/patient/messages" className="text-brand-green underline">
                 Continue in Messages
               </Link>
@@ -243,7 +243,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
           )}
           {handoff.status === "error" && (
             <p className="text-xs text-red-600">
-              {handoff.error} — you can also message your care team directly from{" "}
+              {handoff.error}. You can also message your care team directly from{" "}
               <Link href="/patient/messages" className="underline">
                 Messages
               </Link>

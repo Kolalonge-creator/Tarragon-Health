@@ -190,7 +190,7 @@ export async function submitConsultationPrep(
     p_notes: notes.data,
   });
   if (error) return { error: error.message };
-  return { message: "Saved — your care team will see this before the visit." };
+  return { message: "Saved. Your care team will see this before the visit." };
 }
 
 export type SubmitFeedbackState = { error?: string; message?: string } | undefined;

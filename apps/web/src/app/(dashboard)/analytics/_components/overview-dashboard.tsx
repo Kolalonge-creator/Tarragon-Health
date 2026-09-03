@@ -50,7 +50,7 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
   const bannerCopy =
     bannerParts.join(", ") +
     (openRisk > 0
-      ? ` — ${formatNumber(openRisk)} open risk item${openRisk === 1 ? "" : "s"} still need review.`
+      ? `. ${formatNumber(openRisk)} open risk item${openRisk === 1 ? "" : "s"} still need review.`
       : ".");
 
   return (

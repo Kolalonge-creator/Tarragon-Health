@@ -85,7 +85,7 @@ export default async function AdolescentHealthPage() {
         title="Adolescent Health"
         icon={NAV_ICON.review}
         backTo={{ href: "/patient", label: "Dashboard" }}
-        description="A private, whole-life check-in — home, school, activity, and how you're really doing — plus your path toward looking after your own care as you get older."
+        description="A private, whole-life check-in (home, school, activity, and how you're really doing), plus your path toward looking after your own care as you get older."
       />
 
       {(ageBand === "younger_adolescent" || ageBand === "older_adolescent") && lastScreen && (
@@ -115,7 +115,7 @@ export default async function AdolescentHealthPage() {
             <p>
               We plan to move your care fully into your own hands by around age{" "}
               {transitionPlan.target_transition_age}. Your care team will walk you through this
-              gradually — there&apos;s nothing to do here yourself yet.
+              gradually. There&apos;s nothing to do here yourself yet.
             </p>
             <ol className="flex flex-wrap gap-2 pt-1">
               {TRANSITION_STAGES.map((stage) => {

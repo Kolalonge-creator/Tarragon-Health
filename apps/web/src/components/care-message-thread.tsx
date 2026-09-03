@@ -237,7 +237,7 @@ export function CareMessageThread({
           )}
           {showEmergencyNotice && (
             <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900">
-              Your care team reads messages here during working hours — this isn&apos;t a monitored
+              Your care team reads messages here during working hours. This isn&apos;t a monitored
               emergency line. If something feels urgent right now, use the emergency guidance on
               your dashboard instead of waiting for a reply here.
             </p>

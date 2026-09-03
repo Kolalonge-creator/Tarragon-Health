@@ -42,7 +42,7 @@ export function DeviceShop() {
         <CardContent className="space-y-2 pt-6 text-sm text-charcoal-ink/70">
           <p>
             These are third-party devices Tarragon has clinically vetted for accuracy and app
-            compatibility — Tarragon doesn&apos;t sell or ship them itself, and doesn&apos;t earn
+            compatibility. Tarragon doesn&apos;t sell or ship them itself, and doesn&apos;t earn
             anything if you buy one. Get one from any retailer you trust, or log any reading by
             hand in Vitals &amp; symptoms at any time, with any device.
           </p>
@@ -54,7 +54,7 @@ export function DeviceShop() {
       {catalogue && catalogue.length === 0 && (
         <Card>
           <CardContent className="pt-6 text-sm text-charcoal-ink/60">
-            We&apos;re still finishing testing on our recommended devices — check back soon. In
+            We&apos;re still finishing testing on our recommended devices. Check back soon. In
             the meantime, log any reading by hand in{" "}
             <Link href="/patient/vitals" className="text-brand-green underline">
               Vitals &amp; symptoms

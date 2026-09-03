@@ -117,6 +117,17 @@ export async function postHealthSamples(
   });
 }
 
+/**
+ * The one error message request() returns when it never got a usable
+ * response from the server (network drop, timeout, or an unparseable
+ * body). offline-vitals-queue.ts compares against this exact value to
+ * decide "the device is offline, stop draining the queue" — which is why
+ * it is a shared constant rather than a literal repeated in both files: a
+ * copy edit to the patient-facing wording must not silently break that
+ * retry classification.
+ */
+export const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
+
 type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 /** Nigerian mobile networks routinely go slow-but-not-dead rather than
@@ -180,7 +191,7 @@ async function request<T>(
       await sleep(RETRY_DELAY_MS);
       response = await fetchWithTimeout(url, init);
     } catch {
-      return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+      return { ok: false, error: NETWORK_ERROR_MESSAGE };
     }
   }
 
@@ -191,6 +202,6 @@ async function request<T>(
     }
     return { ok: true, data: json };
   } catch {
-    return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+    return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
 }

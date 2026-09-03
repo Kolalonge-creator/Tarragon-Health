@@ -110,7 +110,7 @@ function OrderCard({ order }: { order: OrderRow }) {
         <p className={order.status === "sample_rejected" ? "text-xs text-charcoal-ink/60" : "text-xs text-brand-green"}>
           {order.status === "resulted" && "Result uploaded."}
           {order.status === "cancelled" && "This order was cancelled."}
-          {order.status === "sample_rejected" && "Sample rejected — the patient has been notified."}
+          {order.status === "sample_rejected" && "Sample rejected. The patient has been notified."}
         </p>
       ) : (
         <>

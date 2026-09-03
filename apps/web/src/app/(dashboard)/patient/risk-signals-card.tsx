@@ -66,7 +66,7 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
       <CardContent className="space-y-2">
         {elevated.length === 0 ? (
           <p className="text-sm text-charcoal-ink/70">
-            Your recent readings and risk checks are within the normal range —
+            Your recent readings and risk checks are within the normal range:
             nothing here needs extra attention right now.
           </p>
         ) : (

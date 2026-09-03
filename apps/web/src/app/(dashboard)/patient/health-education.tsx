@@ -89,7 +89,7 @@ function ContentFeedback({
     return (
       <p className="text-xs text-charcoal-ink/50">
         {sent === "report_incorrect"
-          ? "Thanks — this has been flagged for our clinical team to check."
+          ? "Thanks. This has been flagged for our clinical team to check."
           : "Thanks for the feedback."}
       </p>
     );

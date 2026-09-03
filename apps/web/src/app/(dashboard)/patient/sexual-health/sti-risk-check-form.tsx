@@ -60,7 +60,7 @@ export function StiRiskCheckForm() {
                 ))}
               </ul>
               <p className="text-charcoal-ink/60">
-                This isn&apos;t a diagnosis — just a nudge based on what you told us. Testing is
+                This isn&apos;t a diagnosis, just a nudge based on what you told us. Testing is
                 quick, confidential, and a doctor reviews every result.
               </p>
               <Button type="button" size="sm" asChild>
@@ -69,8 +69,8 @@ export function StiRiskCheckForm() {
             </>
           ) : (
             <p>
-              Nothing here points to needing a test right now. If anything changes — a new
-              partner, a new symptom, anything at all — you can always come back and check again.
+              Nothing here points to needing a test right now. If anything changes (a new
+              partner, a new symptom, anything at all), you can always come back and check again.
             </p>
           )}
         </CardContent>

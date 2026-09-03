@@ -90,7 +90,7 @@ export default async function EmergencyCardPage() {
             <CardTitle>Your printable card</CardTitle>
             <CardDescription>
               Print it, fold it into your wallet, or save the page to your phone. This is just
-              your own record — the same as printing your Health Passport — so there is nothing
+              your own record (the same as printing your Health Passport), so there is nothing
               extra to agree to here.
             </CardDescription>
           </CardHeader>
@@ -104,7 +104,7 @@ export default async function EmergencyCardPage() {
               <li>Your emergency contact</li>
             </ul>
             <p className="text-sm text-charcoal-ink/70">
-              Nothing else — no test results, no notes from your care team, no history. A QR code
+              Nothing else: no test results, no notes from your care team, no history. A QR code
               on the printed card carries the same facts as plain text, so any phone&rsquo;s
               camera can read it with no app and no internet.
             </p>
@@ -124,14 +124,14 @@ export default async function EmergencyCardPage() {
             <CardDescription>
               {active
                 ? `Active. Anyone with this card or link can see it, without signing in. Valid until ${new Date(active.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`
-                : "Optional, and separate from your printed card. Useful if someone abroad wants to check your details are current — but unlike the printed card, this stays reachable by anyone who has the link, for as long as it's active."}
+                : "Optional, and separate from your printed card. Useful if someone abroad wants to check your details are current, but unlike the printed card, this stays reachable by anyone who has the link, for as long as it's active."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {expiresSoon ? (
               <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
-                This link expires soon. Replace it below to keep it working, or let it lapse —
-                your printed card is unaffected either way.
+                This link expires soon. Replace it below to keep it working, or let it lapse.
+                Your printed card is unaffected either way.
               </p>
             ) : null}
 
@@ -196,7 +196,7 @@ export default async function EmergencyCardPage() {
                   ))}
                 </ul>
                 <p className="mt-2 text-xs text-charcoal-ink/55">
-                  If any of these look wrong, replace your link — the old one stops working
+                  If any of these look wrong, replace your link. The old one stops working
                   straight away.
                 </p>
               </>

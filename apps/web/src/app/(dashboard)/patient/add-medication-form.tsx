@@ -229,7 +229,7 @@ export function AddMedicationForm({
           {controlledInfo && (
             <div className="space-y-2 rounded-md border border-red-200 bg-red-50/60 p-2.5">
               <p className="text-xs font-medium text-red-800">
-                Controlled/restricted medicine — {controlledInfo.label}
+                Controlled/restricted medicine: {controlledInfo.label}
               </p>
               <p className="text-xs text-red-800/80">{controlledInfo.note}</p>
               <label className="flex items-start gap-2 text-sm text-charcoal-ink">

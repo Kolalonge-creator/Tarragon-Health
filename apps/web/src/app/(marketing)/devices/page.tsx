@@ -58,7 +58,7 @@ export default function DevicesPage() {
 
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Don&apos;t have a compatible device yet, or would rather not buy one? Every reading can
-          be logged by hand in the app too; a device just makes it faster.{" "}
+          be logged by hand in the app too. A device just makes it faster.{" "}
           <Link href="/signup" className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Get started
           </Link>

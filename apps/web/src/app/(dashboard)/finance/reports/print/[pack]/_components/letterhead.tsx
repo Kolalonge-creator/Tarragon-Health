@@ -39,7 +39,7 @@ export function ReportLetterhead({ title, subtitle }: { title: string; subtitle:
         </div>
         <div className="shrink-0 text-right text-[11px] text-charcoal-ink/50">
           <p>Generated {generatedAt}</p>
-          <p>Not a lodged filing — for internal use</p>
+          <p>Not a lodged filing, for internal use</p>
         </div>
       </div>
       <div className="mt-4">

@@ -46,7 +46,7 @@ function RequestRow({ request }: { request: DataDeletionRequestWithPatient }) {
             {request.patient?.patient_number ? ` · ${request.patient.patient_number}` : ""}
           </p>
           <p className="text-xs text-charcoal-ink/60">
-            {DATA_DELETION_SCOPE_LABEL[request.scope]} — requested {formatDate(request.requested_at)}
+            {DATA_DELETION_SCOPE_LABEL[request.scope]}, requested {formatDate(request.requested_at)}
           </p>
           {request.reason && (
             <p className="mt-1 text-xs text-charcoal-ink/70">Reason: {request.reason}</p>
@@ -147,7 +147,7 @@ export function DataDeletionRequestsDashboard({ organisationId }: { organisation
           Data deletion requests
         </h1>
         <p className="text-sm text-charcoal-ink/60">
-          55.19 — patient-initiated requests to delete device/wearable data. Processing deletes
+          55.19: patient-initiated requests to delete device/wearable data. Processing deletes
           wearable readings and, depending on scope, disconnects wearables or unpairs Bluetooth
           devices. This never touches a patient&apos;s vitals or medical record.
         </p>

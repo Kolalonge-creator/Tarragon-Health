@@ -95,7 +95,7 @@ export function ExceptionQueue({ initialRows }: { initialRows: OpsExceptionRow[]
   if (initialRows.length === 0) {
     return (
       <p className="rounded-lg bg-soft-sage/40 p-4 text-sm text-charcoal-ink/70">
-        Nothing needs attention right now — you&apos;re caught up.
+        Nothing needs attention right now. You&apos;re caught up.
       </p>
     );
   }

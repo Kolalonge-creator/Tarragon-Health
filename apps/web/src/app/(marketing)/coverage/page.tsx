@@ -122,8 +122,8 @@ export default async function CoveragePage() {
                     >
                       <span className="font-medium text-charcoal-ink">
                         {location.name}
-                      </span>
-                      : {PARTNER_TYPE_DESCRIPTION[location.type]},{" "}
+                      </span>{" "}
+                      ({PARTNER_TYPE_DESCRIPTION[location.type]}),{" "}
                       {location.address}
                     </li>
                   ))}

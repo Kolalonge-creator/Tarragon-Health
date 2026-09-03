@@ -69,8 +69,8 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
       {expanded && (
         <CardContent className="pt-0">
           <p className="mb-4 text-sm text-charcoal-ink/70">
-            Tap anything you&apos;re experiencing. These need urgent assessment during pregnancy —
-            we&apos;ll tell you what to do; TarragonHealth does not provide emergency care, so you
+            Tap anything you&apos;re experiencing. These need urgent assessment during pregnancy.
+            We&apos;ll tell you what to do; TarragonHealth does not provide emergency care, so you
             should go to your nearest hospital.
           </p>
           <form action={formAction} className="space-y-4">

@@ -43,7 +43,7 @@ export async function createEmployerOrgAction(
   if (acctError) return { error: acctError.message };
 
   revalidatePath("/admin/employers");
-  return { message: `Employer "${parsed.data.name}" registered — continue its onboarding below.` };
+  return { message: `Employer "${parsed.data.name}" registered. Continue its onboarding below.` };
 }
 
 const employerProfileSchema = z.object({

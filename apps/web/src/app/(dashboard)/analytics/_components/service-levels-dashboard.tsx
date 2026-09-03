@@ -44,7 +44,7 @@ export function ServiceLevelsDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Lab turnaround and prescription fulfilment aren&rsquo;t shown — self-arranged fulfilment
+        Lab turnaround and prescription fulfilment aren&rsquo;t shown: self-arranged fulfilment
         means Tarragon can&rsquo;t reliably observe when a lab result or prescription is actually
         completed off-platform.
       </p>

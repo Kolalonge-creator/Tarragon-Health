@@ -1,6 +1,6 @@
 import * as SQLite from "expo-sqlite";
 import * as Crypto from "expo-crypto";
-import { postVitalReading, type VitalReadingPayload } from "./api";
+import { NETWORK_ERROR_MESSAGE, postVitalReading, type VitalReadingPayload } from "./api";
 import { recordSyncError } from "./sync-diagnostics";
 
 /**
@@ -98,8 +98,6 @@ export interface FlushResult {
   stoppedOffline: boolean;
 }
 
-const NETWORK_ERROR = "Couldn't reach the server. Check your connection and try again.";
-
 /** Drains the queue oldest-first. A network-level failure (no response at
  * all) stops the whole run — the rest of the queue is left for the next
  * attempt rather than retried immediately against a connection that's
@@ -117,7 +115,7 @@ export async function flushPendingVitals(): Promise<FlushResult> {
       synced += 1;
       continue;
     }
-    if (result.error === NETWORK_ERROR) {
+    if (result.error === NETWORK_ERROR_MESSAGE) {
       recordSyncError("offline_vitals", "flush:network", result.error);
       return { synced, remaining: pending.length - synced, stoppedOffline: true };
     }

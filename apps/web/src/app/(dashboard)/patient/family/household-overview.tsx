@@ -91,7 +91,7 @@ function HouseholdMemberRow({ member }: { member: HouseholdMember }) {
           </div>
         ) : (
           <p className="text-xs text-charcoal-ink/50">
-            Following logistics only — ask them to share their health information from their own
+            Following logistics only. Ask them to share their health information from their own
             account to see more here.
           </p>
         )}

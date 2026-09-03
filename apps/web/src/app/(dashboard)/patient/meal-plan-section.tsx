@@ -67,8 +67,8 @@ export function MealPlanSection({
       <CardContent className="space-y-4">
         {isCkd ? (
           <p className="text-sm text-charcoal-ink/70">
-            CKD nutrition needs careful, individual balancing of sodium, potassium and phosphorus
-            — a generated generic plan isn&apos;t the right tool here. Use the nutrition support
+            CKD nutrition needs careful, individual balancing of sodium, potassium and phosphorus.
+            A generated generic plan isn&apos;t the right tool here. Use the nutrition support
             request above to get a plan built around your own lab results with a dietitian.
           </p>
         ) : !generationConfigured ? (
@@ -76,11 +76,11 @@ export function MealPlanSection({
         ) : (
           <>
             <div className="flex items-center gap-2">
-              <Badge variant="grey">AI-generated — a starting point, not a prescription</Badge>
+              <Badge variant="grey">AI-generated: a starting point, not a prescription</Badge>
             </div>
             <p className="text-sm text-charcoal-ink/70">
               Generated from our Nigerian food list and tailored to your active conditions. Swap
-              anything that doesn&apos;t suit you — it&apos;s a coaching starting point, not a rule.
+              anything that doesn&apos;t suit you. It&apos;s a coaching starting point, not a rule.
             </p>
 
             <form action={formAction} className="space-y-3">
@@ -155,7 +155,7 @@ export function MealPlanSection({
                           <ul className="mt-1 space-y-1">
                             {items.map((item, i) => (
                               <li key={i} className="text-sm text-charcoal-ink">
-                                {item.foodName} — {item.quantity} {item.unit}
+                                {item.foodName}: {item.quantity} {item.unit}
                                 {item.quantity > 1 ? "s" : ""}
                                 {item.rationale && (
                                   <span className="text-charcoal-ink/60"> · {item.rationale}</span>
@@ -191,7 +191,7 @@ export function MealPlanSection({
 
             {!plan && !isLoading && mealPlanRow?.ai_status === "failed" && (
               <p className="text-sm text-charcoal-ink/60">
-                Couldn&apos;t generate a plan last time — give it another try.
+                Couldn&apos;t generate a plan last time. Give it another try.
               </p>
             )}
           </>

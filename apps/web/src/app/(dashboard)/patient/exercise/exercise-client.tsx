@@ -113,8 +113,8 @@ function ReadinessCard({
             {screen.cleared_for_intensive
               ? "Your care team has cleared you for a more intensive programme."
               : screen.any_flag
-                ? "You flagged something worth a clinician's look before starting a moderate or vigorous programme — your care team will review it."
-                : "No concerns flagged — you're clear to start a moderate-intensity programme. Vigorous programmes still need a clinician's sign-off."}
+                ? "You flagged something worth a clinician's look before starting a moderate or vigorous programme. Your care team will review it."
+                : "No concerns flagged. You're clear to start a moderate-intensity programme. Vigorous programmes still need a clinician's sign-off."}
           </p>
         )}
         {!screen && !open && (

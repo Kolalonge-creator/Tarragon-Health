@@ -20,8 +20,8 @@ export default async function ScreeningDaysSettingsPage() {
         <p className="text-charcoal-ink/60">
           Confirm a discounted price for a church, market association, cooperative, or SME&apos;s
           bulk booking, then issue each attendee their own named voucher once the group has paid
-          in full. Getting the phlebotomist to the venue on the day stays a manual call to Synlab —
-          this only tracks the booking and the money.
+          in full. Getting the phlebotomist to the venue on the day stays a manual call to Synlab.
+          This only tracks the booking and the money.
         </p>
       </div>
       <ScreeningDaysDashboard />

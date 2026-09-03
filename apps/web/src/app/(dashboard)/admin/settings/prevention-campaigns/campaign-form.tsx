@@ -31,7 +31,7 @@ export function CampaignForm() {
         <CardTitle className="text-base">New campaign</CardTitle>
         <CardDescription>
           Created as a draft, visible only to staff. Eligibility is evaluated per patient against
-          their own profile and current risk tiers (e.g. field <code>hypertension_tier</code>) —
+          their own profile and current risk tiers (e.g. field <code>hypertension_tier</code>),
           never against another patient&apos;s data.
         </CardDescription>
       </CardHeader>

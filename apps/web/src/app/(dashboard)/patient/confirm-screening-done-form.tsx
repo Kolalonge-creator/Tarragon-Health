@@ -146,7 +146,7 @@ export function ConfirmScreeningDoneForm({
           </form>
         ) : (
           <p className="text-xs text-charcoal-ink/60">
-            Result uploaded — your care team will review it.
+            Result uploaded. Your care team will review it.
           </p>
         )}
       </div>

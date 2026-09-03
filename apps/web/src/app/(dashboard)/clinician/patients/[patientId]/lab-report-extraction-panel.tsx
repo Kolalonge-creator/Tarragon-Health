@@ -403,7 +403,7 @@ export function LabReportExtractionPanel({
                 {blockedRows.map((row, i) => (
                   <li key={`${row.reportedLabel}-${i}`}>
                     {row.reportedLabel}: {row.valueText ?? row.value ?? "—"}{" "}
-                    {row.unit ?? ""} — {STATUS_COPY[row.status].label}
+                    {row.unit ?? ""} ({STATUS_COPY[row.status].label})
                   </li>
                 ))}
               </ul>
@@ -433,8 +433,8 @@ export function LabReportExtractionPanel({
         </Button>
       </div>
       <p className="text-[0.65rem] text-charcoal-ink/50">
-        Filing records these numbers on the patient&rsquo;s record. It does not record a finding —
-        use the screening result form for that.
+        Filing records these numbers on the patient&rsquo;s record. It does not record a finding.
+        Use the screening result form for that.
       </p>
     </div>
   );

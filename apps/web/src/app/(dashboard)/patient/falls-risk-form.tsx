@@ -26,7 +26,7 @@ export function FallsRiskForm() {
         ))}
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Thanks — flagged for your care team.</p>}
+      {state?.success && <p className="text-sm text-brand-green">Thanks. Flagged for your care team.</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save"}
       </Button>

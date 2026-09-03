@@ -83,7 +83,7 @@ export function NotificationTemplatesManager() {
           <CardHeader>
             <CardTitle>Sent but not registered</CardTitle>
             <CardDescription>
-              These templates were enqueued in the last 30 days but have no catalogue entry —
+              These templates were enqueued in the last 30 days but have no catalogue entry:
               a gap in documentation, not necessarily a broken send.
             </CardDescription>
           </CardHeader>
@@ -107,11 +107,11 @@ export function NotificationTemplatesManager() {
         <CardHeader>
           <CardTitle>Template registry</CardTitle>
           <CardDescription>
-            Every notification&apos;s governance metadata — category, urgency, audience,
+            Every notification&apos;s governance metadata: category, urgency, audience,
             default channels, and clinical sign-off status. Deliberately not a live kill
             switch: for all but two templates, the actual copy still renders from the send
             pipeline&apos;s own code regardless of the Active toggle here (see each
-            template&apos;s design notes for why) — this is the catalogue admins and
+            template&apos;s design notes for why). This is the catalogue admins and
             compliance read, not an editor for what actually goes out.
           </CardDescription>
         </CardHeader>

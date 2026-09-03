@@ -55,7 +55,7 @@ export function AntenatalCard({
 
         {estimate ? (
           <p className="text-sm text-charcoal-ink/80">
-            Estimated {estimate.weeks} weeks pregnant — this is an estimate, not a confirmed clinical
+            Estimated {estimate.weeks} weeks pregnant. This is an estimate, not a confirmed clinical
             dating. Estimated due date: {new Date(estimate.estimatedDueDate).toLocaleDateString()}.
           </p>
         ) : (

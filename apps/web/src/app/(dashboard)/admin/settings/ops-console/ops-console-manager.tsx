@@ -220,7 +220,7 @@ export function OpsConsoleManager() {
         <CardHeader>
           <CardTitle>Exception queue</CardTitle>
           <CardDescription>
-            Everything past its own SLA or otherwise stuck, worst first, across every domain —
+            Everything past its own SLA or otherwise stuck, worst first, across every domain:
             the single worklist this console exists to give you.
           </CardDescription>
         </CardHeader>

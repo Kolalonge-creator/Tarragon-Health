@@ -554,7 +554,7 @@ export function ClinicalStaffManager() {
               onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)}
             />
             <p className="text-xs text-charcoal-ink/60">
-              Shown on this doctor&apos;s per-case attribution to patients — a professional headshot,
+              Shown on this doctor&apos;s per-case attribution to patients: a professional headshot,
               not required.
             </p>
           </div>

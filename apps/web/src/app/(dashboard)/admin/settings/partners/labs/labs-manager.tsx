@@ -82,7 +82,7 @@ function ContactEditor({ lab }: { lab: LabProvider }) {
     <div className="space-y-2 rounded-md bg-charcoal-ink/5 p-3">
       {isPlaceholder && (
         <p className="text-xs text-amber-700">
-          This is a seeded placeholder address — order notifications for this
+          This is a seeded placeholder address: order notifications for this
           lab won&apos;t reach anyone real until it&apos;s replaced.
         </p>
       )}
@@ -240,7 +240,7 @@ function PartnerLoginLinker({
         </div>
       ) : (
         <p className="text-xs text-charcoal-ink/50">
-          No unlinked lab_partner logins available — provision one at{" "}
+          No unlinked lab_partner logins available. Provision one at{" "}
           <span className="font-medium">Admin → Members</span> (role: Lab
           Partner) first.
         </p>
@@ -258,10 +258,10 @@ function LabCommissionRates() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Lab tests &amp; bundles — commission rates</CardTitle>
+        <CardTitle>Lab tests &amp; bundles: commission rates</CardTitle>
         <CardDescription>
           This is what actually drives every &quot;lab&quot; commission on the
-          Commissions dashboard — a lab order&apos;s commission is computed from
+          Commissions dashboard: a lab order&apos;s commission is computed from
           the bundle it books, not from the lab provider itself. Changing a rate
           here only affects orders placed after the change.
         </CardDescription>

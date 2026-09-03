@@ -228,7 +228,7 @@ export const PAID_SERVICES: PaidService[] = [
     name: "12-week doctor-supported programme",
     price: "₦50,000",
     description:
-      "Twelve weeks of actual clinical management for hypertension and diabetes: a doctor sets your care plan, reviews your readings, adjusts your medication, and is alerted when one of your readings is dangerous. It also covers asking a doctor questions in writing and having your uploaded results read back to you for the length of the programme. Managing weight alongside either condition is part of the same review, at no extra charge; weight and lifestyle coaching on their own are already free, see above. The self-monitoring track of the same programme, with no doctor attached, stays free.",
+      "Twelve weeks of actual clinical management for hypertension and diabetes: a doctor sets your care plan, reviews your readings, adjusts your medication, and is alerted when one of your readings is dangerous. It also covers asking a doctor questions in writing and having your uploaded results read back to you for the length of the programme. Managing weight alongside either condition is part of the same review, at no extra charge. Weight and lifestyle coaching on their own are already free, see above. The self-monitoring track of the same programme, with no doctor attached, stays free.",
     breakdown: [
       "Three doctor reviews across the twelve weeks, ₦10,000 each",
       "One medication review, ₦10,000",
@@ -245,7 +245,7 @@ export const PAID_SERVICES: PaidService[] = [
       },
     ],
     optionalNote:
-      "Essential bloods before you start are optional, and recommended so your doctor has a real baseline. You can take the request to any laboratory you choose and pay them directly, with Tarragon adding nothing on top. Or, where we have a contracted partner lab, opt in to have Tarragon bill it directly for you instead. Either way you see the exact price before anything is charged.",
+      "Essential bloods before you start are optional, and recommended so your doctor has a real baseline. You can take the request to any laboratory you choose and pay them directly (Tarragon adds nothing on top) or, where we have a contracted partner lab, opt in to have Tarragon bill it directly for you instead. Either way you see the exact price before anything is charged.",
     availability: "The one recurring thing we sell. Buy it again when it ends; nothing renews on its own.",
   },
   {
@@ -485,7 +485,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Which conditions does Tarragon manage, and where does weight management fit?",
     answer:
-      "Hypertension and diabetes. The 12-week doctor-supported programme (₦50,000) is where a doctor actually manages either condition with you — reviewing your readings, adjusting your medication, and staying alert to a dangerous one. If you're managing your weight alongside hypertension or diabetes, that's part of the same review at no extra charge. Weight management on its own has its own free coaching track (see above), not a paid doctor-supported one, since it doesn't need a doctor's time the way medication adjustment does.",
+      "Hypertension and diabetes. The 12-week doctor-supported programme (₦50,000) is where a doctor actually manages either condition with you: reviewing your readings, adjusting your medication, and staying alert to a dangerous one. If you're managing your weight alongside hypertension or diabetes, that's part of the same review at no extra charge. Weight management on its own has its own free coaching track (see above), not a paid doctor-supported one, since it doesn't need a doctor's time the way medication adjustment does.",
   },
   {
     question: "Will my card ever be charged automatically?",

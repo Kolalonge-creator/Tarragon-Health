@@ -87,13 +87,13 @@ export function RegionGate({
         {label}: coming soon in {state}
       </p>
       <p className="mt-0.5 text-xs text-charcoal-ink/50">
-        We&apos;re not live in {state} yet. You can keep using everything else in the app — and
+        We&apos;re not live in {state} yet. You can keep using everything else in the app, and
         we&apos;ll let you know the moment {label.toLowerCase()} are available near you.
       </p>
       <div className="mt-2">
         {onList ? (
           <p className="text-xs font-medium text-brand-green">
-            ✓ You&apos;re on the list — we&apos;ll be in touch when we launch in {state}.
+            ✓ You&apos;re on the list. We&apos;ll be in touch when we launch in {state}.
           </p>
         ) : (
           <Button
@@ -112,7 +112,7 @@ export function RegionGate({
           </Button>
         )}
         {joinWaitlist.isError && !onList && (
-          <p className="mt-1 text-xs text-red-600">Couldn&apos;t add you just now — please try again.</p>
+          <p className="mt-1 text-xs text-red-600">Couldn&apos;t add you just now. Please try again.</p>
         )}
       </div>
     </div>

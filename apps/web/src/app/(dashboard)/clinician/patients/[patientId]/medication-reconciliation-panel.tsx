@@ -58,7 +58,7 @@ export function MedicationReconciliationPanel({ patientId }: { patientId: string
           <>
             <Badge variant="amber">Awaiting patient confirmation</Badge>
             <p className="text-sm text-charcoal-ink/70">
-              This patient hasn&apos;t yet confirmed their medication list is accurate — ask them
+              This patient hasn&apos;t yet confirmed their medication list is accurate. Ask them
               to confirm it (in the app) before reconciling.
             </p>
           </>
@@ -69,7 +69,7 @@ export function MedicationReconciliationPanel({ patientId }: { patientId: string
             <Badge variant="green">Patient confirmed</Badge>
             <p className="text-sm text-charcoal-ink/70">
               Confirmed {new Date(open.patient_confirmed_at).toLocaleDateString()}
-              {open.patient_note ? ` — patient noted: "${open.patient_note}"` : ""}.
+              {open.patient_note ? ` (patient noted: "${open.patient_note}")` : ""}.
             </p>
             <div className="space-y-1.5">
               <Label htmlFor="reconciliation_note">

@@ -59,7 +59,7 @@ export function EngagementOutcomesCard({
               <StatTile
                 key={bucket.tier}
                 icon={NAV_ICON.analytics}
-                label={`${TIER_LABEL[bucket.tier]} — in BP range`}
+                label={`${TIER_LABEL[bucket.tier]}: in BP range`}
                 value={`${Math.round((bucket.bpInRangeCount / bucket.cohortSize) * 100)}%`}
                 unit={`of ${bucket.cohortSize} monitored`}
               />

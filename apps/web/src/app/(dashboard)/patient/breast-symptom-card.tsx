@@ -46,9 +46,9 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Breast health — report a symptom</CardTitle>
+        <CardTitle>Breast health: report a symptom</CardTitle>
         <CardDescription>
-          Noticed something new? Report it here for clinical assessment — separate from your
+          Noticed something new? Report it here for clinical assessment, separate from your
           routine breast screening.
         </CardDescription>
       </CardHeader>
@@ -106,7 +106,7 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
             <p className="text-sm text-brand-green">
-              Reported — your care team has been notified for clinical assessment.
+              Reported. Your care team has been notified for clinical assessment.
             </p>
           )}
 
@@ -122,7 +122,7 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
             </p>
             {reports.data.slice(0, 5).map((r) => (
               <p key={r.id} className="text-sm text-charcoal-ink/80">
-                {new Date(r.created_at).toLocaleDateString()} —{" "}
+                {new Date(r.created_at).toLocaleDateString()}:{" "}
                 {r.symptom_types.map((t) => BREAST_SYMPTOM_LABEL[t]).join(", ")}
               </p>
             ))}

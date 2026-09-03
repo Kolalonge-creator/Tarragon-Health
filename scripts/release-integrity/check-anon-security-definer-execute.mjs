@@ -59,6 +59,11 @@ const ALLOWLIST = new Set([
   "public.public_response_commitments()",
   // 20260731014200_public_service_coverage.sql -- public service-area coverage page.
   "public.public_service_coverage()",
+  // 20260902211636_payer_board_outcomes_report.sql (PR #462) -- revokes from public then
+  // grants anon explicitly, and its own DO-block asserts "anon may verify a document it
+  // holds, and may do nothing else": a third party holding a printed report checks the
+  // report-number + content-hash pair with no account and sees no figures.
+  "public.verify_payer_board_report(p_report_number text, p_content_hash text)",
 ]);
 
 const QUERY = `
@@ -79,6 +84,18 @@ order by n.nspname, p.proname;
 
 function sh(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 1024 * 1024 * 50, ...opts });
+}
+
+// `supabase db query --linked` occasionally dies after printing only "Initialising login
+// role..." (seen in CI 2026-09-03 while the identical call succeeded in a sibling job of the
+// same run) — transient management-API/CLI flake, not a config problem. One retry absorbs it.
+function shRetry(cmd, args, opts = {}) {
+  try {
+    return sh(cmd, args, opts);
+  } catch (err) {
+    console.log(`retrying once after transient failure: ${err instanceof Error ? err.message.split("\n")[0] : err}`);
+    return sh(cmd, args, opts);
+  }
 }
 
 function parseRows(raw) {
@@ -158,7 +175,7 @@ function main() {
 
   try {
     console.log(`Checking anon EXECUTE on SECURITY DEFINER functions in public/private schemas of project ${PROJECT_REF}...`);
-    const raw = sh("npx", ["--yes", "supabase", "db", "query", "--linked", "-f", queryFile, "--output-format", "json"], {
+    const raw = shRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "-f", queryFile, "--output-format", "json"], {
       env: { ...process.env },
     });
     const rows = parseRows(raw);

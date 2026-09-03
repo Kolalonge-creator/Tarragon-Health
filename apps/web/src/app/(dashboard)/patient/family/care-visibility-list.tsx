@@ -176,7 +176,7 @@ export function CareVisibilityList() {
                         Reproductive health
                       </label>
                       <p className="mt-1 text-xs text-charcoal-ink/60">
-                        Kept separate on purpose — turning on everything else above never
+                        Kept separate on purpose: turning on everything else above never
                         includes this. Cycle, pregnancy and related information stays private
                         unless you choose to share it here too.
                       </p>
