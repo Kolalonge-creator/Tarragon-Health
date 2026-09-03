@@ -2,14 +2,31 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 /**
- * The three anchors a patient can ask "help me understand this" about.
- * Each one always explains the patient's LATEST value for that kind+key --
- * matching how RiskSignalsCard/LipidProfileCard already present "latest"
- * data -- so no specific row id needs threading through the UI, and a past
- * reading never changing means the cache in patient_result_explanations
- * never goes stale.
+ * The anchors a patient can ask "help me understand this" about.
+ * "risk_score" / "lab_analyte" / "vitals" each explain the patient's LATEST
+ * value for that kind+key -- matching how RiskSignalsCard/LipidProfileCard
+ * already present "latest" data -- so no specific row id needs threading
+ * through the UI, and a past reading never changing means the cache in
+ * patient_result_explanations never goes stale.
+ *
+ * "medication" / "care_plan_item" / "condition" / "allergy" all key on a
+ * SPECIFIC row id instead (medications.id / care_plans.id /
+ * patient_conditions.id / patient_allergies.id) -- a patient can have
+ * several of any of these at once, so there is no single "latest" to
+ * collapse to the way the other three kinds do. "condition" / "allergy"
+ * were added for spec §76.10/§76.3, see
+ * 20260829222759_result_explanations_condition_allergy_kinds.sql.
+ * "medication" / "care_plan_item" lean on `details` below instead of a
+ * latest/previous pair.
  */
-export type ExplainerKind = "risk_score" | "lab_analyte" | "vitals";
+export type ExplainerKind =
+  | "risk_score"
+  | "lab_analyte"
+  | "vitals"
+  | "medication"
+  | "care_plan_item"
+  | "condition"
+  | "allergy";
 
 export interface ResultSnapshot {
   kind: ExplainerKind;
@@ -19,6 +36,13 @@ export interface ResultSnapshot {
   latest: { value: string; unit: string | null; recordedAt: string };
   /** Prior value for trend framing, when one exists. */
   previous: { value: string; unit: string | null; recordedAt: string } | null;
+  /**
+   * Extra structured facts for a kind that isn't a single scalar reading
+   * (medication instructions, care-plan target ranges). Rendered as
+   * additional plain-text lines by formatResultSnapshotForPrompt -- same
+   * "only what's here reaches the model" discipline as latest/previous.
+   */
+  details?: Record<string, string>;
 }
 
 /**
@@ -65,6 +89,57 @@ export async function buildResultSnapshot(
     };
   }
 
+  if (kind === "medication") {
+    const { data } = await supabase
+      .from("medications")
+      .select("drug_name, dose, frequency, route, instructions, indication, created_at")
+      .eq("patient_id", patientId)
+      .eq("id", subjectKey)
+      .maybeSingle();
+    if (!data) return null;
+    const details: Record<string, string> = {};
+    if (data.route) details.route = data.route;
+    if (data.instructions) details.instructions = data.instructions;
+    if (data.indication) details.indication = data.indication;
+    return {
+      kind,
+      subjectKey,
+      label,
+      latest: {
+        value: [data.dose, data.frequency].filter(Boolean).join(", ") || "no dose/frequency on file",
+        unit: null,
+        recordedAt: data.created_at,
+      },
+      previous: null,
+      details,
+    };
+  }
+
+  if (kind === "care_plan_item") {
+    const { data } = await supabase
+      .from("care_plans")
+      .select("condition, status, target_ranges, notes, updated_at")
+      .eq("patient_id", patientId)
+      .eq("id", subjectKey)
+      .maybeSingle();
+    if (!data) return null;
+    const targetRanges = (data.target_ranges ?? {}) as Record<string, unknown>;
+    const details: Record<string, string> = {};
+    const targetEntries = Object.entries(targetRanges);
+    if (targetEntries.length > 0) {
+      details.target = targetEntries.map(([k, v]) => `${k}: ${v}`).join("; ");
+    }
+    if (data.notes) details.notes = data.notes;
+    return {
+      kind,
+      subjectKey,
+      label,
+      latest: { value: data.status, unit: null, recordedAt: data.updated_at },
+      previous: null,
+      details,
+    };
+  }
+
   if (kind === "lab_analyte") {
     const { data } = await supabase
       .from("lab_analyte_readings")
@@ -83,6 +158,55 @@ export async function buildResultSnapshot(
       previous: previous
         ? { value: String(previous.value), unit: previous.unit, recordedAt: previous.taken_at }
         : null,
+    };
+  }
+
+  if (kind === "condition") {
+    // subjectKey is a specific patient_conditions.id, not "latest" -- a
+    // patient can have several conditions on file at once (see the
+    // ExplainerKind doc comment above). created_at is selected purely as a
+    // type-safe final fallback for recordedAt (last_reviewed_at and
+    // date_identified are both nullable on this table; created_at is not).
+    const { data } = await supabase
+      .from("patient_conditions")
+      .select("status, last_reviewed_at, date_identified, created_at")
+      .eq("id", subjectKey)
+      .eq("patient_id", patientId)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      kind,
+      subjectKey,
+      label,
+      latest: {
+        value: data.status,
+        unit: null,
+        recordedAt: data.last_reviewed_at ?? data.date_identified ?? data.created_at,
+      },
+      previous: null,
+    };
+  }
+
+  if (kind === "allergy") {
+    // subjectKey is a specific patient_allergies.id, same "no single latest"
+    // reasoning as condition above.
+    const { data } = await supabase
+      .from("patient_allergies")
+      .select("reaction, severity, noted_at")
+      .eq("id", subjectKey)
+      .eq("patient_id", patientId)
+      .maybeSingle();
+    if (!data) return null;
+    return {
+      kind,
+      subjectKey,
+      label,
+      latest: {
+        value: data.reaction ?? data.severity ?? "recorded",
+        unit: null,
+        recordedAt: data.noted_at,
+      },
+      previous: null,
     };
   }
 
@@ -156,6 +280,11 @@ export function formatResultSnapshotForPrompt(snapshot: ResultSnapshot): string 
     );
   } else {
     lines.push("Previous value: none on file yet (this is the first recorded reading).");
+  }
+  if (snapshot.details) {
+    for (const [key, value] of Object.entries(snapshot.details)) {
+      lines.push(`${key.charAt(0).toUpperCase()}${key.slice(1)}: ${value}`);
+    }
   }
   return lines.join("\n");
 }

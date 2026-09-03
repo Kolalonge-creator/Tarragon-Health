@@ -175,7 +175,7 @@ Use the four-label system already established for customer-facing pricing — **
 
 Nothing implied, nothing ambiguous — this is a Nigerian-trust-first design constraint, not a style preference.
 
-**Consumer tiers to display:** Tarragon Free · Essential Care · Complete Care · Family Plan — plus diaspora GBP pricing shown as a toggle or adjacent column (Stripe billing, not Paystack).
+**Consumer tiers to display:** Tarragon Free · Tarragon Prevent · Essential Care · Complete Care — plus diaspora GBP pricing shown as a toggle or adjacent column (Stripe billing, not Paystack). (No Family Plan — individual enrolment only since the 2026-07-29 founder decision, CLAUDE.md I8/I9.)
 
 **Do not display** corporate Bronze/Silver/Gold or HMO capitation tiers on this page — those live on the Corporate and HMO pages as "request a quote," not self-serve pricing.
 

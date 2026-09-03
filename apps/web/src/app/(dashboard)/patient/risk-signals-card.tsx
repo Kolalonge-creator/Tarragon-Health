@@ -14,6 +14,13 @@ const SCORE_TYPE_LABEL: Record<string, string> = {
   hba1c_trajectory: "Blood sugar trend",
   bp_control: "Blood pressure control",
   heart_rate_pattern: "Heart rate pattern",
+  // Predictive Risk & Early Warning Engine (spec §39) — an ACTIVE model's
+  // prediction mirrors here with score_type 'predictive_<domain>' (see
+  // private.record_risk_prediction, 20260829094021_risk_predictions_and_outcomes.sql).
+  // Only the one reference domain built so far has a label; an unmapped
+  // future domain falls back to its raw score_type below, same as any other
+  // unmapped score_type today.
+  predictive_missed_follow_up: "Staying on top of appointments",
 };
 
 /** Plain-language, non-alarmist gloss per risk_level — null for "low" means

@@ -10,6 +10,7 @@ import {
   mealPlanRequestSchema,
 } from "@/lib/validation/nutrition";
 import { analyzeMealPhoto, isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
+import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
 import { fetchFoodCatalogue } from "@/lib/nutrition/food-catalogue-fetch";
 import { parseFoodText } from "@/lib/nutrition/food-parser";
 import { analyseNutrition, type NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis";
@@ -99,16 +100,34 @@ export async function logMealAction(
         .download(photo_path);
       if (blob) {
         const base64 = Buffer.from(await blob.arrayBuffer()).toString("base64");
-        const result = await analyzeMealPhoto({
-          imageBase64: base64,
-          mediaType: mediaTypeForPath(photo_path, blob.type),
-          description,
+        const model = process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5";
+
+        // AI-008. The estimate is indicative and feeds no clinical threshold,
+        // so the fallback is simply logging the meal without one — which is
+        // the ai_status = "unavailable" state this action already had.
+        const governed = await runGovernedAi<Json | null>({
+          supabase: ctx.supabase,
+          systemCode: AI_SYSTEMS.mealPhotoNutrition.code,
+          inputCategory: "meal_photo",
+          subjectProfileId: ctx.userId,
+          run: async () => {
+            const result = await analyzeMealPhoto({
+              imageBase64: base64,
+              mediaType: mediaTypeForPath(photo_path, blob.type),
+              description,
+            });
+            return {
+              value: result.ok ? ({ ...result.estimate, model } as unknown as Json) : null,
+              modelIdentifier: model,
+              outputSummary: result.ok ? "meal nutrition estimated" : "photo not estimated",
+              resultingAction: result.ok ? "nutrition_estimate_attached" : "no_estimate",
+            };
+          },
+          fallback: () => null,
         });
-        if (result.ok) {
-          aiEstimate = {
-            ...result.estimate,
-            model: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
-          } as unknown as Json;
+
+        if (governed.value) {
+          aiEstimate = governed.value;
           aiStatus = "estimated";
         } else {
           aiStatus = "unavailable";

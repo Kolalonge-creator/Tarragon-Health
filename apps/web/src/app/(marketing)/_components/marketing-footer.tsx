@@ -232,6 +232,10 @@ export function MarketingFooter() {
           <span className="text-white/40"> · </span>
           RC 9702108
         </p>
+        <p className="mt-2 text-white/50">
+          Photography on this site is created for TarragonHealth and does not depict real patients,
+          clinicians, or a specific care encounter.
+        </p>
         <p className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1">
           {FOOTER_LINKS.legal.map((link, i) => (
             <span key={link.href} className="flex items-center gap-x-3">

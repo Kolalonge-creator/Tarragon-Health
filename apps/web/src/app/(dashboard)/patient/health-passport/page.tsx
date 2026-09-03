@@ -80,12 +80,20 @@ export default async function HealthPassportPage() {
             share with another doctor. Not a substitute for your full medical record.
           </p>
         </div>
-        <Link
-          href="/api/patient/health-passport/pdf"
-          className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          Download PDF
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/api/patient/health-passport/pdf"
+            className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            Download PDF
+          </Link>
+          <Link
+            href="/api/patient/data-export/json"
+            className="rounded-md border border-brand-green px-4 py-2 text-sm font-medium text-brand-green hover:bg-brand-green/5"
+          >
+            Download your complete record
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">

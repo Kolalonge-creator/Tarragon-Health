@@ -6,15 +6,21 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CarePlanDisplay } from "@/app/(dashboard)/patient/care-plan-display";
+import { ChronicProgrammeTimeline } from "@/app/(dashboard)/patient/chronic-programme-timeline";
 import { PregnancyStatus } from "@/app/(dashboard)/patient/pregnancy-status";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
 import { AskADoctor } from "@/app/(dashboard)/patient/ask-a-doctor";
+import { SecondOpinionRequestCard } from "@/app/(dashboard)/patient/second-opinion-request";
+import { VerifiedDocumentsCard } from "@/app/(dashboard)/patient/verified-documents-card";
+import { SeniorCaseReviewCard } from "@/app/(dashboard)/patient/senior-case-review-card";
 import { BookVideoVisit } from "@/app/(dashboard)/patient/book-video-visit";
 import { PatientEscalations } from "@/components/patient-escalations";
 import { HospitalAdmissionsCard } from "@/app/(dashboard)/patient/hospital-admissions-card";
 import { LifestyleProgressSummary } from "@/app/(dashboard)/patient/lifestyle-progress-summary";
 import { YourReferrals } from "@/components/your-referrals";
+import { NavigationRequests } from "@/app/(dashboard)/patient/navigation-requests";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
+import { ServiceNavigationAssistant } from "@/app/(dashboard)/patient/service-navigation-assistant";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
 import { WellnessPointsSummary } from "@/app/(dashboard)/patient/wellness-points-summary";
@@ -24,6 +30,9 @@ export default async function PatientCarePage() {
   const { profile, subjectId } = await getPatientDashboardContext();
   const supabase = await createClient();
   const coachAccess = await hasCoachAccess(supabase);
+  const { data: asyncDoctorVisitPlanAccess } = await supabase.rpc("has_feature_access", {
+    feature: "async_doctor_visit",
+  });
 
   return (
     <DashboardSection
@@ -47,6 +56,13 @@ export default async function PatientCarePage() {
               conditionLanguagePreference={profile.condition_language_preference}
             />
           </RequiresEntitlement>
+          {/* Not entitlement-gated: self-monitoring is the free, system-only
+              default track of the 12-week chronic-care programme — it must
+              never require a paid plan. The doctor-supported add-on is sold
+              from inside the card itself. */}
+          {profile.organisation_id && (
+            <ChronicProgrammeTimeline patientId={subjectId} organisationId={profile.organisation_id} />
+          )}
           {/* Not entitlement-gated: the obstetric-led guard (§20.2) needs to
               fire for anyone on a diabetes care plan regardless of tier, and
               self-reporting pregnancy shouldn't require a paid plan. Renders a
@@ -54,21 +70,33 @@ export default async function PatientCarePage() {
           <PregnancyStatus patientId={subjectId} />
           <PatientEscalations patientId={subjectId} />
           <HospitalAdmissionsCard patientId={subjectId} />
-          <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>
-            <LifestyleProgressSummary patientId={subjectId} />
-          </RequiresEntitlement>
+          {/* Not entitlement-gated: lifestyle coaching is free to every
+              patient since the pay-per-service rework. */}
+          <LifestyleProgressSummary patientId={subjectId} />
         </div>
 
         <div className="space-y-4">
           {/* Paid per-visit service — no plan gate; the card itself carries the
               availability + not-for-emergencies copy. */}
           <BookVideoVisit patientId={subjectId} />
-          <RequiresEntitlement feature="async_doctor_visit" fallback={<UpgradePrompt feature="async_doctor_visit" />}>
-            <AskADoctor patientId={subjectId} organisationId={profile.organisation_id} />
-          </RequiresEntitlement>
+          {/* Paid per-question service — no hard plan gate; a patient without
+              async_doctor_visit on their plan can still buy a one-off
+              credit, the card itself offers that. */}
+          <AskADoctor
+            patientId={subjectId}
+            organisationId={profile.organisation_id}
+            hasPlanAccess={Boolean(asyncDoctorVisitPlanAccess)}
+          />
+          {/* Pure pay-per-service — no plan bypass, the card carries its own
+              buy-a-credit prompt. */}
+          <SecondOpinionRequestCard patientId={subjectId} organisationId={profile.organisation_id} />
+          <VerifiedDocumentsCard patientId={subjectId} organisationId={profile.organisation_id} />
+          <SeniorCaseReviewCard patientId={subjectId} organisationId={profile.organisation_id} />
           {coachAccess && <AiCoachChat patientId={subjectId} />}
+          <ServiceNavigationAssistant />
           <CareCircleCard />
           <YourReferrals patientId={subjectId} />
+          <NavigationRequests patientId={subjectId} />
         </div>
       </div>
 

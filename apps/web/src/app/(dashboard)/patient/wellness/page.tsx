@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { isMealPlanGenerationConfigured } from "@/lib/nutrition/meal-plan-generate";
@@ -14,11 +12,10 @@ import { ClassesSection } from "./classes-section";
 
 /**
  * Wellness hub — points, badges, challenges, meal log, and workout classes.
- * An engagement/habit-formation layer, free to every patient regardless of
- * plan (only the embedded meal log stays behind its existing
- * lifestyle_coaching gate, same as its own dedicated page) — pure
- * composition over existing entitlement/RLS-checked components, no new gate
- * invented here.
+ * An engagement/habit-formation layer, free to every patient — lifestyle
+ * coaching (including the embedded meal log) has no plan gate at all, same
+ * as its own dedicated page (see "Make the app free; charge only for a
+ * doctor's time").
  */
 export default async function WellnessHubPage() {
   const profile = await getCurrentProfile();
@@ -56,23 +53,18 @@ export default async function WellnessHubPage() {
         <ChallengesSection patientId={profile.id} />
       </div>
 
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <div>
-          <h2 className="mb-2 flex items-center gap-2 font-heading text-lg font-semibold text-charcoal-ink">
-            <SEMANTIC_ICON.nutrition className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-            Meal log
-          </h2>
-          <NutritionFlow
-            patientId={profile.id}
-            visionConfigured={isMealVisionConfigured()}
-            activeConditions={activeConditions}
-            mealPlanGenerationConfigured={isMealPlanGenerationConfigured()}
-          />
-        </div>
-      </RequiresEntitlement>
+      <div>
+        <h2 className="mb-2 flex items-center gap-2 font-heading text-lg font-semibold text-charcoal-ink">
+          <SEMANTIC_ICON.nutrition className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          Meal log
+        </h2>
+        <NutritionFlow
+          patientId={profile.id}
+          visionConfigured={isMealVisionConfigured()}
+          activeConditions={activeConditions}
+          mealPlanGenerationConfigured={isMealPlanGenerationConfigured()}
+        />
+      </div>
 
       <ClassesSection patientId={profile.id} organisationId={profile.organisation_id} />
     </div>
