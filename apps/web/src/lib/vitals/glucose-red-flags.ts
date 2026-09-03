@@ -21,6 +21,13 @@
  *    patient, confirm symptoms, and guide them on ketone testing / management.
  */
 
+/**
+ * Bump whenever a value in GLUCOSE_THRESHOLDS below changes — served to the
+ * mobile app by /api/mobile/vitals-thresholds (see mobile-thresholds.ts) so
+ * its bundled offline classifier can detect drift from this source of truth.
+ */
+export const GLUCOSE_THRESHOLDS_VERSION = "2026-09-01.1";
+
 /** mmol/L thresholds (WHO / FMOH, §15.1, §9). */
 export const GLUCOSE_THRESHOLDS = {
   severeHypo: 3.0, // < 3.0 → emergency

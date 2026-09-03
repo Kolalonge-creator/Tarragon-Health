@@ -10,6 +10,12 @@ import {
   useHealthEducationProgrammeDetail,
   useMarkContentProgress,
   useSubmitContentFeedback,
+  useHealthEducationRecommendations,
+  useDismissRecommendation,
+  useMarkRecommendationViewed,
+  useLatestHealthLiteracy,
+  useSubmitHealthLiteracyAssessment,
+  useProposeGoalFromContent,
   HEALTH_EDUCATION_CATEGORIES,
   HEALTH_EDUCATION_READING_LEVELS,
   HEALTH_EDUCATION_FEEDBACK_OPTIONS,
@@ -19,6 +25,7 @@ import {
   type HealthEducationReadingLevel,
   type HealthEducationFeedbackType,
 } from "@/lib/queries/health-education";
+import { useCarePlans } from "@/lib/queries/care-plans";
 import {
   parseKnowledgeCheck,
   scoreKnowledgeCheck,
@@ -197,6 +204,82 @@ function KnowledgeCheck({
   );
 }
 
+/**
+ * "Learn -> set goal -> track progress" (§79.14). Reuses the existing,
+ * clinician-governed `care_plan_goals` table via its patient-propose RLS
+ * policy — this does not assert behaviour changed, it only lets a patient
+ * turn a lesson into a proposed goal, same as any other patient-sourced
+ * goal on the platform (see 20260830022516_health_education_goal_link.sql).
+ */
+function SetGoalFromLesson({
+  item,
+  patientId,
+  organisationId,
+}: {
+  item: AnyEducationItem;
+  patientId: string;
+  organisationId: string;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [description, setDescription] = useState("");
+  const [saved, setSaved] = useState(false);
+  const { data: carePlans } = useCarePlans(patientId);
+  const propose = useProposeGoalFromContent(patientId, organisationId);
+
+  const matchingCarePlanId =
+    (item.condition && carePlans?.find((p) => p.condition === item.condition)?.id) || null;
+
+  if (saved) {
+    return (
+      <p className="text-xs text-brand-green">
+        Goal sent to your care team to confirm. You&apos;ll see it once they approve it.
+      </p>
+    );
+  }
+
+  if (!expanded) {
+    return (
+      <Button size="sm" variant="ghost" onClick={() => setExpanded(true)}>
+        Set a goal based on this
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-2 rounded-md bg-brand-green/5 p-3">
+      <label className="block text-xs font-medium text-charcoal-ink/70" htmlFor={`goal-${item.content_id}`}>
+        What do you want to try?
+      </label>
+      <Input
+        id={`goal-${item.content_id}`}
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="e.g. Cut back on added salt this week"
+      />
+      <div className="flex gap-2">
+        <Button
+          size="sm"
+          disabled={!description.trim() || propose.isPending}
+          onClick={() =>
+            propose.mutate(
+              { contentId: item.content_id, carePlanId: matchingCarePlanId, description: description.trim() },
+              { onSuccess: () => setSaved(true) }
+            )
+          }
+        >
+          Save goal
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setExpanded(false)}>
+          Cancel
+        </Button>
+      </div>
+      {propose.isError && (
+        <p className="text-xs text-red-600">Could not save that goal. Try again.</p>
+      )}
+    </div>
+  );
+}
+
 function EducationItem({
   item,
   patientId,
@@ -211,6 +294,7 @@ function EducationItem({
   const [open, setOpen] = useState(false);
   const mark = useMarkContentProgress(patientId, organisationId);
   const questions = useMemo(() => parseKnowledgeCheck(item.knowledge_check), [item.knowledge_check]);
+  const audioUrl = "audio_url" in item ? item.audio_url : null;
 
   function toggle() {
     const next = !open;
@@ -261,8 +345,10 @@ function EducationItem({
               Watch the video
             </a>
           )}
-          {item.content_type === "audio" && item.audio_url && (
-            <audio controls src={item.audio_url} className="w-full" />
+          {item.content_type === "audio" && audioUrl && (
+            <audio controls src={audioUrl} className="w-full">
+              Your browser does not support inline audio.
+            </audio>
           )}
           <div className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90">
             {item.body}
@@ -300,6 +386,7 @@ function EducationItem({
             <p className="text-xs text-red-600">Could not save your progress. Try again.</p>
           )}
 
+          <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
           <ContentFeedback
             contentId={item.content_id}
             patientId={patientId}
@@ -364,114 +451,177 @@ function RecommendedForYou({
   );
 }
 
-/**
- * §20.13 Education programmes — a named, ordered module sequence on one
- * condition ("Hypertension Education Programme, Module 1..."), distinct from
- * the free-browse category library above. Modules reuse the same catalogue
- * content rows the feed/library already show; this is just a guided order.
- */
-function ProgrammeDetail({
-  code,
-  onBack,
-  patientId,
-  organisationId,
-}: {
-  code: string;
-  onBack: () => void;
-  patientId: string;
-  organisationId: string;
-}) {
-  const { data, isLoading } = useHealthEducationProgrammeDetail(code);
-  const mark = useMarkContentProgress(patientId, organisationId);
+/** "After a medication change / abnormal result, here's something relevant"
+ * (§79.13). Content-linked, dismissible; the recommendation just points at
+ * the ordinary catalogue item — no separate reading surface. */
+function RecommendationsBanner({ patientId }: { patientId: string }) {
+  const { data } = useHealthEducationRecommendations(patientId);
+  const dismiss = useDismissRecommendation(patientId);
+  const markViewed = useMarkRecommendationViewed(patientId);
 
-  const title = data?.[0]?.programme_title ?? "Programme";
+  if (!data || data.length === 0) return null;
 
   return (
-    <Card>
-      <CardHeader>
-        <button
-          type="button"
-          onClick={onBack}
-          className="mb-1 text-xs font-medium text-charcoal-ink/60 hover:text-brand-green"
+    <div className="space-y-2">
+      {data.slice(0, 3).map((rec) => (
+        <div
+          key={rec.id}
+          className="flex items-start justify-between gap-3 rounded-lg border border-brand-green/25 bg-soft-sage/20 p-3"
+          onMouseEnter={() => !rec.viewed_at && markViewed.mutate(rec.id)}
         >
-          ← All programmes
-        </button>
-        <CardTitle>{title}</CardTitle>
-        {data?.[0]?.programme_description && (
-          <p className="text-sm text-charcoal-ink/60">{data[0].programme_description}</p>
-        )}
-      </CardHeader>
-      <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {data && data.length > 0 && (
-          <ol className="divide-y divide-charcoal-ink/10">
-            {data.map((mod) => (
-              <li key={mod.module_id} className="flex items-start gap-3 py-3">
-                <span
-                  className={cn(
-                    "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium",
-                    mod.status === "understood"
-                      ? "bg-brand-green text-white"
-                      : "bg-charcoal-ink/10 text-charcoal-ink/60"
-                  )}
-                >
-                  {mod.status === "understood" ? "✓" : mod.module_number}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-charcoal-ink">{mod.module_title}</p>
-                  {mod.content_summary && (
-                    <p className="text-xs text-charcoal-ink/60">{mod.content_summary}</p>
-                  )}
-                  {mod.status !== "understood" && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="mt-1.5 h-7 px-2 text-xs"
-                      disabled={mark.isPending}
-                      onClick={() =>
-                        mark.mutate({ contentId: mod.content_id, status: "understood" })
-                      }
-                    >
-                      Mark module {mod.module_number} as understood
-                    </Button>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ol>
-        )}
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-brand-green">
+              {rec.trigger_reason}
+            </p>
+            <p className="text-sm font-medium text-charcoal-ink">{rec.content?.title}</p>
+            {rec.content?.summary && (
+              <p className="text-xs text-charcoal-ink/60">{rec.content.summary}</p>
+            )}
+          </div>
+          <Button size="sm" variant="ghost" onClick={() => dismiss.mutate(rec.id)}>
+            Dismiss
+          </Button>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** "How confident are you managing your condition?" (§79.7) — engagement-
+ * only self-assessment, never a clinical score. Shown once per condition
+ * that has no rating on file yet. */
+function HealthLiteracyPrompt({
+  patientId,
+  organisationId,
+  condition,
+  label,
+}: {
+  patientId: string;
+  organisationId: string;
+  condition: string;
+  label: string;
+}) {
+  const { data: latest, isLoading } = useLatestHealthLiteracy(
+    patientId,
+    condition as Parameters<typeof useLatestHealthLiteracy>[1]
+  );
+  const submit = useSubmitHealthLiteracyAssessment(patientId, organisationId);
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+
+  if (isLoading || latest || dismissedThisSession) return null;
+
+  return (
+    <Card className="border-charcoal-ink/10">
+      <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+        <p className="text-sm text-charcoal-ink">
+          How confident do you feel managing your {label.toLowerCase()}?
+        </p>
+        <div className="flex items-center gap-1">
+          {([1, 2, 3, 4, 5] as const).map((n) => (
+            <button
+              key={n}
+              type="button"
+              disabled={submit.isPending}
+              onClick={() =>
+                submit.mutate({
+                  confidenceLevel: n,
+                  condition: condition as Parameters<typeof submit.mutate>[0]["condition"],
+                })
+              }
+              className="h-8 w-8 rounded-full border border-charcoal-ink/15 text-sm font-medium text-charcoal-ink hover:border-brand-green hover:bg-brand-green/10"
+              aria-label={`${n} out of 5`}
+            >
+              {n}
+            </button>
+          ))}
+          <Button size="sm" variant="ghost" onClick={() => setDismissedThisSession(true)}>
+            Skip
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
 }
 
-function HealthEducationProgrammes({
+/** Named learning pathways (§79.6) — a syllabus-visible course over
+ * existing content, distinct from the personalised "Recommended for you"
+ * loop above. health_education_programmes/_programme_modules and their
+ * RPCs are shared infrastructure, not new in this component. */
+function LearningPathways({
   patientId,
   organisationId,
+  conditionLanguagePreference,
 }: {
   patientId: string;
   organisationId: string;
+  conditionLanguagePreference?: string | null;
 }) {
   const { data: programmes, isLoading } = useHealthEducationProgrammes();
   const [activeCode, setActiveCode] = useState<string | null>(null);
+  const { data: detail } = useHealthEducationProgrammeDetail(activeCode);
 
   if (isLoading || !programmes || programmes.length === 0) return null;
 
-  if (activeCode) {
+  if (activeCode && detail) {
+    const programme = programmes.find((p) => p.code === activeCode);
     return (
-      <ProgrammeDetail
-        code={activeCode}
-        onBack={() => setActiveCode(null)}
-        patientId={patientId}
-        organisationId={organisationId}
-      />
+      <Card>
+        <CardHeader>
+          <button
+            type="button"
+            onClick={() => setActiveCode(null)}
+            className="mb-1 text-xs font-medium text-charcoal-ink/60 hover:text-brand-green"
+          >
+            ← All pathways
+          </button>
+          <CardTitle>{programme?.title}</CardTitle>
+          {programme?.description && (
+            <p className="text-sm text-charcoal-ink/60">{programme.description}</p>
+          )}
+        </CardHeader>
+        <CardContent>
+          <ul className="divide-y divide-charcoal-ink/10">
+            {detail.map((row) => (
+              <li key={row.module_id} className="py-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/40">
+                  Lesson {row.module_number} of {detail.length}
+                </p>
+                <EducationItem
+                  item={{
+                    content_id: row.content_id,
+                    code: row.content_code,
+                    title: row.content_title,
+                    summary: row.content_summary,
+                    body: row.content_body,
+                    content_type: row.content_type,
+                    video_url: row.video_url,
+                    audio_url: row.audio_url,
+                    estimated_minutes: row.estimated_minutes,
+                    condition: programme?.condition ?? null,
+                    clinician_reviewed: false,
+                    reviewed_by_name: null,
+                    has_knowledge_check: row.has_knowledge_check,
+                    knowledge_check: row.knowledge_check,
+                    status: row.status,
+                    check_score: row.check_score,
+                    check_total: row.check_total,
+                  } as unknown as HealthEducationFeedItem}
+                  patientId={patientId}
+                  organisationId={organisationId}
+                  conditionLanguagePreference={conditionLanguagePreference}
+                />
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div>
       <h3 className="mb-3 font-heading text-base font-semibold text-charcoal-ink">
-        Guided programmes
+        Learning pathways
       </h3>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {programmes.map((p) => (
@@ -482,9 +632,9 @@ function HealthEducationProgrammes({
             className="rounded-lg border border-charcoal-ink/10 bg-white p-4 text-left transition-colors hover:border-brand-green hover:bg-soft-sage/40"
           >
             <p className="font-medium text-charcoal-ink">{p.title}</p>
-            {p.description && <p className="mt-0.5 text-xs text-charcoal-ink/60">{p.description}</p>}
+            {p.description && <p className="mt-1 text-xs text-charcoal-ink/60">{p.description}</p>}
             <p className="mt-2 text-xs text-charcoal-ink/50">
-              {p.completed_count} of {p.module_count} modules completed
+              {p.completed_count} of {p.module_count} lessons complete
             </p>
           </button>
         ))}
@@ -529,7 +679,13 @@ function CategoryGrid({
   );
 }
 
-function CategoryDetail({
+/**
+ * A single category's reading list — exported so a feature page can embed
+ * one topic directly (e.g. the Wellbeing dashboard's "mental_health" list,
+ * Module 46 §46.6/§46.7) without pulling in the full browsable-library UI.
+ * `onBack` is omitted in that embedded case, which also hides the back link.
+ */
+export function CategoryDetail({
   category,
   onBack,
   patientId,
@@ -537,7 +693,7 @@ function CategoryDetail({
   conditionLanguagePreference,
 }: {
   category: HealthEducationCategory;
-  onBack: () => void;
+  onBack?: () => void;
   patientId: string;
   organisationId: string;
   conditionLanguagePreference?: string | null;
@@ -565,13 +721,15 @@ function CategoryDetail({
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <button
-              type="button"
-              onClick={onBack}
-              className="mb-1 text-xs font-medium text-charcoal-ink/60 hover:text-brand-green"
-            >
-              ← All topics
-            </button>
+            {onBack && (
+              <button
+                type="button"
+                onClick={onBack}
+                className="mb-1 text-xs font-medium text-charcoal-ink/60 hover:text-brand-green"
+              >
+                ← All topics
+              </button>
+            )}
             <CardTitle>{label}</CardTitle>
           </div>
           <Input
@@ -659,16 +817,33 @@ export function HealthEducationLibrary({
   conditionLanguagePreference?: string | null;
 }) {
   const [activeCategory, setActiveCategory] = useState<HealthEducationCategory | null>(null);
+  const { data: carePlans } = useCarePlans(patientId);
+  const firstCondition = carePlans?.[0]?.condition ?? null;
 
   return (
     <div className={cn("space-y-6")}>
+      <RecommendationsBanner patientId={patientId} />
+
+      {firstCondition && (
+        <HealthLiteracyPrompt
+          patientId={patientId}
+          organisationId={organisationId}
+          condition={firstCondition}
+          label={conditionLabelFor(firstCondition, conditionLanguagePreference)}
+        />
+      )}
+
       <RecommendedForYou
         patientId={patientId}
         organisationId={organisationId}
         conditionLanguagePreference={conditionLanguagePreference}
       />
 
-      <HealthEducationProgrammes patientId={patientId} organisationId={organisationId} />
+      <LearningPathways
+        patientId={patientId}
+        organisationId={organisationId}
+        conditionLanguagePreference={conditionLanguagePreference}
+      />
 
       {activeCategory ? (
         <CategoryDetail

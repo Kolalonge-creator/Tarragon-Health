@@ -56,6 +56,34 @@ describe("formatResultSnapshotForPrompt", () => {
     expect(text).toContain("Latest value: moderate on 2026-07-29");
     expect(text).not.toContain("  ");
   });
+
+  it("renders details as extra lines for a medication snapshot", () => {
+    const text = formatResultSnapshotForPrompt(
+      snapshot({
+        kind: "medication",
+        subjectKey: "med-1",
+        label: "Amlodipine",
+        latest: { value: "5mg, once daily", unit: null, recordedAt: "2026-07-01T00:00:00.000Z" },
+        details: { route: "oral", instructions: "Take in the morning with food" },
+      })
+    );
+    expect(text).toContain("Route: oral");
+    expect(text).toContain("Instructions: Take in the morning with food");
+  });
+
+  it("renders details as extra lines for a care-plan-item snapshot, and omits absent ones", () => {
+    const text = formatResultSnapshotForPrompt(
+      snapshot({
+        kind: "care_plan_item",
+        subjectKey: "plan-1",
+        label: "Hypertension",
+        latest: { value: "active", unit: null, recordedAt: "2026-07-01T00:00:00.000Z" },
+        details: { target: "systolic: <130" },
+      })
+    );
+    expect(text).toContain("Target: systolic: <130");
+    expect(text).not.toContain("Notes:");
+  });
 });
 
 function medicationSnapshot(overrides: Partial<MedicationSnapshot> = {}): MedicationSnapshot {

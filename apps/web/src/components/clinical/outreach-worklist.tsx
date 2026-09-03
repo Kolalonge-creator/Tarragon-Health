@@ -24,9 +24,15 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   awaiting_result: "Self-arranged test not yet uploaded",
   repeated_no_show: "Repeated no-show",
   consultation_follow_up: "Consultation follow-up needed",
-  missed_care_task: "Missed care plan task",
+  missed_care_task: "Missed care task",
   missed_appointment: "Missed appointment",
-  failed_referral: "Referral did not complete",
+  failed_referral: "Failed referral",
+  referral_follow_up: "Referral follow-up",
+  overdue_referral: "Specialist referral overdue",
+  overdue_medication_review: "Medication review overdue",
+  overdue_lab_monitoring: "Lab monitoring overdue",
+  medication_engagement_barrier: "Struggling to take medication as prescribed",
+  engagement_decline: "Newly at risk of disengaging",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {

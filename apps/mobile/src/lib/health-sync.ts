@@ -12,7 +12,8 @@ import {
   readHealthConnectSamples,
   requestHealthConnectPermissions,
 } from "./health-connect";
-import { countSyncErrorsSince } from "./sync-diagnostics";
+import { countSyncErrorsSince, recordSyncError } from "./sync-diagnostics";
+import { enqueueHealthSamplesPage, flushHealthSamplesQueue } from "./offline-queue";
 
 /**
  * One health-store sync, shared by both platforms: ask the server where
@@ -40,28 +41,69 @@ const UPLOAD_PAGE_SIZE = 200;
 
 export type HealthSyncResult =
   | { status: "unavailable" }
-  | { status: "no_new_data"; partial?: boolean }
+  | { status: "no_new_data"; partial?: boolean; recovered?: number }
   | { status: "error"; message: string }
-  | { status: "synced"; vitals: number; wearable: number; total: number; partial?: boolean };
+  | {
+      status: "synced";
+      vitals: number;
+      wearable: number;
+      total: number;
+      partial?: boolean;
+      /** Samples recovered this call from a previous failed upload attempt
+       * (see the offline queue flush below) — already counted in
+       * `vitals`/`wearable`, called out separately so the UI can say "we
+       * also caught up on N readings from earlier" rather than silently
+       * folding them into today's total. */
+      recovered?: number;
+      /** Samples that could not be uploaded this attempt and were queued
+       * instead of lost — see the upload loop below. Not counted in
+       * `vitals`/`wearable`, since they have not reached the server yet. */
+      queued?: number;
+    };
 
 export async function syncAppleHealth(): Promise<HealthSyncResult> {
+  // Flushed unconditionally, before the availability check: a page queued on
+  // a previous sync attempt deserves a retry even if HealthKit itself has
+  // since become unavailable (e.g. permission revoked) — those bytes are
+  // already captured and only need a network path, not HealthKit itself.
+  const { flushedSamples } = await flushHealthSamplesQueue("apple_health");
   if (!(await isHealthKitAvailable())) return { status: "unavailable" };
   // Safe to call on every sync: iOS shows the sheet only for types the
   // patient has not already answered for.
   await requestHealthKitPermissions();
-  return syncHealthReadings("apple_health", HEALTHKIT_INITIAL_WINDOW_DAYS, readHealthSamples);
+  return withRecovered(
+    await syncHealthReadings("apple_health", HEALTHKIT_INITIAL_WINDOW_DAYS, readHealthSamples),
+    flushedSamples
+  );
 }
 
 export async function syncHealthConnect(): Promise<HealthSyncResult> {
+  const { flushedSamples } = await flushHealthSamplesQueue("android_health_connect");
   if (!(await isHealthConnectAvailable())) return { status: "unavailable" };
   // Safe to call on every sync: Health Connect's own permission screen only
   // prompts for types not already answered.
   await requestHealthConnectPermissions();
-  return syncHealthReadings(
-    "android_health_connect",
-    HEALTH_CONNECT_INITIAL_WINDOW_DAYS,
-    readHealthConnectSamples
+  return withRecovered(
+    await syncHealthReadings(
+      "android_health_connect",
+      HEALTH_CONNECT_INITIAL_WINDOW_DAYS,
+      readHealthConnectSamples
+    ),
+    flushedSamples
   );
+}
+
+/** Merges a successful offline-queue flush into whatever this sync attempt's
+ * own result was. Kept as a thin wrapper rather than threading the count
+ * through syncHealthReadings itself, since the flush happens in the two
+ * provider-specific entry points above (see their own comments) rather than
+ * in the shared function. */
+function withRecovered(result: HealthSyncResult, recovered: number): HealthSyncResult {
+  if (recovered <= 0) return result;
+  if (result.status === "synced" || result.status === "no_new_data") {
+    return { ...result, recovered };
+  }
+  return result;
 }
 
 async function syncHealthReadings(
@@ -97,9 +139,27 @@ async function syncHealthReadings(
 
   let vitals = 0;
   let wearable = 0;
-  for (const page of paginate(samples, UPLOAD_PAGE_SIZE)) {
+  let queued = 0;
+  const pages = paginate(samples, UPLOAD_PAGE_SIZE);
+  for (let index = 0; index < pages.length; index++) {
+    const page = pages[index];
     const result = await postHealthSamples(page, provider);
-    if (!result.ok) return { status: "error", message: result.error };
+    if (!result.ok) {
+      // This page, and every page after it, would fail the same way against
+      // a connection that just dropped — no point spending a ~20s timeout
+      // (api.ts's REQUEST_TIMEOUT_MS) discovering that one page at a time.
+      // Queue all of them now rather than abandon them: this is the fix for
+      // the gap this module used to have (see the file's own former
+      // "abandons all remaining pages" behaviour, spec 55.13-55.15) — every
+      // sample here is picked up by the offline queue's own flush on the
+      // next sync attempt or background run, not lost.
+      recordSyncError(provider, "postHealthSamples", result.error);
+      for (const remaining of pages.slice(index)) {
+        await enqueueHealthSamplesPage({ provider, samples: remaining });
+        queued += remaining.length;
+      }
+      break;
+    }
     vitals += result.data.vitals_inserted;
     wearable += result.data.wearable_inserted;
   }
@@ -110,6 +170,7 @@ async function syncHealthReadings(
     wearable,
     total: samples.length,
     ...(readerErrors > 0 ? { partial: true } : {}),
+    ...(queued > 0 ? { queued } : {}),
   };
 }
 
