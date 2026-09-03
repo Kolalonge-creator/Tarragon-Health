@@ -50,17 +50,22 @@ create trigger menopause_symptom_logs_set_updated_at
 
 alter table public.menopause_symptom_logs enable row level security;
 
+-- Access-control correction (2026-09-02, pre-launch security review): removed
+-- the caregiver EXISTS branches (SELECT/INSERT/UPDATE) that originally sat
+-- here -- ANY profile_access grantee could read, and any 'manage'-level
+-- grantee could write, a patient's menopause symptom log regardless of
+-- category. This table was never applied live, so the fix is made directly
+-- rather than shipped-then-patched. Matches PR #330's precedent for this
+-- kind of sensitive symptom log (see breast_symptom_reports' identical
+-- correction, same reasoning): patient + org staff only, no caregiver
+-- visibility -- postmenopausal bleeding already always raises a
+-- clinician_review alert regardless, so the care team sees it either way.
 drop policy if exists menopause_symptom_logs_select on public.menopause_symptom_logs;
 create policy menopause_symptom_logs_select on public.menopause_symptom_logs
   for select to authenticated
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = menopause_symptom_logs.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-    )
   );
 
 drop policy if exists menopause_symptom_logs_insert on public.menopause_symptom_logs;
@@ -69,12 +74,6 @@ create policy menopause_symptom_logs_insert on public.menopause_symptom_logs
   with check (
     (patient_id = (select auth.uid()) and organisation_id = private.current_org_id())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = menopause_symptom_logs.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-        and pa.permission_level = 'manage'
-    )
   );
 
 drop policy if exists menopause_symptom_logs_update on public.menopause_symptom_logs;
@@ -83,22 +82,10 @@ create policy menopause_symptom_logs_update on public.menopause_symptom_logs
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = menopause_symptom_logs.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-        and pa.permission_level = 'manage'
-    )
   )
   with check (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = menopause_symptom_logs.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-        and pa.permission_level = 'manage'
-    )
   );
 
 grant select, insert, update on public.menopause_symptom_logs to authenticated;
@@ -138,6 +125,13 @@ begin
   end if;
   if has_table_privilege('anon', 'public.menopause_symptom_logs', 'SELECT') then
     raise exception 'anon must not have access to menopause_symptom_logs';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'menopause_symptom_logs'
+      and policyname like '%_select' and coalesce(qual,'') ilike '%profile_access%'
+  ) then
+    raise exception 'menopause_symptom_logs_select must not reference profile_access -- patient + org staff only';
   end if;
   raise notice 'PASS: menopause_symptom_logs installed';
 end $$;

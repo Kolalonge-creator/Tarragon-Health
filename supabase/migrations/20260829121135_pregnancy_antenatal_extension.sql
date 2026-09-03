@@ -28,6 +28,22 @@
 -- patient_pregnancy itself: a patient can log their own antenatal visits
 -- (many patients attend antenatal care and self-report it, same as
 -- vaccinations), and org staff can create/update any.
+--
+-- Access-control correction (2026-09-02, pre-launch security review reconciling
+-- this PR against PR #457's live menstrual-cycle tables): the draft below
+-- originally let ANY profile_access grantee -- any relationship, any
+-- permission_level, any category -- read antenatal_visits, the same
+-- category-blind bare EXISTS pattern that shipped live on menstrual_cycles
+-- and was fixed there in 20260902215227_menstrual_cycles_gate_on_can_read_
+-- clinical.sql. This table was never applied live, so the caregiver branch
+-- is removed outright here rather than shipped-then-patched. It intentionally
+-- does NOT get the reproductive_health category-grant treatment either:
+-- antenatal_visits extends patient_pregnancy (20260720180000), whose own
+-- SELECT policy has never had ANY caregiver branch at all -- patient + org
+-- staff only, unconditionally, since before category-scoped access existed.
+-- A visit log is the gestational-timeline detail behind that same pregnancy
+-- record, so it stays exactly as private as the record it extends; no
+-- caregiver, however granted, sees it.
 
 create type public.antenatal_visit_status as enum ('scheduled', 'completed', 'missed', 'cancelled');
 
@@ -75,11 +91,6 @@ create policy antenatal_visits_select on public.antenatal_visits
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = antenatal_visits.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-    )
   );
 
 drop policy if exists antenatal_visits_insert on public.antenatal_visits;
@@ -108,6 +119,13 @@ begin
   end if;
   if has_table_privilege('anon', 'public.antenatal_visits', 'SELECT') then
     raise exception 'anon must not have access to antenatal_visits';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'antenatal_visits' and policyname = 'antenatal_visits_select'
+      and coalesce(qual,'') ilike '%profile_access%'
+  ) then
+    raise exception 'antenatal_visits_select must not reference profile_access -- no caregiver access, matching patient_pregnancy';
   end if;
   raise notice 'PASS: pregnancy/antenatal extension installed';
 end $$;

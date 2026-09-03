@@ -45,17 +45,21 @@ create trigger postnatal_profiles_set_updated_at
 
 alter table public.postnatal_profiles enable row level security;
 
+-- Access-control correction (2026-09-02, pre-launch security review): removed
+-- the caregiver EXISTS branch that originally sat here -- ANY profile_access
+-- grantee, any category, could read a patient's delivery/postnatal record.
+-- postnatal_profiles/postnatal_checkins extend patient_pregnancy
+-- (20260720180000), whose own SELECT policy has never had a caregiver branch
+-- at all; this table was never applied live, so the fix is made directly
+-- rather than shipped-then-patched. See 20260829121135_pregnancy_antenatal_
+-- extension.sql's header for the full reasoning (same correction, same table
+-- family).
 drop policy if exists postnatal_profiles_select on public.postnatal_profiles;
 create policy postnatal_profiles_select on public.postnatal_profiles
   for select to authenticated
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = postnatal_profiles.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-    )
   );
 
 drop policy if exists postnatal_profiles_insert on public.postnatal_profiles;
@@ -111,11 +115,6 @@ create policy postnatal_checkins_select on public.postnatal_checkins
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = postnatal_checkins.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-    )
   );
 
 drop policy if exists postnatal_checkins_insert on public.postnatal_checkins;
@@ -158,6 +157,13 @@ begin
   end if;
   if has_table_privilege('anon', 'public.postnatal_profiles', 'SELECT') or has_table_privilege('anon', 'public.postnatal_checkins', 'SELECT') then
     raise exception 'anon must not have access to postnatal tables';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename in ('postnatal_profiles', 'postnatal_checkins')
+      and policyname like '%_select' and coalesce(qual,'') ilike '%profile_access%'
+  ) then
+    raise exception 'postnatal_profiles/postnatal_checkins select policies must not reference profile_access -- no caregiver access, matching patient_pregnancy';
   end if;
   if not exists (
     select 1 from pg_constraint
