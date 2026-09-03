@@ -8174,7 +8174,6 @@ export type Database = {
           created_at: string
           dedup_key: string
           detail: string | null
-          diagnostic_report_id: string | null
           duplicate_of: string | null
           escalation_level: number | null
           id: string
@@ -8235,7 +8234,6 @@ export type Database = {
           created_at?: string
           dedup_key?: string
           detail?: string | null
-          diagnostic_report_id?: string | null
           duplicate_of?: string | null
           escalation_level?: number | null
           id?: string
@@ -8284,7 +8282,6 @@ export type Database = {
           created_at?: string
           dedup_key?: string
           detail?: string | null
-          diagnostic_report_id?: string | null
           duplicate_of?: string | null
           escalation_level?: number | null
           id?: string
@@ -8348,13 +8345,6 @@ export type Database = {
             columns: ["closed_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "clinician_alerts_diagnostic_report_id_fkey"
-            columns: ["diagnostic_report_id"]
-            isOneToOne: false
-            referencedRelation: "diagnostic_reports"
             referencedColumns: ["id"]
           },
           {
@@ -10281,361 +10271,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      diagnostic_reports: {
-        Row: {
-          abnormal_severity: string | null
-          acknowledgement_status: Database["public"]["Enums"]["result_document_acknowledgement_status"]
-          action_completed_at: string | null
-          action_completed_by: string | null
-          clinician_alert_id: string | null
-          created_at: string
-          diagnostic_request_id: string
-          facility_name: string | null
-          file_path: string
-          file_size_bytes: number | null
-          findings: string | null
-          id: string
-          impression: string | null
-          is_abnormal: boolean | null
-          mime_type: string | null
-          note: string | null
-          organisation_id: string
-          original_filename: string | null
-          patient_id: string
-          report_date: string | null
-          reporting_clinician_name: string | null
-          review_note: string | null
-          reviewed_at: string | null
-          reviewed_by: string | null
-          source: Database["public"]["Enums"]["diagnostic_report_source"]
-          updated_at: string
-          uploaded_by: string | null
-        }
-        Insert: {
-          abnormal_severity?: string | null
-          acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
-          action_completed_at?: string | null
-          action_completed_by?: string | null
-          clinician_alert_id?: string | null
-          created_at?: string
-          diagnostic_request_id: string
-          facility_name?: string | null
-          file_path: string
-          file_size_bytes?: number | null
-          findings?: string | null
-          id?: string
-          impression?: string | null
-          is_abnormal?: boolean | null
-          mime_type?: string | null
-          note?: string | null
-          organisation_id: string
-          original_filename?: string | null
-          patient_id: string
-          report_date?: string | null
-          reporting_clinician_name?: string | null
-          review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          source: Database["public"]["Enums"]["diagnostic_report_source"]
-          updated_at?: string
-          uploaded_by?: string | null
-        }
-        Update: {
-          abnormal_severity?: string | null
-          acknowledgement_status?: Database["public"]["Enums"]["result_document_acknowledgement_status"]
-          action_completed_at?: string | null
-          action_completed_by?: string | null
-          clinician_alert_id?: string | null
-          created_at?: string
-          diagnostic_request_id?: string
-          facility_name?: string | null
-          file_path?: string
-          file_size_bytes?: number | null
-          findings?: string | null
-          id?: string
-          impression?: string | null
-          is_abnormal?: boolean | null
-          mime_type?: string | null
-          note?: string | null
-          organisation_id?: string
-          original_filename?: string | null
-          patient_id?: string
-          report_date?: string | null
-          reporting_clinician_name?: string | null
-          review_note?: string | null
-          reviewed_at?: string | null
-          reviewed_by?: string | null
-          source?: Database["public"]["Enums"]["diagnostic_report_source"]
-          updated_at?: string
-          uploaded_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "diagnostic_reports_action_completed_by_fkey"
-            columns: ["action_completed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_reports_clinician_alert_id_fkey"
-            columns: ["clinician_alert_id"]
-            isOneToOne: false
-            referencedRelation: "clinician_alerts"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_reports_diagnostic_request_id_fkey"
-            columns: ["diagnostic_request_id"]
-            isOneToOne: false
-            referencedRelation: "diagnostic_requests"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_reports_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_reports_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_reports_reviewed_by_fkey"
-            columns: ["reviewed_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_reports_uploaded_by_fkey"
-            columns: ["uploaded_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      diagnostic_requests: {
-        Row: {
-          action_note: string | null
-          actioned_at: string | null
-          attended_at: string | null
-          booked_at: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          care_plan_id: string | null
-          catalogue_id: string | null
-          clinical_question: string | null
-          created_at: string
-          facility_id: string | null
-          facility_name_freetext: string | null
-          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
-          id: string
-          indication: string
-          insurance_covered: boolean | null
-          insurance_note: string | null
-          modality: Database["public"]["Enums"]["diagnostic_modality"]
-          organisation_id: string
-          patient_id: string
-          preferred_time_of_day:
-            | Database["public"]["Enums"]["lab_order_time_of_day"]
-            | null
-          relevant_information: string | null
-          reported_at: string | null
-          requested_by: string
-          reviewed_at: string | null
-          scheduled_date: string | null
-          service_name: string
-          specialist_referral_id: string | null
-          status: Database["public"]["Enums"]["diagnostic_request_status"]
-          updated_at: string
-          urgency: Database["public"]["Enums"]["diagnostic_urgency"]
-        }
-        Insert: {
-          action_note?: string | null
-          actioned_at?: string | null
-          attended_at?: string | null
-          booked_at?: string | null
-          cancellation_reason?: string | null
-          cancelled_at?: string | null
-          care_plan_id?: string | null
-          catalogue_id?: string | null
-          clinical_question?: string | null
-          created_at?: string
-          facility_id?: string | null
-          facility_name_freetext?: string | null
-          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
-          id?: string
-          indication: string
-          insurance_covered?: boolean | null
-          insurance_note?: string | null
-          modality: Database["public"]["Enums"]["diagnostic_modality"]
-          organisation_id: string
-          patient_id: string
-          preferred_time_of_day?:
-            | Database["public"]["Enums"]["lab_order_time_of_day"]
-            | null
-          relevant_information?: string | null
-          reported_at?: string | null
-          requested_by: string
-          reviewed_at?: string | null
-          scheduled_date?: string | null
-          service_name: string
-          specialist_referral_id?: string | null
-          status?: Database["public"]["Enums"]["diagnostic_request_status"]
-          updated_at?: string
-          urgency?: Database["public"]["Enums"]["diagnostic_urgency"]
-        }
-        Update: {
-          action_note?: string | null
-          actioned_at?: string | null
-          attended_at?: string | null
-          booked_at?: string | null
-          cancellation_reason?: string | null
-          cancelled_at?: string | null
-          care_plan_id?: string | null
-          catalogue_id?: string | null
-          clinical_question?: string | null
-          created_at?: string
-          facility_id?: string | null
-          facility_name_freetext?: string | null
-          fulfilment?: Database["public"]["Enums"]["fulfilment_mode"]
-          id?: string
-          indication?: string
-          insurance_covered?: boolean | null
-          insurance_note?: string | null
-          modality?: Database["public"]["Enums"]["diagnostic_modality"]
-          organisation_id?: string
-          patient_id?: string
-          preferred_time_of_day?:
-            | Database["public"]["Enums"]["lab_order_time_of_day"]
-            | null
-          relevant_information?: string | null
-          reported_at?: string | null
-          requested_by?: string
-          reviewed_at?: string | null
-          scheduled_date?: string | null
-          service_name?: string
-          specialist_referral_id?: string | null
-          status?: Database["public"]["Enums"]["diagnostic_request_status"]
-          updated_at?: string
-          urgency?: Database["public"]["Enums"]["diagnostic_urgency"]
-        }
-        Relationships: [
-          {
-            foreignKeyName: "diagnostic_requests_care_plan_id_fkey"
-            columns: ["care_plan_id"]
-            isOneToOne: false
-            referencedRelation: "care_plans"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_requests_catalogue_id_fkey"
-            columns: ["catalogue_id"]
-            isOneToOne: false
-            referencedRelation: "diagnostic_service_catalogue"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_requests_facility_id_fkey"
-            columns: ["facility_id"]
-            isOneToOne: false
-            referencedRelation: "facilities"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_requests_organisation_id_fkey"
-            columns: ["organisation_id"]
-            isOneToOne: false
-            referencedRelation: "organisations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_requests_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_requests_requested_by_fkey"
-            columns: ["requested_by"]
-            isOneToOne: false
-            referencedRelation: "clinical_staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "diagnostic_requests_specialist_referral_id_fkey"
-            columns: ["specialist_referral_id"]
-            isOneToOne: false
-            referencedRelation: "specialist_referrals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      diagnostic_service_catalogue: {
-        Row: {
-          arrival_minutes_before: number | null
-          code: string
-          created_at: string
-          description: string | null
-          fasting_required: boolean
-          id: string
-          is_active: boolean
-          medication_instructions: string | null
-          modality: Database["public"]["Enums"]["diagnostic_modality"]
-          name: string
-          pregnancy_safety_question: boolean
-          prep_instructions: string | null
-          price_kobo: number
-          reporting_method: string | null
-          required_documents: string[]
-          turnaround_hours: number | null
-        }
-        Insert: {
-          arrival_minutes_before?: number | null
-          code: string
-          created_at?: string
-          description?: string | null
-          fasting_required?: boolean
-          id?: string
-          is_active?: boolean
-          medication_instructions?: string | null
-          modality: Database["public"]["Enums"]["diagnostic_modality"]
-          name: string
-          pregnancy_safety_question?: boolean
-          prep_instructions?: string | null
-          price_kobo?: number
-          reporting_method?: string | null
-          required_documents?: string[]
-          turnaround_hours?: number | null
-        }
-        Update: {
-          arrival_minutes_before?: number | null
-          code?: string
-          created_at?: string
-          description?: string | null
-          fasting_required?: boolean
-          id?: string
-          is_active?: boolean
-          medication_instructions?: string | null
-          modality?: Database["public"]["Enums"]["diagnostic_modality"]
-          name?: string
-          pregnancy_safety_question?: boolean
-          prep_instructions?: string | null
-          price_kobo?: number
-          reporting_method?: string | null
-          required_documents?: string[]
-          turnaround_hours?: number | null
-        }
-        Relationships: []
       }
       drug_monitoring_rules: {
         Row: {
@@ -38149,10 +37784,6 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
-      analytics_diagnostic_service_quality: {
-        Args: { p_days?: number }
-        Returns: Json
-      }
       analytics_disease_surveillance: {
         Args: { p_period?: string }
         Returns: Json
@@ -40923,58 +40554,6 @@ export type Database = {
         }
         Returns: undefined
       }
-      set_diagnostic_request_booking_preference: {
-        Args: {
-          p_facility_id?: string
-          p_facility_name_freetext?: string
-          p_insurance_covered?: boolean
-          p_insurance_note?: string
-          p_preferred_time_of_day?: Database["public"]["Enums"]["lab_order_time_of_day"]
-          p_request_id: string
-          p_scheduled_date?: string
-        }
-        Returns: {
-          action_note: string | null
-          actioned_at: string | null
-          attended_at: string | null
-          booked_at: string | null
-          cancellation_reason: string | null
-          cancelled_at: string | null
-          care_plan_id: string | null
-          catalogue_id: string | null
-          clinical_question: string | null
-          created_at: string
-          facility_id: string | null
-          facility_name_freetext: string | null
-          fulfilment: Database["public"]["Enums"]["fulfilment_mode"]
-          id: string
-          indication: string
-          insurance_covered: boolean | null
-          insurance_note: string | null
-          modality: Database["public"]["Enums"]["diagnostic_modality"]
-          organisation_id: string
-          patient_id: string
-          preferred_time_of_day:
-            | Database["public"]["Enums"]["lab_order_time_of_day"]
-            | null
-          relevant_information: string | null
-          reported_at: string | null
-          requested_by: string
-          reviewed_at: string | null
-          scheduled_date: string | null
-          service_name: string
-          specialist_referral_id: string | null
-          status: Database["public"]["Enums"]["diagnostic_request_status"]
-          updated_at: string
-          urgency: Database["public"]["Enums"]["diagnostic_urgency"]
-        }
-        SetofOptions: {
-          from: "*"
-          to: "diagnostic_requests"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       set_health_education_content_status: {
         Args: {
           p_content_id: string
@@ -41995,29 +41574,6 @@ export type Database = {
       device_data_deletion_status: "requested" | "in_progress" | "completed" | "rejected"
       dependent_kind: "minor_child" | "elder_proxy"
       diabetes_type: "type_1" | "type_2" | "gestational" | "other"
-      diagnostic_modality:
-        | "xray"
-        | "ultrasound"
-        | "ct"
-        | "mri"
-        | "ecg"
-        | "echocardiography"
-        | "mammography"
-        | "other"
-      diagnostic_report_source:
-        | "patient"
-        | "lab_liaison"
-        | "clinician"
-        | "admin"
-      diagnostic_request_status:
-        | "requested"
-        | "booked"
-        | "attended"
-        | "reported"
-        | "reviewed"
-        | "actioned"
-        | "cancelled"
-      diagnostic_urgency: "routine" | "urgent" | "emergency"
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
@@ -44256,32 +43812,6 @@ export const Constants = {
       ],
       dependent_kind: ["minor_child", "elder_proxy"],
       diabetes_type: ["type_1", "type_2", "gestational", "other"],
-      diagnostic_modality: [
-        "xray",
-        "ultrasound",
-        "ct",
-        "mri",
-        "ecg",
-        "echocardiography",
-        "mammography",
-        "other",
-      ],
-      diagnostic_report_source: [
-        "patient",
-        "lab_liaison",
-        "clinician",
-        "admin",
-      ],
-      diagnostic_request_status: [
-        "requested",
-        "booked",
-        "attended",
-        "reported",
-        "reviewed",
-        "actioned",
-        "cancelled",
-      ],
-      diagnostic_urgency: ["routine", "urgent", "emergency"],
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
