@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
+import { PageHeader } from "@/components/ui/page-header";
 import { FeatureFlagsManager } from "./feature-flags-manager";
 
 export default async function FeatureFlagsSettingsPage() {
@@ -15,13 +16,10 @@ export default async function FeatureFlagsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Feature flags</h1>
-        <p className="text-charcoal-ink/60">
-          Roll a feature out to internal staff, a percentage of patients, or a named cohort
-          without a redeploy or a new migration per gate.
-        </p>
-      </div>
+      <PageHeader
+        title="Feature flags"
+        description="Roll a feature out to internal staff, a percentage of patients, or a named cohort without a redeploy or a new migration per gate."
+      />
       <FeatureFlagsManager />
     </div>
   );

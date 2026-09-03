@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { HealthEducationManager } from "./health-education-manager";
 
 export default async function HealthEducationSettingsPage() {
@@ -13,17 +14,10 @@ export default async function HealthEducationSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Health education library
-        </h1>
-        <p className="text-charcoal-ink/60">
-          The clinician-reviewed learning catalogue surfaced to every patient; the education
-          library is free for everyone under the pay-per-service model. Content is personalised
-          to each patient&apos;s active conditions and risk. Toggle an item live or hidden here;
-          authoring the body and knowledge check is done via seed/migration for now.
-        </p>
-      </div>
+      <PageHeader
+        title="Health education library"
+        description="The clinician-reviewed learning catalogue surfaced to every patient; the education library is free for everyone under the pay-per-service model. Content is personalised to each patient's active conditions and risk. Toggle an item live or hidden here; authoring the body and knowledge check is done via seed/migration for now."
+      />
       <HealthEducationManager />
     </div>
   );

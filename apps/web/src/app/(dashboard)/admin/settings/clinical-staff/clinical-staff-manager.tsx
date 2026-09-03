@@ -33,6 +33,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
+import { SearchableList } from "@/components/ui/searchable-list";
 
 // Only Clinical Director + Tier 4/5 must carry indemnity/malpractice cover
 // before activation — docs/CLINICAL_TRUST_MODEL_SPEC.md §5,
@@ -610,113 +611,128 @@ export function ClinicalStaffManager() {
           <CardTitle>All clinical staff</CardTitle>
         </CardHeader>
         <CardContent>
-          {staff.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No clinical staff on file yet.</p>
-          )}
-          {staff.length > 0 && (
-            <ul className="divide-y divide-charcoal-ink/10">
-              {staff.map((s) => {
-                const requiresIndemnity = needsIndemnity(s);
-                const hasCurrentIndemnity =
-                  !requiresIndemnity ||
-                  isIndemnityExempt(s, orgExemptions ?? []) ||
-                  (s.indemnity_expires_at !== null && daysUntil(s.indemnity_expires_at) >= 0);
-                const canActivate = s.license_verified_at !== null && hasCurrentIndemnity;
-                const tierLabel = s.doctor_tier ? DOCTOR_TIER_LABEL[s.doctor_tier] : "No tier";
+          <SearchableList
+            items={staff}
+            filterFn={(s, query) => {
+              const tierLabel = s.doctor_tier ? DOCTOR_TIER_LABEL[s.doctor_tier] : "No tier";
+              const haystack = [
+                s.full_name,
+                s.staff_number,
+                s.credential_type,
+                s.credential_number,
+                s.specialty,
+                tierLabel,
+                s.is_clinical_director ? "Clinical Director" : null,
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .toLowerCase();
+              return haystack.includes(query);
+            }}
+            searchPlaceholder="Search by name, staff number, credential, specialty, or tier…"
+            emptyMessage="No clinical staff on file yet."
+            renderContainer={(children) => <ul className="divide-y divide-charcoal-ink/10">{children}</ul>}
+            renderItem={(s) => {
+              const requiresIndemnity = needsIndemnity(s);
+              const hasCurrentIndemnity =
+                !requiresIndemnity ||
+                isIndemnityExempt(s, orgExemptions ?? []) ||
+                (s.indemnity_expires_at !== null && daysUntil(s.indemnity_expires_at) >= 0);
+              const canActivate = s.license_verified_at !== null && hasCurrentIndemnity;
+              const tierLabel = s.doctor_tier ? DOCTOR_TIER_LABEL[s.doctor_tier] : "No tier";
 
-                return (
-                  <li key={s.id} className="py-3">
-                    <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-start gap-3">
-                        <ClinicalStaffAvatar fullName={s.full_name} photoUrl={s.photo_url} />
-                        <div>
-                          <p className="text-sm font-medium text-charcoal-ink">
-                            {s.full_name}
-                            <span className="text-charcoal-ink/60">
-                              , {s.is_clinical_director ? `Clinical Director · ${tierLabel}` : tierLabel}
-                            </span>
-                          </p>
-                          <p className="text-xs text-charcoal-ink/60">
-                            {s.staff_number && (
-                              <span className="font-medium text-charcoal-ink/70">{s.staff_number} · </span>
-                            )}
-                            {s.credential_type && s.credential_number && `${s.credential_type} ${s.credential_number} · `}
-                            {s.license_verified_at
-                              ? `Verified ${formatDate(s.license_verified_at)}`
-                              : "Not verified"}
-                          </p>
-                          <div className="mt-1 flex flex-wrap gap-1.5">
-                            {!hasCredentialOnFile(s) && <MissingCredentialBadge staff={s} />}
-                            {s.license_verified_at && (
-                              <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
-                            )}
-                            <LicenseExpiryBadge expiresAt={s.license_expires_at} />
-                            <AttestationBadge expiresAt={attestations?.[s.id] ?? null} />
-                            {s.offers_therapy_sessions && <Badge variant="blue">In-house therapist</Badge>}
-                          </div>
+              return (
+                <li key={s.id} className="py-3">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-start gap-3">
+                      <ClinicalStaffAvatar fullName={s.full_name} photoUrl={s.photo_url} />
+                      <div>
+                        <p className="text-sm font-medium text-charcoal-ink">
+                          {s.full_name}
+                          <span className="text-charcoal-ink/60">
+                            , {s.is_clinical_director ? `Clinical Director · ${tierLabel}` : tierLabel}
+                          </span>
+                        </p>
+                        <p className="text-xs text-charcoal-ink/60">
+                          {s.staff_number && (
+                            <span className="font-medium text-charcoal-ink/70">{s.staff_number} · </span>
+                          )}
+                          {s.credential_type && s.credential_number && `${s.credential_type} ${s.credential_number} · `}
+                          {s.license_verified_at
+                            ? `Verified ${formatDate(s.license_verified_at)}`
+                            : "Not verified"}
+                        </p>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {!hasCredentialOnFile(s) && <MissingCredentialBadge staff={s} />}
+                          {s.license_verified_at && (
+                            <ReverifyBadge licenseVerifiedAt={s.license_verified_at} />
+                          )}
+                          <LicenseExpiryBadge expiresAt={s.license_expires_at} />
+                          <AttestationBadge expiresAt={attestations?.[s.id] ?? null} />
+                          {s.offers_therapy_sessions && <Badge variant="blue">In-house therapist</Badge>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={s.active ? "green" : "grey"}>
-                          {s.active ? "Active" : "Inactive"}
-                        </Badge>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => setEditingId(editingId === s.id ? null : s.id)}
-                        >
-                          {editingId === s.id ? "Close" : "Edit profile"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={verify.isPending}
-                          onClick={() => verify.mutate(s.id)}
-                        >
-                          {s.license_verified_at ? "Re-verify" : "Mark verified"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={setActive.isPending || (!s.active && !canActivate)}
-                          title={
-                            !s.active && !canActivate
-                              ? requiresIndemnity && !hasCurrentIndemnity
-                                ? "Needs current indemnity cover on file before activation"
-                                : "Needs license verification before activation"
-                              : undefined
-                          }
-                          onClick={() => setActive.mutate({ clinicalStaffId: s.id, active: !s.active })}
-                        >
-                          {s.active ? "Deactivate" : "Activate"}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={setOffersTherapy.isPending}
-                          onClick={() =>
-                            setOffersTherapy.mutate({
-                              clinicalStaffId: s.id,
-                              offersTherapySessions: !s.offers_therapy_sessions,
-                            })
-                          }
-                        >
-                          {s.offers_therapy_sessions ? "Remove therapist flag" : "Mark as therapist"}
-                        </Button>
-                      </div>
                     </div>
-                    {editingId === s.id && (
-                      <EditClinicalStaffForm staff={s} onDone={() => setEditingId(null)} />
-                    )}
-                    {requiresIndemnity && (
-                      <IndemnityForm staff={s} orgExemptions={orgExemptions ?? []} />
-                    )}
-                    <LicenseExpiryForm staff={s} />
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                    <div className="flex items-center gap-2">
+                      <Badge variant={s.active ? "green" : "grey"}>
+                        {s.active ? "Active" : "Inactive"}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditingId(editingId === s.id ? null : s.id)}
+                      >
+                        {editingId === s.id ? "Close" : "Edit profile"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={verify.isPending}
+                        onClick={() => verify.mutate(s.id)}
+                      >
+                        {s.license_verified_at ? "Re-verify" : "Mark verified"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={setActive.isPending || (!s.active && !canActivate)}
+                        title={
+                          !s.active && !canActivate
+                            ? requiresIndemnity && !hasCurrentIndemnity
+                              ? "Needs current indemnity cover on file before activation"
+                              : "Needs license verification before activation"
+                            : undefined
+                        }
+                        onClick={() => setActive.mutate({ clinicalStaffId: s.id, active: !s.active })}
+                      >
+                        {s.active ? "Deactivate" : "Activate"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={setOffersTherapy.isPending}
+                        onClick={() =>
+                          setOffersTherapy.mutate({
+                            clinicalStaffId: s.id,
+                            offersTherapySessions: !s.offers_therapy_sessions,
+                          })
+                        }
+                      >
+                        {s.offers_therapy_sessions ? "Remove therapist flag" : "Mark as therapist"}
+                      </Button>
+                    </div>
+                  </div>
+                  {editingId === s.id && (
+                    <EditClinicalStaffForm staff={s} onDone={() => setEditingId(null)} />
+                  )}
+                  {requiresIndemnity && (
+                    <IndemnityForm staff={s} orgExemptions={orgExemptions ?? []} />
+                  )}
+                  <LicenseExpiryForm staff={s} />
+                </li>
+              );
+            }}
+          />
           {setActive.isError && (
             <p className="mt-2 text-sm text-red-600">{(setActive.error as Error).message}</p>
           )}

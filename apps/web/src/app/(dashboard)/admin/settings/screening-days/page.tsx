@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { ScreeningDaysDashboard } from "./screening-days-dashboard";
 
 export default async function ScreeningDaysSettingsPage() {
@@ -13,17 +14,10 @@ export default async function ScreeningDaysSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Group screening days
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Confirm a discounted price for a church, market association, cooperative, or SME&apos;s
-          bulk booking, then issue each attendee their own named voucher once the group has paid
-          in full. Getting the phlebotomist to the venue on the day stays a manual call to Synlab.
-          This only tracks the booking and the money.
-        </p>
-      </div>
+      <PageHeader
+        title="Group screening days"
+        description="Confirm a discounted price for a church, market association, cooperative, or SME's bulk booking, then issue each attendee their own named voucher once the group has paid in full. Getting the phlebotomist to the venue on the day stays a manual call to Synlab. This only tracks the booking and the money."
+      />
       <ScreeningDaysDashboard />
     </div>
   );

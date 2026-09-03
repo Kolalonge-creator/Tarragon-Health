@@ -352,13 +352,6 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         icon: SEMANTIC_ICON.aiCoach,
         visible: anyOf("ai_governance.manage"),
       },
-      {
-        href: "/admin/settings/ops-console",
-        label: "Ops console",
-        blurb: "One cross-domain worklist — alerts, appointments, referrals, labs, pharmacy, support, payments, incidents.",
-        icon: NAV_ICON.operations,
-        visible: anyOf("ops.console.view"),
-      },
     ],
   },
 ];

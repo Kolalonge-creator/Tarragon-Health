@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { MergeTool, type MergeCandidate } from "./merge-tool";
 
 /**
@@ -39,14 +40,10 @@ export default async function AdminPatientMergePage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Merge patient records</h1>
-        <p className="text-charcoal-ink/60">
-          Repoints every table that references the losing record onto the kept record, then retires
-          the losing record. All-or-nothing: a preview always runs first, and a genuine conflict
-          rolls the whole merge back rather than merging half of it.
-        </p>
-      </div>
+      <PageHeader
+        title="Merge patient records"
+        description="Repoints every table that references the losing record onto the kept record, then retires the losing record. All-or-nothing: a preview always runs first, and a genuine conflict rolls the whole merge back rather than merging half of it."
+      />
 
       {candidateA && candidateB ? (
         <Card>

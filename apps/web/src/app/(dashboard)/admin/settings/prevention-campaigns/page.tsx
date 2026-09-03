@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import { CampaignForm } from "./campaign-form";
 import {
   CampaignManager,
@@ -42,14 +43,10 @@ export default async function PreventionCampaignsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Prevention campaigns</h1>
-        <p className="text-charcoal-ink/60">
-          Time-boxed, population-level initiatives: education, screening invitations, extra
-          assessments, partner offers, and challenges targeted at an eligible subset of patients
-          based on their own risk profile.
-        </p>
-      </div>
+      <PageHeader
+        title="Prevention campaigns"
+        description="Time-boxed, population-level initiatives: education, screening invitations, extra assessments, partner offers, and challenges targeted at an eligible subset of patients based on their own risk profile."
+      />
       <CampaignForm />
       <CampaignManager
         campaigns={(campaigns as PreventionCampaignRow[] | null) ?? []}

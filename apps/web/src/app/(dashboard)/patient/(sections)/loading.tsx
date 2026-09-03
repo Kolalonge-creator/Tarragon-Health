@@ -1,3 +1,5 @@
+import { Skeleton as SkeletonBlock } from "@/components/ui/skeleton";
+
 /**
  * Instant loading state for every patient section route (Overview, Vitals,
  * Medications, ...). Shown by Next.js the moment navigation starts, while the
@@ -5,12 +7,8 @@
  * of the whole page waiting on the slowest query. Shaped after the Overview's
  * own layout (hero band, quick actions, stat tiles, paired cards) so the
  * swap-in doesn't jump; the other sections are card stacks too, so it reads
- * right for them as well. No Skeleton primitive exists in this codebase yet —
- * these are plain pulse blocks in the app's own neutral tones.
+ * right for them as well.
  */
-function SkeletonBlock({ className }: { className: string }) {
-  return <div aria-hidden className={`animate-pulse rounded-2xl bg-charcoal-ink/[0.07] dark:bg-night-ink/10 ${className}`} />;
-}
 
 export default function PatientSectionLoading() {
   return (

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import { LabResultConsultPricingManager, type PriceRow } from "./lab-result-consult-pricing-manager";
 
 /**
@@ -41,16 +42,10 @@ export default async function LabResultConsultPricingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Lab-result consultation fee
-        </h1>
-        <p className="max-w-3xl text-charcoal-ink/60">
-          The one-off fee a patient pays to unlock uploading a self-arranged lab result, which
-          also books a 15-minute doctor walkthrough. One platform-default price, with optional
-          per-organisation overrides.
-        </p>
-      </div>
+      <PageHeader
+        title="Lab-result consultation fee"
+        description="The one-off fee a patient pays to unlock uploading a self-arranged lab result, which also books a 15-minute doctor walkthrough. One platform-default price, with optional per-organisation overrides."
+      />
       <LabResultConsultPricingManager
         rows={rows}
         organisations={(organisations ?? []).map((o) => ({ id: o.id, name: o.name }))}

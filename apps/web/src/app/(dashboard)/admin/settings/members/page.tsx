@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { PageHeader } from "@/components/ui/page-header";
 import { MembersManager } from "./members-manager";
 
 export type MemberRow = {
@@ -50,8 +51,14 @@ export default async function MembersPage() {
         // custom_roles is embedded via the profiles.custom_role_id FK explicitly —
         // custom_roles.created_by also references profiles, so the relationship
         // is ambiguous without the hint (PostgREST PGRST201).
+        // Excludes patients: this page provisions staff/partner logins only, and
+        // profiles is the same table the entire patient base lives in — loading
+        // every patient here would be both a scale problem and unnecessary PHI
+        // exposure on a page that never needs it.
         .select("id, full_name, role, phone, organisation_id, custom_role_id, is_active, organisations(name), custom_roles!profiles_custom_role_id_fkey(name)")
-        .order("created_at", { ascending: false }),
+        .neq("role", "patient")
+        .order("created_at", { ascending: false })
+        .limit(2000),
       svc.from("permissions").select("key, label, category, description").order("category").order("label"),
       svc.from("custom_roles").select("id, name, description, base_role, role_permissions(permission_key)").order("name"),
       svc.from("user_permission_grants").select("id, profile_id, permission_key").is("revoked_at", null),
@@ -106,14 +113,10 @@ export default async function MembersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Members &amp; access</h1>
-        <p className="text-charcoal-ink/60">
-          Create logins for employees and partners, assign roles, build custom roles, and delegate
-          specific capabilities (e.g. adding a pharmacy, lab, or hospital) to individual members.
-          The super admin holds every capability.
-        </p>
-      </div>
+      <PageHeader
+        title="Members & access"
+        description="Create logins for employees and partners, assign roles, build custom roles, and delegate specific capabilities (e.g. adding a pharmacy, lab, or hospital) to individual members. The super admin holds every capability."
+      />
       <MembersManager
         members={members}
         permissions={(permissions ?? []) as PermissionRow[]}

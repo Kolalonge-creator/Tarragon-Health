@@ -29,7 +29,7 @@ export function PageHeader({
   className,
 }: {
   title: string;
-  description?: string;
+  description?: React.ReactNode;
   icon?: LucideIcon;
   backTo?: { href: string; label: string };
   /** Right-aligned controls (a primary button, a filter) for pages that need

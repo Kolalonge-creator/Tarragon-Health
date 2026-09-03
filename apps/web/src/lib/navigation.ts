@@ -413,8 +413,10 @@ export function getNavSections(
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
+            { label: "Leads", href: "/admin/leads", icon: "members" },
             { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
             { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
+            { label: "Testimonials", href: "/admin/testimonials", icon: "review" },
           ],
         },
         {

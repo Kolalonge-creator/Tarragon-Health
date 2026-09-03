@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { PageHeader } from "@/components/ui/page-header";
 import { LabsManager } from "./labs-manager";
 import type { LabPartnerLoginRow } from "@/lib/queries/partner-catalogues";
 
@@ -42,13 +43,10 @@ export default async function LabsPartnersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Labs</h1>
-        <p className="text-charcoal-ink/60">
-          Add and manage the lab providers patients can book with, keep contact details current,
-          link a partner login, and track turnaround performance.
-        </p>
-      </div>
+      <PageHeader
+        title="Labs"
+        description="Add and manage the lab providers patients can book with, keep contact details current, link a partner login, and track turnaround performance."
+      />
       <LabsManager labPartnerLogins={labPartnerLogins} />
     </div>
   );

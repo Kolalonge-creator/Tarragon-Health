@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { SearchableList } from "@/components/ui/searchable-list";
 import { RESOURCE_DISCLAIMER } from "@/app/(marketing)/_content/resources";
 
 type Draft = {
@@ -334,9 +335,20 @@ export function ResourcesManager() {
         )}
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load the library.</p>}
-        {resources && resources.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
-            {resources.map((r) => (
+        {!isLoading && !isError && (
+          <SearchableList
+            items={resources ?? []}
+            filterFn={(r, q) =>
+              r.title.toLowerCase().includes(q) ||
+              r.category.toLowerCase().includes(q) ||
+              r.slug.toLowerCase().includes(q)
+            }
+            searchPlaceholder="Search resources by title or category…"
+            emptyMessage="No resources yet."
+            renderContainer={(children) => (
+              <ul className="divide-y divide-charcoal-ink/10">{children}</ul>
+            )}
+            renderItem={(r) => (
               <li key={r.id} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-charcoal-ink">{r.title}</p>
@@ -374,8 +386,8 @@ export function ResourcesManager() {
                   )}
                 </div>
               </li>
-            ))}
-          </ul>
+            )}
+          />
         )}
       </CardContent>
     </Card>

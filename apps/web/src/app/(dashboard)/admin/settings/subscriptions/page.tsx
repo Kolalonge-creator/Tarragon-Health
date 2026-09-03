@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { PlansManager } from "./plans-manager";
 import { AddOnsManager } from "./add-ons-manager";
 import { PriceAdjustmentManager } from "./price-adjustment-manager";
@@ -15,14 +16,10 @@ export default async function SubscriptionsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Subscription plans &amp; add-ons
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Create, price, and activate the plans and add-on services patients can subscribe to.
-        </p>
-      </div>
+      <PageHeader
+        title="Subscription plans & add-ons"
+        description="Create, price, and activate the plans and add-on services patients can subscribe to."
+      />
       <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
         <p className="font-semibold">This page no longer controls live pricing.</p>
         <p className="mt-1">

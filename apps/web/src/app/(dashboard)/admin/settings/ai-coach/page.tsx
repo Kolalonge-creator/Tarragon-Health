@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
 import { AccessRulesManager } from "./access-rules-manager";
 import { PlanCapsManager } from "./plan-caps-manager";
@@ -17,17 +18,10 @@ export default async function AiCoachSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          AI Health Coach: internal testing
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Same LangGraph + Claude flow patients get, running against your own admin profile.
-          Each message is a real Claude API call, so it&apos;s billed the same as a patient
-          conversation. Use the controls below to grant it to specific patients or open it to
-          everyone once you&apos;re ready.
-        </p>
-      </div>
+      <PageHeader
+        title="AI Health Coach: internal testing"
+        description="Same LangGraph + Claude flow patients get, running against your own admin profile. Each message is a real Claude API call, so it's billed the same as a patient conversation. Use the controls below to grant it to specific patients or open it to everyone once you're ready."
+      />
       <AccessRulesManager />
       <PlanCapsManager />
       <AiCoachChat patientId={profile.id} />

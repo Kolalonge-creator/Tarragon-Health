@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   RiskQuestionnaireConfigManager,
   type RiskQuestionnaireConfigRow,
@@ -36,20 +37,20 @@ export default async function RiskQuestionnaireConfigSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Risk questionnaire configuration
-        </h1>
-        <p className="text-charcoal-ink/60">
-          The question bank and per-condition scoring rules behind every patient&apos;s risk
-          assessment, including which questions branch on earlier answers, and the points/
-          thresholds that produce a Low/Moderate/High/Unknown tier per condition. The seeded
-          version is a verbatim port of the platform&apos;s existing built-in logic (zero clinical
-          change) and is{" "}
-          <strong>not in force until a Clinical Director signs it</strong>. Review it, then sign
-          to switch the live risk assessment onto this configuration.
-        </p>
-      </div>
+      <PageHeader
+        title="Risk questionnaire configuration"
+        description={
+          <>
+            The question bank and per-condition scoring rules behind every patient&apos;s risk
+            assessment, including which questions branch on earlier answers, and the points/
+            thresholds that produce a Low/Moderate/High/Unknown tier per condition. The seeded
+            version is a verbatim port of the platform&apos;s existing built-in logic (zero clinical
+            change) and is{" "}
+            <strong>not in force until a Clinical Director signs it</strong>. Review it, then sign
+            to switch the live risk assessment onto this configuration.
+          </>
+        }
+      />
       <RiskQuestionnaireConfigEditor
         key={rows[0]?.id ?? "seed"}
         defaultConfigJson={JSON.stringify(prefillConfig, null, 2)}
