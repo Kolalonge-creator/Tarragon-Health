@@ -109,13 +109,20 @@ export function useAddTicketComment() {
       // private.enforce_support_ticket_comment_author() (BEFORE INSERT) from
       // the ticket + caller — whatever is sent here is always overwritten,
       // same "passing it is a no-op" discipline as clinician-alerts.ts's
-      // resolved_by/overridden_by. Placeholders only satisfy the generated
-      // Insert type for these NOT NULL, no-default columns.
+      // resolved_by/overridden_by. organisation_id must be a real SQL NULL
+      // (cast past the generated Insert type's non-nullable `string`, same
+      // narrowing pattern useAssignTicket uses below) — an empty string
+      // fails uuid-cast at the PostgREST layer before the BEFORE INSERT
+      // trigger ever runs, unlike NULL, which is valid for any column type
+      // until the NOT NULL check runs (after the trigger has already
+      // overwritten it). Found via an actual browser click-through: the
+      // insert 400'd silently, which is exactly the gap PR #290's own
+      // description flagged as unverified.
       const { error } = await supabase.from("support_ticket_comments").insert({
         ticket_id: input.ticketId,
         body: input.body,
         is_internal: input.isInternal ?? false,
-        organisation_id: "",
+        organisation_id: null as unknown as string,
         author_role: "patient",
       });
       if (error) throw error;
