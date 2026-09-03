@@ -1,24 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { Stepper } from "@/components/ui/stepper";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import { signReferralOutcomeDocumentPath } from "@/lib/referrals/outcome-documents";
-import { koboToNaira, type ReferralStatus } from "@tarragon/shared";
+import { koboToNaira } from "@tarragon/shared";
 import type { SpecialistReferralWithDetails } from "@/lib/queries/specialist-referrals";
+import { REFERRAL_STATUS_BADGE } from "@/lib/worklist/referral-status-badge";
 import { ClinicalSummaryPanel } from "./clinical-summary-panel";
+import { AssignSpecialistProviderForm } from "./assign-specialist-provider-form";
 
-const REFERRAL_STATUS_BADGE: Record<ReferralStatus, { variant: BadgeProps["variant"]; label: string }> = {
-  pending: { variant: "amber", label: "Needs specialist assigned" },
-  pending_payment: { variant: "amber", label: "Awaiting payment" },
-  payment_confirmed: { variant: "blue", label: "Ready to book" },
-  booked: { variant: "blue", label: "Booked" },
-  confirmed: { variant: "blue", label: "Confirmed" },
-  completed: { variant: "green", label: "Completed" },
-  closed: { variant: "grey", label: "Closed" },
-  declined: { variant: "grey", label: "Declined" },
-  waitlisted: { variant: "amber", label: "Waitlisted, no specialist available" },
-};
+const ASSIGNABLE_STATUSES = ["pending", "waitlisted"] as const;
 
 const REFERRAL_SELECT =
   "*, patient:profiles!specialist_referrals_patient_id_fkey(full_name), specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name, consultation_fee_kobo)";
@@ -90,6 +82,15 @@ export default async function ReferralDetailPage({
               {koboToNaira(typedReferral.referral_fee_kobo ?? 0).toLocaleString()}
             </p>
           )}
+          {!typedReferral.specialist_provider &&
+            ASSIGNABLE_STATUSES.includes(
+              typedReferral.status as (typeof ASSIGNABLE_STATUSES)[number]
+            ) && (
+              <AssignSpecialistProviderForm
+                referralId={typedReferral.id}
+                specialistType={typedReferral.specialist_type}
+              />
+            )}
         </CardContent>
       </Card>
 

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { ReferralUrgency, Tables } from "@tarragon/shared";
+import type { Json, ReferralSource, ReferralUrgency, Tables } from "@tarragon/shared";
+import type { AppropriatenessFlag } from "@/lib/referrals/appropriateness-check";
 
 export type SpecialistReferralWithDetails = Tables<"specialist_referrals"> & {
   patient: { full_name: string | null } | null;
@@ -44,7 +45,29 @@ export function useSpecialistReferral(referralId: string) {
   });
 }
 
-export type SpecialistProvider = Tables<"specialist_providers">;
+/**
+ * A patient's own referrals, newest first, for the clinician-side patient
+ * record's Referrals tab. Drafts are excluded — a draft is a clinician's
+ * own in-progress work, not yet a live episode; useOrgSpecialistReferrals
+ * (the worklist) surfaces drafts to staff instead.
+ */
+export function usePatientSpecialistReferrals(patientId: string) {
+  return useQuery({
+    queryKey: ["specialist-referrals", "patient", patientId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("specialist_referrals")
+        .select(REFERRAL_SELECT)
+        .eq("patient_id", patientId)
+        .neq("status", "draft")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as SpecialistReferralWithDetails[];
+    },
+    enabled: !!patientId,
+  });
+}
 
 export interface SpecialistProviderMatchFilters {
   specialistType: Tables<"specialist_referrals">["specialist_type"] | null;
@@ -52,21 +75,32 @@ export interface SpecialistProviderMatchFilters {
   city?: string;
   requireTelemedicine?: boolean;
   hmo?: string;
+  /** Filters out providers whose consultation_fee_kobo exceeds this — a real column, just never exposed as a filter until now (docs/CLINICAL_NETWORK_SPEC.md §4.6 Phase 1 item 4). */
+  maxFeeKobo?: number;
+  /** Filters to providers whose languages[] contains this language — same "already a column, not yet a filter" gap. */
+  language?: string;
 }
 
 /**
  * Active specialist_providers matching a specialist_type plus optional
- * state/telemedicine/HMO filters — populates the worklist's assignment
- * picker. Ordered so a same-state match sorts first, then alphabetically;
- * done client-side rather than a Postgres CASE ORDER BY since the provider
- * list is small (9 placeholder rows today) and this keeps the query itself
- * simple. Patients don't choose between matched options themselves in this
- * slice — the clinician still picks on their behalf, per
- * docs/Tarragon_Health_Master_Operating_Plan_v4.md §7 Level 5a's Phase 1
- * clinician-mediated model; patient choice is a flagged fast-follow.
+ * state/telemedicine/HMO/price/language filters. This is filtering an
+ * existing catalogue, not ranking it — see docs/CLINICAL_NETWORK_SPEC.md §3:
+ * adding a price/language predicate is explicitly listed as safe to build
+ * without a new founder ask, scoring/weighting is not, and this function
+ * still does neither. Ordered so a same-state match sorts first, then
+ * alphabetically; done client-side rather than a Postgres CASE ORDER BY
+ * since the provider list is small (9 placeholder rows today) and this
+ * keeps the query itself simple.
+ *
+ * Powers the patient-initiated find-a-specialist entry point
+ * (find-a-specialist.tsx), which is read-only/informational, and the
+ * clinician-side AssignSpecialistProviderForm on the referral detail page
+ * (assigning a specialist_provider to a live referral is a clinician action
+ * via the reactivated set_referral_specialist_provider() RPC — see
+ * useAssignSpecialistProvider below).
  */
 export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFilters) {
-  const { specialistType, state, city, requireTelemedicine, hmo } = filters;
+  const { specialistType, state, city, requireTelemedicine, hmo, maxFeeKobo, language } = filters;
   return useQuery({
     queryKey: [
       "specialist-providers",
@@ -75,6 +109,8 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
       city ?? "",
       requireTelemedicine ?? false,
       hmo ?? "",
+      maxFeeKobo ?? "",
+      language ?? "",
     ],
     queryFn: async () => {
       const supabase = createClient();
@@ -88,6 +124,12 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
       }
       if (hmo) {
         query = query.contains("accepted_hmos", [hmo]);
+      }
+      if (typeof maxFeeKobo === "number") {
+        query = query.lte("consultation_fee_kobo", maxFeeKobo);
+      }
+      if (language) {
+        query = query.contains("languages", [language]);
       }
       const { data, error } = await query.order("name", { ascending: true });
       if (error) throw error;
@@ -105,24 +147,21 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
   });
 }
 
+export type SpecialistProvider = Tables<"specialist_providers">;
+
 /**
- * Assigns a specialist_providers row to a referral and locks in its fee at
- * assignment time (so a later catalogue price change never retroactively
- * changes what this patient owes). The referral then waits at
- * pending_payment for the patient's own payment action, the only place that
- * runs initiateBookingCheckout for this referral.
- *
- * Routed through public.set_referral_specialist_provider (RPC), not a raw
- * `.update()` — a plain update would violate specialist_referrals_enforce_
- * fulfilment's self_arranged guard, since every referral defaults to
- * self_arranged and only this RPC flips fulfilment to 'partner' as part of
- * assigning. The RPC re-validates the provider is genuinely active and
- * specialty-matched server-side and locks in the fee from the provider's own
- * row — never a client-supplied value.
- *
- * Until 2026-07-29 this also checked the org for an active capitation
- * contract and confirmed such referrals without payment. Capitation is gone
- * (I8), so there is one path.
+ * Assigns a real, active, specialty-matched specialist_providers row to a
+ * pending/waitlisted referral — the partner-booking path (as opposed to the
+ * self-arranged default every referral otherwise stays on). Routed through
+ * public.set_referral_specialist_provider (RPC), not a raw `.update()` — a
+ * plain update would violate specialist_referrals_enforce_fulfilment's
+ * self_arranged guard, since every referral defaults to self_arranged and
+ * only this RPC flips fulfilment to 'partner' as part of assigning. The RPC
+ * re-validates the provider is genuinely active and specialty-matched
+ * server-side and locks in the fee from the provider's own row — never a
+ * client-supplied value. No scoring/ranking here or in the RPC — org staff
+ * still pick manually from useMatchedSpecialistProviders' plain filtered
+ * list, per the CLINICAL_NETWORK_SPEC.md §3 guardrail.
  */
 export function useAssignSpecialistProvider() {
   const queryClient = useQueryClient();
@@ -147,19 +186,83 @@ export function useAssignSpecialistProvider() {
   });
 }
 
-/** Org-staff sets the confirmed appointment slot once payment has cleared. */
-export function useSetReferralAppointment() {
+/**
+ * Creates a specialist referral (67.2/67.3/67.4). Self-arranged, like every
+ * other referral on this platform since 2026-08-03: no specialist is named
+ * and no fee is charged here — the DB defaults `fulfilment` to
+ * 'self_arranged' and a trigger blocks either from being set. Who may call
+ * this at all is enforced server-side by
+ * private.enforce_specialist_referral_create (clinical tier only, Care
+ * Coordinator excluded) — its raised message surfaces directly as
+ * error.message on failure, so no separate client-side pre-check is done
+ * here.
+ *
+ * asDraft leaves status='draft' (67.4 stage 1) — not yet a live episode, not
+ * shown to the patient, not swept by the stall-escalation job. Submitting
+ * later (useSubmitDraftReferral) is what actually starts the clock.
+ */
+export function useCreateReferral() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ referralId, appointmentDate }: { referralId: string; appointmentDate: string }) => {
+    mutationFn: async ({
+      patientId,
+      organisationId,
+      specialistType,
+      referralSource,
+      urgency,
+      referralReason,
+      requestedService,
+      appropriatenessFlags,
+      asDraft,
+    }: {
+      patientId: string;
+      organisationId: string;
+      specialistType: Tables<"specialist_referrals">["specialist_type"];
+      referralSource: ReferralSource;
+      urgency: ReferralUrgency | null;
+      referralReason: string;
+      requestedService: string;
+      appropriatenessFlags: AppropriatenessFlag[];
+      asDraft: boolean;
+    }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("specialist_referrals")
+        .insert({
+          // Re-derived and overwritten server-side from the patient's own
+          // profile by the create-gate trigger regardless of what's sent —
+          // passed here for clarity, never trusted as the source of truth.
+          organisation_id: organisationId,
+          patient_id: patientId,
+          specialist_type: specialistType,
+          referral_source: referralSource,
+          urgency,
+          referral_reason: referralReason.trim() || null,
+          requested_service: requestedService.trim() || null,
+          appropriateness_flags: appropriatenessFlags as unknown as Json,
+          status: asDraft ? "draft" : "pending",
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals", "patient", variables.patientId] });
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals", "org"] });
+    },
+  });
+}
+
+/** Submits a draft referral (67.4 Draft -> Submitted) — server-stamps submitted_at. */
+export function useSubmitDraftReferral() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (referralId: string) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("specialist_referrals")
-        .update({
-          appointment_date: appointmentDate,
-          booking_confirmed_at: new Date().toISOString(),
-          status: "booked",
-        })
+        .update({ status: "pending" })
         .eq("id", referralId);
       if (error) throw error;
     },
@@ -170,11 +273,11 @@ export function useSetReferralAppointment() {
 }
 
 /**
- * Sets a referral's urgency (routine/priority/urgent), recording who set it.
- * Per docs/Tarragon_Health_Master_Operating_Plan_v4.md §7 Level 4 this is a
- * Tier 4/Senior Registrar decision — enforced here only by UI placement
- * (this control lives on the /doctor referral detail page, not /clinician),
- * not yet a DB-level tier gate. A fast-follow
+ * Sets a referral's urgency (routine/priority/urgent/emergency), recording
+ * who set it. Per docs/Tarragon_Health_Master_Operating_Plan_v4.md §7 Level
+ * 4 this is a Tier 4/Senior Registrar decision — enforced here only by UI
+ * placement (this control lives on the /doctor referral detail page, not
+ * /clinician), not yet a DB-level tier gate. A fast-follow
  * private.has_referral_urgency_authority(org) (mirroring
  * private.has_prescribing_authority) is the natural next step once that
  * needs to be a hard guarantee rather than a route-level convention.
@@ -206,7 +309,10 @@ export function useSetReferralUrgency() {
  * Records that a specialist's treatment plan came back — manually
  * transcribed by org staff, since specialists have no platform login and
  * nothing they send arrives through the app directly. Powers the
- * "Treatment plan received" pipeline stage.
+ * "Treatment plan received" pipeline stage. Must happen before
+ * useCompleteReferral: the specialist_referrals_completed_requires_report
+ * CHECK constraint requires treatment_plan_received_at to already be set
+ * before status can become 'completed'.
  */
 export function useRecordTreatmentPlanReceived() {
   const queryClient = useQueryClient();
@@ -248,12 +354,13 @@ export function useRecordSharedCareHandback() {
 }
 
 /**
- * Waitlists a referral when zero active providers match its filters,
- * recording the required interim management plan
- * (docs/Tarragon_Health_Master_Operating_Plan_v4.md §7: a doctor must
- * document an interim plan before waitlisting — enforced at the DB level
- * by the specialist_referrals_waitlist_requires_plan CHECK constraint,
- * this mutation would fail without a non-empty plan).
+ * Waitlists a referral, recording the required interim management plan —
+ * not gated on provider availability any more (every referral is
+ * self-arranged, so there is never a Tarragon-side provider to be available
+ * or not): this is now a clinician's own call that the patient needs active
+ * interim safety-netting while they arrange their own specialist visit.
+ * specialist_referrals_waitlist_requires_plan (DB CHECK) still requires a
+ * non-empty plan.
  */
 export function useWaitlistReferral() {
   const queryClient = useQueryClient();
@@ -276,15 +383,7 @@ export function useWaitlistReferral() {
   });
 }
 
-/**
- * Waitlisted referrals in the caller's org, each annotated with a live
- * count of currently-active matching providers — surfaced so staff can
- * manually re-trigger assignment once a provider becomes available.
- * Deliberately polling-based, not push-notified: no real-time
- * slot/cancellation system exists anywhere in this codebase (see the
- * migration comment on specialist_referrals_waitlist_columns), matching
- * the Weight Scale BLE gap's documented posture, not an oversight.
- */
+/** Waitlisted referrals in the caller's org, oldest first, each with its documented interim plan. */
 export function useWaitlistedReferrals() {
   return useQuery({
     queryKey: ["specialist-referrals", "waitlisted"],
@@ -296,31 +395,25 @@ export function useWaitlistedReferrals() {
         .eq("status", "waitlisted")
         .order("waitlisted_at", { ascending: true });
       if (error) throw error;
-      const referrals = data as SpecialistReferralWithDetails[];
-
-      const results = await Promise.all(
-        referrals.map(async (referral) => {
-          const { count } = await supabase
-            .from("specialist_providers")
-            .select("id", { count: "exact", head: true })
-            .eq("specialist_type", referral.specialist_type)
-            .eq("is_active", true);
-          return { referral, matchingProviderCount: count ?? 0 };
-        })
-      );
-      return results;
+      return data as SpecialistReferralWithDetails[];
     },
-    refetchInterval: 60_000,
   });
 }
 
-/** Marks a booked referral's visit as done or cancelled — closes the worklist loop. */
-export function useCloseReferral() {
+/**
+ * Declines a referral — 67.12 requires a reason whenever a referral is
+ * rejected. Enforced at the DB level by
+ * specialist_referrals_declined_requires_reason.
+ */
+export function useDeclineReferral() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ referralId, status }: { referralId: string; status: "completed" | "declined" }) => {
+    mutationFn: async ({ referralId, declinedReason }: { referralId: string; declinedReason: string }) => {
       const supabase = createClient();
-      const { error } = await supabase.from("specialist_referrals").update({ status }).eq("id", referralId);
+      const { error } = await supabase
+        .from("specialist_referrals")
+        .update({ status: "declined", declined_reason: declinedReason })
+        .eq("id", referralId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -330,17 +423,16 @@ export function useCloseReferral() {
 }
 
 /**
- * Closes a referral's episode once the specialist's outcome is on file
- * (transcribed treatment plan or an uploaded document) — task spec §11.15.
- * The DB does the real enforcement: private.
- * enforce_specialist_referral_outcome_and_closure requires an active
- * clinical-tier session and stamps closed_by/closed_at from it (never
- * client-supplied), and specialist_referrals_closed_requires_outcome
- * refuses the write outright without both an outcome and this note. A
- * non-clinical or out-of-tier caller gets that exception back as a plain
- * error message here.
+ * Closes a referral (67.15) — "a referral should not close simply because
+ * an appointment was booked." Requires the specialist's report to already
+ * be on file (useRecordTreatmentPlanReceived) and takes the care-plan
+ * update note in the same call; specialist_referrals_closed_requires_outcome
+ * (20260828231947) blocks status='closed' unless closed_at/closed_by (both
+ * server-stamped by its own trigger), a non-empty care_plan_update_note,
+ * and either treatment_plan_received_at or outcome_document_path are all
+ * present. That same trigger also requires the caller be clinical tier.
  */
-export function useCloseReferralWithCarePlanUpdate() {
+export function useCloseReferral() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ referralId, carePlanUpdateNote }: { referralId: string; carePlanUpdateNote: string }) => {
@@ -351,90 +443,9 @@ export function useCloseReferralWithCarePlanUpdate() {
         .eq("id", referralId);
       if (error) throw error;
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
-      queryClient.invalidateQueries({ queryKey: ["specialist-referrals", "detail", variables.referralId] });
-    },
-  });
-}
-
-/**
- * Clinician-initiated referral creation (task spec §11.3/§11.4/§11.6) — the
- * gap confirmed before writing this: the ONLY existing insert path was the
- * abnormal-result-handler Edge Function. Mirrors useOrderLabTest's trust
- * model exactly: referred_by is resolved from the caller's OWN active
- * clinical_staff row, never trusted from a form field, and the insert only
- * succeeds if RLS (private.is_org_staff) admits the caller. Self-arranged:
- * this never assigns a specialist_provider or takes a fee — a letter is
- * generated and the patient takes it to whichever specialist they choose,
- * same as every other referral in this codebase since 2026-08-03.
- */
-export function useCreateSpecialistReferral() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      organisationId,
-      patientId,
-      specialistType,
-      clinicalQuestion,
-      urgency,
-      preferredConsultationType,
-      preferredLocation,
-      parentReferralId,
-    }: {
-      organisationId: string;
-      patientId: string;
-      specialistType: Tables<"specialist_referrals">["specialist_type"];
-      clinicalQuestion: string;
-      urgency?: ReferralUrgency;
-      preferredConsultationType?: "telemedicine" | "in_person" | "either";
-      preferredLocation?: string;
-      parentReferralId?: string;
-    }) => {
-      const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not signed in");
-
-      const { data: staff, error: staffError } = await supabase
-        .from("clinical_staff")
-        .select("id")
-        .eq("profile_id", user.id)
-        .eq("organisation_id", organisationId)
-        .eq("active", true)
-        .maybeSingle();
-      if (staffError) throw staffError;
-      if (!staff) {
-        throw new Error("You must be an active clinical_staff member of this organisation to create a referral");
-      }
-
-      const { data, error } = await supabase
-        .from("specialist_referrals")
-        .insert({
-          organisation_id: organisationId,
-          patient_id: patientId,
-          specialist_type: specialistType,
-          referral_reason: clinicalQuestion,
-          urgency: urgency ?? null,
-          set_by: urgency ? user.id : null,
-          referred_by: staff.id,
-          preferred_consultation_type: preferredConsultationType ?? null,
-          preferred_location: preferredLocation ?? null,
-          parent_referral_id: parentReferralId ?? null,
-          // No third booking_origin value exists yet for "a clinician decided
-          // to refer" — clinically_triggered already covers "not the patient's
-          // own request," which is accurate here too (the abnormal-result
-          // pipeline is the automated case of the same origin).
-          origin: "clinically_triggered",
-        })
-        .select("id")
-        .single();
-      if (error) throw error;
-      return data;
-    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
     },
   });
 }
+

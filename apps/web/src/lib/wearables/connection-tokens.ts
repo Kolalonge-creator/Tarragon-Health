@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import { refreshWearableAccessToken } from "./token-exchange";
 import type { CloudOAuthWearableProvider } from "./oauth-providers";
+import type { WearableConsent } from "./normalise";
 
 /**
  * Access-token custody for a stored wearable connection: hand back a token
@@ -28,10 +29,29 @@ export interface WearableConnectionCredentials {
   access_token: string | null;
   refresh_token: string | null;
   token_expires_at: string | null;
+  consent_activity: boolean;
+  consent_heart_rate: boolean;
+  consent_sleep: boolean;
+  consent_weight: boolean;
 }
 
+// A single string literal, not a concatenation: Supabase's .select() only
+// infers real column types from a literal type, and "a" + "b" widens to
+// plain `string` even when both operands are literals, which silently
+// degrades every caller's result to an untyped GenericStringError.
 export const WEARABLE_CREDENTIAL_COLUMNS =
-  "id, organisation_id, patient_id, provider, access_token, refresh_token, token_expires_at";
+  "id, organisation_id, patient_id, provider, access_token, refresh_token, token_expires_at, consent_activity, consent_heart_rate, consent_sleep, consent_weight";
+
+/** The consent shape ingest.ts expects, read off a row selected with
+ * WEARABLE_CREDENTIAL_COLUMNS. */
+export function consentFromConnection(connection: WearableConnectionCredentials): WearableConsent {
+  return {
+    activity: connection.consent_activity,
+    heart_rate: connection.consent_heart_rate,
+    sleep: connection.consent_sleep,
+    weight: connection.consent_weight,
+  };
+}
 
 /** Refresh this far ahead of the stated expiry so a token doesn't lapse
  * mid-request between the check and the provider call. */

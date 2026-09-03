@@ -2,7 +2,16 @@ import { z } from "zod";
 
 const noteField = z.string().trim().max(500).optional();
 
-/** Raw string from a datetime-local input; converted to an ISO string in the Server Action. */
+/**
+ * Raw string from a datetime-local input; converted to an ISO string in the
+ * Server Action. No current form actually renders that input, and even if
+ * one is added, this value is silently overridden server-side for any
+ * manual-source reading (private.stamp_manual_vitals_timestamp,
+ * 20260831001537) — manual entries have no legitimate need to backdate
+ * taken_at, unlike device/wearable/CGM/FHIR-import sources, which set it
+ * through a different path (the device-readings/cgm-readings/wearables
+ * ingestion routes) that this trigger deliberately leaves untouched.
+ */
 const takenAtField = z
   .string()
   .optional()

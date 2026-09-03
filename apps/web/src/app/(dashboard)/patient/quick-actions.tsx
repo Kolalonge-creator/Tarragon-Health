@@ -74,7 +74,25 @@ const ACTIONS: readonly QuickAction[] = [
   },
 ] as const;
 
-export function QuickActions() {
+/**
+ * Offered only to patients cycle tracking applies to (see
+ * shouldOfferCycleTracking), so it is separate from the always-on list above
+ * rather than a conditional entry inside it.
+ *
+ * It earns a place here because the tracker was otherwise three steps deep:
+ * Prevention -> the "Programmes" tab -> the cycle card. That is the wrong
+ * depth for the one thing on this platform somebody opens most days of the
+ * month.
+ */
+const CYCLE_ACTION: QuickAction = {
+  icon: "family",
+  label: "Your cycle",
+  hint: "Log your period, see what's next",
+  href: "/patient/cycle",
+};
+
+export function QuickActions({ showCycle = false }: { showCycle?: boolean }) {
+  const actions = showCycle ? [...ACTIONS, CYCLE_ACTION] : ACTIONS;
   return (
     <section aria-labelledby="quick-actions-heading">
       <h2
@@ -84,7 +102,7 @@ export function QuickActions() {
         Quick actions
       </h2>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-        {ACTIONS.map((action) => {
+        {actions.map((action) => {
           const Icon = APP_ICON[action.icon];
           return (
             <li key={action.href} className="flex">

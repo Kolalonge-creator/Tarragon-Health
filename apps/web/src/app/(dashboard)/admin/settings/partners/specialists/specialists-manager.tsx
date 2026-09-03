@@ -17,6 +17,12 @@ import {
   useUpdateSpecialistProviderLicense,
   type SpecialistType,
 } from "@/lib/queries/partner-catalogues";
+import { useUpdateSpecialistProviderProfile } from "@/lib/queries/specialist-provider-network";
+import { SpecialistProfileEditor } from "./specialist-profile-editor";
+import { SpecialistVerificationPanel } from "./specialist-verification-panel";
+import { SpecialistLocationsManager } from "./specialist-locations-manager";
+import { SpecialistCalendarManager } from "./specialist-calendar-manager";
+import { SpecialistWorkloadPerformancePanel } from "./specialist-workload-performance-panel";
 
 const SPECIALIST_TYPES: SpecialistType[] = [
   "urologist",
@@ -28,6 +34,8 @@ const SPECIALIST_TYPES: SpecialistType[] = [
   "ophthalmology",
   "dietetics",
   "podiatry",
+  "psychiatry",
+  "psychology",
   "other",
 ];
 
@@ -37,6 +45,7 @@ export function SpecialistsManager() {
   const toggle = useSetSpecialistProviderActive();
   const updateCommission = useUpdateSpecialistProviderCommission();
   const updateLicense = useUpdateSpecialistProviderLicense();
+  const updateProfile = useUpdateSpecialistProviderProfile();
   const [savingCommissionId, setSavingCommissionId] = useState<string | null>(null);
   const [commissionErrorId, setCommissionErrorId] = useState<string | null>(null);
 
@@ -194,6 +203,7 @@ export function SpecialistsManager() {
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium text-charcoal-ink">{sp.name}</span>
                     <Badge variant="grey">{sp.specialist_type.replace(/_/g, " ")}</Badge>
+                    {sp.provider_tier && <Badge variant="blue">{sp.provider_tier.replace(/_/g, " ")}</Badge>}
                     <Badge variant={sp.is_active ? "green" : "grey"}>{sp.is_active ? "Active" : "Inactive"}</Badge>
                     {sp.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
                     <PartnerLicenseBadge expiresAt={sp.license_expires_at} />
@@ -214,15 +224,43 @@ export function SpecialistsManager() {
                     {sp.is_active ? "Deactivate" : "Activate"}
                   </Button>
                 </div>
+                {(sp.subspecialty || sp.years_of_experience != null) && (
+                  <p className="text-xs text-charcoal-ink/50">
+                    {[sp.subspecialty, sp.years_of_experience != null ? `${sp.years_of_experience} yrs experience` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
                 {sp.license_number && (
                   <p className="text-xs text-charcoal-ink/50">
                     {sp.license_type ?? "License"}: {sp.license_number}
                   </p>
                 )}
+                <SpecialistVerificationPanel specialistProviderId={sp.id} currentStage={sp.verification_stage} />
                 <PartnerLicenseEditor
                   values={sp}
                   saving={updateLicense.isPending}
                   onSave={(next) => updateLicense.mutate({ id: sp.id, ...next })}
+                />
+                <SpecialistProfileEditor
+                  values={{
+                    subspecialty: sp.subspecialty,
+                    qualifications: sp.qualifications,
+                    years_of_experience: sp.years_of_experience,
+                    clinical_interests: sp.clinical_interests,
+                    provider_tier: sp.provider_tier,
+                  }}
+                  saving={updateProfile.isPending}
+                  onSave={(next) =>
+                    updateProfile.mutate({
+                      id: sp.id,
+                      subspecialty: next.subspecialty,
+                      qualifications: next.qualifications,
+                      yearsOfExperience: next.years_of_experience,
+                      clinicalInterests: next.clinical_interests,
+                      providerTier: next.provider_tier,
+                    })
+                  }
                 />
                 <CommissionRateEditor
                   idPrefix={`specialist-${sp.id}`}
@@ -242,6 +280,11 @@ export function SpecialistsManager() {
                     );
                   }}
                 />
+                <div className="flex flex-wrap gap-3 border-t border-charcoal-ink/10 pt-2">
+                  <SpecialistLocationsManager specialistProviderId={sp.id} />
+                  <SpecialistCalendarManager specialistProviderId={sp.id} />
+                  <SpecialistWorkloadPerformancePanel specialistProviderId={sp.id} />
+                </div>
               </div>
             ))
           )}

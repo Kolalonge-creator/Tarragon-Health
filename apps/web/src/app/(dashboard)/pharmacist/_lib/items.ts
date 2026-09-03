@@ -17,4 +17,9 @@ export type PharmacistOrderRow = {
   patient_number: string | null;
   items: unknown;
   requested_at: string;
+  payable_kobo: number | null;
+  confirmed_quantity: string | null;
+  confirmed_price_kobo: number | null;
+  estimated_fulfilment_at: string | null;
+  cancellation_reason: string | null;
 };

@@ -13,7 +13,7 @@ import {
   useSetReferralUrgency,
   useRecordTreatmentPlanReceived,
   useRecordSharedCareHandback,
-  useCloseReferralWithCarePlanUpdate,
+  useCloseReferral,
   type SpecialistReferralWithDetails,
 } from "@/lib/queries/specialist-referrals";
 import { ReferralOutcomeDocumentUpload } from "@/components/referral-outcome-document-upload";
@@ -78,14 +78,12 @@ export function ClinicalSummaryPanel({
   const setUrgency = useSetReferralUrgency();
   const recordTreatmentPlan = useRecordTreatmentPlanReceived();
   const recordHandback = useRecordSharedCareHandback();
-  const closeReferral = useCloseReferralWithCarePlanUpdate();
+  const closeReferral = useCloseReferral();
   const [urgency, setUrgencyLocal] = useState<ReferralUrgency | "">(referral.urgency ?? "");
   const [isPending, startTransition] = useTransition();
   const [assembleError, setAssembleError] = useState<string | null>(null);
   const [treatmentPlanNote, setTreatmentPlanNote] = useState("");
   const [carePlanUpdateNote, setCarePlanUpdateNote] = useState("");
-
-  const hasOutcome = referral.treatment_plan_received_at !== null || referral.outcome_document_path !== null;
 
   const summary = referral.clinical_summary as unknown as ClinicalSummary | null;
 
@@ -108,6 +106,7 @@ export function ClinicalSummaryPanel({
               <option value="routine">Routine, within weeks</option>
               <option value="priority">Priority, within days</option>
               <option value="urgent">Urgent, same day</option>
+              <option value="emergency">Emergency</option>
             </Select>
           </div>
           <Button
@@ -209,25 +208,27 @@ export function ClinicalSummaryPanel({
         </CardContent>
       </Card>
 
-      {(referral.status === "completed" || referral.status === "closed") && (
+      {referral.status !== "closed" && referral.status !== "declined" && (
         <Card>
           <CardHeader>
-            <CardTitle>Treatment plan &amp; shared care</CardTitle>
+            <CardTitle>Specialist report, follow-up &amp; close-out</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 print:hidden">
+            {/* 67.15: a referral must not close just because an appointment
+                happened — the specialist's report has to be on file first. */}
             {referral.treatment_plan_received_at ? (
               <p className="text-sm text-charcoal-ink">
-                Treatment plan received {new Date(referral.treatment_plan_received_at).toLocaleDateString("en-GB")}
+                Specialist report received {new Date(referral.treatment_plan_received_at).toLocaleDateString("en-GB")}
                 {referral.treatment_plan_note && `: ${referral.treatment_plan_note}`}
               </p>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="treatment-plan-note">Treatment plan (as sent back by the specialist)</Label>
+                <Label htmlFor="treatment-plan-note">Specialist report (as sent back by the specialist)</Label>
                 <Textarea
                   id="treatment-plan-note"
                   value={treatmentPlanNote}
                   onChange={(e) => setTreatmentPlanNote(e.target.value)}
-                  placeholder="Diagnosis, treatment recommendations, medication changes, follow-up plan…"
+                  placeholder="Diagnosis, assessment, recommendations, medication changes, investigations…"
                 />
                 <Button
                   size="sm"
@@ -239,7 +240,7 @@ export function ClinicalSummaryPanel({
                     )
                   }
                 >
-                  {recordTreatmentPlan.isPending ? "Saving…" : "Record treatment plan"}
+                  {recordTreatmentPlan.isPending ? "Saving…" : "Record specialist report"}
                 </Button>
               </div>
             )}
@@ -250,7 +251,7 @@ export function ClinicalSummaryPanel({
                   Shared care resumed by your care team{" "}
                   {new Date(referral.shared_care_handback_at).toLocaleDateString("en-GB")}
                 </p>
-              ) : referral.status !== "closed" ? (
+              ) : (
                 <Button
                   size="sm"
                   variant="outline"
@@ -261,8 +262,12 @@ export function ClinicalSummaryPanel({
                 >
                   {recordHandback.isPending ? "Saving…" : "Confirm shared-care handback"}
                 </Button>
-              ) : null)}
+              ))}
 
+            {/* Uploading the specialist's own document (what the referral
+                letter promises: "upload it in the app") is an alternative
+                to transcribing a report by hand — either satisfies the
+                closure gate below. */}
             <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
               {referral.outcome_document_path ? (
                 <p className="text-sm text-charcoal-ink">
@@ -276,64 +281,65 @@ export function ClinicalSummaryPanel({
                     </>
                   )}
                 </p>
-              ) : referral.status !== "closed" ? (
+              ) : (
                 <ReferralOutcomeDocumentUpload referralId={referral.id} asStaff />
-              ) : null}
+              )}
             </div>
+
+            {/* Closure is a separate, deliberate step from receiving the
+                report — the care-plan update has to actually be documented,
+                not just implied by the report having arrived. Enforced by
+                specialist_referrals_closed_requires_outcome. */}
+            {(referral.treatment_plan_received_at || referral.outcome_document_path) && (
+              <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
+                <Label htmlFor="care-plan-update-note">Care plan update (required to close this referral)</Label>
+                <Textarea
+                  id="care-plan-update-note"
+                  value={carePlanUpdateNote}
+                  onChange={(e) => setCarePlanUpdateNote(e.target.value)}
+                  placeholder="What changed in this patient's care plan as a result of this referral, and who owns it next…"
+                />
+                <Button
+                  size="sm"
+                  disabled={carePlanUpdateNote.trim().length === 0 || closeReferral.isPending}
+                  onClick={() =>
+                    closeReferral.mutate(
+                      { referralId: referral.id, carePlanUpdateNote: carePlanUpdateNote.trim() },
+                      { onSuccess: () => router.refresh() }
+                    )
+                  }
+                >
+                  {closeReferral.isPending ? "Closing…" : "Close referral"}
+                </Button>
+                {closeReferral.isError && (
+                  <p className="text-xs text-red-600">
+                    {(closeReferral.error as Error).message || "Could not close the referral. Try again."}
+                  </p>
+                )}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {referral.status === "closed" ? (
+      {referral.status === "closed" && referral.care_plan_update_note && (
         <Card>
           <CardHeader>
-            <CardTitle>Referral closed</CardTitle>
+            <CardTitle>Closed</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-1 print:hidden">
+          <CardContent className="space-y-2 print:hidden">
             {referral.closed_at && (
               <p className="text-xs text-charcoal-ink/60">
                 Closed {new Date(referral.closed_at).toLocaleDateString("en-GB")}
               </p>
             )}
-            {referral.care_plan_update_note && (
-              <p className="text-sm text-charcoal-ink">{referral.care_plan_update_note}</p>
-            )}
+            <p className="text-sm text-charcoal-ink">
+              Specialist report:{" "}
+              {referral.treatment_plan_note ?? "on file"}
+            </p>
+            <p className="text-sm text-charcoal-ink">Care plan update: {referral.care_plan_update_note}</p>
           </CardContent>
         </Card>
-      ) : (
-        hasOutcome && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Review &amp; close referral</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 print:hidden">
-              <Label htmlFor="care-plan-update-note">What changed in the care plan?</Label>
-              <Textarea
-                id="care-plan-update-note"
-                value={carePlanUpdateNote}
-                onChange={(e) => setCarePlanUpdateNote(e.target.value)}
-                placeholder="e.g. Added ACE inhibitor per specialist recommendation, monitoring cadence updated to fortnightly"
-              />
-              <Button
-                size="sm"
-                disabled={carePlanUpdateNote.trim().length < 10 || closeReferral.isPending}
-                onClick={() =>
-                  closeReferral.mutate(
-                    { referralId: referral.id, carePlanUpdateNote: carePlanUpdateNote.trim() },
-                    { onSuccess: () => router.refresh() },
-                  )
-                }
-              >
-                {closeReferral.isPending ? "Closing…" : "Close referral"}
-              </Button>
-              {closeReferral.isError && (
-                <p className="text-xs text-red-600">
-                  {(closeReferral.error as Error).message || "Could not close the referral. Try again."}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        )
       )}
     </div>
   );

@@ -12,7 +12,7 @@ export interface ReferralPipelineInput {
   closed_at?: string | null;
 }
 
-const BOOKED_STATUSES: ReferralStatus[] = ["booked", "confirmed", "completed"];
+const BOOKED_STATUSES: ReferralStatus[] = ["booked", "confirmed", "completed", "closed"];
 
 /**
  * Derives the master plan's 9-stage referral pipeline

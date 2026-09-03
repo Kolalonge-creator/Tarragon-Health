@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
 import { PhotoBannerHero } from "./_components/marketing-photo-banner-hero";
@@ -12,9 +13,11 @@ import { TestimonialsSection } from "./_components/testimonials-section";
 import { AppDashboardMockup } from "./_components/app-dashboard-mockup";
 import { EmergencyNotice } from "./_components/emergency-notice";
 import { TrustBand } from "./_components/trust-band";
+import { PartnerLogoStrip } from "./_components/partner-logo-strip";
 import { MARKETING_MEDIA } from "./_content/media";
 import { AnimatedNumber } from "./_components/animated-number";
 import { StepsExplorer } from "./_components/steps-explorer";
+import { StaggeredReveal } from "./_components/staggered-reveal";
 import { HOW_IT_WORKS_STEPS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
 import { getChannelHero } from "./_content/channel-heroes";
 import { PILLARS, PILLARS_SECTION_COPY } from "./_content/pillars";
@@ -68,18 +71,21 @@ export default async function MarketingHomePage({
         <ContinuityPath />
         <div className="mt-10 grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
           {PROOF_STATS.map((stat) => (
-            <div
+            <Card
               key={stat.label}
-              className="rounded-xl bg-warm-ivory p-5 transition duration-200 hover:-translate-y-0.5 hover:shadow-sm"
+              variant="soft"
+              className="border-0 shadow-none transition-transform duration-200 hover:-translate-y-0.5 hover:shadow-sm"
             >
-              <p className="font-heading text-3xl font-bold text-brand-green">
-                <AnimatedNumber value={stat.value} />
-              </p>
-              <h2 className="mt-1 font-heading text-sm font-semibold uppercase tracking-wide text-charcoal-ink">
-                {stat.label}
-              </h2>
-              <p className="mt-2 text-sm text-charcoal-ink/65">{stat.detail}</p>
-            </div>
+              <CardContent className="p-5">
+                <p className="font-heading text-3xl font-bold text-brand-green">
+                  <AnimatedNumber value={stat.value} />
+                </p>
+                <h2 className="mt-1 font-heading text-sm font-semibold uppercase tracking-wide text-charcoal-ink">
+                  {stat.label}
+                </h2>
+                <p className="mt-2 text-sm text-charcoal-ink/65">{stat.detail}</p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       </Section>
@@ -94,37 +100,41 @@ export default async function MarketingHomePage({
           description="Tarragon is for people managing a condition, and just as much for people who don't have one and intend to keep it that way."
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
-          <Link
-            href={MARKETING_ROUTES.prevention}
-            className="group rounded-2xl border border-brand-green/25 bg-white p-8 transition-colors hover:border-brand-green/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          <Card
+            asChild
+            className="rounded-2xl border-brand-green/25 hover:border-brand-green/50 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
           >
-            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              I&apos;m healthy
-            </p>
-            <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-              Stay that way →
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-              A screening and vaccination calendar built for your age and history, a yearly
-              health check, and education that makes sense of your numbers. Prevention that
-              actually gets done.
-            </p>
-          </Link>
-          <Link
-            href={MARKETING_ROUTES.chronicCare}
-            className="group rounded-2xl border border-charcoal-ink/10 bg-white p-8 transition-colors hover:border-brand-green/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+            <Link href={MARKETING_ROUTES.prevention} className="group block p-8 focus-visible:outline-none">
+              <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+                I&apos;m healthy
+              </p>
+              <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
+                Stay that way →
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+                A screening and vaccination calendar built for your age and history, a yearly
+                health check, and education that makes sense of your numbers. Prevention that
+                actually gets done.
+              </p>
+            </Link>
+          </Card>
+          <Card
+            asChild
+            className="rounded-2xl hover:border-brand-green/40 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
           >
-            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-              I&apos;m managing a condition
-            </p>
-            <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-              Get followed up properly →
-            </h3>
-            <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-              Hypertension, diabetes, weight: monitored between visits, reviewed against care
-              protocols, and escalated to a doctor when something needs attention.
-            </p>
-          </Link>
+            <Link href={MARKETING_ROUTES.chronicCare} className="group block p-8 focus-visible:outline-none">
+              <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+                I&apos;m managing a condition
+              </p>
+              <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
+                Get followed up properly →
+              </h3>
+              <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
+                Hypertension, diabetes, weight: monitored between visits, reviewed against care
+                protocols, and escalated to a doctor when something needs attention.
+              </p>
+            </Link>
+          </Card>
         </div>
       </Section>
 
@@ -152,12 +162,7 @@ export default async function MarketingHomePage({
             steps={HOW_IT_WORKS_STEPS.map(({ title, body }) => ({ title, body }))}
             tone="green"
           />
-          <MarketingMediaFrame
-            media={{
-              illustration: "connected-care",
-              imageAlt: "Readings, reminders, and doctor review in one connected record",
-            }}
-          />
+          <MarketingMediaFrame media={homepage.solution} />
         </div>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild variant="outline">
@@ -225,23 +230,23 @@ export default async function MarketingHomePage({
           title={PILLARS_SECTION_COPY.title}
           description={PILLARS_SECTION_COPY.description}
         />
-        <div className="grid gap-px overflow-hidden rounded-2xl bg-charcoal-ink/10 sm:grid-cols-2 lg:grid-cols-5">
+        <StaggeredReveal className="grid gap-px overflow-hidden rounded-2xl bg-charcoal-ink/10 sm:grid-cols-2 lg:grid-cols-5">
           {PILLARS.map((pillar) => (
             <div
               key={pillar.module}
-              className="relative bg-white p-6 transition-transform duration-300 hover:z-10 hover:-translate-y-1 hover:shadow-lg"
+              className="relative h-full bg-white p-6 transition-transform duration-300 hover:z-10 hover:-translate-y-1 hover:shadow-lg"
             >
               <h3 className="font-heading text-base font-semibold text-charcoal-ink">{pillar.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{pillar.body}</p>
             </div>
           ))}
-        </div>
+        </StaggeredReveal>
       </Section>
 
       <Section>
         <div className="mx-auto grid max-w-5xl overflow-hidden rounded-2xl border border-brand-green/20 bg-white shadow-sm lg:grid-cols-[0.9fr_1.1fr]">
           <MarketingMediaFrame
-            media={{ illustration: "prevention", imageAlt: "Preventive health and screening follow-up" }}
+            media={homepage.preventionCallout}
             className="rounded-none border-0 shadow-none lg:min-h-full"
           />
           <div className="p-8 sm:p-10">
@@ -277,9 +282,9 @@ export default async function MarketingHomePage({
               Take Tarragon with you
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Add TarragonHealth to your phone&apos;s home screen and check in wherever you are.
-              No app store, no separate download, the same secure record you already use on the
-              web, with your care team in your pocket whenever you need them.
+              Download the TarragonHealth app for iPhone and Android and check in wherever you are.
+              The same secure record you already use on the web, with your care team in your
+              pocket whenever you need them.
             </p>
             <ul className="mt-6 grid gap-3 sm:grid-cols-2">
               {[
@@ -301,8 +306,8 @@ export default async function MarketingHomePage({
               </Button>
             </div>
             <p className="mt-3 text-sm text-charcoal-ink/55">
-              Already have an account? Open tarragonhealth.ng on your phone, then tap Share →
-              Add to Home Screen on iPhone, or Install app when Chrome prompts you on Android.
+              Already have an account? Search &quot;TarragonHealth&quot; in the App Store or Google
+              Play to sign in on your phone.
             </p>
           </div>
         </div>
@@ -337,19 +342,21 @@ export default async function MarketingHomePage({
               body: "Clear plans with no hidden costs. See what's included.",
             },
           ].map((item) => (
-            <Link
+            <Card
               key={item.href}
-              href={item.href}
-              className="group rounded-xl border border-charcoal-ink/10 bg-white p-6 transition-colors hover:border-brand-green/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+              asChild
+              className="hover:border-brand-green/40 focus-within:ring-2 focus-within:ring-brand-green focus-within:ring-offset-2"
             >
-              <h3 className="font-heading text-lg font-semibold text-charcoal-ink group-hover:text-brand-green">
-                {item.title}
-                <span aria-hidden className="ml-1 inline-block transition-transform group-hover:translate-x-0.5">
-                  →
-                </span>
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
-            </Link>
+              <Link href={item.href} className="group block p-6 focus-visible:outline-none">
+                <h3 className="font-heading text-lg font-semibold text-charcoal-ink group-hover:text-brand-green">
+                  {item.title}
+                  <span aria-hidden className="ml-1 inline-block transition-transform group-hover:translate-x-0.5">
+                    →
+                  </span>
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{item.body}</p>
+              </Link>
+            </Card>
           ))}
         </div>
       </Section>
@@ -359,9 +366,12 @@ export default async function MarketingHomePage({
           eyebrow="Why people trust Tarragon"
           title="Built to be accountable to you"
           invert
+          size="large"
         />
         <TrustBand />
       </Section>
+
+      <PartnerLogoStrip />
 
       <TestimonialsSection />
 
