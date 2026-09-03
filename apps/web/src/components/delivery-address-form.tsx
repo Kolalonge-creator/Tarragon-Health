@@ -57,7 +57,7 @@ export function DeliveryAddressForm({
             onChange={(e) => setStreet(e.target.value)}
             placeholder="12 Admiralty Way"
           />
-          {fieldErrors.street && <p className="text-xs text-red-600">{fieldErrors.street}</p>}
+          {fieldErrors.street && <p className="text-xs text-red-600 dark:text-red-300">{fieldErrors.street}</p>}
         </div>
         <div className="space-y-1">
           <Label htmlFor={`area-${orderId}`}>Area / neighbourhood</Label>
@@ -67,7 +67,7 @@ export function DeliveryAddressForm({
             onChange={(e) => setArea(e.target.value)}
             placeholder="Lekki Phase 1"
           />
-          {fieldErrors.area && <p className="text-xs text-red-600">{fieldErrors.area}</p>}
+          {fieldErrors.area && <p className="text-xs text-red-600 dark:text-red-300">{fieldErrors.area}</p>}
         </div>
         <div className="space-y-1">
           <Label htmlFor={`state-${orderId}`}>State / LGA</Label>
@@ -77,7 +77,7 @@ export function DeliveryAddressForm({
             onChange={(e) => setState(e.target.value)}
             placeholder="Lagos"
           />
-          {fieldErrors.state && <p className="text-xs text-red-600">{fieldErrors.state}</p>}
+          {fieldErrors.state && <p className="text-xs text-red-600 dark:text-red-300">{fieldErrors.state}</p>}
         </div>
         <div className="space-y-1">
           <Label htmlFor={`phone-${orderId}`}>Confirm phone number</Label>
@@ -87,11 +87,11 @@ export function DeliveryAddressForm({
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+2348012345678"
           />
-          {fieldErrors.phone && <p className="text-xs text-red-600">{fieldErrors.phone}</p>}
+          {fieldErrors.phone && <p className="text-xs text-red-600 dark:text-red-300">{fieldErrors.phone}</p>}
         </div>
       </div>
       {setAddress.isError && (
-        <p className="text-xs text-red-600">Could not save this address. Try again.</p>
+        <p className="text-xs text-red-600 dark:text-red-300">Could not save this address. Try again.</p>
       )}
       <Button type="submit" size="sm" disabled={setAddress.isPending}>
         {setAddress.isPending ? "Saving…" : "Save delivery address"}

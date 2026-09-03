@@ -10,11 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
+import { formatPatientDate } from "@/lib/format-date";
 const WEIGHT_CONFIG: ChartConfig = { weight_kg: { label: "Weight (kg)", color: "var(--color-chart-glucose)" } };
 const HEIGHT_CONFIG: ChartConfig = { height_cm: { label: "Height (cm)", color: "var(--color-chart-systolic)" } };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" });
+  return formatPatientDate(iso, { month: "short", day: "numeric", year: "2-digit" });
 }
 
 /**
@@ -77,11 +78,11 @@ export function GrowthTrackingCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load growth measurements.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load growth measurements.</p>}
 
         {latest && (
-          <p className="text-xs text-charcoal-ink/60">
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             Latest:{" "}
             {latestZ !== null
               ? formatPercentile(zScoreToPercentile(latestZ))
@@ -92,9 +93,9 @@ export function GrowthTrackingCard({
         {weightPoints.length >= 2 && (
           <ChartContainer config={WEIGHT_CONFIG}>
             <LineChart data={weightPoints}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" fontSize={12} />
-              <YAxis fontSize={12} domain={["dataMin - 1", "dataMax + 1"]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="date" fontSize={12} tick={{ fill: "var(--chart-tick)" }} />
+              <YAxis fontSize={12} tick={{ fill: "var(--chart-tick)" }} domain={["dataMin - 1", "dataMax + 1"]} />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Line type="monotone" dataKey="weight_kg" stroke="var(--color-weight_kg)" dot />
             </LineChart>
@@ -104,9 +105,9 @@ export function GrowthTrackingCard({
         {heightPoints.length >= 2 && (
           <ChartContainer config={HEIGHT_CONFIG}>
             <LineChart data={heightPoints}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" fontSize={12} />
-              <YAxis fontSize={12} domain={["dataMin - 2", "dataMax + 2"]} />
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="date" fontSize={12} tick={{ fill: "var(--chart-tick)" }} />
+              <YAxis fontSize={12} tick={{ fill: "var(--chart-tick)" }} domain={["dataMin - 2", "dataMax + 2"]} />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Line type="monotone" dataKey="height_cm" stroke="var(--color-height_cm)" dot />
             </LineChart>
@@ -114,7 +115,7 @@ export function GrowthTrackingCard({
         )}
 
         {!isLoading && (measurements?.length ?? 0) < 2 && (
-          <p className="text-sm text-charcoal-ink/60">Log at least two measurements to see a trend.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Log at least two measurements to see a trend.</p>
         )}
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -153,7 +154,7 @@ export function GrowthTrackingCard({
           </div>
           <div className="sm:col-span-3">
             {logMeasurement.isError && (
-              <p className="mb-2 text-sm text-red-600">Could not save this measurement.</p>
+              <p className="mb-2 text-sm text-red-600 dark:text-red-300">Could not save this measurement.</p>
             )}
             <Button
               type="submit"

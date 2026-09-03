@@ -158,7 +158,7 @@ function CardExtractionReview({
       ? extraction.confirmed_record_ids.length
       : 0;
     return (
-      <li className="py-3 text-xs text-charcoal-ink/70">
+      <li className="py-3 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
         {filedCount} dose{filedCount === 1 ? "" : "s"} filed from this upload, sent to your care
         team for verification.
       </li>
@@ -166,13 +166,13 @@ function CardExtractionReview({
   }
 
   if (extraction.status === "pending" || runExtraction.isPending) {
-    return <li className="py-3 text-xs text-charcoal-ink/60">Reading your upload…</li>;
+    return <li className="py-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">Reading your upload…</li>;
   }
 
   if (extraction.status === "failed") {
     return (
       <li className="space-y-2 py-3">
-        <p className="text-xs text-amber-900">
+        <p className="text-xs text-amber-900 dark:text-amber-300">
           {extraction.error_message ?? "This upload could not be read automatically."} Enter the
           doses by hand below, or try again.
         </p>
@@ -189,18 +189,18 @@ function CardExtractionReview({
   return (
     <li className="space-y-3 py-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">Check before filing</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Check before filing</p>
         <Badge variant="amber">AI-drafted, not yet filed</Badge>
       </div>
 
       {extraction.unreadable_reason && (
-        <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+        <p className="rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 p-2 text-xs text-amber-900 dark:text-amber-300">
           {extraction.unreadable_reason}
         </p>
       )}
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <div className="min-h-[16rem] overflow-hidden rounded border border-charcoal-ink/10 bg-charcoal-ink/[0.03]">
+        <div className="min-h-[16rem] overflow-hidden rounded border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.03] dark:bg-night-ink/10">
           {signedUrl.data ? (
             // eslint-disable-next-line @next/next/no-img-element -- signed, short-lived storage URL
             <img
@@ -209,7 +209,7 @@ function CardExtractionReview({
               className="max-h-[24rem] w-full object-contain"
             />
           ) : (
-            <p className="p-3 text-xs text-charcoal-ink/60">
+            <p className="p-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {signedUrl.isLoading ? "Loading…" : "The uploaded file could not be shown."}
             </p>
           )}
@@ -217,13 +217,13 @@ function CardExtractionReview({
 
         <div className="space-y-2">
           {(edited ?? []).length === 0 ? (
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Nothing on this upload could be read into a storable dose.
             </p>
           ) : (
             <ul className="space-y-2">
               {(edited ?? []).map((row, index) => (
-                <li key={row.key} className="rounded border border-charcoal-ink/10 p-2">
+                <li key={row.key} className="rounded border border-charcoal-ink/10 dark:border-night-ink/15 p-2">
                   <div className="flex items-start gap-2">
                     <input
                       type="checkbox"
@@ -237,7 +237,7 @@ function CardExtractionReview({
                       aria-label={`File ${row.original.reportedLabel}`}
                     />
                     <div className="flex-1 space-y-1.5">
-                      <p className="text-xs text-charcoal-ink/60">
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                         Printed: &ldquo;{row.original.reportedLabel}&rdquo;
                         {row.original.confidence === "low" ? " · unclear print, check this one" : ""}
                       </p>
@@ -310,7 +310,7 @@ function CardExtractionReview({
           )}
 
           {unmappedRows.length > 0 && (
-            <details className="text-xs text-charcoal-ink/60">
+            <details className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               <summary className="cursor-pointer">
                 {unmappedRows.length} row{unmappedRows.length === 1 ? "" : "s"} could not be matched
                 to a vaccine
@@ -329,9 +329,9 @@ function CardExtractionReview({
         </div>
       </div>
 
-      {confirm.error && <p className="text-xs text-red-600">{(confirm.error as Error).message}</p>}
+      {confirm.error && <p className="text-xs text-red-600 dark:text-red-300">{(confirm.error as Error).message}</p>}
       {confirm.isSuccess && (
-        <p className="text-xs text-brand-green">
+        <p className="text-xs text-brand-green dark:text-brand-green-bright">
           {includedCount} dose{includedCount === 1 ? "" : "s"} sent to your care team for
           verification.
         </p>
@@ -413,11 +413,11 @@ export function VaccinationCardImport({ patientId }: { patientId: string }) {
           </Button>
         </div>
         {(fileError || upload.error) && (
-          <p className="text-xs text-red-600">{fileError ?? (upload.error as Error)?.message}</p>
+          <p className="text-xs text-red-600 dark:text-red-300">{fileError ?? (upload.error as Error)?.message}</p>
         )}
 
         {visible.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {visible.map((extraction) => (
               <CardExtractionReview key={extraction.id} extraction={extraction} patientId={patientId} />
             ))}

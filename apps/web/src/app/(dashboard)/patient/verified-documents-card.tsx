@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
+import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 const VERIFIED_DOCUMENT_CREDIT_CODE = "verified_document_credit";
 
 const DOCUMENT_TYPE_LABEL: Record<string, string> = {
@@ -26,25 +27,25 @@ function DocumentRow({ document }: { document: VerifiedDocument }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
       <div>
-        <p className="text-sm font-medium text-charcoal-ink">
-          {DOCUMENT_TYPE_LABEL[document.document_type] ?? document.document_type}
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+          {DOCUMENT_TYPE_LABEL[document.document_type] ?? document.document_type.replace(/_/g, " ")}
         </p>
         {document.status === "requested" && (
-          <p className="text-xs text-charcoal-ink/60">
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             With your care team · a doctor will respond by{" "}
-            {new Date(document.sla_due_at).toLocaleString()}
+            {formatPatientDateTime(document.sla_due_at)}
           </p>
         )}
         {document.status === "declined" && (
-          <p className="text-xs text-red-600">
+          <p className="text-xs text-red-600 dark:text-red-300">
             Not issued{document.declined_reason ? `: ${document.declined_reason}` : ""}
           </p>
         )}
         {document.status === "issued" && document.valid_from && (
-          <p className="text-xs text-charcoal-ink/60">
-            Valid from {new Date(document.valid_from).toLocaleDateString()}
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            Valid from {formatPatientDate(document.valid_from)}
             {document.valid_until
-              ? ` to ${new Date(document.valid_until).toLocaleDateString()}`
+              ? ` to ${formatPatientDate(document.valid_until)}`
               : ""}
           </p>
         )}
@@ -59,7 +60,7 @@ function DocumentRow({ document }: { document: VerifiedDocument }) {
       {document.status === "issued" && (
         <a
           href={`/api/patient/verified-documents/${document.id}/pdf`}
-          className="text-xs font-medium text-brand-green underline"
+          className="text-xs font-medium text-brand-green dark:text-brand-green-bright underline"
         >
           Download PDF
         </a>
@@ -134,14 +135,14 @@ export function VerifiedDocumentsCard({
         <CardTitle>Verified documents</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           A doctor-attested fit-to-work letter or travel health certificate, delivered as a signed
           PDF, no printing or courier needed.
         </p>
 
         {!isCheckingCredit && !hasCredit && (
-          <div className="space-y-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
-            <p className="text-sm text-charcoal-ink">Buy a credit to request a document.</p>
+          <div className="space-y-2 rounded-md border border-brand-green/30 dark:border-brand-green-bright/30 bg-brand-green/5 dark:bg-brand-green/15 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">Buy a credit to request a document.</p>
             <Button size="sm" disabled={isBuying} onClick={buyCredit}>
               {isBuying ? "Redirecting to payment…" : "Buy a credit"}
             </Button>
@@ -170,16 +171,16 @@ export function VerifiedDocumentsCard({
             disabled={!hasCredit}
           />
         </div>
-        {formError && <p className="text-sm text-red-600">{formError}</p>}
+        {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
         {request.isSuccess && (
-          <p className="text-sm text-brand-green">Sent. A doctor will respond within 72 hours.</p>
+          <p className="text-sm text-brand-green dark:text-brand-green-bright">Sent. A doctor will respond within 72 hours.</p>
         )}
         <Button onClick={onSubmit} disabled={request.isPending || !hasCredit}>
           {request.isPending ? "Sending…" : "Request document"}
         </Button>
 
         {documents && documents.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10 border-t border-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 border-t border-charcoal-ink/10 dark:border-night-ink/15">
             {documents.map((d) => (
               <DocumentRow key={d.id} document={d} />
             ))}

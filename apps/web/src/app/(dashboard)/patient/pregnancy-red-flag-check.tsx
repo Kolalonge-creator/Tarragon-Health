@@ -46,18 +46,18 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
   }
 
   return (
-    <Card className="border-red-200">
+    <Card className="border-red-200 dark:border-red-500/30">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
         className="flex w-full flex-col items-start gap-1.5 px-5 py-3.5 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6"
       >
-        <span className="flex items-center gap-2 text-sm font-semibold text-red-700">
+        <span className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-300">
           <TriangleAlert className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
           Any pregnancy warning signs?
         </span>
-        <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-red-700">
+        <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-red-700 dark:text-red-300">
           {expanded ? "Hide" : "Check now"}
           <ChevronDown
             className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")}
@@ -68,7 +68,7 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
 
       {expanded && (
         <CardContent className="pt-0">
-          <p className="mb-4 text-sm text-charcoal-ink/70">
+          <p className="mb-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Tap anything you&apos;re experiencing. These need urgent assessment during pregnancy.
             We&apos;ll tell you what to do; TarragonHealth does not provide emergency care, so you
             should go to your nearest hospital.
@@ -87,7 +87,7 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
                       "min-h-11 rounded-full border px-4 py-3 text-sm transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500",
                       isOn
                         ? "border-red-600 bg-red-600 text-white"
-                        : "border-charcoal-ink/20 bg-white text-charcoal-ink hover:border-red-400"
+                        : "border-charcoal-ink/20 dark:border-night-ink/25 bg-white dark:bg-night-card text-charcoal-ink dark:text-night-ink hover:border-red-400 dark:hover:border-red-500/50"
                     )}
                   >
                     {PREGNANCY_DANGER_SIGN_LABEL[sign]}
@@ -100,7 +100,7 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
               <input key={sign} type="hidden" name="signs" value={sign} />
             ))}
 
-            {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+            {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
 
             <Button
               type="submit"

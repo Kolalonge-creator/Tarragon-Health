@@ -36,7 +36,7 @@ const CONNECTS = [
   },
   {
     title: "A doctor, when you need one directly",
-    body: "Send a written question and get a doctor's reply within 72 hours via the app, or book a 15-minute online consultation with a doctor. Each is a one-off you pay for by the piece, at a price you see first; a consultation payment is only taken once a doctor accepts your slot, and refunded in full if none can.",
+    body: "Send a written question and a doctor on your care team replies in the app, usually within 72 hours, or book a one-off video or audio visit. Each is a simple pay-per-service booking: you see the exact price and confirm it before anything is charged, and nothing renews afterwards.",
   },
 ];
 

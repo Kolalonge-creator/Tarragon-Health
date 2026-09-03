@@ -44,7 +44,7 @@ export default async function PatientWellbeingPage() {
           <CardTitle className="text-base">Talk to someone</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap items-center justify-between gap-3">
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Book a session with one of our therapists, over telemedicine or in person,
             whichever suits you.
           </p>
@@ -65,12 +65,12 @@ export default async function PatientWellbeingPage() {
           any other prescription — no parallel medication view here. */}
       <Card>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Any medicine your care team has started for you (including for your mental
             wellbeing) is tracked with your other medications: adherence, side effects, and
             reviews all in one place.
           </p>
-          <Link href="/patient/medications" className="text-sm font-medium text-brand-green underline">
+          <Link href="/patient/medications" className="text-sm font-medium text-brand-green dark:text-brand-green-bright underline">
             View your medications
           </Link>
         </CardContent>

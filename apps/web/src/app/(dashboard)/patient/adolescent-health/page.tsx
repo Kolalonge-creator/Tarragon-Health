@@ -51,7 +51,7 @@ export default async function AdolescentHealthPage() {
           backTo={{ href: "/patient", label: "Dashboard" }}
         />
         <Card variant="soft">
-          <CardContent className="py-4 text-sm text-charcoal-ink/70">
+          <CardContent className="py-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             This check-in is private to {acting.fullName ?? "the person you support"} and only
             they can complete it, signed in as themselves. It isn&apos;t part of what you can see
             or do while looking after their account.
@@ -90,10 +90,10 @@ export default async function AdolescentHealthPage() {
 
       {(ageBand === "younger_adolescent" || ageBand === "older_adolescent") && lastScreen && (
         <Card variant="soft">
-          <CardContent className="flex items-center justify-between py-4 text-sm text-charcoal-ink/80">
+          <CardContent className="flex items-center justify-between py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             <span>
               Last check-in:{" "}
-              {new Date(lastScreen.created_at).toLocaleDateString("en-GB", {
+              {new Date(lastScreen.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                 day: "numeric",
                 month: "short",
                 year: "numeric",
@@ -111,7 +111,7 @@ export default async function AdolescentHealthPage() {
           <CardHeader>
             <CardTitle className="text-base">Your path to adult care</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-charcoal-ink/80">
+          <CardContent className="space-y-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             <p>
               We plan to move your care fully into your own hands by around age{" "}
               {transitionPlan.target_transition_age}. Your care team will walk you through this
@@ -138,7 +138,7 @@ export default async function AdolescentHealthPage() {
         </>
       ) : (
         <Card variant="soft">
-          <CardContent className="py-4 text-sm text-charcoal-ink/70">
+          <CardContent className="py-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             {ageBand === "child"
               ? "This check-in is designed for older children and teenagers to complete themselves. It isn't the right place to log something on behalf of a younger child."
               : "This particular check-in is designed for the adolescent years. Your care team's regular wellbeing check-ins cover this for you."}

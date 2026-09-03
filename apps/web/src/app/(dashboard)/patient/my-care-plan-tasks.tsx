@@ -21,7 +21,7 @@ function humanize(value: string) {
 
 function formatDue(dueAt: string | null): string | null {
   if (!dueAt) return null;
-  return new Date(dueAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(dueAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**
@@ -37,7 +37,7 @@ function formatDue(dueAt: string | null): string | null {
 function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
   if (plans.length === 0) {
     return (
-      <p className="text-sm text-charcoal-ink/60">
+      <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
         No care plan yet. Your doctor will assign one after reviewing your health data.
       </p>
     );
@@ -46,11 +46,11 @@ function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
   return (
     <div>
       {plans.length > 1 && (
-        <p className="mb-2 text-xs text-charcoal-ink/60">
+        <p className="mb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Managed together as one coordinated plan: {plans.map((p) => humanize(p.condition)).join(", ")}.
         </p>
       )}
-      <ul className="divide-y divide-charcoal-ink/10">
+      <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
         {plans.map((plan) => {
           const targetRanges = (plan.target_ranges ?? {}) as Record<string, unknown>;
           const targetRangeEntries = Object.entries(targetRanges);
@@ -58,20 +58,20 @@ function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
           return (
             <li key={plan.id} className="space-y-1 py-2">
               <div className="flex items-center gap-2">
-                <p className="text-sm font-medium text-charcoal-ink">{humanize(plan.condition)}</p>
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{humanize(plan.condition)}</p>
                 <Badge variant="green">Active</Badge>
               </div>
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 {plan.assigned_clinician?.full_name
                   ? `Managed by ${plan.assigned_clinician.full_name}`
                   : "Not yet assigned to a doctor"}
               </p>
               {targetRangeEntries.length > 0 && (
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   {targetRangeEntries.map(([key, value]) => `${humanize(key)}: ${value}`).join("; ")}
                 </p>
               )}
-              {plan.notes && <p className="text-xs text-charcoal-ink/60">{plan.notes}</p>}
+              {plan.notes && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{plan.notes}</p>}
               {!plan.hasScheduledReview && <UpgradePrompt feature="multi_condition_review" />}
             </li>
           );
@@ -90,11 +90,11 @@ function TaskRow({ task, patientId }: { task: CareTask; patientId: string }) {
   return (
     <li className="space-y-2 py-2">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">{task.title}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{task.title}</p>
         {task.status === "missed" && <Badge variant="amber">Overdue</Badge>}
-        {due && <span className="text-xs text-charcoal-ink/60">Due {due}</span>}
+        {due && <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Due {due}</span>}
       </div>
-      {task.description && <p className="text-xs text-charcoal-ink/60">{task.description}</p>}
+      {task.description && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{task.description}</p>}
       {!showUnable ? (
         <div className="flex flex-wrap gap-2">
           <Button
@@ -131,7 +131,7 @@ function TaskRow({ task, patientId }: { task: CareTask; patientId: string }) {
         </div>
       )}
       {complete.isError && (
-        <p className="text-xs text-red-600">{(complete.error as Error)?.message ?? "Could not update this task."}</p>
+        <p className="text-xs text-red-600 dark:text-red-300">{(complete.error as Error)?.message ?? "Could not update this task."}</p>
       )}
     </li>
   );
@@ -149,8 +149,8 @@ function TaskSection({
   if (tasks.length === 0) return null;
   return (
     <div>
-      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50">{title}</p>
-      <ul className="divide-y divide-charcoal-ink/10">
+      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">{title}</p>
+      <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
         {tasks.map((task) => (
           <TaskRow key={task.id} task={task} patientId={patientId} />
         ))}
@@ -192,7 +192,7 @@ function ProposeGoalForm({
         {propose.isPending ? "Saving…" : "Add goal"}
       </Button>
       {propose.isError && (
-        <p className="w-full text-xs text-red-600">
+        <p className="w-full text-xs text-red-600 dark:text-red-300">
           {(propose.error as Error)?.message ?? "Could not add that goal."}
         </p>
       )}
@@ -227,17 +227,17 @@ export function MyCarePlanTasks({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your care plan
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <ConditionsOverview plans={plans ?? []} />
 
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load your care plan tasks.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load your care plan tasks.</p>}
         {!isLoading && !isError && (tasks ?? []).length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             No tasks yet. Your care team will add these as your plan is set up.
           </p>
         )}
@@ -249,12 +249,12 @@ export function MyCarePlanTasks({
 
         {visibleGoals.length > 0 && (
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
               Your goals
             </p>
             <ul className="space-y-1.5">
               {visibleGoals.map((goal) => (
-                <li key={goal.id} className="flex items-center gap-2 text-sm text-charcoal-ink">
+                <li key={goal.id} className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
                   {goal.status === "proposed" ? (
                     <Badge variant="blue">Pending review</Badge>
                   ) : (

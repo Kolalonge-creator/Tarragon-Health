@@ -5,6 +5,7 @@ import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import { ReferralOutcomeDocumentUpload } from "@/components/referral-outcome-document-upload";
 import type { ReferralStatus } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 // Patient-facing status copy — deliberately not the staff worklist labels
 // (REFERRAL_STATUS_BADGE in clinician/referrals/page.tsx), per CLAUDE.md's
 // brand voice rule: no clinical jargon, no fear-based urgency.
@@ -25,7 +26,7 @@ const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
 };
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**
@@ -59,17 +60,17 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
         {referrals.map((referral) => (
           <div
             key={referral.id}
-            className="space-y-1 border-b border-charcoal-ink/10 pb-4 last:border-0 last:pb-0"
+            className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4 last:border-0 last:pb-0"
           >
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm text-charcoal-ink">{referral.specialist_type}</p>
-              <p className="shrink-0 text-xs text-charcoal-ink/50">{formatDate(referral.created_at)}</p>
+              <p className="text-sm text-charcoal-ink dark:text-night-ink">{referral.specialist_type}</p>
+              <p className="shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{formatDate(referral.created_at)}</p>
             </div>
-            <p className="text-xs text-charcoal-ink/60">{PATIENT_STATUS_COPY[referral.status]}</p>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{PATIENT_STATUS_COPY[referral.status]}</p>
             <Stepper steps={deriveReferralPipelineStages(referral)} />
             {referral.appointment_date && (
-              <p className="text-xs text-charcoal-ink/60">
-                Appointment: {new Date(referral.appointment_date).toLocaleDateString()}
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                Appointment: {formatPatientDate(referral.appointment_date)}
               </p>
             )}
             {/* The letter is the referral. Tarragon does not book the
@@ -78,23 +79,23 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
                 clinic suits them. Never gated by plan. */}
             <a
               href={`/api/patient/referral/${referral.id}/letter`}
-              className="inline-block text-xs font-medium text-brand-green hover:underline"
+              className="inline-block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
             >
               Download your referral letter
             </a>
-            <p className="text-xs text-charcoal-ink/50">
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
               Take this to any {referral.specialist_type.replace(/_/g, " ")} you like. It tells them
               why you were referred and what we have already done, so you do not have to explain it
               yourself. You pay that clinic directly.
             </p>
             {referral.status === "closed" ? (
               referral.care_plan_update_note && (
-                <p className="text-xs text-charcoal-ink/70">
+                <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
                   What changed: {referral.care_plan_update_note}
                 </p>
               )
             ) : referral.outcome_document_path ? (
-              <p className="text-xs text-brand-green">
+              <p className="text-xs text-brand-green dark:text-brand-green-bright">
                 We have what the specialist gave you. Your care team will update your plan.
               </p>
             ) : (

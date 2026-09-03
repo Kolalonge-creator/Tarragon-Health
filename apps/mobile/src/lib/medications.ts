@@ -1,6 +1,15 @@
 import { supabase } from "./supabase";
 import type { Tables } from "@tarragon/shared";
 
+/**
+ * Shared result shape for the native read-path lib functions (overview.ts
+ * imports it from here). A failed clinical query must be distinguishable
+ * from a genuinely empty one — destructuring `{ data }` and discarding the
+ * error made an RLS denial or a network drop render as "Active meds 0" /
+ * "No scheduled doses today", which is a false clinical claim, not a UI nit.
+ */
+export type QueryResult<T> = { ok: true; data: T } | { ok: false; error: string };
+
 export type DoseStatus = "pending" | "taken" | "missed" | "skipped";
 
 export interface DoseChecklistItem {
@@ -55,21 +64,27 @@ export function todayIsoDate(): string {
  * keeps only the latest row per (medication, date, time) — freeform/
  * as-needed logs (no scheduled slot) are never deduped, each stands alone.
  */
-export async function loadTodaysDoses(patientId: string): Promise<DoseChecklistItem[]> {
+export async function loadTodaysDoses(patientId: string): Promise<QueryResult<DoseChecklistItem[]>> {
   const today = todayIsoDate();
-  const [{ data: medications }, { data: logs }] = await Promise.all([
-    supabase
-      .from("medications")
-      .select("id, drug_name, schedule_times")
-      .eq("patient_id", patientId)
-      .eq("is_active", true),
-    supabase
-      .from("medication_logs_latest_per_slot")
-      .select("medication_id, scheduled_time, status")
-      .eq("patient_id", patientId)
-      .eq("scheduled_for_date", today),
-  ]);
-  return buildTodaysDoseChecklist(medications ?? [], logs ?? []);
+  try {
+    const [medsRes, logsRes] = await Promise.all([
+      supabase
+        .from("medications")
+        .select("id, drug_name, schedule_times")
+        .eq("patient_id", patientId)
+        .eq("is_active", true),
+      supabase
+        .from("medication_logs_latest_per_slot")
+        .select("medication_id, scheduled_time, status")
+        .eq("patient_id", patientId)
+        .eq("scheduled_for_date", today),
+    ]);
+    const failure = medsRes.error ?? logsRes.error;
+    if (failure) return { ok: false, error: failure.message };
+    return { ok: true, data: buildTodaysDoseChecklist(medsRes.data ?? [], logsRes.data ?? []) };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
 }
 
 /**

@@ -35,7 +35,7 @@ export function StiTestingPanel() {
     <Card id="sti-testing-panel">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           STI testing
         </CardTitle>
         <CardDescription>
@@ -46,23 +46,23 @@ export function StiTestingPanel() {
       <CardContent className="space-y-4">
         <ConfidentialResultNotice />
 
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load the testing catalogue.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-400">Could not load the testing catalogue.</p>}
         {!isLoading && stiBundles.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No STI tests are available to book yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No STI tests are available to book yet.</p>
         )}
 
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {stiBundles.map((bundle) => (
             <li key={bundle.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{bundle.name}</p>
                 {bundle.description && (
-                  <p className="text-xs text-charcoal-ink/60">{bundle.description}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{bundle.description}</p>
                 )}
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-charcoal-ink">
+                <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                   ₦{koboToNaira(bundle.price_kobo).toLocaleString("en-NG")}
                 </span>
                 <form action={payAction}>
@@ -76,7 +76,7 @@ export function StiTestingPanel() {
           ))}
         </ul>
 
-        {payState?.error && <p className="text-sm text-red-600">{payState.error}</p>}
+        {payState?.error && <p className="text-sm text-red-600 dark:text-red-400">{payState.error}</p>}
 
         {/* Home test kits (spec §47.4): screen_types.home_kit_available is
          * a real catalogue flag (migration 20260829120000) for a genuinely
@@ -86,7 +86,7 @@ export function StiTestingPanel() {
          * says so plainly rather than staying silent, the same honesty this
          * codebase uses for dormant imaging screens and wearable providers
          * with no real credentials yet. */}
-        <p className="border-t border-charcoal-ink/10 pt-3 text-xs text-charcoal-ink/50">
+        <p className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           Home test kits aren&apos;t available from a partner yet. For now, book above and
           we&apos;ll arrange the sample collection.
         </p>

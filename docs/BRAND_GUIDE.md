@@ -67,6 +67,15 @@ real brand colours, just demoted to what they're actually good at: an accent ban
 sections for rhythm (`<Section variant="sage">`), or a tinted card/chip surface sitting on white
 (a stat card, a nav pill, a table row) — never the base a whole page or section sits on.
 
+**Refined 2026-09-03: the patient-facing signed-in web surface runs on the Warm Ivory ground.**
+White stays the canvas everywhere the 2026-08-19 correction argued for it: the marketing site,
+login/signup, and every staff and clinical console (clinician, admin, finance, analyst, pharmacist,
+payer, provider org, lab, care coordinator). The one carve-out is the patient's own signed-in
+surface, whose content area now sits on Warm Ivory with white cards and white shell chrome (sidebar,
+header) floating on it. This matches the mobile app, which already ships `#FAF7F2` as every patient
+screen's background, so patient-web ivory is consistency with shipped reality rather than a return
+to the pre-correction default. Founder approved 2026-09-03. Print output stays white.
+
 Usage ratio: 65% White (the canvas) · 15% Ivory/Sage (accent bands and card surfaces) · 15%
 Green/Forest/Navy (brand presence) · 5% Sprout Gold (accents only), Charcoal Ink layered on top for
 text throughout.

@@ -37,8 +37,8 @@ export function PromoCodeField({
       <Button type="submit" variant="outline" size="sm" disabled={pending}>
         {pending ? "Applying…" : "Apply"}
       </Button>
-      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-xs text-brand-green">{state.success}</p>}
+      {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
+      {state?.success && <p className="text-xs text-brand-green dark:text-brand-green-bright">{state.success}</p>}
     </form>
   );
 }

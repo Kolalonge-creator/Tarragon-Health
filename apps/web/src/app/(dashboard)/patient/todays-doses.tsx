@@ -79,17 +79,25 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Today&apos;s doses
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {!isLoading && checklist.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No scheduled doses today.</p>
+          <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-soft-sage/60 dark:bg-brand-green/15">
+              <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest/60 dark:text-brand-green-bright/70" strokeWidth={2} />
+            </span>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No scheduled doses today.</p>
+            <p className="text-xs text-charcoal-ink/45 dark:text-night-ink/55">
+              Doses appear here once a medicine has a schedule.
+            </p>
+          </div>
         )}
         {checklist.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {checklist.map((item) => {
               const medication = medications?.find((m) => m.id === item.medicationId);
               const badge = STATUS_BADGE[item.status];
@@ -100,12 +108,12 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                   <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-charcoal-ink">
+                        <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                           {item.time}
                         </span>
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </div>
-                      <p className="text-xs text-charcoal-ink/60">{item.drugName}</p>
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.drugName}</p>
                     </div>
                     {medication && (
                       <div className="flex flex-wrap gap-2">
@@ -128,8 +136,8 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
                     )}
                   </div>
                   {askingReason && medication && (
-                    <div className="mt-2 rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
-                      <p className="mb-2 text-xs font-medium text-charcoal-ink/70">
+                    <div className="mt-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
+                      <p className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
                         What happened? (helps us support you better)
                       </p>
                       <div className="flex flex-wrap gap-2">

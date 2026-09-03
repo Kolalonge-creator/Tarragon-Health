@@ -19,11 +19,11 @@ export default async function SleepPage() {
   return (
     <DashboardPlaceholder greeting="Sleep" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.sleep}>
       <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green hover:underline">
+        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
           ← Back to lifestyle coaching
         </Link>
       </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
+      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Log how you&apos;re sleeping: duration, quality, and how alert you feel during the day.
       </p>
       <RequiresEntitlement

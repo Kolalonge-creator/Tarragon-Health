@@ -42,25 +42,27 @@ export function PageHeader({
       {backTo && (
         <Link
           href={backTo.href}
-          className="inline-flex items-center gap-1 text-sm font-medium text-brand-green hover:underline"
+          className="inline-flex items-center gap-1 text-sm font-medium text-brand-green hover:underline dark:text-brand-green-bright"
         >
           <NAV_ICON.chevronRight className="h-4 w-4 rotate-180" strokeWidth={2} aria-hidden />
           {backTo.label}
         </Link>
       )}
-      <div className="flex flex-col gap-4 border-b border-charcoal-ink/10 pb-4 sm:flex-row sm:items-start sm:justify-between">
+      <div className="flex flex-col gap-4 border-b border-charcoal-ink/10 pb-4 sm:flex-row sm:items-start sm:justify-between dark:border-night-ink/15">
         <div className="flex items-start gap-3">
           {Icon && (
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-soft-sage">
-              <Icon className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-soft-sage dark:bg-brand-green/20">
+              <Icon className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
             </span>
           )}
           <div>
-            <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink">
+            <h1 className="font-heading text-2xl font-semibold tracking-tight text-charcoal-ink dark:text-night-ink">
               {title}
             </h1>
             {description && (
-              <p className="mt-1 max-w-2xl text-sm text-charcoal-ink/65">{description}</p>
+              <p className="mt-1 max-w-2xl text-sm text-charcoal-ink/65 dark:text-night-ink/65">
+                {description}
+              </p>
             )}
           </div>
         </div>

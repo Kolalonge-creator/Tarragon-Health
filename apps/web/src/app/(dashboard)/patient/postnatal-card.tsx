@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
+import { formatPatientDate } from "@/lib/format-date";
 const CHECKIN_LABEL: Record<(typeof CHECKIN_WINDOWS)[number], string> = {
   week_1: "Week 1",
   week_6: "Week 6",
@@ -67,12 +68,12 @@ export function PostnatalCard({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {latest ? (
-          <div className="rounded-md border border-charcoal-ink/10 p-3 text-sm">
-            <p className="font-medium">Delivered {new Date(latest.delivery_date).toLocaleDateString()}</p>
-            <p className="text-charcoal-ink/70 capitalize">{latest.delivery_mode.replace("_", " ")}</p>
+          <div className="rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3 text-sm">
+            <p className="font-medium">Delivered {formatPatientDate(latest.delivery_date)}</p>
+            <p className="text-charcoal-ink/70 dark:text-night-ink/70 capitalize">{latest.delivery_mode.replace("_", " ")}</p>
           </div>
         ) : (
-          <p className="text-sm text-charcoal-ink/60">No delivery recorded yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No delivery recorded yet.</p>
         )}
 
         {!showDeliveryForm ? (
@@ -80,8 +81,8 @@ export function PostnatalCard({ patientId }: { patientId: string }) {
             {latest ? "Record another delivery" : "Record a delivery"}
           </Button>
         ) : (
-          <form action={deliveryAction} className="space-y-3 rounded-md border border-charcoal-ink/10 p-3">
-            <p className="text-xs text-charcoal-ink/60">
+          <form action={deliveryAction} className="space-y-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               This also updates your pregnancy status to &quot;not pregnant&quot;.
             </p>
             <div className="grid grid-cols-2 gap-3">
@@ -103,7 +104,7 @@ export function PostnatalCard({ patientId }: { patientId: string }) {
               <Label htmlFor="complications">Complications (optional)</Label>
               <Input id="complications" name="complications" />
             </div>
-            {deliveryState?.error && <p className="text-sm text-red-600">{deliveryState.error}</p>}
+            {deliveryState?.error && <p className="text-sm text-red-600 dark:text-red-300">{deliveryState.error}</p>}
             <Button type="submit" size="sm" disabled={deliveryPending}>
               {deliveryPending ? "Saving…" : "Save"}
             </Button>
@@ -134,13 +135,13 @@ function PostnatalCheckinSection({
   }, [state?.success]);
 
   return (
-    <div className="space-y-3 border-t border-charcoal-ink/10 pt-4">
-      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">Check-ins</p>
+    <div className="space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">Check-ins</p>
 
       {checkins.data && checkins.data.length > 0 && (
         <ul className="space-y-1.5">
           {checkins.data.map((c) => (
-            <li key={c.id} className="text-sm text-charcoal-ink/80">
+            <li key={c.id} className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {CHECKIN_LABEL[c.checkin_window as (typeof CHECKIN_WINDOWS)[number]]}
               {c.breastfeeding_status ? ` · ${BREASTFEEDING_LABEL[c.breastfeeding_status]}` : ""}
               {c.contraception_discussed ? " · Contraception discussed" : ""}
@@ -179,7 +180,7 @@ function PostnatalCheckinSection({
           <input type="checkbox" name="contraception_discussed" value="true" />
           We discussed contraception at this check-in
         </label>
-        {state?.error && <p className="col-span-2 text-sm text-red-600">{state.error}</p>}
+        {state?.error && <p className="col-span-2 text-sm text-red-600 dark:text-red-300">{state.error}</p>}
         <div className="col-span-2">
           <Button type="submit" size="sm" variant="outline" disabled={pending}>
             {pending ? "Saving…" : "Log check-in"}

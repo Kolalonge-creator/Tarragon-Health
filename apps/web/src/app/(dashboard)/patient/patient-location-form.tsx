@@ -35,7 +35,7 @@ export function PatientLocationForm({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.corporate className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your location
         </CardTitle>
         <CardDescription>
@@ -74,8 +74,8 @@ export function PatientLocationForm({
               />
             </div>
           </div>
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-          {state?.success && <p className="text-sm text-brand-green">Location saved.</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+          {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Location saved.</p>}
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save location"}
           </Button>

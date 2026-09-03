@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
@@ -7,7 +8,7 @@ import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
-import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { OverviewHero } from "@/app/(dashboard)/patient/overview-hero";
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
@@ -26,32 +27,40 @@ import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
-import { HealthStatusBanner } from "@/components/health-status-banner";
+import { formatPatientDate } from "@/lib/format-date";
 
 // Clinical dashboard status colours (a separate system from brand colour, per
 // the brand guide) — same convention as vitals-history.tsx's LEVEL_STYLE,
 // just split into StatTile's separate icon-circle/icon-colour props.
 const BP_TINT_CLASS: Record<Exclude<BpLevel, "unknown">, string> = {
-  green: "bg-emerald-100",
-  amber: "bg-amber-100",
-  red: "bg-red-100",
+  green: "bg-emerald-100 dark:bg-emerald-500/25",
+  amber: "bg-amber-100 dark:bg-amber-500/25",
+  red: "bg-red-100 dark:bg-red-500/25",
   emergency: "bg-red-600",
 };
 const BP_ICON_CLASS: Record<Exclude<BpLevel, "unknown">, string> = {
-  green: "text-emerald-800",
-  amber: "text-amber-800",
-  red: "text-red-800",
+  green: "text-emerald-800 dark:text-emerald-300",
+  amber: "text-amber-800 dark:text-amber-300",
+  red: "text-red-800 dark:text-red-300",
   emergency: "text-white",
 };
-// StatTile's delta only has three tones (brand-green/sprout-gold/grey), not a
-// true clinical palette — the icon circle above carries the real clinical
-// colour; this just picks the closest tone for the supporting delta text.
-const BP_DELTA_DIRECTION: Record<Exclude<BpLevel, "unknown">, "up" | "down" | "flat"> = {
-  green: "up",
-  amber: "flat",
-  red: "down",
-  emergency: "down",
+// StatTile's `status` line renders in the clinical status palette — the band
+// label ("Crisis range") must never pass through the brand-toned `delta` slot,
+// where a red/emergency reading would come out in decorative sprout-gold.
+const BP_STATUS_TONE: Record<Exclude<BpLevel, "unknown">, "green" | "amber" | "red"> = {
+  green: "green",
+  amber: "amber",
+  red: "red",
+  emergency: "red",
 };
+
+/** Small Suspense fallback for one streamed-in card — the independent async
+ * server-component cards below each run their own queries, so wrapping them
+ * lets the rest of the page paint instead of the whole Overview waiting on
+ * the slowest one. Matches (sections)/loading.tsx's pulse-block treatment. */
+function CardSkeleton({ className = "h-40" }: { className?: string }) {
+  return <div aria-hidden className={`animate-pulse rounded-2xl bg-charcoal-ink/[0.07] dark:bg-night-ink/10 ${className}`} />;
+}
 
 export default async function PatientOverviewPage() {
   const { subjectId, acting, subjectSex, subjectDateOfBirth } = await getPatientDashboardContext();
@@ -77,23 +86,25 @@ export default async function PatientOverviewPage() {
       ? {
           tintClassName: BP_TINT_CLASS[bpLevel],
           iconClassName: BP_ICON_CLASS[bpLevel],
-          delta: { text: BP_LEVEL_LABEL[bpLevel], direction: BP_DELTA_DIRECTION[bpLevel] },
+          status: { text: BP_LEVEL_LABEL[bpLevel], tone: BP_STATUS_TONE[bpLevel] },
         }
       : {};
 
   return (
     <div id="overview" className="space-y-6">
-      {/* One warm, human line before the hero — the "how am I doing" framing
-          a patient opening the app first thing wants, without repeating the
-          name DashboardPlaceholder's "Hi, {name}" already gave a moment ago
-          (2026-08-17 patient-experience pass). */}
-      <p className="text-sm text-charcoal-ink/60">{weekSummaryLine}</p>
-      <HealthStatusBanner patientId={subjectId} />
-
       {/* §91.10 — an unpaid plan is more urgent than a wellness nudge, so it
-          renders above NextBestAction. Renders nothing when there's no
+          renders above the hero band. Renders nothing when there's no
           payment problem. */}
       <PaymentFailureBanner patientId={subjectId} />
+
+      {/* The page's identity moment: one band answering "how am I doing"
+          (Health Score, white panel — clinical status colours stay on a
+          neutral surface, never on brand green) and "what's the one thing to
+          do next" (the priority-ordered NextBestAction on the deep-green
+          gradient). The old greeting line rides along as the band's eyebrow,
+          still warm, still Lagos-time-aware, without repeating the name
+          DashboardPlaceholder's "Hi, {name}" already gave a moment ago. */}
+      <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} />
 
       {/* Age-aware framing (spec §49.3/§49.4) — a single soft line, never an
           urgent banner: a self-harm/safety-adjacent check-in doesn't belong
@@ -106,25 +117,19 @@ export default async function PatientOverviewPage() {
           renders for a child-band dependent (parent-managed, no carve-out)
           or an adult/unknown band (no adolescent framing needed). */}
       {isAdolescentBand && !acting && (
-        <p className="text-sm text-charcoal-ink/60">
-          <Link href="/patient/adolescent-health" className="text-brand-green hover:underline">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+          <Link href="/patient/adolescent-health" className="text-brand-green dark:text-brand-green-bright hover:underline">
             Your private whole-life check-in
           </Link>{" "}
           is there whenever you want it, just for you, on your own time.
         </p>
       )}
       {isAdolescentBand && acting && (
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Some things, like {acting.fullName ?? "their"} own private wellbeing check-in, stay just
           between them and their care team.
         </p>
       )}
-
-      {/* Hero — the one thing the page leads with. Its copy and link are the
-          same real, priority-ordered "next best step" as before; only the
-          presentation moved from an inline card to this banner (Tarragon
-          Health Web Dashboard design, 2026-08-09). */}
-      <NextBestAction patientId={subjectId} />
 
       {/* The everyday jobs, one tap from the top of the page — including the
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
@@ -165,28 +170,46 @@ export default async function PatientOverviewPage() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <StatTile
-              icon={SEMANTIC_ICON.preventive}
-              label="Screenings due"
-              value={prevention.hasRiskAssessment ? String(prevention.screeningsDueCount) : "—"}
-            />
+            {/* Without a risk assessment there's no calendar to count against —
+                a friendly hint, never a bare display-scale dash. */}
+            {prevention.hasRiskAssessment ? (
+              <StatTile
+                icon={SEMANTIC_ICON.preventive}
+                label="Screenings due"
+                value={String(prevention.screeningsDueCount)}
+              />
+            ) : (
+              <StatTile
+                icon={SEMANTIC_ICON.preventive}
+                label="Screenings due"
+                empty={{ hint: "None scheduled yet" }}
+              />
+            )}
             <StatTile
               icon={SEMANTIC_ICON.labs}
               label="Next screening"
               value={
                 prevention.nextScreening
-                  ? new Date(prevention.nextScreening.dueDate).toLocaleDateString("en-GB", {
+                  ? formatPatientDate(prevention.nextScreening.dueDate, {
                       day: "numeric",
                       month: "short",
                     })
                   : "—"
               }
             />
-            <StatTile
-              icon={NAV_ICON.vaccination}
-              label="Vaccines due"
-              value={prevention.hasRiskAssessment ? String(prevention.vaccinationsDueCount) : "—"}
-            />
+            {prevention.hasRiskAssessment ? (
+              <StatTile
+                icon={NAV_ICON.vaccination}
+                label="Vaccines due"
+                value={String(prevention.vaccinationsDueCount)}
+              />
+            ) : (
+              <StatTile
+                icon={NAV_ICON.vaccination}
+                label="Vaccines due"
+                empty={{ hint: "None scheduled yet" }}
+              />
+            )}
             <StatTile
               icon={SEMANTIC_ICON.bp}
               label="Latest BP"
@@ -196,9 +219,9 @@ export default async function PatientOverviewPage() {
             />
           </div>
           {!prevention.hasRiskAssessment && (
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Two minutes on your{" "}
-              <Link href="/patient/prevention" className="text-brand-green hover:underline">
+              <Link href="/patient/prevention" className="text-brand-green dark:text-brand-green-bright hover:underline">
                 health profile
               </Link>{" "}
               builds your personal screening and vaccination calendar: the checks that keep
@@ -208,20 +231,20 @@ export default async function PatientOverviewPage() {
         </>
       )}
 
-      {/* "How am I doing" belongs right under the numbers that answer it, not
-          six cards further down the page where a morning check-in wouldn't
-          reach it (2026-08-17 patient-experience pass). Its own trend line
-          (lib/rules/health-score.ts's computeHealthScoreTrend) is the real,
-          already-computed "you're on track" reassurance — nothing new to
-          fabricate here. */}
-      <HealthScoreCard patientId={subjectId} />
-
-      {/* Deliberately separate from the Health Score above, not a second way
-          to show the same number — this is a completion checklist by area
-          (spec: "avoid presenting a misleading single health score ... a
-          prevention completion dashboard is safer and more actionable"),
-          answering "what's outstanding" rather than "how am I doing overall". */}
-      <PreventionCompletionCard patientId={subjectId} />
+      {/* Paired on lg: the breakdown behind the hero's score (the hero band
+          owns the display-scale figure now — this card is "Score details",
+          never a second hero number) beside the preventive-care checklist.
+          The checklist stays deliberately separate from the score — a
+          completion view by area (spec: "avoid presenting a misleading
+          single health score ... a prevention completion dashboard is safer
+          and more actionable"), answering "what's outstanding" rather than
+          "how am I doing overall". */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <HealthScoreCard patientId={subjectId} />
+        <Suspense fallback={<CardSkeleton className="h-32" />}>
+          <PreventionCompletionCard patientId={subjectId} />
+        </Suspense>
+      </div>
 
       {/* Behavioural engagement across areas (Patient Engagement Engine
           spec §16.5) — distinct from both cards above: HealthScoreCard is
@@ -229,7 +252,9 @@ export default async function PatientOverviewPage() {
           completion. This one answers "am I keeping up" more broadly
           (monitoring, appointments, medication, lifestyle, prevention, care
           plan), same self-hiding + no-single-score conventions. */}
-      <HealthProgressCard patientId={subjectId} />
+      <Suspense fallback={<CardSkeleton className="h-32" />}>
+        <HealthProgressCard patientId={subjectId} />
+      </Suspense>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <VitalsTrendChart patientId={subjectId} />
@@ -237,7 +262,9 @@ export default async function PatientOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <CareScheduleCard patientId={subjectId} />
+        <Suspense fallback={<CardSkeleton className="h-56" />}>
+          <CareScheduleCard patientId={subjectId} />
+        </Suspense>
         <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" />
       </div>
 
@@ -265,13 +292,15 @@ export default async function PatientOverviewPage() {
       {/* Who's looking after you, and how to reach them. Full-width like the
           clinical cards above, matching the same "a two-column row whose
           other half returns null leaves a hole" reasoning — no longer paired
-          with HealthScoreCard now that the score moved up near the stat
-          tiles (2026-08-17 patient-experience pass). Reaching the care team
+          with HealthScoreCard now that the score leads the page in the hero
+          band. Reaching the care team
           no longer depends on scrolling this far — "Message your care team"
           is a quick action at the top of the page — but the thread itself
           still belongs on Overview rather than buried in Care & support
           (2026-07-30 patient-experience pass). */}
-      <YourCareTeam patientId={subjectId} />
+      <Suspense fallback={<CardSkeleton className="h-40" />}>
+        <YourCareTeam patientId={subjectId} />
+      </Suspense>
       <RequiresEntitlement
         feature="doctor_checkin"
         fallback={<UpgradePrompt feature="doctor_checkin" />}

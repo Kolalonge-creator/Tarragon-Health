@@ -1,4 +1,6 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { TimelineClient } from "./timeline-client";
 
 /**
@@ -15,13 +17,11 @@ export default async function PatientTimelinePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Activity timeline</h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Every lab result, medication change, screening, and care-team update on your record, grouped
-          by month.
-        </p>
-      </div>
+      <PageHeader
+        title="Activity timeline"
+        icon={NAV_ICON.audit}
+        description="Every lab result, medication change, screening, and care-team update on your record, grouped by month."
+      />
       <TimelineClient patientId={subjectId} />
     </div>
   );

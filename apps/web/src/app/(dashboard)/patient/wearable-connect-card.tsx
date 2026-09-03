@@ -91,7 +91,7 @@ export function WearableConnectCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.aiCoach className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.aiCoach className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Connect a wearable
         </CardTitle>
         <CardDescription>
@@ -101,14 +101,14 @@ export function WearableConnectCard({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {ALL_PROVIDERS.map((provider) => {
             const connection = connectionByProvider.get(provider);
             const isConfigured = configuredProviders.includes(provider);
             return (
               <li key={provider} className="py-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-charcoal-ink">
+                  <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     {PROVIDER_LABEL[provider]}
                   </span>
                   {connection?.status === "error" ? (
@@ -167,7 +167,7 @@ export function WearableConnectCard({
                     identical to a healthy one — see queries/wearable-
                     connections.ts's 55.12 comment for the query-side half. */}
                 {connection?.status === "error" && connection.last_sync_error && (
-                  <p className="mt-1 text-xs text-charcoal-ink/50">{connection.last_sync_error}</p>
+                  <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{connection.last_sync_error}</p>
                 )}
 
                 {connection && connection.status !== "error" && (
@@ -185,10 +185,10 @@ export function WearableConnectCard({
           })}
           <li className="flex items-center justify-between py-2.5">
             <div>
-              <span className="text-sm font-medium text-charcoal-ink">
+              <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                 FreeStyle Libre (Abbott)
               </span>
-              <p className="text-xs text-charcoal-ink/50">
+              <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                 Abbott requires a direct data-sharing partnership for Libre access.
                 It isn&apos;t a self-serve connection like the others above.
               </p>
@@ -216,16 +216,16 @@ function ConsentPanel({
   const [choices, setChoices] = useState<ConsentChoices>(FULL_CONSENT);
 
   return (
-    <div className="mt-3 rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50">
+    <div className="mt-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
         Choose what to share with {PROVIDER_LABEL[provider]}
       </p>
       <div className="mt-2 space-y-2">
         {CONSENT_CATEGORIES.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 text-sm text-charcoal-ink">
+          <label key={key} className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-charcoal-ink/30"
+              className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
               checked={choices[key]}
               onChange={(e) => setChoices((prev) => ({ ...prev, [key]: e.target.checked }))}
             />
@@ -272,15 +272,15 @@ function ConnectionControls({
 
   return (
     <details className="mt-2 text-sm">
-      <summary className="cursor-pointer text-xs font-medium text-charcoal-ink/60 hover:text-charcoal-ink">
+      <summary className="cursor-pointer text-xs font-medium text-charcoal-ink/60 dark:text-night-ink/60 hover:text-charcoal-ink dark:hover:text-night-ink">
         Manage what syncs
       </summary>
-      <div className="mt-2 space-y-2 rounded-lg border border-charcoal-ink/10 p-3">
+      <div className="mt-2 space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
         {CONSENT_CATEGORIES.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 text-sm text-charcoal-ink">
+          <label key={key} className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
             <input
               type="checkbox"
-              className="h-4 w-4 rounded border-charcoal-ink/30"
+              className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
               checked={consentValue[key]}
               disabled={updateConsent.isPending}
               onChange={(e) =>
@@ -291,10 +291,10 @@ function ConnectionControls({
           </label>
         ))}
 
-        <div className="border-t border-charcoal-ink/10 pt-2">
+        <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-2">
           {confirmingDelete ? (
             <div className="space-y-2">
-              <p className="text-xs text-charcoal-ink/70">
+              <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
                 This permanently deletes everything this connection has synced so far and
                 disconnects it. This can&apos;t be undone.
               </p>
@@ -302,7 +302,7 @@ function ConnectionControls({
                 <Button
                   size="sm"
                   variant="outline"
-                  className="border-red-300 text-red-700 hover:bg-red-50"
+                  className="border-red-300 dark:border-red-500/40 text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-500/15"
                   disabled={deleteData.isPending}
                   onClick={async () => {
                     const result = await deleteData.mutateAsync(connection.id);
@@ -324,7 +324,7 @@ function ConnectionControls({
               Delete my synced data
             </Button>
           )}
-          {deleteResult && <p className="mt-1 text-xs text-charcoal-ink/60">{deleteResult}</p>}
+          {deleteResult && <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{deleteResult}</p>}
         </div>
       </div>
     </details>

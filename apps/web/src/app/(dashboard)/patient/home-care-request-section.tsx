@@ -25,8 +25,8 @@ export async function HomeCareRequestSection({ patientId }: { patientId: string 
       </CardHeader>
       <CardContent className="space-y-3">
         {open ? (
-          <div className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 p-3">
-            <p className="text-sm text-charcoal-ink">{HOME_CARE_STATUS_LABEL[open.status]}</p>
+          <div className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">{HOME_CARE_STATUS_LABEL[open.status]}</p>
             <Badge variant="blue">In progress</Badge>
           </div>
         ) : (

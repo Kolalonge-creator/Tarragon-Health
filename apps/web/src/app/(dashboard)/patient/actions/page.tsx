@@ -3,7 +3,8 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SEMANTIC_ICON, APP_ICON } from "@/lib/icons";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON, NAV_ICON, APP_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import {
   resolveActionCentreItems,
@@ -20,18 +21,18 @@ function ActionList({ items }: { items: ActionItem[] }) {
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <ul className="divide-y divide-charcoal-ink/10">
+    <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
       {items.map((item, i) => {
         const Icon = APP_ICON[item.icon] ?? SEMANTIC_ICON.carePlan;
         const isOverdue = item.dueDate !== null && item.dueDate < today;
         return (
           <li key={i} className="flex items-start gap-3 py-2.5">
-            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/50" aria-hidden />
+            <Icon className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/50 dark:text-night-ink/55" aria-hidden />
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+              <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
                 {item.type}
               </p>
-              <Link href={item.href} className="text-sm text-charcoal-ink hover:underline">
+              <Link href={item.href} className="text-sm text-charcoal-ink dark:text-night-ink hover:underline">
                 {item.title}
               </Link>
             </div>
@@ -39,7 +40,7 @@ function ActionList({ items }: { items: ActionItem[] }) {
               <span
                 className={cn(
                   "shrink-0 whitespace-nowrap text-xs",
-                  isOverdue ? "font-medium text-red-700" : "text-charcoal-ink/50"
+                  isOverdue ? "font-medium text-red-700 dark:text-red-300" : "text-charcoal-ink/50 dark:text-night-ink/55"
                 )}
               >
                 {daysLabel(item.dueDate)}
@@ -77,18 +78,17 @@ export default async function PatientActionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">My actions</h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Everything outstanding, in one place, grouped by how soon it needs you.
-        </p>
-      </div>
+      <PageHeader
+        title="My actions"
+        icon={NAV_ICON.approvals}
+        description="Everything outstanding, in one place, grouped by how soon it needs you."
+      />
 
       {isFullyEmpty && (
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <SEMANTIC_ICON.preventive className="h-5 w-5 shrink-0 text-brand-green" strokeWidth={2} />
-            <p className="text-sm text-charcoal-ink/70">
+            <SEMANTIC_ICON.preventive className="h-5 w-5 shrink-0 text-brand-green dark:text-brand-green-bright" strokeWidth={2} />
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               You&apos;re all caught up. Nothing outstanding right now. Keep logging readings and
               we&apos;ll flag anything that needs your attention.
             </p>
@@ -97,9 +97,9 @@ export default async function PatientActionsPage() {
       )}
 
       {buckets.highPriority.length > 0 && (
-        <Card className="border-red-200 bg-red-50/40">
+        <Card className="border-red-200 dark:border-red-500/30 bg-red-50/40 dark:bg-red-500/10">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base text-red-800">
+            <CardTitle className="flex items-center gap-2 text-base text-red-800 dark:text-red-300">
               <SEMANTIC_ICON.escalation className="h-5 w-5" strokeWidth={2} />
               High priority
             </CardTitle>
@@ -114,7 +114,7 @@ export default async function PatientActionsPage() {
           separately-fetched piece of "due today" that already exists, so it
           composes here rather than being re-derived into the merged list. */}
       <div className="space-y-4">
-        <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Due today</h2>
+        <h2 className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Due today</h2>
         <TodaysDoses patientId={subjectId} />
         {buckets.dueToday.length > 0 && (
           <Card>

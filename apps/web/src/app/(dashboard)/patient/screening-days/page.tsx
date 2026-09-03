@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { ScreeningDaysPanel } from "./screening-days-panel";
 
 /**
@@ -16,16 +18,11 @@ export default async function ScreeningDaysPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Group screening days
-        </h1>
-        <p className="max-w-2xl text-charcoal-ink/60">
-          Bring a group (a church, a market association, a cooperative, an office) and get a
-          discounted rate on a health check for everyone. One payer covers the whole group
-          upfront; we&apos;ll confirm the price and headcount with you first.
-        </p>
-      </div>
+      <PageHeader
+        title="Group screening days"
+        icon={SEMANTIC_ICON.preventive}
+        description="Bring a group (a church, a market association, a cooperative, an office) and get a discounted rate on a health check for everyone. One payer covers the whole group upfront; we'll confirm the price and headcount with you first."
+      />
 
       <ScreeningDaysPanel />
     </div>

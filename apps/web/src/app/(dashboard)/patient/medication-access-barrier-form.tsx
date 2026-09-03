@@ -38,9 +38,9 @@ export function MedicationAccessBarrierForm({
   );
 
   return (
-    <form action={formAction} className="space-y-3 rounded-md bg-charcoal-ink/5 p-3">
+    <form action={formAction} className="space-y-3 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3">
       <input type="hidden" name="medication_id" value={medicationId} />
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Tell us what&apos;s stopping you from taking {drugName}. Your care team will follow up.
         We never swap your medicine for a cheaper one on our own.
       </p>
@@ -70,9 +70,9 @@ export function MedicationAccessBarrierForm({
         </Label>
         <Input id={`barrier_note_${medicationId}`} name="note" maxLength={500} className="h-9 text-sm" />
       </div>
-      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
       {state?.success && (
-        <p className="text-xs text-brand-green">
+        <p className="text-xs text-brand-green dark:text-brand-green-bright">
           Thanks. Your care team has been told and will follow up.
         </p>
       )}

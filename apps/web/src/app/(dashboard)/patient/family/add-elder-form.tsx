@@ -80,8 +80,8 @@ export function AddElderProxyForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {success && <p className="text-sm text-brand-green">{success}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {success && <p className="text-sm text-brand-green dark:text-brand-green-bright">{success}</p>}
 
           <div className="space-y-1.5">
             <Label htmlFor="elder_full_name">Their name</Label>
@@ -138,16 +138,16 @@ export function AddElderProxyForm() {
             </div>
           </div>
 
-          <label className="flex items-start gap-2 text-sm text-charcoal-ink">
+          <label className="flex items-start gap-2 text-sm text-charcoal-ink dark:text-night-ink">
             <input
               type="checkbox"
               id="elder_confirmed_consent"
-              className="mt-0.5 h-4 w-4 rounded border-charcoal-ink/30"
+              className="mt-0.5 h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
               checked={confirmedConsent}
               onChange={(event) => setConfirmedConsent(event.target.checked)}
               required
             />
-            <span className="text-charcoal-ink/80">
+            <span className="text-charcoal-ink/80 dark:text-night-ink/80">
               I confirm they&apos;ve agreed to me setting this up and managing it for them.
             </span>
           </label>

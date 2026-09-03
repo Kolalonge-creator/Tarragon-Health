@@ -17,36 +17,36 @@ export function HbpmSummaryCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your 7-day home BP average
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load your average.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load your average.</p>
         )}
         {data && !isLoading && (
           <div className="space-y-2">
             {data.average ? (
               <>
-                <p className="text-2xl font-semibold text-charcoal-ink">
+                <p className="text-2xl font-semibold text-charcoal-ink dark:text-night-ink">
                   {data.average.systolic}/{data.average.diastolic}{" "}
-                  <span className="text-sm font-normal text-charcoal-ink/60">mmHg</span>
+                  <span className="text-sm font-normal text-charcoal-ink/60 dark:text-night-ink/60">mmHg</span>
                 </p>
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   Average of {data.average.n_readings} readings over{" "}
                   {data.average.n_days} day{data.average.n_days === 1 ? "" : "s"} (the
                   first day is set aside as it usually reads higher).
                 </p>
               </>
             ) : (
-              <p className="text-sm text-charcoal-ink/70">
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                 Log your home readings twice each morning and evening for 7 days and
                 your average will appear here.
               </p>
             )}
-            <p className="text-sm text-charcoal-ink/80">
+            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               Your home target:{" "}
               <span className="font-medium">
                 below {data.target.systolic}/{data.target.diastolic} mmHg

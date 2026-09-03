@@ -23,13 +23,13 @@ function TrendDots({ goal }: { goal: WeeklyPlanGoal }) {
             className={
               outcome === "done"
                 ? "h-1.5 w-1.5 rounded-full bg-brand-green"
-                : "h-1.5 w-1.5 rounded-full border border-charcoal-ink/20"
+                : "h-1.5 w-1.5 rounded-full border border-charcoal-ink/20 dark:border-night-ink/25"
             }
             aria-hidden
           />
         ))}
       </div>
-      <span className="text-xs text-charcoal-ink/60">
+      <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         {doneCount}/{goal.last14Days.length} days
         {goal.streak.currentStreak > 0 && ` · ${goal.streak.currentStreak}-day streak`}
       </span>
@@ -47,10 +47,10 @@ function GoalRow({ goal, patientId }: { goal: WeeklyPlanGoal; patientId: string 
         <div className="flex items-center gap-2">
           <Badge variant="grey">{LPE_MODULE_LABEL[goal.module]}</Badge>
           {goal.cadence === "weekly" && (
-            <span className="text-xs text-charcoal-ink/50">this week</span>
+            <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">this week</span>
           )}
         </div>
-        <p className="mt-1 text-sm font-medium text-charcoal-ink">{goal.title}</p>
+        <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{goal.title}</p>
         {goal.measurementType && (
           <div className="mt-1">
             <TrendDots goal={goal} />
@@ -93,7 +93,7 @@ export function WeeklyPlanCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your weekly plan
         </CardTitle>
         {plan.totalToday > 0 && (
@@ -105,15 +105,15 @@ export function WeeklyPlanCard({ patientId }: { patientId: string }) {
       <CardContent>
         {priorityGoal && (
           <div className="mb-3 space-y-1">
-            <p className="text-xs font-medium text-charcoal-ink/70">Focus on this today</p>
-            <p className="rounded-md bg-soft-sage px-3 py-2 text-sm text-deep-forest">
+            <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">Focus on this today</p>
+            <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 px-3 py-2 text-sm text-deep-forest dark:text-brand-green-bright">
               {LPE_MODULE_LABEL[priorityGoal.module]} · {priorityGoal.title}
               {priorityGoal.streak.shouldRaiseWorklistItem &&
                 ": a few days missed in a row, worth a fresh start today."}
             </p>
           </div>
         )}
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {orderedGoals.map((goal) => (
             <GoalRow key={goal.id} goal={goal} patientId={patientId} />
           ))}

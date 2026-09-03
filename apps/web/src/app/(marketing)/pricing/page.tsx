@@ -13,31 +13,33 @@ import {
   ALWAYS_FREE,
   ALWAYS_FREE_NOTE,
   EMPLOYER_HMO_NOTE,
-  PRICING_FAQ,
+  getPricingFaq,
 } from "../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   description:
-    "The TarragonHealth app is free. A doctor's time is priced per piece of work, in naira, with no hidden costs: every price is shown before you pay.",
+    "The TarragonHealth app is free. You pay only for a doctor's time, per piece of work, in naira, with the exact price shown before you confirm. No hidden costs, nothing recurring.",
   path: MARKETING_ROUTES.pricing,
 });
 
 export const revalidate = 3600;
 
-/** FAQPage structured data for the pricing questions; eligible for rich results. */
-const pricingFaqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: PRICING_FAQ.map((faq) => ({
-    "@type": "Question",
-    name: faq.question,
-    acceptedAnswer: { "@type": "Answer", text: faq.answer },
-  })),
-};
-
 export default async function PricingPage() {
   const priceOverrides = await fetchServicePriceOverrides();
+  // Resolved once and used for both the rendered FAQ and its JSON-LD, so the
+  // structured data always quotes the same (live) prices as the visible page.
+  const pricingFaq = getPricingFaq(priceOverrides);
+  /** FAQPage structured data for the pricing questions; eligible for rich results. */
+  const pricingFaqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: pricingFaq.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  };
   return (
     <>
       <script
@@ -119,7 +121,7 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
           title="Frequently asked questions"
         />
         <div className="mx-auto grid max-w-4xl gap-4">
-          {PRICING_FAQ.map((faq) => (
+          {pricingFaq.map((faq) => (
             <details
               key={faq.question}
               className="group rounded-xl border border-charcoal-ink/10 bg-white p-5"

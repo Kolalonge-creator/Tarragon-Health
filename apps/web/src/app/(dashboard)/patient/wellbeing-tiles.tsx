@@ -13,12 +13,12 @@ import { Badge } from "@/components/ui/badge";
 
 function Tile({ label, value }: { label: string; value: string | null }) {
   return (
-    <div className="rounded-lg border border-charcoal-ink/10 p-3">
-      <p className="text-xs uppercase tracking-wide text-charcoal-ink/60">{label}</p>
+    <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+      <p className="text-xs uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">{label}</p>
       {value ? (
-        <p className="mt-1 text-sm font-medium text-charcoal-ink">{value}</p>
+        <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{value}</p>
       ) : (
-        <p className="mt-1 text-sm text-charcoal-ink/50">No check-in yet</p>
+        <p className="mt-1 text-sm text-charcoal-ink/50 dark:text-night-ink/55">No check-in yet</p>
       )}
     </div>
   );
@@ -81,17 +81,17 @@ export function WellbeingTiles({ patientId }: { patientId: string }) {
             label="Sleep"
             value={latest ? wellbeingBandLabel(bandHigherIsBetter(latest.sleep_quality)) : null}
           />
-          <div className="rounded-lg border border-charcoal-ink/10 p-3">
-            <p className="text-xs uppercase tracking-wide text-charcoal-ink/60">Wellbeing check</p>
+          <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+            <p className="text-xs uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">Wellbeing check</p>
             <p className="mt-1 text-sm font-medium">
-              {isDue ? <Badge variant="amber">Due</Badge> : <span className="text-brand-green">Up to date</span>}
+              {isDue ? <Badge variant="amber">Due</Badge> : <span className="text-brand-green dark:text-brand-green-bright">Up to date</span>}
             </p>
           </div>
           {nextReviewDate && (
-            <div className="rounded-lg border border-charcoal-ink/10 p-3">
-              <p className="text-xs uppercase tracking-wide text-charcoal-ink/60">Next review</p>
-              <p className="mt-1 text-sm font-medium text-charcoal-ink">
-                {new Date(nextReviewDate).toLocaleDateString("en-GB", {
+            <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+              <p className="text-xs uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">Next review</p>
+              <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">
+                {new Date(nextReviewDate).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                   day: "numeric",
                   month: "long",
                 })}
@@ -100,7 +100,7 @@ export function WellbeingTiles({ patientId }: { patientId: string }) {
           )}
         </div>
         {!latest && (
-          <p className="mt-3 text-xs text-charcoal-ink/60">
+          <p className="mt-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             Log your first check-in below to see your mood, stress and sleep at a glance.
           </p>
         )}

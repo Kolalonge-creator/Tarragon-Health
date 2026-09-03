@@ -33,14 +33,14 @@ export function MaskedCallButton({
 
   if (dormant) {
     return (
-      <p className="text-xs text-charcoal-ink/60">Masked calling isn&apos;t set up yet. Check back soon.</p>
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Masked calling isn&apos;t set up yet. Check back soon.</p>
     );
   }
 
   if (call) {
     return (
       <div className="space-y-1">
-        <p className="text-sm text-charcoal-ink">
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">
           Dial <span className="font-medium">{call.dialNumber}</span> to reach {otherPartyLabel}. This
           number connects only this call and expires automatically.
         </p>
@@ -89,7 +89,7 @@ export function MaskedCallButton({
       >
         {isPending ? "Connecting…" : `Call ${otherPartyLabel}`}
       </Button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-red-600 dark:text-red-300">{error}</p>}
     </div>
   );
 }

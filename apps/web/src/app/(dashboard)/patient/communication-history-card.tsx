@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { NAV_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 const CHANNEL_LABEL: Record<string, string> = {
   whatsapp: "WhatsApp",
   sms: "SMS",
@@ -26,7 +27,7 @@ function deliveryStatus(row: CommunicationHistoryRow): { label: string; tone: "m
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     day: "numeric",
     month: "short",
     hour: "numeric",
@@ -51,7 +52,7 @@ export function CommunicationHistoryCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.bell className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <NAV_ICON.bell className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Communication history
         </CardTitle>
         <CardDescription>
@@ -60,27 +61,27 @@ export function CommunicationHistoryCard() {
       </CardHeader>
       <CardContent>
         {rows.length === 0 && !isLoading ? (
-          <p className="py-6 text-center text-sm text-charcoal-ink/50">Nothing sent yet.</p>
+          <p className="py-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">Nothing sent yet.</p>
         ) : (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {rows.map((row) => {
               const { text } = describeNotification(row);
               const status = deliveryStatus(row);
               return (
                 <li key={row.id} className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-charcoal-ink">{text}</p>
-                    <p className="mt-0.5 text-xs text-charcoal-ink/50">
-                      {formatDate(row.created_at)} · {CHANNEL_LABEL[row.channel] ?? row.channel}
+                    <p className="text-charcoal-ink dark:text-night-ink">{text}</p>
+                    <p className="mt-0.5 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                      {formatDate(row.created_at)} · {CHANNEL_LABEL[row.channel] ?? row.channel.replace(/_/g, " ")}
                       {row.priority === "critical" ? " · Critical" : ""}
                     </p>
                   </div>
                   <span
                     className={cn(
                       "shrink-0 rounded-full px-2 py-0.5 text-xs font-medium",
-                      status.tone === "ok" && "bg-brand-green/10 text-brand-green",
-                      status.tone === "warn" && "bg-red-50 text-red-600",
-                      status.tone === "muted" && "bg-charcoal-ink/5 text-charcoal-ink/60",
+                      status.tone === "ok" && "bg-brand-green/10 text-brand-green dark:text-brand-green-bright",
+                      status.tone === "warn" && "bg-red-50 dark:bg-red-500/15 text-red-600 dark:text-red-300",
+                      status.tone === "muted" && "bg-charcoal-ink/5 dark:bg-night-ink/10 text-charcoal-ink/60 dark:text-night-ink/60",
                     )}
                   >
                     {status.label}

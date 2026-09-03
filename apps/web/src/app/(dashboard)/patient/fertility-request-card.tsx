@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { formatPatientDate } from "@/lib/format-date";
 const STATUS_LABEL: Record<string, string> = {
   requested: "Request received",
   education_provided: "Education shared",
@@ -47,22 +48,22 @@ export function FertilityRequestCard({ patientId }: { patientId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Link href="/patient/learn" className="text-sm font-medium text-deep-forest underline underline-offset-2">
+        <Link href="/patient/learn" className="text-sm font-medium text-deep-forest dark:text-brand-green-bright underline underline-offset-2">
           Read fertility basics and preconception health
         </Link>
 
         {requests.data && requests.data.length > 0 && (
           <div className="space-y-1.5">
             {requests.data.map((r) => (
-              <p key={r.id} className="text-sm text-charcoal-ink/80">
-                {new Date(r.created_at).toLocaleDateString()}: {STATUS_LABEL[r.status] ?? r.status}
+              <p key={r.id} className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                {formatPatientDate(r.created_at)}: {STATUS_LABEL[r.status] ?? r.status.replace(/_/g, " ")}
               </p>
             ))}
           </div>
         )}
 
         {!hasOpenRequest && (
-          <form action={formAction} className="space-y-3 border-t border-charcoal-ink/10 pt-4">
+          <form action={formAction} className="space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
             <div className="space-y-1.5">
               <Label htmlFor="trying_duration_months">
                 How many months have you been trying to conceive? (optional)
@@ -73,7 +74,7 @@ export function FertilityRequestCard({ patientId }: { patientId: string }) {
               <Label htmlFor="concern_notes">What would you like your care team to know? (optional)</Label>
               <Input id="concern_notes" name="concern_notes" />
             </div>
-            {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+            {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Sending…" : "Request a fertility assessment"}
             </Button>

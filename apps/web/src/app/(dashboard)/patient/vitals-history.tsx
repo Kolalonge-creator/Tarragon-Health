@@ -14,6 +14,7 @@ import {
 } from "@/lib/rules/temperature-classification";
 import { VITAL_LEVEL_BADGE_CLASSNAME as LEVEL_STYLE } from "@/lib/rules/vital-level-style";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = LEVEL_STYLE;
 
 function BpLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
@@ -70,7 +71,7 @@ function PulseLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
 function SourceBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
   if (reading.source !== "wearable") return null;
   return (
-    <span className="ml-2 inline-block rounded-full bg-charcoal-ink/10 px-2 py-0.5 text-[11px] font-medium text-charcoal-ink/60">
+    <span className="ml-2 inline-block rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15 px-2 py-0.5 text-[11px] font-medium text-charcoal-ink/60 dark:text-night-ink/60">
       Wearable estimate
     </span>
   );
@@ -125,24 +126,24 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Recent readings
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load your readings.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load your readings.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No readings logged yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No readings logged yet.</p>
         )}
         {data && data.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {data.map((reading) => (
               <li key={reading.id} className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-sm font-medium text-charcoal-ink">
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     {formatReading(reading)}
                     {reading.vital_type === "blood_pressure" && (
                       <BpLevelBadge reading={reading} />
@@ -155,11 +156,11 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                     <SourceBadge reading={reading} />
                   </p>
                   {reading.note && (
-                    <p className="text-xs text-charcoal-ink/60">{reading.note}</p>
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{reading.note}</p>
                   )}
                 </div>
-                <span className="text-xs text-charcoal-ink/60">
-                  {new Date(reading.taken_at).toLocaleString()}
+                <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                  {formatPatientDateTime(reading.taken_at)}
                 </span>
               </li>
             ))}

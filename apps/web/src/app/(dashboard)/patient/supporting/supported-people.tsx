@@ -41,7 +41,7 @@ function naira(kobo: number): string {
 }
 
 function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -69,7 +69,7 @@ function buildStatementCsv(people: SupportedPerson[]): string {
 
   const lines: string[] = [
     "Tarragon Health: statement of care you have funded",
-    `Generated,${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+    `Generated,${new Date().toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "long", year: "numeric" })}`,
     "",
     "Summary",
     `People you support,${people.length}`,
@@ -157,11 +157,11 @@ export function SupportedPeople() {
   const { data: people, isLoading, isError } = useSupportedPeople();
 
   if (isLoading) {
-    return <p className="text-sm text-charcoal-ink/60">Loading the people you support…</p>;
+    return <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading the people you support…</p>;
   }
   if (isError || !people) {
     return (
-      <p className="text-sm text-red-600">
+      <p className="text-sm text-red-600 dark:text-red-400">
         Could not load this just now. Refresh the page and try again.
       </p>
     );
@@ -196,27 +196,27 @@ export function SupportedPeople() {
         <CardContent className="space-y-4 py-6">
           <div className="grid gap-4 sm:grid-cols-3">
             <div>
-              <p className="font-heading text-2xl font-semibold text-charcoal-ink">
+              <p className="font-heading text-2xl font-semibold text-charcoal-ink dark:text-night-ink">
                 {people.length}
               </p>
-              <p className="text-sm text-charcoal-ink/60">
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                 {people.length === 1 ? "person you support" : "people you support"}
               </p>
             </div>
             <div>
-              <p className="font-heading text-2xl font-semibold text-brand-green">{totalUsed}</p>
-              <p className="text-sm text-charcoal-ink/60">
+              <p className="font-heading text-2xl font-semibold text-brand-green dark:text-brand-green-bright">{totalUsed}</p>
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                 {totalUsed === 1 ? "check has been used" : "checks have been used"}
                 {totalFunded > 0 ? ` of ${naira(totalFunded)} you have paid` : ""}
               </p>
             </div>
             <div>
-              <p className="font-heading text-2xl font-semibold text-charcoal-ink">{totalReady}</p>
-              <p className="text-sm text-charcoal-ink/60">paid for and waiting to be used</p>
+              <p className="font-heading text-2xl font-semibold text-charcoal-ink dark:text-night-ink">{totalReady}</p>
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">paid for and waiting to be used</p>
             </div>
           </div>
-          <div className="flex items-center justify-between gap-3 border-t border-charcoal-ink/10 pt-4">
-            <p className="text-xs text-charcoal-ink/50">
+          <div className="flex items-center justify-between gap-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
               A statement of everyone you fund and what it paid for, in one file.
             </p>
             <DownloadStatementButton people={people} />
@@ -261,8 +261,8 @@ function PersonCard({
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <p className="text-xs text-charcoal-ink/60">Paid for and waiting to be used</p>
-            <p className="font-heading text-2xl font-semibold text-charcoal-ink">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Paid for and waiting to be used</p>
+            <p className="font-heading text-2xl font-semibold text-charcoal-ink dark:text-night-ink">
               {person.readyVouchers.length}
             </p>
           </div>
@@ -273,11 +273,11 @@ function PersonCard({
             {person.readyVouchers.map((v) => (
               <li
                 key={v.id}
-                className="flex items-center justify-between gap-3 text-sm text-charcoal-ink/70"
+                className="flex items-center justify-between gap-3 text-sm text-charcoal-ink/70 dark:text-night-ink/70"
               >
                 <span>
                   {v.label}
-                  <span className="text-charcoal-ink/40"> · {v.voucherNumber}</span>
+                  <span className="text-charcoal-ink/40 dark:text-night-ink/50"> · {v.voucherNumber}</span>
                 </span>
                 <Badge variant="green">Ready</Badge>
               </li>
@@ -287,13 +287,13 @@ function PersonCard({
 
         {person.savingVouchers.map((v) => (
           <div key={v.id}>
-            <div className="flex items-center justify-between text-xs text-charcoal-ink/60">
+            <div className="flex items-center justify-between text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               <span>Still paying for {v.label}</span>
               <span>
                 {naira(v.amountPaidKobo)} of {naira(v.faceValueKobo)}
               </span>
             </div>
-            <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
+            <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15">
               <div
                 className="h-full rounded-full bg-brand-green"
                 style={{
@@ -317,20 +317,20 @@ function PersonCard({
 
         {person.usedVouchers.length > 0 && (
           <div>
-            <p className="text-xs font-medium text-charcoal-ink">What it has paid for</p>
+            <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">What it has paid for</p>
             <ul className="mt-2 space-y-1.5">
               {person.usedVouchers.map((v) => (
                 <li
                   key={v.id}
-                  className="flex items-center justify-between gap-3 text-sm text-charcoal-ink/70"
+                  className="flex items-center justify-between gap-3 text-sm text-charcoal-ink/70 dark:text-night-ink/70"
                 >
                   <span>
                     {v.label}
-                    <span className="text-charcoal-ink/40">
+                    <span className="text-charcoal-ink/40 dark:text-night-ink/50">
                       {v.redeemedAt ? ` · ${shortDate(v.redeemedAt)}` : ""}
                     </span>
                   </span>
-                  <span className="shrink-0 font-medium text-charcoal-ink">
+                  <span className="shrink-0 font-medium text-charcoal-ink dark:text-night-ink">
                     {naira(v.faceValueKobo)}
                   </span>
                 </li>
@@ -346,7 +346,7 @@ function PersonCard({
           </>
         ) : (
           <div className="space-y-2">
-            <p className="text-xs text-charcoal-ink/50">
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
               You can see what their care costs and what it paid for, and nothing else. If they want
               you to follow how they are doing, they can turn that on themselves under &ldquo;Who can
               see your health information&rdquo;.
@@ -404,17 +404,17 @@ function OpenTheirAccount({ person }: { person: SupportedPerson }) {
   const name = (person.fullName ?? "").trim().split(/\s+/)[0] || "them";
 
   return (
-    <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
+    <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-      <p className="text-xs font-medium text-charcoal-ink">Open their account</p>
-      <p className="text-sm text-charcoal-ink/70">
+      <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">Open their account</p>
+      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Go into {name}&apos;s account to log a reading or book something for them, the way you would
         if you were sitting next to them. Everything you do there is saved with your name on it.
       </p>
       <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Opening…" : `Open ${name}'s account`}
       </Button>
-      {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
+      {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
     </form>
   );
 }
@@ -446,7 +446,7 @@ function PayBillOnMyCard({
       <Button type="submit" disabled={pending}>
         {pending ? "Starting…" : `Pay ${naira(bill.amount_kobo)} on my card`}
       </Button>
-      {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
+      {state?.error && <span className="text-xs text-red-600 dark:text-red-300">{state.error}</span>}
     </form>
   );
 }
@@ -486,8 +486,8 @@ function SplitBillWithThem({
       <Button type="submit" variant="outline" disabled={pending}>
         {pending ? "Starting…" : "Split this bill with them"}
       </Button>
-      {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
-      {state?.message && <span className="text-xs text-charcoal-ink/60">{state.message}</span>}
+      {state?.error && <span className="text-xs text-red-600 dark:text-red-300">{state.error}</span>}
+      {state?.message && <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{state.message}</span>}
     </form>
   );
 }
@@ -518,9 +518,9 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
   if (payable.length === 0) return null;
 
   return (
-    <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
+    <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-      <p className="text-xs font-medium text-charcoal-ink">Pay for their plan</p>
+      <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">Pay for their plan</p>
       <div className="flex flex-wrap items-center gap-2">
         <Select name="planCode" defaultValue="" className="max-w-xs">
           <option value="">Choose a plan</option>
@@ -535,8 +535,8 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
           {pending ? "Starting…" : "Pay on my card"}
         </Button>
       </div>
-      {state?.error && <p className="text-sm text-clinical-red">{state.error}</p>}
-      <p className="text-xs text-charcoal-ink/50">
+      {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+      <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         Billed to you, held by them. They keep their own account and can cancel it themselves at any
         time. Both of you are told when it starts.
       </p>
@@ -564,8 +564,8 @@ function CareTeamStatus({ person, firstName }: { person: SupportedPerson; firstN
 
   if (data.openCount === 0) {
     return (
-      <div className="rounded-lg bg-brand-green/10 p-3">
-        <p className="text-sm text-charcoal-ink/80">
+      <div className="rounded-lg bg-brand-green/10 dark:bg-brand-green/15 p-3">
+        <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           Nothing is waiting on their care team right now.
           {data.lastReviewedAt
             ? ` A doctor last reviewed something on ${shortDate(data.lastReviewedAt)}.`
@@ -576,14 +576,14 @@ function CareTeamStatus({ person, firstName }: { person: SupportedPerson; firstN
   }
 
   return (
-    <div className="rounded-lg bg-brand-green/10 p-3">
-      <p className="text-sm font-medium text-charcoal-ink">
+    <div className="rounded-lg bg-brand-green/10 dark:bg-brand-green/15 p-3">
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
         {data.openCount === 1
           ? `Their care team is looking at something for ${firstName}.`
           : `Their care team is looking at ${data.openCount} things for ${firstName}.`}
       </p>
       {data.nextReviewDue && (
-        <p className="mt-0.5 text-sm text-charcoal-ink/70">
+        <p className="mt-0.5 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           {data.reviewOverdue
             ? "A doctor was due to review this by " +
               shortDate(data.nextReviewDue) +
@@ -591,7 +591,7 @@ function CareTeamStatus({ person, firstName }: { person: SupportedPerson; firstN
             : `A doctor reviews it by ${shortDate(data.nextReviewDue)}.`}
         </p>
       )}
-      <p className="mt-1 text-xs text-charcoal-ink/50">
+      <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         You are told that a review is happening, not what was found. {firstName} and their doctor
         discuss that first.
       </p>
@@ -626,11 +626,11 @@ function RefillAction({
   if (person.permissionLevel !== "manage" || daysLeft === null) return null;
   if (daysLeft > 14) return null;
 
-  if (note) return <span className="text-xs text-brand-green">{note}</span>;
+  if (note) return <span className="text-xs text-brand-green dark:text-brand-green-bright">{note}</span>;
 
   return (
     <>
-      <span className="text-xs text-charcoal-ink/50">
+      <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         {daysLeft <= 0 ? "supply has run out" : `${daysLeft} days left`}
       </span>
       <button
@@ -646,7 +646,7 @@ function RefillAction({
             },
           )
         }
-        className="rounded-md border border-brand-green/40 px-2 py-0.5 text-xs text-brand-green disabled:opacity-50"
+        className="rounded-md border border-brand-green/40 px-2 py-0.5 text-xs text-brand-green dark:text-brand-green-bright disabled:opacity-50"
       >
         {requestRefill.isPending ? "Arranging…" : "Arrange refill"}
       </button>
@@ -673,7 +673,7 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
   const firstName = (person.fullName ?? "").trim().split(/\s+/)[0] || "They";
 
   if (isLoading) {
-    return <p className="text-sm text-charcoal-ink/60">Loading how they are doing…</p>;
+    return <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading how they are doing…</p>;
   }
   if (!data) return null;
 
@@ -686,27 +686,27 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
     data.openFollowUps === 0;
 
   return (
-    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
-      <p className="text-xs font-medium text-charcoal-ink">How they are doing</p>
+    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
+      <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">How they are doing</p>
 
       <CareTeamStatus person={person} firstName={firstName} />
 
       {nothingYet ? (
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           {name} has not logged anything yet. There is nothing to show until they do.
         </p>
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <p className="text-xs text-charcoal-ink/60">Last blood pressure</p>
-              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Last blood pressure</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">
                 {data.latestBloodPressure
                   ? `${data.latestBloodPressure.systolic ?? "?"}/${data.latestBloodPressure.diastolic ?? "?"}`
                   : "Not logged yet"}
               </p>
               {data.latestBloodPressure && (
-                <p className="text-xs text-charcoal-ink/50">
+                <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                   {shortDate(data.latestBloodPressure.takenAt)}
                   {bpMovement(data) ? ` · ${bpMovement(data)}` : ""}
                 </p>
@@ -714,36 +714,36 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
               {/* Their own care plan's number, quoted. Without a scale a
                   sponsor is staring at three digits they cannot read. */}
               {data.bloodPressureTarget && (
-                <p className="text-xs text-charcoal-ink/50">
+                <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                   Care team&apos;s target: under {data.bloodPressureTarget.systolic}/
                   {data.bloodPressureTarget.diastolic}
                 </p>
               )}
             </div>
             <div>
-              <p className="text-xs text-charcoal-ink/60">Last reading of any kind</p>
-              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Last reading of any kind</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">
                 {data.latestReadingAt ? shortDate(data.latestReadingAt) : "None yet"}
               </p>
             </div>
             <div>
-              <p className="text-xs text-charcoal-ink/60">Checks due</p>
-              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Checks due</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">
                 {data.screeningsDue}
               </p>
               {data.nextScreeningDue && (
-                <p className="text-xs text-charcoal-ink/50">
+                <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                   Next {shortDate(data.nextScreeningDue)}
                 </p>
               )}
             </div>
             <div>
-              <p className="text-xs text-charcoal-ink/60">Next appointment</p>
-              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Next appointment</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">
                 {data.nextAppointment ? shortDate(data.nextAppointment.scheduledFor) : "None booked"}
               </p>
               {data.nextAppointment && (
-                <p className="text-xs text-charcoal-ink/50">
+                <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                   {APPOINTMENT_TYPE_LABELS[data.nextAppointment.appointmentType] ??
                     data.nextAppointment.appointmentType}
                 </p>
@@ -753,7 +753,7 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
 
           {data.activeConditions.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-charcoal-ink/60">Being looked after for</span>
+              <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Being looked after for</span>
               {data.activeConditions.map((condition) => (
                 <Badge key={condition} variant="grey">
                   {humanCondition(condition)}
@@ -763,9 +763,9 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
           )}
 
           {(data.latestResult || data.openFollowUps > 0) && (
-            <div className="space-y-1 rounded-lg bg-charcoal-ink/5 p-3">
+            <div className="space-y-1 rounded-lg bg-charcoal-ink/5 dark:bg-night-ink/10 p-3">
               {data.latestResult && (
-                <p className="text-sm text-charcoal-ink/70">
+                <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                   Last test result recorded {shortDate(data.latestResult.recordedAt)}
                   {data.latestResult.status === "normal"
                     ? ": nothing flagged."
@@ -773,7 +773,7 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
                 </p>
               )}
               {data.openFollowUps > 0 && (
-                <p className="text-sm text-charcoal-ink/70">
+                <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                   {data.openFollowUps === 1
                     ? "One follow-up is open with their care team."
                     : `${data.openFollowUps} follow-ups are open with their care team.`}{" "}
@@ -785,12 +785,12 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
 
           {data.medications.length > 0 && (
             <div>
-              <p className="text-xs text-charcoal-ink/60">Currently taking</p>
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Currently taking</p>
               <ul className="mt-1 space-y-1">
                 {data.medications.map((medication) => (
                   <li
                     key={medication.id}
-                    className="flex flex-wrap items-center gap-2 text-sm text-charcoal-ink/70"
+                    className="flex flex-wrap items-center gap-2 text-sm text-charcoal-ink/70 dark:text-night-ink/70"
                   >
                     <span>
                       {medication.drugName}
@@ -805,7 +805,7 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
         </>
       )}
 
-      <p className="text-xs text-charcoal-ink/50">
+      <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         {name} shared this with you and can stop sharing it at any time. You can read it; you
         cannot change any of it.
       </p>
@@ -851,23 +851,23 @@ function SupporterConversation({ person }: { person: SupportedPerson }) {
   };
 
   return (
-    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
+    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs font-medium text-charcoal-ink">Conversations with their care team</p>
+        <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">Conversations with their care team</p>
         <Button type="button" size="sm" onClick={() => setComposing((open) => !open)}>
           {composing ? "Cancel" : "Ask a question"}
         </Button>
       </div>
 
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         You, {name} and their care team all see the same thread, with who said what and when.
       </p>
 
       {composing && (
-        <div className="space-y-3 rounded-lg bg-charcoal-ink/5 p-4">
+        <div className="space-y-3 rounded-lg bg-charcoal-ink/5 dark:bg-night-ink/10 p-4">
           <div className="grid gap-2">
             <label
-              className="text-xs font-medium text-charcoal-ink"
+              className="text-xs font-medium text-charcoal-ink dark:text-night-ink"
               htmlFor={`ask-subject-${person.profileId}`}
             >
               What is it about?
@@ -882,7 +882,7 @@ function SupporterConversation({ person }: { person: SupportedPerson }) {
           </div>
           <div className="grid gap-2">
             <label
-              className="text-xs font-medium text-charcoal-ink"
+              className="text-xs font-medium text-charcoal-ink dark:text-night-ink"
               htmlFor={`ask-body-${person.profileId}`}
             >
               Your question
@@ -904,17 +904,17 @@ function SupporterConversation({ person }: { person: SupportedPerson }) {
             >
               {start.isPending ? "Sending…" : "Send"}
             </Button>
-            {error && <span className="text-sm text-red-600">{error}</span>}
+            {error && <span className="text-sm text-red-600 dark:text-red-400">{error}</span>}
           </div>
         </div>
       )}
 
-      {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
       {!isLoading && (threads ?? []).length === 0 && !composing && (
-        <p className="text-sm text-charcoal-ink/60">No conversations yet.</p>
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No conversations yet.</p>
       )}
 
-      <ul className="divide-y divide-charcoal-ink/10">
+      <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
         {(threads ?? []).map((thread) => (
           <li key={thread.id} className="py-3">
             <button
@@ -922,10 +922,10 @@ function SupporterConversation({ person }: { person: SupportedPerson }) {
               className="flex w-full flex-wrap items-center justify-between gap-2 text-left"
               onClick={() => setOpenId(openId === thread.id ? null : thread.id)}
             >
-              <span className="font-medium text-charcoal-ink">{thread.subject}</span>
+              <span className="font-medium text-charcoal-ink dark:text-night-ink">{thread.subject}</span>
               <span className="flex items-center gap-2">
                 {thread.status === "closed" && <Badge variant="grey">Closed</Badge>}
-                <span className="text-xs text-charcoal-ink/50">
+                <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                   {shortDate(thread.last_message_at)}
                 </span>
               </span>
@@ -982,16 +982,16 @@ function ManageActions({ person }: { person: SupportedPerson }) {
   }
 
   return (
-    <div className="space-y-4 rounded-lg border border-charcoal-ink/10 p-4">
+    <div className="space-y-4 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
       {outstanding.length > 0 && (
         <div>
-          <p className="text-xs font-medium text-charcoal-ink">Waiting to be paid for</p>
+          <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">Waiting to be paid for</p>
           <ul className="mt-2 space-y-2">
             {outstanding.map((bill) => (
               <li key={bill.order_id} className="flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm text-charcoal-ink/70">
+                <span className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                   {bill.label}{" "}
-                  <span className="font-medium text-charcoal-ink">{naira(bill.amount_kobo)}</span>
+                  <span className="font-medium text-charcoal-ink dark:text-night-ink">{naira(bill.amount_kobo)}</span>
                 </span>
                 <span className="flex flex-wrap items-center gap-2">
                   {/* Paying on your own card is the ordinary case, so it leads.
@@ -1033,7 +1033,7 @@ function ManageActions({ person }: { person: SupportedPerson }) {
       {selfBookable.length > 0 && (
         <div>
           <label
-            className="block text-xs font-medium text-charcoal-ink"
+            className="block text-xs font-medium text-charcoal-ink dark:text-night-ink"
             htmlFor={`book-${person.profileId}`}
           >
             Book a check for them
@@ -1069,7 +1069,7 @@ function ManageActions({ person }: { person: SupportedPerson }) {
               {bookCare.isPending ? "Booking…" : "Book"}
             </Button>
           </div>
-          <p className="mt-1 text-xs text-charcoal-ink/50">
+          <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             They still choose where to go and when. Requesting here just writes down which tests
             waiting.
           </p>
@@ -1101,13 +1101,13 @@ function ManageActions({ person }: { person: SupportedPerson }) {
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="block text-xs font-medium text-charcoal-ink" htmlFor={`dob-${person.profileId}`}>
+                <label className="block text-xs font-medium text-charcoal-ink dark:text-night-ink" htmlFor={`dob-${person.profileId}`}>
                   Date of birth
                 </label>
                 <Input id={`dob-${person.profileId}`} name="dateOfBirth" type="date" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-charcoal-ink" htmlFor={`sex-${person.profileId}`}>
+                <label className="block text-xs font-medium text-charcoal-ink dark:text-night-ink" htmlFor={`sex-${person.profileId}`}>
                   Sex
                 </label>
                 <Select id={`sex-${person.profileId}`} name="sex" defaultValue="">
@@ -1117,19 +1117,19 @@ function ManageActions({ person }: { person: SupportedPerson }) {
                 </Select>
               </div>
               <div>
-                <label className="block text-xs font-medium text-charcoal-ink" htmlFor={`state-${person.profileId}`}>
+                <label className="block text-xs font-medium text-charcoal-ink dark:text-night-ink" htmlFor={`state-${person.profileId}`}>
                   State
                 </label>
                 <Input id={`state-${person.profileId}`} name="state" placeholder="Lagos" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-charcoal-ink" htmlFor={`city-${person.profileId}`}>
+                <label className="block text-xs font-medium text-charcoal-ink dark:text-night-ink" htmlFor={`city-${person.profileId}`}>
                   City or town
                 </label>
                 <Input id={`city-${person.profileId}`} name="city" placeholder="Ikeja" />
               </div>
             </div>
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Anything you leave blank stays as it is. You cannot accept their consents for them:
               that part has to be theirs.
             </p>
@@ -1140,8 +1140,8 @@ function ManageActions({ person }: { person: SupportedPerson }) {
         )}
       </div>
 
-      {message && <p className="text-sm text-deep-forest">{message}</p>}
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {message && <p className="text-sm text-deep-forest dark:text-brand-green-bright">{message}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }

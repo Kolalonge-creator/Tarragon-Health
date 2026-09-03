@@ -35,7 +35,7 @@ export function PayForLabOrderButton({
           triggerLabel={`Pay ₦${koboToNaira(amountKobo).toLocaleString()} to confirm`}
           pending={pending}
         />
-        {state?.error && <p className="pt-1 text-xs text-red-600">{state.error}</p>}
+        {state?.error && <p className="pt-1 text-xs text-red-600 dark:text-red-300">{state.error}</p>}
       </form>
       <PromoCodeField orderId={orderId} orderType="lab" />
     </div>

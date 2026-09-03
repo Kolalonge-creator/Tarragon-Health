@@ -167,7 +167,7 @@ export default function VaccinationsPage() {
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               preventive health at Tarragon
             </Link>
-            , which also builds your screening calendar and yearly Health Check.
+            , which also builds your free screening calendar and your yearly Health Check.
           </p>
         </div>
       </Section>

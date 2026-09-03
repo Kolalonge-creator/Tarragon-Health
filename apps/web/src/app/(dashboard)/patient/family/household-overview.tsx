@@ -49,7 +49,7 @@ export function HouseholdOverview() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {members.map((member) => (
             <HouseholdMemberRow key={member.profileId} member={member} />
           ))}
@@ -73,7 +73,7 @@ function HouseholdMemberRow({ member }: { member: HouseholdMember }) {
     <li className="flex flex-wrap items-start justify-between gap-3 py-3">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium text-charcoal-ink">{name}</p>
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{name}</p>
           {member.dependentKind === "minor_child" && <Badge variant="grey">Child</Badge>}
         </div>
 
@@ -86,11 +86,11 @@ function HouseholdMemberRow({ member }: { member: HouseholdMember }) {
                 </Badge>
               ))
             ) : (
-              <p className="text-xs text-charcoal-ink/50">No active condition on file.</p>
+              <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">No active condition on file.</p>
             )}
           </div>
         ) : (
-          <p className="text-xs text-charcoal-ink/50">
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             Following logistics only. Ask them to share their health information from their own
             account to see more here.
           </p>

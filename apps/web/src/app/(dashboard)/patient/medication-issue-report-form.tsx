@@ -67,7 +67,7 @@ export function MedicationIssueReportForm({
 
   if (done) {
     return (
-      <p className="text-xs font-medium text-brand-green">
+      <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">
         Thanks for letting us know. Your care team can see this.
       </p>
     );
@@ -79,7 +79,7 @@ export function MedicationIssueReportForm({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/60"
+        className="h-7 px-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60"
         onClick={() => setOpen(true)}
       >
         Report a problem
@@ -88,7 +88,7 @@ export function MedicationIssueReportForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
       <div className="space-y-1">
         <Label htmlFor={`issue_kind_${medication.id}`} className="text-xs">
           What&apos;s the problem?
@@ -128,7 +128,7 @@ export function MedicationIssueReportForm({
           Cancel
         </Button>
         {isError && (
-          <p className="text-xs text-red-600">Could not send that. Please try again.</p>
+          <p className="text-xs text-red-600 dark:text-red-300">Could not send that. Please try again.</p>
         )}
       </div>
     </form>

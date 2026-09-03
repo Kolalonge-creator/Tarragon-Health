@@ -14,12 +14,12 @@ export function CareCircleCard() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your people
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-3 text-sm text-charcoal-ink/70">
+        <p className="mb-3 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Name a next of kin we can reach if something urgent comes up, and keep your children&apos;s
           vaccination cards alongside your own.
         </p>

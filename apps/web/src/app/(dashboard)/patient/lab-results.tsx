@@ -10,7 +10,7 @@ interface StoredInterpretation {
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 }
 
 /**
@@ -44,13 +44,13 @@ export async function LabResults({ patientId }: { patientId: string }) {
           return (
             <div
               key={result.id}
-              className="space-y-1 border-b border-charcoal-ink/10 pb-4 last:border-0 last:pb-0"
+              className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4 last:border-0 last:pb-0"
             >
               <div className="flex items-baseline justify-between gap-2">
                 {badge ? <Badge variant={badge.variant}>{badge.label}</Badge> : <span />}
-                <p className="shrink-0 text-xs text-charcoal-ink/50">{formatDate(result.created_at)}</p>
+                <p className="shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{formatDate(result.created_at)}</p>
               </div>
-              <p className="text-sm text-charcoal-ink">
+              <p className="text-sm text-charcoal-ink dark:text-night-ink">
                 {interpretation?.summary ?? "Results available, ask your care team for details."}
               </p>
             </div>

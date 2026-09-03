@@ -113,8 +113,8 @@ export function NotificationPreferencesForm({
               <CardHeader className="flex-row items-center justify-between gap-3 pb-3">
                 <CardTitle className="text-base">{CATEGORY_LABEL[category]}</CardTitle>
                 <div className="h-4 text-xs">
-                  {isSavingThis && <span className="text-charcoal-ink/50">Saving…</span>}
-                  {isSavedFlash && <span className="font-medium text-brand-green">Saved</span>}
+                  {isSavingThis && <span className="text-charcoal-ink/50 dark:text-night-ink/55">Saving…</span>}
+                  {isSavedFlash && <span className="font-medium text-brand-green dark:text-brand-green-bright">Saved</span>}
                 </div>
               </CardHeader>
               <CardContent className="flex flex-wrap gap-x-6 gap-y-3 pt-0">
@@ -148,7 +148,7 @@ function ToggleField({
   onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-charcoal-ink">
+    <label className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
       <button
         type="button"
         role="switch"
@@ -158,7 +158,7 @@ function ToggleField({
         onClick={() => onChange(!checked)}
         className={cn(
           "relative h-5 w-9 shrink-0 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-          checked ? "bg-brand-green" : "bg-charcoal-ink/20"
+          checked ? "bg-brand-green" : "bg-charcoal-ink/20 dark:bg-night-ink/20"
         )}
       >
         <span
@@ -183,10 +183,10 @@ function PriorityLegend() {
   return (
     <Card variant="soft">
       <CardContent className="space-y-3 p-5">
-        <p className="text-sm font-medium text-charcoal-ink">
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
           How your notifications are prioritised
         </p>
-        <ul className="space-y-2 text-sm text-charcoal-ink/70">
+        <ul className="space-y-2 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           <li className="flex items-start gap-2">
             <Badge variant="red" className="mt-0.5 shrink-0">
               Critical
@@ -215,7 +215,7 @@ function PriorityLegend() {
             </span>
           </li>
         </ul>
-        <p className="text-xs text-charcoal-ink/50">
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           Critical health alerts always reach you in the app, regardless of these settings.
         </p>
       </CardContent>

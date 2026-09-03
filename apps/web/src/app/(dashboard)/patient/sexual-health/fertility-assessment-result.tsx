@@ -40,12 +40,12 @@ export function FertilityAssessmentResult({
     <Card variant="soft">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           {copy.title}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-charcoal-ink/80">{copy.description}</p>
+        <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{copy.description}</p>
       </CardContent>
     </Card>
   );

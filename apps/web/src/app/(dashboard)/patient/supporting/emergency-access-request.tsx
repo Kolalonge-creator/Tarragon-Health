@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 function shortDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
+  return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     hour: "2-digit",
@@ -37,12 +37,12 @@ export function EmergencyAccessRequest({ profileId, name }: { profileId: string;
 
   if (active) {
     return (
-      <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
-        <p className="font-medium text-charcoal-ink">
+      <div className="rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 p-3 text-sm">
+        <p className="font-medium text-charcoal-ink dark:text-night-ink">
           You have emergency access to {name}&apos;s health information until{" "}
           {shortDateTime(active.expiresAt)}.
         </p>
-        <p className="mt-0.5 text-xs text-charcoal-ink/60">Reason given: {active.reason}</p>
+        <p className="mt-0.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">Reason given: {active.reason}</p>
         <Button
           type="button"
           size="sm"
@@ -66,8 +66,8 @@ export function EmergencyAccessRequest({ profileId, name }: { profileId: string;
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3">
-      <p className="text-xs text-charcoal-ink/70">
+    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+      <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
         This gives you 24 hours of read access to {name}&apos;s health information. {name} is told
         immediately, with the reason you give below, and can end it at any time.
       </p>
@@ -100,7 +100,7 @@ export function EmergencyAccessRequest({ profileId, name }: { profileId: string;
           Cancel
         </Button>
       </div>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }

@@ -41,7 +41,7 @@ export function AppointmentPrepHelper({
         type="button"
         size="sm"
         variant="ghost"
-        className="h-auto gap-1.5 px-0 text-xs text-brand-green hover:bg-transparent hover:underline"
+        className="h-auto gap-1.5 px-0 text-xs text-brand-green dark:text-brand-green-bright hover:bg-transparent hover:underline"
         onClick={() => {
           setOpen(true);
           if (!result) void load();
@@ -54,13 +54,13 @@ export function AppointmentPrepHelper({
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-mist-grey/60 bg-mist-grey/20 p-3">
+    <div className="space-y-2 rounded-md border border-mist-grey/60 dark:border-night-ink/20 bg-mist-grey/20 dark:bg-night-ink/10 p-3">
       <Badge variant="grey">AI-drafted: questions to consider, not medical advice</Badge>
 
-      {isPending && <p className="text-sm text-charcoal-ink/60">Thinking about what might be useful to ask…</p>}
+      {isPending && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Thinking about what might be useful to ask…</p>}
 
       {!isPending && result?.status === "failed" && (
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Couldn&apos;t put together suggestions right now. You can still write your own notes above.
         </p>
       )}
@@ -68,7 +68,7 @@ export function AppointmentPrepHelper({
       {!isPending && result?.status === "generated" && result.questions.length > 0 && (
         <ul className="space-y-1.5">
           {result.questions.map((question) => (
-            <li key={question} className="flex items-start justify-between gap-2 text-sm text-charcoal-ink">
+            <li key={question} className="flex items-start justify-between gap-2 text-sm text-charcoal-ink dark:text-night-ink">
               <span>{question}</span>
               <Button
                 type="button"
@@ -90,7 +90,7 @@ export function AppointmentPrepHelper({
 
       <button
         type="button"
-        className="text-xs text-charcoal-ink/40 hover:underline"
+        className="text-xs text-charcoal-ink/40 dark:text-night-ink/50 hover:underline"
         onClick={() => setOpen(false)}
       >
         Hide

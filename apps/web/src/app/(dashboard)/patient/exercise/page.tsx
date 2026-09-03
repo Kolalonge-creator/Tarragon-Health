@@ -19,11 +19,11 @@ export default async function ExercisePage() {
   return (
     <DashboardPlaceholder greeting="Exercise programmes" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.exerciseProgramme}>
       <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green hover:underline">
+        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
           ← Back to lifestyle coaching
         </Link>
       </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
+      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Structured plans to build activity safely: a walking programme is open to anyone; anything
         more intensive asks a few safety questions first.
       </p>

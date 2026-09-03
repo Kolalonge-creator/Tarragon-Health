@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { Enums } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 type ContraceptionMethodCategory = Enums<"contraception_method_category">;
 type ContraceptionPlanStatus = Enums<"contraception_plan_status">;
 
@@ -93,7 +94,7 @@ export function ContraceptionPanel({ patientId }: { patientId: string }) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
             Contraception methods
           </CardTitle>
           <CardDescription>
@@ -102,31 +103,31 @@ export function ContraceptionPanel({ patientId }: { patientId: string }) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
           {methods.isLoading && (
-            <p className="text-sm text-charcoal-ink/60">Loading methods…</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading methods…</p>
           )}
           {[...grouped.entries()].map(([category, categoryMethods]) => (
             <div key={category} className="space-y-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest dark:text-brand-green-bright">
                 {CATEGORY_LABEL[category]}
               </h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 {categoryMethods.map((method) => (
                   <div
                     key={method.code}
-                    className="flex flex-col justify-between gap-3 rounded-lg border border-brand-green/30 bg-brand-green/5 p-4"
+                    className="flex flex-col justify-between gap-3 rounded-lg border border-brand-green/30 bg-brand-green/5 dark:bg-brand-green/10 p-4"
                   >
                     <div className="space-y-1.5">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium text-charcoal-ink">{method.name}</p>
+                        <p className="font-medium text-charcoal-ink dark:text-night-ink">{method.name}</p>
                         {method.requires_prescription && (
                           <Badge variant="blue">Needs a clinician</Badge>
                         )}
                       </div>
-                      <p className="text-sm text-charcoal-ink/70">{method.description}</p>
+                      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{method.description}</p>
                       {method.typical_effectiveness_pct != null && (
-                        <p className="text-xs text-charcoal-ink/60">
+                        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                           About {method.typical_effectiveness_pct}% effective with typical use
                         </p>
                       )}
@@ -156,23 +157,23 @@ export function ContraceptionPanel({ patientId }: { patientId: string }) {
           <CardTitle className="text-base">Your contraception plans</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2">
-          {plans.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {plans.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {plans.data?.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               You haven&apos;t requested a method yet. Browse above whenever you&apos;re ready.
             </p>
           )}
           {plans.data?.map((plan) => (
             <div
               key={plan.id}
-              className="flex flex-col gap-2 rounded-md border border-charcoal-ink/10 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
             >
               <div>
-                <p className="text-sm font-medium text-charcoal-ink">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                   {methodNameByCode.get(plan.method_code) ?? plan.method_code.replace(/_/g, " ")}
                 </p>
-                <p className="text-xs text-charcoal-ink/60">
-                  Requested {new Date(plan.requested_at).toLocaleDateString()}
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                  Requested {formatPatientDate(plan.requested_at)}
                 </p>
               </div>
               <Badge variant={STATUS_BADGE_VARIANT[plan.status]}>

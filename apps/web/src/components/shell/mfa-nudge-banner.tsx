@@ -85,17 +85,20 @@ export function MfaNudgeBanner({ role }: { role: UserRole | null | undefined }) 
       role="status"
       className="mb-6 flex items-start gap-3 rounded-xl border border-brand-green/20 bg-brand-green/5 p-4"
     >
-      <APP_ICON.security className="mt-0.5 h-5 w-5 shrink-0 text-brand-green" strokeWidth={2} />
+      <APP_ICON.security
+        className="mt-0.5 h-5 w-5 shrink-0 text-brand-green dark:text-brand-green-bright"
+        strokeWidth={2}
+      />
       <div className="min-w-0 flex-1 space-y-1 text-sm">
-        <p className="font-medium text-charcoal-ink">
+        <p className="font-medium text-charcoal-ink dark:text-night-ink">
           Add an extra layer of protection to your account
         </p>
-        <p className="text-charcoal-ink/70">
+        <p className="text-charcoal-ink/70 dark:text-night-ink/70">
           Turn on two-factor sign-in whenever you&apos;re ready. It takes about a minute with an
           authenticator app.{" "}
           <Link
             href="/account"
-            className="font-medium text-deep-forest underline underline-offset-2"
+            className="font-medium text-deep-forest underline underline-offset-2 dark:text-brand-green-bright"
           >
             Set it up in Profile &amp; settings
           </Link>
@@ -106,7 +109,7 @@ export function MfaNudgeBanner({ role }: { role: UserRole | null | undefined }) 
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 w-7 shrink-0 p-0 text-charcoal-ink/40 hover:text-charcoal-ink"
+        className="h-7 w-7 shrink-0 p-0 text-charcoal-ink/40 hover:text-charcoal-ink dark:text-night-ink/50 dark:hover:text-night-ink"
         aria-label="Dismiss"
         onClick={dismiss}
       >

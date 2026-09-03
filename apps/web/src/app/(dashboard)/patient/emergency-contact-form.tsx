@@ -39,7 +39,7 @@ export function EmergencyContactForm({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <ShieldAlert className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <ShieldAlert className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Emergency contact &amp; next of kin
         </CardTitle>
         <CardDescription>
@@ -102,12 +102,12 @@ export function EmergencyContactForm({
             </div>
           </div>
 
-          <label className="flex items-start gap-2 text-sm text-charcoal-ink">
+          <label className="flex items-start gap-2 text-sm text-charcoal-ink dark:text-night-ink">
             <input
               type="checkbox"
               name="emergency_contact_consent"
               defaultChecked={initial.emergency_contact_consent ?? false}
-              className="mt-0.5 h-4 w-4 rounded border-charcoal-ink/30 accent-brand-green"
+              className="mt-0.5 h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35 accent-brand-green"
             />
             <span>
               I confirm this person has agreed to be contacted by TarragonHealth in an emergency,
@@ -115,8 +115,8 @@ export function EmergencyContactForm({
             </span>
           </label>
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-          {state?.success && <p className="text-sm text-brand-green">Emergency contact saved.</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+          {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Emergency contact saved.</p>}
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save emergency contact"}
           </Button>

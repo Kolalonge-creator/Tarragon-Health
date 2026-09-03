@@ -41,7 +41,7 @@ export function classifyBpLevel(
 export const BP_LEVEL_LABEL: Record<BpLevel, string> = {
   green: "At target",
   amber: "Above target",
-  red: "High — urgent review",
+  red: "High (urgent review)",
   emergency: "Crisis range",
   unknown: "—",
 };
@@ -50,14 +50,14 @@ export const BP_LEVEL_LABEL: Record<BpLevel, string> = {
 export function bpTrendNote(level: BpLevel): string {
   switch (level) {
     case "green":
-      return "Thanks — this reading is within your target range. Keep going.";
+      return "Thanks. This reading is within your target range. Keep going.";
     case "amber":
       return "Thanks. This is a little above target this week; your care team will review.";
     case "red":
       return "Thanks. This reading is high. Please rest for 5 minutes and re-check, then reply. Your care team is being notified.";
     case "emergency":
-      return "This reading is very high. Please seek urgent care now — do not take extra tablets. Your care team is being alerted.";
+      return "This reading is very high. Please seek urgent care now. Do not take extra tablets. Your care team is being alerted.";
     default:
-      return "Thanks — your reading has been logged.";
+      return "Thanks. Your reading has been logged.";
   }
 }

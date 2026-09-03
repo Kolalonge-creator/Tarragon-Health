@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { InsuranceOverview } from "./insurance-overview";
 
 export default async function PatientInsurancePage() {
@@ -20,13 +22,11 @@ export default async function PatientInsurancePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your insurance</h1>
-        <p className="text-charcoal-ink/60">
-          The policy on file for you, what it covers, and the status of any pre-authorisation
-          requests or claims your care team has submitted on your behalf.
-        </p>
-      </div>
+      <PageHeader
+        title="Your insurance"
+        icon={NAV_ICON.insurance}
+        description="The policy on file for you, what it covers, and the status of any pre-authorisation requests or claims your care team has submitted on your behalf."
+      />
       <InsuranceOverview patientId={profile.id} organisationId={organisationId} />
     </div>
   );

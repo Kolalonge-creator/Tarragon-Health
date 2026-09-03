@@ -155,6 +155,9 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
           fill="none"
           stroke="var(--soft-sage)"
           strokeWidth={STROKE}
+          // Soft sage doesn't flip with the theme; the class wins over the
+          // presentation attribute in dark only, so light is untouched.
+          className="dark:stroke-night-ink/15"
         />
         {arcs.map((arc) => (
           <path
@@ -166,6 +169,9 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
             // Predicted phases are drawn slightly translucent so the ring
             // reads as an estimate rather than a record of what happened.
             strokeOpacity={arc.phase === "menstrual" ? 0.95 : 0.75}
+            // The unknown-phase arc is drawn in soft sage, which doesn't flip
+            // with the theme; in dark it takes the same muted track tone.
+            className={arc.phase === "unknown" ? "dark:stroke-night-ink/25" : undefined}
           />
         ))}
 
@@ -178,8 +184,17 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
               fill="var(--background)"
               stroke="var(--charcoal-ink)"
               strokeWidth={3}
+              // Neither --background nor --charcoal-ink flips with the theme;
+              // dark-only class overrides keep the marker legible at night.
+              className="dark:fill-night-card dark:stroke-night-ink"
             />
-            <circle cx={marker.x} cy={marker.y} r={4} fill="var(--charcoal-ink)" />
+            <circle
+              cx={marker.x}
+              cy={marker.y}
+              r={4}
+              fill="var(--charcoal-ink)"
+              className="dark:fill-night-ink"
+            />
           </>
         )}
 
@@ -187,7 +202,7 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
           x={CENTRE}
           y={CENTRE - 6}
           textAnchor="middle"
-          className="fill-charcoal-ink"
+          className="fill-charcoal-ink dark:fill-night-ink"
           style={{ fontSize: 30, fontWeight: 600 }}
         >
           {headline}
@@ -196,13 +211,13 @@ export function CycleRing({ prediction }: { prediction: CyclePrediction }) {
           x={CENTRE}
           y={CENTRE + 18}
           textAnchor="middle"
-          className="fill-charcoal-ink/60"
+          className="fill-charcoal-ink/60 dark:fill-night-ink/60"
           style={{ fontSize: 11 }}
         >
           {PHASE_LABEL[prediction.currentPhase]}
         </text>
       </svg>
-      <p className="mt-1 text-center text-sm text-charcoal-ink/70">{subline}</p>
+      <p className="mt-1 text-center text-sm text-charcoal-ink/70 dark:text-night-ink/70">{subline}</p>
     </div>
   );
 }
@@ -219,7 +234,7 @@ export function CycleLegend() {
   return (
     <ul className="flex flex-wrap justify-center gap-x-4 gap-y-2">
       {entries.map((entry) => (
-        <li key={entry.phase} className="flex items-center gap-1.5 text-xs text-charcoal-ink/70">
+        <li key={entry.phase} className="flex items-center gap-1.5 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
           <span
             aria-hidden
             className="inline-block h-2.5 w-2.5 rounded-full"

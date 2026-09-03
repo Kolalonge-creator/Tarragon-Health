@@ -34,11 +34,11 @@ export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDom
   return (
     <form action={submit} className="space-y-5">
       {domains.map((domain) => (
-        <fieldset key={domain} className="space-y-2 border-t border-charcoal-ink/10 pt-3 first:border-t-0 first:pt-0">
-          <legend className="text-sm font-medium text-charcoal-ink">{DOMAIN_LABEL[domain]}</legend>
+        <fieldset key={domain} className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 first:border-t-0 first:pt-0">
+          <legend className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{DOMAIN_LABEL[domain]}</legend>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {OUTCOME_OPTIONS.map((opt) => (
-              <label key={opt.value} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80">
+              <label key={opt.value} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                 <input
                   type="radio"
                   name={`domain-${domain}`}
@@ -65,8 +65,8 @@ export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDom
         </fieldset>
       ))}
 
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Saved. Thank you.</p>}
+      {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+      {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved. Thank you.</p>}
 
       <Button type="submit" disabled={pending || answeredCount === 0}>
         {pending ? "Saving…" : `Save ${answeredCount || ""} answer${answeredCount === 1 ? "" : "s"}`}

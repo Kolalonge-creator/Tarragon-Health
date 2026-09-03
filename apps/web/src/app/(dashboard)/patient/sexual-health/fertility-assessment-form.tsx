@@ -42,7 +42,7 @@ export function FertilityAssessmentForm() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Fertility check-in
         </CardTitle>
         <CardDescription>
@@ -70,15 +70,15 @@ export function FertilityAssessmentForm() {
           </div>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-charcoal-ink">
+            <legend className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               Is your menstrual cycle regular? (Skip if this doesn&apos;t apply to you)
             </legend>
             <div className="flex gap-3">
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 px-3 py-2 text-sm text-charcoal-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5">
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 px-3 py-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 dark:has-[:checked]:bg-brand-green/10">
                 <input type="radio" name="menstrual_cycle_regular" value="true" />
                 Yes, regular
               </label>
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 px-3 py-2 text-sm text-charcoal-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5">
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 px-3 py-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 dark:has-[:checked]:bg-brand-green/10">
                 <input type="radio" name="menstrual_cycle_regular" value="false" />
                 No, irregular
               </label>
@@ -86,14 +86,14 @@ export function FertilityAssessmentForm() {
           </fieldset>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium text-charcoal-ink">
+            <legend className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               Do any of these apply to you or your partner?
             </legend>
             <div className="flex flex-wrap gap-2">
               {KNOWN_RISK_FACTORS.map((factor) => (
                 <label
                   key={factor}
-                  className="flex cursor-pointer items-center gap-2 rounded-full border border-charcoal-ink/15 px-3 py-2 text-sm text-charcoal-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
+                  className="flex cursor-pointer items-center gap-2 rounded-full border border-charcoal-ink/15 dark:border-night-ink/20 px-3 py-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 dark:has-[:checked]:bg-brand-green/10"
                 >
                   <input
                     type="checkbox"
@@ -109,7 +109,7 @@ export function FertilityAssessmentForm() {
             </div>
           </fieldset>
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
 
           <Button type="submit" disabled={pending}>
             {pending ? "Checking…" : "Get my recommendation"}

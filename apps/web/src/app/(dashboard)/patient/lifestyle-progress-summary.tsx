@@ -36,16 +36,16 @@ export function LifestyleProgressSummary({ patientId }: { patientId: string }) {
     <Card>
       <CardContent className="flex items-center justify-between gap-3 py-4">
         <div className="flex items-center gap-3">
-          <SEMANTIC_ICON.weight className="h-8 w-8 text-brand-green" strokeWidth={2} />
+          <SEMANTIC_ICON.weight className="h-8 w-8 text-brand-green dark:text-brand-green-bright" strokeWidth={2} />
           <div>
-            <p className="font-heading text-xl font-bold text-charcoal-ink">{headline}</p>
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="font-heading text-xl font-bold text-charcoal-ink dark:text-night-ink">{headline}</p>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {steps.toLocaleString()} of {stepGoal.toLocaleString()} steps today · meals, weight,
               activity, exercise, sleep, smoking, alcohol &amp; rewards
             </p>
           </div>
         </div>
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green hover:underline">
+        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
           View →
         </Link>
       </CardContent>

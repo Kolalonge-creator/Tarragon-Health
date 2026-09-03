@@ -52,12 +52,12 @@ function LikertQuestion({
 }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm text-charcoal-ink">{prompt}</legend>
+      <legend className="text-sm text-charcoal-ink dark:text-night-ink">{prompt}</legend>
       <div className="grid gap-1.5" style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}>
         {options.map((opt) => (
           <label
             key={opt.value}
-            className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-charcoal-ink/15 px-1.5 py-1.5 text-center text-[11px] text-charcoal-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
+            className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 px-1.5 py-1.5 text-center text-[11px] text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 dark:has-[:checked]:bg-brand-green/10"
           >
             <input type="radio" name={name} value={opt.value} required className="accent-[color:var(--brand-green,#0E7C52)]" />
             {opt.label}
@@ -104,7 +104,7 @@ export function SexualWellnessPanel() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.mood className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.mood className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Sexual wellness
         </CardTitle>
         <CardDescription>
@@ -119,7 +119,7 @@ export function SexualWellnessPanel() {
                 key={option}
                 type="button"
                 onClick={() => pickConcern(option)}
-                className="rounded-lg border border-brand-green/30 bg-brand-green/5 px-4 py-3 text-left text-sm font-medium text-charcoal-ink transition hover:border-brand-green"
+                className="rounded-lg border border-brand-green/30 bg-brand-green/5 dark:bg-brand-green/10 px-4 py-3 text-left text-sm font-medium text-charcoal-ink dark:text-night-ink transition hover:border-brand-green"
               >
                 {SEXUAL_HEALTH_INSTRUMENT_LABEL[option]}
               </button>
@@ -130,7 +130,7 @@ export function SexualWellnessPanel() {
         {view === "form" && instrument && (
           <form action={formAction} className="space-y-5">
             <input type="hidden" name="instrument" value={instrument} />
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               {SEXUAL_HEALTH_INSTRUMENT_LABEL[instrument]}, over the last few weeks:
             </p>
             {INSTRUMENT_CONFIG[instrument].questions.map((prompt, i) => (
@@ -142,7 +142,7 @@ export function SexualWellnessPanel() {
               />
             ))}
 
-            {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+            {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
 
             <div className="flex gap-2">
               <Button type="submit" disabled={pending}>
@@ -157,25 +157,25 @@ export function SexualWellnessPanel() {
 
         {view === "result" && state?.success && state.severityBand && state.instrument && (
           <div className="space-y-4">
-            <div className="rounded-lg bg-brand-green/5 p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
+            <div className="rounded-lg bg-brand-green/5 dark:bg-brand-green/10 p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-deep-forest dark:text-brand-green-bright">
                 {SEXUAL_HEALTH_INSTRUMENT_LABEL[state.instrument]}:{" "}
                 {SEXUAL_HEALTH_SEVERITY_BAND_LABEL[state.severityBand]}
               </p>
-              <p className="mt-1 text-sm text-charcoal-ink/80">
+              <p className="mt-1 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                 {SEVERITY_COPY[state.severityBand]}
               </p>
             </div>
 
             {state.cardiometabolicFlag && (
-              <div className="rounded-lg border border-sprout-gold/40 bg-sprout-gold/5 p-4">
-                <p className="text-sm text-charcoal-ink/80">
+              <div className="rounded-lg border border-sprout-gold/40 bg-sprout-gold/5 dark:bg-sprout-gold/10 p-4">
+                <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                   Sexual health is often connected to heart and metabolic health. It&apos;s worth
                   checking your cardiovascular risk too.
                 </p>
                 <Link
                   href="/patient/prevention#risk-assessment"
-                  className="mt-2 inline-block text-sm font-medium text-brand-green underline underline-offset-4"
+                  className="mt-2 inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright underline underline-offset-4"
                 >
                   Check your cardiovascular risk
                 </Link>

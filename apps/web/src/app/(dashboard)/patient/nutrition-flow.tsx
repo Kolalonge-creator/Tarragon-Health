@@ -16,6 +16,7 @@ import type { NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis
 import type { ParsedFoodItem } from "@/lib/nutrition/food-parser";
 import type { FoodCatalogueItem } from "@/lib/nutrition/food-catalogue";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MEAL_TYPE_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
+import { formatPatientDate } from "@/lib/format-date";
 const MEAL_PHOTO_BUCKET = "meal-photos";
 const ENTRIES_KEY = "nutrition-entries";
 
@@ -154,8 +156,8 @@ function LogMealSection({
                     className={cn(
                       "flex flex-col items-center gap-1.5 rounded-lg border p-3 text-xs font-medium transition-colors",
                       active
-                        ? "border-brand-green bg-soft-sage text-deep-forest"
-                        : "border-charcoal-ink/10 text-charcoal-ink/70 hover:border-charcoal-ink/20",
+                        ? "border-brand-green bg-soft-sage dark:bg-brand-green/20 text-deep-forest dark:text-brand-green-bright"
+                        : "border-charcoal-ink/10 dark:border-night-ink/15 text-charcoal-ink/70 dark:text-night-ink/70 hover:border-charcoal-ink/20 dark:hover:border-night-ink/25",
                     )}
                   >
                     <Icon className="h-5 w-5" strokeWidth={2} />
@@ -174,7 +176,7 @@ function LogMealSection({
               placeholder="e.g. 2 spoons of jollof rice, a piece of chicken and a bit of dodo"
               maxLength={500}
             />
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               We&apos;ll match this against our Nigerian food list to estimate calories, carbs, protein,
               fat, fibre and sodium. You can describe portions in everyday terms like a plate, cup,
               spoon, handful, piece or serving.
@@ -189,7 +191,7 @@ function LogMealSection({
               accept="image/jpeg,image/png,image/webp,image/heic"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {visionConfigured
                 ? "Add a photo and we'll estimate the portions and carbs for you: a coaching guide, not a medical measurement."
                 : "Photo estimates aren't switched on yet; your meal still logs with the details you add."}
@@ -200,7 +202,7 @@ function LogMealSection({
             <Button type="submit" disabled={mutation.isPending}>
               {mutation.isPending ? "Logging…" : "Log meal"}
             </Button>
-            {message && <span className="text-sm text-charcoal-ink/70">{message}</span>}
+            {message && <span className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{message}</span>}
           </div>
         </form>
       </CardContent>
@@ -210,16 +212,12 @@ function LogMealSection({
 
 function ConfidenceBadge({ confidence }: { confidence?: "low" | "medium" | "high" }) {
   if (!confidence) return null;
-  const styles: Record<string, string> = {
-    low: "bg-amber-100 text-amber-800",
-    medium: "bg-blue-100 text-blue-800",
-    high: "bg-green-100 text-green-800",
+  const variants: Record<"low" | "medium" | "high", "amber" | "blue" | "green"> = {
+    low: "amber",
+    medium: "blue",
+    high: "green",
   };
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${styles[confidence]}`}>
-      {confidence} confidence
-    </span>
-  );
+  return <Badge variant={variants[confidence]}>{confidence} confidence</Badge>;
 }
 
 /** Full macro breakdown + matched-items list from text-based food logging
@@ -232,8 +230,8 @@ function NutritionAnalysisBlock({
   items: ParsedFoodItem[] | null;
 }) {
   return (
-    <div className="mt-2 rounded-md border border-charcoal-ink/10 p-3 text-sm">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1 font-medium text-charcoal-ink sm:grid-cols-3">
+    <div className="mt-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3 text-sm">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 font-medium text-charcoal-ink dark:text-night-ink sm:grid-cols-3">
         <span>~{Math.round(analysis.caloriesKcal)} kcal</span>
         <span>{Math.round(analysis.carbsG)}g carbs</span>
         <span>{Math.round(analysis.proteinG)}g protein</span>
@@ -242,7 +240,7 @@ function NutritionAnalysisBlock({
         <span>{Math.round(analysis.sodiumMg)}mg sodium</span>
       </div>
       {items && items.length > 0 && (
-        <ul className="mt-2 list-disc pl-5 text-charcoal-ink/70">
+        <ul className="mt-2 list-disc pl-5 text-charcoal-ink/70 dark:text-night-ink/70">
           {items.map((item, i) => (
             <li key={i}>
               {item.matched
@@ -253,11 +251,11 @@ function NutritionAnalysisBlock({
         </ul>
       )}
       {!analysis.reliable && (
-        <p className="mt-2 text-xs text-amber-700">
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
           One or more items weren&apos;t recognised, so these totals are a partial estimate.
         </p>
       )}
-      <p className="mt-2 text-xs text-charcoal-ink/50">
+      <p className="mt-2 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         From our Nigerian food list: an estimate to guide you, not a lab measurement.
       </p>
     </div>
@@ -302,14 +300,14 @@ function GuidanceBlock({
           key={i}
           className={cn(
             "rounded-md p-2 text-sm",
-            m.tone === "watch" ? "bg-amber-50 text-amber-900" : "bg-soft-sage text-deep-forest",
+            m.tone === "watch" ? "bg-amber-50 dark:bg-amber-500/15 text-amber-900 dark:text-amber-300" : "bg-soft-sage dark:bg-brand-green/20 text-deep-forest dark:text-brand-green-bright",
           )}
         >
           {m.message}
         </p>
       ))}
       {substitution && (
-        <p className="rounded-md bg-charcoal-ink/5 p-2 text-sm text-charcoal-ink/80">
+        <p className="rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           {substitution.message}
         </p>
       )}
@@ -350,35 +348,35 @@ function EntryCard({
   });
 
   return (
-    <li className="rounded-lg border border-charcoal-ink/10 p-4">
+    <li className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="font-medium text-charcoal-ink">
+        <div className="font-medium text-charcoal-ink dark:text-night-ink">
           {MEAL_TYPE_LABELS[entry.meal_type]} · {lagosDateTime(entry.logged_at)}
         </div>
         {estimate?.confidence && <ConfidenceBadge confidence={estimate.confidence} />}
       </div>
 
       {entry.description && (
-        <p className="mt-1 text-sm text-charcoal-ink/70">{entry.description}</p>
+        <p className="mt-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">{entry.description}</p>
       )}
       {entry.photo_path && (
-        <p className="mt-1 text-xs text-charcoal-ink/50">📷 Photo attached</p>
+        <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">📷 Photo attached</p>
       )}
 
       {entry.ai_status === "unavailable" && !estimate && (
-        <p className="mt-2 text-xs text-charcoal-ink/50">No automatic estimate for this meal.</p>
+        <p className="mt-2 text-xs text-charcoal-ink/50 dark:text-night-ink/55">No automatic estimate for this meal.</p>
       )}
 
       {estimate && (
-        <div className="mt-2 rounded-md bg-charcoal-ink/5 p-3 text-sm">
-          <div className="font-medium text-charcoal-ink">
+        <div className="mt-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3 text-sm">
+          <div className="font-medium text-charcoal-ink dark:text-night-ink">
             ~{Math.round(estimate.est_carbs_g ?? 0)} g carbs
             {typeof estimate.est_calories === "number"
               ? ` · ~${Math.round(estimate.est_calories)} kcal`
               : ""}
           </div>
           {estimate.items && estimate.items.length > 0 && (
-            <ul className="mt-1 list-disc pl-5 text-charcoal-ink/70">
+            <ul className="mt-1 list-disc pl-5 text-charcoal-ink/70 dark:text-night-ink/70">
               {estimate.items.map((item, i) => (
                 <li key={i}>
                   {item.name}, {item.portion} (~{Math.round(item.est_carbs_g)} g)
@@ -386,7 +384,7 @@ function EntryCard({
               ))}
             </ul>
           )}
-          <p className="mt-1 text-xs text-charcoal-ink/50">
+          <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             Photo estimate: coaching guidance only, not a medical measurement.
           </p>
         </div>
@@ -431,7 +429,7 @@ function EntryCard({
       )}
 
       {(entry.patient_confirmed || saved) && (
-        <p className="mt-2 text-xs font-medium text-brand-green">
+        <p className="mt-2 text-xs font-medium text-brand-green dark:text-brand-green-bright">
           Confirmed
           {entry.confirmed_carbs_g != null ? ` · ${Math.round(entry.confirmed_carbs_g)} g carbs` : ""}
         </p>
@@ -451,7 +449,7 @@ function dateGroupLabel(dateKey: string): string {
   });
   if (dateKey === today) return "Today";
   if (dateKey === yesterday) return "Yesterday";
-  return new Date(dateKey).toLocaleDateString(undefined, {
+  return formatPatientDate(dateKey, {
     month: "long",
     day: "numeric",
     year: "numeric",
@@ -484,15 +482,15 @@ function MealHistorySection({
         <CardTitle>Recent meals</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {!isLoading && (!entries || entries.length === 0) && (
-          <p className="text-sm text-charcoal-ink/60">No meals logged yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No meals logged yet.</p>
         )}
         {grouped.length > 0 && (
           <div className="space-y-5">
             {grouped.map(([dateKey, rows]) => (
               <div key={dateKey}>
-                <p className="mb-2 text-sm font-semibold text-charcoal-ink">{dateGroupLabel(dateKey)}</p>
+                <p className="mb-2 text-sm font-semibold text-charcoal-ink dark:text-night-ink">{dateGroupLabel(dateKey)}</p>
                 <ul className="space-y-3">
                   {rows.map((entry) => (
                     <EntryCard
@@ -529,7 +527,7 @@ function BudgetHelperSection() {
         <CardTitle>Need a cheaper option?</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Tell us what you can&apos;t afford right now, and we&apos;ll suggest a local, budget-friendly
           swap with a similar role on the plate.
         </p>
@@ -551,15 +549,15 @@ function BudgetHelperSection() {
             {mutation.isPending ? "Checking…" : "Suggest"}
           </Button>
         </form>
-        {result && "error" in result && <p className="text-sm text-red-600">{result.error}</p>}
+        {result && "error" in result && <p className="text-sm text-red-600 dark:text-red-300">{result.error}</p>}
         {result && "notFound" in result && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             We don&apos;t have a specific suggestion for that yet. Generally affordable everyday
             options include beans, eggs, garri and seasonal vegetables.
           </p>
         )}
         {result && "message" in result && (
-          <p className="text-sm text-charcoal-ink/80">{result.message}</p>
+          <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{result.message}</p>
         )}
       </CardContent>
     </Card>

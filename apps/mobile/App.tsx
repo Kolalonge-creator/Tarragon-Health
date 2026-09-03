@@ -1,16 +1,22 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, Image, SafeAreaView, StatusBar } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, AppState, Image, SafeAreaView, StatusBar } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
+import { readAppLockEnabled } from "@/lib/app-lock";
 import { registerBackgroundHealthSync } from "@/lib/background-sync";
 import { registerPushToken } from "@/lib/push-registration";
 import { flushPendingVitals } from "@/lib/offline-vitals-queue";
 import { syncThresholdsIfOnline } from "@/lib/threshold-sync";
 import { loadPatientIdentity, type PatientIdentity } from "@/lib/identity";
 import { LoginScreen } from "@/screens/login-screen";
+import { AppLockScreen } from "@/screens/app-lock-screen";
 import { HomeShell } from "@/screens/home-shell";
 import { colors } from "@/ui/theme";
+
+/** "unknown" holds the splash: the shell must never flash unlocked before the
+ * stored App Lock preference has been read (cold start locks too). */
+type LockState = "unknown" | "locked" | "unlocked";
 
 /**
  * App-level shape: a native auth gate (Splash → Login) in front of the
@@ -24,13 +30,50 @@ import { colors } from "@/ui/theme";
 export default function App() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [identity, setIdentity] = useState<PatientIdentity | null | undefined>(undefined);
+  const [lockState, setLockState] = useState<LockState>("unknown");
+  // Only a real trip through 'background' re-locks; the 'inactive' flicker
+  // from the iOS app switcher or a permission sheet must not.
+  const wentToBackground = useRef(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, newSession) => setSession(newSession));
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      setSession(newSession);
+      // A fresh login is its own authentication; the lock guards a resumed
+      // session. Clearing on SIGNED_OUT (never on the initial null) also
+      // releases a patient who used the lock screen's "Sign out" escape
+      // hatch after losing biometrics at the OS level.
+      if (event === "SIGNED_OUT") setLockState("unlocked");
+    });
     return () => subscription.unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    readAppLockEnabled()
+      .then((enabled) => setLockState(enabled ? "locked" : "unlocked"))
+      .catch(() => setLockState("unlocked"));
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (next) => {
+      if (next === "background") {
+        wentToBackground.current = true;
+        return;
+      }
+      if (next === "active" && wentToBackground.current) {
+        wentToBackground.current = false;
+        // Re-read the preference rather than caching it: the toggle may have
+        // been flipped in Settings since this app session started.
+        readAppLockEnabled()
+          .then((enabled) => {
+            if (enabled) setLockState("locked");
+          })
+          .catch(() => {});
+      }
+    });
+    return () => sub.remove();
   }, []);
 
   useEffect(() => {
@@ -62,7 +105,7 @@ export default function App() {
     }
   }, [session, identity]);
 
-  if (session === undefined || (session && identity === undefined)) {
+  if (session === undefined || (session && (identity === undefined || lockState === "unknown"))) {
     return (
       <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand }}>
         <StatusBar barStyle="light-content" />
@@ -83,6 +126,12 @@ export default function App() {
         <LoginScreen />
       </SafeAreaView>
     );
+  }
+
+  // The shell is gated behind the lock, not overlaid by it: while locked, no
+  // patient data mounts at all, so nothing can leak under or behind the gate.
+  if (lockState === "locked") {
+    return <AppLockScreen onUnlocked={() => setLockState("unlocked")} />;
   }
 
   return (

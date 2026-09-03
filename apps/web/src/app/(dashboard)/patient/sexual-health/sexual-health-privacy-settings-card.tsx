@@ -57,7 +57,7 @@ export function SexualHealthPrivacySettingsCard() {
     <Card variant="soft">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
-          <SEMANTIC_ICON.privacy className="h-4 w-4 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.privacy className="h-4 w-4 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Privacy PIN
         </CardTitle>
         <CardDescription>
@@ -112,7 +112,7 @@ export function SexualHealthPrivacySettingsCard() {
                 />
               </div>
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={setPin.isPending}>
                 {setPin.isPending ? "Saving…" : "Save PIN"}

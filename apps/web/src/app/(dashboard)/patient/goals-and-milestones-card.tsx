@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const GOAL_TYPE_LABEL: Record<(typeof PATIENT_GOAL_TYPES)[number], string> = {
   walk_more: "Walk more",
   reduce_weight: "Reduce weight",
@@ -68,7 +69,7 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.challenge className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.challenge className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your goals
         </CardTitle>
         {!addingGoal && (
@@ -79,13 +80,13 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {addingGoal && (
-          <form action={addFormAction} className="space-y-3 rounded-md border border-charcoal-ink/10 p-3">
+          <form action={addFormAction} className="space-y-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <div className="grid gap-1">
               <Label htmlFor="goal_type">What kind of goal?</Label>
               <select
                 id="goal_type"
                 name="goal_type"
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                className="h-9 rounded-md border border-input dark:border-night-ink/20 bg-background dark:bg-night-card px-3 text-sm"
                 defaultValue="walk_more"
               >
                 {PATIENT_GOAL_TYPES.map((t) => (
@@ -109,7 +110,7 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
                 <Input id="target_unit" name="target_unit" placeholder="steps/day" maxLength={40} />
               </div>
             </div>
-            {addState?.error && <p className="text-sm text-destructive">{addState.error}</p>}
+            {addState?.error && <p className="text-sm text-destructive dark:text-red-300">{addState.error}</p>}
             <div className="flex gap-2">
               <Button type="submit">Save goal</Button>
               <Button type="button" variant="outline" onClick={() => setAddingGoal(false)}>
@@ -119,9 +120,14 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
           </form>
         )}
 
-        {goals.isLoading && <p className="text-sm text-charcoal-ink/60">Loading your goals…</p>}
-        {!goals.isLoading && (goals.data?.length ?? 0) === 0 && !addingGoal && (
-          <p className="text-sm text-charcoal-ink/60">
+        {goals.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading your goals…</p>}
+        {goals.isError && (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            We couldn&apos;t load your goals just now. Give it a moment and try again.
+          </p>
+        )}
+        {!goals.isLoading && !goals.isError && (goals.data?.length ?? 0) === 0 && !addingGoal && (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             No active goals yet. Small, specific goals (like a daily step count) tend to stick
             best.
           </p>
@@ -129,15 +135,15 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
         {goals.data?.map((goal) => <GoalRow key={goal.id} goal={goal} patientId={patientId} />)}
 
         {(milestones.data?.length ?? 0) > 0 && (
-          <div className="border-t border-charcoal-ink/10 pt-3">
-            <p className="mb-2 text-sm font-medium text-charcoal-ink">Recent milestones</p>
+          <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
+            <p className="mb-2 text-sm font-medium text-charcoal-ink dark:text-night-ink">Recent milestones</p>
             <ul className="space-y-1.5">
               {milestones.data!.map((m) => (
-                <li key={m.id} className="flex items-center gap-2 text-sm text-charcoal-ink">
+                <li key={m.id} className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
                   <SEMANTIC_ICON.badge className="h-4 w-4 shrink-0 text-sprout-gold" strokeWidth={2} />
-                  <span>{MILESTONE_COPY[m.milestone_type] ?? m.milestone_type}</span>
-                  <span className="ml-auto shrink-0 text-xs text-charcoal-ink/50">
-                    {new Date(m.achieved_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                  <span>{MILESTONE_COPY[m.milestone_type] ?? m.milestone_type.replace(/_/g, " ")}</span>
+                  <span className="ml-auto shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                    {formatPatientDate(m.achieved_at, { month: "short", day: "numeric" })}
                   </span>
                 </li>
               ))}
@@ -179,11 +185,11 @@ function GoalRow({
   );
 
   return (
-    <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+    <div className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-charcoal-ink">{goal.description}</p>
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">{goal.description}</p>
         {goal.target_value != null && (
-          <span className="shrink-0 text-xs text-charcoal-ink/60">
+          <span className="shrink-0 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             Target: {goal.target_value}
             {goal.target_unit ? ` ${goal.target_unit}` : ""}
           </span>
@@ -214,7 +220,7 @@ function GoalRow({
         </form>
       </div>
       {(logState?.error || achieveState?.error) && (
-        <p className="text-sm text-destructive">{logState?.error ?? achieveState?.error}</p>
+        <p className="text-sm text-destructive dark:text-red-300">{logState?.error ?? achieveState?.error}</p>
       )}
     </div>
   );

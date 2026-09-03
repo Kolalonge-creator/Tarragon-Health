@@ -52,7 +52,7 @@ export function UploadResultForm() {
   const displayError = validationError ?? (upload.error as Error | null)?.message ?? null;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-3 border-t border-charcoal-ink/10 pt-4">
+    <form onSubmit={handleSubmit} className="space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
       <div className="space-y-1.5">
         <Label htmlFor="own-result-file">Upload a result</Label>
         <Input
@@ -62,7 +62,7 @@ export function UploadResultForm() {
           accept={RESULT_DOC_ACCEPT}
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Got a result from a lab yourself? Add a PDF or photo (up to 10 MB) so your care team can
           see it.
         </p>
@@ -73,8 +73,8 @@ export function UploadResultForm() {
         onChange={(event) => setNote(event.target.value)}
         rows={2}
       />
-      {displayError && <p className="text-sm text-red-600">{displayError}</p>}
-      {success && <p className="text-sm text-brand-green">{success}</p>}
+      {displayError && <p className="text-sm text-red-600 dark:text-red-300">{displayError}</p>}
+      {success && <p className="text-sm text-brand-green dark:text-brand-green-bright">{success}</p>}
       <Button type="submit" disabled={upload.isPending || !file}>
         {upload.isPending ? "Uploading…" : "Upload result"}
       </Button>

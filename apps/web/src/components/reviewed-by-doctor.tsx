@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { ClinicalStaffAvatar } from "@/components/clinical-staff-avatar";
 
 function formatReviewedDate(reviewedAt: string): string {
-  return new Date(reviewedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(reviewedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**
@@ -40,7 +40,7 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
 
   if (!doctor) {
     return (
-      <p className="text-sm text-charcoal-ink/70">Reviewed by your care team · {reviewedDate}</p>
+      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Reviewed by your care team · {reviewedDate}</p>
     );
   }
 
@@ -52,13 +52,13 @@ export async function ReviewedByDoctor({ escalationId }: { escalationId: string 
   return (
     <div className="flex items-start gap-3">
       <ClinicalStaffAvatar fullName={doctor.full_name} photoUrl={doctor.photo_url} />
-      <p className="text-sm text-charcoal-ink">
+      <p className="text-sm text-charcoal-ink dark:text-night-ink">
         Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
-        {doctor.specialty && <span className="text-charcoal-ink/60"> · {doctor.specialty}</span>}
-        {credential && <span className="text-charcoal-ink/60"> · {credential}</span>}
-        <span className="text-charcoal-ink/60"> · {reviewedDate}</span>
+        {doctor.specialty && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {doctor.specialty}</span>}
+        {credential && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {credential}</span>}
+        <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {reviewedDate}</span>
         {escalation.resolution_note && (
-          <span className="block text-charcoal-ink/70">{escalation.resolution_note}</span>
+          <span className="block text-charcoal-ink/70 dark:text-night-ink/70">{escalation.resolution_note}</span>
         )}
       </p>
     </div>

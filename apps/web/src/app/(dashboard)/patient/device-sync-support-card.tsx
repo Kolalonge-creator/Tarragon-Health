@@ -63,7 +63,7 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.warning className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <NAV_ICON.warning className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           My device isn&apos;t syncing
         </CardTitle>
         <CardDescription>
@@ -75,16 +75,16 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
         {!checked && <Button onClick={() => setChecked(true)}>Check my devices</Button>}
 
         {checked && diagnosis.isLoading && (
-          <p className="text-sm text-charcoal-ink/60">Checking…</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Checking…</p>
         )}
         {checked && diagnosis.isError && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-red-600 dark:text-red-300">
             Couldn&apos;t run the check just now. Try again in a moment.
           </p>
         )}
 
         {checked && result && !hasAnyDevice && (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             You don&apos;t have any wearables or Bluetooth devices connected to your account yet.
             That&apos;s likely why nothing is syncing. Connect a wearable above, or pair a device
             from the Tarragon mobile app.
@@ -96,24 +96,24 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
             {result.connections.map((c) => {
               const item = formatConnectionDiagnosis(c);
               return (
-                <li key={item.id} className="rounded-lg border border-charcoal-ink/10 p-3">
+                <li key={item.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-charcoal-ink">{item.name}</span>
+                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{item.name}</span>
                     <Badge variant={item.badgeVariant}>{item.badgeLabel}</Badge>
                   </div>
-                  <p className="mt-1 text-xs text-charcoal-ink/60">{item.summary}</p>
+                  <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.summary}</p>
                 </li>
               );
             })}
             {result.devices.map((d) => {
               const item = formatDeviceDiagnosis(d);
               return (
-                <li key={item.id} className="rounded-lg border border-charcoal-ink/10 p-3">
+                <li key={item.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-charcoal-ink">{item.name}</span>
+                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{item.name}</span>
                     <Badge variant={item.badgeVariant}>{item.badgeLabel}</Badge>
                   </div>
-                  <p className="mt-1 text-xs text-charcoal-ink/60">{item.summary}</p>
+                  <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.summary}</p>
                 </li>
               );
             })}
@@ -127,13 +127,13 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
         )}
 
         {sent && (
-          <p className="text-sm text-brand-green">
+          <p className="text-sm text-brand-green dark:text-brand-green-bright">
             Sent. This summary is now in your Messages, ready for your care team to see.
           </p>
         )}
 
         {composing && (
-          <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
+          <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
             <div className="grid gap-2">
               <Label htmlFor="sync-support-subject">Subject</Label>
               <Input
@@ -166,7 +166,7 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
                 Cancel
               </Button>
               {startThread.isError && (
-                <span className="text-sm text-red-600">
+                <span className="text-sm text-red-600 dark:text-red-300">
                   {startThread.error instanceof Error ? startThread.error.message : "Couldn't send"}
                 </span>
               )}

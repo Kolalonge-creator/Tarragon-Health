@@ -19,6 +19,7 @@ import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { DeliveryAvailability } from "@/components/delivery-availability";
 import { DeliveryAddressForm } from "@/components/delivery-address-form";
 
+import { formatPatientDate } from "@/lib/format-date";
 type DeliveryAddress = { street: string; area: string; state: string; phone: string };
 
 /** Patient records what they collected against an order (self-service, works
@@ -44,9 +45,9 @@ function OrderDispenses({
       {dispenses && dispenses.length > 0 && (
         <ul className="mb-1 space-y-0.5">
           {dispenses.map((d) => (
-            <li key={d.id} className="text-xs text-charcoal-ink/60">
+            <li key={d.id} className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Collected: {d.drug_name}
-              {d.quantity ? ` × ${d.quantity}` : ""} · {new Date(d.dispensed_on).toLocaleDateString()}
+              {d.quantity ? ` × ${d.quantity}` : ""} · {formatPatientDate(d.dispensed_on)}
             </li>
           ))}
         </ul>
@@ -56,13 +57,13 @@ function OrderDispenses({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-xs text-charcoal-ink/70"
+          className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
           onClick={() => setOpen(true)}
         >
           Record what you collected
         </Button>
       ) : (
-        <div className="flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 p-2">
+        <div className="flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-2">
           <div className="min-w-40 flex-1 space-y-1">
             <Label htmlFor={`dispense_drug_${order.id}`} className="text-xs">
               Medication
@@ -127,7 +128,7 @@ function OrderDispenses({
             Cancel
           </Button>
           {record.isError && (
-            <p className="basis-full text-xs text-red-600">Could not save. Try again.</p>
+            <p className="basis-full text-xs text-red-600 dark:text-red-300">Could not save. Try again.</p>
           )}
         </div>
       )}
@@ -163,7 +164,7 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
         <CardTitle>Your pharmacy orders</CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {orders.map((order) => {
             const badge = PHARMACY_ORDER_STATUS_BADGE[order.status];
             const items = order.items as unknown as PharmacyOrderItem[];
@@ -172,11 +173,11 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
                   {order.order_number && (
-                    <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+                    <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
                   )}
                 </div>
-                <p className="text-sm font-medium text-charcoal-ink">{itemsSummary(items)}</p>
-                <p className="text-xs text-charcoal-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{itemsSummary(items)}</p>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
                 {order.status === "pending_payment" && (
                   <>
                     <PayForPharmacyOrderButton

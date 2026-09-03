@@ -67,7 +67,7 @@ export function DeviceDataDeletionCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.security className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <NAV_ICON.security className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Manage my device data
         </CardTitle>
         <CardDescription>{DATA_DELETION_SAFETY_NOTE}</CardDescription>
@@ -87,7 +87,7 @@ export function DeviceDataDeletionCard({ patientId }: { patientId: string }) {
                 </option>
               ))}
             </Select>
-            <p className="text-xs text-charcoal-ink/60">{DATA_DELETION_SCOPE_DESCRIPTION[scope]}</p>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{DATA_DELETION_SCOPE_DESCRIPTION[scope]}</p>
           </div>
 
           <div className="grid gap-2">
@@ -107,46 +107,46 @@ export function DeviceDataDeletionCard({ patientId }: { patientId: string }) {
               {submit.isPending ? "Submitting…" : "Request deletion"}
             </Button>
             {submit.isError && (
-              <span className="text-sm text-red-600">
+              <span className="text-sm text-red-600 dark:text-red-300">
                 {submit.error instanceof Error ? submit.error.message : "Couldn't submit"}
               </span>
             )}
           </div>
           {justSubmitted && (
-            <p className="text-sm text-brand-green">
+            <p className="text-sm text-brand-green dark:text-brand-green-bright">
               Request submitted. Your care team will review and process it.
             </p>
           )}
         </div>
 
-        <div className="space-y-2 border-t border-charcoal-ink/10 pt-4">
-          <h4 className="text-sm font-semibold text-charcoal-ink">Your requests</h4>
-          {requests.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        <div className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+          <h4 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Your requests</h4>
+          {requests.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {requests.isError && (
-            <p className="text-sm text-red-600">Couldn&apos;t load your past requests.</p>
+            <p className="text-sm text-red-600 dark:text-red-300">Couldn&apos;t load your past requests.</p>
           )}
           {requests.data && requests.data.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               You haven&apos;t requested any device data deletions.
             </p>
           )}
           {requests.data && requests.data.length > 0 && (
             <ul className="space-y-2">
               {requests.data.map((r) => (
-                <li key={r.id} className="rounded-lg border border-charcoal-ink/10 p-3">
+                <li key={r.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-charcoal-ink">
+                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {DATA_DELETION_SCOPE_LABEL[r.scope]}
                     </span>
                     <Badge variant={DATA_DELETION_STATUS_BADGE_VARIANT[r.status]}>
                       {DATA_DELETION_STATUS_LABEL[r.status]}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-xs text-charcoal-ink/50">
+                  <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                     Requested {formatDate(r.requested_at)}
                   </p>
                   {r.status === "rejected" && r.rejection_reason && (
-                    <p className="mt-1 text-xs text-charcoal-ink/60">
+                    <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Care team note: {r.rejection_reason}
                     </p>
                   )}
@@ -157,12 +157,12 @@ export function DeviceDataDeletionCard({ patientId }: { patientId: string }) {
         </div>
 
         {retentionPolicies.data && retentionPolicies.data.length > 0 && (
-          <div className="space-y-2 border-t border-charcoal-ink/10 pt-4">
-            <h4 className="text-sm font-semibold text-charcoal-ink">How long we keep this data</h4>
-            <ul className="space-y-1.5 text-xs text-charcoal-ink/60">
+          <div className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+            <h4 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">How long we keep this data</h4>
+            <ul className="space-y-1.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {retentionPolicies.data.map((p) => (
                 <li key={p.id}>
-                  <span className="font-medium text-charcoal-ink/80">
+                  <span className="font-medium text-charcoal-ink/80 dark:text-night-ink/80">
                     {p.data_category.replace(/_/g, " ")}:
                   </span>{" "}
                   {p.retention_period}

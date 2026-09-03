@@ -38,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
 
+import { formatPatientDate } from "@/lib/format-date";
 const SOURCE_BADGE: Record<
   string,
   { variant: "blue" | "grey" | "amber"; label: string }
@@ -102,7 +103,7 @@ export function MedicationsList({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Medications
           {data && isPolypharmacy(data.length) && (
             <Badge variant="amber" title={`${data.length} active medicines. This is a lot to keep track of, worth a review`}>
@@ -111,7 +112,7 @@ export function MedicationsList({
           )}
         </CardTitle>
         {data && isPolypharmacy(data.length) && (
-          <p className="text-xs text-charcoal-ink/60">
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             {data.length} active medicines on file. {POLYPHARMACY_THRESHOLD} or more is worth a clinician
             review for duplicate therapy or interactions, not a reason to stop anything on your own.
           </p>
@@ -119,21 +120,21 @@ export function MedicationsList({
       </CardHeader>
       <CardContent>
         <CabinetSummary patientId={patientId} />
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load medications.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load medications.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No active medications.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No active medications.</p>
         )}
         {data && data.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {data.map((medication) => {
               const badge = SOURCE_BADGE[medication.source] ?? SOURCE_BADGE.patient;
               return (
                 <li key={medication.id} className="space-y-1 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-charcoal-ink">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {medication.drug_name}
                     </p>
                     <Badge variant={badge.variant}>{badge.label}</Badge>
@@ -143,7 +144,7 @@ export function MedicationsList({
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-charcoal-ink/60">
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                     {[medication.dose, medication.frequency].filter(Boolean).join(", ") ||
                       "No dose/frequency set"}
                   </p>
@@ -155,7 +156,7 @@ export function MedicationsList({
                     />
                   )}
                   {medication.source === "specialist" && medication.prescriber_name && (
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Started by {medication.prescriber_name}
                       {medication.prescriber_document_url && (
                         <>
@@ -173,13 +174,13 @@ export function MedicationsList({
                     </p>
                   )}
                   {medication.refill_date && refillCoordinationEnabled && (
-                    <p className="text-xs text-charcoal-ink/60">
-                      Refill by {new Date(medication.refill_date).toLocaleDateString()} ·{" "}
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                      Refill by {formatPatientDate(medication.refill_date)} ·{" "}
                       {daysLeftLabel(medication.refill_date)}
                     </p>
                   )}
                   {medication.refill_date && !refillCoordinationEnabled && (
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Refill coordination is part of a paid plan;{" "}
                       <a href="/patient/subscription" className="underline">
                         see plans
@@ -188,10 +189,10 @@ export function MedicationsList({
                     </p>
                   )}
                   {medication.last_confirmed_at && (
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Refill checked and still valid ·{" "}
-                      {new Date(medication.last_confirmed_at).toLocaleDateString()}
-                      <span className="text-charcoal-ink/40">
+                      {formatPatientDate(medication.last_confirmed_at)}
+                      <span className="text-charcoal-ink/40 dark:text-night-ink/50">
                         {" "}
                         (an administrative check, not a new dose review)
                       </span>
@@ -284,10 +285,10 @@ function RefillGapNote({
   if (!signal) return null;
 
   return (
-    <p className="text-xs text-amber-700">
+    <p className="text-xs text-amber-700 dark:text-amber-300">
       Adherence signal: potential {signal.gapDays}-day gap ({signal.expectedIntervalDays}-day
       supply, {signal.actualIntervalDays} days between the last two pickups).{" "}
-      <span className="text-charcoal-ink/50">{REFILL_GAP_DISCLAIMER}</span>
+      <span className="text-charcoal-ink/50 dark:text-night-ink/55">{REFILL_GAP_DISCLAIMER}</span>
     </p>
   );
 }
@@ -319,24 +320,24 @@ function CabinetSummary({ patientId }: { patientId: string }) {
   if (!nextReview && !nextLab) return null;
 
   return (
-    <div className="mb-3 grid gap-2 rounded-md bg-charcoal-ink/5 p-3 sm:grid-cols-2">
+    <div className="mb-3 grid gap-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3 sm:grid-cols-2">
       {nextReview && (
         <div>
-          <p className="text-xs text-charcoal-ink/50">Next medication review</p>
-          <p className="text-sm text-charcoal-ink">
-            {new Date(nextReview.due_date).toLocaleDateString()}{" "}
-            <span className="text-charcoal-ink/50">· {daysLeftLabel(nextReview.due_date)}</span>
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Next medication review</p>
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">
+            {formatPatientDate(nextReview.due_date)}{" "}
+            <span className="text-charcoal-ink/50 dark:text-night-ink/55">· {daysLeftLabel(nextReview.due_date)}</span>
           </p>
         </div>
       )}
       {nextLab && nextLab.due_date && (
         <div>
-          <p className="text-xs text-charcoal-ink/50">Next lab test</p>
-          <p className="text-sm text-charcoal-ink">
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Next lab test</p>
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">
             {nextLab.monitoring_label}
-            <span className="text-charcoal-ink/50">
+            <span className="text-charcoal-ink/50 dark:text-night-ink/55">
               {" "}
-              · {new Date(nextLab.due_date).toLocaleDateString()}
+              · {formatPatientDate(nextLab.due_date)}
             </span>
           </p>
         </div>
@@ -392,7 +393,7 @@ function PrescriptionStatusTrail({
     {
       label: "Signed",
       done: true,
-      detail: `${signedBy} · ${new Date(medication.created_at).toLocaleDateString("en-GB", {
+      detail: `${signedBy} · ${new Date(medication.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -410,7 +411,7 @@ function PrescriptionStatusTrail({
       done: !!latestCollection,
       detail: latestCollection
         ? [
-            new Date(latestCollection.dispensed_on).toLocaleDateString("en-GB", {
+            new Date(latestCollection.dispensed_on).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -430,20 +431,20 @@ function PrescriptionStatusTrail({
     <>
       <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
         {expiresAt && (
-          <span className={isExpired ? "text-red-700" : "text-charcoal-ink/50"}>
+          <span className={isExpired ? "text-red-700 dark:text-red-300" : "text-charcoal-ink/50 dark:text-night-ink/55"}>
             {isExpired ? "Expired" : "Valid until"}{" "}
-            {expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            {expiresAt.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })}
           </span>
         )}
         {steps.map((step) => (
           <span key={step.label} className="inline-flex items-center gap-1.5">
             <span
               className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                step.done ? "bg-brand-green" : "bg-charcoal-ink/20"
+                step.done ? "bg-brand-green" : "bg-charcoal-ink/20 dark:bg-night-ink/25"
               }`}
               aria-hidden="true"
             />
-            <span className={step.done ? "text-charcoal-ink/70" : "text-charcoal-ink/40"}>
+            <span className={step.done ? "text-charcoal-ink/70 dark:text-night-ink/70" : "text-charcoal-ink/40 dark:text-night-ink/50"}>
               {step.label} · {step.detail}
             </span>
           </span>
@@ -452,7 +453,7 @@ function PrescriptionStatusTrail({
           <button
             type="button"
             onClick={() => setAmending(true)}
-            className="text-charcoal-ink/50 underline hover:text-charcoal-ink"
+            className="text-charcoal-ink/50 dark:text-night-ink/55 underline hover:text-charcoal-ink dark:hover:text-night-ink"
           >
             Amend
           </button>
@@ -491,7 +492,7 @@ function ConfirmRefillForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 pt-1">
-      <p className="basis-full text-xs text-charcoal-ink/50">
+      <p className="basis-full text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         This confirms your prescription is still valid for pickup. It is an
         administrative check, not a new medical review of your dose.
       </p>
@@ -511,12 +512,12 @@ function ConfirmRefillForm({
         {confirmRefill.isPending ? "Confirming…" : "Confirm refill is still needed"}
       </Button>
       {confirmRefill.isError && (
-        <p className="text-xs text-red-600 basis-full">
+        <p className="text-xs text-red-600 dark:text-red-300 basis-full">
           {(confirmRefill.error as Error).message || "Could not confirm this prescription."}
         </p>
       )}
       {success && !confirmRefill.isPending && (
-        <p className="text-xs text-brand-green basis-full">
+        <p className="text-xs text-brand-green dark:text-brand-green-bright basis-full">
           Refill confirmed as still valid.
         </p>
       )}
@@ -541,7 +542,7 @@ function StopMedicationForm({
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70"
+        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen(true)}
       >
         Stop medication
@@ -550,7 +551,7 @@ function StopMedicationForm({
   }
 
   return (
-    <div className="mt-1 flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 p-2">
+    <div className="mt-1 flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-2">
       <div className="min-w-48 flex-1 space-y-1">
         <Label htmlFor={`stop_reason_${medication.id}`} className="text-xs">
           Reason (optional): e.g. switched, side effects
@@ -580,7 +581,7 @@ function StopMedicationForm({
         Cancel
       </Button>
       {stopMedication.isError && (
-        <p className="basis-full text-xs text-red-600">
+        <p className="basis-full text-xs text-red-600 dark:text-red-300">
           {(stopMedication.error as Error).message || "Could not stop this medication."}
         </p>
       )}
@@ -611,8 +612,8 @@ function RepeatRequestControl({
 
   if (latest?.status === "pending") {
     return (
-      <p className="mt-1 text-xs text-charcoal-ink/60">
-        Next supply requested {new Date(latest.requested_at).toLocaleDateString()} · awaiting review
+      <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        Next supply requested {formatPatientDate(latest.requested_at)} · awaiting review
       </p>
     );
   }
@@ -620,13 +621,13 @@ function RepeatRequestControl({
   return (
     <div className="mt-1 space-y-1">
       {latest?.status === "approved" && (
-        <p className="text-xs text-brand-green">
-          Approved {new Date(latest.reviewed_at ?? latest.requested_at).toLocaleDateString()}. You can
+        <p className="text-xs text-brand-green dark:text-brand-green-bright">
+          Approved {formatPatientDate(latest.reviewed_at ?? latest.requested_at)}. You can
           collect your next supply.
         </p>
       )}
       {latest?.status === "denied" && (
-        <p className="text-xs text-red-700">
+        <p className="text-xs text-red-700 dark:text-red-300">
           Request declined{latest.denial_reason ? `: ${latest.denial_reason}` : ""}
         </p>
       )}
@@ -634,14 +635,14 @@ function RepeatRequestControl({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/70"
+        className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         disabled={requestRepeat.isPending}
         onClick={() => requestRepeat.mutate({ medicationId: medication.id, patientId })}
       >
         {requestRepeat.isPending ? "Requesting…" : "Request next supply"}
       </Button>
       {requestRepeat.isError && (
-        <p className="text-xs text-red-600">
+        <p className="text-xs text-red-600 dark:text-red-300">
           {(requestRepeat.error as Error).message || "Could not request a repeat."}
         </p>
       )}
@@ -677,14 +678,14 @@ function RequestRenewalButton({
 
   if (openRequest && (openRequest.status === "submitted" || openRequest.status === "in_review")) {
     return (
-      <p className="mt-1 text-xs text-charcoal-ink/60">
+      <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Renewal requested · a doctor will respond by{" "}
-        {new Date(openRequest.sla_due_at).toLocaleDateString()}
+        {formatPatientDate(openRequest.sla_due_at)}
       </p>
     );
   }
   if (openRequest?.status === "approved") {
-    return <p className="mt-1 text-xs text-brand-green">Renewal approved by your care team.</p>;
+    return <p className="mt-1 text-xs text-brand-green dark:text-brand-green-bright">Renewal approved by your care team.</p>;
   }
 
   async function onRequest() {
@@ -718,7 +719,7 @@ function RequestRenewalButton({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/70"
+        className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         disabled={requestRenewal.isPending || isBuying}
         onClick={onRequest}
       >
@@ -728,7 +729,7 @@ function RequestRenewalButton({
             ? "Request renewal (credit ready)"
             : "Request renewal"}
       </Button>
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-red-600 dark:text-red-300">{error}</p>}
     </div>
   );
 }
@@ -757,7 +758,7 @@ function ReportSideEffectButton({
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70"
+        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen(true)}
       >
         I&apos;m experiencing a side effect
@@ -796,7 +797,7 @@ function AccessBarrierButton({ medicationId, drugName }: { medicationId: string;
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70"
+        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen(true)}
       >
         I can&apos;t get or afford this medicine
@@ -828,26 +829,26 @@ function PastMedications({ patientId }: { patientId: string }) {
   if (!data || data.length === 0) return null;
 
   return (
-    <div className="mt-3 border-t border-charcoal-ink/10 pt-3">
+    <div className="mt-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/70"
+        className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
         {open ? "Hide" : "Show"} past medications ({data.length})
       </Button>
       {open && (
-        <ul className="mt-1 divide-y divide-charcoal-ink/10">
+        <ul className="mt-1 divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {data.map((medication) => (
             <li key={medication.id} className="py-2">
-              <p className="text-sm text-charcoal-ink/70 line-through decoration-charcoal-ink/30">
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70 line-through decoration-charcoal-ink/30 dark:decoration-night-ink/35">
                 {medication.drug_name}
                 {medication.dose ? `, ${medication.dose}` : ""}
               </p>
-              <p className="text-xs text-charcoal-ink/50">
+              <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                 {/* An amended prescription (spec §62.14) is superseded, not
                     stopped — it must never read as "discontinued"/"cancelled",
                     which would misrepresent a still-active course of
@@ -859,13 +860,13 @@ function PastMedications({ patientId }: { patientId: string }) {
                 {medication.superseded_at ? (
                   <>
                     Replaced by an updated prescription
-                    {` ${new Date(medication.superseded_at).toLocaleDateString()}`}
+                    {` ${formatPatientDate(medication.superseded_at)}`}
                   </>
                 ) : (
                   <>
                     Stopped
                     {medication.stopped_at
-                      ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
+                      ? ` ${formatPatientDate(medication.stopped_at)}`
                       : ""}
                     {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
                   </>

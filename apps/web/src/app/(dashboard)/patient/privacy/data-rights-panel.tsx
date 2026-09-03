@@ -25,7 +25,7 @@ const STATUS_BADGE: Record<string, NonNullable<BadgeProps["variant"]>> = {
 };
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -132,12 +132,12 @@ export function DataRightsPanel({
           )}
 
           {(correctionRequests.data ?? []).length > 0 ? (
-            <ul className="space-y-2 border-t border-charcoal-ink/10 pt-3 text-sm">
+            <ul className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-sm">
               {(correctionRequests.data ?? []).map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-2">
-                  <span className="truncate text-charcoal-ink/80">{r.record_description}</span>
+                  <span className="truncate text-charcoal-ink/80 dark:text-night-ink/80">{r.record_description}</span>
                   <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-charcoal-ink/50">
+                    <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                       {formatDate(r.requested_at)}
                     </span>
                     <Badge variant={STATUS_BADGE[r.status] ?? "grey"}>
@@ -203,14 +203,14 @@ export function DataRightsPanel({
           )}
 
           {(deletionRequests.data ?? []).length > 0 ? (
-            <ul className="space-y-2 border-t border-charcoal-ink/10 pt-3 text-sm">
+            <ul className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-sm">
               {(deletionRequests.data ?? []).map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-2">
-                  <span className="truncate text-charcoal-ink/80">
+                  <span className="truncate text-charcoal-ink/80 dark:text-night-ink/80">
                     {r.reason || "Deletion request"}
                   </span>
                   <div className="flex shrink-0 items-center gap-2">
-                    <span className="text-xs text-charcoal-ink/50">
+                    <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                       {formatDate(r.requested_at)}
                     </span>
                     <Badge variant={STATUS_BADGE[r.status] ?? "grey"}>

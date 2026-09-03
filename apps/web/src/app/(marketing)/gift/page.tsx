@@ -8,6 +8,8 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
+import { servicePrice, type ResolvedServicePrices } from "../_content/pricing";
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
@@ -16,6 +18,10 @@ export const metadata: Metadata = pageMetadata({
     "Buy a parent or family member a named health check they can use whenever suits them. Not a balance, not a gift card, a real appointment already paid for.",
   path: MARKETING_ROUTES.gift,
 });
+
+// Same refresh cadence as /pricing: live prices are read at request time and
+// cached for an hour, so a repricing shows here without a deploy.
+export const revalidate = 3600;
 
 const WAYS_TO_GIVE = [
   {
@@ -27,28 +33,39 @@ const WAYS_TO_GIVE = [
     body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, or the 12-week doctor-supported programme for hypertension or diabetes. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
   },
   {
+    // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
+    // hardcodes reward_kobo = 50000 (migration 20260724113718). Update this
+    // line (and _content/pricing.ts) together if that ever changes.
     title: "Invite them, you both get a reward",
     body: "If they are not on Tarragon yet, share your personal referral link. Signing up is free. Once they complete their first paid order, you both receive a ₦500 reward voucher toward your care. It is a discount, not cash, and it cannot be exchanged for money.",
   },
 ];
 
-const GIFT_IDEAS = [
-  {
-    title: "Core Screen",
-    price: "One check, paid for once",
-    body: "Their once-a-year look at the things worth checking every year: liver, kidneys, blood sugar, cholesterol, urine, blood count and HIV status. A doctor reads every result with them, in writing, with a downloadable report. If they'd also like a live video consult to talk it through, that's a separate low-cost booking they can add whenever they want one.",
-  },
-  {
-    title: "The 12-week doctor-supported programme",
-    price: "Bought once, theirs to start",
-    body: "For a parent managing hypertension or diabetes: a doctor sets their care plan, reviews their readings, and adjusts their medication across twelve weeks. Results go to them and their doctor, never to you.",
-  },
-  {
-    title: "A result, read to them properly",
-    price: "The lighter option",
-    body: "A 15-minute doctor walkthrough of a lab result over video, or a written doctor's answer to a question that has been worrying them. Small, specific, and often exactly what is needed.",
-  },
-];
+/**
+ * The two priced ideas are real service_products rows from the pay-per-service
+ * catalogue (_content/pricing.ts's PAID_SERVICES) — never a plan, which no
+ * longer exists to sell. Prices resolve through the same live override map the
+ * pricing page uses, falling back to the catalogue's declared defaults.
+ */
+function giftIdeas(overrides: ResolvedServicePrices) {
+  return [
+    {
+      title: "Core Screen",
+      price: "One check, paid for once",
+      body: "Their once-a-year look at the things worth checking every year: liver, kidneys, blood sugar, cholesterol, urine, blood count and HIV status. A doctor reads every result with them, in writing, with a downloadable report. If they'd also like a live video consult to talk it through, that's a separate low-cost booking they can add whenever they want one.",
+    },
+    {
+      title: "12-week doctor-supported programme",
+      price: `${servicePrice("chronic_doctor_supported_pack", overrides)}, bought once`,
+      body: "For someone managing high blood pressure or diabetes: twelve weeks where a doctor sets their care plan, reviews their readings, adjusts their medication, and is alerted if a reading is dangerous. It runs its twelve weeks and simply ends; nothing renews on its own.",
+    },
+    {
+      title: "A video visit with a doctor",
+      price: `${servicePrice("video_visit_credit", overrides)}, one visit`,
+      body: "The lighter option: one online consultation with a doctor, theirs to book from their own account whenever suits them. A good way to talk through a result or a worry properly.",
+    },
+  ];
+}
 
 const GIFT_FAQ: FaqItem[] = [
   {
@@ -74,7 +91,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "Will I see their results?",
     answer:
-      "No. Results go to them and their doctor, never to you. You will only be told when something you paid for is ready to use or due to renew.",
+      "No. Results go to them and their doctor, never to you. You will only be told when something you paid for is ready to use, and later that it was used.",
   },
   {
     question: "What if I am buying from outside Nigeria?",
@@ -82,7 +99,7 @@ const GIFT_FAQ: FaqItem[] = [
       "That's fine. Checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The gift still sits on their account until they are ready to use it.",
   },
   {
-    question: "What if they are already a Tarragon member?",
+    question: "What if they are already using Tarragon?",
     answer:
       "Even better: the gift simply sits on their account next to everything they already use, named and ready. Nothing about it bills them, then or later.",
   },
@@ -101,8 +118,8 @@ const HOW_IT_WORKS = [
   },
   {
     step: 2,
-    title: "Choose the check",
-    body: "From your dashboard, pick the check you want them to have and who it is for. Reserving it is free.",
+    title: "Choose the check or service",
+    body: "From your dashboard, pick the check or paid service you want them to have and who it is for. Reserving it is free.",
   },
   {
     step: 3,
@@ -116,7 +133,9 @@ const HOW_IT_WORKS = [
   },
 ];
 
-export default function GiftPage() {
+export default async function GiftPage() {
+  const priceOverrides = await fetchServicePriceOverrides();
+  const ideas = giftIdeas(priceOverrides);
   return (
     <>
       {/* Rendered outside Section on purpose — full-bleed spans the full
@@ -179,7 +198,7 @@ export default function GiftPage() {
       <Section>
         <SectionHeading eyebrow="Ideas" title="What to gift" />
         <div className="mx-auto grid max-w-2xl gap-6 md:grid-cols-2">
-          {GIFT_IDEAS.map((item) => (
+          {ideas.map((item) => (
             <div key={item.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
               <h3 className="font-heading text-lg font-semibold text-charcoal-ink">{item.title}</h3>
               <p className="mt-1 font-heading text-xl font-bold text-brand-green">{item.price}</p>

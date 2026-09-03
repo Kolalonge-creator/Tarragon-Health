@@ -33,7 +33,7 @@ export function LifestyleBarrierPicker({ domain }: { domain: (typeof LIFESTYLE_D
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 text-sm font-medium text-charcoal-ink/70 hover:text-brand-green"
+        className="flex items-center gap-2 text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70 hover:text-brand-green"
       >
         <SEMANTIC_ICON.barrier className="h-4 w-4" strokeWidth={2} />
         What&apos;s making this difficult?
@@ -44,15 +44,15 @@ export function LifestyleBarrierPicker({ domain }: { domain: (typeof LIFESTYLE_D
   return (
     <form
       action={formAction}
-      className="space-y-3 rounded-lg border border-charcoal-ink/10 bg-soft-sage/40 p-4"
+      className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-soft-sage/40 p-4"
     >
       <input type="hidden" name="domain" value={domain} />
-      <p className="text-sm font-medium text-charcoal-ink">What&apos;s making this difficult?</p>
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">What&apos;s making this difficult?</p>
       <div className="flex flex-wrap gap-2">
         {LIFESTYLE_BARRIER_CODES.map((code) => (
           <label
             key={code}
-            className="flex items-center gap-1.5 rounded-full border border-charcoal-ink/15 bg-white px-3 py-1 text-xs has-[:checked]:border-brand-green has-[:checked]:bg-soft-sage"
+            className="flex items-center gap-1.5 rounded-full border border-charcoal-ink/15 dark:border-night-ink/20 bg-white dark:bg-night-card px-3 py-1 text-xs has-[:checked]:border-brand-green has-[:checked]:bg-soft-sage"
           >
             <input type="checkbox" name="barrier_codes" value={code} className="h-3 w-3" />
             {LIFESTYLE_BARRIER_LABELS[code]}
@@ -61,7 +61,7 @@ export function LifestyleBarrierPicker({ domain }: { domain: (typeof LIFESTYLE_D
       </div>
       <Textarea name="note" placeholder="Anything else you'd like your care team to know? (optional)" rows={2} />
       {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Thanks. Your care team can see this.</p>}
+      {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Thanks. Your care team can see this.</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Saving…" : "Share this"}

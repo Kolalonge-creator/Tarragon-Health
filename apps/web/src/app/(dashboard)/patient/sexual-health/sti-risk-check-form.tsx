@@ -50,7 +50,7 @@ export function StiRiskCheckForm() {
         <CardHeader>
           <CardTitle className="text-base">Thanks for checking in</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-charcoal-ink/80">
+        <CardContent className="space-y-3 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           {codes.length > 0 ? (
             <>
               <p>Based on your answers, it&apos;s worth getting these tests done:</p>
@@ -59,7 +59,7 @@ export function StiRiskCheckForm() {
                   <li key={code}>{RECOMMENDED_SCREEN_LABEL[code] ?? code.replace(/_/g, " ")}</li>
                 ))}
               </ul>
-              <p className="text-charcoal-ink/60">
+              <p className="text-charcoal-ink/60 dark:text-night-ink/60">
                 This isn&apos;t a diagnosis, just a nudge based on what you told us. Testing is
                 quick, confidential, and a doctor reviews every result.
               </p>
@@ -82,7 +82,7 @@ export function StiRiskCheckForm() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Sexual health check-in
         </CardTitle>
         <CardDescription>
@@ -92,7 +92,7 @@ export function StiRiskCheckForm() {
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-5">
-          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-charcoal-ink">
+          <label className="flex cursor-pointer items-center gap-2 text-sm font-medium text-charcoal-ink dark:text-night-ink">
             <input
               type="checkbox"
               name="sexually_active_12mo"
@@ -105,20 +105,20 @@ export function StiRiskCheckForm() {
 
           {active && (
             <div className="space-y-5 border-l-2 border-brand-green/20 pl-4">
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-charcoal-ink/80">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                 <input type="checkbox" name="new_partner_3mo" className="h-4 w-4" />
                 I&apos;ve had a new partner in the last 3 months
               </label>
 
               <fieldset className="space-y-2">
-                <legend className="text-sm text-charcoal-ink">
+                <legend className="text-sm text-charcoal-ink dark:text-night-ink">
                   Roughly how many partners in the last 12 months?
                 </legend>
                 <div className="grid gap-1.5 sm:grid-cols-4">
                   {STI_PARTNER_COUNTS.map((value) => (
                     <label
                       key={value}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 px-2.5 py-1.5 text-xs text-charcoal-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 px-2.5 py-1.5 text-xs text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 dark:has-[:checked]:bg-brand-green/10"
                     >
                       <input
                         type="radio"
@@ -133,12 +133,12 @@ export function StiRiskCheckForm() {
               </fieldset>
 
               <fieldset className="space-y-2">
-                <legend className="text-sm text-charcoal-ink">How often do you use condoms?</legend>
+                <legend className="text-sm text-charcoal-ink dark:text-night-ink">How often do you use condoms?</legend>
                 <div className="grid gap-1.5 sm:grid-cols-3">
                   {STI_CONDOM_USES.map((value) => (
                     <label
                       key={value}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 px-2.5 py-1.5 text-xs text-charcoal-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 px-2.5 py-1.5 text-xs text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 dark:has-[:checked]:bg-brand-green/10"
                     >
                       <input
                         type="radio"
@@ -153,14 +153,14 @@ export function StiRiskCheckForm() {
               </fieldset>
 
               <fieldset className="space-y-2">
-                <legend className="text-sm text-charcoal-ink">
+                <legend className="text-sm text-charcoal-ink dark:text-night-ink">
                   Have you noticed any of these recently?
                 </legend>
                 <div className="grid gap-1.5 sm:grid-cols-2">
                   {STI_SYMPTOMS.map((value) => (
                     <label
                       key={value}
-                      className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 px-2.5 py-1.5 text-xs text-charcoal-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
+                      className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 px-2.5 py-1.5 text-xs text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 dark:has-[:checked]:bg-brand-green/10"
                     >
                       <input
                         type="checkbox"
@@ -176,19 +176,19 @@ export function StiRiskCheckForm() {
                 </div>
               </fieldset>
 
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-charcoal-ink/80">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                 <input type="checkbox" name="prior_sti_diagnosis" className="h-4 w-4" />
                 I&apos;ve been diagnosed with an STI before
               </label>
 
-              <label className="flex cursor-pointer items-center gap-2 text-sm text-charcoal-ink/80">
+              <label className="flex cursor-pointer items-center gap-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                 <input type="checkbox" name="partner_diagnosed_sti" className="h-4 w-4" />
                 A partner has told me they were diagnosed with an STI
               </label>
             </div>
           )}
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
 
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "See what's worth checking"}

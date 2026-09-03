@@ -8,7 +8,7 @@ import {
   relativeTime,
   type InAppNotification,
 } from "@/lib/notifications";
-import { colors } from "./theme";
+import { colors, inkAlpha } from "./theme";
 
 interface TopBarProps {
   userId: string;
@@ -19,26 +19,42 @@ interface TopBarProps {
   onSignOut: () => void;
 }
 
-/** Hamburger + wordmark + notification bell + profile avatar, matching the
- * Claude Design prototype's Home header. */
+/** Hamburger + wordmark + notification bell + profile avatar — the header
+ * mounted above every section of the signed-in app. */
 export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSettings, onSignOut }: TopBarProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
+  // A failed fetch must not render as "You're all caught up" — that's a
+  // false claim on the one surface mounted on every screen. It also used to
+  // be an unhandled rejection on an offline launch.
+  const [notifError, setNotifError] = useState(false);
+  const [markError, setMarkError] = useState(false);
 
   const hasUnread = notifications.some((n) => n.status !== "read");
 
   const refreshNotifications = useCallback(() => {
     setLoadingNotifs(true);
     loadNotifications(userId)
-      .then(setNotifications)
+      .then((rows) => {
+        setNotifications(rows);
+        setNotifError(false);
+      })
+      .catch(() => setNotifError(true))
       .finally(() => setLoadingNotifs(false));
   }, [userId]);
 
   useEffect(() => {
     refreshNotifications();
   }, [refreshNotifications]);
+
+  const handleMarkAllRead = useCallback(() => {
+    setMarkError(false);
+    markAllNotificationsRead(userId)
+      .then(refreshNotifications)
+      .catch(() => setMarkError(true));
+  }, [userId, refreshNotifications]);
 
   return (
     <View
@@ -67,10 +83,11 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
           accessibilityRole="button"
           accessibilityLabel="Notifications"
           onPress={() => setNotifOpen(true)}
-          hitSlop={8}
+          // 20pt icon + 12pt slop each side reaches the ~44pt touch minimum.
+          hitSlop={12}
           style={{ position: "relative" }}
         >
-          <Ionicons name="notifications-outline" size={20} color="rgba(23,23,23,0.6)" />
+          <Ionicons name="notifications-outline" size={20} color={inkAlpha(0.6)} />
           {hasUnread ? (
             <View
               style={{
@@ -96,13 +113,14 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
             </View>
           ) : null}
         </Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Profile" onPress={() => setProfileOpen(true)}>
+        {/* 28pt avatar + 8pt slop each side reaches the ~44pt touch minimum. */}
+        <Pressable accessibilityRole="button" accessibilityLabel="Profile" onPress={() => setProfileOpen(true)} hitSlop={8}>
           <View
             style={{
               width: 28,
               height: 28,
               borderRadius: 14,
-              backgroundColor: "#E7EEE7",
+              backgroundColor: colors.brandTint,
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -117,14 +135,33 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
           <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Notifications</Text>
           <Pressable
             accessibilityRole="button"
-            onPress={() => markAllNotificationsRead(userId).then(refreshNotifications)}
+            accessibilityLabel="Mark all notifications read"
+            hitSlop={10}
+            onPress={handleMarkAllRead}
           >
             <Text style={{ fontSize: 11.5, fontWeight: "600", color: colors.brand }}>Mark all read</Text>
           </Pressable>
         </View>
+        {markError ? (
+          <Text style={{ paddingHorizontal: 14, paddingTop: 8, fontSize: 11.5, color: colors.danger }}>
+            Couldn&apos;t update those just now. Try again.
+          </Text>
+        ) : null}
         <ScrollView style={{ maxHeight: 320 }}>
           {loadingNotifs ? (
             <ActivityIndicator color={colors.brand} style={{ margin: 20 }} />
+          ) : notifError ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="We couldn't load your notifications. Tap to retry."
+              onPress={refreshNotifications}
+              style={{ padding: 16, gap: 4 }}
+            >
+              <Text style={{ fontSize: 12.5, color: colors.ink, fontWeight: "600" }}>
+                We couldn&apos;t load your notifications right now.
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.brand, fontWeight: "600" }}>Tap to retry</Text>
+            </Pressable>
           ) : notifications.length === 0 ? (
             <Text style={{ padding: 16, fontSize: 12.5, color: colors.muted }}>You&apos;re all caught up.</Text>
           ) : (

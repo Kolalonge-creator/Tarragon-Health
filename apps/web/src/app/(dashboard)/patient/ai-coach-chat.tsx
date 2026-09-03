@@ -16,6 +16,7 @@ import type { CoachSuggestedAction } from "@tarragon/shared";
 import { ReportAiAnswer } from "@/components/ai/report-ai-answer";
 import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 /**
  * §78.2 -- where each suggestedAction the model can classify actually
  * points. Deliberately a fixed, deterministic map: the model only ever
@@ -66,7 +67,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   }
 
   function formatTimestamp(isoString: string): string {
-    return new Date(isoString).toLocaleString([], {
+    return formatPatientDateTime(isoString, {
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -94,14 +95,14 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
     <Card id="ai-coach">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.aiCoach className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.aiCoach className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           AI Health Coach
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="max-h-80 space-y-2 overflow-y-auto rounded-md bg-charcoal-ink/5 p-3">
+        <div className="max-h-80 space-y-2 overflow-y-auto rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3">
           {messages.length === 0 && !sendMessage.isPending && (
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               Ask me anything about your health; I&apos;m here to help you understand what to do next.
             </p>
           )}
@@ -113,14 +114,14 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
               <div
                 className={cn(
                   "rounded-lg px-3 py-2 text-sm",
-                  message.role === "user" ? "bg-brand-green text-white" : "bg-white text-charcoal-ink"
+                  message.role === "user" ? "bg-brand-green text-white" : "bg-white dark:bg-night-card text-charcoal-ink dark:text-night-ink"
                 )}
               >
                 {message.content}
               </div>
               <p
                 className={cn(
-                  "text-[11px] text-charcoal-ink/40",
+                  "text-[11px] text-charcoal-ink/40 dark:text-night-ink/50",
                   message.role === "user" ? "text-right" : "text-left"
                 )}
               >
@@ -129,7 +130,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
               {message.suggestedAction && message.suggestedAction !== "none" && (
                 <Link
                   href={SUGGESTION_LINK[message.suggestedAction].href}
-                  className="inline-block text-xs text-brand-green underline"
+                  className="inline-block text-xs text-brand-green dark:text-brand-green-bright underline"
                 >
                   {SUGGESTION_LINK[message.suggestedAction].label} →
                 </Link>
@@ -137,17 +138,17 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
             </div>
           ))}
           {(sendMessage.isPending || quickAction.isPending) && (
-            <div className="max-w-[85%] rounded-lg bg-white px-3 py-2 text-sm text-charcoal-ink/60">
+            <div className="max-w-[85%] rounded-lg bg-white dark:bg-night-card px-3 py-2 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               Thinking…
             </div>
           )}
         </div>
 
         {sendMessage.data?.success === false && (
-          <p className="text-sm text-red-600">{sendMessage.data.error}</p>
+          <p className="text-sm text-red-600 dark:text-red-300">{sendMessage.data.error}</p>
         )}
         {quickAction.data?.success === false && (
-          <p className="text-sm text-red-600">{quickAction.data.error}</p>
+          <p className="text-sm text-red-600 dark:text-red-300">{quickAction.data.error}</p>
         )}
 
         <div className="flex flex-wrap gap-2">
@@ -178,7 +179,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         </form>
 
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-charcoal-ink/50">
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             General guidance, not a diagnosis. For an emergency, call emergency services or go to
             the nearest hospital.
           </p>
@@ -195,7 +196,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
 
         {limitReached && (
           <div className="flex flex-wrap items-center gap-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
-            <p className="text-xs text-charcoal-ink/70">
+            <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
               Need more room today? A 30-day pass raises your daily message limit. Buy again any
               time, no auto-renewal.
             </p>
@@ -206,8 +207,8 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
         )}
 
         {messages.length > 0 && (
-          <div className="flex flex-wrap items-center gap-2 rounded-md border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
-            <p className="text-xs text-charcoal-ink/70">Want a real doctor&apos;s take on this?</p>
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
+            <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">Want a real doctor&apos;s take on this?</p>
             <Button size="sm" variant="outline" asChild>
               <a href="/patient/care#ask-a-doctor">Ask a doctor (written)</a>
             </Button>
@@ -217,32 +218,32 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
           </div>
         )}
 
-        <div className="border-t border-charcoal-ink/10 pt-2">
+        <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-2">
           {handoff.status === "idle" && (
             <Button
               type="button"
               size="sm"
               variant="ghost"
-              className="h-auto gap-1.5 px-0 text-xs text-brand-green hover:bg-transparent hover:underline"
+              className="h-auto gap-1.5 px-0 text-xs text-brand-green dark:text-brand-green-bright hover:bg-transparent hover:underline"
               onClick={() => void handleHandoff()}
             >
               I want to speak to someone
             </Button>
           )}
           {handoff.status === "pending" && (
-            <p className="text-xs text-charcoal-ink/60">Starting a conversation with your care team…</p>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Starting a conversation with your care team…</p>
           )}
           {handoff.status === "done" && (
-            <p className="text-xs text-charcoal-ink">
+            <p className="text-xs text-charcoal-ink dark:text-night-ink">
               Sent. Your care team has what you&apos;ve talked about here.{" "}
-              <Link href="/patient/messages" className="text-brand-green underline">
+              <Link href="/patient/messages" className="text-brand-green dark:text-brand-green-bright underline">
                 Continue in Messages
               </Link>
               .
             </p>
           )}
           {handoff.status === "error" && (
-            <p className="text-xs text-red-600">
+            <p className="text-xs text-red-600 dark:text-red-300">
               {handoff.error}. You can also message your care team directly from{" "}
               <Link href="/patient/messages" className="underline">
                 Messages

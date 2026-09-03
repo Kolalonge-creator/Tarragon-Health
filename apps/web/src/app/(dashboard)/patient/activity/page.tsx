@@ -20,13 +20,13 @@ export default async function ActivityPage() {
   return (
     <DashboardPlaceholder greeting="Activity" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.steps}>
       <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green hover:underline">
+        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
           ← Back to lifestyle coaching
         </Link>
       </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
+      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Log your steps and workouts, or connect a wearable on your{" "}
-        <Link href="/patient/vitals" className="text-brand-green underline hover:no-underline">
+        <Link href="/patient/vitals" className="text-brand-green dark:text-brand-green-bright underline hover:no-underline">
           Vitals page
         </Link>{" "}
         to have them sync automatically.

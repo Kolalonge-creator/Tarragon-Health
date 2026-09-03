@@ -4,14 +4,14 @@ import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
-import { colors, radius, spacing } from "@/ui/theme";
+import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { CalloutCard, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionDivider, SectionLabel } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
 import { supabase } from "@/lib/supabase";
 import type { SectionId } from "@/lib/sections";
 
-const APP_LOCK_KEY = "settings-app-lock-v1";
 const NOTIF_PREFS_KEY = "settings-notification-prefs-v1";
 
 interface NotifPrefs {
@@ -36,33 +36,55 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
   const [webviewPath, setWebviewPath] = useState<string | null>(null);
 
   useEffect(() => {
-    Promise.all([LocalAuthentication.hasHardwareAsync(), LocalAuthentication.isEnrolledAsync()]).then(
-      ([hasHardware, isEnrolled]) => setBiometricAvailable(hasHardware && isEnrolled)
-    );
-    SecureStore.getItemAsync(APP_LOCK_KEY).then((v) => setAppLockEnabled(v === "true"));
-    SecureStore.getItemAsync(NOTIF_PREFS_KEY).then((v) => {
-      if (v) setPrefs(JSON.parse(v) as NotifPrefs);
-    });
+    // Every read here is best-effort: a rejected probe leaves the safe
+    // default in place (row hidden, lock off, stock prefs) instead of an
+    // unhandled rejection.
+    Promise.all([LocalAuthentication.hasHardwareAsync(), LocalAuthentication.isEnrolledAsync()])
+      .then(([hasHardware, isEnrolled]) => setBiometricAvailable(hasHardware && isEnrolled))
+      .catch(() => {});
+    readAppLockEnabled()
+      .then(setAppLockEnabled)
+      .catch(() => {});
+    SecureStore.getItemAsync(NOTIF_PREFS_KEY)
+      .then((v) => {
+        if (!v) return;
+        try {
+          setPrefs(JSON.parse(v) as NotifPrefs);
+        } catch {
+          // A corrupt stored value keeps the defaults rather than crashing.
+        }
+      })
+      .catch(() => {});
   }, []);
 
   async function toggleAppLock() {
-    if (!appLockEnabled) {
-      // Confirm with a real biometric prompt before turning the lock on —
-      // otherwise a patient could enable a lock they can't actually pass.
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Confirm to turn on App Lock",
-      });
-      if (!result.success) return;
+    try {
+      if (!appLockEnabled) {
+        // Confirm with a real biometric prompt before turning the lock on:
+        // otherwise a patient could enable a lock they can't actually pass.
+        const result = await authenticate("Confirm to turn on App Lock");
+        if (result !== "success") return;
+      }
+      const next = !appLockEnabled;
+      setAppLockEnabled(next);
+      await writeAppLockEnabled(next);
+    } catch {
+      // A failed write must not leave the UI claiming a lock that App.tsx
+      // will never see; re-read what actually stuck.
+      readAppLockEnabled()
+        .then(setAppLockEnabled)
+        .catch(() => {});
     }
-    const next = !appLockEnabled;
-    setAppLockEnabled(next);
-    await SecureStore.setItemAsync(APP_LOCK_KEY, String(next));
   }
 
   async function updatePref(key: keyof NotifPrefs, value: boolean) {
     const next = { ...prefs, [key]: value };
     setPrefs(next);
-    await SecureStore.setItemAsync(NOTIF_PREFS_KEY, JSON.stringify(next));
+    try {
+      await SecureStore.setItemAsync(NOTIF_PREFS_KEY, JSON.stringify(next));
+    } catch {
+      // Preference still applies for this session; only persistence failed.
+    }
   }
 
   return (
@@ -79,7 +101,7 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
             width: 56,
             height: 56,
             borderRadius: 28,
-            backgroundColor: "#E7EEE7",
+            backgroundColor: colors.brandTint,
             alignItems: "center",
             justifyContent: "center",
             shadowColor: colors.brand,
@@ -114,28 +136,55 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
       <View style={{ gap: 10 }}>
         <SectionLabel>Security &amp; notifications</SectionLabel>
         <MutedText>
-          App lock, and what we notify you about — saved on this device now, full push delivery for these
-          categories is still being built.
+          App lock, and what we notify you about. These choices are saved on this device for now, and
+          full push delivery for these categories is still being built.
         </MutedText>
         <GroupedList>
           {biometricAvailable ? (
             <GroupedListRow
               title="App lock"
               subtitle="Require Face ID / fingerprint to open the app."
-              trailing={<Toggle value={appLockEnabled} onChange={toggleAppLock} />}
+              trailing={
+                <Toggle
+                  value={appLockEnabled}
+                  onChange={() => void toggleAppLock()}
+                  accessibilityLabel="App lock"
+                />
+              }
             />
           ) : null}
           <GroupedListRow
             title="Refill & dose reminders"
-            trailing={<Toggle value={prefs.refill} onChange={() => updatePref("refill", !prefs.refill)} small />}
+            trailing={
+              <Toggle
+                value={prefs.refill}
+                onChange={() => void updatePref("refill", !prefs.refill)}
+                accessibilityLabel="Refill and dose reminders"
+                small
+              />
+            }
           />
           <GroupedListRow
             title="Care team messages"
-            trailing={<Toggle value={prefs.careTeam} onChange={() => updatePref("careTeam", !prefs.careTeam)} small />}
+            trailing={
+              <Toggle
+                value={prefs.careTeam}
+                onChange={() => void updatePref("careTeam", !prefs.careTeam)}
+                accessibilityLabel="Care team messages"
+                small
+              />
+            }
           />
           <GroupedListRow
             title="Health education tips"
-            trailing={<Toggle value={prefs.education} onChange={() => updatePref("education", !prefs.education)} small />}
+            trailing={
+              <Toggle
+                value={prefs.education}
+                onChange={() => void updatePref("education", !prefs.education)}
+                accessibilityLabel="Health education tips"
+                small
+              />
+            }
           />
         </GroupedList>
       </View>
@@ -214,13 +263,24 @@ function ProfileTile({
   );
 }
 
-function Toggle({ value, onChange, small }: { value: boolean; onChange: () => void; small?: boolean }) {
+function Toggle({
+  value,
+  onChange,
+  accessibilityLabel,
+  small,
+}: {
+  value: boolean;
+  onChange: () => void;
+  accessibilityLabel: string;
+  small?: boolean;
+}) {
   const width = small ? 38 : 42;
   const height = small ? 22 : 24;
   const knob = small ? 18 : 20;
   return (
     <Pressable
       accessibilityRole="switch"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ checked: value }}
       onPress={onChange}
       style={{
@@ -228,7 +288,7 @@ function Toggle({ value, onChange, small }: { value: boolean; onChange: () => vo
         height,
         borderRadius: 999,
         padding: 2,
-        backgroundColor: value ? colors.brand : "rgba(23,23,23,0.15)",
+        backgroundColor: value ? colors.brand : inkAlpha(0.15),
       }}
     >
       <View

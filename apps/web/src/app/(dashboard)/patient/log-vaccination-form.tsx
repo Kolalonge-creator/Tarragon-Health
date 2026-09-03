@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { formatPatientDate } from "@/lib/format-date";
 export function LogVaccinationForm({
   patientId,
   ageYears = null,
@@ -263,7 +264,7 @@ export function LogVaccinationForm({
                 {vaccinationBookings.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.facilities?.name ?? "Vaccination centre"} ·{" "}
-                    {new Date(b.requested_date).toLocaleDateString()}
+                    {formatPatientDate(b.requested_date)}
                   </option>
                 ))}
               </Select>
@@ -278,13 +279,13 @@ export function LogVaccinationForm({
               accept={CERTIFICATE_ACCEPT}
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Add a clear photo or PDF (up to 10 MB). We&apos;ll verify it and issue your Tarragon
               certificate.
             </p>
           </div>
-          {displayError && <p className="text-sm text-red-600">{displayError}</p>}
-          {success && <p className="text-sm text-brand-green">{success}</p>}
+          {displayError && <p className="text-sm text-red-600 dark:text-red-300">{displayError}</p>}
+          {success && <p className="text-sm text-brand-green dark:text-brand-green-bright">{success}</p>}
           <Button type="submit" disabled={isPending}>
             {isPending ? "Saving…" : "Log vaccination"}
           </Button>

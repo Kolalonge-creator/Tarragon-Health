@@ -16,7 +16,7 @@ export function PayMyShareButton({ contributionId, label }: { contributionId: st
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Starting…" : label}
       </Button>
-      {state?.error && <span className="text-xs text-clinical-red">{state.error}</span>}
+      {state?.error && <span className="text-xs text-red-600 dark:text-red-300">{state.error}</span>}
     </form>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "@/lib/queries/menstrual-cycle";
 import { Input } from "@/components/ui/input";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * The per-day log: flow, symptoms and mood for one date.
  *
@@ -83,7 +84,7 @@ function Chip({
           ? tone === "period"
             ? "border-transparent text-white"
             : "border-transparent bg-brand-green text-white"
-          : "border-charcoal-ink/20 text-charcoal-ink hover:bg-charcoal-ink/5",
+          : "border-charcoal-ink/20 dark:border-night-ink/25 text-charcoal-ink dark:text-night-ink hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10",
       ].join(" ")}
       style={
         selected && tone === "period" ? { backgroundColor: "var(--cycle-period)" } : undefined
@@ -125,7 +126,7 @@ export function CycleDayLog({
     existing?.ovulation_test_result ?? null
   );
 
-  const readableDate = new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
+  const readableDate = formatPatientDate(`${date}T00:00:00Z`, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -151,10 +152,10 @@ export function CycleDayLog({
         });
       }}
     >
-      <p className="text-sm font-medium text-charcoal-ink">{readableDate}</p>
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{readableDate}</p>
 
       <fieldset>
-        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70">Flow</legend>
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">Flow</legend>
         <div className="flex flex-wrap gap-2">
           {FLOW_OPTIONS.map((option) => (
             <Chip
@@ -169,7 +170,7 @@ export function CycleDayLog({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70">
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           How you felt physically
         </legend>
         <div className="flex flex-wrap gap-2">
@@ -185,7 +186,7 @@ export function CycleDayLog({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70">Mood</legend>
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">Mood</legend>
         <div className="flex flex-wrap gap-2">
           {MOOD_OPTIONS.map((option) => (
             <Chip
@@ -202,12 +203,12 @@ export function CycleDayLog({
           ovulation, so it sits after the everyday fields rather than
           greeting everyone who opens the form. */}
       <fieldset>
-        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70">
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Tracking ovulation? (optional)
         </legend>
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
-            <label htmlFor="cycle-bbt" className="text-xs text-charcoal-ink/60">
+            <label htmlFor="cycle-bbt" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Waking temperature (&deg;C)
             </label>
             <Input
@@ -223,7 +224,7 @@ export function CycleDayLog({
             />
           </div>
           <div className="space-y-1.5">
-            <span className="block text-xs text-charcoal-ink/60">Ovulation test</span>
+            <span className="block text-xs text-charcoal-ink/60 dark:text-night-ink/60">Ovulation test</span>
             <div className="flex flex-wrap gap-2">
               {OVULATION_TEST_OPTIONS.map((option) => (
                 <Chip
@@ -238,14 +239,14 @@ export function CycleDayLog({
             </div>
           </div>
         </div>
-        <p className="mt-1.5 text-[11px] text-charcoal-ink/50">
+        <p className="mt-1.5 text-[11px] text-charcoal-ink/50 dark:text-night-ink/55">
           Take your temperature before getting out of bed. A sustained rise suggests ovulation
           has already happened, so it confirms rather than predicts.
         </p>
       </fieldset>
 
       <div className="space-y-1.5">
-        <label htmlFor="cycle-notes" className="text-xs font-medium text-charcoal-ink/70">
+        <label htmlFor="cycle-notes" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Anything else (optional)
         </label>
         <Textarea
@@ -258,7 +259,7 @@ export function CycleDayLog({
       </div>
 
       {save.isError && (
-        <p className="text-sm text-red-600">
+        <p className="text-sm text-red-600 dark:text-red-400">
           {(save.error as Error)?.message ?? "Could not save that. Please try again."}
         </p>
       )}
@@ -268,7 +269,7 @@ export function CycleDayLog({
           {save.isPending ? "Saving..." : "Save this day"}
         </Button>
         {save.isSuccess && !save.isPending && (
-          <span className="text-xs text-brand-green">Saved</span>
+          <span className="text-xs text-brand-green dark:text-brand-green-bright">Saved</span>
         )}
       </div>
     </form>

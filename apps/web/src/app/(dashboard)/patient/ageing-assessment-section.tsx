@@ -38,11 +38,11 @@ export async function AgeingAssessmentSection({ patientId }: { patientId: string
             {assessment.domainResults.map((d) => (
               <li
                 key={d.id}
-                className="flex items-start justify-between gap-3 rounded-lg border border-charcoal-ink/10 p-3"
+                className="flex items-start justify-between gap-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
               >
                 <div>
-                  <p className="text-sm font-medium text-charcoal-ink">{DOMAIN_LABEL[d.domain]}</p>
-                  <p className="mt-0.5 text-xs text-charcoal-ink/60">{OUTCOME_COPY[d.outcome]}</p>
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{DOMAIN_LABEL[d.domain]}</p>
+                  <p className="mt-0.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{OUTCOME_COPY[d.outcome]}</p>
                 </div>
                 <Badge variant={OUTCOME_BADGE_VARIANT[d.outcome]}>
                   {d.clinicianReviewedAt ? "Reviewed" : "Recorded"}
@@ -55,7 +55,7 @@ export async function AgeingAssessmentSection({ patientId }: { patientId: string
         {missing.length > 0 ? (
           <AgeingAssessmentForm domains={missing} />
         ) : (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             All sections answered for this check-in. Your care team will follow up on anything flagged.
           </p>
         )}
