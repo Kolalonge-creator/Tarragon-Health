@@ -71,7 +71,7 @@ export default function ActivityCalculatorPage() {
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
               Our{" "}
-              <Link href={MARKETING_ROUTES.obesity} className="font-medium text-deep-forest hover:underline">
+              <Link href={MARKETING_ROUTES.obesity} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Weight Health programme
               </Link>{" "}
               pairs doctor-reviewed guidance with lifestyle coaching, so activity is part of a real
@@ -84,7 +84,7 @@ export default function ActivityCalculatorPage() {
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
               Our{" "}
-              <Link href={MARKETING_ROUTES.chronicCare} className="font-medium text-deep-forest hover:underline">
+              <Link href={MARKETING_ROUTES.chronicCare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Chronic Care programmes
               </Link>{" "}
               for hypertension and diabetes factor activity into your care plan alongside
@@ -94,7 +94,7 @@ export default function ActivityCalculatorPage() {
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Want to check your weight range too? Try the{" "}
-          <Link href={MARKETING_ROUTES.bmiCalculator} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.bmiCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             BMI & calorie calculator
           </Link>
           .

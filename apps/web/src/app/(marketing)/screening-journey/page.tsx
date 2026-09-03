@@ -88,12 +88,12 @@ export default function ScreeningJourneyPage() {
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             This page shows a general journey by age and sex. Sign up and your{" "}
-            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               real screening calendar
             </Link>{" "}
             is built from your actual age, sex, and family history, with reminders when something
             comes due, and the whole thing bundled into the one-day{" "}
-            <Link href={MARKETING_ROUTES.annualHealthCheck} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.annualHealthCheck} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Annual Health Check
             </Link>{" "}
             if you&apos;d rather do it all at once.

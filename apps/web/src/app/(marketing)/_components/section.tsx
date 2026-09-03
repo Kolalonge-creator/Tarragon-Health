@@ -62,7 +62,14 @@ export function SectionHeading({
       <Heading
         className={cn(
           "font-heading font-semibold",
-          size === "large" ? "text-4xl sm:text-5xl lg:text-6xl" : "text-3xl sm:text-4xl",
+          // A page's h1 always gets the hero scale, so pages whose hero is a
+          // SectionHeading (pricing, FAQ, contact…) aren't visibly smaller
+          // than pages with a hand-rolled or photo hero.
+          size === "large"
+            ? "text-4xl sm:text-5xl lg:text-6xl"
+            : as === "h1"
+              ? "text-4xl sm:text-5xl"
+              : "text-3xl sm:text-4xl",
           invert ? "text-white" : "text-charcoal-ink"
         )}
       >

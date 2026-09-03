@@ -117,19 +117,19 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Know how your parent is doing, even when you are not there every day.",
     campaignLine: "Your parents looked after you. Now help look after them.",
     intro:
-      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can fund their plan, in naira or dollars, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
+      "Your parent keeps their own free Tarragon account. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can pay for their health checks and their doctor's time, in naira, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
     included: [
-      "Their own plan and their own health record, held in their name",
+      "Their own free account and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
       "Next of kin access: you see their care, you cannot change it, and they can withdraw it whenever they want",
       "We contact you first if something urgent comes up",
-      "Fund their plan outright, in naira or dollars, from anywhere",
+      "Pay for their checks and doctor's time, in naira, from anywhere",
       "Doctor follow-up when readings or care gaps need attention",
     ],
     howItWorks: [
       {
         title: "They sign up, on their own account",
-        body: "One person, their own plan. Their record is theirs, which is what lets a doctor treat them and what keeps their consent meaningful.",
+        body: "One person, one record. Their record is theirs, which is what lets a doctor treat them and what keeps their consent meaningful. The account itself is free.",
       },
       {
         title: "They name you as next of kin",
@@ -137,7 +137,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You cover the cost, if you want to",
-        body: "Buy them a year of their plan whenever suits you, in one go or in instalments. It's for their account alone, and is never exchangeable for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a check costs if you want to help with that too.",
+        body: "Buy them a named health check or a doctor's time whenever suits you, in one go or in instalments. It's for their account alone, and is never exchangeable for cash. Their other lab tests are still paid straight to the laboratory, at that lab's price; send them what a test costs if you want to help with that too.",
       },
     ],
     metadata: {
@@ -187,7 +187,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders on WhatsApp or app, refill alerts before you run out, and a care team that follows up when doses are missed.",
     included: [
       "Medication schedule built into your health record",
-      "WhatsApp and app reminders for every dose",
+      "App and WhatsApp reminders for your doses",
       "Refill alerts before you run out",
       "Buy from any pharmacy you like, log the collection in seconds",
       "Doctor follow-up when doses are missed",

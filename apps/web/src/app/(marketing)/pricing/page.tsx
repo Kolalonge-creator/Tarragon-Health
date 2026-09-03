@@ -19,7 +19,7 @@ import {
 export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   description:
-    "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora ($). No hidden costs: every line item is clearly labelled.",
+    "The TarragonHealth app is free. A doctor's time is priced per piece of work, in naira, with no hidden costs: every price is shown before you pay.",
   path: MARKETING_ROUTES.pricing,
 });
 

@@ -105,7 +105,7 @@ export const PRICING_LABELS: Record<
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
-  "We only charge for a doctor's time, and we charge for it by the piece. You see the exact price and confirm it before anything is taken. No surprise charges, ever.",
+  "Beyond the free app, we charge by the piece: a doctor's time, plus one optional AI Coach top-up. You see the exact price and confirm it before anything is taken. No surprise charges, ever.",
   "Nothing auto-renews. There is no subscription, no cancellation to remember, and nothing that charges your card a second time on its own. When something runs out, you buy it again if you want to.",
   "You pay laboratories and pharmacies directly, at their price, for tests, medicines and vaccines. Tarragon takes no cut of what they charge you and has no contracted laboratory.",
   "Naira prices are reviewed once a year at most, and we will tell you at least 30 days before any change. Anything you have already paid for is honoured until it runs out.",
@@ -228,11 +228,11 @@ export const PAID_SERVICES: PaidService[] = [
     name: "12-week doctor-supported programme",
     price: "₦50,000",
     description:
-      "Twelve weeks of actual clinical management for hypertension and diabetes: a doctor sets your care plan, reviews your readings, adjusts your medication, and is alerted when one of your readings is dangerous. It also covers asking a doctor questions in writing and having your uploaded results read back to you for the length of the programme. Managing weight alongside either condition is part of the same review, at no extra charge — weight and lifestyle coaching on their own are already free, see above. The self-monitoring track of the same programme, with no doctor attached, stays free.",
+      "Twelve weeks of actual clinical management for hypertension and diabetes: a doctor sets your care plan, reviews your readings, adjusts your medication, and is alerted when one of your readings is dangerous. It also covers asking a doctor questions in writing and having your uploaded results read back to you for the length of the programme. Managing weight alongside either condition is part of the same review, at no extra charge; weight and lifestyle coaching on their own are already free, see above. The self-monitoring track of the same programme, with no doctor attached, stays free.",
     breakdown: [
       "Three doctor reviews across the twelve weeks, ₦10,000 each",
       "One medication review, ₦10,000",
-      "Ongoing coordination and monitoring for the full twelve weeks",
+      "Ongoing coordination and monitoring for the full twelve weeks, ₦10,000",
     ],
     conditions: [
       {
@@ -245,7 +245,7 @@ export const PAID_SERVICES: PaidService[] = [
       },
     ],
     optionalNote:
-      "Essential bloods before you start are optional, and recommended so your doctor has a real baseline. You can take the request to any laboratory you choose and pay them directly — Tarragon adds nothing on top — or, where we have a contracted partner lab, opt in to have Tarragon bill it directly for you instead. Either way you see the exact price before anything is charged.",
+      "Essential bloods before you start are optional, and recommended so your doctor has a real baseline. You can take the request to any laboratory you choose and pay them directly, with Tarragon adding nothing on top. Or, where we have a contracted partner lab, opt in to have Tarragon bill it directly for you instead. Either way you see the exact price before anything is charged.",
     availability: "The one recurring thing we sell. Buy it again when it ends; nothing renews on its own.",
   },
   {
@@ -430,12 +430,12 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
     body: "A test, refill, or vaccine is due.",
   },
   {
-    title: "For a plan or add-on, you see the exact price",
+    title: "For a paid service, you see the exact price",
     body: "In the app, before you're ever charged. No estimates, no “roughly.” A test, refill, or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show; see the next step.",
   },
   {
     title: "You confirm and pay, or take a request to the provider",
-    body: "For plans and add-ons: by card, bank transfer, or USSD, through Paystack (Stripe for diaspora payments in US dollars). For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
+    body: "For paid services: by card, bank transfer, or USSD, through Paystack, in naira, from wherever you are paying. For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
   },
   {
     title: "You get a request to take with you",
@@ -443,7 +443,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "Your result or delivery comes back in the app",
-    body: "Explained in plain language, with a WhatsApp alert so you don't miss it. If anything needs attention, your doctor calls you; this does not create any new charge.",
+    body: "Explained in plain language, with an alert so you don't miss it. If anything needs attention, your doctor calls you; this does not create any new charge.",
   },
 ];
 
@@ -465,7 +465,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "What exactly do I pay for, then?",
     answer:
-      "A doctor's time. That comes two ways. One-off: a written question to a doctor (₦2,500), a prescription renewal review (₦3,500), a verified document (₦4,000), a video or audio visit (₦5,000), a second opinion (₦7,500), a result interpretation session (₦10,000), or a senior case review (₦15,000). Or ongoing: the 12-week doctor-supported programme for hypertension or diabetes (₦50,000, three doctor reviews plus one medication review across the twelve weeks), where a doctor sets your care plan, adjusts your medication, and is alerted if one of your readings is dangerous.",
+      "A doctor's time. That comes two ways. One-off: a written question to a doctor (₦2,500), a prescription renewal review (₦3,500), a verified document (₦4,000), a video or audio visit (₦5,000), a second opinion (₦7,500), a result interpretation session (₦10,000), or a senior case review (₦15,000). Or ongoing: the 12-week doctor-supported programme for hypertension or diabetes (₦50,000, three doctor reviews plus one medication review across the twelve weeks), where a doctor sets your care plan, adjusts your medication, and is alerted if one of your readings is dangerous. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (₦5,000), which raises the free AI Health Coach's daily message limit for 30 days.",
   },
   {
     question: "There used to be Prevent, Essential and Complete Care plans. What happened to them?",
@@ -485,7 +485,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   {
     question: "Which conditions does Tarragon manage, and where does weight management fit?",
     answer:
-      "Hypertension and diabetes. The 12-week doctor-supported programme (₦50,000) is where a doctor actually manages either condition with you — reviewing your readings, adjusting your medication, and staying alert to a dangerous one. If you're managing your weight alongside hypertension or diabetes, that's part of the same review at no extra charge. Weight management on its own has its own free coaching track (see above), not a paid doctor-led one, since it doesn't need a doctor's time the way medication adjustment does.",
+      "Hypertension and diabetes. The 12-week doctor-supported programme (₦50,000) is where a doctor actually manages either condition with you — reviewing your readings, adjusting your medication, and staying alert to a dangerous one. If you're managing your weight alongside hypertension or diabetes, that's part of the same review at no extra charge. Weight management on its own has its own free coaching track (see above), not a paid doctor-supported one, since it doesn't need a doctor's time the way medication adjustment does.",
   },
   {
     question: "Will my card ever be charged automatically?",

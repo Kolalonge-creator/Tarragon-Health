@@ -55,7 +55,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
       "The numbers behind heart-attack and stroke risk, plus a direct look at your heart's electrical rhythm. Blood pressure is measured and recorded at every visit, on every tier.",
     items: [
       {
-        name: "Lipid Panel — Total, LDL & HDL Cholesterol, Triglycerides",
+        name: "Lipid Panel: Total, LDL & HDL Cholesterol, Triglycerides",
         explanation: "The cholesterol numbers behind heart-attack and stroke risk.",
         frequency: "Every year",
         tier: "Core",
@@ -93,7 +93,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
       "A full count of your red cells, white cells, and platelets, plus the two markers most often behind anaemia: anaemia, infection, and clotting problems all show up here first.",
     items: [
       {
-        name: "Full Blood Count — Haemoglobin, Haematocrit, RBC & WBC Count, Platelets, MCV, MCH, MCHC",
+        name: "Full Blood Count: Haemoglobin, Haematocrit, RBC & WBC Count, Platelets, MCV, MCH, MCHC",
         explanation: "Anaemia, infection, and clotting problems all show up here first.",
         frequency: "Every year",
         tier: "Core",
@@ -117,7 +117,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
     description: "How well your kidneys are filtering, long before you'd ever feel it slipping.",
     items: [
       {
-        name: "Kidney Function — Urea, Electrolytes, Creatinine, eGFR",
+        name: "Kidney Function: Urea, Electrolytes, Creatinine, eGFR",
         explanation: "How well your kidneys are filtering your blood.",
         frequency: "Every year",
         tier: "Core",
@@ -141,7 +141,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
     description: "How your liver is coping, long before any symptom would tell you.",
     items: [
       {
-        name: "Liver Function Test — ALT, AST, ALP, Bilirubin, Albumin",
+        name: "Liver Function Test: ALT, AST, ALP, Bilirubin, Albumin",
         explanation: "How your liver is coping, checked long before any symptom would tell you.",
         frequency: "Every year",
         tier: "Core",
@@ -153,7 +153,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
     description: "The gland that quietly sets your metabolism, energy, and mood.",
     items: [
       {
-        name: "Thyroid Function — TSH, Free T4",
+        name: "Thyroid Function: TSH, Free T4",
         explanation: "The gland that quietly sets your metabolism, energy, and mood.",
         frequency: "Every year",
         tier: "Core",
@@ -163,7 +163,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   {
     title: "Cancer Screening",
     description:
-      "Matched to your age and sex, not one-size-fits-all — and not everything here is yearly. Each one runs on its own proper calendar, not a generic annual clock.",
+      "Matched to your age and sex, not one-size-fits-all, and not everything here is yearly. Each one runs on its own proper calendar, not a generic annual clock.",
     items: [
       {
         name: "Cervical Smear (women 25–64)",
@@ -172,19 +172,19 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
         tier: "Advanced",
       },
       {
-        name: "Prostate-Specific Antigen — PSA (men 45+)",
+        name: "Prostate-Specific Antigen: PSA (men 45+)",
         explanation: "A blood marker your doctor discusses with you rather than orders blindly.",
         frequency: "Every 2 years",
         tier: "Advanced",
       },
       {
-        name: "Faecal Immunochemical Test — FIT, colorectal (45–74)",
+        name: "Faecal Immunochemical Test: FIT, colorectal (45–74)",
         explanation: "A simple stool test that catches early signs of colorectal cancer.",
         frequency: "Every 2 years",
         tier: "Advanced",
       },
       {
-        name: "Breast Imaging — ultrasound under 40, mammography 40+",
+        name: "Breast Imaging: ultrasound under 40, mammography 40+",
         explanation: "Catching breast cancer at the stage it's most treatable.",
         frequency: "Every 2 years",
         tier: "Comprehensive",
@@ -221,7 +221,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
         tier: "Core",
       },
       {
-        name: "Syphilis — VDRL with TPHA confirmation",
+        name: "Syphilis: VDRL with TPHA confirmation",
         explanation: "A two-step confirmatory test for a treatable infection that causes serious harm if missed.",
         frequency: "Every year",
         tier: "Comprehensive",

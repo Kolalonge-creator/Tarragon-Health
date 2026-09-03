@@ -20,11 +20,11 @@ export const metadata: Metadata = pageMetadata({
 const WAYS_TO_GIVE = [
   {
     title: "Buy them a named health check",
-    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check — Core Screen, or whichever they need — at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
+    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check, Core Screen or whichever they need, at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
   },
   {
-    title: "Buy them a year of care",
-    body: "The wider option: buy a year of their plan instead of one check. Pay for it in one go or bit by bit. They start the year whenever they are ready, nothing renews afterwards so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
+    title: "Cover a doctor's time for them",
+    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, or the 12-week doctor-supported programme for hypertension or diabetes. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
   },
   {
     title: "Invite them, you both get a reward",
@@ -39,14 +39,14 @@ const GIFT_IDEAS = [
     body: "Their once-a-year look at the things worth checking every year: liver, kidneys, blood sugar, cholesterol, urine, blood count and HIV status. A doctor reads every result with them, in writing, with a downloadable report. If they'd also like a live video consult to talk it through, that's a separate low-cost booking they can add whenever they want one.",
   },
   {
-    title: "A year of Complete Care",
+    title: "The 12-week doctor-supported programme",
     price: "Bought once, theirs to start",
-    body: "Doctor review of their readings, their whole screening schedule worked out for them, and someone reading every result that comes back. Results go to them and their doctor, never to you.",
+    body: "For a parent managing hypertension or diabetes: a doctor sets their care plan, reviews their readings, and adjusts their medication across twelve weeks. Results go to them and their doctor, never to you.",
   },
   {
-    title: "A year of Tarragon Prevent",
+    title: "A result, read to them properly",
     price: "The lighter option",
-    body: "Their screening calendar worked out for them, reminders when something is due, and a doctor reading whatever they upload.",
+    body: "A 15-minute doctor walkthrough of a lab result over video, or a written doctor's answer to a question that has been worrying them. Small, specific, and often exactly what is needed.",
   },
 ];
 
@@ -54,7 +54,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What exactly am I buying?",
     answer:
-      "Either one named health check (Core Screen and others) or a year of one of our care plans, for someone specific — never a top-up balance. It sits on their account with their name on it until they choose to use it.",
+      "One named service for someone specific, never a top-up balance: a health check like the Core Screen, a doctor consultation, or the 12-week doctor-supported programme. It sits on their account with their name on it until they choose to use it.",
   },
   {
     question: "Who can I buy this for?",
@@ -64,12 +64,12 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "Does a health check gift include a video call with a doctor?",
     answer:
-      "A doctor reads every result in writing and sends a downloadable report — that part is included in every check. A live video consult is a separate, low-cost booking: your recipient can request one whenever they'd like to talk their results through, and you or they can pay for it at that point.",
+      "A doctor reads every result in writing and sends a downloadable report; that part is included in every check. A live video consult is a separate, low-cost booking: your recipient can request one whenever they'd like to talk their results through, and you or they can pay for it at that point.",
   },
   {
     question: "Can I pay for their lab tests too?",
     answer:
-      "For a named health check, yes — that is exactly what you are buying: Tarragon bills one real price and settles with the laboratory directly, so there is nothing further for them to pay at the lab. For a year-of-care plan, laboratories are paid directly by whoever is standing in one, at that lab's price — if you want to help with a test on that plan, the practical way is to send them what it costs.",
+      "For a named health check bundle, yes, where we have a contracted partner laboratory: Tarragon bills one real price and settles with that laboratory directly, so there is nothing further for them to pay at the lab. For any other test, laboratories are paid directly by whoever is standing in one, at that lab's price; if you want to help with one of those, the practical way is to send them what it costs.",
   },
   {
     question: "Will I see their results?",
@@ -79,17 +79,17 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What if I am buying from outside Nigeria?",
     answer:
-      "That's fine — checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The year still sits on their account until they are ready to start it.",
+      "That's fine. Checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The gift still sits on their account until they are ready to use it.",
   },
   {
     question: "What if they are already a Tarragon member?",
     answer:
-      "It adds a year to their existing plan instead, so a gift never bills them twice.",
+      "Even better: the gift simply sits on their account next to everything they already use, named and ready. Nothing about it bills them, then or later.",
   },
   {
     question: "Can I pay in instalments?",
     answer:
-      "Yes. Pay the whole year at once or spread it over as many instalments as you like. Nothing expires while you are still paying.",
+      "Yes. Pay the whole amount at once or spread it over as many instalments as you like. Nothing expires while you are still paying.",
   },
 ];
 
@@ -112,7 +112,7 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "They start it whenever suits them",
-    body: "The voucher sits on their account and they choose when the year begins. If they are already on a plan it adds a year to that instead, so a gift never bills them twice.",
+    body: "The voucher sits on their account and they choose when to use it. Nothing about a gift ever bills them, then or later.",
   },
 ];
 
@@ -137,7 +137,7 @@ export default function GiftPage() {
       <Section className="pb-0 pt-10 sm:pt-14">
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/60">
           Already a member? Open the care vouchers card on your dashboard to buy a health check or
-          a year of care for someone, or share your referral link.
+          a doctor&apos;s time for someone, or share your referral link.
         </p>
       </Section>
 
@@ -162,7 +162,7 @@ export default function GiftPage() {
           <MarketingMediaFrame
             media={{
               illustration: "gift-record",
-              imageAlt: "A year of care, given as a named gift rather than a balance",
+              imageAlt: "A named health check, given as a gift rather than a balance",
             }}
           />
         </div>
@@ -209,7 +209,7 @@ export default function GiftPage() {
         <FaqAccordion items={GIFT_FAQ} />
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Looking after a parent day to day?{" "}
-          <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">
+          <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
           is the year-round version of this: they keep their own account and name you as next of
@@ -222,7 +222,7 @@ export default function GiftPage() {
         <CtaBand
           variant="gradient"
           title="Give someone the gift of being looked after."
-          description="Buy them a health check or a year of care, or send them your referral link. Either way it is care, not a card that expires."
+          description="Buy them a health check or a doctor's time, or send them your referral link. Either way it is care, not a card that expires."
           primaryHref="/login"
           primaryLabel="Buy someone a health check"
           secondaryHref="/signup?intent=support"

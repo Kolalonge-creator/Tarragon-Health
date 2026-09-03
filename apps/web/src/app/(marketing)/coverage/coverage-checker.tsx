@@ -92,8 +92,8 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
               ))}
           </div>
           <p className="mt-3 text-xs text-charcoal-ink/50">
-            The dot tracks home sample collection and medication delivery — which still wait on a
-            contracted logistics partner everywhere — plus the optional &ldquo;let us bill a lab
+            The dot tracks home sample collection and medication delivery, which still wait on a
+            contracted logistics partner everywhere, plus the optional &ldquo;let us bill a lab
             directly&rdquo; path, where we have a contracted lab. Everything else on this page,
             including the self-arranged default for labs, already works the same way in all 37
             states.

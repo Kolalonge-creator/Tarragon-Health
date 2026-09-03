@@ -67,7 +67,7 @@ export default async function AccountabilityPage() {
               return (
                 <div
                   key={commitment.tier}
-                  className="rounded-2xl border border-charcoal-ink/10 bg-white p-6"
+                  className="rounded-xl border border-charcoal-ink/10 bg-white p-6"
                 >
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="font-heading text-lg font-semibold text-charcoal-ink">
