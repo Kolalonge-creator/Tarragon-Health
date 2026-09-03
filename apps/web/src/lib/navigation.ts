@@ -1,5 +1,6 @@
 import type { AppIconName } from "@/lib/icons";
 import { ANALYTICS_GROUP_ORDER, ANALYTICS_SECTIONS } from "@/lib/analytics/sections";
+import type { WorklistCountKey } from "@/lib/queries/worklist-counts";
 
 /** One sidebar link. `exact` marks role-root dashboards so `/patient` doesn't
  * light up while the user is on `/patient/family`. */
@@ -22,6 +23,14 @@ export interface NavItem {
   /** Short label for the bottom tab bar, where a full label like
    * "Vitals & symptoms" cannot fit. Falls back to `label`. */
   shortLabel?: string;
+  /** Ties this link to a live open-item count (see lib/queries/worklist-counts)
+   * so AppShell can render a small badge next to it — the same "what's
+   * actually waiting for me" number a doctor used to have to return to the
+   * dashboard to see, now visible from every page. Badge is hidden at zero
+   * rather than shown greyed-out: a persistent sidebar repeats on every
+   * screen, so a wall of "0" pills would be louder than the dashboard's own
+   * zero-state tiles ever were. */
+  countKey?: WorklistCountKey;
 }
 
 /** How many `primary` links the phone bottom bar shows before the More
@@ -300,10 +309,12 @@ export function getNavSections(
             },
             {
               // Inboxes — anything a patient or a colleague is waiting on a
-              // reply to.
+              // reply to. Every item a doctor can be blocking someone on
+              // carries a live countKey so the badge shows up here, not just
+              // on the dashboard's one-time landing view.
               label: "Queue",
               items: [
-                { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Escalations", href: "/clinician/escalations", icon: "escalation", countKey: "escalations" },
                 { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
                 {
                   label: "Operations queue",
@@ -318,28 +329,38 @@ export function getNavSections(
                 { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
+                // Real pages with no prior sidebar entry at all — previously
+                // reachable only via the dashboard's "All worklists" strip,
+                // so a doctor who didn't happen to scroll that far never
+                // found them. See the countKey doc comment above.
+                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
+                { label: "Second opinions", href: "/clinician/second-opinions", icon: "inbox", countKey: "secondOpinionRequests" },
+                { label: "Prescription renewals", href: "/clinician/prescription-renewals", icon: "medication", countKey: "prescriptionRenewalRequests" },
+                { label: "Verified documents", href: "/clinician/verified-documents", icon: "inbox", countKey: "verifiedDocumentRequests" },
+                { label: "Senior case reviews", href: "/clinician/senior-case-reviews", icon: "escalation", countKey: "seniorCaseReviews" },
               ],
             },
             {
               label: "Patients & Care",
               items: [
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
-                { label: "Case management", href: "/clinician/case-management", icon: "carePlan" },
-                { label: "Care plan review", href: "/clinician/care-plan-review", icon: "carePlan" },
-                { label: "Medication reviews", href: "/clinician/medication-reviews", icon: "medication" },
-                { label: "Lifestyle reviews", href: "/clinician/lifestyle-reviews", icon: "lifestyle" },
-                { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle" },
-                { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review" },
-                { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive" },
+                { label: "Case management", href: "/clinician/case-management", icon: "carePlan", countKey: "activeCases" },
+                { label: "Care plan review", href: "/clinician/care-plan-review", icon: "carePlan", countKey: "carePlanReviewPrompts" },
+                { label: "Medication reviews", href: "/clinician/medication-reviews", icon: "medication", countKey: "medicationReviews" },
+                { label: "Lifestyle reviews", href: "/clinician/lifestyle-reviews", icon: "lifestyle", countKey: "lifestyleReviews" },
+                { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle", countKey: "lifestyleFlags" },
+                { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review", countKey: "annualReviews" },
+                { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive", countKey: "preventiveReviews" },
                 { label: "Sexual health cases", href: "/clinician/sexual-health", icon: "escalation" },
               ],
             },
             {
               label: "Orders & Referrals",
               items: [
-                { label: "Referrals", href: "/clinician/referrals", icon: "referral" },
+                { label: "Referrals", href: "/clinician/referrals", icon: "referral", countKey: "referralsNeedingUrgency" },
+                { label: "Waitlisted referrals", href: "/clinician/referrals/waitlisted", icon: "referral", countKey: "waitlistedReferrals" },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
-                { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination" },
+                { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination", countKey: "vaccinationVerifications" },
               ],
             },
             {
@@ -354,9 +375,9 @@ export function getNavSections(
                   icon: "review",
                 },
                 { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
-                { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
-                { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
-                { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
+                { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication", countKey: "adherenceAlerts" },
+                { label: "Outreach", href: "/clinician/outreach", icon: "messages", countKey: "outreach" },
+                { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan", countKey: "recommendations" },
                 { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
                 { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },
               ],
@@ -366,7 +387,6 @@ export function getNavSections(
               items: [
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
-                { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
                 {
                   label: "Lab result consults",
                   href: "/clinician/lab-result-consults",

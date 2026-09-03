@@ -13,6 +13,7 @@ import { DeviceHeartbeat } from "./device-heartbeat";
 import { ProfileMenu } from "./profile-menu";
 import { Avatar } from "@/components/avatar";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
+import { useWorklistCounts, type WorklistCountKey } from "@/lib/queries/worklist-counts";
 
 function isActive(pathname: string, href: string, exact?: boolean) {
   if (exact) return pathname === href;
@@ -89,6 +90,18 @@ function BottomTabBar({
   );
 }
 
+/** A live open-item count next to a nav link (see NavItem.countKey) — hidden
+ * at zero so a persistent, always-on-screen sidebar doesn't turn into a wall
+ * of "0" pills the way a one-time dashboard summary safely can. */
+function NavBadge({ count }: { count: number | undefined }) {
+  if (!count) return null;
+  return (
+    <span className="ml-auto shrink-0 rounded-full bg-brand-green/15 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-deep-forest">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function SidebarNav({
   sections,
   pathname,
@@ -98,6 +111,17 @@ function SidebarNav({
   pathname: string;
   onNavigate?: () => void;
 }) {
+  const countKeys = React.useMemo(
+    () =>
+      Array.from(
+        new Set(
+          sections.flatMap((s) => s.items.map((i) => i.countKey)).filter((k): k is WorklistCountKey => !!k)
+        )
+      ),
+    [sections]
+  );
+  const { data: counts } = useWorklistCounts(countKeys);
+
   return (
     <nav aria-label="Main" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
       {sections.map((section, i) => (
@@ -139,7 +163,8 @@ function SidebarNav({
                       )}
                       strokeWidth={2}
                     />
-                    <span className="truncate">{item.label}</span>
+                    <span className="min-w-0 flex-1 truncate">{item.label}</span>
+                    {item.countKey && <NavBadge count={counts?.[item.countKey]} />}
                   </Link>
                 </li>
               );
