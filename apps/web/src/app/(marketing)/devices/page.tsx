@@ -8,9 +8,9 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Get the right device for your health plan",
+  title: "Devices that work well with Tarragon",
   description:
-    "Blood pressure monitors, scales and glucometers TarragonHealth has clinically vetted for accuracy and app compatibility: readings sync straight into your record.",
+    "You never need to buy a device: every reading can be logged in the app in seconds. If you'd like one, these well-regarded BP monitors, scales and glucometers share readings through Apple Health or Health Connect.",
   path: MARKETING_ROUTES.devices,
 });
 
@@ -21,15 +21,16 @@ export default function DevicesPage() {
         <SectionHeading
           as="h1"
           eyebrow="Devices"
-          title="Get the right device for your health plan"
-          description="These are third-party devices we've clinically vetted for accuracy and app compatibility. Tarragon doesn't manufacture, sell, or earn anything from them. Pick one below, or use any Bluetooth device that syncs to Apple Health or Health Connect."
+          title="Devices that work well with Tarragon"
+          description="You never need one: typing a reading into the app takes seconds. If you'd like a device anyway, these are well-regarded third-party models whose own apps share readings with Apple Health or Health Connect, which Tarragon reads as sync rolls out. Tarragon doesn't manufacture, sell, or earn anything from them."
         />
 
+        <h2 className="sr-only">Suggested devices</h2>
         <div className="mx-auto mt-10 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {MARKETING_DEVICES.map((device) => (
             <div
               key={device.deviceName}
-              className="flex flex-col rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
+              className="flex flex-col rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
             >
               <p className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
                 {device.categoryLabel}
@@ -38,8 +39,17 @@ export default function DevicesPage() {
                 {device.deviceName}
               </h3>
               <p className="text-sm text-charcoal-ink/50">{device.vendorName}</p>
-              <span className="mt-3 inline-flex w-fit items-center rounded-full bg-brand-green px-3 py-1 text-xs font-medium text-white">
-                ✅ Works with Tarragon
+              <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-brand-green/30 bg-soft-sage px-3 py-1 text-xs font-medium text-deep-forest">
+                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" aria-hidden>
+                  <path
+                    d="M5 12.5l4.5 4.5L19 7.5"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                Syncs via Apple Health or Health Connect
               </span>
               <p className="mt-3 flex-1 text-sm text-charcoal-ink/70">{device.whyWeRecommend}</p>
             </div>
@@ -49,7 +59,7 @@ export default function DevicesPage() {
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Don&apos;t have a compatible device yet, or would rather not buy one? Every reading can
           be logged by hand in the app too. A device just makes it faster.{" "}
-          <Link href="/signup" className="font-medium text-deep-forest hover:underline">
+          <Link href="/signup" className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Get started
           </Link>
           .

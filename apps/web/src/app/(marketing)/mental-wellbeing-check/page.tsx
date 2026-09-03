@@ -80,7 +80,7 @@ export default function MentalWellbeingCheckPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             A pulse-check is a starting point, not the full picture. Once you&apos;re signed up,
             Tarragon&apos;s{" "}
-            <Link href={MARKETING_ROUTES.healthEducation} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.healthEducation} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Health Education
             </Link>{" "}
             surfaces guidance built around you, and your care team can arrange a fuller,

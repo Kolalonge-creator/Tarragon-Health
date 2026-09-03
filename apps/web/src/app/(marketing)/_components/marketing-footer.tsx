@@ -14,6 +14,7 @@ const FOOTER_LINKS = {
   programmes: [
     { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
     { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
+    { href: MARKETING_ROUTES.advancedDiagnostics, label: "Advanced Diagnostics" },
     { href: MARKETING_ROUTES.screeningJourney, label: "Screening Journey" },
     { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
     { href: MARKETING_ROUTES.healthEducation, label: "Health Education" },
@@ -117,26 +118,7 @@ function SocialLinks() {
   );
 }
 
-function FooterLink({
-  href,
-  label,
-  soon,
-}: {
-  href: string;
-  label: string;
-  soon?: boolean;
-}) {
-  if (soon) {
-    return (
-      <span className="inline-flex items-center gap-2 text-sm text-white/45">
-        {label}
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] uppercase tracking-wide">
-          soon
-        </span>
-      </span>
-    );
-  }
-
+function FooterLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
@@ -152,7 +134,7 @@ function FooterGroup({
   links,
 }: {
   title: string;
-  links: { href: string; label: string; soon?: boolean }[];
+  links: { href: string; label: string }[];
 }) {
   return (
     <div>
@@ -232,7 +214,7 @@ export function MarketingFooter() {
           <span className="text-white/40"> · </span>
           RC 9702108
         </p>
-        <p className="mt-2 text-white/50">
+        <p className="mt-2 text-white/65">
           Photography on this site is created for TarragonHealth and does not depict real patients,
           clinicians, or a specific care encounter.
         </p>

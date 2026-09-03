@@ -165,10 +165,10 @@ export default async function CoveragePage() {
       </Section>
 
       <CtaBand
-        title="Not sure which plan fits?"
+        title="Not sure what anything costs?"
         description="If you are paying from abroad for a parent at home, you can also fund their care directly and see what every payment bought."
         primaryHref="/pricing"
-        primaryLabel="See plans and prices"
+        primaryLabel="See the price list"
         secondaryHref="/contact"
         secondaryLabel="Ask us about your state"
       />

@@ -113,8 +113,8 @@ export default async function ResourceArticlePage({
       />
       <Section className="pt-20">
         <article className="mx-auto max-w-2xl">
-          <Link href="/resources" className="text-sm text-brand-green hover:underline">
-            ← All resources
+          <Link href="/resources" className="text-sm text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+            <span aria-hidden>←</span> All resources
           </Link>
           <ResourceThumbnail
             category={article.category}

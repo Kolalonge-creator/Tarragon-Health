@@ -41,7 +41,7 @@ export default async function ResourcesPage() {
           <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
             {articles
               .filter((a) => a.category === category)
-              .map((article) => (
+              .map((article, index) => (
                 <Link
                   key={article.slug}
                   href={`/resources/${article.slug}`}
@@ -51,6 +51,10 @@ export default async function ResourcesPage() {
                     category={article.category}
                     icon={resourceThumbnailIcon(article)}
                     className="aspect-[16/9]"
+                    // Every card in this grid shares one category, so repeating
+                    // the category photo on all of them reads as duplication;
+                    // keep it on the lead card, give the rest their own icons.
+                    variant={index === 0 ? "photo" : "icon"}
                   />
                   <div className="p-6">
                     <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">

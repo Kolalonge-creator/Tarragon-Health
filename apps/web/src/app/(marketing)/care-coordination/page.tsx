@@ -36,7 +36,7 @@ const CONNECTS = [
   },
   {
     title: "A doctor, when you need one directly",
-    body: "Send a written question and get a doctor's reply within 72 hours via the app, included on Complete Care, or book a 15-minute online consultation with a doctor on any plan. Your payment is only taken once a doctor accepts your slot, and refunded in full if none can.",
+    body: "Send a written question and get a doctor's reply within 72 hours via the app, or book a 15-minute online consultation with a doctor. Each is a one-off you pay for by the piece, at a price you see first; a consultation payment is only taken once a doctor accepts your slot, and refunded in full if none can.",
   },
 ];
 

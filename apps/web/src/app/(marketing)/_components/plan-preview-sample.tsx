@@ -162,7 +162,7 @@ export function PlanPreviewSample() {
                 href="/chronic-care"
                 className="inline-block text-sm font-medium text-deep-forest hover:underline"
               >
-                See how chronic care works →
+                See how chronic care works <span aria-hidden>→</span>
               </Link>
             </>
           ) : (
@@ -192,7 +192,7 @@ export function PlanPreviewSample() {
                 href="/signup"
                 className="inline-block text-sm font-medium text-deep-forest hover:underline"
               >
-                Build my real calendar →
+                Build my real calendar <span aria-hidden>→</span>
               </Link>
             </>
           )}

@@ -51,7 +51,7 @@ export default async function ImpactPage() {
           {metrics.map((metric) => (
             <div
               key={metric.metricKey}
-              className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
             >
               <p className="font-heading text-3xl font-semibold text-brand-green">
                 {formatValue(metric.value)}
