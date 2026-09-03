@@ -133,6 +133,14 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     group: "Operations",
   },
   {
+    id: "support",
+    href: "/analytics/support",
+    label: "Support",
+    subtitle: "Technical-ticket volume, response/resolution time, and complaints",
+    icon: "helpCenter",
+    group: "Operations",
+  },
+  {
     id: "patient-activity",
     href: "/analytics/patient-activity",
     label: "Patient activity",

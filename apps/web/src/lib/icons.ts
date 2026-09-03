@@ -88,6 +88,7 @@ import {
   HeartHandshake,
   Flag,
   Siren,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -191,6 +192,10 @@ export const NAV_ICON = {
   chevronRight: ChevronRight,
   security: KeyRound,
   devices: Bluetooth,
+  // Patient Support & Service Centre (spec §24) — the patient-facing
+  // technical-support ticket entry point and the staff support-ticket
+  // queue/complaints pages.
+  helpCenter: LifeBuoy,
   attachment: Paperclip,
   download: Download,
   healthyAgeing: HeartHandshake,
