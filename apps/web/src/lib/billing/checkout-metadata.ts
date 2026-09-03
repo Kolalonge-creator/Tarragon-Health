@@ -31,6 +31,15 @@
  * either Edge Function — a redeploy this codebase has been bitten by twice.
  */
 /**
+ * 'screening_day_payment' is read the same way, by
+ * private.apply_screening_day_payment_from_transaction (an AFTER INSERT
+ * trigger on payment_transactions, see
+ * supabase/migrations/20260829003735_group_screening_days.sql). One payer
+ * funds a whole group screening day's discounted slots in a single charge
+ * (or a handful of instalments); the trigger credits the screening_days row,
+ * same no-redeploy reasoning as the other kinds above.
+ */
+/**
  * 'subsidy_contribution' is read the same way, by
  * private.apply_subsidy_contribution_from_transaction (an AFTER INSERT
  * trigger on payment_transactions, see
@@ -62,6 +71,7 @@ export type CheckoutKind =
   | "booking"
   | "voucher_payment"
   | "sponsored_subscription"
+  | "screening_day_payment"
   | "subsidy_contribution"
   | "service_purchase";
 
@@ -70,7 +80,7 @@ export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" |
 export interface CheckoutMetadata {
   kind: CheckoutKind;
   profile_id: string;
-  /** subscription_plans.code (kind='subscription'/'sponsored_subscription') or add_ons.code (kind='add_on'). Unused for kind='booking'/'voucher_payment'. */
+  /** subscription_plans.code (kind='subscription'/'sponsored_subscription') or add_ons.code (kind='add_on'). Unused for kind='booking'/'voucher_payment'/'screening_day_payment'. */
   item_code: string;
   /** Only set for kind='add_on' — the base subscriptions.id it attaches to. */
   subscription_id?: string;

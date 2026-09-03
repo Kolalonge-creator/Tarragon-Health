@@ -3,12 +3,14 @@
 import { useActionState, useState } from "react";
 import {
   buyCareVoucher,
+  buyHealthCheckVoucher,
   payTowardVoucher,
   redeemServiceVoucher,
 } from "@/app/(dashboard)/patient/vouchers/actions";
 import {
   useMyVouchers,
   useVoucherCatalogue,
+  useHealthCheckVoucherCatalogue,
   useVoucherConfig,
   useMyReferralCode,
   useRedeemReferralCode,
@@ -61,6 +63,7 @@ function formatDate(iso: string) {
 export function CareVouchersCard({ patientId }: { patientId: string }) {
   const { data: vouchers } = useMyVouchers(patientId);
   const { data: catalogue } = useVoucherCatalogue();
+  const { data: healthCheckCatalogue } = useHealthCheckVoucherCatalogue();
   const { data: sponsorable } = useSponsorableProfiles();
   const { data: config } = useVoucherConfig();
   const { data: referralCode } = useMyReferralCode();
@@ -68,11 +71,16 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
   const [payingFor, setPayingFor] = useState<string | null>(null);
   const [payState, payAction, payPending] = useActionState(payTowardVoucher, undefined);
   const [buyState, buyAction, buyPending] = useActionState(buyCareVoucher, undefined);
+  const [buyHealthCheckState, buyHealthCheckAction, buyHealthCheckPending] = useActionState(
+    buyHealthCheckVoucher,
+    undefined
+  );
   const [redeemState, redeemAction, redeemPending] = useActionState(
     redeemServiceVoucher,
     undefined
   );
   const [buyOpen, setBuyOpen] = useState(false);
+  const [buyHealthCheckOpen, setBuyHealthCheckOpen] = useState(false);
 
   const redeemCode = useRedeemReferralCode();
   const [redeemInput, setRedeemInput] = useState("");
@@ -134,11 +142,12 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
         {redeemState?.message && (
           <p className="text-xs text-emerald-700">{redeemState.message}</p>
         )}
-        {/* A voucher buys a fixed window of a SERVICE, never a test: tests
-            are paid straight to the laboratory, so there is nothing for us
-            to sell in advance (public.purchase_care_voucher fails closed).
-            A service is different, because it is the thing we actually
-            provide. */}
+        {/* A voucher here buys a fixed window of a SERVICE, not an individual
+            test — most lab tests are paid straight to the laboratory, so
+            there is normally nothing to sell in advance. The one deliberate
+            exception is a Synlab-priced, self-bookable health check panel,
+            which has its own separate "Buy a health check" gift flow below
+            (public.purchase_care_voucher) rather than living in this form. */}
         <div className="border-t border-slate-100 pt-4">
           <Button type="button" size="sm" variant="outline" onClick={() => setBuyOpen(!buyOpen)}>
             {buyOpen ? "Cancel" : "Buy care for someone"}
@@ -189,6 +198,76 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
               </Button>
               {buyState?.error && <p className="text-xs text-red-600">{buyState.error}</p>}
               {buyState?.message && <p className="text-xs text-emerald-700">{buyState.message}</p>}
+            </form>
+          )}
+        </div>
+
+        {/* A health-check voucher buys ONE NAMED TEST — screen_core and
+            friends, priced from the same self_bookable, Synlab-billed
+            catalogue a patient books directly. This is the diaspora "gift a
+            health check" flow: reserve it now, pay from abroad, and whoever
+            it is for redeems it later against their own booking. */}
+        <div className="border-t border-slate-100 pt-4">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setBuyHealthCheckOpen(!buyHealthCheckOpen)}
+          >
+            {buyHealthCheckOpen ? "Cancel" : "Buy a health check"}
+          </Button>
+
+          {buyHealthCheckOpen && (
+            <form action={buyHealthCheckAction} className="space-y-3 pt-3">
+              <label className="block text-sm">
+                <span className="text-slate-700">Which check?</span>
+                <Select name="panelBundleId" required className="mt-1">
+                  <option value="">Choose a health check</option>
+                  {(healthCheckCatalogue ?? []).map((bundle) => (
+                    <option key={bundle.id} value={bundle.id}>
+                      {bundle.name} — {naira(bundle.price_kobo ?? 0)}
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              {(sponsorable ?? []).length > 0 && (
+                <label className="block text-sm">
+                  <span className="text-slate-700">Who is it for?</span>
+                  <Select name="beneficiaryProfileId" className="mt-1">
+                    <option value={patientId}>Me</option>
+                    {(sponsorable ?? []).map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.full_name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              )}
+
+              <label className="block text-sm">
+                <span className="text-slate-700">Add a note (optional)</span>
+                <Input name="giftMessage" className="mt-1" placeholder="Thinking of you" />
+              </label>
+
+              <p className="text-xs text-slate-500">
+                Reserving is free. You pay separately, in naira, in one go or bit by bit. Whoever
+                it is for books it whenever suits them, and a doctor reviews their
+                results the same way as anyone else&apos;s — in writing, with a downloadable
+                report. If they&apos;d also like a live video consult with a doctor, that&apos;s a
+                separate, low-cost booking they (or you, once they&apos;ve requested it) can pay
+                for whenever they want one.
+              </p>
+
+              <Button type="submit" size="sm" disabled={buyHealthCheckPending}>
+                {buyHealthCheckPending ? "Reserving…" : "Reserve this check"}
+              </Button>
+              {buyHealthCheckState?.error && (
+                <p className="text-xs text-red-600">{buyHealthCheckState.error}</p>
+              )}
+              {buyHealthCheckState?.message && (
+                <p className="text-xs text-emerald-700">{buyHealthCheckState.message}</p>
+              )}
             </form>
           )}
         </div>
