@@ -180,7 +180,7 @@ function ScreeningDayCard({ day }: { day: ScreeningDay }) {
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
         <p className="text-sm text-charcoal-ink/60">
-          {day.location} · {new Date(day.event_date).toLocaleDateString("en-GB", {
+          {day.location} · {new Date(day.event_date).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
             day: "numeric",
             month: "long",
             year: "numeric",

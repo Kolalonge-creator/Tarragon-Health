@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 
+import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 const VERIFIED_DOCUMENT_CREDIT_CODE = "verified_document_credit";
 
 const DOCUMENT_TYPE_LABEL: Record<string, string> = {
@@ -27,12 +28,12 @@ function DocumentRow({ document }: { document: VerifiedDocument }) {
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
       <div>
         <p className="text-sm font-medium text-charcoal-ink">
-          {DOCUMENT_TYPE_LABEL[document.document_type] ?? document.document_type}
+          {DOCUMENT_TYPE_LABEL[document.document_type] ?? document.document_type.replace(/_/g, " ")}
         </p>
         {document.status === "requested" && (
           <p className="text-xs text-charcoal-ink/60">
             With your care team · a doctor will respond by{" "}
-            {new Date(document.sla_due_at).toLocaleString()}
+            {formatPatientDateTime(document.sla_due_at)}
           </p>
         )}
         {document.status === "declined" && (
@@ -42,9 +43,9 @@ function DocumentRow({ document }: { document: VerifiedDocument }) {
         )}
         {document.status === "issued" && document.valid_from && (
           <p className="text-xs text-charcoal-ink/60">
-            Valid from {new Date(document.valid_from).toLocaleDateString()}
+            Valid from {formatPatientDate(document.valid_from)}
             {document.valid_until
-              ? ` to ${new Date(document.valid_until).toLocaleDateString()}`
+              ? ` to ${formatPatientDate(document.valid_until)}`
               : ""}
           </p>
         )}

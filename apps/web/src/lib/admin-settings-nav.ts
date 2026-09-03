@@ -248,13 +248,6 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
-        href: "/admin/settings/diaspora-pricing",
-        label: "Diaspora pricing (USD)",
-        blurb: "USD pricing at the admin-set exchange rate.",
-        icon: SEMANTIC_ICON.billing,
-        visible: adminOnly,
-      },
-      {
         href: "/admin/settings/vouchers",
         label: "Care vouchers",
         blurb: "Validity windows, extensions, and reissues.",

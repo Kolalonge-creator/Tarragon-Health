@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
-import { createClient } from "@/lib/supabase/server";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,7 +48,6 @@ import { DevelopmentalScreeningCard } from "@/app/(dashboard)/patient/developmen
 export default async function PreventionHubPage() {
   const { profile, subjectId, subjectSex, subjectDateOfBirth } = await getPatientDashboardContext();
 
-  const supabase = await createClient();
   // The screening calendar and lab-request coordination are free to every
   // patient since the pay-per-service rework — neither costs clinician time.
   // Kept as a named constant rather than deleted so the downstream layout

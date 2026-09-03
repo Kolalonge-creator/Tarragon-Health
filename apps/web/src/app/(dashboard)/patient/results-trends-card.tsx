@@ -98,13 +98,13 @@ export function ResultsTrendsCard({ patientId }: { patientId: string }) {
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">{labelFor(code)}</p>
                   <p className="text-xs text-charcoal-ink/60">
-                    {new Date(latest.taken_at).toLocaleDateString("en-GB", {
+                    {new Date(latest.taken_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                       day: "numeric",
                       month: "short",
                       year: "numeric",
                     })}
                     {previous &&
-                      ` · previous ${new Date(previous.taken_at).toLocaleDateString("en-GB", {
+                      ` · previous ${new Date(previous.taken_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                         month: "short",
                         year: "numeric",
                       })}`}

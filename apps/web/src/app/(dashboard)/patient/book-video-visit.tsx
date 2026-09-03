@@ -25,8 +25,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     weekday: "short",
     day: "numeric",
     month: "short",

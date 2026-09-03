@@ -91,7 +91,7 @@ export function WellbeingTiles({ patientId }: { patientId: string }) {
             <div className="rounded-lg border border-charcoal-ink/10 p-3">
               <p className="text-xs uppercase tracking-wide text-charcoal-ink/60">Next review</p>
               <p className="mt-1 text-sm font-medium text-charcoal-ink">
-                {new Date(nextReviewDate).toLocaleDateString("en-GB", {
+                {new Date(nextReviewDate).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                   day: "numeric",
                   month: "long",
                 })}

@@ -198,7 +198,7 @@ export function AnnualHealthCheckBooking({
         {rebookDue && lastResulted && (
           <p className="rounded-md bg-soft-sage p-3 text-sm text-charcoal-ink">
             Your last check was{" "}
-            {new Date(lastResulted.created_at).toLocaleDateString("en-GB", {
+            {new Date(lastResulted.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
               month: "long",
               year: "numeric",
             })}

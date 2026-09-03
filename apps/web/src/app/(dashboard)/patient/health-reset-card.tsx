@@ -1,8 +1,7 @@
 "use client";
 
-import { usePatientHealthResetProgress, useClaimHealthResetTrial } from "@/lib/queries/health-reset";
+import { usePatientHealthResetProgress } from "@/lib/queries/health-reset";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 function Milestone({ done, label }: { done: boolean; label: string }) {
@@ -22,13 +21,14 @@ function Milestone({ done, label }: { done: boolean; label: string }) {
 }
 
 /**
- * The pricing page has long promised "The Tarragon 90-Day Health Reset" as
- * INCLUDED on every plan, plus a milestone free trial on completion. This
- * card is what makes both real — see lib/queries/health-reset.ts.
+ * "The Tarragon 90-Day Health Reset" — the pricing page's free, tracked
+ * onboarding journey, made real by lib/queries/health-reset.ts. The milestone
+ * "claim a 30-day Complete Care trial" CTA that used to complete this card was
+ * removed with the 2026-09-02 retirement of subscription plans: Complete Care
+ * no longer exists and the app itself is free, so there is nothing to trial.
  */
 export function HealthResetCard({ patientId }: { patientId: string }) {
   const { data: progress, isLoading, isError } = usePatientHealthResetProgress(patientId);
-  const claim = useClaimHealthResetTrial(patientId);
   const Icon = SEMANTIC_ICON.preventive;
 
   if (isLoading || isError || !progress) return null;
@@ -51,34 +51,14 @@ export function HealthResetCard({ patientId }: { patientId: string }) {
           <Milestone done={progress.consistency_done} label="Building the habit: regular logging or learning" />
         </ul>
 
-        {isComplete && !progress.trial_claimed_at && (
-          <div className="space-y-2 rounded-md bg-brand-green/[0.06] p-3">
-            <p className="text-sm text-charcoal-ink">
-              You&apos;ve completed your 90-Day Health Reset. As promised, you can claim 30 days of
-              Complete Care at no charge, no card required, so a doctor reviews your numbers
-              for a month before you decide.
-            </p>
-            <Button size="sm" disabled={claim.isPending} onClick={() => claim.mutate()}>
-              {claim.isPending ? "Claiming…" : "Claim my free trial"}
-            </Button>
-            {claim.isError && (
-              <p className="text-xs text-red-600">
-                {(claim.error as Error).message || "Could not claim the trial. Try again."}
-              </p>
-            )}
-          </div>
-        )}
-
-        {progress.trial_claimed_at && (
+        {isComplete ? (
           <p className="text-sm text-charcoal-ink/70">
-            Your free trial is active: enjoy the full Complete Care experience. It quietly
-            returns you to Tarragon Free at the end unless you choose to continue.
+            You&apos;ve completed your 90-Day Health Reset: the habit is yours now. Keep logging,
+            and everything here stays free for as long as you use Tarragon.
           </p>
-        )}
-
-        {!isComplete && (
+        ) : (
           <p className="text-xs text-charcoal-ink/50">
-            Free on every plan, including Tarragon Free, for as long as you use Tarragon.
+            Free, for as long as you use Tarragon, with no expiry date.
           </p>
         )}
       </CardContent>

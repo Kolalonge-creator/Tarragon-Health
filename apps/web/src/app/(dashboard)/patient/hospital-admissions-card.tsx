@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 function durationLabel(admission: HospitalAdmission): string {
   const start = new Date(admission.admitted_on);
   const end = admission.discharged_on ? new Date(admission.discharged_on) : new Date();
@@ -54,9 +55,9 @@ function AdmissionRow({
         <span className="text-xs text-charcoal-ink/60">{durationLabel(admission)}</span>
       </div>
       <p className="text-xs text-charcoal-ink/70">
-        Admitted {new Date(admission.admitted_on).toLocaleDateString()}
+        Admitted {formatPatientDate(admission.admitted_on)}
         {admission.discharged_on
-          ? ` · discharged ${new Date(admission.discharged_on).toLocaleDateString()}`
+          ? ` · discharged ${formatPatientDate(admission.discharged_on)}`
           : ""}
       </p>
       {admission.self_reported_diagnosis && (

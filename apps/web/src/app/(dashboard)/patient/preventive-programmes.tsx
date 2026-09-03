@@ -21,6 +21,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * prevention_risk_scores.tier is risk_level (has very_high and unknown); the
  * programme-recommendation engine only works in three tiers. very_high
@@ -67,7 +68,7 @@ function WomensHealthScreeningStatus({ patientId }: { patientId: string }) {
         <li key={schedule.id} className="text-xs text-charcoal-ink/70">
           <span className="font-medium">{schedule.screen_type?.name}</span>:{" "}
           {SCREENING_STATUS_LABEL[schedule.status]}
-          {schedule.due_date && `, ${new Date(schedule.due_date).toLocaleDateString()}`}
+          {schedule.due_date && `, ${formatPatientDate(schedule.due_date)}`}
         </li>
       ))}
     </ul>
@@ -131,7 +132,7 @@ export function PreventiveProgrammes({
         </p>
         {nextReview.data && (
           <p className="text-xs text-brand-green">
-            Next health review due {new Date(nextReview.data.due_date).toLocaleDateString()}.
+            Next health review due {formatPatientDate(nextReview.data.due_date)}.
           </p>
         )}
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

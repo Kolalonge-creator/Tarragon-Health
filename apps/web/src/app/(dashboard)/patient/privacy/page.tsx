@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { CareVisibilityList } from "../family/care-visibility-list";
 import { ConsentStatusPanel } from "./consent-status-panel";
 import { ConnectedDevicesSummary } from "./connected-devices-summary";
@@ -24,23 +26,19 @@ export default async function PrivacyCentrePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-            Privacy &amp; your data
-          </h1>
-          <p className="text-charcoal-ink/60">
-            What you&apos;ve agreed to, who can see your record, and how to export, correct, or delete
-            your data.
-          </p>
-        </div>
-        <Link
-          href="/api/patient/data-export"
-          className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          Download your data
-        </Link>
-      </div>
+      <PageHeader
+        title="Privacy & your data"
+        icon={SEMANTIC_ICON.privacy}
+        description="What you've agreed to, who can see your record, and how to export, correct, or delete your data."
+        actions={
+          <Link
+            href="/api/patient/data-export"
+            className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            Download your data
+          </Link>
+        }
+      />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <ConsentStatusPanel patientId={profile.id} />

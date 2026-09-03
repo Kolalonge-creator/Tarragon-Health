@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { addDays, type CyclePrediction } from "@/lib/rules/cycle-prediction";
 import type { MenstrualCycle, MenstrualDailyLog } from "@/lib/queries/menstrual-cycle";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * Month calendar showing what actually happened (logged period days, days
  * with a symptom log) alongside what is expected (predicted period window,
@@ -25,7 +26,7 @@ interface DayCell {
 }
 
 function monthLabel(year: number, monthIndex: number) {
-  return new Date(Date.UTC(year, monthIndex, 1)).toLocaleDateString(undefined, {
+  return formatPatientDate(Date.UTC(year, monthIndex, 1), {
     month: "long",
     year: "numeric",
   });
@@ -183,7 +184,7 @@ export function CycleCalendar({
           }
 
           const labelParts = [
-            new Date(`${cell.date}T00:00:00Z`).toLocaleDateString(undefined, {
+            formatPatientDate(`${cell.date}T00:00:00Z`, {
               day: "numeric",
               month: "long",
             }),

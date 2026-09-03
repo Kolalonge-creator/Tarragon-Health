@@ -4,6 +4,7 @@ import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+import { formatPatientDate } from "@/lib/format-date";
 export function LabMonitoringCard({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = usePatientLabMonitoring(patientId);
 
@@ -39,7 +40,7 @@ export function LabMonitoringCard({ patientId }: { patientId: string }) {
                   </div>
                   {item.due_date ? (
                     <Badge variant={overdue ? "red" : "amber"}>
-                      {overdue ? "Overdue" : "Due"} {new Date(item.due_date).toLocaleDateString()}
+                      {overdue ? "Overdue" : "Due"} {formatPatientDate(item.due_date)}
                     </Badge>
                   ) : (
                     <Badge variant="grey">As clinically indicated</Badge>

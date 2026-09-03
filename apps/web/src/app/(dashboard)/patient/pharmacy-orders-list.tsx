@@ -19,6 +19,7 @@ import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { DeliveryAvailability } from "@/components/delivery-availability";
 import { DeliveryAddressForm } from "@/components/delivery-address-form";
 
+import { formatPatientDate } from "@/lib/format-date";
 type DeliveryAddress = { street: string; area: string; state: string; phone: string };
 
 /** Patient records what they collected against an order (self-service, works
@@ -46,7 +47,7 @@ function OrderDispenses({
           {dispenses.map((d) => (
             <li key={d.id} className="text-xs text-charcoal-ink/60">
               Collected: {d.drug_name}
-              {d.quantity ? ` × ${d.quantity}` : ""} · {new Date(d.dispensed_on).toLocaleDateString()}
+              {d.quantity ? ` × ${d.quantity}` : ""} · {formatPatientDate(d.dispensed_on)}
             </li>
           ))}
         </ul>

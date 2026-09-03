@@ -21,7 +21,7 @@ function humanize(value: string) {
 
 function formatDue(dueAt: string | null): string | null {
   if (!dueAt) return null;
-  return new Date(dueAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(dueAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**

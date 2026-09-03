@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * Lets a patient confirm a screening on their calendar was already done, with
  * the date it happened — the calendar's next-due cycle is then scheduled from
@@ -119,7 +120,7 @@ export function ConfirmScreeningDoneForm({
     return (
       <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
         <p className="text-sm text-brand-green">
-          Marked as done for {new Date(performedDate).toLocaleDateString()}. We&apos;ve scheduled
+          Marked as done for {formatPatientDate(performedDate)}. We&apos;ve scheduled
           your next {screenTypeName.toLowerCase()} from that date.
         </p>
         {!uploadSuccess ? (

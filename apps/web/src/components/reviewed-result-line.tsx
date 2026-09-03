@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 
 function formatReviewedDate(reviewedAt: string): string {
-  return new Date(reviewedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(reviewedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**

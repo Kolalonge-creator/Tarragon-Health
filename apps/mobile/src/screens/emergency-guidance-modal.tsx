@@ -84,6 +84,9 @@ export function EmergencyGuidanceModal({
               {numbers.map((n) => (
                 <Pressable
                   key={n.tel}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Call ${n.label}, ${n.number}`}
+                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
                   onPress={() => Linking.openURL(`tel:${n.tel}`)}
                   style={{
                     flexDirection: "row",
@@ -91,6 +94,7 @@ export function EmergencyGuidanceModal({
                     gap: 6,
                     backgroundColor: "#DC2626",
                     borderRadius: radius.control,
+                    minHeight: 44,
                     paddingVertical: 9,
                     paddingHorizontal: 14,
                   }}
@@ -107,6 +111,9 @@ export function EmergencyGuidanceModal({
 
             {emergencyContact?.phone ? (
               <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Call your emergency contact ${emergencyContact.name}, ${emergencyContact.relationship ?? "emergency contact"}`}
+                hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
                 onPress={() => Linking.openURL(`tel:${emergencyContact.phone}`)}
                 style={{
                   flexDirection: "row",
@@ -115,6 +122,7 @@ export function EmergencyGuidanceModal({
                   borderWidth: 1,
                   borderColor: colors.border,
                   borderRadius: radius.control,
+                  minHeight: 44,
                   paddingVertical: 11,
                   paddingHorizontal: 14,
                 }}
@@ -136,7 +144,7 @@ export function EmergencyGuidanceModal({
               <Text style={{ fontSize: 13, color: synced ? "#15803D" : "#B45309", lineHeight: 19 }}>
                 {synced
                   ? "Your care team has been notified and will follow up."
-                  : "We'll notify your care team as soon as you're back online — call now if you need help sooner. Your reading is saved and won't be lost."}
+                  : "We'll notify your care team as soon as you're back online. Call now if you need help sooner. Your reading is saved and won't be lost."}
               </Text>
             </View>
 

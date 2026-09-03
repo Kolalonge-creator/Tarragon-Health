@@ -14,6 +14,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const WEIGHT_CONFIG: ChartConfig = {
   weight_kg: { label: "Weight (kg)", color: "var(--color-chart-glucose)" },
 };
@@ -22,7 +23,7 @@ const RANGE_DAYS = { week: 7, month: 30, all: 3650 } as const;
 type Range = keyof typeof RANGE_DAYS;
 
 function formatDate(taken_at: string): string {
-  return new Date(taken_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatPatientDate(taken_at, { month: "short", day: "numeric" });
 }
 
 function fmtKg(n: number): string {

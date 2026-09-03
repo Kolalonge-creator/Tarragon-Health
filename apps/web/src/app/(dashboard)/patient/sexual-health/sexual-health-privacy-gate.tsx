@@ -11,6 +11,7 @@ import {
   useClearSexualHealthPin,
 } from "@/lib/queries/sexual-health-privacy";
 
+import { formatPatientTime } from "@/lib/format-date";
 function isLockoutError(error: unknown): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === "55006";
 }
@@ -92,7 +93,7 @@ export function SexualHealthPrivacyGate({ children }: { children: ReactNode }) {
       {isLocked ? (
         <p className="text-sm text-charcoal-ink/70">
           Too many attempts. Try again after{" "}
-          {new Date(lockedUntil!).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })},
+          {formatPatientTime(lockedUntil!, { hour: "2-digit", minute: "2-digit" })},
           or reset your PIN below.
         </p>
       ) : (

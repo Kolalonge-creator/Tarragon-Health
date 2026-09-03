@@ -229,6 +229,11 @@ export const PAID_SERVICES: PaidService[] = [
     price: "₦50,000",
     description:
       "Twelve weeks of actual clinical management for hypertension and diabetes: a doctor sets your care plan, reviews your readings, adjusts your medication, and is alerted when one of your readings is dangerous. It also covers asking a doctor questions in writing and having your uploaded results read back to you for the length of the programme. Managing weight alongside either condition is part of the same review, at no extra charge. Weight and lifestyle coaching on their own are already free, see above. The self-monitoring track of the same programme, with no doctor attached, stays free.",
+    // The ₦10,000 component figures are founder-set pieces of the programme's
+    // structure (migration 20260902231345_reprice_chronic_programme_50k...),
+    // not service_products rows, so there is no live price to read for them —
+    // the override map is keyed by product code and these have none. If the
+    // programme is ever repriced, edit these lines in the same change.
     breakdown: [
       "Three doctor reviews across the twelve weeks, ₦10,000 each",
       "One medication review, ₦10,000",
@@ -339,6 +344,9 @@ export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
     body: "A family member, in Nigeria or abroad, can buy one for you. This is what sponsoring someone's care means here: they see that they bought it and later that it was used, and nothing about your results. Your tests you pay for at the laboratory, like anyone else.",
   },
   {
+    // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
+    // hardcodes reward_kobo = 50000 (migration 20260724113718). If that function
+    // is ever repriced, update this line (and the FAQ + gift page) with it.
     title: "Refer a friend",
     body: "Share your referral link from your dashboard. Once your friend completes their first paid order, you both get a ₦500 reward voucher toward your care.",
   },
@@ -456,7 +464,34 @@ export const NEVER_DO: string[] = [
   "Never put an expiry date on the free app, and never turn it into a charge on its own",
 ];
 
-export const PRICING_FAQ: { question: string; answer: string }[] = [
+/**
+ * Live price strings keyed by service_products.code, as produced by
+ * lib/marketing/plan-prices.ts's fetchServicePriceOverrides(). Optional
+ * everywhere it is accepted: with no map (or a code missing from it) the
+ * fallback prices declared on PAID_SERVICES above are used, so this file
+ * stays the single source of the default numbers.
+ */
+export type ResolvedServicePrices = Record<string, string>;
+
+/** Resolve one service's display price: live override first, then the
+ * fallback declared on PAID_SERVICES. The empty-string fallback is
+ * unreachable while every code passed below exists in PAID_SERVICES —
+ * kept only so a future typo degrades to a missing price, not a crash. */
+export function servicePrice(code: string, overrides?: ResolvedServicePrices): string {
+  return overrides?.[code] ?? PAID_SERVICES.find((s) => s.code === code)?.price ?? "";
+}
+
+/**
+ * The pricing FAQ, with every naira figure resolved through the same
+ * override map the service cards use, so a DB repricing can never leave the
+ * FAQ contradicting the card above it on the same page. Callers with no live
+ * prices (or none for a given code) get the defaults from PAID_SERVICES.
+ */
+export function getPricingFaq(
+  overrides?: ResolvedServicePrices,
+): { question: string; answer: string }[] {
+  const p = (code: string) => servicePrice(code, overrides);
+  return [
   {
     question: "What does it actually cost to use Tarragon?",
     answer:
@@ -464,8 +499,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "What exactly do I pay for, then?",
-    answer:
-      "A doctor's time. That comes two ways. One-off: a written question to a doctor (₦2,500), a prescription renewal review (₦3,500), a verified document (₦4,000), a video or audio visit (₦5,000), a second opinion (₦7,500), a result interpretation session (₦10,000), or a senior case review (₦15,000). Or ongoing: the 12-week doctor-supported programme for hypertension or diabetes (₦50,000, three doctor reviews plus one medication review across the twelve weeks), where a doctor sets your care plan, adjusts your medication, and is alerted if one of your readings is dangerous.",
+    answer: `A doctor's time. That comes two ways. One-off: a written question to a doctor (${p("async_consult_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a verified document (${p("verified_document_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a result interpretation session (${p("result_interpretation_credit")}), or a senior case review (${p("senior_case_review_credit")}). Or ongoing: the 12-week doctor-supported programme for hypertension or diabetes (${p("chronic_doctor_supported_pack")}, three doctor reviews plus one medication review across the twelve weeks), where a doctor sets your care plan, adjusts your medication, and is alerted if one of your readings is dangerous.`,
   },
   {
     question: "There used to be Prevent, Essential and Complete Care plans. What happened to them?",
@@ -484,8 +518,7 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
   },
   {
     question: "Which conditions does Tarragon manage, and where does weight management fit?",
-    answer:
-      "Hypertension and diabetes. The 12-week doctor-supported programme (₦50,000) is where a doctor actually manages either condition with you: reviewing your readings, adjusting your medication, and staying alert to a dangerous one. If you're managing your weight alongside hypertension or diabetes, that's part of the same review at no extra charge. Weight management on its own has its own free coaching track (see above), not a paid doctor-led one, since it doesn't need a doctor's time the way medication adjustment does.",
+    answer: `Hypertension and diabetes. The 12-week doctor-supported programme (${p("chronic_doctor_supported_pack")}) is where a doctor actually manages either condition with you: reviewing your readings, adjusting your medication, and staying alert to a dangerous one. If you're managing your weight alongside hypertension or diabetes, that's part of the same review at no extra charge. Weight management on its own has its own free coaching track (see above), not a paid doctor-led one, since it doesn't need a doctor's time the way medication adjustment does.`,
   },
   {
     question: "Will my card ever be charged automatically?",
@@ -547,7 +580,8 @@ export const PRICING_FAQ: { question: string; answer: string }[] = [
     answer:
       "Yes, by sponsoring them: you buy a paid service for someone in Nigeria who has linked you to their care, and they use it when they're ready. You see that you bought it, and later that it was used, and nothing about their results. There is no separate diaspora plan to join, and the app they use is free either way.",
   },
-];
+  ];
+}
 
 export const EMPLOYER_HMO_NOTE =
   "If you're looking to cover staff, members, or a population, corporate wellness plans and HMO partnerships are priced differently, based on the size and needs of your organisation. These aren't self-service plans; speak to our team directly and we'll build a clear, transparent quote for you, with the same no-hidden-cost approach you see above.";

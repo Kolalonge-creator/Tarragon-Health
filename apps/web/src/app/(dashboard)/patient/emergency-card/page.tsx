@@ -3,6 +3,8 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { emergencyCardQrSvg, emergencyCardUrl } from "@/lib/emergency/card";
 import { EmergencyCardControls } from "./emergency-card-controls";
 import { BloodAttestationForm } from "./blood-attestation-form";
@@ -52,21 +54,18 @@ export default async function EmergencyCardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 rounded-2xl border border-red-700/20 bg-red-50 p-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="font-heading text-lg font-semibold text-red-700">Emergency card</h1>
-          <p className="mt-1 text-sm text-charcoal-ink/70">
-            The few things that matter most if you are ever treated somewhere that has never seen
-            you before: your blood group and genotype, allergies, current medicines, ongoing
-            conditions, and your emergency contact.
-          </p>
-        </div>
-        <Button asChild className="shrink-0 bg-red-700 hover:bg-red-800">
-          <Link href="/patient/emergency-card/print" target="_blank">
-            View / print my card
-          </Link>
-        </Button>
-      </div>
+      <PageHeader
+        title="Emergency card"
+        icon={NAV_ICON.siren}
+        description="The few things that matter most if you are ever treated somewhere that has never seen you before: your blood group and genotype, allergies, current medicines, ongoing conditions, and your emergency contact."
+        actions={
+          <Button asChild className="shrink-0 bg-red-700 hover:bg-red-800">
+            <Link href="/patient/emergency-card/print" target="_blank">
+              View / print my card
+            </Link>
+          </Button>
+        }
+      />
 
       {/* Sits before either card option: both the print and live paths depend
           on this being filled in, and it is the field most likely to be blank. */}
@@ -123,7 +122,7 @@ export default async function EmergencyCardPage() {
             <CardTitle>Also want a live link?</CardTitle>
             <CardDescription>
               {active
-                ? `Active. Anyone with this card or link can see it, without signing in. Valid until ${new Date(active.expires_at).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`
+                ? `Active. Anyone with this card or link can see it, without signing in. Valid until ${new Date(active.expires_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })}.`
                 : "Optional, and separate from your printed card. Useful if someone abroad wants to check your details are current, but unlike the printed card, this stays reachable by anyone who has the link, for as long as it's active."}
             </CardDescription>
           </CardHeader>
@@ -185,7 +184,7 @@ export default async function EmergencyCardPage() {
                 <ul className="space-y-1">
                   {lookups.map((l) => (
                     <li key={l.id} className="text-sm text-charcoal-ink/75">
-                      {new Date(l.looked_up_at).toLocaleString("en-GB", {
+                      {new Date(l.looked_up_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
                         day: "numeric",
                         month: "short",
                         year: "numeric",

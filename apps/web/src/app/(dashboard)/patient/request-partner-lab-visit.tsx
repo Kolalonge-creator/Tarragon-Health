@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import type { Database } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 type TimeOfDay = Database["public"]["Enums"]["lab_order_time_of_day"];
 
 const TIME_OF_DAY_OPTIONS: { value: TimeOfDay; label: string }[] = [
@@ -53,7 +54,7 @@ export function RequestPartnerLabVisit({
     return (
       <p className="text-xs text-charcoal-ink/60">
         Request sent. The lab will confirm your {timeOfDay} visit on{" "}
-        {new Date(scheduledDate).toLocaleDateString()}.
+        {formatPatientDate(scheduledDate)}.
       </p>
     );
   }

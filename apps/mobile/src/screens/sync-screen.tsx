@@ -30,6 +30,9 @@ interface PendingReading {
    * anywhere yet. */
   status: "pending" | "saving" | "saved" | "queued" | "error";
   error?: string;
+  /** Remembered from the save attempt so a retry after "error" doesn't have
+   * to re-ask the fasting/random/after-a-meal question. */
+  glucoseContext?: GlucoseContext;
 }
 
 interface SyncScreenProps {
@@ -130,7 +133,8 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
     // without waiting on the next 15-minute-floor background run (see
     // background-sync.ts, which also flushes this queue on its own cadence
     // as the reliable fallback for when this screen never reopens at all).
-    flushDeviceReadingsQueue();
+    // Best-effort by design: a failed flush just waits for the next cadence.
+    flushDeviceReadingsQueue().catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -165,7 +169,7 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
   }, [device.ble_device_id, device.device_type, supported]);
 
   async function save(item: PendingReading, glucoseContext?: GlucoseContext) {
-    setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "saving" } : p)));
+    setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "saving", glucoseContext } : p)));
 
     const { reading } = item;
     const taken_at = reading.timestamp ?? new Date().toISOString();
@@ -281,10 +285,15 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
             {item.status === "queued" && (
               <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
                 <Ionicons name="cloud-offline-outline" size={18} color={colors.muted} />
-                <MutedText>Saved — will finish uploading once you&apos;re back online.</MutedText>
+                <MutedText>Saved. It will finish uploading once you&apos;re back online.</MutedText>
               </View>
             )}
-            {item.status === "error" && <ErrorText>{item.error}</ErrorText>}
+            {item.status === "error" && (
+              <View style={{ gap: 8 }}>
+                <ErrorText>{item.error}</ErrorText>
+                <SecondaryButton title="Try again" onPress={() => void save(item, item.glucoseContext)} />
+              </View>
+            )}
           </Card>
         )}
       />

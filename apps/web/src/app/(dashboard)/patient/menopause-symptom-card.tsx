@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * Menopause (§44.12): symptom tracking, informational only. Lifestyle
  * support and clinical consultation are
@@ -122,7 +123,7 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
             <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">Recent</p>
             {logs.data.slice(0, 5).map((log) => (
               <p key={log.id} className="text-sm text-charcoal-ink/80">
-                {new Date(log.logged_at).toLocaleDateString()}:{" "}
+                {formatPatientDate(log.logged_at)}:{" "}
                 {log.symptom_types.map((t) => MENOPAUSE_SYMPTOM_LABEL[t]).join(", ") || "no symptoms"}
                 {log.postmenopausal_bleeding ? " · bleeding reported" : ""}
               </p>

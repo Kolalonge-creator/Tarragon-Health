@@ -26,6 +26,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const GOAL_QUERY_KEY = "activity-goal";
 const TODAY_STEPS_KEY = "today-steps";
 const ENTRIES_KEY = "activity-entries";
@@ -86,7 +87,7 @@ function groupLabel(dateKey: string): string {
   });
   if (dateKey === today) return "Today";
   if (dateKey === yesterday) return "Yesterday";
-  return new Date(dateKey).toLocaleDateString(undefined, {
+  return formatPatientDate(dateKey, {
     month: "long",
     day: "numeric",
     year: "numeric",

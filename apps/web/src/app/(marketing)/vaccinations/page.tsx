@@ -165,9 +165,9 @@ export default function VaccinationsPage() {
             </Link>{" "}
             for how that works. Vaccinations are one part of{" "}
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
-              Tarragon Prevent
+              preventive health at Tarragon
             </Link>
-            , which also builds your screening calendar and yearly Health Check.
+            , which also builds your free screening calendar and your yearly Health Check.
           </p>
         </div>
       </Section>

@@ -7,7 +7,10 @@ import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { LIPID_ANALYTE_META, isLipidAnalyteCode } from "@/lib/lipids/analytes";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const VITAL_LABEL: Record<string, string> = {
   blood_pressure: "Blood pressure",
   glucose: "Glucose",
@@ -64,37 +67,31 @@ export default async function HealthPassportPage() {
   const supabase = await createClient();
   const data = await getHealthPassportData(supabase, profile.id, profile.organisation_id);
 
-  const periodLabel = `${new Date(data.periodStart).toLocaleDateString()} – ${new Date(
-    data.periodEnd
-  ).toLocaleDateString()}`;
+  const periodLabel = `${formatPatientDate(data.periodStart)} – ${formatPatientDate(data.periodEnd)}`;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-            Your Health Passport
-          </h1>
-          <p className="text-charcoal-ink/60">
-            A summary of your health record for {periodLabel}, for your own records or to
-            share with another doctor. Not a substitute for your full medical record.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link
-            href="/api/patient/health-passport/pdf"
-            className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            Download PDF
-          </Link>
-          <Link
-            href="/api/patient/data-export/json"
-            className="rounded-md border border-brand-green px-4 py-2 text-sm font-medium text-brand-green hover:bg-brand-green/5"
-          >
-            Download your complete record
-          </Link>
-        </div>
-      </div>
+      <PageHeader
+        title="Your Health Passport"
+        icon={NAV_ICON.passport}
+        description={`A summary of your health record for ${periodLabel}, for your own records or to share with another doctor. Not a substitute for your full medical record.`}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/api/patient/health-passport/pdf"
+              className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Download PDF
+            </Link>
+            <Link
+              href="/api/patient/data-export/json"
+              className="rounded-md border border-brand-green px-4 py-2 text-sm font-medium text-brand-green hover:bg-brand-green/5"
+            >
+              Download your complete record
+            </Link>
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card>
@@ -116,11 +113,11 @@ export default async function HealthPassportPage() {
                 {data.vitals.map((v) => (
                   <li key={v.vitalType} className="flex items-center justify-between py-2">
                     <span className="text-sm font-medium text-charcoal-ink">
-                      {VITAL_LABEL[v.vitalType] ?? v.vitalType}
+                      {VITAL_LABEL[v.vitalType] ?? v.vitalType.replace(/_/g, " ")}
                     </span>
                     <span className="text-sm text-charcoal-ink/60">
                       {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
-                      period · last logged {new Date(v.takenAt).toLocaleDateString()}
+                      period · last logged {formatPatientDate(v.takenAt)}
                     </span>
                   </li>
                 ))}
@@ -173,7 +170,7 @@ export default async function HealthPassportPage() {
                   <span className="font-medium text-charcoal-ink">{labResultLabel(r.code)}</span>
                   <span className="text-charcoal-ink/60">
                     {r.code === "hba1c" ? formatHba1cWithBracket(r.value) : `${r.value} ${r.unit}`} ·{" "}
-                    {new Date(r.takenAt).toLocaleDateString()}
+                    {formatPatientDate(r.takenAt)}
                   </span>
                 </li>
               ))}

@@ -75,8 +75,10 @@ export async function HealthProgressCard({ patientId }: { patientId: string }) {
                 <span className="font-medium text-charcoal-ink">{rounded}%</span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
+                {/* Clinical status colours (green/amber), never brand-green: this bar
+                    communicates status, and the two colour systems must not mix. */}
                 <div
-                  className={`h-full rounded-full ${rounded >= 70 ? "bg-brand-green" : "bg-amber-500"}`}
+                  className={`h-full rounded-full ${rounded >= 70 ? "bg-green-500" : "bg-amber-500"}`}
                   style={{ width: `${rounded}%` }}
                 />
               </div>

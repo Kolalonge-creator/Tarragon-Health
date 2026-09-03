@@ -10,6 +10,7 @@ import { ageMonthsFromDateOfBirth, developmentalAgeBandFor, DEVELOPMENTAL_DOMAIN
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+import { formatPatientDate } from "@/lib/format-date";
 type Answer = "yes" | "sometimes" | "not_yet";
 
 const ANSWER_LABEL: Record<Answer, string> = {
@@ -68,7 +69,7 @@ export function DevelopmentalScreeningCard({
         {latest && (
           <div className="rounded-lg border border-charcoal-ink/10 bg-off-white p-3 text-sm">
             <p className="font-medium text-charcoal-ink">
-              Last screening: {new Date(latest.screening_date).toLocaleDateString()}
+              Last screening: {formatPatientDate(latest.screening_date)}
             </p>
             {latest.overall_flag ? (
               <p className="mt-1 text-amber-700">

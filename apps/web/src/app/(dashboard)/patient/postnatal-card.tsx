@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
+import { formatPatientDate } from "@/lib/format-date";
 const CHECKIN_LABEL: Record<(typeof CHECKIN_WINDOWS)[number], string> = {
   week_1: "Week 1",
   week_6: "Week 6",
@@ -68,7 +69,7 @@ export function PostnatalCard({ patientId }: { patientId: string }) {
       <CardContent className="space-y-4">
         {latest ? (
           <div className="rounded-md border border-charcoal-ink/10 p-3 text-sm">
-            <p className="font-medium">Delivered {new Date(latest.delivery_date).toLocaleDateString()}</p>
+            <p className="font-medium">Delivered {formatPatientDate(latest.delivery_date)}</p>
             <p className="text-charcoal-ink/70 capitalize">{latest.delivery_mode.replace("_", " ")}</p>
           </div>
         ) : (

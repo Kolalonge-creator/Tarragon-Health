@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
@@ -27,6 +28,7 @@ import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
 import { HealthStatusBanner } from "@/components/health-status-banner";
+import { formatPatientDate } from "@/lib/format-date";
 
 // Clinical dashboard status colours (a separate system from brand colour, per
 // the brand guide) — same convention as vitals-history.tsx's LEVEL_STYLE,
@@ -52,6 +54,14 @@ const BP_DELTA_DIRECTION: Record<Exclude<BpLevel, "unknown">, "up" | "down" | "f
   red: "down",
   emergency: "down",
 };
+
+/** Small Suspense fallback for one streamed-in card — the independent async
+ * server-component cards below each run their own queries, so wrapping them
+ * lets the rest of the page paint instead of the whole Overview waiting on
+ * the slowest one. Matches (sections)/loading.tsx's pulse-block treatment. */
+function CardSkeleton({ className = "h-40" }: { className?: string }) {
+  return <div aria-hidden className={`animate-pulse rounded-2xl bg-charcoal-ink/[0.07] ${className}`} />;
+}
 
 export default async function PatientOverviewPage() {
   const { subjectId, acting, subjectSex, subjectDateOfBirth } = await getPatientDashboardContext();
@@ -124,7 +134,9 @@ export default async function PatientOverviewPage() {
           same real, priority-ordered "next best step" as before; only the
           presentation moved from an inline card to this banner (Tarragon
           Health Web Dashboard design, 2026-08-09). */}
-      <NextBestAction patientId={subjectId} />
+      <Suspense fallback={<CardSkeleton className="h-32 sm:h-28" />}>
+        <NextBestAction patientId={subjectId} />
+      </Suspense>
 
       {/* The everyday jobs, one tap from the top of the page — including the
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
@@ -175,7 +187,7 @@ export default async function PatientOverviewPage() {
               label="Next screening"
               value={
                 prevention.nextScreening
-                  ? new Date(prevention.nextScreening.dueDate).toLocaleDateString("en-GB", {
+                  ? formatPatientDate(prevention.nextScreening.dueDate, {
                       day: "numeric",
                       month: "short",
                     })
@@ -221,7 +233,9 @@ export default async function PatientOverviewPage() {
           (spec: "avoid presenting a misleading single health score ... a
           prevention completion dashboard is safer and more actionable"),
           answering "what's outstanding" rather than "how am I doing overall". */}
-      <PreventionCompletionCard patientId={subjectId} />
+      <Suspense fallback={<CardSkeleton className="h-32" />}>
+        <PreventionCompletionCard patientId={subjectId} />
+      </Suspense>
 
       {/* Behavioural engagement across areas (Patient Engagement Engine
           spec §16.5) — distinct from both cards above: HealthScoreCard is
@@ -229,7 +243,9 @@ export default async function PatientOverviewPage() {
           completion. This one answers "am I keeping up" more broadly
           (monitoring, appointments, medication, lifestyle, prevention, care
           plan), same self-hiding + no-single-score conventions. */}
-      <HealthProgressCard patientId={subjectId} />
+      <Suspense fallback={<CardSkeleton className="h-32" />}>
+        <HealthProgressCard patientId={subjectId} />
+      </Suspense>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <VitalsTrendChart patientId={subjectId} />
@@ -237,7 +253,9 @@ export default async function PatientOverviewPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <CareScheduleCard patientId={subjectId} />
+        <Suspense fallback={<CardSkeleton className="h-56" />}>
+          <CareScheduleCard patientId={subjectId} />
+        </Suspense>
         <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" />
       </div>
 
@@ -271,7 +289,9 @@ export default async function PatientOverviewPage() {
           is a quick action at the top of the page — but the thread itself
           still belongs on Overview rather than buried in Care & support
           (2026-07-30 patient-experience pass). */}
-      <YourCareTeam patientId={subjectId} />
+      <Suspense fallback={<CardSkeleton className="h-40" />}>
+        <YourCareTeam patientId={subjectId} />
+      </Suspense>
       <RequiresEntitlement
         feature="doctor_checkin"
         fallback={<UpgradePrompt feature="doctor_checkin" />}

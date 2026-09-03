@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import type { ContractPerformance } from "@/lib/outcomes-contracts/get-contract-performance";
 
+import { formatPatientDate } from "@/lib/format-date";
 const CONTRACT_TYPE_LABEL: Record<ContractPerformance["contractType"], string> = {
   fee_at_risk: "Fee-at-risk (outcomes-based)",
   flat: "Flat fee",
@@ -21,7 +22,7 @@ export function ContractStatusCard({ performance }: { performance: ContractPerfo
       </CardHeader>
       <CardContent className="space-y-3">
         <CardDescription>
-          Effective {new Date(performance.effectiveFrom).toLocaleDateString()}
+          Effective {formatPatientDate(performance.effectiveFrom)}
           {performance.payoutTerms ? ` · ${performance.payoutTerms}` : ""}
         </CardDescription>
         {performance.thresholds.length > 0 && (

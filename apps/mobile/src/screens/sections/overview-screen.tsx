@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
   getCareSchedule,
@@ -14,6 +14,7 @@ import {
   type SummaryStats,
   type UpcomingVideoVisit,
 } from "@/lib/overview";
+import { todayIsoDate } from "@/lib/medications";
 import { colors, spacing } from "@/ui/theme";
 import {
   Card,
@@ -35,6 +36,58 @@ interface OverviewScreenProps {
   onNavigate: (section: SectionId) => void;
 }
 
+interface NextBestStep {
+  title: string;
+  body: string;
+  ctaLabel: string;
+  target: SectionId;
+}
+
+/** Derived from the stats already loaded, so the card stays honest rather
+ * than always saying "log a reading" to a patient who already has: doses
+ * still open today come first, then a missing reading, then a calm default. */
+function nextBestStep(stats: SummaryStats): NextBestStep {
+  const dosesRemaining = stats.dosesTotal - stats.dosesTaken;
+  if (dosesRemaining > 0) {
+    return {
+      title: dosesRemaining === 1 ? "One dose still to log today" : `${dosesRemaining} doses still to log today`,
+      body: "Marking each dose as you take it helps your care team see how your treatment is really going.",
+      ctaLabel: "Open medications",
+      target: "medications",
+    };
+  }
+  const lastReadingDay = stats.lastVitalTakenAt
+    ? new Date(stats.lastVitalTakenAt).toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" })
+    : null;
+  if (lastReadingDay !== todayIsoDate()) {
+    return {
+      title: "Log a reading today",
+      body: "A fresh reading keeps your care team's picture of you current. It takes under a minute.",
+      ctaLabel: "Log a reading",
+      target: "vitals",
+    };
+  }
+  return {
+    title: "You're on track today",
+    body: "Your doses are logged and a fresh reading is on file. Add another reading any time you like.",
+    ctaLabel: "Log another reading",
+    target: "vitals",
+  };
+}
+
+/** "Tue, 14:00" reads as this coming Tuesday, which is wrong for a visit
+ * weeks out — include the date whenever it isn't within the next 6 days. */
+function formatVisitTime(iso: string): string {
+  const when = new Date(iso);
+  const withinSixDays = when.getTime() - Date.now() < 6 * 86_400_000;
+  return when.toLocaleString(
+    [],
+    withinSixDays
+      ? { weekday: "short", hour: "2-digit", minute: "2-digit" }
+      : { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }
+  );
+}
+
 export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewScreenProps) {
   const [stats, setStats] = useState<SummaryStats | null>(null);
   const [careTeam, setCareTeam] = useState<CareTeamInfo | null>(null);
@@ -43,6 +96,12 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
   const [videoVisit, setVideoVisit] = useState<UpcomingVideoVisit | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  // A failed stats fetch must never render as "Active meds 0" — the screen
+  // shows an explicit error state instead (statsError), and a failure in any
+  // of the secondary cards shows an inline retry notice (partialError)
+  // rather than silently hiding the card as if it were empty.
+  const [statsError, setStatsError] = useState(false);
+  const [partialError, setPartialError] = useState(false);
 
   const load = useCallback(async () => {
     const [s, ct, sc, act, vv] = await Promise.all([
@@ -52,31 +111,69 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
       getRecentActivity(patientId),
       getUpcomingVideoVisit(patientId),
     ]);
-    setStats(s);
-    setCareTeam(ct);
-    setSchedule(sc);
-    setActivity(act);
-    setVideoVisit(vv);
+    setStats(s.ok ? s.data : null);
+    setStatsError(!s.ok);
+    if (ct.ok) setCareTeam(ct.data);
+    if (sc.ok) setSchedule(sc.data);
+    if (act.ok) setActivity(act.data);
+    if (vv.ok) setVideoVisit(vv.data);
+    setPartialError(!ct.ok || !sc.ok || !act.ok || !vv.ok);
   }, [patientId]);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    load()
+      .catch(() => setStatsError(true))
+      .finally(() => setLoading(false));
   }, [load]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    load().finally(() => setRefreshing(false));
+    load()
+      .catch(() => setStatsError(true))
+      .finally(() => setRefreshing(false));
+  }, [load]);
+
+  const retry = useCallback(() => {
+    setLoading(true);
+    setStatsError(false);
+    load()
+      .catch(() => setStatsError(true))
+      .finally(() => setLoading(false));
   }, [load]);
 
   const firstName = patientName.split(/\s+/)[0] ?? patientName;
 
-  if (loading || !stats) {
+  if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
         <ActivityIndicator color={colors.brand} />
       </View>
     );
   }
+
+  if (statsError || !stats) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          padding: spacing.screen,
+          gap: 12,
+          backgroundColor: colors.background,
+        }}
+      >
+        <Ionicons name="cloud-offline-outline" size={28} color={colors.faint} />
+        <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
+          We couldn&apos;t load this right now
+        </Text>
+        <MutedText>Your record is safe. Check your connection and try again.</MutedText>
+        <PrimaryButton title="Tap to retry" onPress={retry} />
+      </View>
+    );
+  }
+
+  const step = nextBestStep(stats);
 
   return (
     <ScrollView
@@ -89,6 +186,19 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
         <MutedText>Today at a glance: your numbers, your care team, and recent activity.</MutedText>
       </View>
 
+      {partialError ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Some of this page could not load. Tap to retry."
+          onPress={onRefresh}
+        >
+          <Card style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Ionicons name="refresh-outline" size={18} color={colors.muted} />
+            <MutedText>Some of this page couldn&apos;t load right now. Tap to retry.</MutedText>
+          </Card>
+        </Pressable>
+      ) : null}
+
       <Card style={{ gap: 4, borderColor: "rgba(14,124,82,0.3)", backgroundColor: "rgba(14,124,82,0.04)" }}>
         <View style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
           <Ionicons name="shield-checkmark-outline" size={20} color={colors.brand} />
@@ -97,17 +207,20 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
               Next best step
             </Text>
             <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
-              Log a reading today
+              {step.title}
             </Text>
             <Text style={{ fontSize: 13, color: "rgba(23,23,23,0.7)", marginTop: 2 }}>
-              A fresh reading keeps your care team&apos;s picture of you current — it takes under a minute.
+              {step.body}
             </Text>
-            <Text
-              onPress={() => onNavigate("vitals")}
-              style={{ fontSize: 13, fontWeight: "600", color: colors.brand, marginTop: 4 }}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={step.ctaLabel}
+              onPress={() => onNavigate(step.target)}
+              hitSlop={8}
+              style={{ alignSelf: "flex-start", paddingVertical: 6 }}
             >
-              Log a reading →
-            </Text>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}>{step.ctaLabel} →</Text>
+            </Pressable>
           </View>
         </View>
       </Card>
@@ -121,11 +234,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
                 Video visit
               </Text>
               <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
-                {new Date(videoVisit.scheduledAt).toLocaleString([], {
-                  weekday: "short",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                {formatVisitTime(videoVisit.scheduledAt)}
               </Text>
             </View>
           </View>
@@ -135,7 +244,10 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
             // client otherwise. Same handoff the Care & support WebView
             // already does for this link; surfaced here too since Overview is
             // the screen a patient opens most (MOBILE_APP_SPEC.md §8).
-            <PrimaryButton title="Join call" onPress={() => void Linking.openURL(videoVisit.joinUrl!)} />
+            <PrimaryButton
+              title="Join call"
+              onPress={() => void Linking.openURL(videoVisit.joinUrl!).catch(() => {})}
+            />
           ) : (
             <MutedText>Your join link will appear here once your doctor confirms the time.</MutedText>
           )}
@@ -177,7 +289,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
       {careTeam ? (
         <Card style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
           <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: colors.navy, alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>CT</Text>
+            <Ionicons name="people-outline" size={18} color="#fff" />
           </View>
           {/* care_team_assignment.clinician_id is internal routing/rota only —
               mirrors your-care-team.tsx (web): deliberately never rendered as
@@ -190,9 +302,15 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
               A team of MDCN-registered doctors follows your readings and checks in with you.
             </MutedText>
           </View>
-          <Text onPress={() => onNavigate("messages")} style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand }}>
-            Message
-          </Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Message your care team"
+            onPress={() => onNavigate("messages")}
+            hitSlop={10}
+            style={{ paddingVertical: 8, paddingHorizontal: 4 }}
+          >
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand }}>Message</Text>
+          </Pressable>
         </Card>
       ) : null}
 

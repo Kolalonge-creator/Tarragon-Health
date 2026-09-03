@@ -447,7 +447,7 @@ function DecidedRow({ action }: { action: CaseReviewAction }) {
 // first render and the browser's on hydration, a real mismatch already caught
 // on the case-brief card.
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",

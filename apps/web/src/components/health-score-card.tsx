@@ -13,6 +13,7 @@ import {
   type HealthScoreRiskLevel,
 } from "@/lib/rules/health-score";
 
+import { formatPatientDate } from "@/lib/format-date";
 // Clinical-dashboard status colors (green/amber/red) — a separate system
 // from brand color, per CLAUDE.md. Matches risk-assessment-display.tsx's
 // low/moderate/high convention, extended with very_high.
@@ -72,7 +73,7 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
             </div>
             <p className="text-xs text-charcoal-ink/60">
               A non-diagnostic summary of a few everyday habits and numbers we already have on
-              file, not a medical diagnosis. Updated {new Date(data.computed_at).toLocaleDateString()}.
+              file, not a medical diagnosis. Updated {formatPatientDate(data.computed_at)}.
             </p>
             {trend && (
               <p className="rounded-md bg-soft-sage px-3 py-2 text-sm text-deep-forest">

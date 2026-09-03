@@ -10,7 +10,7 @@ interface StoredInterpretation {
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 }
 
 /**

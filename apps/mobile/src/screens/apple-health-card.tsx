@@ -25,9 +25,15 @@ export function AppleHealthCard() {
 
   useEffect(() => {
     let active = true;
-    isHealthKitAvailable().then((value) => {
-      if (active) setAvailable(value);
-    });
+    isHealthKitAvailable()
+      .then((value) => {
+        if (active) setAvailable(value);
+      })
+      .catch(() => {
+        // Treat "couldn't even check" as unavailable — hiding the card is
+        // the same rule as any device where HealthKit can't work.
+        if (active) setAvailable(false);
+      });
     return () => {
       active = false;
     };
@@ -128,7 +134,7 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
  * sync still ran and a later attempt (manual or the background task) simply
  * retries the same delta. */
 function PartialSyncNote() {
-  return <MutedText>Some readings couldn&apos;t be checked this time — we&apos;ll try again.</MutedText>;
+  return <MutedText>Some readings couldn&apos;t be checked this time. We&apos;ll try again.</MutedText>;
 }
 
 /** Shown when this sync's offline-queue flush (offline-queue.ts) uploaded

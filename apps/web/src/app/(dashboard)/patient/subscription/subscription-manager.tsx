@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatPatientDate } from "@/lib/format-date";
 
 function formatPrice(priceKobo: number, currency: Currency): string {
   if (priceKobo === 0) return "Free";
@@ -20,7 +21,7 @@ function formatDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return formatPatientDate(d, { day: "numeric", month: "long", year: "numeric" });
 }
 
 /**
@@ -72,7 +73,8 @@ export function SubscriptionManager() {
           <CardContent>
             {active.length === 0 ? (
               <p className="text-sm text-charcoal-ink/60">
-                Nothing active yet. You&apos;re on Tarragon Free. Buy a service to unlock more.
+                Nothing active yet. The app itself is free; you only ever pay for a doctor&apos;s
+                time. Buy a service when you want one.
               </p>
             ) : (
               <ul className="divide-y divide-charcoal-ink/10">

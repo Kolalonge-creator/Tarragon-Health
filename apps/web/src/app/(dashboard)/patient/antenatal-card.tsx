@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * Antenatal tracking (§44.6/44.7): a gestational-week estimate (never
  * presented as a confirmed clinical dating — see lib/rules/gestational-age.ts)
@@ -56,7 +57,7 @@ export function AntenatalCard({
         {estimate ? (
           <p className="text-sm text-charcoal-ink/80">
             Estimated {estimate.weeks} weeks pregnant. This is an estimate, not a confirmed clinical
-            dating. Estimated due date: {new Date(estimate.estimatedDueDate).toLocaleDateString()}.
+            dating. Estimated due date: {formatPatientDate(estimate.estimatedDueDate)}.
           </p>
         ) : (
           <p className="text-sm text-charcoal-ink/60">

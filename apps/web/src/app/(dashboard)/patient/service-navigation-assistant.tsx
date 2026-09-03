@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -54,7 +53,10 @@ export function ServiceNavigationAssistant() {
 
         {result && (
           <div className="space-y-2 rounded-md border border-mist-grey/60 bg-mist-grey/20 p-3">
-            <Badge variant="grey">AI-drafted: from our facility directory, not a recommendation</Badge>
+            <p className="flex items-start gap-1.5 text-xs text-charcoal-ink/60">
+              <SEMANTIC_ICON.aiCoach className="mt-0.5 h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
+              AI-drafted: from our facility directory, not a recommendation
+            </p>
 
             {result.status === "failed" && (
               <p className="text-sm text-charcoal-ink/60">{result.error}</p>

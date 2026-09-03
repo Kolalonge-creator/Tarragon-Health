@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * One enrolled condition's lifestyle-programme card — phase, goals, next
  * review, quick check-in. Extracted so both `/patient/lifestyle` (every
@@ -59,7 +60,7 @@ export function ConditionEnrollmentCard({ enrollment }: { enrollment: LifestyleE
             {enrollment.nextReviewDue && (
               <p className="text-muted-foreground text-xs">
                 Next care-team review:{" "}
-                {new Date(enrollment.nextReviewDue).toLocaleDateString()}
+                {formatPatientDate(enrollment.nextReviewDue)}
               </p>
             )}
             {enrollment.conditionKey && (

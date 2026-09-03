@@ -13,6 +13,7 @@ import {
 } from "@/lib/queries/menstrual-cycle";
 import { Input } from "@/components/ui/input";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * The per-day log: flow, symptoms and mood for one date.
  *
@@ -125,7 +126,7 @@ export function CycleDayLog({
     existing?.ovulation_test_result ?? null
   );
 
-  const readableDate = new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
+  const readableDate = formatPatientDate(`${date}T00:00:00Z`, {
     weekday: "long",
     day: "numeric",
     month: "long",

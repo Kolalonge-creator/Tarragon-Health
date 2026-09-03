@@ -8,6 +8,8 @@ import { Section, SectionHeading } from "../_components/section";
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
+import { servicePrice, type ResolvedServicePrices } from "../_content/pricing";
 import { GiftPersonalizer } from "./_components/gift-personalizer";
 
 export const metadata: Metadata = pageMetadata({
@@ -17,44 +19,59 @@ export const metadata: Metadata = pageMetadata({
   path: MARKETING_ROUTES.gift,
 });
 
+// Same refresh cadence as /pricing: live prices are read at request time and
+// cached for an hour, so a repricing shows here without a deploy.
+export const revalidate = 3600;
+
 const WAYS_TO_GIVE = [
   {
     title: "Buy them a named health check",
     body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check (Core Screen, or whichever they need) at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
   },
   {
-    title: "Buy them a year of care",
-    body: "The wider option: buy a year of their plan instead of one check. Pay for it in one go or bit by bit. They start the year whenever they are ready, nothing renews afterwards so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
+    title: "Buy them a doctor's time",
+    body: "The wider option: buy them a paid service instead of one check, such as the 12-week doctor-supported programme for blood pressure or blood sugar. Pay for it in one go or bit by bit. They start whenever they are ready, nothing renews afterwards so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
   },
   {
+    // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
+    // hardcodes reward_kobo = 50000 (migration 20260724113718). Update this
+    // line (and _content/pricing.ts) together if that ever changes.
     title: "Invite them, you both get a reward",
     body: "If they are not on Tarragon yet, share your personal referral link. Signing up is free. Once they complete their first paid order, you both receive a ₦500 reward voucher toward your care. It is a discount, not cash, and it cannot be exchanged for money.",
   },
 ];
 
-const GIFT_IDEAS = [
-  {
-    title: "Core Screen",
-    price: "One check, paid for once",
-    body: "Their once-a-year look at the things worth checking every year: liver, kidneys, blood sugar, cholesterol, urine, blood count and HIV status. A doctor reads every result with them, in writing, with a downloadable report. If they'd also like a live video consult to talk it through, that's a separate low-cost booking they can add whenever they want one.",
-  },
-  {
-    title: "A year of Complete Care",
-    price: "Bought once, theirs to start",
-    body: "Doctor review of their readings, their whole screening schedule worked out for them, and someone reading every result that comes back. Results go to them and their doctor, never to you.",
-  },
-  {
-    title: "A year of Tarragon Prevent",
-    price: "The lighter option",
-    body: "Their screening calendar worked out for them, reminders when something is due, and a doctor reading whatever they upload.",
-  },
-];
+/**
+ * The two priced ideas are real service_products rows from the pay-per-service
+ * catalogue (_content/pricing.ts's PAID_SERVICES) — never a plan, which no
+ * longer exists to sell. Prices resolve through the same live override map the
+ * pricing page uses, falling back to the catalogue's declared defaults.
+ */
+function giftIdeas(overrides: ResolvedServicePrices) {
+  return [
+    {
+      title: "Core Screen",
+      price: "One check, paid for once",
+      body: "Their once-a-year look at the things worth checking every year: liver, kidneys, blood sugar, cholesterol, urine, blood count and HIV status. A doctor reads every result with them, in writing, with a downloadable report. If they'd also like a live video consult to talk it through, that's a separate low-cost booking they can add whenever they want one.",
+    },
+    {
+      title: "12-week doctor-supported programme",
+      price: `${servicePrice("chronic_doctor_supported_pack", overrides)}, bought once`,
+      body: "For someone managing high blood pressure or diabetes: twelve weeks where a doctor sets their care plan, reviews their readings, adjusts their medication, and is alerted if a reading is dangerous. It runs its twelve weeks and simply ends; nothing renews on its own.",
+    },
+    {
+      title: "A video visit with a doctor",
+      price: `${servicePrice("video_visit_credit", overrides)}, one visit`,
+      body: "The lighter option: one online consultation with a doctor, theirs to book from their own account whenever suits them. A good way to talk through a result or a worry properly.",
+    },
+  ];
+}
 
 const GIFT_FAQ: FaqItem[] = [
   {
     question: "What exactly am I buying?",
     answer:
-      "Either one named health check (Core Screen and others) or a year of one of our care plans, for someone specific, never a top-up balance. It sits on their account with their name on it until they choose to use it.",
+      "Either one named health check (Core Screen and others) or a specific paid service, like the 12-week doctor-supported programme or a video visit, for someone specific, never a top-up balance. It sits on their account with their name on it until they choose to use it. The app itself is free, so what you are buying is always a doctor's time.",
   },
   {
     question: "Who can I buy this for?",
@@ -69,27 +86,27 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "Can I pay for their lab tests too?",
     answer:
-      "For a named health check, yes, that is exactly what you are buying: Tarragon bills one real price and settles with the laboratory directly, so there is nothing further for them to pay at the lab. For a year-of-care plan, laboratories are paid directly by whoever is standing in one, at that lab's price. If you want to help with a test on that plan, the practical way is to send them what it costs.",
+      "For a named health check, yes, that is exactly what you are buying: Tarragon bills one real price and settles with the laboratory directly, so there is nothing further for them to pay at the lab. For everything else, laboratories and pharmacies are paid directly by whoever is standing in one, at that provider's price; Tarragon sets no price on those and takes no cut. If you want to help with a test like that, the practical way is to send them what it costs.",
   },
   {
     question: "Will I see their results?",
     answer:
-      "No. Results go to them and their doctor, never to you. You will only be told when something you paid for is ready to use or due to renew.",
+      "No. Results go to them and their doctor, never to you. You will only be told when something you paid for is ready to use, and later that it was used.",
   },
   {
     question: "What if I am buying from outside Nigeria?",
     answer:
-      "That's fine. Checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The year still sits on their account until they are ready to start it.",
+      "That's fine. Checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The gift still sits on their account until they are ready to use it.",
   },
   {
-    question: "What if they are already a Tarragon member?",
+    question: "What if they are already using Tarragon?",
     answer:
-      "It adds a year to their existing plan instead, so a gift never bills them twice.",
+      "Even better: the app is free for everyone, so there is no plan to clash with. What you buy simply sits on their account alongside anything they already have, and a gift never bills them twice.",
   },
   {
     question: "Can I pay in instalments?",
     answer:
-      "Yes. Pay the whole year at once or spread it over as many instalments as you like. Nothing expires while you are still paying.",
+      "Yes. Pay the whole amount at once or spread it over as many instalments as you like. Nothing expires while you are still paying.",
   },
 ];
 
@@ -101,8 +118,8 @@ const HOW_IT_WORKS = [
   },
   {
     step: 2,
-    title: "Choose the check",
-    body: "From your dashboard, pick the check you want them to have and who it is for. Reserving it is free.",
+    title: "Choose the check or service",
+    body: "From your dashboard, pick the check or paid service you want them to have and who it is for. Reserving it is free.",
   },
   {
     step: 3,
@@ -112,11 +129,13 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "They start it whenever suits them",
-    body: "The voucher sits on their account and they choose when the year begins. If they are already on a plan it adds a year to that instead, so a gift never bills them twice.",
+    body: "The voucher sits on their account, named to them, and they choose when to use it. Nothing renews afterwards, and a gift never bills them twice.",
   },
 ];
 
-export default function GiftPage() {
+export default async function GiftPage() {
+  const priceOverrides = await fetchServicePriceOverrides();
+  const ideas = giftIdeas(priceOverrides);
   return (
     <>
       {/* Rendered outside Section on purpose — full-bleed spans the full
@@ -136,8 +155,8 @@ export default function GiftPage() {
 
       <Section className="pb-0 pt-10 sm:pt-14">
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/60">
-          Already a member? Open the care vouchers card on your dashboard to buy a health check or
-          a year of care for someone, or share your referral link.
+          Already using Tarragon? Open the care vouchers card on your dashboard to buy a health
+          check or a paid service for someone, or share your referral link.
         </p>
       </Section>
 
@@ -162,7 +181,7 @@ export default function GiftPage() {
           <MarketingMediaFrame
             media={{
               illustration: "gift-record",
-              imageAlt: "A year of care, given as a named gift rather than a balance",
+              imageAlt: "A doctor's time, given as a named gift rather than a balance",
             }}
           />
         </div>
@@ -179,7 +198,7 @@ export default function GiftPage() {
       <Section>
         <SectionHeading eyebrow="Ideas" title="What to gift" />
         <div className="mx-auto grid max-w-2xl gap-6 md:grid-cols-2">
-          {GIFT_IDEAS.map((item) => (
+          {ideas.map((item) => (
             <div key={item.title} className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
               <h3 className="font-heading text-lg font-semibold text-charcoal-ink">{item.title}</h3>
               <p className="mt-1 font-heading text-xl font-bold text-brand-green">{item.price}</p>
@@ -222,7 +241,7 @@ export default function GiftPage() {
         <CtaBand
           variant="gradient"
           title="Give someone the gift of being looked after."
-          description="Buy them a health check or a year of care, or send them your referral link. Either way it is care, not a card that expires."
+          description="Buy them a health check or a doctor's time, or send them your referral link. Either way it is care, not a card that expires."
           primaryHref="/login"
           primaryLabel="Buy someone a health check"
           secondaryHref="/signup?intent=support"

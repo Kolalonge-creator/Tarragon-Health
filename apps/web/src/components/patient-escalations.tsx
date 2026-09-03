@@ -16,7 +16,7 @@ const PATIENT_STATUS_COPY: Record<EscalationStatus, string> = {
 };
 
 function formatDate(createdAt: string): string {
-  return new Date(createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(createdAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**

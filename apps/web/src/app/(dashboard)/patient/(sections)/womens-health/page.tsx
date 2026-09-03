@@ -1,10 +1,12 @@
-import { redirect } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { computeGestationalEstimate } from "@/lib/rules/gestational-age";
 import { contraceptionCautionNote, menopauseTreatmentCautionNote, type CarePlanCondition } from "@/lib/rules/womens-health-intersections";
 import { Card, CardContent } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { DashboardSection } from "@/components/ui/dashboard-section";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-health-card";
 import { ContraceptionCard } from "@/app/(dashboard)/patient/contraception-card";
 import { AntenatalCard } from "@/app/(dashboard)/patient/antenatal-card";
@@ -13,6 +15,7 @@ import { PostnatalCard } from "@/app/(dashboard)/patient/postnatal-card";
 import { BreastSymptomCard } from "@/app/(dashboard)/patient/breast-symptom-card";
 import { MenopauseSymptomCard } from "@/app/(dashboard)/patient/menopause-symptom-card";
 import { FertilityRequestCard } from "@/app/(dashboard)/patient/fertility-request-card";
+import { formatPatientDate } from "@/lib/format-date";
 
 /**
  * Women's Health (spec §44) — one destination integrating prevention,
@@ -33,9 +36,51 @@ export default async function WomensHealthPage() {
   const { profile, subjectId } = await getPatientDashboardContext();
 
   // Same gate as ReproductiveHealthCard/PreventionHub's Women's Health
-  // programme — this whole section is scoped to female patients.
+  // programme — this whole section is scoped to female patients. Rendered as
+  // a friendly gate rather than a redirect: this page is a permanent sidebar
+  // link, and the nav contract (lib/navigation.ts) is that gated pages still
+  // render a friendly explanation instead of silently bouncing the click.
+  // (getPatientDashboardContext already redirects the unauthenticated case.)
   if (profile.sex !== "female") {
-    redirect("/patient");
+    const sexUnrecorded = !profile.sex;
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Women's Health"
+          icon={SEMANTIC_ICON.family}
+          backTo={{ href: "/patient", label: "Dashboard" }}
+        />
+        <Card variant="soft">
+          <CardContent className="space-y-3 py-4 text-sm text-charcoal-ink/70">
+            {sexUnrecorded ? (
+              <p>
+                This section covers cycle tracking, contraception, pregnancy, postnatal care and
+                menopause for female patients. We don&apos;t have a sex recorded on your health
+                profile yet, so we can&apos;t tell whether it applies to you. You can add it on
+                your{" "}
+                <Link href="/patient/profile" className="text-brand-green hover:underline">
+                  profile
+                </Link>{" "}
+                and this section will open up if it&apos;s relevant.
+              </p>
+            ) : (
+              <p>
+                This section covers cycle tracking, contraception, pregnancy, postnatal care and
+                menopause, so it doesn&apos;t apply to your health profile. Everything here is
+                built around care that&apos;s specific to female patients.
+              </p>
+            )}
+            <p>
+              The screenings and checks that are relevant to you live in{" "}
+              <Link href="/patient/prevention" className="text-brand-green hover:underline">
+                Prevention
+              </Link>
+              , built around your own age and history.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const supabase = await createClient();
@@ -98,7 +143,7 @@ export default async function WomensHealthPage() {
             label="Next appointment"
             value={
               nextAppointment?.scheduled_for
-                ? new Date(nextAppointment.scheduled_for).toLocaleDateString(undefined, {
+                ? formatPatientDate(nextAppointment.scheduled_for, {
                     weekday: "short",
                     month: "short",
                     day: "numeric",

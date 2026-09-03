@@ -18,6 +18,7 @@ import {
   type CareVoucher,
 } from "@/lib/queries/vouchers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -35,16 +36,16 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  reserved: "bg-amber-50 text-amber-800",
-  active: "bg-emerald-50 text-emerald-800",
-  redeemed: "bg-slate-100 text-slate-600",
-  expired: "bg-slate-100 text-slate-600",
-  cancelled: "bg-slate-100 text-slate-600",
+const STATUS_VARIANT: Record<string, "green" | "amber" | "grey"> = {
+  reserved: "amber",
+  active: "green",
+  redeemed: "grey",
+  expired: "grey",
+  cancelled: "grey",
 };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -284,11 +285,9 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
                     {v.sku_name ?? "Care voucher"}{" "}
                     <span className="text-xs text-slate-500">{v.voucher_number}</span>
                   </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[v.status] ?? "bg-slate-100 text-slate-600"}`}
-                  >
-                    {STATUS_LABEL[v.status] ?? v.status}
-                  </span>
+                  <Badge variant={STATUS_VARIANT[v.status] ?? "grey"}>
+                    {STATUS_LABEL[v.status] ?? v.status.replace(/_/g, " ")}
+                  </Badge>
                 </li>
               ))}
             </ul>
@@ -392,11 +391,9 @@ function VoucherRow({
             {voucher.voucher_number} · {naira(voucher.face_value_kobo)}
           </p>
         </div>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[voucher.status] ?? "bg-slate-100 text-slate-600"}`}
-        >
-          {STATUS_LABEL[voucher.status] ?? voucher.status}
-        </span>
+        <Badge variant={STATUS_VARIANT[voucher.status] ?? "grey"}>
+          {STATUS_LABEL[voucher.status] ?? voucher.status.replace(/_/g, " ")}
+        </Badge>
       </div>
 
       {voucher.status === "reserved" && (

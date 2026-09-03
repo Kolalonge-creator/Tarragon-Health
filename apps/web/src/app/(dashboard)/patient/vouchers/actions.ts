@@ -146,7 +146,7 @@ export async function redeemServiceVoucher(
 
   const result = data as { product_name?: string; covered_until?: string };
   const until = result.covered_until
-    ? new Date(result.covered_until).toLocaleDateString("en-GB", {
+    ? new Date(result.covered_until).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
         day: "numeric",
         month: "long",
         year: "numeric",

@@ -32,7 +32,7 @@ export function classifyBpLevel(
 export const BP_LEVEL_LABEL: Record<BpLevel, string> = {
   green: "At target",
   amber: "Above target",
-  red: "High — urgent review",
+  red: "High (urgent review)",
   emergency: "Crisis range",
   unknown: "—",
 };

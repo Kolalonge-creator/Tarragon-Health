@@ -392,11 +392,14 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "pharmacy_order_patient_confirmation") {
     const items = String(payload.items_summary ?? "your medication");
-    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/pharmacy" };
+    // /patient/pharmacy has no page — Medications is where a patient's
+    // pharmacy orders and refills actually live.
+    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/medications" };
   }
   if (n.template === "referral_patient_confirmation") {
     const specialist = String(payload.specialist_name ?? "your specialist");
-    return { text: `Your referral to ${specialist} is confirmed`, href: "/patient/referrals" };
+    // /patient/referrals has no page — YourReferrals renders on Care & support.
+    return { text: `Your referral to ${specialist} is confirmed`, href: "/patient/care" };
   }
   if (n.template === "result_document_available") {
     return { text: "A new lab result document is available", href: "/patient/labs" };
@@ -464,8 +467,11 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     // a block: the condition itself, and any urgent escalation on it, are
     // never gated — only its own scheduled review cadence is.
     const condition = String(payload.condition ?? "a condition").replace(/_/g, " ");
+    // "Complete Care" (the retired plan) used to be named here; the
+    // doctor-supported programme is the pay-per-service successor that
+    // carries a scheduled review.
     return {
-      text: `We're now tracking ${condition} for you too. Complete Care adds a scheduled review for it`,
+      text: `We're now tracking ${condition} for you too. A doctor-supported programme adds a scheduled review for it`,
       href: "/patient/subscription",
     };
   }

@@ -35,7 +35,7 @@ export default async function EmergencyCardPrintPage() {
   const supabase = await createClient();
   const facts = await loadEmergencyDatasetForPatient(supabase, user.id);
 
-  const printedOn = new Date().toLocaleDateString("en-GB", {
+  const printedOn = new Date().toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",

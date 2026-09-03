@@ -17,6 +17,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const STATUS_BADGE: Record<string, { variant: BadgeProps["variant"]; label: string }> = {
   pending: { variant: "amber", label: "Pending" },
   booked: { variant: "blue", label: "Booked" },
@@ -94,7 +95,7 @@ export function PreventiveScreeningCalendar({
                     {schedule.is_recall && <Badge variant="amber">Repeat requested</Badge>}
                   </div>
                   <p className="text-xs text-charcoal-ink/60">
-                    Due {new Date(schedule.due_date).toLocaleDateString()}
+                    Due {formatPatientDate(schedule.due_date)}
                   </p>
                   {schedule.is_recall && schedule.recall_reason && (
                     <p className="text-xs text-charcoal-ink/70">

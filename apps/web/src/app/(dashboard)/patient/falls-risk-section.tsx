@@ -28,7 +28,7 @@ export async function FallsRiskSection({ patientId }: { patientId: string }) {
                 {FALLS_PATHWAY_STAGE_LABEL[open.pathwayStage]}
               </p>
               <p className="mt-0.5 text-xs text-charcoal-ink/60">
-                Flagged {new Date(open.identifiedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                Flagged {new Date(open.identifiedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })}
               </p>
             </div>
             {open.riskLevel && (

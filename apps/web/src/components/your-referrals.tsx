@@ -5,6 +5,7 @@ import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import { ReferralOutcomeDocumentUpload } from "@/components/referral-outcome-document-upload";
 import type { ReferralStatus } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 // Patient-facing status copy — deliberately not the staff worklist labels
 // (REFERRAL_STATUS_BADGE in clinician/referrals/page.tsx), per CLAUDE.md's
 // brand voice rule: no clinical jargon, no fear-based urgency.
@@ -25,7 +26,7 @@ const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
 };
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**
@@ -69,7 +70,7 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
             <Stepper steps={deriveReferralPipelineStages(referral)} />
             {referral.appointment_date && (
               <p className="text-xs text-charcoal-ink/60">
-                Appointment: {new Date(referral.appointment_date).toLocaleDateString()}
+                Appointment: {formatPatientDate(referral.appointment_date)}
               </p>
             )}
             {/* The letter is the referral. Tarragon does not book the

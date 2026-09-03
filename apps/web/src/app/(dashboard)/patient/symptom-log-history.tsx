@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 const SYMPTOM_LABEL: Record<string, string> = {
   pain: "Pain",
   fatigue: "Fatigue",
@@ -45,7 +46,7 @@ export function SymptomLogHistory({ patientId }: { patientId: string }) {
               <li key={symptom.id} className="flex items-center justify-between gap-4 py-2">
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">
-                    {SYMPTOM_LABEL[symptom.symptom_type] ?? symptom.symptom_type}: severity{" "}
+                    {SYMPTOM_LABEL[symptom.symptom_type] ?? symptom.symptom_type.replace(/_/g, " ")}: severity{" "}
                     {symptom.severity ?? "—"}/10
                     {symptom.is_red_flag && (
                       <Badge variant="red" className="ml-2">
@@ -58,7 +59,7 @@ export function SymptomLogHistory({ patientId }: { patientId: string }) {
                   )}
                 </div>
                 <span className="text-xs text-charcoal-ink/60">
-                  {new Date(symptom.reported_at).toLocaleString()}
+                  {formatPatientDateTime(symptom.reported_at)}
                 </span>
               </li>
             ))}

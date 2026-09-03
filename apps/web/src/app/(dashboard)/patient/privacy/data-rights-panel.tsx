@@ -25,7 +25,7 @@ const STATUS_BADGE: Record<string, NonNullable<BadgeProps["variant"]>> = {
 };
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",

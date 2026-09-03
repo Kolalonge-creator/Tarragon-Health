@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { NAV_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 const CHANNEL_LABEL: Record<string, string> = {
   whatsapp: "WhatsApp",
   sms: "SMS",
@@ -26,7 +27,7 @@ function deliveryStatus(row: CommunicationHistoryRow): { label: string; tone: "m
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     day: "numeric",
     month: "short",
     hour: "numeric",
@@ -71,7 +72,7 @@ export function CommunicationHistoryCard() {
                   <div className="min-w-0 flex-1">
                     <p className="text-charcoal-ink">{text}</p>
                     <p className="mt-0.5 text-xs text-charcoal-ink/50">
-                      {formatDate(row.created_at)} · {CHANNEL_LABEL[row.channel] ?? row.channel}
+                      {formatDate(row.created_at)} · {CHANNEL_LABEL[row.channel] ?? row.channel.replace(/_/g, " ")}
                       {row.priority === "critical" ? " · Critical" : ""}
                     </p>
                   </div>

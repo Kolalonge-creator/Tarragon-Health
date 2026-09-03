@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { APP_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 type GoalModule = "diet" | "activity" | "behaviour" | "sleep" | "stress" | "smoking";
 
 type Tile =
@@ -31,6 +32,11 @@ type Tile =
       tint: string;
     };
 
+// Tile tints stay inside the Badge system's five hue families (green, amber,
+// blue, red, charcoal-grey) rather than a seven-hue rainbow, per the
+// brand-vs-clinical colour rule. With seven tiles and five hues, the two
+// condition tiles reuse a hue from the module set; they sit in their own
+// section, so the reuse never puts two same-tint tiles side by side.
 function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
   const active = enrollments.filter((e) => e.status === "active");
   const primary = active[0];
@@ -45,7 +51,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "food",
         placeholder: "e.g. Drink more water",
         enrollmentId: primary.id,
-        tint: "bg-emerald-50",
+        tint: "bg-green-50",
       },
       {
         kind: "module",
@@ -54,7 +60,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "lifestyle",
         placeholder: "e.g. Walk for 20 minutes",
         enrollmentId: primary.id,
-        tint: "bg-orange-50",
+        tint: "bg-amber-50",
       },
       {
         kind: "module",
@@ -63,7 +69,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "sleep",
         placeholder: "e.g. Get to bed by 10pm",
         enrollmentId: primary.id,
-        tint: "bg-sky-50",
+        tint: "bg-blue-50",
       },
       {
         kind: "module",
@@ -72,7 +78,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "mood",
         placeholder: "e.g. Try one mindful moment a day",
         enrollmentId: primary.id,
-        tint: "bg-amber-50",
+        tint: "bg-charcoal-ink/5",
       },
       {
         kind: "module",
@@ -81,7 +87,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "warning",
         placeholder: "e.g. Smoke-free by the end of the month",
         enrollmentId: primary.id,
-        tint: "bg-rose-50",
+        tint: "bg-red-50",
       },
     );
   }
@@ -95,7 +101,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
       icon: "bp",
       placeholder: "e.g. Cut back on added salt",
       enrollmentId: htn.id,
-      tint: "bg-stone-50",
+      tint: "bg-charcoal-ink/5",
     });
   }
   const diabetes = findActive("diabetes");
@@ -106,7 +112,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
       icon: "diabetes",
       placeholder: "e.g. Check my blood sugar after meals",
       enrollmentId: diabetes.id,
-      tint: "bg-cyan-50",
+      tint: "bg-blue-50",
     });
   }
 
@@ -353,7 +359,7 @@ function PastGoalsList({ goals }: { goals: PastLifestyleGoalView[] }) {
           <div>
             <p className="text-sm font-medium text-charcoal-ink">{g.title}</p>
             <p className="text-xs text-muted-foreground">
-              {g.conditionLabel} · {new Date(g.updatedAt).toLocaleDateString()}
+              {g.conditionLabel} · {formatPatientDate(g.updatedAt)}
             </p>
           </div>
           <Badge variant={g.status === "achieved" ? "green" : "grey"}>{g.status}</Badge>

@@ -23,6 +23,7 @@ import { Select } from "@/components/ui/select";
 import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const PROFILE_KEY = "smoking-profile";
 const CHECKINS_KEY = "smoking-check-ins";
 
@@ -97,7 +98,7 @@ export function SmokingClient({ patientId }: { patientId: string }) {
               >
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink">
-                    {new Date(entry.logged_on).toLocaleDateString(undefined, {
+                    {formatPatientDate(entry.logged_on, {
                       month: "long",
                       day: "numeric",
                     })}:{" "}
@@ -154,7 +155,7 @@ function ProfileCard({
           {profile.status === "current" && profile.cigarettes_per_day != null && (
             <p>{profile.cigarettes_per_day} cigarettes/day</p>
           )}
-          {profile.quit_date && <p>Quit date: {new Date(profile.quit_date).toLocaleDateString()}</p>}
+          {profile.quit_date && <p>Quit date: {formatPatientDate(profile.quit_date)}</p>}
           {profile.quit_motivation != null && <p>Quit motivation: {profile.quit_motivation}/10</p>}
         </CardContent>
       </Card>

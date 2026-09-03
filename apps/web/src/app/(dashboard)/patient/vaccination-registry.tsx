@@ -31,6 +31,7 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const STATUS_BADGE: Record<VaccinationStatus, { variant: BadgeProps["variant"]; label: string }> = {
   overdue: { variant: "red", label: "Overdue" },
   due: { variant: "amber", label: "Due" },
@@ -280,7 +281,7 @@ function VaccinationRecordRow({
         <Badge variant={badge.variant}>{badge.label}</Badge>
       </div>
       <p className="text-xs text-charcoal-ink/60">
-        Given {new Date(record.date_administered).toLocaleDateString()}
+        Given {formatPatientDate(record.date_administered)}
         {record.provider ? ` · ${record.provider}` : ""}
         {record.location ? ` · ${record.location}` : ""}
       </p>
@@ -301,7 +302,7 @@ function VaccinationRecordRow({
           <p>
             Verified by your Tarragon care team
             {record.verified_at
-              ? ` · ${new Date(record.verified_at).toLocaleDateString()}`
+              ? ` · ${formatPatientDate(record.verified_at)}`
               : ""}
             {record.tarragon_certificate_serial
               ? ` · ${record.tarragon_certificate_serial}`
@@ -442,7 +443,7 @@ export function VaccinationRegistry({
                   <span className="font-medium">{entry.name}</span>
                   {entry.dosesGiven > 0 ? ` · dose ${entry.dosesGiven + 1}` : ""}
                   {entry.nextDueDate
-                    ? `, due ${new Date(entry.nextDueDate).toLocaleDateString()}`
+                    ? `, due ${formatPatientDate(entry.nextDueDate)}`
                     : ", due now"}
                 </li>
               ))}
@@ -474,10 +475,10 @@ export function VaccinationRegistry({
                     </div>
                     <p className="text-xs text-charcoal-ink/60">
                       {entry.lastDoseDate
-                        ? `Last dose ${new Date(entry.lastDoseDate).toLocaleDateString()} (dose ${entry.dosesGiven})`
+                        ? `Last dose ${formatPatientDate(entry.lastDoseDate)} (dose ${entry.dosesGiven})`
                         : "No doses recorded yet"}
                       {entry.nextDueDate &&
-                        `, next due ${new Date(entry.nextDueDate).toLocaleDateString()}`}
+                        `, next due ${formatPatientDate(entry.nextDueDate)}`}
                     </p>
                     {canDecline && (
                       <div className="pt-1">

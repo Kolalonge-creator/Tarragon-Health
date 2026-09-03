@@ -10,11 +10,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
+import { formatPatientDate } from "@/lib/format-date";
 const WEIGHT_CONFIG: ChartConfig = { weight_kg: { label: "Weight (kg)", color: "var(--color-chart-glucose)" } };
 const HEIGHT_CONFIG: ChartConfig = { height_cm: { label: "Height (cm)", color: "var(--color-chart-systolic)" } };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" });
+  return formatPatientDate(iso, { month: "short", day: "numeric", year: "2-digit" });
 }
 
 /**

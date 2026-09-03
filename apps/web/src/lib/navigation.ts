@@ -94,11 +94,13 @@ export function getNavSections(
               // a diaspora hometown association funding a village screening day
               // is the same "I pay, they receive" shape as People you support,
               // just for a group instead of one named relative.
+              // Deliberately NOT `primary` — the four items above already fill
+              // MAX_PRIMARY_NAV_ITEMS, so a fifth flag would silently never
+              // reach the phone bottom bar; this stays behind the More button.
               {
                 label: "Group screening days",
                 href: "/patient/screening-days",
                 icon: "booking",
-                primary: true,
                 shortLabel: "Screening",
               },
             ],

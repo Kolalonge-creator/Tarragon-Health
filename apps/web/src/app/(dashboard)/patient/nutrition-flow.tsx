@@ -16,6 +16,7 @@ import type { NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis
 import type { ParsedFoodItem } from "@/lib/nutrition/food-parser";
 import type { FoodCatalogueItem } from "@/lib/nutrition/food-catalogue";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { MEAL_TYPE_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
+import { formatPatientDate } from "@/lib/format-date";
 const MEAL_PHOTO_BUCKET = "meal-photos";
 const ENTRIES_KEY = "nutrition-entries";
 
@@ -210,16 +212,12 @@ function LogMealSection({
 
 function ConfidenceBadge({ confidence }: { confidence?: "low" | "medium" | "high" }) {
   if (!confidence) return null;
-  const styles: Record<string, string> = {
-    low: "bg-amber-100 text-amber-800",
-    medium: "bg-blue-100 text-blue-800",
-    high: "bg-green-100 text-green-800",
+  const variants: Record<"low" | "medium" | "high", "amber" | "blue" | "green"> = {
+    low: "amber",
+    medium: "blue",
+    high: "green",
   };
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${styles[confidence]}`}>
-      {confidence} confidence
-    </span>
-  );
+  return <Badge variant={variants[confidence]}>{confidence} confidence</Badge>;
 }
 
 /** Full macro breakdown + matched-items list from text-based food logging
@@ -451,7 +449,7 @@ function dateGroupLabel(dateKey: string): string {
   });
   if (dateKey === today) return "Today";
   if (dateKey === yesterday) return "Yesterday";
-  return new Date(dateKey).toLocaleDateString(undefined, {
+  return formatPatientDate(dateKey, {
     month: "long",
     day: "numeric",
     year: "numeric",

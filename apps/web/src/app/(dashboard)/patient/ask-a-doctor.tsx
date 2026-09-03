@@ -19,6 +19,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 const ASYNC_CONSULT_CREDIT_CODE = "async_consult_credit";
 
 function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
@@ -40,7 +41,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
       </div>
       {!answered && consult.sla_due_at && (
         <p className="text-xs text-charcoal-ink/60">
-          A doctor will respond by {new Date(consult.sla_due_at).toLocaleString()}.
+          A doctor will respond by {formatPatientDateTime(consult.sla_due_at)}.
         </p>
       )}
       {answered && consult.answer && (
@@ -52,7 +53,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
             <p className="mt-1 text-xs text-charcoal-ink/60">
               Answered by Dr. {consult.answerer.full_name}
               {credential ? ` (${credential})` : ""} on{" "}
-              {new Date(consult.answered_at).toLocaleDateString()}
+              {formatPatientDate(consult.answered_at)}
             </p>
           )}
         </div>

@@ -27,6 +27,7 @@ import { CycleLengthChart } from "./cycle-length-chart";
 import { CycleDayLog } from "./cycle-day-log";
 import { CycleLegend, CycleRing } from "./cycle-ring";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * The cycle tracker page body.
  *
@@ -37,7 +38,7 @@ import { CycleLegend, CycleRing } from "./cycle-ring";
 
 function longDate(iso: string | null): string {
   if (!iso) return "-";
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, {
+  return formatPatientDate(`${iso}T00:00:00Z`, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -46,7 +47,7 @@ function longDate(iso: string | null): string {
 
 function shortDate(iso: string | null): string {
   if (!iso) return "-";
-  return new Date(`${iso}T00:00:00Z`).toLocaleDateString(undefined, {
+  return formatPatientDate(`${iso}T00:00:00Z`, {
     day: "numeric",
     month: "short",
   });

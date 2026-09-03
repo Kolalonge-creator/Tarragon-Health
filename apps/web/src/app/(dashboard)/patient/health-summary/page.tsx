@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { ConditionsList } from "@/components/patient/conditions-list";
 import { AllergiesList } from "@/components/patient/allergies-list";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -33,16 +35,11 @@ export default async function HealthSummaryPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Your health summary
-        </h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Everything about your care in one place: conditions, medicines, allergies, recent
-          readings, investigations, care programmes, appointments, referrals, and what&apos;s
-          still outstanding.
-        </p>
-      </div>
+      <PageHeader
+        title="Your health summary"
+        icon={SEMANTIC_ICON.carePlan}
+        description="Everything about your care in one place: conditions, medicines, allergies, recent readings, investigations, care programmes, appointments, referrals, and what's still outstanding."
+      />
 
       <div className="space-y-3">
         <SectionHeading>Conditions</SectionHeading>

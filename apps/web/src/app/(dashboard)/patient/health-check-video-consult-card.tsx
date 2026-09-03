@@ -14,7 +14,7 @@ type VideoConsultInfo = {
 } | null;
 
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
+  return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
     weekday: "short",
     day: "numeric",
     month: "short",

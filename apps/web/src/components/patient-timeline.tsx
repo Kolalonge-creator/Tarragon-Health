@@ -59,7 +59,7 @@ function humaniseSummary(summary: string): string {
 }
 
 function formatWhen(value: string): string {
-  return new Date(value).toLocaleString("en-GB", {
+  return new Date(value).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -129,7 +129,7 @@ function groupEventsByMonth(events: TimelineEvent[]): TimelineMonthGroup[] {
     const key = `${occurred.getFullYear()}-${occurred.getMonth()}`;
     let idx = indexByKey.get(key);
     if (idx === undefined) {
-      const label = new Date(occurred.getFullYear(), occurred.getMonth(), 1).toLocaleDateString("en-GB", {
+      const label = new Date(occurred.getFullYear(), occurred.getMonth(), 1).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
         month: "long",
         year: "numeric",
       });

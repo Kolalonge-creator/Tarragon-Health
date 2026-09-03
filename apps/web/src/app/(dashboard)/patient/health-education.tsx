@@ -320,7 +320,7 @@ function EducationItem({
           <Badge variant="grey">{conditionLabelFor(item.condition, conditionLanguagePreference)}</Badge>
         )}
         {item.content_type !== "article" && (
-          <Badge variant="grey">{CONTENT_TYPE_LABEL[item.content_type] ?? item.content_type}</Badge>
+          <Badge variant="grey">{CONTENT_TYPE_LABEL[item.content_type] ?? item.content_type.replace(/_/g, " ")}</Badge>
         )}
         {item.status === "needs_review" && <Badge variant="blue">Revisit</Badge>}
         {item.status === "understood" && <Badge variant="green">Understood</Badge>}

@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 const OCCURRENCE_LABEL: Record<ChronicScheduleOccurrence["occurrence_type"], string> = {
   lab_panel: "Lab panel",
   doctor_checkin: "Doctor check-in call",
@@ -37,11 +38,11 @@ const STATUS_BADGE: Record<
 
 function formatDate(iso: string | null): string {
   if (!iso) return "";
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     weekday: "short",
     day: "numeric",
     month: "short",

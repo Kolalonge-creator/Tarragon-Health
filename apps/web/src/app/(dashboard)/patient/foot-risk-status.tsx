@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { formatPatientDate } from "@/lib/format-date";
 const RISK_LABEL: Record<string, { label: string; tone: string }> = {
   low: { label: "Low risk", tone: "text-brand-green" },
   increased: { label: "Increased risk", tone: "text-amber-700" },
@@ -36,8 +37,8 @@ export async function FootRiskStatus({ patientId }: { patientId: string }) {
           Care-team classification: <span className={`font-medium ${risk.tone}`}>{risk.label}</span>
         </p>
         <p className="text-charcoal-ink/60">
-          Last checked {new Date(data.assessed_at).toLocaleDateString()}
-          {data.next_due_at ? ` · next check due ${new Date(data.next_due_at).toLocaleDateString()}` : ""}
+          Last checked {formatPatientDate(data.assessed_at)}
+          {data.next_due_at ? ` · next check due ${formatPatientDate(data.next_due_at)}` : ""}
         </p>
         <p className="text-charcoal-ink/60">
           Check your own feet daily and log anything new above; your care team is told straight away.

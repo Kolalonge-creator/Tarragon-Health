@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 
 function shortDateTime(iso: string): string {
-  return new Date(iso).toLocaleString("en-GB", {
+  return new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     hour: "2-digit",

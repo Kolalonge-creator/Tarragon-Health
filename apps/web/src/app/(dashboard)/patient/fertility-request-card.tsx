@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { formatPatientDate } from "@/lib/format-date";
 const STATUS_LABEL: Record<string, string> = {
   requested: "Request received",
   education_provided: "Education shared",
@@ -55,7 +56,7 @@ export function FertilityRequestCard({ patientId }: { patientId: string }) {
           <div className="space-y-1.5">
             {requests.data.map((r) => (
               <p key={r.id} className="text-sm text-charcoal-ink/80">
-                {new Date(r.created_at).toLocaleDateString()}: {STATUS_LABEL[r.status] ?? r.status}
+                {formatPatientDate(r.created_at)}: {STATUS_LABEL[r.status] ?? r.status.replace(/_/g, " ")}
               </p>
             ))}
           </div>

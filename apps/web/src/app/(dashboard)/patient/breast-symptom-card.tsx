@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * Breast health — symptom reporting (§44.11), deliberately a separate card
  * from breast screening (see the Prevention section's screening ladder):
@@ -122,7 +123,7 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
             </p>
             {reports.data.slice(0, 5).map((r) => (
               <p key={r.id} className="text-sm text-charcoal-ink/80">
-                {new Date(r.created_at).toLocaleDateString()}:{" "}
+                {formatPatientDate(r.created_at)}:{" "}
                 {r.symptom_types.map((t) => BREAST_SYMPTOM_LABEL[t]).join(", ")}
               </p>
             ))}

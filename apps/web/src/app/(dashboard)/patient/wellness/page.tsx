@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { PageHeader } from "@/components/ui/page-header";
 import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { isMealPlanGenerationConfigured } from "@/lib/nutrition/meal-plan-generate";
 import { NutritionFlow } from "../nutrition-flow";
@@ -32,19 +33,11 @@ export default async function WellnessHubPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4 rounded-2xl bg-gradient-to-br from-sprout-gold to-amber-600 p-6 text-white sm:p-7">
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15">
-          <SEMANTIC_ICON.points className="h-6 w-6" strokeWidth={2} />
-        </span>
-        <div>
-          <h1 className="font-heading text-xl font-bold sm:text-2xl">Wellness rewards</h1>
-          <p className="mt-1 text-sm text-white/85">
-            Small, everyday habits add up. Earn points for logging, learning, and finishing
-            challenges, collect badges along the way, and redeem points any time for a real
-            Health reward voucher you can put toward your care.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Wellness rewards"
+        icon={SEMANTIC_ICON.points}
+        description="Small, everyday habits add up. Earn points for logging, learning, and finishing challenges, collect badges along the way, and redeem points any time for a real Health reward voucher you can put toward your care."
+      />
 
       <WellnessPointsCard patientId={profile.id} />
 

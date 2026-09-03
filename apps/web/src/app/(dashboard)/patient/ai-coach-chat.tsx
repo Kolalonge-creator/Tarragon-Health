@@ -16,6 +16,7 @@ import type { CoachSuggestedAction } from "@tarragon/shared";
 import { ReportAiAnswer } from "@/components/ai/report-ai-answer";
 import { AI_SYSTEMS } from "@/lib/ai-governance/system-codes";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 /**
  * §78.2 -- where each suggestedAction the model can classify actually
  * points. Deliberately a fixed, deterministic map: the model only ever
@@ -66,7 +67,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   }
 
   function formatTimestamp(isoString: string): string {
-    return new Date(isoString).toLocaleString([], {
+    return formatPatientDateTime(isoString, {
       month: "short",
       day: "numeric",
       hour: "2-digit",

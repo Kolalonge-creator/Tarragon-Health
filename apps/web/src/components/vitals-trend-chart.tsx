@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 
+import { formatPatientDate } from "@/lib/format-date";
 /** Warm, non-clinical framing — same patient-facing wording as the public
  * BMI calculator's CATEGORY_COPY (bmi-calorie-calculator.tsx), never the
  * doctor-facing "obesity_class_i" style labels used in the clinician panel. */
@@ -47,7 +48,7 @@ const BMI_CONFIG: ChartConfig = {
 };
 
 function formatDate(taken_at: string): string {
-  return new Date(taken_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatPatientDate(taken_at, { month: "short", day: "numeric" });
 }
 
 type TrendMode = "blood_pressure" | "glucose" | "weight" | "pulse" | "hba1c" | "bmi";

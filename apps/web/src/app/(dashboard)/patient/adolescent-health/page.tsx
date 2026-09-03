@@ -93,7 +93,7 @@ export default async function AdolescentHealthPage() {
           <CardContent className="flex items-center justify-between py-4 text-sm text-charcoal-ink/80">
             <span>
               Last check-in:{" "}
-              {new Date(lastScreen.created_at).toLocaleDateString("en-GB", {
+              {new Date(lastScreen.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                 day: "numeric",
                 month: "short",
                 year: "numeric",

@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
+import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 const SECOND_OPINION_CREDIT_CODE = "second_opinion_credit";
 
 function RequestRow({ request }: { request: SecondOpinionRequestWithAnswerer }) {
@@ -33,7 +34,7 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithAnswerer }) 
       </div>
       {!answered && (
         <p className="text-xs text-charcoal-ink/60">
-          A doctor will respond by {new Date(request.sla_due_at).toLocaleString()}.
+          A doctor will respond by {formatPatientDateTime(request.sla_due_at)}.
         </p>
       )}
       {answered && request.answer && (
@@ -45,7 +46,7 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithAnswerer }) 
             <p className="mt-1 text-xs text-charcoal-ink/60">
               Answered by Dr. {request.answerer.full_name}
               {credential ? ` (${credential})` : ""} on{" "}
-              {new Date(request.answered_at).toLocaleDateString()}
+              {formatPatientDate(request.answered_at)}
             </p>
           )}
         </div>

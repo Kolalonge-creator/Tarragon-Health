@@ -2,6 +2,7 @@
 
 import { usePatientReceipts, type PatientReceipt, type PatientReceiptServiceType, type PatientReceiptStatus } from "@/lib/queries/receipts";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { APP_ICON } from "@/lib/icons";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
@@ -24,12 +25,12 @@ const STATUS_LABEL: Record<PatientReceiptStatus, string> = {
   pending_refund: "Refund pending",
 };
 
-const STATUS_STYLE: Record<PatientReceiptStatus, string> = {
-  successful: "bg-emerald-50 text-emerald-800",
-  pending: "bg-amber-50 text-amber-800",
-  failed: "bg-red-50 text-red-700",
-  refunded: "bg-slate-100 text-slate-600",
-  pending_refund: "bg-amber-50 text-amber-800",
+const STATUS_VARIANT: Record<PatientReceiptStatus, "green" | "amber" | "red" | "grey"> = {
+  successful: "green",
+  pending: "amber",
+  failed: "red",
+  refunded: "grey",
+  pending_refund: "amber",
 };
 
 function formatAmount(amountMinor: number, currency: string): string {
@@ -40,7 +41,7 @@ function formatAmount(amountMinor: number, currency: string): string {
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 }
 
 function ReceiptRow({ receipt }: { receipt: PatientReceipt }) {
@@ -60,9 +61,7 @@ function ReceiptRow({ receipt }: { receipt: PatientReceipt }) {
         <p className="text-sm font-semibold tabular-nums text-charcoal-ink">
           {formatAmount(receipt.amount_minor, receipt.currency)}
         </p>
-        <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[receipt.status]}`}>
-          {STATUS_LABEL[receipt.status]}
-        </span>
+        <Badge variant={STATUS_VARIANT[receipt.status]}>{STATUS_LABEL[receipt.status]}</Badge>
         {INVOICEABLE_STATUSES.includes(receipt.status) && (
           <a
             href={`/api/patient/receipts/${receipt.service_type}/${receipt.id}/invoice`}

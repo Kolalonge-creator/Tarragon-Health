@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const STATUS_BADGE: Record<
   BookingRequestWithFacility["status"],
   { variant: BadgeProps["variant"]; label: string }
@@ -52,7 +53,7 @@ export function BookingRequestsList({ patientId }: { patientId: string }) {
                   </div>
                   <p className="text-xs text-charcoal-ink/60">
                     {request.service_type}, requested for{" "}
-                    {new Date(request.requested_date).toLocaleDateString()}
+                    {formatPatientDate(request.requested_date)}
                   </p>
                   {request.notes && (
                     <p className="text-xs text-charcoal-ink/60">{request.notes}</p>

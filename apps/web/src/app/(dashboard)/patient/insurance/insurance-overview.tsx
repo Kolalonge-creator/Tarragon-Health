@@ -61,7 +61,7 @@ function naira(kobo: number): string {
 
 function formatDate(value: string | null): string {
   if (!value) return "";
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 }
 
 function AddPolicyForm({
@@ -178,7 +178,7 @@ function BenefitsTable({ insurerId, planName }: { insurerId: string; planName: s
         {benefits.map((benefit) => (
           <li key={benefit.id} className="flex items-center justify-between py-1.5">
             <span className="text-charcoal-ink">
-              {SERVICE_CATEGORY_LABEL[benefit.service_category] ?? benefit.service_category}
+              {SERVICE_CATEGORY_LABEL[benefit.service_category] ?? benefit.service_category.replace(/_/g, " ")}
             </span>
             <span className="text-charcoal-ink/60">
               {Math.round(benefit.coverage_pct * 100)}% covered
@@ -264,7 +264,7 @@ function PreauthorizationsList({ patientId }: { patientId: string }) {
                   <span className="text-xs text-charcoal-ink/60">{formatDate(request.requested_at)}</span>
                 </div>
                 <p className="text-sm text-charcoal-ink">
-                  {SERVICE_CATEGORY_LABEL[request.service_category] ?? request.service_category} ·{" "}
+                  {SERVICE_CATEGORY_LABEL[request.service_category] ?? request.service_category.replace(/_/g, " ")} ·{" "}
                   {naira(request.estimated_amount_kobo)}
                 </p>
                 {request.status === "approved" && request.authorization_number && (
@@ -301,7 +301,7 @@ function ClaimsList({ patientId }: { patientId: string }) {
                   <span className="text-xs text-charcoal-ink/60">{formatDate(claim.submitted_at)}</span>
                 </div>
                 <p className="text-sm text-charcoal-ink">
-                  {SERVICE_CATEGORY_LABEL[claim.service_category] ?? claim.service_category} ·{" "}
+                  {SERVICE_CATEGORY_LABEL[claim.service_category] ?? claim.service_category.replace(/_/g, " ")} ·{" "}
                   {naira(claim.billed_amount_kobo)}
                 </p>
                 {(claim.status === "approved" ||

@@ -228,7 +228,7 @@ export default async function HealthCheckPage() {
             <>
               <p className="text-charcoal-ink/80">
                 Completed{reviewerName ? ` · Reviewed by ${reviewerName}` : " · Reviewed by your care team"} ·{" "}
-                {new Date(check.reviewed_at).toLocaleDateString("en-GB", {
+                {new Date(check.reviewed_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                   day: "numeric",
                   month: "short",
                   year: "numeric",

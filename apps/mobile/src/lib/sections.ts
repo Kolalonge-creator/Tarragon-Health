@@ -172,7 +172,3 @@ export const PRIMARY_SECTIONS = SECTIONS.filter((s) => s.primary).slice(0, MAX_P
 export function sectionWebviewPath(id: SectionId): string | null {
   return SECTIONS.find((s) => s.id === id)?.webviewPath ?? null;
 }
-
-export function sectionLabel(id: SectionId): string {
-  return SECTIONS.find((s) => s.id === id)?.label ?? id;
-}

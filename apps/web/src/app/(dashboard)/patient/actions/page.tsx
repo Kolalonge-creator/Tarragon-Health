@@ -3,7 +3,8 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { SEMANTIC_ICON, APP_ICON } from "@/lib/icons";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON, NAV_ICON, APP_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 import {
   resolveActionCentreItems,
@@ -77,12 +78,11 @@ export default async function PatientActionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">My actions</h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Everything outstanding, in one place, grouped by how soon it needs you.
-        </p>
-      </div>
+      <PageHeader
+        title="My actions"
+        icon={NAV_ICON.approvals}
+        description="Everything outstanding, in one place, grouped by how soon it needs you."
+      />
 
       {isFullyEmpty && (
         <Card>

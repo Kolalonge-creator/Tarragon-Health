@@ -149,9 +149,12 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     };
   } else {
     action = {
+      // Careful to claim only that the TASK QUEUE is clear, never that the
+      // patient's health is fine — HealthStatusBanner renders directly above
+      // this card and can be saying "Needs attention" at the same moment.
       icon: "preventive",
-      title: "You're up to date",
-      body: "Nothing is waiting on you right now. Keep logging readings and we'll flag anything that needs attention.",
+      title: "You're all caught up",
+      body: "No tasks are waiting on you right now. Keep logging readings so your care team can keep an eye on things.",
       href: "/patient/vitals",
       cta: "Log another reading",
     };

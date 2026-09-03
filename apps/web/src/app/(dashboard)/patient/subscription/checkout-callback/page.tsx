@@ -3,6 +3,8 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { verifyTransaction } from "@/lib/paystack/transactions";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 
 /**
  * `callback_url` for service-purchase checkouts initiated from
@@ -36,15 +38,16 @@ export default async function SubscriptionCheckoutCallbackPage({
 
   return (
     <div className="flex flex-1 items-center justify-center bg-charcoal-ink/[0.02] px-4 py-16">
-      <div className="w-full max-w-md space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 text-center shadow-sm">
-        <h1 className="font-heading text-xl font-semibold text-charcoal-ink">
-          {succeeded ? "Payment received" : "Checkout finished"}
-        </h1>
-        <p className="text-sm text-charcoal-ink/70">
-          {succeeded
-            ? "We're activating this now; it usually takes a few seconds."
-            : "We're confirming your payment. If it succeeded, this will activate automatically within a minute or two."}
-        </p>
+      <div className="w-full max-w-md space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
+        <PageHeader
+          title={succeeded ? "Payment received" : "Checkout finished"}
+          icon={SEMANTIC_ICON.billing}
+          description={
+            succeeded
+              ? "We're activating this now; it usually takes a few seconds."
+              : "We're confirming your payment. If it succeeded, this will activate automatically within a minute or two."
+          }
+        />
         <Button asChild className="w-full">
           <Link href="/patient/subscription">Back to my services</Link>
         </Button>

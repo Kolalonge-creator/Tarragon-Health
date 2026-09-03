@@ -23,7 +23,7 @@ export function PatientIdentityConfirm({
   onConfirmedChange: (confirmed: boolean) => void;
 }) {
   const dobLabel = patientDateOfBirth
-    ? new Date(patientDateOfBirth).toLocaleDateString("en-GB", {
+    ? new Date(patientDateOfBirth).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
         day: "numeric",
         month: "short",
         year: "numeric",

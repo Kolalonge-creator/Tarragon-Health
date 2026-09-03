@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 const SENIOR_CASE_REVIEW_CREDIT_CODE = "senior_case_review_credit";
 
 function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
@@ -37,7 +38,7 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
       </div>
       {!completed && review.status !== "declined" && (
         <p className="text-xs text-charcoal-ink/60">
-          Expect a response by {new Date(review.sla_due_at).toLocaleString()}.
+          Expect a response by {formatPatientDateTime(review.sla_due_at)}.
         </p>
       )}
       {review.status === "declined" && review.declined_reason && (
@@ -50,7 +51,7 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
             <p className="mt-1 text-xs text-charcoal-ink/60">
               Dr. {review.reviewer.full_name}
               {credential ? ` (${credential})` : ""} ·{" "}
-              {new Date(review.reviewed_at).toLocaleDateString()}
+              {formatPatientDate(review.reviewed_at)}
             </p>
           )}
         </div>

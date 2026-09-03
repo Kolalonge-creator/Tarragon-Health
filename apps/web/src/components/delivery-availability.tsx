@@ -36,7 +36,7 @@ export function DeliveryAvailability({
       <div className="rounded-lg border border-charcoal-ink/10 bg-warm-ivory p-3">
         <Badge variant="green">Delivered</Badge>
         <p className="mt-1 text-xs text-charcoal-ink/60">
-          Confirmed {new Date(deliveryConfirmedAt).toLocaleDateString("en-GB", { dateStyle: "medium" })}
+          Confirmed {new Date(deliveryConfirmedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", dateStyle: "medium" })}
         </p>
       </div>
     );
@@ -55,7 +55,7 @@ export function DeliveryAvailability({
         {estimatedDeliveryAt && (
           <p className="text-xs text-charcoal-ink/60">
             Estimated arrival{" "}
-            {new Date(estimatedDeliveryAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+            {new Date(estimatedDeliveryAt).toLocaleString("en-GB", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" })}
           </p>
         )}
       </div>

@@ -6,6 +6,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { ResultExplainer } from "@/components/result-explainer";
 import type { Enums } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 const STATUS_BADGE_VARIANT: Record<
   Enums<"condition_clinical_status">,
   NonNullable<BadgeProps["variant"]>
@@ -71,7 +72,7 @@ export function ConditionsList({ patientId }: { patientId: string }) {
                 {condition.severity && `${SEVERITY_LABEL[condition.severity]} severity`}
                 {condition.severity && condition.date_identified && " · "}
                 {condition.date_identified &&
-                  `Identified ${new Date(condition.date_identified).toLocaleDateString()}`}
+                  `Identified ${formatPatientDate(condition.date_identified)}`}
               </p>
             )}
             <ResultExplainer

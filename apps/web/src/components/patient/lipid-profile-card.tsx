@@ -18,7 +18,7 @@ const DISPLAY_ORDER: LipidAnalyteCode[] = [
 ];
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",

@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { AddChildForm } from "./add-child-form";
 import { AddElderProxyForm } from "./add-elder-form";
 import { MaturedDependentBanner } from "./matured-dependent-banner";
@@ -134,13 +136,11 @@ export default async function CareCirclePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your people</h1>
-        <p className="text-charcoal-ink/60">
-          Who we contact if something urgent comes up, who can follow your care, and the children
-          whose records you keep. Everyone keeps their own account and their own subscription.
-        </p>
-      </div>
+      <PageHeader
+        title="Your people"
+        icon={SEMANTIC_ICON.parentCare}
+        description="Who we contact if something urgent comes up, who can follow your care, and the children whose records you keep. Everyone keeps their own account and their own subscription."
+      />
 
       <EmergencyAccessBanner />
 

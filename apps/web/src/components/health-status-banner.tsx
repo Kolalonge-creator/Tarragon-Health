@@ -10,7 +10,7 @@ import type { HealthScoreRiskLevel } from "@/lib/rules/health-score";
 // just promoted to its own line at the top of Overview rather than buried in
 // a card. Never a second, disagreeing judgement of "how am I doing".
 const STATUS_WORD: Record<HealthScoreRiskLevel, { word: string; dot: string }> = {
-  low: { word: "Stable", dot: "bg-emerald-500" },
+  low: { word: "Stable", dot: "bg-green-500" },
   moderate: { word: "Improving", dot: "bg-amber-500" },
   high: { word: "Needs attention", dot: "bg-red-500" },
   very_high: { word: "Needs urgent attention", dot: "bg-red-600" },

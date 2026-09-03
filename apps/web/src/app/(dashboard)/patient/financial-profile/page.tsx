@@ -2,6 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
+import { formatPatientDate } from "@/lib/format-date";
 import { Badge } from "@/components/ui/badge";
 import { koboToNaira } from "@tarragon/shared";
 import { PayMyShareButton } from "./pay-my-share-button";
@@ -110,12 +113,11 @@ export default async function FinancialProfilePage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your finances</h1>
-        <p className="text-charcoal-ink/60">
-          Your services, vouchers, transactions, and anything still being refunded, all in one place.
-        </p>
-      </div>
+      <PageHeader
+        title="Your finances"
+        icon={NAV_ICON.finance}
+        description="Your services, vouchers, transactions, and anything still being refunded, all in one place."
+      />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
@@ -135,7 +137,7 @@ export default async function FinancialProfilePage() {
                     <p className="text-charcoal-ink/70">
                       {naira(service.payable_kobo ?? 0)} {service.currency}
                       {service.expires_at &&
-                        ` · runs until ${new Date(service.expires_at).toLocaleDateString("en-NG")}`}
+                        ` · runs until ${formatPatientDate(service.expires_at)}`}
                     </p>
                   </div>
                 ))}
@@ -164,7 +166,7 @@ export default async function FinancialProfilePage() {
               <ul className="space-y-1 text-sm">
                 {recentFailures.map((f) => (
                   <li key={f.id} className="text-charcoal-ink/70">
-                    {new Date(f.created_at).toLocaleDateString("en-NG")}: {f.error}
+                    {formatPatientDate(f.created_at)}: {f.error}
                   </li>
                 ))}
               </ul>
@@ -277,7 +279,7 @@ export default async function FinancialProfilePage() {
                 <tbody>
                   {transactions.map((t) => (
                     <tr key={t.payment_transaction_id ?? t.entry_id} className="border-b border-charcoal-ink/5">
-                      <td className="py-2 pr-4">{new Date(t.posted_at).toLocaleDateString("en-NG")}</td>
+                      <td className="py-2 pr-4">{formatPatientDate(t.posted_at)}</td>
                       <td className="py-2 pr-4">{t.service_label}</td>
                       <td className="py-2 pr-4">{t.direction === "money_in" ? t.recipient_label : t.payer_label}</td>
                       <td className="py-2 pr-4 text-right">

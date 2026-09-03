@@ -23,7 +23,7 @@ export interface CaseBriefData {
 // PM"). Fixed locale, same convention as admin/members/[id]/page.tsx's
 // formatDateTime.
 function formatGeneratedAt(value: string): string {
-  return new Date(value).toLocaleString("en-GB", {
+  return new Date(value).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",

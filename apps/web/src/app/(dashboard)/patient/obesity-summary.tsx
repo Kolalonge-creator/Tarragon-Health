@@ -5,6 +5,7 @@ import {
   obesityLabelTitleCase,
 } from "@/lib/copy/condition-language";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * Patient-facing obesity summary, person-first and health-focused (§1.6/§23).
  * It surfaces the doctor-recorded assessment, never a software verdict: it is
@@ -44,7 +45,7 @@ export async function ObesitySummary({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/70">
-          Your care team recorded this on {new Date(data.assessed_at).toLocaleDateString()}. Weight is
+          Your care team recorded this on {formatPatientDate(data.assessed_at)}. Weight is
           only one part of the picture, alongside your energy, sleep, blood pressure and how you feel,
           not a number on the scale.
         </p>

@@ -14,6 +14,7 @@ import {
 } from "@/lib/rules/temperature-classification";
 import { VITAL_LEVEL_BADGE_CLASSNAME as LEVEL_STYLE } from "@/lib/rules/vital-level-style";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = LEVEL_STYLE;
 
 function BpLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
@@ -159,7 +160,7 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                   )}
                 </div>
                 <span className="text-xs text-charcoal-ink/60">
-                  {new Date(reading.taken_at).toLocaleString()}
+                  {formatPatientDateTime(reading.taken_at)}
                 </span>
               </li>
             ))}

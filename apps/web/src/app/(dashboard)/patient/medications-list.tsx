@@ -38,6 +38,7 @@ import { Label } from "@/components/ui/label";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
 
+import { formatPatientDate } from "@/lib/format-date";
 const SOURCE_BADGE: Record<
   string,
   { variant: "blue" | "grey" | "amber"; label: string }
@@ -174,7 +175,7 @@ export function MedicationsList({
                   )}
                   {medication.refill_date && refillCoordinationEnabled && (
                     <p className="text-xs text-charcoal-ink/60">
-                      Refill by {new Date(medication.refill_date).toLocaleDateString()} ·{" "}
+                      Refill by {formatPatientDate(medication.refill_date)} ·{" "}
                       {daysLeftLabel(medication.refill_date)}
                     </p>
                   )}
@@ -190,7 +191,7 @@ export function MedicationsList({
                   {medication.last_confirmed_at && (
                     <p className="text-xs text-charcoal-ink/60">
                       Refill checked and still valid ·{" "}
-                      {new Date(medication.last_confirmed_at).toLocaleDateString()}
+                      {formatPatientDate(medication.last_confirmed_at)}
                       <span className="text-charcoal-ink/40">
                         {" "}
                         (an administrative check, not a new dose review)
@@ -324,7 +325,7 @@ function CabinetSummary({ patientId }: { patientId: string }) {
         <div>
           <p className="text-xs text-charcoal-ink/50">Next medication review</p>
           <p className="text-sm text-charcoal-ink">
-            {new Date(nextReview.due_date).toLocaleDateString()}{" "}
+            {formatPatientDate(nextReview.due_date)}{" "}
             <span className="text-charcoal-ink/50">· {daysLeftLabel(nextReview.due_date)}</span>
           </p>
         </div>
@@ -336,7 +337,7 @@ function CabinetSummary({ patientId }: { patientId: string }) {
             {nextLab.monitoring_label}
             <span className="text-charcoal-ink/50">
               {" "}
-              · {new Date(nextLab.due_date).toLocaleDateString()}
+              · {formatPatientDate(nextLab.due_date)}
             </span>
           </p>
         </div>
@@ -392,7 +393,7 @@ function PrescriptionStatusTrail({
     {
       label: "Signed",
       done: true,
-      detail: `${signedBy} · ${new Date(medication.created_at).toLocaleDateString("en-GB", {
+      detail: `${signedBy} · ${new Date(medication.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
         day: "numeric",
         month: "short",
         year: "numeric",
@@ -410,7 +411,7 @@ function PrescriptionStatusTrail({
       done: !!latestCollection,
       detail: latestCollection
         ? [
-            new Date(latestCollection.dispensed_on).toLocaleDateString("en-GB", {
+            new Date(latestCollection.dispensed_on).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -432,7 +433,7 @@ function PrescriptionStatusTrail({
         {expiresAt && (
           <span className={isExpired ? "text-red-700" : "text-charcoal-ink/50"}>
             {isExpired ? "Expired" : "Valid until"}{" "}
-            {expiresAt.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+            {expiresAt.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })}
           </span>
         )}
         {steps.map((step) => (
@@ -612,7 +613,7 @@ function RepeatRequestControl({
   if (latest?.status === "pending") {
     return (
       <p className="mt-1 text-xs text-charcoal-ink/60">
-        Next supply requested {new Date(latest.requested_at).toLocaleDateString()} · awaiting review
+        Next supply requested {formatPatientDate(latest.requested_at)} · awaiting review
       </p>
     );
   }
@@ -621,7 +622,7 @@ function RepeatRequestControl({
     <div className="mt-1 space-y-1">
       {latest?.status === "approved" && (
         <p className="text-xs text-brand-green">
-          Approved {new Date(latest.reviewed_at ?? latest.requested_at).toLocaleDateString()}. You can
+          Approved {formatPatientDate(latest.reviewed_at ?? latest.requested_at)}. You can
           collect your next supply.
         </p>
       )}
@@ -679,7 +680,7 @@ function RequestRenewalButton({
     return (
       <p className="mt-1 text-xs text-charcoal-ink/60">
         Renewal requested · a doctor will respond by{" "}
-        {new Date(openRequest.sla_due_at).toLocaleDateString()}
+        {formatPatientDate(openRequest.sla_due_at)}
       </p>
     );
   }
@@ -859,13 +860,13 @@ function PastMedications({ patientId }: { patientId: string }) {
                 {medication.superseded_at ? (
                   <>
                     Replaced by an updated prescription
-                    {` ${new Date(medication.superseded_at).toLocaleDateString()}`}
+                    {` ${formatPatientDate(medication.superseded_at)}`}
                   </>
                 ) : (
                   <>
                     Stopped
                     {medication.stopped_at
-                      ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
+                      ? ` ${formatPatientDate(medication.stopped_at)}`
                       : ""}
                     {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
                   </>

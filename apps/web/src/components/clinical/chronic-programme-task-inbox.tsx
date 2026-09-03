@@ -17,7 +17,7 @@ const TASK_LABEL: Record<string, string> = {
 };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**

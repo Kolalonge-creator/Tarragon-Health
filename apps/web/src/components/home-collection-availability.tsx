@@ -52,7 +52,7 @@ export function HomeCollectionAvailability({
           {homeVisitScheduledAt && (
             <span className="text-charcoal-ink/60">
               {", "}
-              {new Date(homeVisitScheduledAt).toLocaleString("en-GB", {
+              {new Date(homeVisitScheduledAt).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
                 dateStyle: "medium",
                 timeStyle: "short",
               })}

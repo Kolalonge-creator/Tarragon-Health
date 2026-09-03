@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { Enums } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 type ContraceptionMethodCategory = Enums<"contraception_method_category">;
 type ContraceptionPlanStatus = Enums<"contraception_plan_status">;
 
@@ -172,7 +173,7 @@ export function ContraceptionPanel({ patientId }: { patientId: string }) {
                   {methodNameByCode.get(plan.method_code) ?? plan.method_code.replace(/_/g, " ")}
                 </p>
                 <p className="text-xs text-charcoal-ink/60">
-                  Requested {new Date(plan.requested_at).toLocaleDateString()}
+                  Requested {formatPatientDate(plan.requested_at)}
                 </p>
               </div>
               <Badge variant={STATUS_BADGE_VARIANT[plan.status]}>

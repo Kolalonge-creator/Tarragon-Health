@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const GOAL_TYPE_LABEL: Record<(typeof PATIENT_GOAL_TYPES)[number], string> = {
   walk_more: "Walk more",
   reduce_weight: "Reduce weight",
@@ -120,7 +121,12 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
         )}
 
         {goals.isLoading && <p className="text-sm text-charcoal-ink/60">Loading your goals…</p>}
-        {!goals.isLoading && (goals.data?.length ?? 0) === 0 && !addingGoal && (
+        {goals.isError && (
+          <p className="text-sm text-charcoal-ink/60">
+            We couldn&apos;t load your goals just now. Give it a moment and try again.
+          </p>
+        )}
+        {!goals.isLoading && !goals.isError && (goals.data?.length ?? 0) === 0 && !addingGoal && (
           <p className="text-sm text-charcoal-ink/60">
             No active goals yet. Small, specific goals (like a daily step count) tend to stick
             best.
@@ -135,9 +141,9 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
               {milestones.data!.map((m) => (
                 <li key={m.id} className="flex items-center gap-2 text-sm text-charcoal-ink">
                   <SEMANTIC_ICON.badge className="h-4 w-4 shrink-0 text-sprout-gold" strokeWidth={2} />
-                  <span>{MILESTONE_COPY[m.milestone_type] ?? m.milestone_type}</span>
+                  <span>{MILESTONE_COPY[m.milestone_type] ?? m.milestone_type.replace(/_/g, " ")}</span>
                   <span className="ml-auto shrink-0 text-xs text-charcoal-ink/50">
-                    {new Date(m.achieved_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    {formatPatientDate(m.achieved_at, { month: "short", day: "numeric" })}
                   </span>
                 </li>
               ))}

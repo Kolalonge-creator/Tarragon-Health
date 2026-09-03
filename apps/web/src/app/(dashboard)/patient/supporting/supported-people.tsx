@@ -41,7 +41,7 @@ function naira(kobo: number): string {
 }
 
 function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -69,7 +69,7 @@ function buildStatementCsv(people: SupportedPerson[]): string {
 
   const lines: string[] = [
     "Tarragon Health: statement of care you have funded",
-    `Generated,${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+    `Generated,${new Date().toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "long", year: "numeric" })}`,
     "",
     "Summary",
     `People you support,${people.length}`,

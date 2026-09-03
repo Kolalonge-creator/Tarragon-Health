@@ -48,7 +48,7 @@ function TablesAffected({ tables }: { tables: Record<string, number> }) {
     return <p className="text-sm text-charcoal-ink/60">No rows reference the losing record. Nothing to move.</p>;
   }
   return (
-    <div className="max-h-64 overflow-y-auto rounded-md border border-charcoal-ink/10">
+    <div className="max-h-64 overflow-x-auto overflow-y-auto rounded-md border border-charcoal-ink/10">
       <table className="w-full text-sm">
         <thead className="bg-charcoal-ink/5 text-left text-xs uppercase text-charcoal-ink/50">
           <tr>

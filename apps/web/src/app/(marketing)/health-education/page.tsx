@@ -81,8 +81,8 @@ export default function HealthEducationPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Personalised to your own conditions and risk on every paid plan, Tarragon Prevent and
-            above. Tarragon Free still gets the full general education library at no cost, forever.
+            The whole library, personalised to your own conditions and risk, is free for every
+            patient, with no time limit and no card required.
           </p>
         </div>
       </Section>
@@ -140,9 +140,9 @@ export default function HealthEducationPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Managing hypertension, diabetes, or your weight? You&apos;ll see the practical detail
             that turns a reading into an understanding: why a target matters, what a trend means,
-            what to watch for. Healthy and using{" "}
+            what to watch for. Healthy and focused on{" "}
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
-              Tarragon Prevent
+              preventive health
             </Link>
             ? You&apos;ll see what your screenings and vaccinations are actually for, so a clear
             result means something and not just a form filled in.

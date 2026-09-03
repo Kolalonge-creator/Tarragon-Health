@@ -16,8 +16,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     weekday: "short",
     day: "numeric",
     month: "short",

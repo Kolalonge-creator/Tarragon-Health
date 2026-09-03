@@ -22,6 +22,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
+import { formatPatientDate } from "@/lib/format-date";
 export function LogVaccinationForm({
   patientId,
   ageYears = null,
@@ -263,7 +264,7 @@ export function LogVaccinationForm({
                 {vaccinationBookings.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.facilities?.name ?? "Vaccination centre"} ·{" "}
-                    {new Date(b.requested_date).toLocaleDateString()}
+                    {formatPatientDate(b.requested_date)}
                   </option>
                 ))}
               </Select>

@@ -157,7 +157,7 @@ export function SymptomTriageCheck({
         {stage.step === "result" && (
           <div className="space-y-3">
             <Badge variant={CATEGORY_BADGE_VARIANT[stage.category]}>
-              {CATEGORY_LABEL[stage.category] ?? stage.category}
+              {CATEGORY_LABEL[stage.category] ?? stage.category.replace(/_/g, " ")}
             </Badge>
             <p className="text-sm text-charcoal-ink">
               {getSafetyNetMessage(

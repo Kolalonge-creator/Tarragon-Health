@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { SupportedPeople } from "./supported-people";
 import { joinAsPatientToo } from "./actions";
 
@@ -24,16 +26,11 @@ export default async function SupportingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          People you support
-        </h1>
-        <p className="max-w-2xl text-charcoal-ink/60">
-          Money you put toward someone else&apos;s care, and what it actually paid for. Every
-          person here keeps their own account and their own plan; you are funding their care, not
-          holding it.
-        </p>
-      </div>
+      <PageHeader
+        title="People you support"
+        icon={NAV_ICON.healthyAgeing}
+        description="Money you put toward someone else's care, and what it actually paid for. Every person here keeps their own account and their own plan; you are funding their care, not holding it."
+      />
 
       <SupportedPeople />
 

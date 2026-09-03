@@ -17,6 +17,7 @@ import { Stepper, type StepperStep } from "@/components/ui/stepper";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 type StiCaseStatus = Enums<"sti_case_status">;
 
 const STI_CODE_LABEL: Record<string, string> = {
@@ -237,7 +238,7 @@ function StiCaseCard({ episode }: { episode: StiCaseEpisode }) {
           {STI_CODE_LABEL[episode.sti_code] ?? episode.sti_code.replace(/_/g, " ")}
         </CardTitle>
         <CardDescription>
-          Started {new Date(episode.created_at).toLocaleDateString()}
+          Started {formatPatientDate(episode.created_at)}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

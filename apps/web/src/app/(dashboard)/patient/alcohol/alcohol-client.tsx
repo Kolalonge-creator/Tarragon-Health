@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
 
+import { formatPatientDate } from "@/lib/format-date";
 const GOAL_KEY = "alcohol-goal";
 const LOGS_KEY = "alcohol-consumption-logs";
 
@@ -58,7 +59,7 @@ export function AlcoholClient({ patientId }: { patientId: string }) {
             {(logs.data ?? []).map((entry) => (
               <li key={entry.id} className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 p-3">
                 <p className="text-sm font-medium text-charcoal-ink">
-                  {new Date(entry.logged_on).toLocaleDateString(undefined, { month: "long", day: "numeric" })}:{" "}
+                  {formatPatientDate(entry.logged_on, { month: "long", day: "numeric" })}:{" "}
                   {entry.drinks_count} drink{entry.drinks_count === 1 ? "" : "s"}
                   {entry.context && ` (${ALCOHOL_CONTEXT_LABELS[entry.context as keyof typeof ALCOHOL_CONTEXT_LABELS]})`}
                 </p>

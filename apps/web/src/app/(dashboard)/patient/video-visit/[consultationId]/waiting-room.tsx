@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 /** 68.17 — the curated post-visit recap, once the care team has published
  * one. Nothing shows here until a clinician explicitly writes and publishes
  * it (publish_consultation_summary) — never an automatic dump of the
@@ -59,7 +60,7 @@ function ConsultationSummaryCard({ consultationId }: { consultationId: string })
 }
 
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     weekday: "long",
     day: "numeric",
     month: "short",

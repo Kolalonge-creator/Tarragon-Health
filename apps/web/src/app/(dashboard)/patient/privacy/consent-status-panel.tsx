@@ -14,7 +14,7 @@ const CONSENT_TYPE_LABEL: Record<string, string> = {
 };
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -52,7 +52,7 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
                 <li key={version.id} className="flex items-center justify-between gap-3 py-3">
                   <div>
                     <p className="text-sm font-medium text-charcoal-ink">
-                      {CONSENT_TYPE_LABEL[version.consent_type] ?? version.consent_type}
+                      {CONSENT_TYPE_LABEL[version.consent_type] ?? version.consent_type.replace(/_/g, " ")}
                     </p>
                     {record ? (
                       <p className="text-xs text-charcoal-ink/50">
