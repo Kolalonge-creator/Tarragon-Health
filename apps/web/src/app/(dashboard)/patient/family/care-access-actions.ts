@@ -7,6 +7,8 @@ import {
   nominateNextOfKinSchema,
   eldercareAccessRequestSchema,
   inverseRelationship,
+  CAREGIVER_PERMISSIONS,
+  type CaregiverPermission,
 } from "@/lib/validation/care-access";
 
 /**
@@ -164,7 +166,7 @@ export async function createEldercareAccessRequestAction(
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid details" };
   }
-  const { phone, relationship, direction } = parsed.data;
+  const { phone, relationship, direction, permissions, duration } = parsed.data;
 
   const profile = await getCurrentProfile();
   if (!profile) return { error: "Not signed in" };
@@ -195,12 +197,27 @@ export async function createEldercareAccessRequestAction(
   const canonicalRelationship =
     direction === "i_will_manage" ? relationship : inverseRelationship(relationship);
 
+  // Every capability checked is what "unrestricted" looks like in the
+  // wizard — store null, the same value every manage grant made before this
+  // feature existed already carries, rather than a nine-item array that
+  // happens to spell out "everything."
+  const uniquePermissions = new Set<CaregiverPermission>(permissions);
+  const permissionsToStore =
+    uniquePermissions.size >= CAREGIVER_PERMISSIONS.length ? null : Array.from(uniquePermissions);
+
+  const expiresAtToStore =
+    duration === "permanent"
+      ? null
+      : new Date(Date.now() + Number(duration) * 24 * 60 * 60 * 1000).toISOString();
+
   const { error: insertError } = await supabase.from("care_access_requests").insert({
     profile_id: profileId,
     counterparty_user_id: counterpartyUserId,
     initiated_by: profile.id,
     permission_level: "manage",
     relationship: canonicalRelationship,
+    permissions: permissionsToStore,
+    expires_at: expiresAtToStore,
   });
   if (insertError) {
     if (insertError.code === "23505") {

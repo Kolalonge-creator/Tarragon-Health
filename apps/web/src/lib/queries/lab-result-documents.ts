@@ -1,4 +1,4 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 
 const RESULT_DOC_BUCKET = "lab-result-documents";
@@ -73,6 +73,63 @@ export function useUploadOwnResultDocument() {
         await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
         throw insertError;
       }
+    },
+  });
+}
+
+/**
+ * Org-staff reconciliation action (module 57.12/57.13): attach an uploaded
+ * result document that arrived with no order link to the lab_order it
+ * belongs to. lab_order_id was already a plain, staff-updatable column — RLS
+ * (lab_result_documents_update) and private.enforce_lab_result_document_update
+ * both already permit this write, so no new server surface was needed, only
+ * this client-side mutation and the worklist that calls it.
+ */
+export function useMatchResultDocumentToOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ documentId, labOrderId }: { documentId: string; labOrderId: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("lab_result_documents")
+        .update({ lab_order_id: labOrderId })
+        .eq("id", documentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["result-documents-unmatched"] });
+      queryClient.invalidateQueries({ queryKey: ["lab-orders"] });
+    },
+  });
+}
+
+/**
+ * Org-staff amendment action (module 57.14): mark this document as the
+ * corrected/amended replacement for an earlier one. The original stays
+ * visible and traceable — private.enforce_lab_result_document_update stamps
+ * its superseded_by_document_id/superseded_at server-side; this never
+ * deletes or hides anything.
+ */
+export function useMarkResultDocumentSupersedes() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      documentId,
+      supersedesDocumentId,
+    }: {
+      documentId: string;
+      /** Pass null to undo a mistaken link. */
+      supersedesDocumentId: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("lab_result_documents")
+        .update({ supersedes_document_id: supersedesDocumentId })
+        .eq("id", documentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["result-documents"] });
     },
   });
 }

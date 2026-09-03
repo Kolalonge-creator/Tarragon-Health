@@ -17,6 +17,12 @@ import {
   useUpdateSpecialistProviderLicense,
   type SpecialistType,
 } from "@/lib/queries/partner-catalogues";
+import { useUpdateSpecialistProviderProfile } from "@/lib/queries/specialist-provider-network";
+import { SpecialistProfileEditor } from "./specialist-profile-editor";
+import { SpecialistVerificationPanel } from "./specialist-verification-panel";
+import { SpecialistLocationsManager } from "./specialist-locations-manager";
+import { SpecialistCalendarManager } from "./specialist-calendar-manager";
+import { SpecialistWorkloadPerformancePanel } from "./specialist-workload-performance-panel";
 
 const SPECIALIST_TYPES: SpecialistType[] = [
   "urologist",
@@ -28,6 +34,8 @@ const SPECIALIST_TYPES: SpecialistType[] = [
   "ophthalmology",
   "dietetics",
   "podiatry",
+  "psychiatry",
+  "psychology",
   "other",
 ];
 
@@ -37,12 +45,16 @@ export function SpecialistsManager() {
   const toggle = useSetSpecialistProviderActive();
   const updateCommission = useUpdateSpecialistProviderCommission();
   const updateLicense = useUpdateSpecialistProviderLicense();
+  const updateProfile = useUpdateSpecialistProviderProfile();
   const [savingCommissionId, setSavingCommissionId] = useState<string | null>(null);
   const [commissionErrorId, setCommissionErrorId] = useState<string | null>(null);
 
   const [name, setName] = useState("");
   const [specialistType, setSpecialistType] = useState<SpecialistType>("cardiology");
   const [state, setState] = useState("");
+  const [city, setCity] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
   const [feeNaira, setFeeNaira] = useState("");
   const [telemedicine, setTelemedicine] = useState(false);
   const [isActive, setIsActive] = useState(true);
@@ -68,6 +80,9 @@ export function SpecialistsManager() {
                   name,
                   specialistType,
                   state: state || null,
+                  city: city || null,
+                  contactEmail: contactEmail || null,
+                  contactPhone: contactPhone || null,
                   consultationFeeKobo: Math.round(naira * 100),
                   supportsTelemedicine: telemedicine,
                   isActive,
@@ -79,6 +94,9 @@ export function SpecialistsManager() {
                   onSuccess: () => {
                     setName("");
                     setState("");
+                    setCity("");
+                    setContactEmail("");
+                    setContactPhone("");
                     setFeeNaira("");
                     setTelemedicine(false);
                     setIsActive(true);
@@ -106,6 +124,31 @@ export function SpecialistsManager() {
             <div className="space-y-1">
               <Label htmlFor="sp-state">State</Label>
               <Input id="sp-state" value={state} onChange={(e) => setState(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sp-city">City</Label>
+              <Input id="sp-city" value={city} onChange={(e) => setCity(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sp-contact-email">Contact email</Label>
+              <Input
+                id="sp-contact-email"
+                type="email"
+                value={contactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+              />
+              <p className="text-xs text-charcoal-ink/50">
+                Where a booking confirmation is sent once a referral is assigned to them.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="sp-contact-phone">Contact phone</Label>
+              <Input
+                id="sp-contact-phone"
+                placeholder="+234XXXXXXXXXX"
+                value={contactPhone}
+                onChange={(e) => setContactPhone(e.target.value)}
+              />
             </div>
             <div className="space-y-1">
               <Label htmlFor="sp-fee">Consultation fee (₦)</Label>
@@ -160,10 +203,18 @@ export function SpecialistsManager() {
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="font-medium text-charcoal-ink">{sp.name}</span>
                     <Badge variant="grey">{sp.specialist_type.replace(/_/g, " ")}</Badge>
+                    {sp.provider_tier && <Badge variant="blue">{sp.provider_tier.replace(/_/g, " ")}</Badge>}
                     <Badge variant={sp.is_active ? "green" : "grey"}>{sp.is_active ? "Active" : "Inactive"}</Badge>
                     {sp.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
                     <PartnerLicenseBadge expiresAt={sp.license_expires_at} />
-                    {sp.state && <span className="text-xs text-charcoal-ink/50">{sp.state}</span>}
+                    {(sp.city || sp.state) && (
+                      <span className="text-xs text-charcoal-ink/50">
+                        {[sp.city, sp.state].filter(Boolean).join(", ")}
+                      </span>
+                    )}
+                    {!sp.contact_email && !sp.contact_phone && (
+                      <span className="text-xs text-amber-700">No contact details on file</span>
+                    )}
                   </div>
                   <Button
                     variant="outline"
@@ -173,15 +224,43 @@ export function SpecialistsManager() {
                     {sp.is_active ? "Deactivate" : "Activate"}
                   </Button>
                 </div>
+                {(sp.subspecialty || sp.years_of_experience != null) && (
+                  <p className="text-xs text-charcoal-ink/50">
+                    {[sp.subspecialty, sp.years_of_experience != null ? `${sp.years_of_experience} yrs experience` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                )}
                 {sp.license_number && (
                   <p className="text-xs text-charcoal-ink/50">
                     {sp.license_type ?? "License"}: {sp.license_number}
                   </p>
                 )}
+                <SpecialistVerificationPanel specialistProviderId={sp.id} currentStage={sp.verification_stage} />
                 <PartnerLicenseEditor
                   values={sp}
                   saving={updateLicense.isPending}
                   onSave={(next) => updateLicense.mutate({ id: sp.id, ...next })}
+                />
+                <SpecialistProfileEditor
+                  values={{
+                    subspecialty: sp.subspecialty,
+                    qualifications: sp.qualifications,
+                    years_of_experience: sp.years_of_experience,
+                    clinical_interests: sp.clinical_interests,
+                    provider_tier: sp.provider_tier,
+                  }}
+                  saving={updateProfile.isPending}
+                  onSave={(next) =>
+                    updateProfile.mutate({
+                      id: sp.id,
+                      subspecialty: next.subspecialty,
+                      qualifications: next.qualifications,
+                      yearsOfExperience: next.years_of_experience,
+                      clinicalInterests: next.clinical_interests,
+                      providerTier: next.provider_tier,
+                    })
+                  }
                 />
                 <CommissionRateEditor
                   idPrefix={`specialist-${sp.id}`}
@@ -201,6 +280,11 @@ export function SpecialistsManager() {
                     );
                   }}
                 />
+                <div className="flex flex-wrap gap-3 border-t border-charcoal-ink/10 pt-2">
+                  <SpecialistLocationsManager specialistProviderId={sp.id} />
+                  <SpecialistCalendarManager specialistProviderId={sp.id} />
+                  <SpecialistWorkloadPerformancePanel specialistProviderId={sp.id} />
+                </div>
               </div>
             ))
           )}

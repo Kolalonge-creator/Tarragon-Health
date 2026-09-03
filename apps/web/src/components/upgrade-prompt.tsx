@@ -3,56 +3,53 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
-/** Copy per gated feature — pricing.ts's Free-tier footnote is the source
- * for exactly which 5 capabilities this ever fires for. Keep in sync with
- * the feature codes seeded onto subscription_plans/add_ons.features[] in
- * supabase/seed/seed.sql. */
+/**
+ * Shown where a patient has reached something that costs a doctor's time.
+ *
+ * The Prevent/Essential/Complete packs were retired when the platform moved to
+ * a free app plus pay-per-service: every feature with no marginal clinician
+ * cost — the education library, lifestyle/weight/activity/nutrition, the AI
+ * Coach, the quarterly report, the screening calendar, lab-request
+ * coordination and refill tracking — is now free to every patient, and its
+ * gate is gone rather than being re-pointed at a new product.
+ *
+ * What remains here is only the six things that ARE a doctor's time. Each is
+ * reachable two ways: the 12-week doctor-supported chronic programme, or a
+ * one-off credit bought for that single piece of work. So this prompt names a
+ * price and a specific service, never a plan tier — there are no tiers left to
+ * upgrade to. Keep it that way: copy naming "Essential Care" or "Complete
+ * Care" is describing products that no longer exist.
+ */
 const FEATURE_COPY: Record<string, { title: string; body: string }> = {
   clinician_review: {
-    title: "A doctor-set care plan is part of a paid plan",
-    body: "Your readings are checked against care protocols on every plan, including Free, and a dangerous one gets you clear guidance and a specific next step right away. What's different on a paid plan is that a dangerous reading also reaches a doctor, and on Essential Care and above a doctor sets your care plan and checks in on your condition on a schedule, not just when something is flagged. Whenever a doctor does review something of yours, flagged or scheduled, you'll see who reviewed it and when.",
+    title: "A doctor-set care plan is a paid service",
+    body: "Your readings are checked against care protocols whatever you pay, and a dangerous one gets you clear guidance and a specific next step right away. What a doctor adds is a care plan set for your condition and reviewed on a schedule. That comes with the 12-week doctor-supported programme. Whenever a doctor does review something of yours, you'll see who reviewed it and when.",
   },
   doctor_checkin: {
-    title: "Doctor check-ins are part of a paid plan",
-    body: "Message your care team directly and get a scheduled doctor check-in on Essential Care or higher.",
+    title: "Doctor check-ins are a paid service",
+    body: "Scheduled check-ins on your condition, and messaging your care team directly, come with the 12-week doctor-supported programme.",
   },
-  lab_coordination: {
-    title: "Lab test requests are part of a paid plan",
-    body: "On Essential Care or higher, message your care team for any lab test you need and they'll write you a request to take to a lab of your choice. You pay the lab directly; we take nothing on it.",
-  },
-  medication_refills: {
-    title: "Refill-date tracking is part of a paid plan",
-    body: "On Essential Care or higher, we track your refill dates and remind you before one's due. You still buy from whichever pharmacy suits you.",
-  },
-  annual_review: {
-    title: "The Annual Doctor Review is part of a paid plan",
-    body: "Get a once-a-year whole-body workup (general bloods, heart and other screening) plus a video consult with your Tarragon doctor to talk through your whole year. Included on Complete Care.",
-  },
-  lifestyle_coaching: {
-    title: "Lifestyle coaching is part of a paid plan",
-    body: "Get guided diet, exercise, weight, sleep and stress coaching with progress reviews from your care team, included in Complete Care, or add it on to Essential.",
+  result_document_review: {
+    title: "A doctor reading your result is a paid service",
+    body: "You can upload any result and keep it on your record for free, and it stays yours. Having a doctor read it back to you in plain language, with next steps, is either part of the 12-week doctor-supported programme or a one-off Result Interpretation Session.",
   },
   async_doctor_visit: {
-    title: "Ask a doctor is part of a paid plan",
-    body: "Send a written question and get a doctor's answer in the app within 72 hours. Included on Complete Care.",
-  },
-  health_education: {
-    title: "Personalised health education is part of a paid plan",
-    body: "Get clinician-reviewed learning built around your own conditions, with short knowledge checks. Included on every paid plan, from Tarragon Prevent up.",
-  },
-  prevention_coordination: {
-    title: "Screening booking is part of Tarragon Prevent",
-    body: "Your screening calendar is free to see. To book screenings when they come due (with reminders and results tracking), join Tarragon Prevent, the stay-healthy plan, or the Prevention Screening add-on. The one-off Annual Health Check stays available to everyone.",
+    title: "Asking a doctor is a paid service",
+    body: "Send a written question and get a doctor's answer in the app, usually within 72 hours. Buy it as a one-off Ask a Doctor credit, or get it as part of the 12-week doctor-supported programme.",
   },
   multi_condition_review: {
-    title: "A scheduled review for this condition is part of Complete Care",
-    body: "This condition is being managed alongside another one you're already on a plan for. Nothing urgent is ever held back for this: a dangerous reading still reaches a doctor the same as always. What Complete Care adds is a proactive, scheduled review for this condition too, not just your first one.",
+    title: "A review across all your conditions is a paid service",
+    body: "Nothing urgent is ever held back for this: a dangerous reading reaches a doctor exactly as it always would. What this adds is one doctor looking at every condition you're managing together and writing a single plan. Available as a Senior Case Review, or with the 12-week doctor-supported programme.",
+  },
+  vitals_red_flag_doctor_escalation: {
+    title: "Having a doctor paged on a dangerous reading is a paid service",
+    body: "A dangerous reading always gets you the full emergency safety net: immediate guidance to get to a hospital, your emergency contact notified, and a check-in afterwards. None of that depends on anyone paying. What the 12-week doctor-supported programme adds is a Tarragon doctor being alerted to it as well, and following up with you.",
   },
 };
 
 const DEFAULT_COPY = {
-  title: "This is part of a paid plan",
-  body: "Upgrade to unlock this for your account.",
+  title: "This is a paid service",
+  body: "This one costs a doctor's time. You can buy it on its own, or get it as part of the 12-week doctor-supported programme.",
 };
 
 export function UpgradePrompt({ feature }: { feature: string }) {
@@ -69,7 +66,7 @@ export function UpgradePrompt({ feature }: { feature: string }) {
             <p className="text-sm text-charcoal-ink/70">{copy.body}</p>
           </div>
           <Button asChild size="sm">
-            <Link href="/patient/subscription">See plans</Link>
+            <Link href="/patient/subscription">See what this costs</Link>
           </Button>
         </div>
       </CardContent>

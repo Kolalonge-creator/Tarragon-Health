@@ -5,13 +5,13 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 export function DashboardPlaceholder({
   greeting,
   roleLabel,
-  comingUp,
+  comingUp = [],
   icon: Icon = SEMANTIC_ICON.preventive,
   children,
 }: {
   greeting: string;
   roleLabel: string;
-  comingUp: string[];
+  comingUp?: string[];
   icon?: LucideIcon;
   children?: React.ReactNode;
 }) {

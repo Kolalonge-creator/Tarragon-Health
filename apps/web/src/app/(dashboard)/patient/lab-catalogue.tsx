@@ -14,12 +14,13 @@ import { testPreparationForCodes } from "@/lib/labs/test-preparation";
  * PreventiveScreeningCalendar; anything else needs a clinician to generate
  * the order.
  *
- * No price shown: since the 2026-08-03 self-arranged-fulfilment decision,
- * Tarragon does not bill for tests — `bundle.price_kobo` is a stale
- * pre-pivot figure that would read as "this is what Tarragon charges,"
- * exactly the framing the marketing site (`YOU PAY THE LAB`, see
- * `_content/pricing.ts`) deliberately never shows. What a patient actually
- * pays depends on the lab they choose.
+ * No price shown here on purpose, even though some bundles now carry a real
+ * contracted price (2026-08-21, Synlab): this catalogue is self-arranged
+ * browsing only, and showing a price next to a bundle a patient cannot act
+ * on from here would misleadingly imply this view can charge them. Where a
+ * bundle genuinely can be billed by Tarragon, that option lives on the
+ * booking action itself (PreventiveScreeningCalendar / AnnualHealthCheckBooking),
+ * right next to the bundle it applies to — not here.
  */
 export function LabCatalogue() {
   const { data: bundles, isLoading, isError } = useLabCatalogue();

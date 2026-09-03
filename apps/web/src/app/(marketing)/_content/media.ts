@@ -92,12 +92,16 @@ export const MARKETING_MEDIA = {
       imageFocus: "center 20%",
     } as MarketingMediaSlot,
     problem: {
-      illustration: "fragmented-care",
-      imageAlt: "Missed reminders and scattered health information between visits",
+      imageSrc: "/marketing/photos/body/problem-medication-organiser.jpg",
+      imageAlt: "Close-up of two people's hands sorting medication into a weekly pill organiser",
     } satisfies MarketingMediaSlot,
     solution: {
-      illustration: "connected-care",
-      imageAlt: "Readings, reminders, and doctor review in one connected record",
+      imageSrc: "/marketing/photos/body/how-it-works-log-reading.jpg",
+      imageAlt: "A hand holding a phone beside a home blood pressure cuff on a wooden table",
+    } satisfies MarketingMediaSlot,
+    preventionCallout: {
+      imageSrc: "/marketing/photos/body/prevention-reviewing-notes.jpg",
+      imageAlt: "A woman reviewing a printed health document at home",
     } satisfies MarketingMediaSlot,
     /** Set youtubeId when a product walkthrough is ready on YouTube. */
     walkthroughVideo: {

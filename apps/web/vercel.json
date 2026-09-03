@@ -1,8 +1,24 @@
 {
   "crons": [
     {
+      "path": "/api/cron/fraud-sweep",
+      "schedule": "10 5 * * *"
+    },
+    {
+      "path": "/api/cron/ai-coach-embed-content",
+      "schedule": "20 8 * * *"
+    },
+    {
+      "path": "/api/cron/data-quality-scan",
+      "schedule": "0 2 * * *"
+    },
+    {
       "path": "/api/cron/generate-quarterly-reports",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/integration-health-check",
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/lifestyle-coaching",
@@ -11,6 +27,14 @@
     {
       "path": "/api/cron/lpe-embed-content",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/patient-duplicate-detection",
+      "schedule": "0 6 * * 0"
+    },
+    {
+      "path": "/api/cron/pharmacy-order-refunds",
+      "schedule": "40 5 * * *"
     },
     {
       "path": "/api/cron/reconcile-payment-providers",
@@ -25,8 +49,20 @@
       "schedule": "30 5 * * *"
     },
     {
+      "path": "/api/cron/voucher-cancellation-refunds",
+      "schedule": "50 5 * * *"
+    },
+    {
+      "path": "/api/cron/cycle-reminders",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/wearable-sync",
       "schedule": "15 4 * * *"
+    },
+    {
+      "path": "/api/cron/clinical-rules",
+      "schedule": "0 5 * * *"
     }
   ]
 }

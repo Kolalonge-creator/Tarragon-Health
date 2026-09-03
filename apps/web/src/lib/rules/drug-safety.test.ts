@@ -459,4 +459,24 @@ describe("allergy cross-checking", () => {
       expect(report.findings[0].severity).toBe("contraindicated");
     });
   });
+
+  describe("pregnancy context", () => {
+    it("says pregnancy was not checked when the caller never loads it", () => {
+      const report = assessMedicationSafety([med("Dapagliflozin 10mg")]);
+      expect(report.pregnancyCheckNote).toMatch(/not checked/i);
+    });
+
+    it("has no caveat when the caller loads it and the patient is not pregnant", () => {
+      const report = assessMedicationSafety([med("Dapagliflozin 10mg")], { pregnant: false });
+      expect(report.pregnancyCheckNote).toBeNull();
+    });
+
+    it("flags a contraindicated diabetes-ladder drug and caveats the finding as self-reported", () => {
+      const report = assessMedicationSafety([med("Dapagliflozin 10mg")], { pregnant: true });
+      expect(report.pregnancyCheckNote).toMatch(/self-reported/i);
+      const finding = report.findings.find((f) => /pregnancy/i.test(f.message));
+      expect(finding).toBeDefined();
+      expect(finding!.severity).toBe("contraindicated");
+    });
+  });
 });
