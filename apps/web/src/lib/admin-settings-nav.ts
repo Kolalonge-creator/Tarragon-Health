@@ -265,7 +265,7 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         href: "/admin/settings/screening-days",
         label: "Group screening days",
         blurb: "Confirm requests, set the cohort discount, and issue attendee vouchers.",
-        icon: NAV_ICON.booking,
+        icon: SEMANTIC_ICON.booking,
         visible: adminOnly,
       },
       {

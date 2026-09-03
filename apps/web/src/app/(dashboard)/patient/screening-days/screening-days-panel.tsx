@@ -117,7 +117,6 @@ function PayForm({ day }: { day: ScreeningDay }) {
           className="w-40"
         />
       </div>
-      <input type="hidden" name="currency" value="NGN" />
       {state?.error ? <p className="w-full text-sm text-red-600">{state.error}</p> : null}
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Redirecting…" : "Pay"}

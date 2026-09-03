@@ -67,8 +67,13 @@ All four building blocks are real and live:
   self-bookable, Synlab-priced rows, from `screen_core` (₦227,500, the flagship annual tier) down
   to single tests (HIV, hepatitis, thyroid, etc.) — any of them is a valid `p_panel_bundle_id`
   today, in a region Synlab covers, for a beneficiary who still needs at least one test in it.
-- **A checkout path already wired for GBP/USD.** `care_voucher_payments` accepts `NGN`, `GBP`,
-  `USD`; Stripe handles GBP/USD sponsor-funded checkout, Paystack handles NGN.
+- **A checkout path already wired for GBP/USD, as of this doc's original date.** `care_voucher_payments`
+  accepts `NGN`, `GBP`, `USD`; Stripe handled GBP/USD sponsor-funded checkout, Paystack handled NGN.
+  **Corrected 2026-09-03 — Stripe was removed entirely** (there was never a registered Stripe
+  account behind it, so no non-NGN payment could ever actually complete; the one historical
+  Stripe/USD row was confirmed test data and deleted). A diaspora sponsor funds a gift in naira via
+  Paystack today, same as anyone else — see `apps/web/src/lib/billing/voucher-checkout.ts` and
+  `screening-day-checkout.ts`, both NGN-only now.
 - **A redemption path already wired to lab orders.** The redemption RPC in
   `20260731215326_care_vouchers_redemption.sql` redeems a `prepaid_service` voucher against a
   `lab_orders` row for the exact bundle it was bought for.

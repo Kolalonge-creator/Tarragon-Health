@@ -5,7 +5,6 @@ import { redirect } from "next/navigation";
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { initiateScreeningDayPaymentCheckout } from "@/lib/billing/screening-day-checkout";
 import { nairaToKobo } from "@tarragon/shared";
-import type { Currency } from "@tarragon/shared";
 
 export type ScreeningDayActionState = { error?: string; message?: string } | undefined;
 
@@ -72,7 +71,6 @@ export async function payTowardScreeningDay(
 
   const screeningDayId = formData.get("screeningDayId") as string;
   const amountNaira = Number(formData.get("amountNaira"));
-  const currency = (formData.get("currency") as Currency) || "NGN";
 
   if (!screeningDayId) return { error: "Which screening day are you paying for?" };
   if (!Number.isFinite(amountNaira) || amountNaira <= 0) {
@@ -83,7 +81,6 @@ export async function payTowardScreeningDay(
   const result = await initiateScreeningDayPaymentCheckout({
     screeningDayId,
     creditKobo: nairaToKobo(amountNaira),
-    payerCurrency: currency,
     email: user.email,
     callbackUrl: `${origin}/patient/screening-days`,
     description: "Group screening day payment",

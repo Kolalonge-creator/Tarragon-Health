@@ -20,7 +20,7 @@ export const metadata: Metadata = pageMetadata({
 const WAYS_TO_GIVE = [
   {
     title: "Buy them a named health check",
-    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check — Core Screen, or whichever they need — at today's real price. Pay for it in one go or bit by bit, in naira, GBP, or USD. It sits on their account, named to them, until they book it.",
+    body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check — Core Screen, or whichever they need — at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
   },
   {
     title: "Buy them a year of care",
@@ -79,7 +79,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What if I am buying from outside Nigeria?",
     answer:
-      "That is fine either way: pay in naira from within Nigeria, or in GBP or USD if you are paying from abroad. The year still sits on their account until they are ready to start it.",
+      "That's fine — checkout is in naira either way, whether you are paying from within Nigeria or from abroad. The year still sits on their account until they are ready to start it.",
   },
   {
     question: "What if they are already a Tarragon member?",
