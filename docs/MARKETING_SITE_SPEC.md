@@ -91,7 +91,18 @@ The brand system already exists in `docs/BRAND_GUIDE.md` (Guard Leaf) — this s
 
 ---
 
-## 2. Sitemap — 12 Pages
+## 2. Sitemap — original 12 core pages (site has since grown to ~38 routes)
+
+**Corrected 2026-09-03 — the live `(marketing)` route group has roughly 38 page routes, not 12.**
+Confirmed via the actual page list: `about`, `accessibility`, `accountability`, `activity-calculator`,
+`advanced-diagnostics`, `annual-health-check`, `bmi-calculator`, `care-coordination`, `careers`,
+`chronic-care`, `contact`, `cookies`, `corporate`, `coverage`, `devices`, `diabetes`, `faq`,
+`for-you`, `gift`, `health-education`, `hmo`, `hypertension`, `impact`, `labs`, `medication`,
+`mental-wellbeing-check`, `obesity`, `/` (home), `parentcare`, `pricing`, `pricing/how-it-works`,
+`prevention`, `privacy`, `resources` (+ `[slug]`), `screening-journey`, `services`,
+`telehealth-consent`, `terms`, `vaccinations`, `who-its-for`. Treat the live route list, not the
+12-page table below, as the current sitemap — the table is kept for the original 12 core pages'
+naming/copy reference only.
 
 Homepage · Hypertension Monitoring · Diabetes Monitoring · ParentCare · Preventive Health · Medication Support · Lab Coordination · Pricing · About Founder · Corporate Health · HMO Support · Contact/Join
 
@@ -117,7 +128,7 @@ Homepage · Hypertension Monitoring · Diabetes Monitoring · ParentCare · Prev
 ### 3.1 Homepage
 
 **Headline:** Care that stays with you.  
-**Subheadline:** Clinician-led health monitoring for you, your parents, and your loved ones.  
+**Subheadline (superseded — the live default hero no longer uses this line):** Clinician-led health monitoring for you, your parents, and your loved ones. **Live copy is now** (`_content/channel-heroes.ts`, `DEFAULT_HERO.description`): "Health monitoring for chronic disease, prevention, and care coordination, with clinical review and escalation when closer care is needed" — matching CLAUDE.md's Brand-section instruction to describe the actual clinical process rather than use "clinician-led"/"doctor-led" as a blanket adjective.  
 **Body copy:** Track blood pressure, blood sugar, medication, lab checks, and preventive health needs in one secure platform. Tarragon helps families stay informed and supports escalation when closer care is needed.
 
 **CTAs:**
@@ -164,18 +175,31 @@ Each product page (Hypertension, Diabetes, ParentCare, Preventive Health, Medica
 
 ### 3.3 Pricing
 
-Use the four-label system already established for customer-facing pricing — **every line item on this page must carry exactly one label:**
+**Corrected 2026-09-03 — both the label system and the tier structure below are retired.** The live
+label set (`PricingLabel` type in `_content/pricing.ts`) is **`FREE` / `YOU PAY THE LAB` / `FREE
+ELSEWHERE` / `PAID SERVICE`**, not the four labels below (`INCLUDED`/`BOOK & PAY` were already retired
+per the 2026-08-04 "no test prices anywhere" sweep in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`; `ADD-ON`
+became `PAID SERVICE` since there's no base plan left to add on to). Use `_content/pricing.ts` as the
+source of truth for the current label set and copy, not the table immediately below (kept for
+historical reference only):
 
-| Label | Meaning |
+| Label (RETIRED, do not use) | Meaning |
 |---|---|
 | **INCLUDED** | Part of the plan at no extra charge |
 | **BOOK & PAY** | Available through Tarragon; patient pays partner directly |
 | **FREE ELSEWHERE** | Available outside Tarragon at no charge |
 | **ADD-ON** | Optional paid upgrade |
 
-Nothing implied, nothing ambiguous — this is a Nigerian-trust-first design constraint, not a style preference.
+Nothing implied, nothing ambiguous — this is a Nigerian-trust-first design constraint, not a style preference. That constraint still holds; only the specific label set changed.
 
-**Consumer tiers to display:** Tarragon Free · Tarragon Prevent · Essential Care · Complete Care — plus diaspora GBP pricing shown as a toggle or adjacent column (Stripe billing, not Paystack). (No Family Plan — individual enrolment only since the 2026-07-29 founder decision, CLAUDE.md I8/I9.)
+**Consumer tiers to display: none — there are no tiers.** Subscriptions (Tarragon Free/Prevent/
+Essential/Complete) were retired entirely 2026-09-02 for pay-per-service; the app is free and Tarragon
+sells doctor time and specific services individually. Diaspora GBP/Stripe billing was removed
+entirely 2026-09-03 — a diaspora buyer is now a Care Voucher/gift-a-health-check sponsor paying
+Paystack NGN, not a separate pricing column. `_content/pricing.ts`'s own header comment states this
+plainly: "this page has no plan tiers, no currency toggle and no plan finder — there is nothing left
+to choose between." (Family Plan was already gone before this — individual enrolment only since the
+2026-07-29 founder decision, CLAUDE.md I8/I9.)
 
 **Do not display** corporate Bronze/Silver/Gold or HMO capitation tiers on this page — those live on the Corporate and HMO pages as "request a quote," not self-serve pricing.
 
@@ -240,7 +264,7 @@ This is the **only** marketing page that talks to Supabase — everything else i
 - [x] Hostname routing stub separates root domain from `app.*` subdomain (`proxy.ts`)
 - [x] Pricing page uses all four labels correctly; no ambiguous line items
 - [x] Contact/Join form writes to `leads` table with correct `source` tag per page
-- [ ] Lighthouse: 90+ performance, 100 accessibility, on the homepage
+- [ ] Lighthouse: 90+ performance, 100 accessibility, on the homepage — **last verified 2026-07-13 (all 12 original pages, 91-99 performance), before the 2026-08-19/2026-09-01 hero-photography/heading-scale passes; real hero photos are a common LCP-weight regression risk — needs a fresh run, don't check this box on the 2026-07-13 result**
 - [x] No platform/auth imports anywhere under `app/(marketing)/`
 - [x] Guard Leaf assets in place; colours match hex values above; no clinical red/amber used decoratively
 
@@ -261,7 +285,16 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 
 ---
 
-## 7. Build Progress (handoff tracker)
+## 7. Build Progress (handoff tracker) — STALE, superseded by the sprint archive
+
+**Corrected 2026-09-03 — this tracker was never updated after 2026-07-10 despite several major
+passes since (2026-07-13 Corporate/HMO build, 2026-07-30 interactivity/visual pass, 2026-08-12/19-20
+white-canvas + real-photo-hero correction, PR #426 2026-09-01 photography/heading-scale/Card
+adoption).** It now shows pages like Corporate/HMO as "Unblocked, not started" when they've been
+built and populated for weeks. This is exactly the kind of dated tracker `CLAUDE.md`'s own cleanup
+rule says shouldn't live in a spec file — treat `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md` as the real
+record of what shipped when for the marketing site, not this section. Kept below for reference only;
+do not trust any row's status without checking the live route.
 
 > **Update this section every marketing session** so Claude Code can continue without re-discovery.
 > Branch: `feat/marketing-site-scaffold` · Last updated: 2026-07-10
@@ -294,7 +327,7 @@ Full tagline system and voice rules: `docs/BRAND_GUIDE.md`.
 | About | `/about` | **Done (2026-07-12)** | Page shell + design done; founder name/photo/bio are bracketed placeholders — needs real content before this page is announced publicly |
 | Corporate | `/corporate` | Unblocked, not started | Platform dashboard moved to `/dashboard/corporate` (2026-07-12) — bare path is free for marketing to build |
 | HMO | `/hmo` | Unblocked, not started | Platform dashboard moved to `/dashboard/hmo` (2026-07-12) — bare path is free for marketing to build |
-| Contact | `/contact` | **Done** | Leads form + `20260711000000_leads.sql` migration |
+| Contact | `/contact` | **Done** | Leads form + `20260712024423_leads.sql` migration (filename corrected 2026-09-03) |
 
 ### Next session — recommended order
 

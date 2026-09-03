@@ -7,9 +7,25 @@ current — see `CLAUDE.md`'s Device & Wearable Integration section, corrected 2
 
 ## 0. Architecture decision: hybrid, not a full native rewrite
 
-`apps/mobile` today is a two-tab Expo shell (`apps/mobile/App.tsx`): a WebView of the live web
-deployment ("Home") plus a genuinely native "Devices" tab (BLE pairing + Apple Health). That split is
-the right shape to build on, not a stopgap to replace.
+**Corrected 2026-09-03 — the app has grown well past the "one WebView tab + one native tab" shape
+described below.** `App.tsx`'s own comment now describes: Home (a full native app shell + per-section
+WebViews, see `home-shell.tsx`) and Devices — "the two tabs from the Claude Design prototype's iOS
+frame." `home-shell.tsx` implements a real native shell (`TopBar`, `NavDrawer`, `BottomTabBar`,
+`ActingForBanner`) routing between **9 native section screens** (`overview-screen.tsx`,
+`vitals-screen.tsx`, `medications-screen.tsx`, `labs-screen.tsx`, `messages-screen.tsx`,
+`health-passport-screen.tsx`, `emergency-card-screen.tsx`, `settings-screen.tsx`,
+`supporting-screen.tsx` — ~2,000 lines total) plus WebView fallback for the rest, per
+`apps/mobile/src/lib/sections.ts`'s 18-section registry (its own header comment names the 5 sections
+that were WebView-backed specifically because they were previously missing entirely: Learn library,
+Lifestyle coaching, Wellness rewards, the yearly Health Check, buying a service). The §2 predictions
+below (Overview as a lightweight summary card only, Labs mostly WebView, Settings mostly WebView) are
+now wrong for the sections that got native screens — read `apps/mobile/src/lib/sections.ts` as the
+current source of truth for what's native vs. WebView, not this document's §2 table.
+
+`apps/mobile` originally shipped (2026-08-08) as a two-tab Expo shell (`apps/mobile/App.tsx`): a
+WebView of the live web deployment ("Home") plus a genuinely native "Devices" tab (BLE pairing + Apple
+Health). That split was the right shape to build on, not a stopgap to replace — it has since grown
+into the native-shell-plus-WebView-fallback shape described in the correction above.
 
 **Decision: go native only for the ~10 screens a patient touches weekly. WebView everything else.**
 Rewriting prevention, labs, wellness, family, referrals, or any admin/staff surface natively buys
@@ -31,7 +47,7 @@ hybrid split.
 | Screen | Backend |
 |---|---|
 | Splash / session restore | Supabase session via `expo-secure-store` (already built: `apps/mobile/src/lib/supabase.ts`); route by `profiles.user_role` |
-| Login | `login-screen.tsx` exists but is currently only reachable from the Devices tab — promote to an app-level gate in front of both tabs |
+| Login | ~~`login-screen.tsx` exists but is currently only reachable from the Devices tab — promote to an app-level gate in front of both tabs~~ — **DONE.** `App.tsx` now renders `LoginScreen` as the top-level gate whenever the session is null, in front of both tabs. |
 | Sign up | Mirrors `/signup`. Never WhatsApp-initiated — platform-wide rule, unchanged for mobile |
 | Forgot / reset password | Mirrors `/forgot-password`, `/reset-password`. The web reset flow uses a URL-fragment + PKCE token exchange (`@supabase/ssr`) that broke once before (see `project_finance_tooling_shipped_reset_password_fragment_bug` memory) — native needs its own deep-link handler for the recovery link, don't assume the web flow ports as-is |
 | Consent gate | Telehealth + data consent, blocks dashboard access until accepted — same server-side gate as web, called via a Route Handler |
@@ -143,6 +159,18 @@ Android devices before any of this can be called confirmed-working.
 ---
 
 ## 4. Push notifications — unify web + native (biggest backend change)
+
+**STATUS: SHIPPED 2026-08-09, one day after this proposal was written — rewrite below is historical
+design rationale, not a pending task.** `push_subscriptions` gained the exact `platform`/
+`expo_push_token` columns and constraints proposed here in
+`supabase/migrations/20260809195100_push_subscriptions_native_platforms.sql`. `sendExpoPush()` exists
+in `supabase/functions/send-pending-notifications/index.ts` exactly as specced, called from the same
+fan-out as `sendWebPush()`. The mobile client registers via `apps/mobile/src/lib/push-registration.ts`
+(`getExpoPushTokenAsync()` → upserts into `push_subscriptions`), wired into `App.tsx` on login
+(`registerPushToken(...)`). The one still-open item from this section is deep-link routing on
+notification tap — see Open Item #5 in §10, unchanged.
+
+**Original proposal text, kept for design rationale:**
 
 **Current state, verified against the live deployment (2026-08-08):** `push_subscriptions`
 (`supabase/migrations/20260730153214_push_subscriptions.sql`) stores **Web Push only** —
@@ -311,10 +339,13 @@ separate app-store listing and a separate spec, not an extension of this one.
 
 ## 10. Open items / risks
 
-1. **Health Connect (Android) is unbuilt** — see §3. Blocks calling Android health-sync "at parity"
-   with iOS until it exists.
-2. **HealthKit bridge has never run on real hardware** — confirm on a physical iPhone via an EAS dev
-   build before shipping.
+1. ~~**Health Connect (Android) is unbuilt**~~ — **built 2026-08-12**, self-contradicts §3 above
+   (`android-health-connect-card.tsx`, `lib/health-connect.ts` both confirmed to exist). Same open
+   item as #2 below: never run on real hardware, and Health Connect specifically requires a real
+   EAS/prebuild native binary (TurboModule, throws on import in Expo Go) — cannot be exercised at all
+   without one.
+2. **Neither HealthKit nor Health Connect has ever run on real hardware** — confirm on physical
+   iPhone and Android devices via an EAS dev build before shipping either.
 3. **`send-pending-notifications` has drifted from source before (repeatedly)** — this spec's push
    design assumes today's confirmed-in-sync state (v27, verified 2026-08-08); re-check
    `deployed sha256` vs. source before building the Expo-push branch on top of it, don't assume it's

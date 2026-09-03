@@ -351,17 +351,8 @@ explanations`, which explains the *latest* value only, and is a caching/plain-la
 trend engine. This is a query-time concern (compute "previous same-code reading for this patient"
 from existing rows), not obviously a schema gap — flagged as a UI/query follow-up, not built here.
 
-### §1.14 Imaging — BUILT Round 3 (one table, not the ECG pipeline's three)
-`public.imaging_reports` (`20260829222245_imaging_reports.sql`): X-ray/ultrasound/CT/MRI/mammogram/
-DEXA, mirroring `lab_result_documents` fully — private storage bucket, patient-own-folder policies,
-server-derived `uploaded_by`, and (unlike `patient_documents` below) an automatic `clinician_review`
-alert on upload, since an imaging report genuinely needs a doctor to read it the same way a raw lab
-result does. `lab_order_id` links to the existing screening-bundle order when one exists, but is
-optional — a patient can upload an old/external scan with no Tarragon order behind it. ECG's own
-three-table confirm-gated pipeline (`ecg_report_documents`/`ecg_report_extractions`/`ecg_parameter_
-readings`) is untouched — still ECG-only by design, not folded into this table. **Still no DICOM/PACS
-reference or structured findings extraction** — per the spec's own "initially, storing the report may
-be sufficient," `findings_summary` is a clinician-typed free-text field, not a parsed one.
+### §1.14 Imaging — SUPERSEDED 2026-09-02, rewritten against the real platform below
+**The "one table, not three" `public.imaging_reports` placeholder described below (`20260829222245_imaging_reports.sql`) no longer exists.** It was replaced 2026-09-02 by the real Imaging & Diagnostic Procedure Platform (PR #324) — `20260902220000_imaging_reports.sql`'s own header explicitly states it "replaced the simple placeholder `public.imaging_reports` (findings_summary/study_description/search_vector) with the real Imaging & Diagnostic Procedure Platform's richer table (findings/impression/body_region, no search_vector column at all)." The full platform added 9 migrations: `imaging_platform_provider_network`, `imaging_catalogue`, `imaging_orders`, `imaging_safety_questionnaires`, `imaging_report_documents`, `imaging_reports` (redefined), `imaging_incidental_findings`, `imaging_ai_assist_governance`, `imaging_turnaround_stats`. **Genuinely wired into app code**, unlike most of this doc's other DB-only Round-3 additions — `apps/web/src/app/(dashboard)/clinician/patients/[patientId]/imaging-orders-section.tsx`, `lib/imaging-orders/actions.ts`, `lib/imaging-reports/*`, `lib/imaging-safety-questionnaires/actions.ts`, `lib/queries/imaging.ts`. (An older, unrelated `diagnostic_service_catalogue`/`diagnostic_requests`/`diagnostic_reports` module, PR #287, was confirmed superseded by this same platform and dropped as orphaned — `20260903085245_drop_orphaned_diagnostic_services_module.sql`.) A follow-up migration (`20260902220400_fix_search_patient_record_for_new_imaging_reports_shape.sql`, `20260902230423_fix_imaging_reports_before_insert_fk_ordering.sql`) had to reconcile this new shape with §1.19's search function below. DICOM/PACS reference and structured findings extraction remain unbuilt — `findings`/`impression` are clinician-typed free-text.
 
 ### §1.15 Medications: Prescribed → Dispensed → Received → Taken — BUILT this round (4th event added)
 **Prescribed:** real (`medications` table, `source` enum clinician/patient/specialist, prescriber
@@ -472,8 +463,9 @@ text)` RPC (`SECURITY DEFINER`, with authorization checked explicitly inside —
 explicit clinical-access grantee — since `SECURITY DEFINER` bypasses each table's own RLS). Lives in
 `public`, not `private`, because PostgREST only exposes `public`-schema functions — the anon-EXECUTE
 revoke follows this project's standing gotcha (anon inherits EXECUTE through PUBLIC unless explicitly
-revoked from PUBLIC, not just from anon). **Still missing: a search UI/query box** in `apps/web/src`
-— this section built the callable backend, not the clinician-facing search component; encounters
+revoked from PUBLIC, not just from anon). **Still missing, confirmed 2026-09-03: not just a search UI
+— zero call sites anywhere.** `grep -rl "search_patient_record" apps/web/src` returns nothing at all —
+no search box, no query call, nothing. This section built the callable backend only; encounters
 (§1.16, still narrow) aren't indexed since there's no generic encounter table to index yet.
 
 ### §1.20 Record permissions (granular, role-scoped) — BUILT, well-engineered
@@ -485,28 +477,31 @@ iteratively hardened after finding real over-broad access more than once (docume
 migrations themselves). This is the platform's strongest section against the whole spec — no action
 needed.
 
-### §1.21 External records — BUILT Round 3 (generic path added)
+### §1.21 External records — BUILT Round 3, DB layer only — no UI (confirmed 2026-09-03)
 `public.patient_documents` (`20260829221812_patient_documents_external_records.sql`): discharge
 summaries, prescriptions, vaccination cards, specialist letters, previous hospital records — mirrors
 `lab_result_documents`'s storage/RLS/attribution pattern, deliberately *without* the automatic
 `clinician_review` alert (a scanned vaccination card doesn't need doctor triage the way a raw lab
-result does — see §1.14 for the imaging table, which keeps the alert). `lab_result_documents` and
+result does — see §1.14 for the imaging table, which keeps the alert). **No application code calls
+this yet** — `grep -rl "patient_documents" apps/web/src` returns zero hits: no upload form, no
+clinician review screen, nothing. Live DB confirms 0 rows. `lab_result_documents` and
 `ecg_report_documents` are untouched, still their own purpose-built pipelines. `patient_hospital_
 admissions` still captures only self-reported text, not an attached file — out of scope for this
 round.
 
-### §1.22 Record reconciliation on conflict — BUILT Round 3 (the "Verify" step; not "Extract/Match")
+### §1.22 Record reconciliation on conflict — BUILT Round 3, DB layer only — no UI (confirmed 2026-09-03)
 `public.record_conflicts` (`20260829222717_record_conflicts_reconciliation.sql`): a clinician-flagged
 structured queue (`conflict_type`, `status` open → under_review → resolved_*/dismissed, a CHECK
 enforcing the resolution stamp is set if-and-only-if the status is terminal) pointing at an uploaded
 `patient_document` and/or an existing structured record (`conflicting_table`/`conflicting_record_id`).
-Raises a `clinician_review` alert on flag, reaches `patient_timeline` on both flag and resolve.
-**Deliberately does not build "Extract/Match"** — no OCR/parsing/auto-matching engine exists
-anywhere on this platform, and building one is far outside an additive schema pass; a clinician must
-still notice the discrepancy while reviewing an uploaded document, same as today, but now has a real
-structured queue instead of a generic "review needed" alert. Patient-insert is disallowed, same
-principle as `patient_conditions` — verifying a clinical discrepancy is not something a patient does
-unsupervised.
+The migration's own trigger raises a `clinician_review` alert on flag and reaches `patient_timeline`
+on both flag and resolve — but **no application code calls this anywhere**
+(`grep -rl "record_conflicts" apps/web/src` returns zero hits, live DB confirms 0 rows), so the
+trigger has never fired for real. **Deliberately does not build "Extract/Match"** — no OCR/parsing/
+auto-matching engine exists anywhere on this platform; a clinician must still notice the discrepancy
+while reviewing an uploaded document, and — once a UI exists — would have a real structured queue
+instead of a generic "review needed" alert. Patient-insert is disallowed, same principle as
+`patient_conditions` — verifying a clinical discrepancy is not something a patient does unsupervised.
 
 ### §1.23 Patient-facing health record UI — PARTIAL
 The patient dashboard already covers **My results**, **My medications**, **My care plan/referrals**,
@@ -554,11 +549,22 @@ patient dashboard (§1.23) is now unblocked by §1.7's `patient_conditions` tabl
 round either.
 
 **Closed in Round 3 (2026-08-29), formerly listed here:** a generic `patient_documents` table
-(§1.21), a generalized imaging model (§1.14), and record reconciliation/discrepancy flagging (§1.22)
-— see §0's Round 3 entry and each section above. **Still genuinely open after Round 3:** a search
-UI/query box against the new `search_patient_record()` RPC (§1.19), and app-layer wiring to actually
-call `refresh_clinical_summary()` on some cadence (§1.6 — the RPC exists and works, nothing calls it
-yet outside a clinician's manual action).
+(§1.21), a generalized imaging model (§1.14, further replaced 2026-09-02 by the real Imaging &
+Diagnostic Procedure Platform), and record reconciliation/discrepancy flagging (§1.22) — see §0's
+Round 3 entry and each section above, though as of 2026-09-03 all three of §1.19/§1.21/§1.22 are
+confirmed DB-layer-only with zero application code calling them. **Still genuinely open after Round
+3:** a search UI/query box against the `search_patient_record()` RPC (§1.19), an upload/review UI for
+`patient_documents` and `record_conflicts` (§1.21/§1.22), and app-layer wiring to actually call
+`refresh_clinical_summary()` on some cadence (§1.6 — the RPC exists and works, but confirmed
+2026-09-03 that **nothing calls it at all** — no cron, no manual clinician action either; `grep -rn
+"clinical_summar" apps/web/src` returns zero hits).
+
+**Migration-drift caveat, added 2026-09-03:** treat any "BUILT" status in this document as true of
+the git-tracked schema, not confirmed applied to production — a spot-check found `profile_access`
+still carrying the `clinical_access`/`clinical_access_updated_at` columns live even though
+`20260830103251_category_scoped_clinical_access_and_emergency_access.sql` (merged into `main-dev`)
+drops them. See `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s 2026-08-31 to 2026-09-03 entry (§6) on
+ongoing, growing migration-file-vs-live drift.
 
 ## 3. Founder decisions made this round (previously open questions)
 

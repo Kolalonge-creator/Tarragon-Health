@@ -56,6 +56,40 @@
 > clinician-facing checklist wiring, no shared `transition_state` concept) — that remains a product
 > decision for a human, same as `20260830103331`'s own header flags for its overlap with
 > `adolescent_transition_plans` (PR #329).
+>
+> **2026-09-02, a later and separate merge — §3 item 4's "permission levels are 2 (+1 toggle), not
+> 5" gap (§22.5) is now substantially closed.** PR #295 "Caregiver Proxy Access" (migrations
+> `20260902234500`–`20260902235100`) adds `profile_access.permissions caregiver_permission[]` — a
+> 9-capability array (`view_appointments`, `book_appointments`, `view_medication`,
+> `manage_pharmacy`, `view_results`, `view_care_plan`, `communicate_with_care_team`,
+> `manage_payments`, `receive_alerts`) that narrows a `manage` grant capability-by-capability — plus
+> `profile_access.expires_at` (real time-boxed/temporary access, swept every 15 minutes by
+> `private.expire_stale_profile_access`), plus a genuinely new `acted_for` audit trail
+> (`20260902235000_caregiver_acted_for_audit.sql` — `acted_for` events existed in the enum since
+> 2026-08-07 but were never once written until this migration). This directly answers this doc's own
+> §22.5 gap and the brief's "temporary access" and "audit what they changed" asks, though it's a
+> 9-capability model rather than the brief's literal 5-level ladder. It also closes §3 item 7 below
+> (no reschedule/cancel parity for grantees) for the `public.appointments` engine specifically, via
+> `private.can_act_for(patient, 'book_appointments')` — see §3 item 7's own entry for the residual
+> gap this doesn't close (the older `booking_requests` table).
+>
+> **Also superseded by this same merge — `health_wallets`/`can_fund_wallet` no longer exist.** Both
+> were dropped 2026-07-31 (`20260731215735_retire_health_wallet.sql`), over a month before this
+> doc's most recent edit. Every mention of them below (§1's table, §22.10) describes a funding
+> mechanism that has not existed since before this document's most recent update — the live funding
+> mechanism is `care_vouchers` + `service_purchases` (`20260831161822_rewire_care_graph_and_receipts_to_service_purchases.sql`).
+>
+> **And `profile_access.clinical_access` (the boolean the §1 table and every §22.x subsection below
+> still describes) was dropped 2026-08-30** by the same `20260830103251_category_scoped_clinical_access_and_emergency_access.sql`
+> migration flagged in the note above — this doc's preamble already correctly records that
+> supersession for item 4's *gap-closure* purpose, but the §1 table and every §22.x mention below it
+> were never updated to match, so the doc now contradicts its own preamble. Read `clinical_access`
+> everywhere below as `profile_access_categories`/the 8-value `care_access_category` enum
+> (`appointments_care_plan`, `vitals_readings`, `medications`, `labs_results`, `vaccinations`,
+> `messaging`, `reproductive_health`, `medical_history`). Note `reproductive_health` is deliberately
+> excluded from both the dependent-account bypass and emergency break-glass — see `CLAUDE.md`'s
+> standing engineering lesson on this, added 2026-09-03 after this exact gap recurred five times in
+> three days across several tables that copied an older, pre-category-model RLS shape.
 
 ## 0. What this document is
 
@@ -101,7 +135,7 @@ concerns separate:
 | `profile_access.clinical_access` | A separate, owner-only, revocable boolean: may this grantee see *health* information, not just administrative activity | `20260731181143` |
 | `care_access_requests` | Two-sided consent (proposal → accept/decline) before a grant is created, in either direction | `20260730025553` |
 | `profiles.is_dependent_account` | Distinguishes a child with no login (unconditional grant) from an eldercare-managed adult (accepted grant) | `20260730025603` |
-| `care_vouchers` / `health_wallets` | Who has actually paid for whose care — deliberately gated by a *different* predicate than clinical visibility | `care_graph_unification` (`20260807010837`), `can_fund_wallet` |
+| `care_vouchers` / `service_purchases` | Who has actually paid for whose care — deliberately gated by a *different* predicate than clinical visibility. (`health_wallets`/`can_fund_wallet` dropped 2026-07-31 — see the top-of-file note.) | `20260831161822_rewire_care_graph_and_receipts_to_service_purchases.sql` |
 | `family_history` | A patient's own free-text record of *their family's* conditions — explicitly never auto-populated from a relative's actual record | `20260827195741` |
 | `public.my_care_graph()` | One unified read of every grant, request, voucher and care-team assignment touching the caller, from the caller's own point of view | `20260807010837` |
 
@@ -251,16 +285,31 @@ the start of it, and without the 5-level grading in the middle (§22.5).
    explicitly calls out; nothing exists today.
 2. **No account-provisioning path for an adult who can't self-onboard** (§22.7's literal
    smartphone-less-parent case) — only the under-18 child path skips the self-accept step.
-3. **No appointment-reminder delivery to a `manage`/`clinical_access` grantee** (§22.11/22.12) —
-   the graph's read/write access is there; the notification routing isn't.
-4. **Permission levels are 2 (+1 toggle), not 5** (§22.5) — `clinical_access` in particular is
-   all-or-nothing; no "vitals but not mental health," etc.
+3. ~~**No appointment-reminder delivery to a `manage`/`clinical_access` grantee** (§22.11/22.12)~~ —
+   **CLOSED 2026-08-29**, see the top-of-file note: `queue_appointment_reminders` now sends grantees
+   an `in_app` reminder alongside the patient's own.
+4. ~~**Permission levels are 2 (+1 toggle), not 5** (§22.5)~~ — **substantially closed 2026-09-02**,
+   see the top-of-file PR #295 note: a 9-capability array (`caregiver_permission[]`) narrows a
+   `manage` grant per-capability, plus real time-boxed access and an `acted_for` audit trail. Not
+   literally the brief's 5-level ladder, but closer to its intent than "all-or-nothing."
 5. **No household task/dashboard rollup** (§22.9, and the unified-screen half of §22.8) — the
    per-person data all exists; nothing aggregates it across a person's whole consent graph.
 6. **No shared relationship vocabulary** (§22.3) between `care_access_requests.relationship` (free
    text) and `family_history.family_relationship` (enum).
-7. Unverified: whether `booking_requests` UPDATE/DELETE (reschedule/cancel) extend to grantees the
-   same way SELECT/INSERT do (§22.11) — confirm before assuming parity.
+7. **Confirmed 2026-09-03, no longer unverified: no parity for `booking_requests` specifically, but
+   the newer `appointments` engine now has full parity.** `booking_requests_update`/
+   `booking_requests_delete` (`20260706084934_facilities_booking_requests.sql`) have not been
+   touched by any later migration — UPDATE only admits `profile_id = auth.uid()` or org staff,
+   DELETE only admits org staff, not even the owning patient. `booking_requests` looks superseded in
+   practice by the newer `public.appointments` engine (`20260828001600_appointment_engine_lifecycle.sql`
+   onward), whose lifecycle RPCs (hold/confirm/cancel/reschedule) got real `manage`-grantee support
+   via `private.can_act_for(patient, 'book_appointments')` in `20260829083319` and
+   `20260902235100_caregiver_book_appointments.sql` (the latter's header states the Appointment
+   Engine "has never had any `profile_access` awareness at all" before this fix). `booking_requests`
+   itself is still referenced in 5 files under `apps/web/src` (vaccination booking, admin,
+   `care-access-actions.ts`, `booking-admin.ts`, `facilities.ts`) so it isn't dead — the
+   reschedule/cancel-parity gap is real and confirmed for that legacy path specifically, while
+   effectively closed for the newer appointment path.
 
 None of these 1–7 conflict with the 2026-07-29 individual-enrolment decision — every one of them is an
 extension of the existing consent-graph model, not a reintroduction of shared billing.

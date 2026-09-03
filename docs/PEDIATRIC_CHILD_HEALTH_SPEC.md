@@ -50,7 +50,7 @@ a parent manage a child's clinical record at all" — already solved:
 | 48.10 | Medication safety | `apps/web/src/lib/rules/pediatric-drug-safety.ts` — weight-based mg/kg dosing check, a small 3-drug starter formulary, advisory only (never a block), composable with the existing `assessMedicationSafety`. DB gap-close: a parent can now self-report a medication for a child they manage (`medications.logged_by_profile_id` + RLS extension — `20260829122852_pediatric_medication_attribution.sql`); this was a confirmed pre-existing gap (vitals/symptoms had it since 2026-08-01, medications never did). |
 | 48.12 | School-related health | Resolved as a **printable export**, not a school account — see below. |
 | 48.13 | Chronic paediatric conditions | RLS gap-close only: `chronic_programme_enrolments` now honours `private.can_read_clinical` so a parent can see a child's enrolment — `20260829123252_pediatric_chronic_programme_access.sql`. The programme content itself (asthma) predates this pass and is still dormant pending sign-off; see "What already existed" above. |
-| 48.14 | Transition to adult care | `dependent_transition_status` (materialised, daily-cron-refreshed, `child`/`adolescent`/`transition_prep`/`independent` by age) + automatic `manage` → `view` step-down on turning 18 (history kept, nothing deleted) + a `patient_timeline` record of the change + `activate_dependent_account_basics` RPC for the deliberate, separate "claim a real login" step — `20260829123652_dependent_transition_to_adult_care.sql`. |
+| 48.14 | Transition to adult care | `dependent_transition_status` (materialised, daily-cron-refreshed, `child`/`adolescent`/`transition_prep`/`independent` by age) + automatic `manage` → `view` step-down on turning 18 (history kept, nothing deleted) + a `patient_timeline` record of the change + `activate_dependent_account_basics` RPC for the deliberate, separate "claim a real login" step — **corrected filename, 2026-09-03: `20260830103331_dependent_transition_to_adult_care.sql`** (the file cited here, `20260829123652_...`, does not exist; this is the same content renamed/re-timestamped during the 2026-09-02 mass-merge reconciliation, per `CLAUDE.md`'s documented migration filename/version drift pattern). **This migration's own header now carries a 2026-09-02 reconciliation note flagging unresolved overlap with PR #329's Adolescent Health module, which independently built `adolescent_transition_plans` (a clinician-driven staged readiness checklist covering the same product territory) — the two systems are unreconciled, a product decision for a human, not yet resolved.** |
 
 ### 48.12, resolved: a printable export, not a school account
 
@@ -108,12 +108,11 @@ guardrails):
   account-level access tapering only (the automatic `manage` → `view` step-down at 18). A
   record-level sensitivity model needs a product decision about which categories qualify (the
   spec text itself doesn't say) before it's buildable.
-- **No live-database validation.** All six migrations were written and carefully reviewed against
-  this codebase's own RLS/migration conventions, but this sandbox had no Supabase project or local
-  Postgres/Docker stack to apply them against (no `supabase` CLI, no running Docker daemon — see
-  `git log` around this change for the environment note). They should be dry-run against a Supabase
-  branch before merging to production, per the standing "never hand-apply a migration without
-  checking it actually applies" lesson already in CLAUDE.md's sprint history.
+- **RESOLVED, confirmed 2026-09-03 — these have since merged and are live in production.** All six
+  migrations now exist on `main-dev` and their tables are confirmed live against `koiplnmbgnqnbywhpjlf`:
+  `child_growth_measurements`, `growth_reference_lms`, `developmental_screenings`,
+  `dependent_transition_status` all present (each with 0 rows — schema is live, real usage hasn't
+  started yet, not "not yet applied").
 
 ## Design decisions worth remembering
 

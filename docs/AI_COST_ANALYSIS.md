@@ -10,7 +10,8 @@
 ## What's actually AI-backed today
 
 Every LLM call in the codebase goes through `@langchain/anthropic`'s `ChatAnthropic` — no OpenAI,
-no other vendor for text generation. Nine features call Claude:
+no other vendor for text generation. **Ten** features call Claude (corrected 2026-09-03 — a real
+call site was missing from this table):
 
 | # | Feature | File | Model | Turn shape |
 |---|---|---|---|---|
@@ -22,6 +23,7 @@ no other vendor for text generation. Nine features call Claude:
 | 6 | Meal-photo vision | `apps/web/src/lib/nutrition/meal-vision.ts` | Sonnet 5 | Single-turn, image + Nigerian food reference text |
 | 7 | Medication pack vision | `apps/web/src/lib/medications/pack-vision.ts` | Sonnet 5 | Single-turn, image, transcription only |
 | 8 | Lifestyle nudge copy | `apps/web/src/lib/lifestyle/coaching-proposer.ts` | Sonnet 5 | Single-turn, ≤2-sentence output; action selection itself is deterministic, not LLM |
+| 10 | 7-day Nigerian meal plan generator (added — spec 19.8, PR #292) | `apps/web/src/lib/nutrition/meal-plan-generate.ts` | Sonnet 5, `maxTokens: 4000` | Single-turn, 7-day/21+-meal-slot plan against a ~94-line food-catalogue vocabulary block — the **largest `maxTokens` cap of any feature in this table**, tied with lab/ECG extraction. Fold into Scenario A's ceiling and estimate a realistic daily-trigger rate for Scenario B (likely low-single-digit % of DAUs, similar order to lab/ECG/med-pack scans — a full week's meal plan isn't a daily action). This is the same call site `docs/AI_GOVERNANCE_SPEC.md` flags as registered live (`AI-011`) but not yet merged into `main-dev` — resolve that governance-registration question before treating this row as fully reconciled. |
 | 9 | Voyage embeddings (retrieval for #1, #8) | `apps/web/src/lib/lifestyle/voyage-embedder.ts` | `voyage-3-large` | Not Claude — separate, low-cost vendor line item, omitted from totals below |
 
 Not found in the code: a standalone symptom/triage AI, or an LLM-based risk score (SCORE2/HbA1c

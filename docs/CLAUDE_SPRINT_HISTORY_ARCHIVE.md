@@ -3545,3 +3545,146 @@ Confirmed no specialist-matching/ranking logic crossed in anywhere (every provid
 filter, per `docs/CLINICAL_NETWORK_SPEC.md` §3) — same guardrail already checked for PR #336/#338.
 `pnpm --filter @tarragon/web exec tsc --noEmit` and `pnpm --filter @tarragon/web run lint` clean.
 
+
+### 2026-08-31 to 2026-09-03 — Subscriptions retired for pay-per-service, Women's Health/cycle tracking built, a reproductive-health RLS hardening sweep, CI enforcement finally landed, and a 70-branch mega-merge
+
+Documentation catch-up written 2026-09-03 covering three days this file had not yet recorded — the gap
+was found and closed as part of a founder-requested "make sure CLAUDE.md doesn't drift" pass. Sourced
+from merged-PR titles/timestamps (`gh pr list`), direct GitHub/Supabase API checks, and several
+same-week memory files written by the sessions that did the work; the detail below is a synthesis, not
+a fresh investigation — treat migration filenames/PR numbers as pointers to re-verify, not settled fact.
+
+**1. Subscriptions retired outright — the app is free, Tarragon charges only for a doctor's time.**
+PR #461 (`feat/free-app-pay-per-service`), building on the 2026-08-31 pay-per-service migration
+(PR #418). `subscription_plans` (`prevent`/`essential`/`complete`, monthly + yearly, both Lifestyle
+Coaching packs) set `is_active=false`; existing holders keep access until expiry since
+`patient_has_feature_access` reads the purchase, not the plan's active flag. Seven previously-paid
+features became free (no marginal clinician cost): `health_education`, `lifestyle_coaching`,
+`ai_coach`, `quarterly_report`, `prevention_coordination`, `lab_coordination`, `medication_refills`.
+Six stayed paid because they cost real doctor time, preserving the 2026-08-10 "Tarragon Free consumes
+no doctor time" rule: `clinician_review`, `doctor_checkin`, `async_doctor_visit`,
+`multi_condition_review`, `result_document_review`, `vitals_red_flag_doctor_escalation`. The 12-week
+doctor-supported chronic-care programme (hypertension/diabetes only — weight has its own free coaching
+track) became the one recurring paid route to those six, and was repriced twice in the same session on
+founder correction: ₦15,000 placeholder → ₦40,000 (3×₦10k doctor reviews + ₦10k medication review) →
+**₦50,000** (extra ₦10k framed as "ongoing coordination and monitoring" so the listed breakdown sums to
+the headline price). Four real bugs found and fixed along the way: the diaspora ($) tab pointed at
+`_usd_pack` products that never existed in `service_products` (entire tab unbuyable); "a month of
+Essential Care" was buying twelve months; the education library was marketed free while
+`/patient/learn` still gated it behind `health_education`; the family dashboard was still sold as an
+upgrade though its actual gate had been removed weeks earlier (a dead-gate pattern — gated on a key no
+product grants).
+
+**Diaspora/Stripe removed entirely in the same PR, two same-day follow-up commits.** Stripe was never
+actually usable (no UK entity registered, `isStripeConfigured()` always failed closed) but two live
+surfaces still walked a patient toward that dead end — onboarding's naira/dollar plan-choice step
+(replaced with a plain "you're all set" confirmation) and `/admin/settings/diaspora-pricing` (deleted
+outright, its `subscription_plans`/`add_ons` tables already dead). The one historical USD purchase row
+was confirmed test data (patient literally named "Test Diaspora Patient") before being deleted, then
+`lib/stripe/*`, the `stripe-webhook` Edge Function, and every Stripe branch in every checkout path were
+removed. Paystack (NGN) is now the only live payment provider on the platform. **This is a bigger,
+structural pivot than the routine pricing churn this file already warns about** — don't assume any
+subscription/pack/tier language elsewhere in this file (including earlier in this same archive) still
+describes the live entitlement model.
+
+**2. Care Voucher / sponsor finance-posting: three more live gaps found in the 2026-08-31 repoint
+migration, beyond what PR #447 already fixed.** Merged as PR #455. The 2026-08-31 migration that
+repointed vouchers/sponsors from subscriptions to `service_products`
+(`20260831150844_repoint_vouchers_and_sponsor_to_service_products.sql`) left: `voucher_payment` finance
+posting unreachable (same `processed_at IS NULL` guard bug PR #447 had just fixed for a different
+payment kind); sponsor-paid service purchases silently never activating the beneficiary (the migration
+renamed `activate_sponsored_subscription` → `activate_sponsored_service_purchase` and, in the rename,
+reintroduced a guard that had already been fixed once for this exact checkout kind one day earlier);
+`sponsored_subscription` had no `finance_post_from_payment` branch at all; and
+`care_vouchers_kind_shape` was never widened for the new `service_product_id` column, so **every real
+`purchase_service_voucher()` call had been failing its check constraint since 2026-08-31** — the entire
+Care Voucher purchase path was dead for two days with no error surfaced anywhere. Compliance-hardening
+follow-up the same day: PR #425 renamed `credit_kobo` to `instalment_kobo` on the Care Voucher tables
+(no functional change, structuring-language cleanup).
+
+**3. Women's Health platform and a real menstrual cycle tracker, replacing a single "not a prediction"
+nudge.** PR #323 (Women's Health platform: menstrual, pregnancy/antenatal, postnatal, breast, menopause,
+fertility) absorbed a separately-built, more-complete cycle tracker (originally PR #457, closed by the
+repo owner in favour of #323 once compared) — `menstrual_cycles` + `menstrual_daily_logs`, a pure
+prediction engine (`lib/rules/cycle-prediction.ts`), a ring/calendar UI at `/patient/cycle`, and daily
+in-app-only reminders. Ovulation is deliberately back-counted from the *predicted next period* (luteal
+phase ~fixed at 14 days), never the cycle midpoint — the single biggest error class in naive cycle apps,
+pinned by a test. Follow-up PR #467 (merged 2026-09-03) added symptom/mood pattern insights, a BBT/LH
+thermal-shift ovulation-confirmation engine (confirms, never predicts — basal temperature deliberately
+kept off `vitals_readings` so a normal post-ovulation reading never pages a clinician), a cycle-length
+chart against the FIGO 24-38 day band, and wired the feature into patient-facing navigation.
+
+**4. A reproductive-health RLS hardening sweep — the same consent-model gap found and fixed five
+separate times in three days.** `care_access_category` has eight values; `reproductive_health` is
+deliberately excluded from both the dependent-account bypass and emergency break-glass in
+`private.can_read_clinical()` — every other category allows a caregiver/emergency read-through, this one
+never does. Across PR #402 (`reproductive_health_profiles` RLS), #404 (vaccination/cardiovascular/
+quarterly-report RLS), #405 (extracted `hiv_status`/`hbv_status`/`hcv_status` out of `profiles` into
+their own category-scoped table), #459 (a regression the Adolescent Health merge introduced into
+`reproductive_health_profiles`), #460 (Women's Health tables that had copied an older sibling's
+pre-category-model RLS shape wholesale, bypassing the category check entirely), #463 (six RLS policies
+still on a legacy 1-argument `can_read_clinical` overload), and #468 (a write-side RLS gap the read-side
+fixes above had left open, plus a broader db-test/live-bug sweep) — the pattern each time was a new or
+edited table copying an existing sibling's policy text without checking whether that sibling predated
+`20260830103251_category_scoped_clinical_access_and_emergency_access.sql`. See the new standing
+engineering lesson in `CLAUDE.md` above; do not copy RLS shape for any reproductive-health-adjacent
+table without writing the category-scoped check fresh and proving a caregiver/emergency session is
+actually refused.
+
+**5. CI migration-replay privilege drift fully closed, and `main-dev` branch protection now genuinely
+enforces its checks.** Two independent gaps in the "Supabase migration replay" CI job were found and
+closed the same week: the table-level anon-default-privilege gap (already closed 2026-07-31 for
+tables) had an uncorrected functions/sequences counterpart — PR #438 closed it structurally
+(`revoke ... from public`, not `from anon`, since anon inherits function EXECUTE through the PUBLIC
+pseudo-role); PR #441 fixed three migration-version collisions PR #322 (Healthy Ageing) had introduced
+against earlier, differently-named migrations for the same tables. **Once both merged, `main-dev`
+branch protection was updated to actually require all three CI jobs to pass** — confirmed directly via
+the GitHub API on 2026-09-03 (`required_status_checks.contexts` lists all three,
+`mergeStateStatus: BLOCKED` genuinely refuses a failing merge). This closes a gap that had stood open
+since at least 2026-08-30, during which the migration-replay job failed on essentially every PR merged
+2026-08-30 through 2026-09-02 without blocking a single one of those merges — see the (now resolved)
+"Known standing follow-ups" entry in `CLAUDE.md`.
+
+**6. Migration drift between `main-dev` and the live database is large and still growing, not fixed.**
+A reconciliation pass on 2026-09-03 found the true counts had moved from an initial 107 missing/20
+orphaned estimate to **124 missing/148 orphaned** within the same few hours, because migrations are
+applied to the one shared live project continuously by many concurrent sessions — any fix attempt races
+a moving target. Two pre-existing PRs (#341, #313, both open since 2026-08-29) already attempted this
+exact reconciliation and are now themselves stale. One finding worth flagging directly to the founder:
+two migrations from 2026-08-31 (a "since you were last here" patient summary feature and an
+engagement-decline notification) are live in production with zero git record on any branch anywhere —
+recoverable losslessly from `schema_migrations.statements`, not yet backfilled as a real migration file.
+See `CLAUDE.md`'s updated "Known standing follow-ups" for the current numbers and the instruction not to
+start a third parallel reconciliation branch.
+
+**7. 2026-09-02 — a single day, roughly 70 previously-built feature branches merged into `main-dev` at
+once.** This project runs a large, deliberate fleet of concurrent Claude Code worktree sessions (17+
+confirmed active 2026-08-29, 86 worktrees present as of this writing) that periodically get batch-merged;
+2026-09-02 was one such consolidation day. Merged branches closed most of the spec-module backlog this
+file's "Where to Look" section had been describing as design/reconciliation-only, spanning clinical
+modules (Predictive Risk & Early Warning Engine §39, Clinical Decision Support §38, Symptom Assessment &
+Triage Engine reconciliation §37, Clinical Rules & Care Protocol Engine reconciliation §32, Referral
+Management Engine + 20 recovered orphaned migrations, Specialist Network & Provider Platform
+foundations, Vaccination & Immunisation Engine gap closure, Wearables granular consent + heart-rate
+red-flag engine, Diagnostic ordering gap closure, prescription-lifecycle gaps, medication safety/
+adherence gap closure), patient-facing platform modules (Patient Identity & MPI, Family Care Circle gap
+closure, Caregiver Proxy Access, Sexual & Reproductive Health, Pediatric & Child Health, Adolescent
+Health, Mental Health & Wellbeing, Healthy Ageing & Elderly Care, Imaging & Diagnostic Procedure
+Platform, Patient dashboard "personal health operating system" §76, AI Health Assistant §78 gap closure,
+Patient Engagement Engine, Nigerian Nutrition Intelligence, Health Education Platform, patient-
+communication gap closure, notification template registry), and business/admin/ops modules (§91
+Payments/Billing gap closure — subsidy engine, fraud detection, VAT, refunds; §90 continuity/DR gaps;
+Employer Health Platform reconciliation, employer roster eligible/activated billing; Insurer/payer +
+provider organisation platform reconciliation (Modules 27/28 — confirmed still shipped dormant, gated
+behind `platform_modules`, no live counterparty); AI Governance dashboard + kill-switch admin UI;
+Interoperability & API Platform reconciliation; Operations & Command Centre; Provider Quality &
+Performance Management; Diaspora Gift-a-Health-Check + group screening days; disease-surveillance
+trend/funnel analytics). **The standing specialist-matching/ranking-engine guardrail was explicitly
+re-checked against the Referral Management Engine and Specialist Network PRs (#338, #336) by the
+sessions doing that work, and confirmed still holding — every provider list stays a plain filter, no
+ranking logic crossed in** (see this file's 2026-08-28/2026-08-29/2026-09-03 Referral Management Engine
+entries). **The remaining ~65 PRs in this merge were not individually re-audited against every CLAUDE.md
+guardrail as part of this documentation pass** — treat any specific one as unverified until checked, and
+prefer reading that spec's own doc (several already carry a 2026-09-02 reconciliation note, e.g.
+`FAMILY_CARE_CIRCLE_SPEC.md`) over assuming this file's older "Phase 2/3, needs an explicit ask"
+language still applies.

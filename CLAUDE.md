@@ -119,10 +119,38 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   a remote project, so anything data-only silently survives there and resurrects on a fresh
   environment); and check the payment/partner-provider side as well as the database (Paystack has no
   delete for a Plan, so "removed" there means "no live row references it anymore," not "gone").
+- **`reproductive_health` is one of eight values in the `care_access_category` enum, and
+  `private.can_read_clinical(patient, category)` deliberately excludes it from both the
+  dependent-account bypass and `has_emergency_access` break-glass** — every other category allows
+  a caregiver/emergency read-through, this one never does. Recurred at least three times in three
+  days (2026-08-31 to 2026-09-03: a caregiver-proxy migration regression, a Women's-Health-platform
+  table that copied an older sibling's pre-category-model RLS shape, a still-missing write-side
+  policy, and six tables stuck on a legacy 1-arg `can_read_clinical` overload — see the archive's
+  2026-08-31/2026-09-03 entries) because a new table's author copied an existing table's policy
+  text without checking whether that table predates the category-scoped access model
+  (`20260830103251_category_scoped_clinical_access_and_emergency_access.sql`). **Never copy an RLS
+  shape from an older sibling table for anything touching menstrual/pregnancy/fertility/contraception
+  data — write the category-scoped check fresh, and prove with a simulated caregiver/emergency
+  session that access is actually refused, not just that the policy compiles.**
+- **Before trusting anything in this file or the archive as "current," confirm the working tree's
+  checked-out branch actually is (or is caught up with) `origin/main-dev`.** The main checkout
+  routinely sits on an unrelated feature branch, sometimes dozens of commits behind — comparing
+  local docs, migrations, or schema against a stale branch has produced wrong conclusions more than
+  once (a migration-drift audit once showed 62 "genuinely unmatched" files that were actually 4,
+  purely from diffing against the wrong branch). `git rev-list --count HEAD..origin/main-dev` before
+  trusting any local-vs-live or local-vs-"current docs" comparison; do edits to shared docs
+  (`CLAUDE.md`, the archive) from a fresh worktree off `origin/main-dev`, not an old branch, so you
+  don't silently clobber another session's concurrent edits to the same files.
 
 **Pricing, entitlements, and what's shipped churn constantly.** Diaspora pricing alone was reworked
 at least four times after 2026-07-29 before diaspora subscriptions were replaced entirely by a
-sponsor + Care Voucher model (2026-07-31). **Do not treat any specific price, rate, plan name, or
+sponsor + Care Voucher model (2026-07-31). **A second, bigger pivot landed 2026-09-02: subscription
+plans (`subscription_plans`, `prevent`/`essential`/`complete`, the diaspora USD tier) were retired
+outright — the app is free, Tarragon charges only for a doctor's time, priced per piece of work
+(`service_products`), plus the 12-week doctor-supported chronic-care programme as the one recurring
+paid product.** Stripe was removed from the codebase entirely (no UK entity ever registered to use
+it) — Paystack (NGN) is now the only live payment provider. See the archive's
+2026-08-31/2026-09-03 entry. **Do not treat any specific price, rate, plan name, or
 feature-availability claim in this file's archive as current** — check the live database or the
 actual running code. The archive is a record of decisions and reasoning, not a source of current
 facts.
@@ -248,23 +276,53 @@ rules and let the git history / PR descriptions be the record of what shipped wh
 
 **Known standing follow-ups, as last recorded — verify each before acting, none of these should be
 taken on faith:**
-- **`main-dev` branch protection has no required status checks at all** (confirmed 2026-09-02 via
-  the GitHub API — `required_status_checks` is absent from the protection object). The "Supabase
-  migration replay" CI job (`.github/workflows/ci.yml`) is correctly configured and genuinely runs a
-  fresh `supabase db reset` in GHA — it was not the problem — but because nothing requires it to pass,
-  it failed on essentially every PR merged 2026-08-30 through 2026-09-02 (a run of version collisions
-  and the anon-default-privilege gap described above) without blocking a single one of those merges.
-  All of that specific backlog is now fixed and the check is green on the current tip, but the
-  structural gap — a red required check still can't block a merge — is unresolved and needs the
-  founder's go-ahead before an agent changes branch protection settings.
+- **RESOLVED 2026-09-02, confirmed live 2026-09-03** — `main-dev` branch protection now lists all
+  three CI jobs (`Supabase migration replay`, `Python ML service`, `TypeScript (web + shared)`) under
+  `required_status_checks.contexts`, `enforce_admins` is `true`, and `gh pr merge` genuinely refuses a
+  merge (`mergeStateStatus: BLOCKED`) until they pass — confirmed directly via the GitHub API, not
+  inferred. This closes a gap that stood open since at least 2026-08-30 (during which the "Supabase
+  migration replay" job failed on essentially every PR merged 2026-08-30 through 2026-09-02 — a run of
+  migration-version collisions and the anon-default-privilege gap described above — without blocking a
+  single one). Re-verify with `gh api repos/.../branches/main-dev/protection` before assuming a red
+  check is cosmetic — it now genuinely blocks. Note a `Vercel` status context can still show `FAILURE`
+  on a PR (often just the account's daily deploy-rate cap) without blocking merge — it is not in
+  `required_status_checks.contexts`.
 - The Diabetes (`guideline/Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md`) and Hypertension
   (`guideline/Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md`) clinical pathways each had
   a handful of items still open the last time they were reviewed — mostly Clinical Director
   sign-off/protocol activation and ops/founder localisation facts (real emergency numbers, partner
   formulary, device models, panel prices), not engineering work. Check those two files directly for
   the current checklist; they track real outstanding items and aren't otherwise linked from here.
-- Two Supabase projects (`rjsxbhgqdudowlvarmzq`, `jpdwbnvrgvpntcmfefeu`) were flagged 2026-07-29 for
-  owner-side deletion — confirm whether that's happened.
+- **RESOLVED, confirmed 2026-09-03** — the two Supabase projects flagged 2026-07-29 for owner-side
+  deletion (`rjsxbhgqdudowlvarmzq`, `jpdwbnvrgvpntcmfefeu`) are gone. `list_projects` now returns
+  exactly one project: `koiplnmbgnqnbywhpjlf` ("Tarragon Health").
+- **Migration drift between `main-dev` and the live `koiplnmbgnqnbywhpjlf` database is large and
+  actively growing, not a one-time cleanup.** As of 2026-09-03 ~01:00: 124 migration files on
+  `main-dev` have no matching live `schema_migrations` row (mostly a live row exists under a
+  *different* recorded version than the git filename — the recurring "hand-typed timestamp" root
+  cause above), and 148 live rows have no matching file (mostly the mirror image of the same 124,
+  plus a double-digit handful with genuinely no git record anywhere). **Two PRs already attempt this
+  exact reconciliation and have sat open since 2026-08-29: #341 (`claude/repo-migration-drift-y1d4tt`)
+  and #313 (`claude/objective-heisenberg-25e173`, recovered 165 migrations from
+  `schema_migrations.statements`).** Both are now stale relative to current drift. Before starting a
+  third parallel reconciliation effort, rebase one of these onto current `main-dev`/current live
+  state, or close both as superseded once a fresh one lands — don't let a fourth duplicate spin up.
+  One item flagged as genuinely concerning, not just process noise: two migrations
+  (`20260831125450`/`20260831125511`, a "since you were last here" summary feature +
+  engagement-decline notification) are live in production with **zero git record on any branch** —
+  the full SQL is recoverable losslessly from `schema_migrations.statements` per the PR #313
+  pattern, but nobody has backfilled a migration file for it yet.
+- **2026-09-02 — a single day, ~70 previously-built feature branches merged into `main-dev` at once**,
+  closing most of the outstanding spec-module backlog this file's "Where to Look" section still
+  describes as design/reconciliation-only (product of the deliberate large concurrent-worktree
+  practice this project runs — see the archive). Before treating any "design doc, not a build order"
+  or "Phase 2/3, needs an explicit ask" caveat in this file as still accurate, check whether that
+  spec's own doc already carries a 2026-09-02 reconciliation note and whether the corresponding PR
+  actually merged — several already do (e.g. Family Care Circle, above). The standing
+  specialist-matching/ranking-engine guardrail was explicitly re-checked against this batch (the
+  Referral Management Engine and Specialist Network PRs) and confirmed still holding — see the
+  archive's 2026-08-31/2026-09-03 entry — but the remaining ~65 PRs in that merge were not
+  individually re-audited against every guardrail in this file as part of this documentation pass.
 - `reference/tarragon-control/`'s git bundle is still the only backup of the separate v3 repo's
   history, sitting on one disk with no remote — worth pushing somewhere if that hasn't happened
   since.
