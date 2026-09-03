@@ -91,7 +91,7 @@ export const PROOF_STATS = [
 export const PREVENTION_CALLOUT = {
   title: "Healthy? Tarragon is built for you too",
   body:
-    "You don't need a diagnosis to belong here. Tarragon builds you and your children a personal screening and vaccination calendar, free, plus a yearly Health Check: most years, that's simply confirmation you're doing fine, and if something's ever found, a doctor follows up the same day.",
+    "You don't need a diagnosis to belong here. Tarragon builds you and your children a personal screening and vaccination calendar and a yearly Health Check, free: most years, that's simply confirmation you're doing fine, and if something's ever found, a doctor follows up the same day.",
 } as const;
 
 /** Everything the shared record actually watches (services page capability
@@ -173,10 +173,10 @@ export const AUDIENCE_TABS: AudienceTab[] = [
     key: "healthy",
     tabLabel: "For staying healthy",
     title: "You don't need a diagnosis to belong here.",
-    body: "Tarragon builds a personal screening and vaccination calendar matched to your age, sex, and history, free, reminds you when checks are due, and explains what your results mean. Most years, that's simply confirmation you're doing fine.",
+    body: "Tarragon builds a personal screening and vaccination calendar matched to your age, sex, and history, reminds you when checks are due, and explains what your results mean. Most years, that's simply confirmation you're doing fine.",
     points: [
       "Screening and vaccination calendar, built for you",
-      "Yearly Health Check, booked in minutes",
+      "Yearly Health Check, requested in minutes",
       "Doctor follow-up the same day, if a result ever needs it",
     ],
     stats: [
@@ -266,13 +266,13 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Can I use Tarragon for my parent while I live abroad?",
     answer:
-      "Yes. Your relative holds their own Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can buy a paid service for them from anywhere; the tests and refills themselves are still paid directly to whichever laboratory or pharmacy they use in Nigeria, at their price.",
+      "Yes. Your relative holds their own free Tarragon account and names you as next of kin, so you can follow their care and be contacted first if something urgent comes up. You can pay for their health checks and their doctor's time from anywhere; the tests and refills themselves are still paid directly to whichever laboratory or pharmacy they use in Nigeria, at their price.",
   },
   {
     category: "general",
     question: "How much does it cost?",
     answer:
-      "The app is free, with no time limit and no card required. You pay only when a doctor does a specific piece of work for you, priced per piece of work and shown before you confirm. Tests, medicines and vaccines you pay directly to whichever laboratory or pharmacy you choose (we take nothing on those). See the pricing page for the full paid list.",
+      "The app is free, with no time limit. You pay only when a doctor does a specific piece of work for you, at a price you see and confirm first, and you pay laboratories and pharmacies directly for tests and refills (we take nothing on those). See the pricing page for the whole paid list.",
   },
   {
     category: "general",

@@ -81,8 +81,8 @@ export default function HealthEducationPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            The whole library, personalised to your own conditions and risk, is free for every
-            patient, with no time limit and no card required.
+            Personalised to your own conditions and risk, and free, like the rest of the library.
+            No card, no time limit, no catch.
           </p>
         </div>
       </Section>
@@ -140,9 +140,9 @@ export default function HealthEducationPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Managing hypertension, diabetes, or your weight? You&apos;ll see the practical detail
             that turns a reading into an understanding: why a target matters, what a trend means,
-            what to watch for. Healthy and focused on{" "}
-            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
-              preventive health
+            what to watch for. Healthy and using{" "}
+            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+              your screening calendar
             </Link>
             ? You&apos;ll see what your screenings and vaccinations are actually for, so a clear
             result means something and not just a form filled in.
@@ -157,7 +157,7 @@ export default function HealthEducationPage() {
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Curious how you&apos;re really doing beyond the numbers? Try the free, anonymous{" "}
-            <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Mental Well-being Check
             </Link>
             : two minutes, ten questions, no sign-up required.

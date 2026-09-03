@@ -29,7 +29,7 @@ export function ServiceCardLink({ service }: { service: ServiceCard }) {
       </CardHeader>
       <CardContent>
         {service.built ? (
-          <span className="text-sm font-medium text-brand-green">Learn more →</span>
+          <span className="text-sm font-medium text-brand-green">Learn more <span aria-hidden>→</span></span>
         ) : (
           <span className="text-sm text-charcoal-ink/40">Coming soon</span>
         )}
@@ -42,7 +42,13 @@ export function ServiceCardLink({ service }: { service: ServiceCard }) {
   }
 
   return (
-    <Link href={service.href} className="block rounded-xl focus-visible:outline-none">
+    // The ring lives on the Link itself: the Card is a descendant of the
+    // focused element, so a focus-within ring on it would never match and
+    // the keyboard indicator would vanish entirely.
+    <Link
+      href={service.href}
+      className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+    >
       {inner}
     </Link>
   );

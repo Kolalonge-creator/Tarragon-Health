@@ -26,7 +26,7 @@ import {
 export const metadata: Metadata = pageMetadata({
   title: "How pricing works",
   description:
-    "Our No-Hidden-Cost Promise, free trials of real clinical care, care vouchers, how Tarragon compares to your HMO, and booking step-by-step.",
+    "Our No-Hidden-Cost Promise, why there is nothing to trial, care vouchers, how Tarragon compares to your HMO, and booking step-by-step.",
   path: MARKETING_ROUTES.howPricingWorks,
 });
 
@@ -46,11 +46,11 @@ export default function HowPricingWorksPage() {
       <PhotoBannerHero
         eyebrow="Pricing, in detail"
         title="How pricing works"
-        description="The promise behind every price, how free trials work, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."
+        description="The promise behind every price, why there is nothing to trial, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."
         primaryHref="/signup"
         primaryLabel="Get started"
         secondaryHref={MARKETING_ROUTES.pricing}
-        secondaryLabel="← Back to plans & pricing"
+        secondaryLabel="← Back to pricing"
         imageSrc={homepage.hero.imageSrc ?? ""}
         imageAlt={homepage.hero.imageAlt ?? ""}
         imagePosition={homepage.hero.imageFocus}
@@ -72,8 +72,8 @@ export default function HowPricingWorksPage() {
 
       <Section>
         <SectionHeading
-          eyebrow="Try before you commit"
-          title="Free trials of real clinical care"
+          eyebrow="Nothing to trial"
+          title="It's simply free until you want a doctor"
           description={FREE_TRIAL_INTRO}
         />
         <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
@@ -149,15 +149,17 @@ export default function HowPricingWorksPage() {
               {HMO_COMPARE_ROWS.map((row) => (
                 <tr key={row.need} className="border-t border-charcoal-ink/10">
                   <td className="border-t border-charcoal-ink/10 p-4 text-charcoal-ink/80">{row.need}</td>
-                  <td className="border-t border-charcoal-ink/10 p-4 text-center" aria-label={row.hmo ? "Covered by your HMO" : "Not covered by your HMO"}>
+                  <td className="border-t border-charcoal-ink/10 p-4 text-center">
                     <span aria-hidden className={row.hmo ? "text-brand-green" : "text-charcoal-ink/30"}>
                       {row.hmo ? "✓" : "—"}
                     </span>
+                    <span className="sr-only">{row.hmo ? "Covered by your HMO" : "Not covered by your HMO"}</span>
                   </td>
-                  <td className="border-t border-charcoal-ink/10 p-4 text-center" aria-label={row.tarragon ? "Covered by TarragonHealth" : "Not covered by TarragonHealth"}>
+                  <td className="border-t border-charcoal-ink/10 p-4 text-center">
                     <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/30"}>
                       {row.tarragon ? "✓" : "—"}
                     </span>
+                    <span className="sr-only">{row.tarragon ? "Covered by TarragonHealth" : "Not covered by TarragonHealth"}</span>
                   </td>
                 </tr>
               ))}
@@ -194,15 +196,17 @@ export default function HowPricingWorksPage() {
               {CHECKUP_COMPARE_ROWS.map((row) => (
                 <tr key={row.need} className="border-t border-charcoal-ink/10">
                   <td className="border-t border-charcoal-ink/10 p-4 text-charcoal-ink/80">{row.need}</td>
-                  <td className="border-t border-charcoal-ink/10 p-4 text-center" aria-label={row.oneOff ? "Included" : "Not included"}>
+                  <td className="border-t border-charcoal-ink/10 p-4 text-center">
                     <span aria-hidden className={row.oneOff ? "text-brand-green" : "text-charcoal-ink/30"}>
                       {row.oneOff ? "✓" : "—"}
                     </span>
+                    <span className="sr-only">{row.oneOff ? "Included" : "Not included"}</span>
                   </td>
-                  <td className="border-t border-charcoal-ink/10 p-4 text-center" aria-label={row.tarragon ? "Included" : "Not included"}>
+                  <td className="border-t border-charcoal-ink/10 p-4 text-center">
                     <span aria-hidden className={row.tarragon ? "text-brand-green" : "text-charcoal-ink/30"}>
                       {row.tarragon ? "✓" : "—"}
                     </span>
+                    <span className="sr-only">{row.tarragon ? "Included" : "Not included"}</span>
                   </td>
                 </tr>
               ))}
@@ -266,7 +270,7 @@ export default function HowPricingWorksPage() {
           title="Ready to get started?"
           description="Join TarragonHealth today, for yourself or someone you love."
           secondaryHref={MARKETING_ROUTES.pricing}
-          secondaryLabel="Back to plans & pricing"
+          secondaryLabel="Back to pricing"
         />
       </Section>
     </>

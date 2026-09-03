@@ -29,8 +29,8 @@ const WAYS_TO_GIVE = [
     body: "For a parent, spouse, or family member already linked to you on Tarragon: buy one specific check (Core Screen, or whichever they need) at today's real price. Pay for it in one go or bit by bit, in naira, wherever you are paying from. It sits on their account, named to them, until they book it.",
   },
   {
-    title: "Buy them a doctor's time",
-    body: "The wider option: buy them a paid service instead of one check, such as the 12-week doctor-supported programme for blood pressure or blood sugar. Pay for it in one go or bit by bit. They start whenever they are ready, nothing renews afterwards so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
+    title: "Cover a doctor's time for them",
+    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, or the 12-week doctor-supported programme for hypertension or diabetes. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
   },
   {
     // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
@@ -71,7 +71,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What exactly am I buying?",
     answer:
-      "Either one named health check (Core Screen and others) or a specific paid service, like the 12-week doctor-supported programme or a video visit, for someone specific, never a top-up balance. It sits on their account with their name on it until they choose to use it. The app itself is free, so what you are buying is always a doctor's time.",
+      "One named service for someone specific, never a top-up balance: a health check like the Core Screen, a doctor consultation, or the 12-week doctor-supported programme. It sits on their account with their name on it until they choose to use it.",
   },
   {
     question: "Who can I buy this for?",
@@ -86,7 +86,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "Can I pay for their lab tests too?",
     answer:
-      "For a named health check, yes, that is exactly what you are buying: Tarragon bills one real price and settles with the laboratory directly, so there is nothing further for them to pay at the lab. For everything else, laboratories and pharmacies are paid directly by whoever is standing in one, at that provider's price; Tarragon sets no price on those and takes no cut. If you want to help with a test like that, the practical way is to send them what it costs.",
+      "For a named health check bundle, yes, where we have a contracted partner laboratory: Tarragon bills one real price and settles with that laboratory directly, so there is nothing further for them to pay at the lab. For any other test, laboratories are paid directly by whoever is standing in one, at that lab's price. If you want to help with one of those, the practical way is to send them what it costs.",
   },
   {
     question: "Will I see their results?",
@@ -101,7 +101,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What if they are already using Tarragon?",
     answer:
-      "Even better: the app is free for everyone, so there is no plan to clash with. What you buy simply sits on their account alongside anything they already have, and a gift never bills them twice.",
+      "Even better: the gift simply sits on their account next to everything they already use, named and ready. Nothing about it bills them, then or later.",
   },
   {
     question: "Can I pay in instalments?",
@@ -129,7 +129,7 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "They start it whenever suits them",
-    body: "The voucher sits on their account, named to them, and they choose when to use it. Nothing renews afterwards, and a gift never bills them twice.",
+    body: "The voucher sits on their account and they choose when to use it. Nothing about a gift ever bills them, then or later.",
   },
 ];
 
@@ -155,8 +155,8 @@ export default async function GiftPage() {
 
       <Section className="pb-0 pt-10 sm:pt-14">
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/60">
-          Already using Tarragon? Open the care vouchers card on your dashboard to buy a health
-          check or a paid service for someone, or share your referral link.
+          Already a member? Open the care vouchers card on your dashboard to buy a health check or
+          a doctor&apos;s time for someone, or share your referral link.
         </p>
       </Section>
 
@@ -181,7 +181,7 @@ export default async function GiftPage() {
           <MarketingMediaFrame
             media={{
               illustration: "gift-record",
-              imageAlt: "A doctor's time, given as a named gift rather than a balance",
+              imageAlt: "A named health check, given as a gift rather than a balance",
             }}
           />
         </div>
@@ -228,7 +228,7 @@ export default async function GiftPage() {
         <FaqAccordion items={GIFT_FAQ} />
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Looking after a parent day to day?{" "}
-          <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">
+          <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
           is the year-round version of this: they keep their own account and name you as next of

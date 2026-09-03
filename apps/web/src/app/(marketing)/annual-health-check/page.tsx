@@ -209,18 +209,18 @@ export default function AnnualHealthCheckPage() {
           {[
             {
               name: "Core Screen",
-              price: "With a paid plan",
+              price: "You pay the lab, once",
               body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once), and a 15-minute doctor video consult to walk through your results.",
               highlight: true,
             },
             {
               name: "Advanced Screen",
-              price: "With a paid plan",
+              price: "You pay the lab, once",
               body: "Everything in Core Screen, plus the cancer screening that fits your age and sex (cervical screening or PSA), an ECG, and a personalised screening calendar.",
             },
             {
               name: "Comprehensive Screen",
-              price: "With a paid plan",
+              price: "You pay the lab, once",
               body: "Everything in Advanced Screen, plus imaging and a syphilis screen.",
             },
           ].map((tier) => (
@@ -261,7 +261,7 @@ export default function AnnualHealthCheckPage() {
           </p>
           <p className="mt-3 text-sm text-charcoal-ink/60">
             Want to look further still?{" "}
-            <Link href={MARKETING_ROUTES.advancedDiagnostics} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.advancedDiagnostics} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Advanced diagnostic imaging
             </Link>{" "}
             is on the same waitlist.
@@ -298,8 +298,7 @@ export default function AnnualHealthCheckPage() {
             arrange it.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Looking for the year-round version? Your free{" "}
-            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">personal screening calendar</Link> keeps
+            Looking for the year-round version? <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">Your free screening calendar</Link> keeps
             your full screening and vaccination schedule running all year. Comprehensive Screen
             already includes the doctor video consult reviewing your whole result set, so
             there&apos;s no separate review to buy.
@@ -331,7 +330,7 @@ export default function AnnualHealthCheckPage() {
         <CtaBand
           variant="gradient"
           title="Book this year's check."
-          description="One morning, once a year, and a doctor who tells you where you stand. No subscription needed: it is pay-once, on any plan including the free one."
+          description="One morning, once a year, and a doctor who tells you where you stand. No subscription, nothing renews: you pay once, and the app itself stays free."
           primaryHref="/signup?intent=health_check"
           primaryLabel="Book your check"
         />

@@ -64,8 +64,8 @@ export default function WhoItsForPage() {
 
       <Section className="pb-24">
         <CtaBand
-          title="Find the plan that fits you"
-          description="Clear plans with no hidden costs, for individuals, families, and organisations."
+          title="See exactly what costs money"
+          description="The app is free. A doctor's time is priced per piece of work, for individuals, families, and organisations."
           primaryHref={MARKETING_ROUTES.pricing}
           primaryLabel="View pricing"
           secondaryHref="/signup"

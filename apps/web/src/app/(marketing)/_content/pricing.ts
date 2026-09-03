@@ -105,7 +105,7 @@ export const PRICING_LABELS: Record<
 /** The "No-Hidden-Cost Promise", shown as a banner near the top of the pricing page. */
 export const PRICING_PROMISES: string[] = [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
-  "We only charge for a doctor's time, and we charge for it by the piece. You see the exact price and confirm it before anything is taken. No surprise charges, ever.",
+  "Beyond the free app, we charge by the piece: a doctor's time, plus one optional AI Coach top-up. You see the exact price and confirm it before anything is taken. No surprise charges, ever.",
   "Nothing auto-renews. There is no subscription, no cancellation to remember, and nothing that charges your card a second time on its own. When something runs out, you buy it again if you want to.",
   "You pay laboratories and pharmacies directly, at their price, for tests, medicines and vaccines. Tarragon takes no cut of what they charge you and has no contracted laboratory.",
   "Naira prices are reviewed once a year at most, and we will tell you at least 30 days before any change. Anything you have already paid for is honoured until it runs out.",
@@ -237,7 +237,7 @@ export const PAID_SERVICES: PaidService[] = [
     breakdown: [
       "Three doctor reviews across the twelve weeks, ₦10,000 each",
       "One medication review, ₦10,000",
-      "Ongoing coordination and monitoring for the full twelve weeks",
+      "Ongoing coordination and monitoring for the full twelve weeks, ₦10,000",
     ],
     conditions: [
       {
@@ -438,12 +438,12 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
     body: "A test, refill, or vaccine is due.",
   },
   {
-    title: "For a plan or add-on, you see the exact price",
+    title: "For a paid service, you see the exact price",
     body: "In the app, before you're ever charged. No estimates, no “roughly.” A test, refill, or vaccine isn't something Tarragon charges for at all, so there's no price of ours to show; see the next step.",
   },
   {
     title: "You confirm and pay, or take a request to the provider",
-    body: "For plans and add-ons: by card, bank transfer, or USSD, through Paystack (Stripe for diaspora payments in US dollars). For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
+    body: "For paid services: by card, bank transfer, or USSD, through Paystack, in naira, from wherever you are paying. For a test, refill, or vaccine: you take our request to whichever laboratory, pharmacy, or provider you choose and pay them directly, at their price. We set no price on it and take no cut.",
   },
   {
     title: "You get a request to take with you",
@@ -451,7 +451,7 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
   {
     title: "Your result or delivery comes back in the app",
-    body: "Explained in plain language, with a WhatsApp alert so you don't miss it. If anything needs attention, your doctor calls you; this does not create any new charge.",
+    body: "Explained in plain language, with an alert so you don't miss it. If anything needs attention, your doctor calls you; this does not create any new charge.",
   },
 ];
 
@@ -499,7 +499,7 @@ export function getPricingFaq(
   },
   {
     question: "What exactly do I pay for, then?",
-    answer: `A doctor's time. That comes two ways. One-off: a written question to a doctor (${p("async_consult_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a verified document (${p("verified_document_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a result interpretation session (${p("result_interpretation_credit")}), or a senior case review (${p("senior_case_review_credit")}). Or ongoing: the 12-week doctor-supported programme for hypertension or diabetes (${p("chronic_doctor_supported_pack")}, three doctor reviews plus one medication review across the twelve weeks), where a doctor sets your care plan, adjusts your medication, and is alerted if one of your readings is dangerous.`,
+    answer: `A doctor's time. That comes two ways. One-off: a written question to a doctor (${p("async_consult_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a verified document (${p("verified_document_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a result interpretation session (${p("result_interpretation_credit")}), or a senior case review (${p("senior_case_review_credit")}). Or ongoing: the 12-week doctor-supported programme for hypertension or diabetes (${p("chronic_doctor_supported_pack")}, three doctor reviews plus one medication review across the twelve weeks), where a doctor sets your care plan, adjusts your medication, and is alerted if one of your readings is dangerous. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (${p("ai_coach_daily_pass_30d")}), which raises the free AI Health Coach's daily message limit for 30 days.`,
   },
   {
     question: "There used to be Prevent, Essential and Complete Care plans. What happened to them?",
@@ -518,7 +518,7 @@ export function getPricingFaq(
   },
   {
     question: "Which conditions does Tarragon manage, and where does weight management fit?",
-    answer: `Hypertension and diabetes. The 12-week doctor-supported programme (${p("chronic_doctor_supported_pack")}) is where a doctor actually manages either condition with you: reviewing your readings, adjusting your medication, and staying alert to a dangerous one. If you're managing your weight alongside hypertension or diabetes, that's part of the same review at no extra charge. Weight management on its own has its own free coaching track (see above), not a paid doctor-led one, since it doesn't need a doctor's time the way medication adjustment does.`,
+    answer: `Hypertension and diabetes. The 12-week doctor-supported programme (${p("chronic_doctor_supported_pack")}) is where a doctor actually manages either condition with you: reviewing your readings, adjusting your medication, and staying alert to a dangerous one. If you're managing your weight alongside hypertension or diabetes, that's part of the same review at no extra charge. Weight management on its own has its own free coaching track (see above), not a paid doctor-supported one, since it doesn't need a doctor's time the way medication adjustment does.`,
   },
   {
     question: "Will my card ever be charged automatically?",

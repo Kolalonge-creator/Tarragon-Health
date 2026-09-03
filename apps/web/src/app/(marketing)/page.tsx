@@ -109,7 +109,7 @@ export default async function MarketingHomePage({
                 I&apos;m healthy
               </p>
               <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-                Stay that way →
+                Stay that way <span aria-hidden>→</span>
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
                 A screening and vaccination calendar built for your age and history, a yearly
@@ -127,7 +127,7 @@ export default async function MarketingHomePage({
                 I&apos;m managing a condition
               </p>
               <h3 className="mt-2 font-heading text-xl font-semibold text-charcoal-ink group-hover:text-brand-green">
-                Get followed up properly →
+                Get followed up properly <span aria-hidden>→</span>
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
                 Hypertension, diabetes, weight: monitored between visits, reviewed against care
@@ -204,7 +204,7 @@ export default async function MarketingHomePage({
             href={MARKETING_ROUTES.chronicCare}
             className="text-sm font-medium text-deep-forest hover:underline"
           >
-            How chronic care works at Tarragon →
+            How chronic care works at Tarragon <span aria-hidden>→</span>
           </Link>
         </p>
       </Section>
@@ -264,7 +264,7 @@ export default async function MarketingHomePage({
                 <Link href={MARKETING_ROUTES.prevention}>Learn about preventive health</Link>
               </Button>
               <Button asChild variant="ghost">
-                <Link href={MARKETING_ROUTES.annualHealthCheck}>The Annual Health Check →</Link>
+                <Link href={MARKETING_ROUTES.annualHealthCheck}>The Annual Health Check <span aria-hidden>→</span></Link>
               </Button>
             </div>
           </div>
@@ -339,7 +339,7 @@ export default async function MarketingHomePage({
             {
               href: MARKETING_ROUTES.pricing,
               title: "Pricing",
-              body: "Clear plans with no hidden costs. See what's included.",
+              body: "The app is free. See exactly what a doctor's time costs.",
             },
           ].map((item) => (
             <Card

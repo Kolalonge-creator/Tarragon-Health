@@ -68,7 +68,7 @@ export function GiftPersonalizer() {
         <p className="mt-1 text-sm text-charcoal-ink/60">Your {relationshipLabel.toLowerCase()}</p>
         <div className="my-6 border-t border-dashed border-charcoal-ink/15" />
         <p className="text-sm leading-relaxed text-charcoal-ink/70">
-          A named check or a year of care, doctor-reviewed and already paid for. Theirs to book
+          A named check or a doctor&apos;s time, doctor-reviewed and already paid for. Theirs to book
           whenever they are ready.
         </p>
         <p className="mt-4 text-xs text-charcoal-ink/50">From you, waiting on their account</p>
