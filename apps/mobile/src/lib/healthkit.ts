@@ -97,6 +97,35 @@ export interface HealthSample {
   external_reading_id: string;
 }
 
+export type HealthReadingType = HealthSample["reading_type"];
+
+/**
+ * What one health-store read hands back to health-sync.ts: the samples, plus
+ * which reading types' underlying queries came back with exactly
+ * PER_TYPE_LIMIT rows — meaning the store may hold MORE of that type inside
+ * the window than this read returned. The upload route needs that
+ * declaration on every page it receives (healthSampleBatchSchema's
+ * truncated_types) so its single shared sync cursor doesn't advance past a
+ * type's unfetched backlog; the server cannot detect truncation on its own.
+ */
+export interface HealthReadResult {
+  samples: HealthSample[];
+  truncatedTypes: HealthReadingType[];
+}
+
+/**
+ * One per-type reader's contribution to a HealthReadResult. `truncatedType`
+ * is the reader's own reading type when its query returned exactly
+ * PER_TYPE_LIMIT rows (counted on the raw query result, before any mapping
+ * filters rows out), null otherwise — including on a failed read, where
+ * "truncated" would be a guess and sync-diagnostics already records the
+ * failure as `partial`.
+ */
+interface ReaderResult {
+  samples: HealthSample[];
+  truncatedType: HealthReadingType | null;
+}
+
 // v14's identifiers are plain string literals (no more HK*Identifier enums) —
 // see the package's src/generated/healthkit.generated.ts.
 const READ_PERMISSIONS = [
@@ -248,8 +277,8 @@ export function subscribeToIOSHealthChanges(onChange: () => void): () => void {
   };
 }
 
-export async function readHealthSamples(since: Date, until: Date): Promise<HealthSample[]> {
-  if (!(await isHealthKitAvailable())) return [];
+export async function readHealthSamples(since: Date, until: Date): Promise<HealthReadResult> {
+  if (!(await isHealthKitAvailable())) return { samples: [], truncatedTypes: [] };
 
   // Each reader is independent and self-contained: one denied permission or
   // one unavailable type must not cost the sync every other metric.
@@ -284,7 +313,12 @@ export async function readHealthSamples(since: Date, until: Date): Promise<Healt
     readDailySteps(since, until),
   ]);
 
-  return groups.flat();
+  return {
+    samples: groups.flatMap((group) => group.samples),
+    truncatedTypes: groups
+      .map((group) => group.truncatedType)
+      .filter((readingType): readingType is HealthReadingType => readingType !== null),
+  };
 }
 
 /**
@@ -293,9 +327,9 @@ export async function readHealthSamples(since: Date, until: Date): Promise<Healt
  * separate readings would give the hypertension pathway two halves it cannot
  * band. The correlation's own UUID is the dedupe key.
  */
-async function readBloodPressure(since: Date, until: Date): Promise<HealthSample[]> {
+async function readBloodPressure(since: Date, until: Date): Promise<ReaderResult> {
   const healthkit = loadHealthkit();
-  if (!healthkit) return [];
+  if (!healthkit) return { samples: [], truncatedType: null };
   try {
     const correlations = await healthkit.queryCorrelationSamples(
       "HKCorrelationTypeIdentifierBloodPressure",
@@ -338,10 +372,14 @@ async function readBloodPressure(since: Date, until: Date): Promise<HealthSample
         external_reading_id: systolicUuid,
       });
     }
-    return samples;
+    // Truncation is judged on the raw correlation count, not the mapped
+    // samples: a correlation skipped for a missing half still occupied a row
+    // of the capped query, so a full query can yield fewer (even zero)
+    // samples and the window may still hold more BP data.
+    return { samples, truncatedType: correlations.length === PER_TYPE_LIMIT ? "blood_pressure" : null };
   } catch (error) {
     recordSyncError("apple_health", "blood_pressure", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 
@@ -351,7 +389,7 @@ async function readBloodPressure(since: Date, until: Date): Promise<HealthSample
  * "1%" and, once it reached vitals_readings, look like a patient in
  * catastrophic hypoxia.
  */
-async function readOxygenSaturation(since: Date, until: Date): Promise<HealthSample[]> {
+async function readOxygenSaturation(since: Date, until: Date): Promise<ReaderResult> {
   const fractions = await readQuantity(
     "spo2",
     "HKQuantityTypeIdentifierOxygenSaturation",
@@ -360,12 +398,15 @@ async function readOxygenSaturation(since: Date, until: Date): Promise<HealthSam
     since,
     until
   );
-  return fractions.map((sample) => ({
-    ...sample,
-    // Guard rather than assume: if a future iOS version starts returning a
-    // real percentage, doubling it would be the same class of error.
-    value: Math.round(sample.value <= 1.5 ? sample.value * 100 : sample.value),
-  }));
+  return {
+    ...fractions,
+    samples: fractions.samples.map((sample) => ({
+      ...sample,
+      // Guard rather than assume: if a future iOS version starts returning a
+      // real percentage, doubling it would be the same class of error.
+      value: Math.round(sample.value <= 1.5 ? sample.value * 100 : sample.value),
+    })),
+  };
 }
 
 async function readQuantity(
@@ -375,9 +416,9 @@ async function readQuantity(
   reportedUnit: string,
   since: Date,
   until: Date
-): Promise<HealthSample[]> {
+): Promise<ReaderResult> {
   const healthkit = loadHealthkit();
-  if (!healthkit) return [];
+  if (!healthkit) return { samples: [], truncatedType: null };
   try {
     const samples = await healthkit.queryQuantitySamples(
       // The library's identifier/unit types are narrowed per call; every
@@ -391,16 +432,19 @@ async function readQuantity(
       } as Parameters<typeof healthkit.queryQuantitySamples>[1]
     );
 
-    return samples.map((sample) => ({
-      reading_type: readingType,
-      value: sample.quantity,
-      unit: reportedUnit,
-      recorded_at: sample.startDate.toISOString(),
-      external_reading_id: sample.uuid,
-    }));
+    return {
+      samples: samples.map((sample) => ({
+        reading_type: readingType,
+        value: sample.quantity,
+        unit: reportedUnit,
+        recorded_at: sample.startDate.toISOString(),
+        external_reading_id: sample.uuid,
+      })),
+      truncatedType: samples.length === PER_TYPE_LIMIT ? readingType : null,
+    };
   } catch (error) {
     recordSyncError("apple_health", readingType, error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 
@@ -411,9 +455,9 @@ async function readQuantity(
  * roughly double every step count. The statistics query is the API that
  * deduplicates across sources, which is the whole reason to use it here.
  */
-async function readDailySteps(since: Date, until: Date): Promise<HealthSample[]> {
+async function readDailySteps(since: Date, until: Date): Promise<ReaderResult> {
   const healthkit = loadHealthkit();
-  if (!healthkit) return [];
+  if (!healthkit) return { samples: [], truncatedType: null };
   try {
     const anchor = startOfDay(since);
     const buckets = await healthkit.queryStatisticsCollectionForQuantity(
@@ -450,10 +494,12 @@ async function readDailySteps(since: Date, until: Date): Promise<HealthSample[]>
         external_reading_id: `steps:${bucketDate.toISOString().slice(0, 10)}`,
       });
     });
-    return samples;
+    // A statistics collection has no row cap — one bucket per day of the
+    // window — so this reader can never leave data behind: never truncated.
+    return { samples, truncatedType: null };
   } catch (error) {
     recordSyncError("apple_health", "steps", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 

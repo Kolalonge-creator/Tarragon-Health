@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import type { HealthSample } from "./healthkit";
+import type { HealthReadingType, HealthSample } from "./healthkit";
 import type { HealthProvider } from "./health-sync";
 
 /**
@@ -107,13 +107,24 @@ export interface PostHealthSamplesResult {
   cursor: string | null;
 }
 
+/**
+ * `truncatedTypes` declares which reading types' device-store reads hit
+ * their per-type page cap (healthkit.ts / health-connect.ts's
+ * PER_TYPE_LIMIT), so the route's shared sync cursor won't advance past a
+ * type's still-unsent backlog (healthSampleBatchSchema.truncated_types).
+ * Omitted from the request body entirely when nothing was truncated — the
+ * server treats an absent field exactly like an old app version that
+ * predates it, which keeps that path the well-trodden default.
+ */
 export async function postHealthSamples(
   samples: HealthSample[],
-  provider: HealthProvider
+  provider: HealthProvider,
+  truncatedTypes?: HealthReadingType[]
 ): Promise<{ ok: true; data: PostHealthSamplesResult } | { ok: false; error: string }> {
   return request<PostHealthSamplesResult>("/api/mobile/health-samples", "POST", {
     samples,
     provider,
+    ...(truncatedTypes && truncatedTypes.length > 0 ? { truncated_types: truncatedTypes } : {}),
   });
 }
 
