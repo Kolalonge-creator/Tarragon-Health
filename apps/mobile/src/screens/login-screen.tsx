@@ -29,8 +29,8 @@ function friendlySignInError(rawMessage: string): string {
 }
 
 /**
- * App-level auth gate in front of both tabs (promoted from being reachable
- * only from the Devices tab — docs/MOBILE_APP_SPEC.md §1). Sign-in is
+ * App-level auth gate in front of the whole signed-in app — every section
+ * behind the tab bar and drawer (docs/MOBILE_APP_SPEC.md §1). Sign-in is
  * native; account creation stays app/web-only per CLAUDE.md but doesn't need
  * a native reimplementation of consent/KYC/plan-selection/payment (payment
  * embedding is explicitly banned — see §7) — "Create your account" opens the

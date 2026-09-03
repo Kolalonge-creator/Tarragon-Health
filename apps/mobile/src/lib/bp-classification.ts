@@ -37,6 +37,9 @@ export const BP_LEVEL_LABEL: Record<BpLevel, string> = {
   unknown: "—",
 };
 
+/** Deliberately literal hexes, not ui/theme.ts tokens: this palette mirrors
+ * the web badge colours verbatim (see the lock-step note above), so it stays
+ * a copy of the web values rather than adopting the native token set. */
 export const BP_LEVEL_COLORS: Record<BpLevel, { bg: string; text: string }> = {
   green: { bg: "#DCFCE7", text: "#15803D" },
   amber: { bg: "#FEF3C7", text: "#B45309" },

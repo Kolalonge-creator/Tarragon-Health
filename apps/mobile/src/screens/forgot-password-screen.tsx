@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { COUNTRY_CALLING_CODES, E164_GENERIC } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
+import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
 type Tab = "phone" | "email";
@@ -215,7 +215,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
         <View
           style={{
             flexDirection: "row",
-            backgroundColor: "rgba(23,23,23,0.05)",
+            backgroundColor: inkAlpha(0.05),
             borderRadius: radius.control,
             padding: 4,
             gap: 4,
@@ -344,7 +344,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
       >
         <Pressable
           onPress={() => setCountryPickerOpen(false)}
-          style={{ flex: 1, backgroundColor: "rgba(23,23,23,0.4)", justifyContent: "flex-end" }}
+          style={{ flex: 1, backgroundColor: inkAlpha(0.4), justifyContent: "flex-end" }}
         >
           <View
             style={{

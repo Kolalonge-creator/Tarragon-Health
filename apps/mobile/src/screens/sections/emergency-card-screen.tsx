@@ -72,7 +72,7 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
       <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Emergency card</Text>
       {offline ? <MutedText>You&apos;re offline, so this is your last saved copy.</MutedText> : null}
 
-      <View style={{ backgroundColor: "#B91C1C", borderRadius: 14, padding: 16, gap: 10 }}>
+      <View style={{ backgroundColor: colors.status.critical, borderRadius: 14, padding: 16, gap: 10 }}>
         <Text style={{ fontWeight: "700", fontSize: 18, color: "#fff" }}>
           {facts.fullName ?? "—"}
         </Text>

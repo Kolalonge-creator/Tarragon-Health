@@ -148,8 +148,8 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
           </Card>
         ) : (
           <GroupedList>
-            {data.screenings.map((s, i) => (
-              <GroupedListRow key={i} title={s.screenTypeName} trailing="none" subtitle={s.resultStatus ?? s.status} />
+            {data.screenings.map((s) => (
+              <GroupedListRow key={`${s.screenTypeName}:${s.dueDate}`} title={s.screenTypeName} trailing="none" subtitle={s.resultStatus ?? s.status} />
             ))}
           </GroupedList>
         )}
@@ -164,9 +164,9 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
         ) : (
           <View style={{ gap: 6 }}>
             <GroupedList>
-              {data.labReadings.slice(0, MAX_LAB_READINGS).map((r, i) => (
+              {data.labReadings.slice(0, MAX_LAB_READINGS).map((r) => (
                 <GroupedListRow
-                  key={i}
+                  key={`${r.code}:${r.takenAt}`}
                   title={r.code}
                   trailing={<Text style={{ fontSize: 12.5, color: colors.muted }}>{r.value} {r.unit}</Text>}
                 />

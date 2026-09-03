@@ -9,7 +9,8 @@ import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
 /**
  * Apple Health card, shown above the Bluetooth device list.
  *
- * It sits on the Devices tab rather than in the WebView because HealthKit is
+ * It sits on the Devices section (opened from the nav drawer) rather than in
+ * the WebView because HealthKit is
  * device-local: the web platform cannot reach it at all, which is the same
  * reason BLE pairing lives here. The card hides itself entirely on Android
  * and on any iOS device where HealthKit is unavailable, rather than showing
@@ -59,7 +60,7 @@ export function AppleHealthCard() {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: "#E8F3EE",
+            backgroundColor: colors.brandTintAlt,
             alignItems: "center",
             justifyContent: "center",
           }}

@@ -86,7 +86,15 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
       <CardContent>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {!isLoading && checklist.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No scheduled doses today.</p>
+          <div className="flex flex-col items-center gap-2 py-6 text-center">
+            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-soft-sage/60">
+              <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest/60" strokeWidth={2} />
+            </span>
+            <p className="text-sm text-charcoal-ink/60">No scheduled doses today.</p>
+            <p className="text-xs text-charcoal-ink/45">
+              Doses appear here once a medicine has a schedule.
+            </p>
+          </div>
         )}
         {checklist.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">

@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
-import { colors, radius, spacing } from "@/ui/theme";
+import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { CalloutCard, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionDivider, SectionLabel } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 import { PLATFORM_URL } from "@/lib/platform-url";
@@ -101,7 +101,7 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
             width: 56,
             height: 56,
             borderRadius: 28,
-            backgroundColor: "#E7EEE7",
+            backgroundColor: colors.brandTint,
             alignItems: "center",
             justifyContent: "center",
             shadowColor: colors.brand,
@@ -288,7 +288,7 @@ function Toggle({
         height,
         borderRadius: 999,
         padding: 2,
-        backgroundColor: value ? colors.brand : "rgba(23,23,23,0.15)",
+        backgroundColor: value ? colors.brand : inkAlpha(0.15),
       }}
     >
       <View

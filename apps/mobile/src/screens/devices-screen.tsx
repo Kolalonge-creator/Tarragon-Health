@@ -187,7 +187,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
                       width: 36,
                       height: 36,
                       borderRadius: 18,
-                      backgroundColor: "#E8F3EE",
+                      backgroundColor: colors.brandTintAlt,
                       alignItems: "center",
                       justifyContent: "center",
                     }}

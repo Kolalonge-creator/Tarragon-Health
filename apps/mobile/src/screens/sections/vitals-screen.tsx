@@ -13,7 +13,7 @@ import {
 import type { VitalReadingPayload } from "@/lib/api";
 import { getPendingCount } from "@/lib/offline-vitals-queue";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
-import { colors, radius, spacing } from "@/ui/theme";
+import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import {
   CalloutCard,
   Card,
@@ -37,13 +37,13 @@ function UrgentBanner({ detail }: { detail: string }) {
   return (
     <View
       style={{
-        backgroundColor: "#FEF3C7",
+        backgroundColor: colors.status.warnBg,
         borderRadius: radius.control,
         paddingVertical: 10,
         paddingHorizontal: 12,
       }}
     >
-      <Text style={{ fontSize: 12.5, color: "#B45309", lineHeight: 18 }}>{detail}</Text>
+      <Text style={{ fontSize: 12.5, color: colors.status.warn, lineHeight: 18 }}>{detail}</Text>
     </View>
   );
 }
@@ -463,7 +463,7 @@ function OtherVitalCard({
               paddingVertical: 6,
               paddingHorizontal: 12,
               borderRadius: 999,
-              backgroundColor: type === t.id ? colors.brand : "rgba(23,23,23,0.05)",
+              backgroundColor: type === t.id ? colors.brand : inkAlpha(0.05),
             }}
           >
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: type === t.id ? "#FFFFFF" : colors.muted }}>

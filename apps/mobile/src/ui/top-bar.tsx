@@ -8,7 +8,7 @@ import {
   relativeTime,
   type InAppNotification,
 } from "@/lib/notifications";
-import { colors } from "./theme";
+import { colors, inkAlpha } from "./theme";
 
 interface TopBarProps {
   userId: string;
@@ -19,8 +19,8 @@ interface TopBarProps {
   onSignOut: () => void;
 }
 
-/** Hamburger + wordmark + notification bell + profile avatar, matching the
- * Claude Design prototype's Home header. */
+/** Hamburger + wordmark + notification bell + profile avatar — the header
+ * mounted above every section of the signed-in app. */
 export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSettings, onSignOut }: TopBarProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -87,7 +87,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
           hitSlop={12}
           style={{ position: "relative" }}
         >
-          <Ionicons name="notifications-outline" size={20} color="rgba(23,23,23,0.6)" />
+          <Ionicons name="notifications-outline" size={20} color={inkAlpha(0.6)} />
           {hasUnread ? (
             <View
               style={{
@@ -120,7 +120,7 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
               width: 28,
               height: 28,
               borderRadius: 14,
-              backgroundColor: "#E7EEE7",
+              backgroundColor: colors.brandTint,
               alignItems: "center",
               justifyContent: "center",
             }}

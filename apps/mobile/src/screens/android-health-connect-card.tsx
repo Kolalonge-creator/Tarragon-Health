@@ -10,8 +10,9 @@ import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
  * Android Health Connect card — the Android peer of apple-health-card.tsx,
  * same structure and copy tone deliberately so the two platforms read as
  * one feature rather than two. Replaces the "not yet built" placeholder
- * that lived on the Devices tab (devices-screen.tsx) before this bridge was
- * built; see health-connect.ts for the read path itself.
+ * that lived on the Devices section (devices-screen.tsx, opened from the nav
+ * drawer) before this bridge was built; see health-connect.ts for the read
+ * path itself.
  *
  * Hides itself entirely on iOS and on any Android device where Health
  * Connect isn't available (not installed, or an old OS with no path to
@@ -59,7 +60,7 @@ export function AndroidHealthConnectCard() {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: "#E8F3EE",
+            backgroundColor: colors.brandTintAlt,
             alignItems: "center",
             justifyContent: "center",
           }}

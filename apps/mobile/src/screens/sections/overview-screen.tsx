@@ -15,7 +15,7 @@ import {
   type UpcomingVideoVisit,
 } from "@/lib/overview";
 import { todayIsoDate } from "@/lib/medications";
-import { colors, spacing } from "@/ui/theme";
+import { colors, inkAlpha, spacing } from "@/ui/theme";
 import {
   Card,
   CalloutCard,
@@ -209,7 +209,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
             <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
               {step.title}
             </Text>
-            <Text style={{ fontSize: 13, color: "rgba(23,23,23,0.7)", marginTop: 2 }}>
+            <Text style={{ fontSize: 13, color: inkAlpha(0.7), marginTop: 2 }}>
               {step.body}
             </Text>
             <Pressable
@@ -274,9 +274,9 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
         <View style={{ gap: 10 }}>
           <SectionLabel>What&apos;s coming up</SectionLabel>
           <GroupedList>
-            {schedule.map((item, i) => (
+            {schedule.map((item) => (
               <GroupedListRow
-                key={i}
+                key={`${item.type}:${item.title}:${item.dueDate}`}
                 title={item.title}
                 subtitle={`${item.type.charAt(0).toUpperCase()}${item.type.slice(1)}`}
                 trailing={<Text style={{ fontSize: 12, color: colors.faint }}>{daysLabel(item.dueDate)}</Text>}
@@ -369,7 +369,7 @@ function StatTile({
   return (
     <View style={{ flexBasis: "47%", flexGrow: 1 }}>
       <Card style={{ flexDirection: "row", gap: 10, alignItems: "flex-start" }}>
-        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: "#E7EEE7", alignItems: "center", justifyContent: "center" }}>
+        <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: colors.brandTint, alignItems: "center", justifyContent: "center" }}>
           <Ionicons name={icon} size={16} color={colors.brandPressed} />
         </View>
         <View>

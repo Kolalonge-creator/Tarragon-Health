@@ -27,6 +27,14 @@ function daysLabel(dateStr: string): string {
   return `${-days} day${days === -1 ? "" : "s"} overdue`;
 }
 
+/** Same day-boundary arithmetic as daysLabel, so the two can never disagree
+ * about whether an item is overdue. */
+function isOverdue(dateStr: string): boolean {
+  const today = new Date(new Date().toDateString());
+  const target = new Date(new Date(dateStr).toDateString());
+  return target.getTime() < today.getTime();
+}
+
 function formatLabel(value: string): string {
   return value.split("_").join(" ");
 }
@@ -196,7 +204,15 @@ export async function CareScheduleCard({ patientId }: { patientId: string }) {
                     {item.title}
                   </Link>
                 </div>
-                <span className="shrink-0 whitespace-nowrap text-xs text-charcoal-ink/50">
+                {/* Overdue gets clinical amber emphasis; future dates stay
+                    muted so the two states read differently at a glance. */}
+                <span
+                  className={
+                    isOverdue(item.dueDate)
+                      ? "shrink-0 whitespace-nowrap text-xs font-medium text-amber-700"
+                      : "shrink-0 whitespace-nowrap text-xs text-charcoal-ink/50"
+                  }
+                >
                   {daysLabel(item.dueDate)}
                 </span>
               </li>

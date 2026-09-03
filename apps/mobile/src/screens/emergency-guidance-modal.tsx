@@ -57,7 +57,7 @@ export function EmergencyGuidanceModal({
         <View style={{ backgroundColor: "#FFFFFF", borderRadius: radius.card, maxHeight: "85%" }}>
           <View
             style={{
-              backgroundColor: "#DC2626",
+              backgroundColor: colors.status.emergency,
               borderTopLeftRadius: radius.card,
               borderTopRightRadius: radius.card,
               paddingVertical: 18,
@@ -92,7 +92,7 @@ export function EmergencyGuidanceModal({
                     flexDirection: "row",
                     alignItems: "center",
                     gap: 6,
-                    backgroundColor: "#DC2626",
+                    backgroundColor: colors.status.emergency,
                     borderRadius: radius.control,
                     minHeight: 44,
                     paddingVertical: 9,
@@ -136,12 +136,12 @@ export function EmergencyGuidanceModal({
 
             <View
               style={{
-                backgroundColor: synced ? "#DCFCE7" : "#FEF3C7",
+                backgroundColor: synced ? "#DCFCE7" : colors.status.warnBg,
                 borderRadius: radius.control,
                 padding: 12,
               }}
             >
-              <Text style={{ fontSize: 13, color: synced ? "#15803D" : "#B45309", lineHeight: 19 }}>
+              <Text style={{ fontSize: 13, color: synced ? "#15803D" : colors.status.warn, lineHeight: 19 }}>
                 {synced
                   ? "Your care team has been notified and will follow up."
                   : "We'll notify your care team as soon as you're back online. Call now if you need help sooner. Your reading is saved and won't be lost."}

@@ -24,6 +24,15 @@ const RISK_LEVEL_BADGE: Record<HealthScoreRiskLevel, { variant: "green" | "amber
   very_high: { variant: "red", label: "Needs urgent attention" },
 };
 
+// Meter fill/track pairs stay on one hue ramp per risk level (never a grey
+// track) so the state reads across the whole bar, filled or not.
+const RISK_LEVEL_METER: Record<HealthScoreRiskLevel, { fill: string; track: string }> = {
+  low: { fill: "bg-green-500", track: "bg-green-100" },
+  moderate: { fill: "bg-amber-500", track: "bg-amber-100" },
+  high: { fill: "bg-red-500", track: "bg-red-100" },
+  very_high: { fill: "bg-red-500", track: "bg-red-100" },
+};
+
 const COMPONENT_LABEL: Record<HealthScoreComponent["key"], string> = {
   bp_control: "Blood pressure control",
   hba1c: "HbA1c",
@@ -71,6 +80,25 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
                 </Badge>
               )}
             </div>
+            {data.risk_level && typeof data.score === "number" && (
+              <div
+                role="meter"
+                aria-label="Health Score"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={data.score}
+                className={`h-2.5 w-full overflow-hidden rounded-full ${
+                  RISK_LEVEL_METER[data.risk_level as HealthScoreRiskLevel].track
+                }`}
+              >
+                <div
+                  className={`h-full rounded-full transition-[width] duration-500 ease-out ${
+                    RISK_LEVEL_METER[data.risk_level as HealthScoreRiskLevel].fill
+                  }`}
+                  style={{ width: `${Math.min(100, Math.max(0, data.score))}%` }}
+                />
+              </div>
+            )}
             <p className="text-xs text-charcoal-ink/60">
               A non-diagnostic summary of a few everyday habits and numbers we already have on
               file, not a medical diagnosis. Updated {formatPatientDate(data.computed_at)}.

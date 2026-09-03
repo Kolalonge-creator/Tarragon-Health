@@ -45,14 +45,14 @@ const BP_ICON_CLASS: Record<Exclude<BpLevel, "unknown">, string> = {
   red: "text-red-800",
   emergency: "text-white",
 };
-// StatTile's delta only has three tones (brand-green/sprout-gold/grey), not a
-// true clinical palette — the icon circle above carries the real clinical
-// colour; this just picks the closest tone for the supporting delta text.
-const BP_DELTA_DIRECTION: Record<Exclude<BpLevel, "unknown">, "up" | "down" | "flat"> = {
-  green: "up",
-  amber: "flat",
-  red: "down",
-  emergency: "down",
+// StatTile's `status` line renders in the clinical status palette — the band
+// label ("Crisis range") must never pass through the brand-toned `delta` slot,
+// where a red/emergency reading would come out in decorative sprout-gold.
+const BP_STATUS_TONE: Record<Exclude<BpLevel, "unknown">, "green" | "amber" | "red"> = {
+  green: "green",
+  amber: "amber",
+  red: "red",
+  emergency: "red",
 };
 
 /** Small Suspense fallback for one streamed-in card — the independent async
@@ -87,7 +87,7 @@ export default async function PatientOverviewPage() {
       ? {
           tintClassName: BP_TINT_CLASS[bpLevel],
           iconClassName: BP_ICON_CLASS[bpLevel],
-          delta: { text: BP_LEVEL_LABEL[bpLevel], direction: BP_DELTA_DIRECTION[bpLevel] },
+          status: { text: BP_LEVEL_LABEL[bpLevel], tone: BP_STATUS_TONE[bpLevel] },
         }
       : {};
 

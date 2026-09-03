@@ -13,6 +13,14 @@ const DELTA_COLOR = {
   flat: "text-charcoal-ink/50",
 } as const;
 
+// Clinical status colours (the Badge palette), never brand tones — a severity
+// word like "Crisis range" must not render in decorative sprout-gold.
+const STATUS_COLOR = {
+  green: "text-green-700",
+  amber: "text-amber-700",
+  red: "text-red-700",
+} as const;
+
 export interface StatTileProps {
   icon: LucideIcon;
   /** Brand-tier tint for the icon circle. Ignored if `tintClassName` is set. */
@@ -27,7 +35,13 @@ export interface StatTileProps {
   label: string;
   value: string;
   unit?: string;
+  /** Brand-toned directional note ("↑ 2 this week" style). For a clinical
+   * severity word, use `status` instead — the two are separate colour systems
+   * and must never be blended in one line. */
   delta?: { text: string; direction: "up" | "down" | "flat" };
+  /** Clinical-status counterpart to `delta`: renders in the dashboard status
+   * palette (green/amber/red), e.g. a BP band label like "Crisis range". */
+  status?: { text: string; tone: keyof typeof STATUS_COLOR };
   className?: string;
 }
 
@@ -40,6 +54,7 @@ export function StatTile({
   value,
   unit,
   delta,
+  status,
   className,
 }: StatTileProps) {
   return (
@@ -68,8 +83,17 @@ export function StatTile({
         <p className="text-sm text-charcoal-ink/60">{label}</p>
         <p className="font-heading text-2xl font-semibold break-words text-charcoal-ink sm:text-3xl">
           {value}
-          {unit && <span className="ml-1 text-base font-normal text-charcoal-ink/50">{unit}</span>}
+          {/* whitespace-nowrap: the value may wrap (break-words above), but a
+              unit like "mmHg" must never break mid-word into "mm / Hg". */}
+          {unit && (
+            <span className="ml-1 whitespace-nowrap text-base font-normal text-charcoal-ink/50">
+              {unit}
+            </span>
+          )}
         </p>
+        {status && (
+          <p className={cn("text-xs font-medium", STATUS_COLOR[status.tone])}>{status.text}</p>
+        )}
         {delta && <p className={cn("text-xs", DELTA_COLOR[delta.direction])}>{delta.text}</p>}
       </div>
     </div>

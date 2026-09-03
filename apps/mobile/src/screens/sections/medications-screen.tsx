@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "rea
 import { Ionicons } from "@expo/vector-icons";
 import { loadTodaysDoses, logDose, type DoseChecklistItem, type DoseStatus } from "@/lib/medications";
 import { syncDoseReminders } from "@/lib/dose-reminders";
-import { colors, spacing } from "@/ui/theme";
+import { colors, inkAlpha, spacing } from "@/ui/theme";
 import { CalloutCard, Card, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
 
@@ -142,7 +142,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
                           <Ionicons name="checkmark" size={13} color="#fff" />
                         </View>
                       ) : (
-                        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: "rgba(23,23,23,0.15)" }} />
+                        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: inkAlpha(0.15) }} />
                       )
                     }
                   />

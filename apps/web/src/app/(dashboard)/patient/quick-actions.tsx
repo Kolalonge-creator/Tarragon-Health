@@ -109,10 +109,10 @@ export function QuickActions({ showCycle = false }: { showCycle?: boolean }) {
               <Link
                 href={action.href}
                 className={cn(
-                  "group flex w-full flex-col gap-2 rounded-xl border p-4 transition-colors",
+                  "group flex w-full flex-col gap-2 rounded-xl border p-4 transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2",
                   action.emphasis
                     ? "border-brand-green/30 bg-soft-sage/40 hover:border-brand-green/50 hover:bg-soft-sage"
-                    : "border-charcoal-ink/10 bg-white hover:border-charcoal-ink/20 hover:bg-charcoal-ink/[0.03]"
+                    : "border-charcoal-ink/10 bg-white hover:border-brand-green/40 hover:bg-charcoal-ink/[0.03]"
                 )}
               >
                 <span

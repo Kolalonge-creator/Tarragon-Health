@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import {
   computePreventionCompletion,
@@ -90,12 +91,13 @@ export async function PreventionCompletionCard({ patientId }: { patientId: strin
                   ✓
                 </span>
               ) : (
-                <span
-                  className="shrink-0 text-sm font-medium text-amber-600"
+                <Badge
+                  variant={summary.overdueCount > 0 ? "red" : "amber"}
+                  className="shrink-0"
                   aria-label={`${summary.dueCount + summary.overdueCount} item(s) need attention`}
                 >
-                  {summary.overdueCount > 0 ? "! Overdue" : "! Due"}
-                </span>
+                  {summary.overdueCount > 0 ? "Overdue" : "Due"}
+                </Badge>
               )}
             </li>
           ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type Key as ReactKey } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { useVitalsTrend, useHba1cTrend, useBmiTrend, useLatestHeightCm } from "@/lib/queries/vitals";
 import { getHba1cBracket } from "@/lib/rules/hba1c-bracket";
@@ -51,6 +51,62 @@ function formatDate(taken_at: string): string {
   return formatPatientDate(taken_at, { month: "short", day: "numeric" });
 }
 
+// Recessive horizontal gridlines: 1px solid, one step off the white surface.
+const GRID_PROPS = {
+  vertical: false,
+  stroke: "var(--color-charcoal-ink)",
+  strokeOpacity: 0.08,
+} as const;
+
+// Small axis labels in text tokens, no axis/tick strokes competing with the
+// gridlines.
+const AXIS_TICK = { fontSize: 12, fill: "var(--color-charcoal-ink)", fillOpacity: 0.5 } as const;
+
+// 2px series lines with round joins/caps, shared by every mode below.
+const LINE_PROPS = {
+  type: "monotone",
+  strokeWidth: 2,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+type EndpointDotProps = {
+  key?: ReactKey | null;
+  cx?: number;
+  cy?: number;
+  index?: number;
+  value?: number;
+};
+
+/**
+ * Dot + direct value label at a line's endpoint only — every other point
+ * renders nothing (hover still gets the tooltip). The label stays in text
+ * tokens, never the series hue; for BP the systolic label sits above its dot
+ * and the diastolic label below, so close endpoints cannot collide.
+ */
+function makeEndpointDot(lastIndex: number, color: string, placement: "above" | "below") {
+  return function EndpointDot({ key, cx, cy, index, value }: EndpointDotProps) {
+    if (index !== lastIndex || cx == null || cy == null || value == null) {
+      return <g key={key} />;
+    }
+    return (
+      <g key={key}>
+        <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="#ffffff" strokeWidth={2} />
+        <text
+          x={cx - 8}
+          y={placement === "above" ? cy - 9 : cy + 17}
+          textAnchor="end"
+          fontSize={12}
+          fontWeight={600}
+          fill="var(--color-charcoal-ink)"
+        >
+          {value}
+        </text>
+      </g>
+    );
+  };
+}
+
 type TrendMode = "blood_pressure" | "glucose" | "weight" | "pulse" | "hba1c" | "bmi";
 
 export function VitalsTrendChart({ patientId }: { patientId: string }) {
@@ -65,6 +121,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } =
     mode === "hba1c" ? hba1cTrend : mode === "bmi" ? bmiTrend : vitalsTrend;
   const points = (data ?? []).map((reading) => ({ ...reading, date: formatDate(reading.taken_at) }));
+  const lastIndex = points.length - 1;
   const noHeightOnFile = mode === "bmi" && !heightQuery.isLoading && heightQuery.data == null;
 
   return (
@@ -131,29 +188,67 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           <p className="text-sm text-charcoal-ink/60">Not enough readings yet.</p>
         )}
         {points.length >= 2 && mode === "blood_pressure" && (
-          <ChartContainer config={BP_CONFIG}>
-            <LineChart data={points}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" fontSize={12} />
-              <YAxis fontSize={12} domain={["dataMin - 10", "dataMax + 10"]} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Line type="monotone" dataKey="systolic" stroke="var(--color-systolic)" dot={false} />
-              <Line type="monotone" dataKey="diastolic" stroke="var(--color-diastolic)" dot={false} />
-            </LineChart>
-          </ChartContainer>
+          <div className="space-y-2">
+            <ChartContainer config={BP_CONFIG}>
+              <LineChart data={points}>
+                <CartesianGrid {...GRID_PROPS} />
+                <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                <YAxis
+                  tick={AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
+                  tickCount={4}
+                  domain={["dataMin - 10", "dataMax + 10"]}
+                />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Line
+                  {...LINE_PROPS}
+                  dataKey="systolic"
+                  stroke="var(--color-systolic)"
+                  dot={makeEndpointDot(lastIndex, "var(--color-chart-systolic)", "above")}
+                />
+                <Line
+                  {...LINE_PROPS}
+                  dataKey="diastolic"
+                  stroke="var(--color-diastolic)"
+                  dot={makeEndpointDot(lastIndex, "var(--color-chart-diastolic)", "below")}
+                />
+              </LineChart>
+            </ChartContainer>
+            {/* Legend only for the one multi-series metric — the selector
+                buttons already name the single-series charts. */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-charcoal-ink/70">
+              {(["systolic", "diastolic"] as const).map((seriesKey) => (
+                <span key={seriesKey} className="flex items-center gap-1.5">
+                  <span
+                    aria-hidden
+                    className="h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: BP_CONFIG[seriesKey].color }}
+                  />
+                  {BP_CONFIG[seriesKey].label}
+                </span>
+              ))}
+            </div>
+          </div>
         )}
         {points.length >= 2 && mode === "glucose" && (
           <ChartContainer config={GLUCOSE_CONFIG}>
             <LineChart data={points}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" fontSize={12} />
-              <YAxis fontSize={12} domain={["dataMin - 1", "dataMax + 1"]} />
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+              <YAxis
+                tick={AXIS_TICK}
+                tickLine={false}
+                axisLine={false}
+                tickCount={4}
+                domain={["dataMin - 1", "dataMax + 1"]}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Line
-                type="monotone"
+                {...LINE_PROPS}
                 dataKey="glucose_mmol_l"
                 stroke="var(--color-glucose_mmol_l)"
-                dot={false}
+                dot={makeEndpointDot(lastIndex, "var(--color-chart-glucose)", "above")}
               />
             </LineChart>
           </ChartContainer>
@@ -161,22 +256,44 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
         {points.length >= 2 && mode === "weight" && (
           <ChartContainer config={WEIGHT_CONFIG}>
             <LineChart data={points}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" fontSize={12} />
-              <YAxis fontSize={12} domain={["dataMin - 2", "dataMax + 2"]} />
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+              <YAxis
+                tick={AXIS_TICK}
+                tickLine={false}
+                axisLine={false}
+                tickCount={4}
+                domain={["dataMin - 2", "dataMax + 2"]}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Line type="monotone" dataKey="weight_kg" stroke="var(--color-weight_kg)" dot={false} />
+              <Line
+                {...LINE_PROPS}
+                dataKey="weight_kg"
+                stroke="var(--color-weight_kg)"
+                dot={makeEndpointDot(lastIndex, "var(--color-chart-glucose)", "above")}
+              />
             </LineChart>
           </ChartContainer>
         )}
         {points.length >= 2 && mode === "pulse" && (
           <ChartContainer config={PULSE_CONFIG}>
             <LineChart data={points}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" fontSize={12} />
-              <YAxis fontSize={12} domain={["dataMin - 10", "dataMax + 10"]} />
+              <CartesianGrid {...GRID_PROPS} />
+              <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+              <YAxis
+                tick={AXIS_TICK}
+                tickLine={false}
+                axisLine={false}
+                tickCount={4}
+                domain={["dataMin - 10", "dataMax + 10"]}
+              />
               <ChartTooltip content={<ChartTooltipContent />} />
-              <Line type="monotone" dataKey="pulse_bpm" stroke="var(--color-pulse_bpm)" dot={false} />
+              <Line
+                {...LINE_PROPS}
+                dataKey="pulse_bpm"
+                stroke="var(--color-pulse_bpm)"
+                dot={makeEndpointDot(lastIndex, "var(--color-chart-systolic)", "above")}
+              />
             </LineChart>
           </ChartContainer>
         )}
@@ -184,11 +301,22 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           <div className="space-y-2">
             <ChartContainer config={HBA1C_CONFIG}>
               <LineChart data={points}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" fontSize={12} />
-                <YAxis fontSize={12} domain={["dataMin - 0.5", "dataMax + 0.5"]} />
+                <CartesianGrid {...GRID_PROPS} />
+                <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                <YAxis
+                  tick={AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
+                  tickCount={4}
+                  domain={["dataMin - 0.5", "dataMax + 0.5"]}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Line type="monotone" dataKey="value" stroke="var(--color-value)" dot={false} />
+                <Line
+                  {...LINE_PROPS}
+                  dataKey="value"
+                  stroke="var(--color-value)"
+                  dot={makeEndpointDot(lastIndex, "var(--color-chart-glucose)", "above")}
+                />
               </LineChart>
             </ChartContainer>
             {(() => {
@@ -206,11 +334,22 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           <div className="space-y-2">
             <ChartContainer config={BMI_CONFIG}>
               <LineChart data={points}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" fontSize={12} />
-                <YAxis fontSize={12} domain={["dataMin - 1", "dataMax + 1"]} />
+                <CartesianGrid {...GRID_PROPS} />
+                <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
+                <YAxis
+                  tick={AXIS_TICK}
+                  tickLine={false}
+                  axisLine={false}
+                  tickCount={4}
+                  domain={["dataMin - 1", "dataMax + 1"]}
+                />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                <Line type="monotone" dataKey="bmi" stroke="var(--color-bmi)" dot={false} />
+                <Line
+                  {...LINE_PROPS}
+                  dataKey="bmi"
+                  stroke="var(--color-bmi)"
+                  dot={makeEndpointDot(lastIndex, "var(--color-chart-glucose)", "above")}
+                />
               </LineChart>
             </ChartContainer>
             {(() => {
