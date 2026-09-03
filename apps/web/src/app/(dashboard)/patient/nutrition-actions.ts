@@ -16,7 +16,7 @@ import { parseFoodText } from "@/lib/nutrition/food-parser";
 import { analyseNutrition, type NutritionAnalysisResult } from "@/lib/nutrition/nutrition-analysis";
 import { detectNutritionRisk, RISK_REASON_LABELS } from "@/lib/nutrition/referral-risk";
 import { suggestBudgetAlternative } from "@/lib/nutrition/substitutions";
-import { generateMealPlan } from "@/lib/nutrition/meal-plan-generate";
+import { generateMealPlan, type MealPlanGenerationResult } from "@/lib/nutrition/meal-plan-generate";
 
 const MEAL_PHOTO_BUCKET = "meal-photos";
 
@@ -334,12 +334,33 @@ export async function generateMealPlanAction(
     return { status: "error", error: "Couldn't load the food list right now — try again shortly." };
   }
 
-  const result = await generateMealPlan({
-    catalogue,
-    conditions,
-    budgetTier: parsed.data.budget_tier ?? null,
-    preferencesNote: parsed.data.preferences_note ?? null,
+  // AI-011. Generation is a governed call; the CKD refusal and catalogue
+  // checks above are deterministic gates and stay outside it. The fallback
+  // mirrors "unavailable" — a state generateMealPlanAction already handles.
+  const governed = await runGovernedAi<MealPlanGenerationResult>({
+    supabase: ctx.supabase,
+    systemCode: AI_SYSTEMS.mealPlanGeneration.code,
+    inputCategory: "meal_plan_request",
+    subjectProfileId: ctx.userId,
+    run: async () => {
+      const generated = await generateMealPlan({
+        catalogue,
+        conditions,
+        budgetTier: parsed.data.budget_tier ?? null,
+        preferencesNote: parsed.data.preferences_note ?? null,
+      });
+      return {
+        value: generated,
+        modelIdentifier: process.env.ANTHROPIC_MODEL ?? "claude-sonnet-5",
+        outputSummary: generated.ok
+          ? `generated a ${generated.plan.days.length}-day meal plan`
+          : `not generated: ${generated.reason}`,
+        resultingAction: generated.ok ? "meal_plan_generated" : "no_plan_generated",
+      };
+    },
+    fallback: () => ({ ok: false, reason: "unavailable" }) as MealPlanGenerationResult,
   });
+  const result = governed.value;
 
   const basePlanRow = {
     organisation_id: ctx.organisationId,

@@ -70,6 +70,10 @@ export const AI_SYSTEMS = {
     code: "AI-010",
     failClosedIfGovernanceUnavailable: true,
   },
+  mealPlanGeneration: {
+    code: "AI-011",
+    failClosedIfGovernanceUnavailable: false,
+  },
 } as const;
 
 export type AiSystemKey = keyof typeof AI_SYSTEMS;
