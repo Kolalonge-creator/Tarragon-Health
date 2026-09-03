@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { postDeviceReading, postHealthSamples } from "./api";
 import type { HealthProvider } from "./health-sync";
-import type { HealthSample } from "./healthkit";
+import type { HealthReadingType, HealthSample } from "./healthkit";
 import { recordSyncError, type SyncSource } from "./sync-diagnostics";
 
 /**
@@ -62,6 +62,14 @@ export interface QueuedEntry<T> {
 export interface QueuedHealthSamplesPage {
   provider: HealthProvider;
   samples: HealthSample[];
+  /** The truncated-types declaration the page's original (failed) upload
+   * carried — see health-sync.ts's upload loop. Preserved here so the flush
+   * below replays it verbatim: the server's cursor clamp-and-hold only
+   * converges if EVERY page of a paginated upload declares the same
+   * truncation. Optional both because a non-truncated sync omits it and
+   * because entries persisted by an app version predating this field won't
+   * have it. */
+  truncated_types?: HealthReadingType[];
 }
 
 /** A device-reading queue entry is the exact request body sync-screen.tsx
@@ -204,7 +212,11 @@ export async function flushHealthSamplesQueue(onlyProvider?: HealthProvider): Pr
 
   for (const entry of entries) {
     if (onlyProvider && entry.item.provider !== onlyProvider) continue;
-    const result = await postHealthSamples(entry.item.samples, entry.item.provider);
+    const result = await postHealthSamples(
+      entry.item.samples,
+      entry.item.provider,
+      entry.item.truncated_types
+    );
     if (!result.ok) {
       recordSyncError(entry.item.provider, "offline_queue:flush", result.error);
       break;
