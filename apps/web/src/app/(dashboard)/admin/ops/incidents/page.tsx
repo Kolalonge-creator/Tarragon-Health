@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { hasAnyPermission } from "@/lib/auth/permissions";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import { IncidentsManager, type OpsIncidentRow } from "./incidents-manager";
 
 /**
@@ -33,18 +34,18 @@ export default async function OpsIncidentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Incident register
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Clinical, technical, privacy, security, financial and operational incidents, each
-          against a severity-based SLA. A confirmed personal-data breach should still be logged in
-          its own governed NDPR record (<code>/admin/settings/data-breach-incidents</code>). Link
-          it here from the incident detail page so operations has one place to see everything in
-          flight.
-        </p>
-      </div>
+      <PageHeader
+        title="Incident register"
+        description={
+          <>
+            Clinical, technical, privacy, security, financial and operational incidents, each
+            against a severity-based SLA. A confirmed personal-data breach should still be logged in
+            its own governed NDPR record (<code>/admin/settings/data-breach-incidents</code>). Link
+            it here from the incident detail page so operations has one place to see everything in
+            flight.
+          </>
+        }
+      />
       <IncidentsManager initialIncidents={(incidents ?? []) as OpsIncidentRow[]} canManage={canManage} />
     </div>
   );

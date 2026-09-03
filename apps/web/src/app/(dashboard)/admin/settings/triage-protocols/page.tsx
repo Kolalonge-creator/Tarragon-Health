@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   TriageProtocolsManager,
   type TriageProtocolVersionRow,
@@ -36,16 +37,10 @@ export default async function TriageProtocolsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Symptom Triage Protocols</h1>
-        <p className="text-charcoal-ink/60">
-          The red-flag screening rules and dynamic question trees behind the patient-facing symptom
-          checker (platform brief §37): what counts as an emergency, what needs a prompt clinical
-          look, and what&apos;s safe to self-manage, for each presenting complaint. Content changes
-          only through a reviewed, tested migration; this page is where a Clinical Director puts a
-          signed record on file and turns the patient-facing checker on.
-        </p>
-      </div>
+      <PageHeader
+        title="Symptom Triage Protocols"
+        description="The red-flag screening rules and dynamic question trees behind the patient-facing symptom checker (platform brief §37): what counts as an emergency, what needs a prompt clinical look, and what's safe to self-manage, for each presenting complaint. Content changes only through a reviewed, tested migration; this page is where a Clinical Director puts a signed record on file and turns the patient-facing checker on."
+      />
       <TriageProtocolsManager versions={versionRows} activeVersion={activeVersion} nextVersion={nextVersion} />
     </div>
   );

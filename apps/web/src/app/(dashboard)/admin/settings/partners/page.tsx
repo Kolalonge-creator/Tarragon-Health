@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 
 type PartnerLink = { href: string; title: string; description: string; permission?: string };
 
@@ -33,12 +34,10 @@ export default async function PartnersIndexPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Partners</h1>
-        <p className="text-charcoal-ink/60">
-          Manage the partner network: labs, pharmacies, hospitals, specialists, and logistics.
-        </p>
-      </div>
+      <PageHeader
+        title="Partners"
+        description="Manage the partner network: labs, pharmacies, hospitals, specialists, and logistics."
+      />
       <div className="grid gap-4 sm:grid-cols-2">
         {visible.map((l) => (
           <Card key={l.href}>

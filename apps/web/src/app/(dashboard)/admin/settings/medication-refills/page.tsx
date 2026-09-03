@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { RulesManager } from "./rules-manager";
 
 export default async function MedicationRefillsSettingsPage() {
@@ -15,15 +16,10 @@ export default async function MedicationRefillsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Medication refill reminders
-        </h1>
-        <p className="text-charcoal-ink/60">
-          How many days before a refill date patients get reminded: global default or per
-          patient.
-        </p>
-      </div>
+      <PageHeader
+        title="Medication refill reminders"
+        description="How many days before a refill date patients get reminded: global default or per patient."
+      />
       <RulesManager />
     </div>
   );

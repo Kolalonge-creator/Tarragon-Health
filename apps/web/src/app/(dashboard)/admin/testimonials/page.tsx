@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { TestimonialModerationButtons } from "./moderation-buttons";
 
 export default async function AdminTestimonialsPage() {
@@ -21,12 +22,10 @@ export default async function AdminTestimonialsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Testimonials</h1>
-        <p className="text-charcoal-ink/60">
-          Consented patient quotes; publishing makes a quote visible on the marketing site.
-        </p>
-      </div>
+      <PageHeader
+        title="Testimonials"
+        description="Consented patient quotes; publishing makes a quote visible on the marketing site."
+      />
 
       <Card>
         <CardHeader>

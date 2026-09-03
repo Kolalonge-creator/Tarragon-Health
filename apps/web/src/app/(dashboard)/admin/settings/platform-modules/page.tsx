@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { listPlatformModules } from "@/lib/platform-modules";
+import { PageHeader } from "@/components/ui/page-header";
 import { PlatformModulesManager } from "./platform-modules-manager";
 
 /**
@@ -20,14 +21,10 @@ export default async function PlatformModulesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Platform modules</h1>
-        <p className="text-charcoal-ink/60">
-          Whole platforms built ahead of the business that will use them. Each ships
-          switched off; activating one is a deliberate, audited act that needs a
-          reason (a signed contract, a go-live date). Switching one off never does.
-        </p>
-      </div>
+      <PageHeader
+        title="Platform modules"
+        description="Whole platforms built ahead of the business that will use them. Each ships switched off; activating one is a deliberate, audited act that needs a reason (a signed contract, a go-live date). Switching one off never does."
+      />
       <PlatformModulesManager modules={modules} />
     </div>
   );

@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
@@ -6,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { USER_ROLE_LABELS, type UserRoleValue } from "@/lib/validation/members";
 
 type ActivityCount = { action: string; count: number };
@@ -91,15 +91,11 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link href="/admin/settings/members" className="text-sm text-brand-green hover:underline">
-          ← Back to members
-        </Link>
-        <h1 className="mt-1 font-heading text-2xl font-semibold text-charcoal-ink">
-          {member.full_name ?? "(no name)"}
-        </h1>
-        <p className="text-charcoal-ink/60">{email ?? "—"}</p>
-      </div>
+      <PageHeader
+        title={member.full_name ?? "(no name)"}
+        description={email ?? "—"}
+        backTo={{ href: "/admin/settings/members", label: "Back to members" }}
+      />
 
       <Card>
         <CardHeader>

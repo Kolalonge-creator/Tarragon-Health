@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { SearchableList } from "@/components/ui/searchable-list";
 import { USER_ROLES, USER_ROLE_LABELS, type UserRoleValue } from "@/lib/validation/members";
 import type { MemberRow, PermissionRow, CustomRoleRow, OrgRow } from "./page";
 import {
@@ -66,6 +67,13 @@ export function MembersManager({
   const [feedback, setFeedback] = useState<Feedback>(null);
   const grouped = groupByCategory(permissions);
 
+  function matchesQuery(m: MemberRow, q: string): boolean {
+    const roleLabel = USER_ROLE_LABELS[m.role as UserRoleValue] ?? m.role;
+    return [m.full_name, m.email, roleLabel, m.custom_role_name, m.organisation_name]
+      .filter(Boolean)
+      .some((field) => field!.toLowerCase().includes(q));
+  }
+
   function run(action: (fd: FormData) => Promise<MemberActionState>, fd: FormData) {
     startTransition(async () => {
       const result = await action(fd);
@@ -95,25 +103,32 @@ export function MembersManager({
         <CardHeader>
           <CardTitle>Members &amp; partners</CardTitle>
           <CardDescription>
-            {members.length} account{members.length === 1 ? "" : "s"}. Expand a member to change their role
-            or delegate specific capabilities. The Super Admin role holds every capability implicitly.
+            {members.length} account{members.length === 1 ? "" : "s"}. Expand a member to change
+            their role or delegate specific capabilities. The Super Admin role holds every
+            capability implicitly.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-2">
-          {members.map((m) => (
-            <MemberItem
-              key={m.id}
-              member={m}
-              permissionsByCategory={grouped}
-              customRoles={customRoles}
-              canAssignRoles={canAssignRoles}
-              canEditContact={canEditContact}
-              canGrant={canGrant}
-              canViewActivity={canViewActivity}
-              pending={pending}
-              run={run}
-            />
-          ))}
+        <CardContent>
+          <SearchableList
+            items={members}
+            filterFn={matchesQuery}
+            searchPlaceholder="Search by name, email, role, or organisation…"
+            noMatchMessage={(q) => `No members match "${q}".`}
+            renderItem={(m) => (
+              <MemberItem
+                key={m.id}
+                member={m}
+                permissionsByCategory={grouped}
+                customRoles={customRoles}
+                canAssignRoles={canAssignRoles}
+                canEditContact={canEditContact}
+                canGrant={canGrant}
+                canViewActivity={canViewActivity}
+                pending={pending}
+                run={run}
+              />
+            )}
+          />
         </CardContent>
       </Card>
 

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   EscalationSlasManager,
   type EscalationSlaVersionRow,
@@ -34,18 +35,10 @@ export default async function EscalationSlasSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Escalation SLAs
-        </h1>
-        <p className="text-charcoal-ink/60">
-          The contact-time commitment every clinician_alert is raised against, by care pathway and
-          urgency tier. This drives sla_due_at on every abnormal-result, red-flag-vitals, emergency,
-          and &quot;silence is not assumed safe&quot; alert on the platform. The numbers change only
-          through a reviewed, tested migration; this page is where a Clinical Director puts a signed
-          record on file confirming the active configuration has been reviewed and approved.
-        </p>
-      </div>
+      <PageHeader
+        title="Escalation SLAs"
+        description='The contact-time commitment every clinician_alert is raised against, by care pathway and urgency tier. This drives sla_due_at on every abnormal-result, red-flag-vitals, emergency, and "silence is not assumed safe" alert on the platform. The numbers change only through a reviewed, tested migration; this page is where a Clinical Director puts a signed record on file confirming the active configuration has been reviewed and approved.'
+      />
       <EscalationSlasManager
         versions={versionRows}
         activeVersion={activeVersion}

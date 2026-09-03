@@ -4,6 +4,7 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { DuplicateFlagActions } from "./duplicate-flag-actions";
 import { RunSweepButton } from "./run-sweep-button";
 
@@ -65,17 +66,11 @@ export default async function AdminPatientDuplicatesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Duplicate patients</h1>
-          <p className="text-charcoal-ink/60">
-            Possible duplicate patient records, flagged by name/DOB/phone/email similarity. Flagging
-            never merges anything. Review each pair and either dismiss it or hand it to the merge
-            tool.
-          </p>
-        </div>
-        <RunSweepButton />
-      </div>
+      <PageHeader
+        title="Duplicate patients"
+        description="Possible duplicate patient records, flagged by name/DOB/phone/email similarity. Flagging never merges anything. Review each pair and either dismiss it or hand it to the merge tool."
+        actions={<RunSweepButton />}
+      />
 
       <Card>
         <CardHeader>

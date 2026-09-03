@@ -5,6 +5,7 @@ import { hasAnyPermission } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { CreateEmployerForm } from "./create-employer-form";
 
 const VERIFICATION_BADGE: Record<string, { variant: "green" | "grey" | "amber" | "red"; label: string }> = {
@@ -37,12 +38,10 @@ export default async function AdminEmployersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Employers</h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Module 26: register, verify, contract and go live for each employer account.
-        </p>
-      </div>
+      <PageHeader
+        title="Employers"
+        description="Module 26: register, verify, contract and go live for each employer account."
+      />
 
       <CreateEmployerForm />
 

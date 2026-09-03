@@ -4,6 +4,7 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
@@ -173,13 +174,10 @@ export default async function DoctorCaseloadPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Doctor caseload</h1>
-        <p className="text-charcoal-ink/60">
-          Who&apos;s carrying how much, right now. There&apos;s no fixed target ratio to compare
-          against; this ranks the team against its own average load today.
-        </p>
-      </div>
+      <PageHeader
+        title="Doctor caseload"
+        description="Who's carrying how much, right now. There's no fixed target ratio to compare against; this ranks the team against its own average load today."
+      />
 
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
         <StatTile
