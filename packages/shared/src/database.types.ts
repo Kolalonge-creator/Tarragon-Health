@@ -20951,6 +20951,7 @@ export type Database = {
       }
       menstrual_daily_logs: {
         Row: {
+          basal_body_temperature_c: number | null
           created_at: string
           flow: Database["public"]["Enums"]["menstrual_flow_level"] | null
           id: string
@@ -20958,11 +20959,13 @@ export type Database = {
           moods: Database["public"]["Enums"]["menstrual_mood"][]
           notes: string | null
           organisation_id: string
+          ovulation_test_result: Database["public"]["Enums"]["menstrual_ovulation_test_result"] | null
           patient_id: string
           symptoms: Database["public"]["Enums"]["menstrual_symptom"][]
           updated_at: string
         }
         Insert: {
+          basal_body_temperature_c?: number | null
           created_at?: string
           flow?: Database["public"]["Enums"]["menstrual_flow_level"] | null
           id?: string
@@ -20970,11 +20973,13 @@ export type Database = {
           moods?: Database["public"]["Enums"]["menstrual_mood"][]
           notes?: string | null
           organisation_id: string
+          ovulation_test_result?: Database["public"]["Enums"]["menstrual_ovulation_test_result"] | null
           patient_id: string
           symptoms?: Database["public"]["Enums"]["menstrual_symptom"][]
           updated_at?: string
         }
         Update: {
+          basal_body_temperature_c?: number | null
           created_at?: string
           flow?: Database["public"]["Enums"]["menstrual_flow_level"] | null
           id?: string
@@ -20982,6 +20987,7 @@ export type Database = {
           moods?: Database["public"]["Enums"]["menstrual_mood"][]
           notes?: string | null
           organisation_id?: string
+          ovulation_test_result?: Database["public"]["Enums"]["menstrual_ovulation_test_result"] | null
           patient_id?: string
           symptoms?: Database["public"]["Enums"]["menstrual_symptom"][]
           updated_at?: string
@@ -41425,6 +41431,7 @@ export type Database = {
         | "medium"
         | "heavy"
         | "flooding"
+      menstrual_ovulation_test_result: "negative" | "positive" | "peak"
       menstrual_mood:
         | "calm"
         | "happy"
@@ -43656,6 +43663,7 @@ export const Constants = {
         "heavy",
         "flooding",
       ],
+      menstrual_ovulation_test_result: ["negative", "positive", "peak"],
       menstrual_mood: [
         "calm",
         "happy",

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { createClient } from "@/lib/supabase/server";
+import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSection } from "@/components/ui/dashboard-section";
@@ -46,7 +47,7 @@ import { DevelopmentalScreeningCard } from "@/app/(dashboard)/patient/developmen
  * anchorIds so those deep links keep landing on the right tab.
  */
 export default async function PreventionHubPage() {
-  const { profile, subjectId, subjectDateOfBirth } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectSex, subjectDateOfBirth } = await getPatientDashboardContext();
 
   const supabase = await createClient();
   // The screening calendar and lab-request coordination are free to every
@@ -159,7 +160,11 @@ export default async function PreventionHubPage() {
         <div className="space-y-6">
           <PreventionCampaignsCard patientId={subjectId} />
           <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
-          {profile.sex === "female" && profile.organisation_id && (
+          {/* Permissive on an unrecorded sex, deliberately: see
+              shouldOfferCycleTracking. The strict `=== "female"` test this
+              replaces left the cycle tracker with no entry point at all for
+              the majority of accounts, which carry no recorded sex. */}
+          {shouldOfferCycleTracking(subjectSex) && profile.organisation_id && (
             <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
           )}
         </div>
