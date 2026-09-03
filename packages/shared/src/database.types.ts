@@ -4119,6 +4119,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "care_messages_flagged_alert_id_fkey"
+            columns: ["flagged_alert_id"]
+            isOneToOne: false
+            referencedRelation: "clinician_alerts"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "care_messages_author_profile_id_fkey"
             columns: ["author_profile_id"]
             isOneToOne: false
