@@ -137,6 +137,28 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/clinician/referrals",
     };
   }
+  if (n.template === "clinician_referral_outcome_received") {
+    const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
+    const referralId = String(payload.referral_id ?? "");
+    return {
+      text: `Specialist outcome came back: ${specialist}`,
+      href: referralId ? `/clinician/referrals/${referralId}` : "/clinician/referrals",
+    };
+  }
+  if (n.template === "referral_closed") {
+    const specialist = String(payload.specialist_type ?? "your specialist").replace(/_/g, " ");
+    return {
+      text: `Your ${specialist} referral is closed — your care plan was updated`,
+      href: "/patient",
+    };
+  }
+  if (n.template === "referral_reminder") {
+    const specialist = String(payload.specialist_type ?? "your specialist").replace(/_/g, " ");
+    return {
+      text: `Don't forget your ${specialist} referral — bring back what they find`,
+      href: "/patient",
+    };
+  }
   if (n.template === "clinician_care_plan_task") {
     const reason = String(payload.reason ?? "a care plan needs review");
     return {
