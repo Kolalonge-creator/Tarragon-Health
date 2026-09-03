@@ -31,7 +31,7 @@ export const DEFAULT_HERO: ChannelHeroCopy = {
   eyebrow: "Continuity, not just monitoring",
   title: "Care that stays with you.",
   description:
-    "Health monitoring for chronic disease, prevention, and care coordination, with clinical review and escalation when closer care is needed.",
+    "Chronic care, prevention, and family health tracking, in one app, with a doctor behind it.",
   primaryHref: "/signup",
   primaryLabel: "Get started",
   secondaryHref: MARKETING_ROUTES.services,
@@ -43,7 +43,7 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
     eyebrow: "For HMO members",
     title: "Keep your HMO. Add the layer that watches.",
     description:
-      "Your HMO pays your treatment bills when you're ill. Tarragon checks your BP and blood sugar against care protocols every time you log one, even when you feel fine, and gets a doctor involved early if something looks wrong.",
+      "Your HMO pays when you're ill. Tarragon watches your BP and blood sugar so problems get caught early, even when you feel fine.",
     primaryHref: "/signup",
     primaryLabel: "Get started",
     secondaryHref: MARKETING_ROUTES.howPricingWorks,
@@ -53,7 +53,7 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
     eyebrow: "For teams",
     title: "A health benefit your team will actually use.",
     description:
-      "Enrol your staff into real clinical monitoring for hypertension, diabetes, and preventive screening, then turn what we find into a clear, anonymised risk picture your HR team can act on.",
+      "Enrol your team for hypertension, diabetes, and preventive screening, and get a clear, anonymised risk picture HR can act on.",
     primaryHref: MARKETING_ROUTES.corporate,
     primaryLabel: "Request employer health plan",
     secondaryHref: MARKETING_ROUTES.corporate,
@@ -63,7 +63,7 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
     eyebrow: "For family abroad",
     title: "You already send money home for health.",
     description:
-      "What you don't get back is any way of knowing what it paid for. Buy a specific check instead: you know exactly what you bought, and you're told when they use it.",
+      "Buy a specific check instead. You know exactly what you paid for, and you're told when they use it.",
     primaryHref: MARKETING_ROUTES.gift,
     primaryLabel: "Gift a health check",
     secondaryHref: MARKETING_ROUTES.howPricingWorks,

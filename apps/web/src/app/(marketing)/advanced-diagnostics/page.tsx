@@ -16,15 +16,15 @@ export const metadata: Metadata = pageMetadata({
 const WHAT_THIS_IS = [
   {
     title: "A referral, not a scanner we own",
-    body: "Tarragon doesn't buy or run imaging equipment. This will work the same way our lab network already does: we tell you which scan fits what you're asking, connect you with an imaging partner, and you pay that partner directly for the scan itself.",
+    body: "Tarragon doesn't buy or run imaging equipment. This will work like our lab network already does: we tell you which scan fits what you're asking, connect you with an imaging partner, and you pay that partner directly.",
   },
   {
     title: "A doctor reads it with you",
-    body: "Whatever comes back goes into your Tarragon record and gets read by a doctor against your actual history, not handed to you as a stack of images and a radiology report you're left to interpret alone.",
+    body: "Whatever comes back goes into your Tarragon record and is read by a doctor against your history, not handed to you as a report to interpret alone.",
   },
   {
     title: "For looking further, not for worry",
-    body: "This sits alongside your Annual Health Check and screening calendar, for people who want a broader look than routine screening covers. It's not a replacement for either, and it's not something to reach for out of anxiety rather than a real conversation with your doctor first.",
+    body: "This sits alongside your Annual Health Check and screening calendar, for a broader look, not a replacement for either. It's not something to reach for out of anxiety instead of talking to your doctor first.",
   },
 ];
 

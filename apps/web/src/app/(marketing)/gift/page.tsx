@@ -37,7 +37,7 @@ const WAYS_TO_GIVE = [
     // hardcodes reward_kobo = 50000 (migration 20260724113718). Update this
     // line (and _content/pricing.ts) together if that ever changes.
     title: "Invite them, you both get a reward",
-    body: "If they are not on Tarragon yet, share your personal referral link. Signing up is free. Once they complete their first paid order, you both receive a ₦500 reward voucher toward your care. It is a discount, not cash, and it cannot be exchanged for money.",
+    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they complete their first paid order, you both get a ₦500 reward voucher toward your care, a discount, not cash.",
   },
 ];
 
@@ -174,8 +174,8 @@ export default async function GiftPage() {
               A named check, not a balance
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You are buying a service, not topping up an account. That is a real difference, and
-              it is the one that makes the gift worth something.
+              You are buying a service, not topping up an account, and that difference is what
+              makes the gift worth something.
             </p>
           </div>
           <MarketingMediaFrame
@@ -232,8 +232,7 @@ export default async function GiftPage() {
             Caring for a parent
           </Link>{" "}
           is the year-round version of this: they keep their own account and name you as next of
-          kin, so you can follow their care and we call you first if something urgent comes up,
-          rather than it being a one-off gift.
+          kin, so you can follow their care and we call you first if something urgent comes up.
         </p>
       </Section>
 

@@ -65,12 +65,12 @@ export const DEVICES_FAQ: readonly FaqItem[] = [
   {
     question: "Do I have to buy one of these?",
     answer:
-      "No. Typing a reading into the app takes seconds and is a first-class way to keep your record current, forever. Any device whose app shares with Apple Health or Health Connect can also flow in as those connections roll out; these are simply well-regarded models people ask us about.",
+      "No. Typing a reading in takes seconds and keeps your record just as current. Any device that syncs through Apple Health or Health Connect can flow in too, as those connections roll out; these are simply well-regarded models people ask about.",
   },
   {
     question: "Does Tarragon sell these or make money if I buy one?",
     answer:
-      "No. Tarragon doesn't sell, ship, or earn a commission on any device, so buy any brand from whichever retailer you trust. Bluetooth or not, its readings can live on your Tarragon record.",
+      "No. Tarragon doesn't sell, ship, or earn a commission on any device. Buy any brand from whichever retailer you trust; Bluetooth or not, its readings can live on your Tarragon record.",
   },
   {
     question: "My device isn't syncing automatically. Is something wrong?",

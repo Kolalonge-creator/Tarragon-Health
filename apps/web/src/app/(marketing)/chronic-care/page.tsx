@@ -30,7 +30,7 @@ const CHRONIC_CARDS = SERVICE_CARDS.filter((card) =>
 const HOW = [
   {
     title: "Consistent monitoring",
-    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, or let a connected BP cuff, glucometer, or wearable fill in the reading as we bring each device online. Either way, it lands on one longitudinal record.",
+    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, or let a connected BP cuff, glucometer, or wearable fill it in as we bring each online. Either way, it lands on one longitudinal record.",
   },
   {
     title: "Reviewed between visits",
@@ -99,10 +99,9 @@ export default async function ChronicCarePage() {
           brings the same monitoring together for a loved one, with opt-in family updates.
         </p>
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Cholesterol and overall cardiovascular risk are watched alongside these conditions on the
-          same record, not as a separate programme: your doctor factors your cholesterol readings
-          into the same review that watches your blood pressure and blood sugar, because they
-          drive the same underlying risk.
+          Cholesterol and cardiovascular risk are watched on the same record, not a separate
+          programme: your doctor reviews your cholesterol alongside your blood pressure and blood
+          sugar, since they drive the same underlying risk.
         </p>
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Managing a chronic condition can weigh on you too. Try our free, two-minute{" "}
