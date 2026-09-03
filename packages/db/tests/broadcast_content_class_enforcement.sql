@@ -31,7 +31,7 @@ begin
   set local role authenticated;
 
   -- Case 1: clean general campaign copy passes the preview check.
-  select public.admin_broadcast_content_check(
+  select private.broadcast_content_flags(
     'Free BP checks this weekend — book your confidential HIV or Hep B screening today.'
   ) into v_flags;
   if coalesce(array_length(v_flags, 1), 0) <> 0 then
@@ -40,14 +40,14 @@ begin
   raise notice 'PASS case1: clean campaign copy not flagged';
 
   -- Case 2: personal-result phrasing is flagged by the heuristic.
-  select public.admin_broadcast_content_check('Hi, your test result was abnormal.') into v_flags;
+  select private.broadcast_content_flags('Hi, your test result was abnormal.') into v_flags;
   if coalesce(array_length(v_flags, 1), 0) = 0 then
     raise exception 'FAIL case2: personal result phrasing was NOT flagged';
   end if;
   raise notice 'PASS case2: personal result phrasing flagged (%)', v_flags;
 
   -- Case 3: "you tested positive" phrasing is flagged.
-  select public.admin_broadcast_content_check('You tested positive for the condition.') into v_flags;
+  select private.broadcast_content_flags('You tested positive for the condition.') into v_flags;
   if coalesce(array_length(v_flags, 1), 0) = 0 then
     raise exception 'FAIL case3: "tested positive" phrasing was NOT flagged';
   end if;

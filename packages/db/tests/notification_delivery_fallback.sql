@@ -18,9 +18,8 @@
 -- advancing, an exhausted chain is recorded in
 -- notification_escalation_failures + fans out one in_app row per admin, and
 -- a second run of the same tick is idempotent (on conflict do nothing);
--- (5) the push-first channel remap (push subscription beats whatsapp, and a
--- stale voice preference no longer beats push — voice was retired 2026-08-03);
--- (6) push_subscriptions RLS isolates
+-- (5) the push-first channel remap (push subscription beats whatsapp, an
+-- explicit voice preference beats push); (6) push_subscriptions RLS isolates
 -- one patient's device registration from another's; (7) touch_last_active()
 -- only ever touches the caller's own row.
 --
@@ -124,7 +123,7 @@ begin
     (v_recipient_profile, 'notif-fallback-test-recipient@example.invalid', 'x', now(), '{}', '{}'),
     (v_other_patient_profile, 'notif-fallback-test-other@example.invalid', 'x', now(), '{}', '{}');
 
-  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Notif Fallback Test Recipient'
+  update public.profiles set organisation_id = v_org, role = 'doctor', full_name = 'Notif Fallback Test Recipient'
     where id = v_recipient_profile;
   update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Notif Fallback Test Other Patient'
     where id = v_other_patient_profile;
@@ -267,23 +266,16 @@ begin
   end if;
   raise notice 'PASS 5a-5b: whatsapp stays whatsapp with no push subscription, remaps to push once one exists';
 
-  -- 5c: voice is unreachable (founder decision, 2026-08-03,
-  -- 20260803160544_english_only_no_voice_channel.sql — "remove the voice
-  -- part, let it be strictly english for now"). The voice branch was removed
-  -- from private.remap_notification_channel() entirely, so a stale voice
-  -- preference must NOT win over push-first routing, even with an active
-  -- push subscription on file. See packages/db/tests/english_only_no_voice.sql
-  -- for the dedicated proof of this; this check just confirms the same
-  -- push-first behaviour holds here too.
+  -- 5c: an explicit voice preference wins over push, even with an active subscription on file.
   update public.profiles set preferred_reminder_channel = 'voice' where id = v_recipient;
   insert into public.notifications (organisation_id, recipient_id, channel, template, payload)
   values (v_org, v_recipient, 'whatsapp', 'test_remap_template', '{}'::jsonb)
   returning channel into v_row.channel;
-  if v_row.channel <> 'push' then
-    raise exception 'FAIL: a stale voice preference was routed to voice instead of push-first: %', v_row.channel;
+  if v_row.channel <> 'voice' then
+    raise exception 'FAIL: an explicit voice preference did not win over an active push subscription: %', v_row.channel;
   end if;
   update public.profiles set preferred_reminder_channel = null where id = v_recipient;
-  raise notice 'PASS 5c: a stale voice preference no longer wins — push-first routing survives it';
+  raise notice 'PASS 5c: an explicit voice preference wins over push';
 
   -- ---------------------------------------------------------------------------
   -- Part 6: push_subscriptions RLS isolates one patient's device from another's.

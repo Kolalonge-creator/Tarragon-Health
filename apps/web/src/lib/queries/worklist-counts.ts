@@ -36,6 +36,17 @@ async function countWaitlistedReferrals(supabase: Client) {
   return count ?? 0;
 }
 
+/** A referral with an outcome on file (transcribed plan or uploaded
+ * document) that hasn't been reviewed & closed yet — task spec §11.15. */
+async function countReferralsAwaitingClosure(supabase: Client) {
+  const { count } = await supabase
+    .from("specialist_referrals")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "completed")
+    .or("treatment_plan_received_at.not.is.null,outcome_document_path.not.is.null");
+  return count ?? 0;
+}
+
 async function countOutreachTasks(supabase: Client) {
   const { count } = await supabase
     .from("care_outreach_tasks")
@@ -47,6 +58,38 @@ async function countOutreachTasks(supabase: Client) {
 async function countAsyncConsults(supabase: Client) {
   const { count } = await supabase
     .from("async_consults")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "in_review"]);
+  return count ?? 0;
+}
+
+async function countSecondOpinionRequests(supabase: Client) {
+  const { count } = await supabase
+    .from("second_opinion_requests")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "in_review"]);
+  return count ?? 0;
+}
+
+async function countPrescriptionRenewalRequests(supabase: Client) {
+  const { count } = await supabase
+    .from("prescription_renewal_requests")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["submitted", "in_review"]);
+  return count ?? 0;
+}
+
+async function countVerifiedDocumentRequests(supabase: Client) {
+  const { count } = await supabase
+    .from("verified_documents")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "requested");
+  return count ?? 0;
+}
+
+async function countSeniorCaseReviews(supabase: Client) {
+  const { count } = await supabase
+    .from("senior_case_reviews")
     .select("id", { count: "exact", head: true })
     .in("status", ["submitted", "in_review"]);
   return count ?? 0;
@@ -124,12 +167,25 @@ async function countPendingVaccinationVerifications(supabase: Client) {
   return count ?? 0;
 }
 
+async function countActiveCases(supabase: Client) {
+  const { count } = await supabase
+    .from("care_management_cases")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "active");
+  return count ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
   | "waitlistedReferrals"
+  | "referralsAwaitingClosure"
   | "outreach"
   | "asyncConsults"
+  | "secondOpinionRequests"
+  | "prescriptionRenewalRequests"
+  | "verifiedDocumentRequests"
+  | "seniorCaseReviews"
   | "adherenceAlerts"
   | "medicationReviews"
   | "preventiveReviews"
@@ -138,14 +194,20 @@ export type WorklistCountKey =
   | "lifestyleFlags"
   | "carePlanReviewPrompts"
   | "recommendations"
-  | "vaccinationVerifications";
+  | "vaccinationVerifications"
+  | "activeCases";
 
 const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<number>> = {
   escalations: countOpenEscalations,
   referralsNeedingUrgency: countReferralsNeedingUrgency,
   waitlistedReferrals: countWaitlistedReferrals,
+  referralsAwaitingClosure: countReferralsAwaitingClosure,
   outreach: countOutreachTasks,
   asyncConsults: countAsyncConsults,
+  secondOpinionRequests: countSecondOpinionRequests,
+  prescriptionRenewalRequests: countPrescriptionRenewalRequests,
+  verifiedDocumentRequests: countVerifiedDocumentRequests,
+  seniorCaseReviews: countSeniorCaseReviews,
   adherenceAlerts: countAdherenceAlerts,
   medicationReviews: countMedicationReviews,
   preventiveReviews: countPreventiveReviews,
@@ -155,6 +217,7 @@ const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<number>> 
   carePlanReviewPrompts: countCarePlanReviewPrompts,
   recommendations: countRecommendations,
   vaccinationVerifications: countPendingVaccinationVerifications,
+  activeCases: countActiveCases,
 };
 
 /**

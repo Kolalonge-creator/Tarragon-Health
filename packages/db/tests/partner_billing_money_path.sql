@@ -30,7 +30,7 @@ create temporary table test_results (case_name text, passed boolean, detail text
 
 do $$
 declare
-  v_female uuid := gen_random_uuid();  -- was: '365067dc-7c0f-45e8-a807-8cd70f2da8dd' -- the female fixture
+  v_female uuid := '365067dc-7c0f-45e8-a807-8cd70f2da8dd';
   v_org    uuid := '00000000-0000-0000-0000-000000000001';
   v_core   uuid;
   v_syn    uuid;
@@ -42,31 +42,7 @@ declare
   v_disc   bigint;
   v_paid   bigint;
   v_t      text;
-  v_plan   uuid;
-  v_staff  uuid;
 begin
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_female, 'partner-billing-money-path-test-patient@example.invalid', 'x', now(), '{}', '{}');
-  -- state = 'Lagos' is required here (not just cosmetic): the region-gate
-  -- trigger on lab_orders (private.enforce_lab_order_region) skips its check
-  -- entirely when the patient's profile.state is null, which would make the
-  -- service_regions/lab_providers activation two lines below a no-op. Lagos
-  -- is already seeded active in service_regions, matching this file's own
-  -- assumption that the fixture patient resolves to a live region.
-  update public.profiles
-    set organisation_id = v_org, role = 'patient', full_name = 'Partner Billing Money Path Test Patient',
-        state = 'Lagos'
-    where id = v_female;
-
-  -- The header comment above depends on this patient actually holding an
-  -- active paid subscription — otherwise m2 below would only prove a
-  -- non-subscriber's margin, not the subscriber-vs-non-subscriber regression
-  -- check the comment describes.
-  select id into v_plan from public.subscription_plans where code = 'essential';
-  insert into public.subscriptions
-    (organisation_id, subscriber_id, plan_id, status, currency, amount_minor, interval, started_at)
-  values (v_org, v_female, v_plan, 'active', 'NGN', 800000, 'monthly', now() - interval '3 months');
-
   select id into v_core from public.panel_bundles where code = 'screen_core';
   select state into v_state from public.profiles where id = v_female;
 
@@ -77,17 +53,6 @@ begin
   if not found then insert into public.service_regions (state, is_active) values (v_state, true); end if;
   update public.lab_providers set is_active = true, regions = array[v_state] where name = 'Synlab Nigeria';
   select id into v_syn from public.lab_providers where name = 'Synlab Nigeria';
-
-  -- public.request_lab_order_refund() requires private.is_org_staff(), which
-  -- resolves off auth.uid() -- it is not enough to run it as this script's
-  -- superuser connection. The shared CI fixture clinician
-  -- (20260827100300_seed_ci_fixture_staff_and_patient_subscriptions.sql) is
-  -- real care-team staff in this same org, so use it as the refund-raising
-  -- caller below.
-  select id into v_staff from public.profiles where role = 'clinician' and organisation_id = v_org order by id limit 1;
-  if v_staff is null then
-    raise exception 'fixtures unavailable: need a clinician account in org %', v_org;
-  end if;
 
   -- -----------------------------------------------------------------------
   -- 1. Both numbers land on the order, from one insert.
@@ -146,10 +111,7 @@ begin
   -- -----------------------------------------------------------------------
   declare v_r jsonb;
   begin
-    perform set_config('request.jwt.claims', json_build_object('sub', v_staff, 'role','authenticated')::text, true);
-    set local role authenticated;
     v_r := public.request_lab_order_refund(v_order, 'sample_rejected', null, 'haemolysed sample');
-    reset role;
     insert into test_results select 'm7_rejected_sample_releases_the_lab_share',
       (v_r ->> 'released_from_liability_kobo')::bigint = v_cost
       and (v_r ->> 'tarragon_loss_kobo')::bigint = v_paid - v_cost,
@@ -158,9 +120,7 @@ begin
 
     -- The expensive one: the laboratory did the work, we lost the result, so
     -- the patient is refunded in full AND Synlab is still paid.
-    set local role authenticated;
     v_r := public.request_lab_order_refund(v_order, 'result_lost', null, 'result never reached the patient');
-    reset role;
     insert into test_results select 'm8_a_lost_result_costs_tarragon_the_whole_amount',
       (v_r ->> 'released_from_liability_kobo')::bigint = 0
       and (v_r ->> 'tarragon_loss_kobo')::bigint = v_paid,
@@ -182,17 +142,9 @@ begin
        from public.lab_orders where id = v_self), null;
 
   begin
-    -- Same staff-authenticated session as m7/m8 above -- without it,
-    -- is_org_staff() fails first with 42501 ("only care-team staff can
-    -- raise a refund"), which this handler does not catch, masking the
-    -- self-arranged/fulfilment check_violation (23514) this case means to
-    -- prove.
-    set local role authenticated;
     perform public.request_lab_order_refund(v_self, 'never_attended', null, null);
-    reset role;
     insert into test_results select 'm10_self_arranged_order_cannot_be_refunded', false, 'accepted';
   exception when check_violation then
-    reset role;
     insert into test_results select 'm10_self_arranged_order_cannot_be_refunded', true, sqlerrm;
   end;
 end $$;

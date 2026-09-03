@@ -2,18 +2,24 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stepper } from "@/components/ui/stepper";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
+import { ReferralOutcomeDocumentUpload } from "@/components/referral-outcome-document-upload";
 import type { ReferralStatus } from "@tarragon/shared";
 
 // Patient-facing status copy — deliberately not the staff worklist labels
 // (REFERRAL_STATUS_BADGE in clinician/referrals/page.tsx), per CLAUDE.md's
 // brand voice rule: no clinical jargon, no fear-based urgency.
 const PATIENT_STATUS_COPY: Record<ReferralStatus, string> = {
+  // Never actually shown — the query below excludes drafts (they aren't a
+  // live episode yet), but Record<ReferralStatus, ...> still needs every
+  // key so a future status can't silently fall through unhandled.
+  draft: "Not yet submitted",
   pending: "Your care team is arranging this",
   pending_payment: "Ready to book — payment needed",
   payment_confirmed: "Payment received — booking your appointment",
   booked: "Appointment booked",
   confirmed: "Confirmed",
   completed: "Visit complete",
+  closed: "Closed — your care plan has been updated",
   declined: "Cancelled",
   waitlisted: "Your care team is finding the right specialist for you",
 };
@@ -34,9 +40,10 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
   const { data: referrals } = await supabase
     .from("specialist_referrals")
     .select(
-      "id, referral_number, specialist_type, status, urgency, referral_fee_kobo, payable_kobo, appointment_date, booking_confirmed_at, specialist_provider_id, treatment_plan_received_at, shared_care_handback_at, created_at, specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name)",
+      "id, referral_number, specialist_type, status, urgency, referral_fee_kobo, payable_kobo, appointment_date, booking_confirmed_at, specialist_provider_id, treatment_plan_received_at, shared_care_handback_at, outcome_document_path, closed_at, care_plan_update_note, created_at, specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name)",
     )
     .eq("patient_id", patientId)
+    .neq("status", "draft")
     .order("created_at", { ascending: false });
 
   if (!referrals || referrals.length === 0) {
@@ -80,6 +87,19 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
               why you were referred and what we have already done, so you do not have to explain it
               yourself. You pay that clinic directly.
             </p>
+            {referral.status === "closed" ? (
+              referral.care_plan_update_note && (
+                <p className="text-xs text-charcoal-ink/70">
+                  What changed: {referral.care_plan_update_note}
+                </p>
+              )
+            ) : referral.outcome_document_path ? (
+              <p className="text-xs text-brand-green">
+                We have what the specialist gave you — your care team will update your plan.
+              </p>
+            ) : (
+              <ReferralOutcomeDocumentUpload referralId={referral.id} />
+            )}
           </div>
         ))}
       </CardContent>

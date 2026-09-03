@@ -11,8 +11,8 @@ begin;
 
 do $$
 declare
-  v_patient uuid := gen_random_uuid(); -- Test Essential Patient (was: '8487376b-7844-428a-bcb8-8795e89eb0f5')
-  v_other   uuid := gen_random_uuid(); -- a different patient (was: 'ef684028-c40f-4f64-bde9-f84150fb19fd')
+  v_patient uuid := '8487376b-7844-428a-bcb8-8795e89eb0f5'; -- Test Essential Patient
+  v_other   uuid := 'ef684028-c40f-4f64-bde9-f84150fb19fd'; -- a different patient
   v_org     uuid := '00000000-0000-0000-0000-000000000001';
   v_staff   uuid;
   v_doc_mine  uuid;
@@ -26,15 +26,6 @@ begin
   if v_staff is null then
     raise exception 'SETUP: no clinician account in org 0001 to test as';
   end if;
-
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values
-    (v_patient, 'blood-profile-provenance-test-essential-patient@example.invalid', 'x', now(), '{}', '{}'),
-    (v_other, 'blood-profile-provenance-test-other-patient@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Blood Profile Provenance Test Essential Patient'
-    where id = v_patient;
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Blood Profile Provenance Test Other Patient'
-    where id = v_other;
 
   -- Two real report documents: one on our patient, one on someone else.
   insert into public.lab_result_documents

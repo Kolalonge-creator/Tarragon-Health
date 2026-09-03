@@ -11,8 +11,17 @@
 --      and queues exactly one in-app nudge on that transition.
 --   4. claim_health_reset_trial()'s four guard rails (no reset / not
 --      complete / already claimed / already on a paid plan) each block
---      correctly, and the success path grants a real trialing subscription
---      with cancel_at_period_end=true and updates the reset row.
+--      correctly, and the success path grants a real, free, time-boxed
+--      service_purchases row and updates the reset row.
+--
+-- Updated 2026-08-31 for the pay-per-service migration: the trial grant is
+-- now a 0-kobo, 30-day complete_pack service_purchases row (not a
+-- subscriptions row with status='trialing'), and the "already on a paid
+-- plan" guard was also reconciled the same day to check the separate,
+-- pre-existing programme_purchases table (a per-condition chronic-care
+-- programme fee, built 20260830) in addition to service_purchases — see
+-- feature_access_reconciliation.sql's header for the full story of why that
+-- second purchase system exists and had to be reconciled here too.
 --
 -- Run inside a transaction that is always rolled back — nothing here should
 -- ever be committed.
@@ -245,12 +254,17 @@ end $$;
 
 -- ---------------------------------------------------------------------------
 -- Part 3: claim_health_reset_trial()'s four guard rails, then the success
--- path grants a real trialing subscription and updates the reset row.
+-- path grants a real, free, time-boxed service_purchases row and updates the
+-- reset row. v_profile_paid proves the "already paid" guard against BOTH
+-- purchase systems independently — service_purchases is exercised here,
+-- programme_purchases is proven separately in
+-- feature_access_reconciliation.sql to avoid this file also depending on a
+-- priced chronic_condition_programmes row.
 -- ---------------------------------------------------------------------------
 do $$
 declare
   v_org uuid;
-  v_plan_complete uuid;
+  v_complete_pack_id uuid;
   v_profile_no_reset uuid := gen_random_uuid();
   v_profile_incomplete uuid := gen_random_uuid();
   v_profile_claimed uuid := gen_random_uuid();
@@ -259,20 +273,13 @@ declare
   v_failed boolean;
   v_error text;
   v_result jsonb;
-  v_sub_id uuid;
+  v_purchase_id uuid;
 begin
   select id into v_org from public.organisations limit 1;
-  -- No `and is_active` here on purpose: claim_health_reset_trial()'s own
-  -- "already have an active paid plan" check
-  -- (20260730122844_health_reset_trial_ngn_usd_only.sql) only looks at the
-  -- plan's `code` (anything not 'free') and the subscription's own status,
-  -- never subscription_plans.is_active -- so this fixture doesn't need an
-  -- active plan either, just a real one. `complete` was deactivated for new
-  -- signups on 2026-08-05 (pending a payment re-sync) but the row itself,
-  -- and every existing subscription referencing it, is untouched; filtering
-  -- on is_active here made this fixture insert silently resolve to NULL
-  -- after that migration, which is what broke this test.
-  select id into v_plan_complete from public.subscription_plans where code = 'complete' limit 1;
+  select id into v_complete_pack_id from public.service_products where code = 'complete_pack' and is_active limit 1;
+  if v_complete_pack_id is null then
+    raise exception 'no active complete_pack service_products row found — cannot run this test';
+  end if;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
   values
@@ -302,8 +309,9 @@ begin
   update public.patient_health_resets set completed_at = now() where patient_id = v_profile_paid;
   update public.patient_health_resets set completed_at = now() where patient_id = v_profile_success;
 
-  insert into public.subscriptions (organisation_id, subscriber_id, plan_id, status, currency, amount_minor, interval, current_period_end)
-  values (v_org, v_profile_paid, v_plan_complete, 'active', 'NGN', 800000, 'monthly', now() + interval '30 days');
+  insert into public.service_purchases
+    (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, purchased_at, expires_at)
+  values (v_org, v_profile_paid, v_profile_paid, v_complete_pack_id, 'active', 2000000, 'NGN', now(), now() + interval '30 days');
 
   -- 1) No reset at all -> blocked.
   perform set_config('request.jwt.claims', json_build_object('sub', v_profile_no_reset, 'role', 'authenticated')::text, true);
@@ -369,44 +377,32 @@ begin
   end if;
   raise notice 'PASS 3d: claiming while already on a paid plan is blocked';
 
-  -- 5) Success path: complete, unclaimed, no paid plan -> grants a real
-  -- trialing subscription and updates the reset row.
-  --
-  -- claim_health_reset_trial()'s OWN internal plan lookup (unlike this
-  -- fixture's v_plan_complete above) DOES filter on is_active, by design --
-  -- a deactivated plan must never be silently granted to a brand-new
-  -- signup. `complete` is genuinely is_active=false right now (deactivated
-  -- 2026-08-05 pending a Paystack "Sync now" re-sync after a price change,
-  -- 20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_
-  -- plans.sql) -- a real, current, deliberate ops state, not a code defect.
-  -- That is a separate concern from what THIS test proves (the claim
-  -- function's own guard rails + success-path logic), so reactivate it for
-  -- the life of this rolled-back transaction only.
-  update public.subscription_plans set is_active = true where code = 'complete';
-
+  -- 5) Success path: complete, unclaimed, no paid plan -> grants a real,
+  -- free, time-boxed service_purchases row and updates the reset row.
   perform set_config('request.jwt.claims', json_build_object('sub', v_profile_success, 'role', 'authenticated')::text, true);
   set local role authenticated;
   select public.claim_health_reset_trial() into v_result;
   reset role;
 
-  v_sub_id := (v_result ->> 'subscription_id')::uuid;
-  if v_sub_id is null then
-    raise exception 'FAIL: claim_health_reset_trial() success path returned no subscription_id';
+  v_purchase_id := (v_result ->> 'subscription_id')::uuid;
+  if v_purchase_id is null then
+    raise exception 'FAIL: claim_health_reset_trial() success path returned no purchase id';
   end if;
   if not exists (
-    select 1 from public.subscriptions
-    where id = v_sub_id and subscriber_id = v_profile_success and status = 'trialing'
-      and amount_minor = 0 and cancel_at_period_end = true
+    select 1 from public.service_purchases
+    where id = v_purchase_id and patient_id = v_profile_success and status = 'active'
+      and amount_kobo = 0 and service_product_id = v_complete_pack_id
+      and expires_at is not null and expires_at > now()
   ) then
-    raise exception 'FAIL: the granted subscription is not a real free, auto-expiring trial';
+    raise exception 'FAIL: the granted purchase is not a real free, time-boxed complete_pack trial';
   end if;
   if not exists (
     select 1 from public.patient_health_resets
-    where patient_id = v_profile_success and trial_claimed_at is not null and trial_subscription_id = v_sub_id
+    where patient_id = v_profile_success and trial_claimed_at is not null and trial_subscription_id = v_purchase_id
   ) then
     raise exception 'FAIL: patient_health_resets was not updated with the real trial_claimed_at/trial_subscription_id';
   end if;
-  raise notice 'PASS 3e: the success path grants a real 0-amount trialing subscription (auto-expires via cancel_at_period_end) and updates the reset row';
+  raise notice 'PASS 3e: the success path grants a real 0-kobo, time-boxed complete_pack service_purchases row (expires_at set, no auto-renewal to worry about) and updates the reset row';
 
   raise notice 'ALL HEALTH RESET 90-DAY CHECKS PASSED';
 end $$;

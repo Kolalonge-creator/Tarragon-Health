@@ -27,13 +27,6 @@ create temporary table readiness_result(
   verdict    text
 ) on commit drop;
 
--- Results are recorded from inside simulated `authenticated` sessions further
--- down, so that role needs write access to this scratch table -- same grant
--- self_arranged_fulfilment.sql/masked_calling_twilio_proxy.sql already need
--- for the identical reason (a temp table created by the connecting
--- superuser grants no access to authenticated by default).
-grant insert, select on readiness_result to authenticated;
-
 do $$
 declare
   v_org          uuid := '00000000-0000-0000-0000-000000000001';
@@ -54,7 +47,6 @@ declare
   n_stats_rows   int;
   n_own_row      numeric;
   n_admin_result numeric;
-  v_staff        uuid; -- an active clinical_staff.id, for a clinically-triggered order below
 begin
   -- --------------------------------------------------------------------
   -- Fixtures (as the connecting superuser, RLS bypassed)
@@ -62,32 +54,9 @@ begin
   insert into public.lab_providers (name) values ('READINESS Lab A') returning id into v_lab_a;
   insert into public.lab_providers (name) values ('READINESS Lab B') returning id into v_lab_b;
 
-  -- A fresh `supabase db reset` has no pre-existing "spare" pharmacist/
-  -- lab_liaison/analyst accounts to repurpose -- no migration or seed file
-  -- creates one (only clinician/care_coordinator/admin/corporate_admin/
-  -- hmo_admin are seeded, by 20260827100300_seed_ci_fixture_staff_and_
-  -- patient_subscriptions.sql). Self-provision them instead, same pattern
-  -- as packages/db/tests/scoped_access_roles_rls.sql: insert a fresh
-  -- auth.users row (on_auth_user_created defaults it to role='patient' in
-  -- the direct-consumer org) then update its role. Their role is
-  -- immediately overwritten to 'lab_partner' below anyway, so the
-  -- pharmacist/lab_liaison/analyst labels are just distinguishing accounts,
-  -- not roles this test depends on.
-  v_lp_a := gen_random_uuid();
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_lp_a, 'readiness.pharmacist@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set role = 'pharmacist', full_name = 'READINESS Pharmacist Fixture' where id = v_lp_a;
-
-  v_lp_b := gen_random_uuid();
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_lp_b, 'readiness.lab-liaison@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set role = 'lab_liaison', full_name = 'READINESS Lab Liaison Fixture' where id = v_lp_b;
-
-  v_unlinked := gen_random_uuid();
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_unlinked, 'readiness.analyst@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set role = 'analyst', full_name = 'READINESS Analyst Fixture' where id = v_unlinked;
-
+  select id into v_lp_a from public.profiles where role = 'pharmacist' limit 1;
+  select id into v_lp_b from public.profiles where role = 'lab_liaison' limit 1;
+  select id into v_unlinked from public.profiles where role = 'analyst' limit 1;
   select id into v_admin from public.profiles where role = 'admin' order by id limit 1;
   select id into v_patient from public.profiles where role = 'patient' order by id limit 1;
 
@@ -180,30 +149,12 @@ begin
   -- Part 3 — turnaround stats correctness (as superuser, seed one resulted
   -- order for Lab A only, then check both RPCs)
   -- =====================================================================
-  -- fulfilment = 'partner' is required: the column default, 'self_arranged'
-  -- (since 20260803124833_self_arranged_lab_fulfilment.sql), cannot name a
-  -- provider_id at all (private.enforce_lab_order_origin rejects it). No
-  -- panel_bundle_id is set here, so the pricing trigger no-ops regardless --
-  -- same reasoning already applied to packages/db/tests/lab_partner_rls.sql.
-  --
-  -- origin must be 'clinically_triggered', not 'patient_initiated': the
-  -- latter branch of enforce_lab_order_origin requires either a
-  -- self-bookable panel_bundle_id (none is set here) or a linked, due
-  -- screening_schedule_id -- neither applies to this fixture, which only
-  -- needs a real order to exist for the turnaround-stats RPCs to count.
-  -- The clinically_triggered branch instead requires ordered_by to name a
-  -- real, active clinical_staff row -- the shared CI-fixture clinician
-  -- (20260827100300_seed_ci_fixture_staff_and_patient_subscriptions.sql)
-  -- already has one, same as lab_partner_rls.sql's v_staff.
-  select id into v_staff from public.clinical_staff where organisation_id = v_org and active limit 1;
-  if v_staff is null then raise exception 'fixture: no active clinical_staff row in org %', v_org; end if;
-
   insert into public.lab_orders
     (organisation_id, patient_id, provider_id, status, origin,
-     payment_confirmed_at, resulted_at, fulfilment, ordered_by)
+     payment_confirmed_at, resulted_at)
   values
-    (v_org, v_patient, v_lab_a, 'resulted', 'clinically_triggered',
-     now() - interval '30 hours', now(), 'partner', v_staff)
+    (v_org, v_patient, v_lab_a, 'resulted', 'patient_initiated',
+     now() - interval '30 hours', now())
   returning id into v_order_a;
 
   -- 8. Admin sees the scorecard across both labs; Lab A shows 1 resulted

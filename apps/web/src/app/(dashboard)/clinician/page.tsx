@@ -32,10 +32,16 @@ type OverviewEscalationRow = {
  */
 const WORKLIST_COUNT_TILES: WorklistCountTile[] = [
   { key: "escalations", href: "/clinician/escalations", label: "Open escalations", icon: "escalation" },
+  { key: "activeCases", href: "/clinician/case-management", label: "Active cases", icon: "carePlan" },
   { key: "outreach", href: "/clinician/outreach", label: "Outreach tasks", icon: "messages" },
   { key: "asyncConsults", href: "/clinician/async-consults", label: "Async consults", icon: "inbox" },
+  { key: "secondOpinionRequests", href: "/clinician/second-opinions", label: "Second opinions", icon: "inbox" },
+  { key: "prescriptionRenewalRequests", href: "/clinician/prescription-renewals", label: "Prescription renewals", icon: "medication" },
+  { key: "verifiedDocumentRequests", href: "/clinician/verified-documents", label: "Verified documents", icon: "inbox" },
+  { key: "seniorCaseReviews", href: "/clinician/senior-case-reviews", label: "Senior case reviews", icon: "escalation" },
   { key: "referralsNeedingUrgency", href: "/clinician/referrals", label: "Referrals to triage", icon: "referral" },
   { key: "waitlistedReferrals", href: "/clinician/referrals/waitlisted", label: "Waitlisted referrals", icon: "referral" },
+  { key: "referralsAwaitingClosure", href: "/clinician/referrals", label: "Referrals to review & close", icon: "referral" },
   { key: "adherenceAlerts", href: "/clinician/adherence", label: "Adherence alerts", icon: "medication" },
   { key: "recommendations", href: "/clinician/recommendations", label: "Care recommendations", icon: "carePlan" },
   { key: "vaccinationVerifications", href: "/clinician/vaccinations", label: "Vaccinations to verify", icon: "vaccination" },
@@ -49,9 +55,10 @@ const WORKLIST_COUNT_TILES: WorklistCountTile[] = [
 
 const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
   emergency: 0,
-  urgent_escalation: 1,
-  clinician_review: 2,
-  routine: 3,
+  specialist_review: 1,
+  urgent_escalation: 2,
+  clinician_review: 3,
+  routine: 4,
 };
 
 /** Lagos-local time of day (CLAUDE.md: timezone always Africa/Lagos), not the server's own. */

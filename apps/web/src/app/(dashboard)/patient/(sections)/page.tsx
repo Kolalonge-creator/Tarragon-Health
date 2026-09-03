@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
+import { adolescentAgeBandFromDateOfBirth } from "@tarragon/shared";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -17,11 +20,13 @@ import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
 import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-completion-card";
+import { HealthProgressCard } from "@/app/(dashboard)/patient/health-progress-card";
 import { YourCareTeam } from "@/components/your-care-team";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { CareTeamContact } from "@/app/(dashboard)/patient/care-team-contact";
 import { PatientTimeline } from "@/components/patient-timeline";
+import { HealthStatusBanner } from "@/components/health-status-banner";
 
 // Clinical dashboard status colours (a separate system from brand colour, per
 // the brand guide) — same convention as vitals-history.tsx's LEVEL_STYLE,
@@ -49,7 +54,7 @@ const BP_DELTA_DIRECTION: Record<Exclude<BpLevel, "unknown">, "up" | "down" | "f
 };
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting } = await getPatientDashboardContext();
+  const { subjectId, acting, subjectSex, subjectDateOfBirth } = await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
 
@@ -58,6 +63,13 @@ export default async function PatientOverviewPage() {
   const weekSummaryLine = `Good ${greetingWord}. Here's how ${
     actingSubject ? `${actingSubject} week` : "this week"
   } is going.`;
+
+  // Age-aware framing (spec §49.3: younger child = parent-managed, older
+  // adolescent = increasing direct engagement, young adult = independent).
+  // Framing only — nothing here is a security boundary, and nothing changes
+  // what data loads; see private.adolescent_age_band for the real gate.
+  const subjectAgeBand = adolescentAgeBandFromDateOfBirth(subjectDateOfBirth);
+  const isAdolescentBand = subjectAgeBand === "younger_adolescent" || subjectAgeBand === "older_adolescent";
 
   const bpLevel = classifyBpLevel(stats.latestBp?.systolic, stats.latestBp?.diastolic);
   const bpTileProps =
@@ -76,6 +88,37 @@ export default async function PatientOverviewPage() {
           name DashboardPlaceholder's "Hi, {name}" already gave a moment ago
           (2026-08-17 patient-experience pass). */}
       <p className="text-sm text-charcoal-ink/60">{weekSummaryLine}</p>
+      <HealthStatusBanner patientId={subjectId} />
+
+      {/* §91.10 — an unpaid plan is more urgent than a wellness nudge, so it
+          renders above NextBestAction. Renders nothing when there's no
+          payment problem. */}
+      <PaymentFailureBanner patientId={subjectId} />
+
+      {/* Age-aware framing (spec §49.3/§49.4) — a single soft line, never an
+          urgent banner: a self-harm/safety-adjacent check-in doesn't belong
+          in the same visual register as "refill due" or "screening
+          overdue" (CLAUDE.md brand voice: no fear-based urgency). Two
+          mutually exclusive cases: the teen looking at their own dashboard
+          gets a low-key nudge toward the check-in; a parent/guardian
+          looking at a teen's dashboard while acting for them gets a
+          reminder that some things stay private even from them. Neither
+          renders for a child-band dependent (parent-managed, no carve-out)
+          or an adult/unknown band (no adolescent framing needed). */}
+      {isAdolescentBand && !acting && (
+        <p className="text-sm text-charcoal-ink/60">
+          <Link href="/patient/adolescent-health" className="text-brand-green hover:underline">
+            Your private whole-life check-in
+          </Link>{" "}
+          is there whenever you want it — just for you, on your own time.
+        </p>
+      )}
+      {isAdolescentBand && acting && (
+        <p className="text-sm text-charcoal-ink/60">
+          Some things, like {acting.fullName ?? "their"} own private wellbeing check-in, stay just
+          between them and their care team.
+        </p>
+      )}
 
       {/* Hero — the one thing the page leads with. Its copy and link are the
           same real, priority-ordered "next best step" as before; only the
@@ -87,7 +130,7 @@ export default async function PatientOverviewPage() {
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
           Above the stat tiles deliberately: doing beats reading, and on a
           phone this row is what's on screen when the page opens. */}
-      <QuickActions />
+      <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
       {/* Dual-state overview: a patient in a chronic programme leads with
           monitoring numbers; a healthy patient leads with prevention. Both
@@ -180,6 +223,14 @@ export default async function PatientOverviewPage() {
           answering "what's outstanding" rather than "how am I doing overall". */}
       <PreventionCompletionCard patientId={subjectId} />
 
+      {/* Behavioural engagement across areas (Patient Engagement Engine
+          spec §16.5) — distinct from both cards above: HealthScoreCard is
+          clinical status, PreventionCompletionCard is prevention-specific
+          completion. This one answers "am I keeping up" more broadly
+          (monitoring, appointments, medication, lifestyle, prevention, care
+          plan), same self-hiding + no-single-score conventions. */}
+      <HealthProgressCard patientId={subjectId} />
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[3fr_2fr]">
         <VitalsTrendChart patientId={subjectId} />
         <TodaysDoses patientId={subjectId} />
@@ -187,7 +238,7 @@ export default async function PatientOverviewPage() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <CareScheduleCard patientId={subjectId} />
-        <PatientTimeline patientId={subjectId} limit={6} />
+        <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" />
       </div>
 
       {/* Conditional clinical cards — each self-hides when the patient has no

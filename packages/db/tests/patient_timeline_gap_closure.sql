@@ -46,22 +46,6 @@ begin
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
   values (v_owner, v_grantee, 'view', v_admin);
 
-  -- patient_timeline_select (like vitals_readings/care_plans/medications/etc)
-  -- is gated by private.can_read_clinical(), which requires
-  -- profile_access.clinical_access = true, NOT just a 'view'
-  -- permission_level (20260731185243_sponsor_clinical_access_results_and_
-  -- escalations.sql / 20260731181143_sponsor_clinical_access_consent.sql).
-  -- private.enforce_clinical_access_consent_owner() forces clinical_access
-  -- to false on every INSERT regardless of what's supplied, and only allows
-  -- it to be flipped true by an UPDATE where auth.uid() = the record
-  -- owner (profile_id) -- so it has to be granted as a second step, as the
-  -- owner's own authenticated session, not folded into the insert above.
-  perform set_config('request.jwt.claims', json_build_object('sub', v_owner, 'role', 'authenticated')::text, true);
-  set local role authenticated;
-  update public.profile_access set clinical_access = true
-    where profile_id = v_owner and grantee_user_id = v_grantee;
-  reset role;
-
   -- 1) Write-time humanisation.
   perform private.record_timeline_event(
     v_org, v_owner, 'care_plan_updated', 'test_source', gen_random_uuid(),

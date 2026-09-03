@@ -1,0 +1,37 @@
+-- Tarragon Health — two new ACCOUNT roles for the payer (module 27) and
+-- provider organisation (module 28) platforms.
+--
+-- Alone in its own migration on purpose: Postgres refuses to use an enum
+-- value in the same transaction that adds it ("unsafe use of new value"),
+-- and every migration file here runs in one transaction. Everything that
+-- actually references these values lives in the migrations that follow.
+--
+-- Why two new values rather than reusing what exists:
+--
+--   * payer_admin is NOT hmo_admin. hmo_admin is an *institution* admin —
+--     an organisation whose employees/members are Tarragon patients, given
+--     aggregate-only dashboards over that cohort under I9. A payer_admin
+--     administers an insurer's own product: plans, benefit schedules,
+--     provider network, pre-authorisation decisions, claims and settlement,
+--     for members who may sit in any Tarragon organisation. Those are
+--     different jobs with different data, so they are different roles.
+--     hmo_admin is untouched by this work.
+--
+--   * provider_org_staff is deliberately ONE generic account role covering
+--     every seat inside a partner organisation (owner, clinical lead,
+--     operations manager, finance manager, HR/admin, clinician,
+--     receptionist). It follows the rule CLAUDE.md sets for the clinical
+--     ladder: authority is carried per-action by a scoped membership row
+--     (provider_org_members.org_role), never by which account role a login
+--     holds or which dashboard it can reach. "staff", not "admin", because
+--     a receptionist is a seat here too.
+--
+-- CRITICAL: neither value may ever be admitted to private.is_org_staff().
+-- That one predicate gates ~110 patient-scoped tables; a partner hospital's
+-- receptionist or an insurer's claims clerk landing inside it would be a
+-- platform-wide PHI exposure, not a local bug. The very next migration adds
+-- both to its exclusion list and proves the exclusion with a live simulated
+-- session before anything else in either platform is built.
+
+alter type public.user_role add value if not exists 'payer_admin';
+alter type public.user_role add value if not exists 'provider_org_staff';

@@ -40,7 +40,7 @@ begin
   -- insert above; just set what this fixture needs.
   update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Sig Test Nondirector'
     where id = v_nondirector_profile;
-  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Sig Test Director'
+  update public.profiles set organisation_id = v_org, role = 'doctor', full_name = 'Sig Test Director'
     where id = v_director_profile;
 
   insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, is_clinical_director, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)

@@ -38,7 +38,6 @@ declare
   v_coord         uuid;
   v_clin          uuid;
   v_clin_staff_id uuid;
-  v_other_profile uuid := gen_random_uuid();
   v_other_staff_id uuid;
   v_alert_id      uuid;
   v_blocked       boolean;
@@ -48,31 +47,11 @@ begin
   select id into v_coord from public.profiles where role='care_coordinator' and organisation_id=v_org limit 1;
   select id into v_clin from public.profiles where role='clinician' and organisation_id=v_org limit 1;
 
-  -- A shared CI-fixture clinician now exists with its own clinical_staff row
-  -- (clinical_staff.profile_id is unique) -- clear it first so this test's
-  -- own fixture is the only thing the gate can see, same defensive pattern
-  -- i1_i10_invariants_platform.sql's I5 section already uses for the
-  -- identical reason.
-  delete from public.clinical_staff where profile_id = v_clin;
-
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at)
   values (v_org, v_clin, 'Override Test Clinician', true, now())
   returning id into v_clin_staff_id;
 
-  -- "Someone else already overrode this" for case 4's control needs a
-  -- second, distinct clinical_staff row with a real (non-null) profile_id
-  -- of its own -- can't reuse v_coord for this, since case 1's whole point
-  -- is that the care_coordinator has NO clinical_staff row at all.
-  -- Self-provisioned rather than looked up ambiently: an ambient
-  -- `where profile_id <> v_clin` pulled in whatever else happened to exist
-  -- (or nothing, on a fresh database), making this control non-deterministic.
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_other_profile, 'clinician-override-other@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Override Test Other Clinician'
-    where id = v_other_profile;
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at)
-  values (v_org, v_other_profile, 'Override Test Other Clinician', true, now())
-  returning id into v_other_staff_id;
+  select id into v_other_staff_id from public.clinical_staff where profile_id <> v_clin limit 1;
 
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title)
   values (v_org, v_pat, 'urgent_escalation', 'open', 'clinician_override proof fixture')

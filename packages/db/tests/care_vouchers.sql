@@ -23,18 +23,15 @@ grant usage on sequence _checks_n_seq to authenticated;
 do $$
 declare
   c_org      constant uuid := '00000000-0000-0000-0000-000000000001';
-  v_alice    uuid := gen_random_uuid();  -- beneficiary
-  v_bob      uuid := gen_random_uuid();  -- sponsor (granted)
-  v_carol    uuid := gen_random_uuid();  -- stranger (control)
-  v_plan_complete       uuid;   -- complete_yearly: bought/paid off across sections 1-4
-  v_plan_complete_price bigint;
-  v_plan_essential      uuid;   -- essential_yearly: Bob's gift, a different plan
-  v_bundle       uuid;   -- a real panel bundle, needed only for the lab-order fixtures in 4/6/7
-  v_bundle_price bigint;
-  v_synlab       uuid;   -- the one lab partner actually switched on anywhere in this history
-  v_order_total  bigint; -- engine-computed total_kobo read back after a partner-order insert
+  v_alice    uuid := '8487376b-7844-428a-bcb8-8795e89eb0f5';  -- beneficiary
+  v_bob      uuid := 'bb707ae8-1d0b-49c2-b990-1950de601db4';  -- sponsor (granted)
+  v_carol    uuid := '3bb0a97c-3cd5-49e7-ba74-23b1b37b9510';  -- stranger (control)
+  v_ahc      uuid;   -- annual_health_check bundle
+  v_basic    uuid;   -- health_check_basic bundle: the wrong-SKU control
+  v_ahc_price bigint;
   v_voucher  uuid;
   v_reward   uuid;
+  v_order    uuid;
   v_order2   uuid;
   v_res      jsonb;
   v_txt      text;
@@ -44,80 +41,12 @@ declare
   v_expires  timestamptz;
   v_n        int;
 begin
-  -- Self-provisioned fixtures (fresh-database pattern) -- these three are
-  -- pure relationship roles (beneficiary/sponsor/stranger) for the
-  -- profile_access / voucher-redemption checks below, so a plain patient
-  -- profile is all each one needs -- no demographic fields matter here.
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_alice, 'care-vouchers-alice-beneficiary@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = c_org, role = 'patient', full_name = 'Care Vouchers Test Alice'
-    where id = v_alice;
-
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_bob, 'care-vouchers-bob-sponsor@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = c_org, role = 'patient', full_name = 'Care Vouchers Test Bob'
-    where id = v_bob;
-
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_carol, 'care-vouchers-carol-stranger@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = c_org, role = 'patient', full_name = 'Care Vouchers Test Carol'
-    where id = v_carol;
-
-  -- Every NGN paid tier (prevent/essential/complete, monthly and yearly) is
-  -- currently is_active=false pending a Paystack "Sync now" re-sync after
-  -- the 2026-08-05 price change
-  -- (20260805201508_raise_ngn_tier_prices_and_fold_prevention_into_chronic_
-  -- plans.sql) — a real, current, deliberate ops state, not a code defect.
-  -- purchase_subscription_voucher() correctly refuses to sell a plan that is
-  -- not on sale, so reactivate the two yearly NGN plans this file needs for
-  -- the life of this rolled-back transaction only, to exercise the voucher
-  -- machinery independent of that unrelated ops step.
-  update public.subscription_plans set is_active = true
-   where code in ('complete_yearly', 'essential_yearly');
-
-  select id, price_minor into v_plan_complete, v_plan_complete_price
-    from public.subscription_plans where code = 'complete_yearly';
-  select id into v_plan_essential from public.subscription_plans where code = 'essential_yearly';
-  if v_plan_complete is null or v_plan_essential is null then
-    raise exception 'fixture plans missing — is the subscription price book restored?';
+  select id, price_kobo into v_ahc, v_ahc_price
+    from public.panel_bundles where code = 'annual_health_check';
+  select id into v_basic from public.panel_bundles where code = 'health_check_basic';
+  if v_ahc is null or v_basic is null then
+    raise exception 'fixture bundles missing — is the clinical catalogue restored?';
   end if;
-
-  -- purchase_care_voucher (the panel-bundle prepaid path this file used to
-  -- exercise) was permanently disabled 2026-08-03
-  -- (20260803134416_self_arranged_consistency_sweep.sql) — Tarragon no
-  -- longer takes payment for a lab test, so there is nothing left to prepay
-  -- against. Its replacement is a subscription voucher (a year of a plan —
-  -- purchase_subscription_voucher / redeem_subscription_voucher,
-  -- 20260803141409_subscription_care_vouchers.sql), which is what every
-  -- purchase/redemption below now exercises. A real panel bundle is still
-  -- needed for sections 4/6/7, which prove a voucher cannot be spent against
-  -- an unrelated lab order.
-  --
-  -- That fixture now has to be a REAL, partner-billed, computed-priced order
-  -- for redeem_care_voucher to reach its 'pending_payment' precondition at
-  -- all — a self-arranged order (the table default since 20260803124833) can
-  -- never be pending_payment or carry a nonzero total_kobo, see
-  -- private.enforce_lab_order_origin. screen_core is self-bookable (needs no
-  -- screening_schedule_id) and, priced for a female/1955/Lagos patient, is
-  -- the exact combination already proven clean and nonzero by
-  -- partner_billing_money_path.sql and sponsor_pay_booking_order.sql — same
-  -- demographics, same lab partner (Synlab Nigeria, the only one actually
-  -- switched on anywhere in this project's history), reused here.
-  select id, price_kobo into v_bundle, v_bundle_price
-    from public.panel_bundles where code = 'screen_core';
-  if v_bundle is null then
-    raise exception 'fixture bundle missing — is the clinical catalogue restored?';
-  end if;
-
-  update public.profiles
-     set sex = 'female', date_of_birth = date '1955-01-01', state = 'Lagos'
-   where id in (v_alice, v_carol);
-
-  update public.service_regions set is_active = true where state = 'Lagos';
-  if not found then insert into public.service_regions (state, is_active) values ('Lagos', true); end if;
-  update public.lab_providers set is_active = true, regions = array['Lagos'] where name = 'Synlab Nigeria';
-  select id into v_synlab from public.lab_providers where name = 'Synlab Nigeria';
-  if v_synlab is null then raise exception 'fixture: Synlab Nigeria lab_providers row missing'; end if;
 
   -- Bob is a consented sponsor for Alice with full manage rights.
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)
@@ -130,9 +59,9 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_alice, 'role', 'authenticated')::text, true);
   set local role authenticated;
 
-  v_res := public.purchase_subscription_voucher(v_alice, v_plan_complete, null);
+  v_res := public.purchase_care_voucher(v_alice, v_ahc, null);
   v_voucher := (v_res ->> 'voucher_id')::uuid;
-  if (v_res ->> 'face_value_kobo')::bigint <> v_plan_complete_price then
+  if (v_res ->> 'face_value_kobo')::bigint <> v_ahc_price then
     raise exception 'FAIL 1a: price was not pinned from the catalogue';
   end if;
   select status::text, amount_paid_kobo into v_status, v_paid
@@ -142,13 +71,15 @@ begin
   end if;
   insert into _checks (msg) values ('PASS 1: purchase reserves a voucher at the pinned catalogue price');
 
-  -- 1c. A plan that is not in the catalogue at all cannot be voucherized.
+  -- 1c. A service that is not self-bookable cannot be prepaid (the
+  --     enforce_lab_order_origin guardrail must not be routed around).
   begin
-    perform public.purchase_subscription_voucher(v_alice, gen_random_uuid(), null);
-    raise exception 'FAIL 1c: a nonexistent plan was sold as a voucher';
+    perform public.purchase_care_voucher(
+      v_alice, (select id from public.panel_bundles where not self_bookable limit 1), null);
+    raise exception 'FAIL 1c: a non-self-bookable service was sold as a voucher';
   exception when others then
     if sqlstate = 'P0001' and sqlerrm like 'FAIL%' then raise; end if;
-    insert into _checks (msg) values ('PASS 1c: only a real catalogue plan can be voucherized');
+    insert into _checks (msg) values ('PASS 1c: only the self-bookable catalogue can be prepaid');
   end;
 
   -- =========================================================================
@@ -158,23 +89,22 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_carol, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
-    perform public.purchase_subscription_voucher(v_alice, v_plan_complete, 'from a stranger');
+    perform public.purchase_care_voucher(v_alice, v_ahc, 'from a stranger');
     raise exception 'FAIL 2a: a stranger bought a voucher for someone else';
   exception when others then
     if sqlstate = 'P0001' and sqlerrm like 'FAIL%' then raise; end if;
     insert into _checks (msg) values ('PASS 2a: a stranger cannot buy for someone who has not linked them');
   end;
 
-  -- Control: the consented sponsor CAN. Same action, different person, a
-  -- different plan.
+  -- Control: the consented sponsor CAN. Same action, different person.
   reset role;
   perform set_config('request.jwt.claims', json_build_object('sub', v_bob, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  v_res := public.purchase_subscription_voucher(v_alice, v_plan_essential, 'Get well soon, Mum');
+  v_res := public.purchase_care_voucher(v_alice, v_basic, 'Get well soon, Mum');
   if (v_res ->> 'ok')::boolean is not true then
     raise exception 'FAIL 2b: the consented sponsor was refused';
   end if;
-  insert into _checks (msg) values ('PASS 2b (control): a consented sponsor can buy a named plan as a gift');
+  insert into _checks (msg) values ('PASS 2b (control): a consented sponsor can buy a named service as a gift');
 
   -- =========================================================================
   -- 3. LAYAWAY — instalments toward ONE named voucher
@@ -186,7 +116,7 @@ begin
   -- Overpaying the outstanding balance is refused.
   begin
     perform public.record_voucher_payment_intent(
-      v_voucher, v_plan_complete_price + 1, 'NGN', v_plan_complete_price + 1, 'paystack', 'ref-too-much');
+      v_voucher, v_ahc_price + 1, 'NGN', v_ahc_price + 1, 'paystack', 'ref-too-much');
     raise exception 'FAIL 3a: an instalment larger than the price was accepted';
   exception when others then
     if sqlstate = 'P0001' and sqlerrm like 'FAIL%' then raise; end if;
@@ -194,9 +124,9 @@ begin
   end;
 
   perform public.record_voucher_payment_intent(
-    v_voucher, v_plan_complete_price / 2, 'NGN', v_plan_complete_price / 2, 'paystack', 'ref-instalment-1');
+    v_voucher, v_ahc_price / 2, 'NGN', v_ahc_price / 2, 'paystack', 'ref-instalment-1');
   perform public.record_voucher_payment_intent(
-    v_voucher, v_plan_complete_price - v_plan_complete_price / 2, 'NGN', v_plan_complete_price - v_plan_complete_price / 2,
+    v_voucher, v_ahc_price - v_ahc_price / 2, 'NGN', v_ahc_price - v_ahc_price / 2,
     'paystack', 'ref-instalment-2');
 
   reset role;
@@ -205,7 +135,7 @@ begin
     (organisation_id, provider, provider_event_id, event_type, amount_minor, currency,
      processed_at, raw_payload)
   values
-    (c_org, 'paystack', 'evt-vch-1', 'charge.success', v_plan_complete_price / 2, 'NGN', now(),
+    (c_org, 'paystack', 'evt-vch-1', 'charge.success', v_ahc_price / 2, 'NGN', now(),
      jsonb_build_object('data', jsonb_build_object(
         'reference', 'ref-instalment-1',
         'metadata', jsonb_build_object('kind', 'voucher_payment'))));
@@ -215,7 +145,7 @@ begin
   if v_status <> 'reserved' then
     raise exception 'FAIL 3b: a part-paid voucher must NOT be redeemable, got %', v_status;
   end if;
-  if v_paid <> v_plan_complete_price / 2 then
+  if v_paid <> v_ahc_price / 2 then
     raise exception 'FAIL 3b: instalment not applied, paid = %', v_paid;
   end if;
   insert into _checks (msg) values ('PASS 3b: a part-paid voucher stays reserved, not redeemable');
@@ -225,14 +155,14 @@ begin
     (organisation_id, provider, provider_event_id, event_type, amount_minor, currency,
      processed_at, raw_payload)
   values
-    (c_org, 'paystack', 'evt-vch-2', 'charge.success', v_plan_complete_price - v_plan_complete_price / 2, 'NGN', now(),
+    (c_org, 'paystack', 'evt-vch-2', 'charge.success', v_ahc_price - v_ahc_price / 2, 'NGN', now(),
      jsonb_build_object('data', jsonb_build_object(
         'reference', 'ref-instalment-2',
         'metadata', jsonb_build_object('kind', 'voucher_payment'))));
 
   select status::text, amount_paid_kobo, expires_at into v_status, v_paid, v_expires
     from public.care_vouchers where id = v_voucher;
-  if v_status <> 'active' or v_paid <> v_plan_complete_price then
+  if v_status <> 'active' or v_paid <> v_ahc_price then
     raise exception 'FAIL 3c: paying in full should activate, got % / %', v_status, v_paid;
   end if;
   if v_expires < now() + interval '23 months' or v_expires > now() + interval '25 months' then
@@ -241,44 +171,49 @@ begin
   insert into _checks (msg) values ('PASS 3c: paid in full activates the voucher, 24-month clock starts at full payment');
 
   -- =========================================================================
-  -- 4. A SUBSCRIPTION VOUCHER IS ONLY REDEEMABLE THROUGH
-  --    redeem_subscription_voucher() — the heart of it now
+  -- 4. THE SINGLE-PURPOSE CHECK — the heart of it
   -- =========================================================================
-  -- The legacy lab-order single-purpose path (redeem_care_voucher) still
-  -- exists for a panel-bundle voucher, but a subscription voucher has no
-  -- panel_bundle_id at all (care_vouchers_one_sku enforces exactly one SKU),
-  -- so it must refuse outright rather than silently activating itself
-  -- against an unrelated lab order — two redemption mechanisms on the same
-  -- table must never cross-contaminate.
+  -- An order for a DIFFERENT service, at a LOWER price. Under a balance model
+  -- this would obviously succeed. It must not.
   insert into public.lab_orders
-    (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin,
-     investigation_tier, fulfilment, provider_id)
-  values (c_org, v_alice, v_bundle, 'pending_payment', 0, 'patient_initiated', 1, 'partner', v_synlab)
+    (organisation_id, patient_id, status, total_kobo, origin, panel_bundle_id)
+  values (c_org, v_alice, 'pending_payment',
+          (select price_kobo from public.panel_bundles where id = v_basic),
+          'patient_initiated', v_basic)
   returning id into v_order2;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_alice, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
     perform public.redeem_care_voucher(v_voucher, 'lab', v_order2);
-    raise exception 'FAIL 4a: a subscription voucher was spent through the legacy lab-order redemption path';
+    raise exception 'FAIL 4a: an Annual Health Check voucher paid for a different service';
   exception when others then
     if sqlstate = 'P0001' and sqlerrm like 'FAIL%' then raise; end if;
-    insert into _checks (msg) values ('PASS 4a: a subscription voucher cannot be redeemed via the lab-order path, even against a real order');
+    insert into _checks (msg) values ('PASS 4a: a voucher cannot pay for a service it is not for, even a cheaper one');
   end;
 
-  -- Control: the same voucher redeems correctly through its real path.
+  -- Control: the matching order redeems.
   reset role;
+  insert into public.lab_orders
+    (organisation_id, patient_id, status, total_kobo, origin, panel_bundle_id)
+  values (c_org, v_alice, 'pending_payment', v_ahc_price, 'patient_initiated', v_ahc)
+  returning id into v_order;
+
   perform set_config('request.jwt.claims', json_build_object('sub', v_alice, 'role', 'authenticated')::text, true);
   set local role authenticated;
-  v_res := public.redeem_subscription_voucher(v_voucher);
-  if (v_res ->> 'ok')::boolean is not true then
-    raise exception 'FAIL 4b: the matching subscription voucher was not redeemed by its own beneficiary';
+  v_res := public.redeem_care_voucher(v_voucher, 'lab', v_order);
+  if (v_res ->> 'fully_covered')::boolean is not true then
+    raise exception 'FAIL 4b: the matching order was not fully covered';
   end if;
-  insert into _checks (msg) values ('PASS 4b (control): the same voucher redeems through redeem_subscription_voucher');
+  select status::text, payable_kobo into v_status, v_payable from public.lab_orders where id = v_order;
+  if v_status <> 'payment_confirmed' or v_payable <> 0 then
+    raise exception 'FAIL 4b: order should be confirmed with nothing payable, got % / %', v_status, v_payable;
+  end if;
+  insert into _checks (msg) values ('PASS 4b (control): the matching service redeems and settles the order');
 
   -- 4c. Used once, and only once.
   begin
-    perform public.redeem_subscription_voucher(v_voucher);
+    perform public.redeem_care_voucher(v_voucher, 'lab', v_order);
     raise exception 'FAIL 4c: a voucher was redeemed twice';
   exception when others then
     if sqlstate = 'P0001' and sqlerrm like 'FAIL%' then raise; end if;
@@ -320,30 +255,19 @@ begin
   insert into _checks (msg) values ('PASS 6a: reward vouchers are issued active with no purchaser (not customer money)');
 
   -- A reward discounts a pricier order rather than settling it outright.
-  -- Needs a REAL, partner-billed order — a self-arranged one can never carry
-  -- a nonzero total_kobo or be pending_payment (private.enforce_lab_order_
-  -- origin) — so read back the actual engine-computed total_kobo after
-  -- insert rather than assuming the flat panel_bundles catalogue price
-  -- (v_bundle_price), which a partner order no longer carries verbatim.
   insert into public.lab_orders
-    (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin,
-     investigation_tier, fulfilment, provider_id)
-  values (c_org, v_alice, v_bundle, 'pending_payment', 0, 'patient_initiated', 1, 'partner', v_synlab)
+    (organisation_id, patient_id, status, total_kobo, origin, panel_bundle_id)
+  values (c_org, v_alice, 'pending_payment', v_ahc_price, 'patient_initiated', v_ahc)
   returning id into v_order2;
-
-  select total_kobo into v_order_total from public.lab_orders where id = v_order2;
-  if v_order_total is null or v_order_total <= 50000 then
-    raise exception 'fixture: screen_core did not price cleanly above the reward value for Alice (got %)', v_order_total;
-  end if;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_alice, 'role', 'authenticated')::text, true);
   set local role authenticated;
   v_res := public.redeem_care_voucher(v_reward, 'lab', v_order2);
   if (v_res ->> 'fully_covered')::boolean is not false then
-    raise exception 'FAIL 6b: a NGN 500 reward should not fully cover a pricier check (order total % kobo)', v_order_total;
+    raise exception 'FAIL 6b: a NGN 500 reward should not fully cover a NGN 65,000 check';
   end if;
   select status::text, payable_kobo into v_status, v_payable from public.lab_orders where id = v_order2;
-  if v_status <> 'pending_payment' or v_payable <> v_order_total - 50000 then
+  if v_status <> 'pending_payment' or v_payable <> v_ahc_price - 50000 then
     raise exception 'FAIL 6b: expected a reduced payable amount, got % / %', v_status, v_payable;
   end if;
   insert into _checks (msg) values ('PASS 6b: a reward reduces what is payable and the rest is still owed');
@@ -353,14 +277,9 @@ begin
   -- =========================================================================
   reset role;
   v_reward := private.issue_reward_voucher(v_alice, 50000, 'Referral reward', 'test2');
-  -- Same treatment as section 6: a real, partner-billed order for Carol (her
-  -- profile was given the same female/1955/Lagos demographics above so this
-  -- prices cleanly too). This section only checks who is authorised to spend
-  -- the voucher, not the order's price, so the exact total does not matter.
   insert into public.lab_orders
-    (organisation_id, patient_id, panel_bundle_id, status, total_kobo, origin,
-     investigation_tier, fulfilment, provider_id)
-  values (c_org, v_carol, v_bundle, 'pending_payment', 0, 'patient_initiated', 1, 'partner', v_synlab)
+    (organisation_id, patient_id, status, total_kobo, origin, panel_bundle_id)
+  values (c_org, v_carol, 'pending_payment', v_ahc_price, 'patient_initiated', v_ahc)
   returning id into v_order2;
 
   perform set_config('request.jwt.claims', json_build_object('sub', v_carol, 'role', 'authenticated')::text, true);

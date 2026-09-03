@@ -129,7 +129,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     howItWorks: [
       {
         title: "They sign up, on their own account",
-        body: "One person, one subscription. Their record is theirs, which is what lets a doctor treat them and what keeps their consent meaningful.",
+        body: "One person, their own plan. Their record is theirs, which is what lets a doctor treat them and what keeps their consent meaningful.",
       },
       {
         title: "They name you as next of kin",

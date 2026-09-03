@@ -7,21 +7,29 @@ import {
   scorePhq9,
   scoreGad7,
   scoreAuditC,
+  scoreEpds,
+  EPDS_ITEM_COUNT,
 } from "@/lib/rules/mental-health-screening";
-import type { Json } from "@tarragon/shared";
+import { flagHazardousAlcoholUse } from "@/lib/alcohol/escalate";
+import type { Json, TablesInsert } from "@tarragon/shared";
 
 export type SubmitMentalHealthState =
   | { error?: string; success?: boolean; crisis?: boolean }
   | undefined;
 
 /**
- * Records a mental-health screen (AHC pathway §11): PHQ-9, GAD-7, AUDIT-C.
- * Scores are computed here (never trusting the client) and written to
+ * Records a mental-health screen (AHC pathway §11; Module 46 §46.3): PHQ-9,
+ * GAD-7, AUDIT-C, and — only when the patient opted in as pregnant/postpartum
+ * — EPDS. Scores are computed here (never trusting the client) and written to
  * mental_health_screens via the service role — a client can't post a spoofed
- * total. A PHQ-9 item-9 (self-harm) positive raises an emergency_events row
- * (source 'intake_screen'), which the existing handle_emergency_event trigger
- * escalates immediately (§18.2) — the screen is never "actioned by software
- * alone", a doctor reviews and reaches out.
+ * total. A PHQ-9 item-9 or EPDS item-10 (self-harm) positive raises an
+ * emergency_events row (source 'intake_screen'), which the existing
+ * handle_emergency_event trigger escalates immediately (§18.2). A moderate/
+ * high-concern (non-crisis) band is separately escalated to a clinician by
+ * private.classify_mental_health_screen_concern's AFTER INSERT trigger on
+ * mental_health_screens (§46.5) — this action never raises a clinician_alerts
+ * row itself. The screen is never "actioned by software alone" either way, a
+ * doctor reviews and reaches out.
  */
 export async function submitMentalHealthScreen(
   _prevState: SubmitMentalHealthState,
@@ -46,17 +54,35 @@ export async function submitMentalHealthScreen(
     .single();
   if (!profile?.organisation_id) return { error: "No organisation on file" };
 
-  const phq9Items = Array.from({ length: 9 }, (_, i) => answers[`phq9_${i + 1}` as keyof typeof answers]);
-  const gad7Items = Array.from({ length: 7 }, (_, i) => answers[`gad7_${i + 1}` as keyof typeof answers]);
-  const auditcItems = Array.from({ length: 3 }, (_, i) => answers[`auditc_${i + 1}` as keyof typeof answers]);
+  const phq9Items = Array.from(
+    { length: 9 },
+    (_, i) => answers[`phq9_${i + 1}` as keyof typeof answers] as unknown as number
+  );
+  const gad7Items = Array.from(
+    { length: 7 },
+    (_, i) => answers[`gad7_${i + 1}` as keyof typeof answers] as unknown as number
+  );
+  const auditcItems = Array.from(
+    { length: 3 },
+    (_, i) => answers[`auditc_${i + 1}` as keyof typeof answers] as unknown as number
+  );
 
   const phq9 = scorePhq9(phq9Items);
   const gad7 = scoreGad7(gad7Items);
   const auditc = scoreAuditC(auditcItems, profile.sex);
 
+  // EPDS is opt-in (perinatal self-identification) — only score/insert it
+  // when the patient answered the full set, never a partial/spoofed subset.
+  const epdsItems = Array.from(
+    { length: EPDS_ITEM_COUNT },
+    (_, i) => answers[`epds_${i + 1}` as keyof typeof answers] as unknown as number | undefined
+  );
+  const epdsAnswered = answers.is_perinatal && epdsItems.every((v) => v !== undefined);
+  const epds = epdsAnswered ? scoreEpds(epdsItems as number[]) : null;
+
   // System-computed rows — service role, same reasoning as prevention_risk_scores.
   const service = createServiceRoleClient();
-  const { error: insertError } = await service.from("mental_health_screens").insert([
+  const rows: TablesInsert<"mental_health_screens">[] = [
     {
       organisation_id: profile.organisation_id,
       patient_id: user.id,
@@ -83,21 +109,41 @@ export async function submitMentalHealthScreen(
       hazardous: auditc.hazardous,
       item_responses: { items: auditcItems } as Json,
     },
-  ]);
+  ];
+  if (epds) {
+    rows.push({
+      organisation_id: profile.organisation_id,
+      patient_id: user.id,
+      instrument: "epds",
+      total_score: epds.total,
+      severity_band: epds.band,
+      crisis_flagged: epds.crisis,
+      item_responses: { items: epdsItems } as Json,
+    });
+  }
+  const { error: insertError } = await service.from("mental_health_screens").insert(rows);
   if (insertError) return { error: insertError.message };
 
   // Self-harm → emergency pathway (§18.2). Inserted under the patient's own
   // session (their emergency_events_insert RLS allows it), mirroring
   // reportDangerSymptoms — the trigger raises the Priority-1 alert.
-  if (phq9.crisis) {
+  const crisis = phq9.crisis || epds?.crisis === true;
+  if (crisis) {
+    const crisisSource = phq9.crisis ? "PHQ-9 item 9" : "EPDS item 10";
     await supabase.from("emergency_events").insert({
       patient_id: user.id,
       organisation_id: profile.organisation_id,
       source: "intake_screen",
-      trigger_detail: "Wellbeing check-in: reported thoughts of self-harm (PHQ-9 item 9)",
+      trigger_detail: `Wellbeing check-in: reported thoughts of self-harm (${crisisSource})`,
       status: "active",
     });
   }
 
-  return { success: true, crisis: phq9.crisis };
+  // Alcohol referral pathway (spec §18.10) — best-effort, never blocks the
+  // screen itself from saving.
+  if (auditc.hazardous) {
+    await flagHazardousAlcoholUse(user.id, profile.organisation_id, auditc.total).catch(() => undefined);
+  }
+
+  return { success: true, crisis };
 }

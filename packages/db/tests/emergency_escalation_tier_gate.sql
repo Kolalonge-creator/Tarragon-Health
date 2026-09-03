@@ -91,20 +91,11 @@ begin
   -- "Tier 1" fixture silently pass).
   delete from public.clinical_staff where profile_id in (v_t1, v_t2, v_dir);
 
-  -- private.enforce_clinical_staff_indemnity() only requires indemnity cover
-  -- (or an exemption) for is_clinical_director=true or tier_4/tier_5 rows --
-  -- Tier 1/Tier 2 are unaffected either way, but the Director fixture below
-  -- needs a real exemption (indemnity_exempt + a distinct indemnity_exempt_by
-  -- grantor -- clinical_staff_no_self_indemnity_exemption forbids granting
-  -- your own exemption) or it fails 20260715175909's activation check. Same
-  -- shape as the already-passing Director fixtures in
-  -- packages/db/tests/escalation_slas_config.sql and
-  -- vaccination_schedule_signoff.sql.
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, is_clinical_director, indemnity_exempt, indemnity_exempt_by)
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, is_clinical_director)
   values
-    (v_org, v_t1,  'Tier One Gate Fixture',   true, now(), 'tier_1', false, false, null),
-    (v_org, v_t2,  'Tier Two Gate Fixture',   true, now(), 'tier_2', false, false, null),
-    (v_org, v_dir, 'Director Gate Fixture',   true, now(), null,     true,  true,  v_t1);
+    (v_org, v_t1,  'Tier One Gate Fixture',   true, now(), 'tier_1', false),
+    (v_org, v_t2,  'Tier Two Gate Fixture',   true, now(), 'tier_2', false),
+    (v_org, v_dir, 'Director Gate Fixture',   true, now(), null,     true);
 
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title)
   values (v_org, v_pat, 'emergency', 'open', 'tier gate proof: emergency')

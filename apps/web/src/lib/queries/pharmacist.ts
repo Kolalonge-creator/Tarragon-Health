@@ -82,6 +82,62 @@ export function usePharmacistRecordDispense() {
   });
 }
 
+/**
+ * Pharmacy Engine spec §12.5 — the accept/decline workflow that never
+ * existed before (pharmacist_record_dispense only ever wrote to the
+ * separate pharmacy_order_dispenses log, never pharmacy_orders.status; see
+ * docs/PHARMACY_ENGINE_SPEC.md). accept confirms availability/quantity/
+ * price/fulfilment time; a confirmed price below what the patient paid
+ * auto-flags the difference for refund (DB-side, pharmacist_accept_order).
+ * decline is the out-of-stock/cannot-fulfil path, which auto-flags a full
+ * refund and notifies the patient (pharmacist_decline_order).
+ */
+export function usePharmacistAcceptOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      orderId,
+      confirmedQuantity,
+      confirmedPriceKobo,
+      estimatedFulfilmentAt,
+    }: {
+      orderId: string;
+      confirmedQuantity: string;
+      confirmedPriceKobo?: number | null;
+      estimatedFulfilmentAt?: string | null;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("pharmacist_accept_order", {
+        p_order_id: orderId,
+        p_confirmed_quantity: confirmedQuantity,
+        p_confirmed_price_kobo: confirmedPriceKobo ?? undefined,
+        p_estimated_fulfilment_at: estimatedFulfilmentAt ?? undefined,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
+    },
+  });
+}
+
+export function usePharmacistDeclineOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("pharmacist_decline_order", {
+        p_order_id: orderId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
+    },
+  });
+}
+
 export type PharmacistDispense = {
   dispense_id: string;
   patient_name: string | null;

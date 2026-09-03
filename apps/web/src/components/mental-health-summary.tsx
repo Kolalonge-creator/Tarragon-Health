@@ -5,9 +5,11 @@ import {
   PHQ9_BAND_LABEL,
   GAD7_BAND_LABEL,
   AUDITC_BAND_LABEL,
+  EPDS_BAND_LABEL,
   type Phq9Band,
   type Gad7Band,
   type AuditCBand,
+  type EpdsBand,
 } from "@/lib/rules/mental-health-screening";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +31,8 @@ export function MentalHealthSummary({
   const phq9 = data.phq9;
   const gad7 = data.gad7;
   const auditc = data.auditc;
-  if (!phq9 && !gad7 && !auditc) return null;
+  const epds = data.epds;
+  if (!phq9 && !gad7 && !auditc && !epds) return null;
 
   return (
     <Card variant="soft">
@@ -63,6 +66,16 @@ export function MentalHealthSummary({
               {auditc.hazardous && <Badge variant="amber">Higher risk</Badge>}
               <Badge variant="grey">{AUDITC_BAND_LABEL[auditc.severity_band as AuditCBand] ?? auditc.severity_band}</Badge>
               {showScores && <span className="text-charcoal-ink/60">{auditc.total_score}/12</span>}
+            </span>
+          </div>
+        )}
+        {epds && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-charcoal-ink/70">Postnatal wellbeing (EPDS)</span>
+            <span className="flex items-center gap-2">
+              {epds.crisis_flagged && <Badge variant="red">Needs attention</Badge>}
+              <Badge variant="grey">{EPDS_BAND_LABEL[epds.severity_band as EpdsBand] ?? epds.severity_band}</Badge>
+              {showScores && <span className="text-charcoal-ink/60">{epds.total_score}/30</span>}
             </span>
           </div>
         )}

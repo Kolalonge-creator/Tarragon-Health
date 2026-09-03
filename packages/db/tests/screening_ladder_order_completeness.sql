@@ -3,7 +3,9 @@
 -- order, screening_results.follow_up_action stores, an order auto-resolves
 -- to 'resulted' only once every APPLICABLE test_code has a result, and the
 -- once-per-lifetime (genotype/blood group) vs annual vs dormant-imaging vs
--- sex/age-gated (psa) distinctions all hold. Rolled back, no residue.
+-- sex/age-gated (psa) distinctions all hold. Also proves 20260829140114's
+-- widening of the bundled doctor video consult from screen_comprehensive-only
+-- to every tier (check4b, check8). Rolled back, no residue.
 --
 -- total_kobo is 0 and status is never 'pending_payment'/'payment_confirmed'
 -- throughout — every Screen-tier order is self-arranged fulfilment as of
@@ -11,18 +13,19 @@
 -- private.enforce_lab_order_origin rejects both for a self_arranged order
 -- (which lab_orders.fulfilment now defaults to).
 --
--- Self-provisions three fresh patient fixtures as auth.users rows inside the
--- rolled-back transaction: one with sex=null (age ~41), one male (age ~66,
--- born 1960), and one female (age ~71).
+-- Reuses three real, pre-existing patient fixtures rather than minting new
+-- auth.users rows: one with sex=null (age ~41), one male (age ~66, born
+-- 1960), and one female (age ~71) — swap the ids below if any stops
+-- existing.
 begin;
 
 create temporary table test_results (case_name text, passed boolean) on commit drop;
 
 do $$
 declare
-  v_patient uuid := gen_random_uuid(); -- sex null, age ~41
-  v_male uuid := gen_random_uuid();    -- male, age ~66
-  v_female uuid := gen_random_uuid();  -- female, age ~71
+  v_patient uuid := 'bb707ae8-1d0b-49c2-b990-1950de601db4'; -- sex null, age ~41
+  v_male uuid := '04280ae6-f1bd-4fc9-a588-fac792e032af';    -- male, age ~66
+  v_female uuid := '365067dc-7c0f-45e8-a807-8cd70f2da8dd';  -- female, age ~71
   v_org uuid := '00000000-0000-0000-0000-000000000001';
   v_core_bundle uuid;
   v_comp_bundle uuid;
@@ -33,36 +36,16 @@ declare
   v_order5 uuid;
   v_year int := extract(year from (now() at time zone 'Africa/Lagos'))::int;
 begin
-  -- Self-provisioned fixtures (fresh-database pattern) -- same three-patient
-  -- shape (sex null/~41, male/~66, female/~71) as
-  -- computed_review_price.sql's first do-block, since this file exercises the
-  -- same sex/age-gated screening-ladder eligibility rules (dormant imaging,
-  -- psa's SDM gate for the male fixture, breast_imaging for the female one).
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_patient, 'screening-ladder-null-sex-patient@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Screening Ladder Test Patient',
-         date_of_birth = '1985-01-01'
-    where id = v_patient;
-
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_male, 'screening-ladder-male-patient@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Screening Ladder Test Male',
-         sex = 'male', date_of_birth = '1960-01-01'
-    where id = v_male;
-
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_female, 'screening-ladder-female-patient@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Screening Ladder Test Female',
-         sex = 'female', date_of_birth = '1955-01-01'
-    where id = v_female;
-
   select id into v_core_bundle from public.panel_bundles where code = 'screen_core';
   select id into v_comp_bundle from public.panel_bundles where code = 'screen_comprehensive';
 
-  -- Belt-and-braces: these are fresh fixtures so no annual_health_checks row
-  -- for this year should exist yet, but clearing it defensively keeps check1
-  -- observing a clean insert-creates-the-link rather than silently depending
-  -- on that assumption.
+  -- All three fixtures are real, pre-existing patients and may already carry
+  -- a real annual_health_checks row for this year from their own live orders
+  -- (this reused v_patient id is, in fact, the real patient behind the
+  -- platform's one live self-arranged Screen order) -- delete any such row
+  -- inside this rolled-back transaction so check1 below observes a clean
+  -- insert-creates-the-link rather than tripping the "first order of the
+  -- year keeps the link" coalesce behaviour against unrelated real data.
   delete from public.annual_health_checks where patient_id in (v_patient, v_male, v_female) and year = v_year;
 
   -- Order 1: screen_core, self-arranged -- the only shape the real app ever
@@ -108,6 +91,17 @@ begin
 
   insert into test_results select 'check4_resolves_on_last_code',
     (select status = 'resulted' and resulted_at is not null from public.lab_orders where id = v_order1);
+
+  -- 20260829140114 widened the bundled video consult from
+  -- screen_comprehensive-only to every Screen tier, and linked it to this
+  -- year's annual_health_checks row via lab_order_id (already set at order
+  -- insert time). A Core Screen order resolving should now create and link
+  -- one exactly like Comprehensive does (check8 below).
+  insert into test_results select 'check4b_core_video_consult_created_and_linked',
+    exists(select 1 from public.annual_health_checks ahc
+      join public.video_consultations vc on vc.id = ahc.video_consultation_id
+      where ahc.patient_id = v_patient and ahc.year = v_year and ahc.lab_order_id = v_order1
+        and vc.context = 'annual_review' and vc.created_at > now() - interval '1 minute');
 
   insert into test_results select 'check5_follow_up_action_persisted',
     (select follow_up_action = 'test follow-up action stored' from public.screening_results
@@ -256,7 +250,7 @@ end $$;
 
 select * from test_results order by case_name;
 
--- All 12 rows above should read passed = true. Zero residue below the
+-- All 13 rows above should read passed = true. Zero residue below the
 -- rollback: no lab_orders/screening_results/annual_health_checks/
 -- video_consultations/patient_shared_decisions row from this test survives.
 rollback;

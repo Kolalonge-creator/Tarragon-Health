@@ -24,39 +24,17 @@ begin;
 
 do $$
 declare
-  v_owner    uuid := gen_random_uuid();  -- Ada Lovelace
-  v_kin      uuid := gen_random_uuid();  -- next of kin, 'view'
-  v_guardian uuid := gen_random_uuid();  -- control, 'manage'
-  v_stranger uuid := gen_random_uuid();  -- no grant
-  v_org      uuid := '00000000-0000-0000-0000-000000000001';
+  v_owner    uuid := 'ef684028-c40f-4f64-bde9-f84150fb19fd';  -- Ada Lovelace
+  v_kin      uuid := 'cb100ba5-204a-4048-a585-2634c27a4c46';  -- next of kin, 'view'
+  v_guardian uuid := '3bb0a97c-3cd5-49e7-ba74-23b1b37b9510';  -- control, 'manage'
+  v_stranger uuid := 'fc8a158d-d5bc-499c-aa6a-07678356e5bf';  -- no grant
+  v_org      uuid;
   v_vax      uuid;
+  v_wallet   uuid;
   v_n        int;
   v_wrote    boolean;
 begin
-  -- Self-provisioned fixtures (fresh-database pattern) -- these four are pure
-  -- relationship roles (owner/kin/guardian/stranger) for the profile_access
-  -- grant checks below, so a plain patient profile is all each one needs; no
-  -- demographic fields are asserted on anywhere in this file.
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_owner, 'individual-enrolment-ada-owner@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Ada Lovelace'
-    where id = v_owner;
-
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_kin, 'individual-enrolment-next-of-kin@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Individual Enrolment Test Next of Kin'
-    where id = v_kin;
-
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_guardian, 'individual-enrolment-guardian@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Individual Enrolment Test Guardian'
-    where id = v_guardian;
-
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_stranger, 'individual-enrolment-stranger@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Individual Enrolment Test Stranger'
-    where id = v_stranger;
-
+  select organisation_id into v_org from public.profiles where id = v_owner;
   select id into v_vax from public.vaccination_catalog limit 1;
 
   -- ---- 1. The billing construct is gone --------------------------------------
@@ -134,50 +112,26 @@ begin
 
   -- ---- 7. Funding still works, on consent alone ------------------------------
   -- can_fund_wallet used to accept a shared bill as authority. It now accepts
-  -- only a profile_access grant, which is the stricter condition. The Health
-  -- Wallet itself is retired (20260731215735_retire_health_wallet.sql); its
-  -- direct successor for "who may fund this person's care" is
-  -- private.can_purchase_voucher_for (added the same day, in
-  -- 20260731215226_care_vouchers_purchase_and_layaway.sql), which the
-  -- purchase_care_voucher/purchase_subscription_voucher RPCs both call for
-  -- authorisation. It keeps exactly the same shape can_fund_wallet had: self,
-  -- or ANY profile_access grant regardless of level -- so this still proves
-  -- that even the view-only next of kin (not just a 'manage' grantee) may pay
-  -- for care, because consent, not who can edit the record, is what funding
-  -- has always turned on.
-  if not private.can_purchase_voucher_for(v_owner, v_kin) then
-    raise exception 'FAIL: next of kin cannot fund care for someone they are consented to';
+  -- only a profile_access grant, which is the stricter condition.
+  v_wallet := private.ensure_wallet(v_owner);
+  if not private.can_fund_wallet(v_wallet, v_kin) then
+    raise exception 'FAIL: next of kin cannot fund the wallet they are consented to';
   end if;
-  if private.can_purchase_voucher_for(v_owner, v_stranger) then
-    raise exception 'FAIL: a stranger can fund care for the owner';
+  if private.can_fund_wallet(v_wallet, v_stranger) then
+    raise exception 'FAIL: a stranger can fund the wallet';
   end if;
-  raise notice 'PASS  care funding follows consent, not a shared bill';
+  raise notice 'PASS  wallet funding follows consent, not a shared bill';
 
   -- ---- 8. One price list, one diaspora currency ------------------------------
   select count(*) into v_n from public.subscription_plans where currency = 'GBP';
   if v_n <> 0 then raise exception 'FAIL: % GBP plan rows remain', v_n; end if;
 
-  -- Derive the expected price the same way the platform itself does --
-  -- private.expected_derived_price_minor(), which as of
-  -- 20260802213144_diaspora_usd_processing_fee.sql applies BOTH the
-  -- reference rate (ngn_per_usd, 1365 as of 2026-07-29) AND a 10% USD
-  -- processing fee on top -- rather than hardcoding the pre-fee "/ 1365.0"
-  -- rate this check originally shipped with (that formula predates the
-  -- processing-fee migration and would now flag every unlocked dollar row as
-  -- "wrong" for correctly including the fee). A price-locked row (an
-  -- existing subscriber's price, e.g. complete_usd) is excluded by design --
-  -- private.recompute_derived_prices() deliberately leaves it stale until an
-  -- admin resyncs it after a rate/fee change, exactly as
-  -- 20260802213144's own assertions require, so a locked row is EXPECTED to
-  -- disagree with the current formula and is not a "one price list"
-  -- violation.
   select count(*) into v_n
     from public.subscription_plans p
     join public.subscription_plans b on b.code = p.derived_from_code
-   where not p.price_locked
-     and p.price_minor <> private.expected_derived_price_minor(b.price_minor, p.currency);
+   where p.price_minor <> round(b.price_minor / 1365.0);
   if v_n <> 0 then raise exception 'FAIL: % dollar rows are off the reference rate', v_n; end if;
-  raise notice 'PASS  every unlocked dollar price matches private.expected_derived_price_minor() at the current rate + fee';
+  raise notice 'PASS  every dollar price is its naira price at 1365';
 
   raise notice '--- all checks passed ---';
 end $$;

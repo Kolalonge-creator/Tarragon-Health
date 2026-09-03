@@ -66,7 +66,11 @@ export function ResourceCarousel({
             href={`/resources/${article.slug}`}
             className="group w-64 shrink-0 snap-start overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-green/40 hover:shadow-md sm:w-72"
           >
-            <ResourceThumbnail icon={resourceThumbnailIcon(article)} className="rounded-t-2xl" />
+            <ResourceThumbnail
+              category={article.category}
+              icon={resourceThumbnailIcon(article)}
+              className="rounded-t-2xl"
+            />
             <div className="p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
                 {article.category} <span aria-hidden>·</span> Article

@@ -14,18 +14,12 @@ begin;
 
 do $$
 declare
-  v_patient uuid := gen_random_uuid();  -- was: '8487376b-7844-428a-bcb8-8795e89eb0f5'
-  v_org     uuid := '00000000-0000-0000-0000-000000000001';
+  v_patient uuid := '8487376b-7844-428a-bcb8-8795e89eb0f5';
   v_token   text;
   v_payload jsonb;
   v_count   integer;
   v_id      uuid;
 begin
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_patient, 'emergency-card-hardening-test-patient@example.invalid', 'x', now(), '{}', '{}');
-  update public.profiles set organisation_id = v_org, role = 'patient', full_name = 'Emergency Card Hardening Test Patient'
-    where id = v_patient;
-
   -- Create the card as the real patient session, since create_emergency_card
   -- deliberately only ever acts on auth.uid().
   perform set_config('request.jwt.claims',

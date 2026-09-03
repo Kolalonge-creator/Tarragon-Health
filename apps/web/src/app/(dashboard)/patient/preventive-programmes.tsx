@@ -42,6 +42,7 @@ const SCREENING_STATUS_LABEL: Record<Enums<"screening_status">, string> = {
   completed: "Up to date",
   overdue: "Overdue",
   cancelled: "Not applicable",
+  declined: "Declined",
 };
 
 /**

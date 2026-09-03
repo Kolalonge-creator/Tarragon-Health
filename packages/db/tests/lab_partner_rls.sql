@@ -90,19 +90,15 @@ begin
     raise exception 'fixtures unavailable: need 2 patients and 1 clinician in org 0001';
   end if;
 
-  -- The lab partner. A fresh `supabase db reset` has no pre-existing
-  -- partner-employee account to repurpose (only clinician/care_coordinator/
-  -- admin/corporate_admin/hmo_admin are seeded by 20260827100300_seed_ci_
-  -- fixture_staff_and_patient_subscriptions.sql), so self-provision one:
-  -- insert a fresh auth.users row (on_auth_user_created defaults it to
-  -- role='patient' in the direct-consumer org) then point it at Lab A,
-  -- keeping organisation_id set to a REAL org — that non-null org id is
-  -- precisely the misconfiguration the admin provisioning UI allows (its
+  -- The lab partner. Reuses the existing partner-employee account and points it
+  -- at Lab A, keeping organisation_id set to a REAL org — that non-null org id
+  -- is precisely the misconfiguration the admin provisioning UI allows (its
   -- "Organisation (optional)" field does not distinguish by role), and
   -- precisely what used to satisfy private.is_org_staff.
-  v_lp := gen_random_uuid();
-  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_lp, 'verify.lab-partner@example.invalid', 'x', now(), '{}', '{}');
+  select id into v_lp from public.profiles where role = 'pharmacist' limit 1;
+  if v_lp is null then
+    raise exception 'fixtures unavailable: no partner-employee account to repurpose';
+  end if;
   update public.profiles
      set role = 'lab_partner', organisation_id = v_org, lab_provider_id = v_lab_a
    where id = v_lp;
@@ -110,20 +106,6 @@ begin
   -- An active clinical_staff row to own the orders: enforce_lab_order_origin
   -- refuses a clinically_triggered order without one. Tier 2 and not a clinical
   -- director, so the indemnity activation trigger does not apply.
-  --
-  -- v_clin is picked by `order by id limit 1` (see above) -- a random UUID
-  -- order, not a stable one -- so which of the shared CI fixture's two
-  -- clinician profiles it resolves to varies run to run: sometimes the one
-  -- with its own clinical_staff row already
-  -- (20260827100300_seed_ci_fixture_staff_and_patient_subscriptions.sql),
-  -- sometimes the one without. clinical_staff.profile_id is unique, so clear
-  -- any pre-existing row first -- same defensive pattern already used for
-  -- this exact class of flake elsewhere this sprint
-  -- (self_arranged_fulfilment.sql, clinician_alert_override.sql,
-  -- emergency_escalation_tier_gate.sql, i1_i10_invariants_platform.sql's I5
-  -- section).
-  delete from public.clinical_staff where profile_id = v_clin;
-
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, doctor_tier, active,
      license_verified_at, verified_by)
@@ -136,26 +118,13 @@ begin
   -- against real values rather than against an RLS-scoped subquery — such a
   -- subquery returns nothing inside the partner's own session and would make
   -- the isolation check pass vacuously.
-  --
-  -- fulfilment = 'partner' is required here: the table default, 'self_arranged'
-  -- (since 20260803124833_self_arranged_lab_fulfilment.sql), cannot name a
-  -- provider_id at all (private.enforce_lab_order_origin rejects it outright).
-  -- No panel_bundle_id/pricing/region setup is needed to go with it, though:
-  -- these orders are origin = 'clinically_triggered', not 'patient_initiated',
-  -- so enforce_lab_order_origin's self-bookable/schedule branch and
-  -- enforce_lab_order_region's gate never run for them (both only apply to the
-  -- patient_initiated branch); and private.set_lab_order_computed_price (the
-  -- trigger that would compute total_kobo/partner_cost_kobo for a partner
-  -- order) itself no-ops whenever panel_bundle_id is null, which it is here —
-  -- this file is proving RLS isolation between two lab-partner-linked staff
-  -- accounts, not money, so total_kobo staying at its 0 default is correct.
   insert into public.lab_orders
-    (organisation_id, patient_id, provider_id, status, origin, ordered_by, fulfilment)
-  values (v_org, v_pat_a, v_lab_a, 'payment_confirmed', 'clinically_triggered', v_staff, 'partner')
+    (organisation_id, patient_id, provider_id, status, origin, ordered_by)
+  values (v_org, v_pat_a, v_lab_a, 'payment_confirmed', 'clinically_triggered', v_staff)
   returning id into v_order_a;
   insert into public.lab_orders
-    (organisation_id, patient_id, provider_id, status, origin, ordered_by, fulfilment)
-  values (v_org, v_pat_b, v_lab_b, 'payment_confirmed', 'clinically_triggered', v_staff, 'partner')
+    (organisation_id, patient_id, provider_id, status, origin, ordered_by)
+  values (v_org, v_pat_b, v_lab_b, 'payment_confirmed', 'clinically_triggered', v_staff)
   returning id into v_order_b;
 
   -- ------------------------------------------------------------------------
