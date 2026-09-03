@@ -42,6 +42,17 @@ function sh(cmd, args, opts = {}) {
   return execFileSync(cmd, args, { encoding: "utf8", maxBuffer: 1024 * 1024 * 50, ...opts });
 }
 
+// `supabase db query --linked` occasionally dies after printing only "Initialising login
+// role..." (transient management-API/CLI flake — see check-anon-security-definer-execute.mjs).
+function shRetry(cmd, args, opts = {}) {
+  try {
+    return sh(cmd, args, opts);
+  } catch (err) {
+    console.log(`retrying once after transient failure: ${err instanceof Error ? err.message.split("\n")[0] : err}`);
+    return sh(cmd, args, opts);
+  }
+}
+
 // Same output-shape-tolerant parser as check-anon-security-definer-execute.mjs — `supabase db
 // query --output-format json` has emitted both a bare rows array and a {rows} wrapper for the
 // same CLI version tag, sometimes preceded by a status blob. Scan balanced structures and take
@@ -172,7 +183,7 @@ function main() {
   writeFileSync(queryFile, "select version, name from supabase_migrations.schema_migrations order by version;");
   let remoteRows;
   try {
-    const raw = sh("npx", ["--yes", "supabase", "db", "query", "--linked", "-f", queryFile, "--output-format", "json"]);
+    const raw = shRetry("npx", ["--yes", "supabase", "db", "query", "--linked", "-f", queryFile, "--output-format", "json"]);
     remoteRows = parseRows(raw);
   } finally {
     rmSync(queryDir, { recursive: true, force: true });
