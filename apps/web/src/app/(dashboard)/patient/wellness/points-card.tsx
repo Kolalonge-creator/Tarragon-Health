@@ -49,13 +49,13 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {!isLoading && (
           <div className="flex items-baseline gap-2">
-            <span className="font-heading text-3xl font-bold text-charcoal-ink">
+            <span className="font-heading text-3xl font-bold text-charcoal-ink dark:text-night-ink">
               {currentBalance.toLocaleString()}
             </span>
-            <span className="text-sm text-charcoal-ink/60">
+            <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               points{balance?.lifetime_earned ? ` · ${balance.lifetime_earned.toLocaleString()} earned all-time` : ""}
             </span>
           </div>
@@ -81,7 +81,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
           }}
         >
           <div className="grid gap-1">
-            <label htmlFor="redeem-points" className="text-xs font-medium text-charcoal-ink/70">
+            <label htmlFor="redeem-points" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
               Redeem for a voucher
             </label>
             <Input
@@ -98,20 +98,20 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
           <Button type="submit" size="sm" disabled={redeem.isPending || currentBalance <= 0}>
             {redeem.isPending ? "Redeeming…" : "Redeem"}
           </Button>
-          {message && <span className="text-sm text-charcoal-ink/70">{message}</span>}
+          {message && <span className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{message}</span>}
         </form>
 
         {ledger && ledger.length > 0 && (
           <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
               Recent activity
             </p>
-            <ul className="divide-y divide-charcoal-ink/10 text-sm">
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 text-sm">
               {ledger.map((entry) => (
                 <li key={entry.id} className="flex items-center justify-between py-1.5">
-                  <span className="text-charcoal-ink/80">{reasonLabel(entry.reason)}</span>
+                  <span className="text-charcoal-ink/80 dark:text-night-ink/80">{reasonLabel(entry.reason)}</span>
                   <span
-                    className={entry.points > 0 ? "font-medium text-brand-green" : "font-medium text-charcoal-ink/60"}
+                    className={entry.points > 0 ? "font-medium text-brand-green dark:text-brand-green-bright" : "font-medium text-charcoal-ink/60 dark:text-night-ink/60"}
                   >
                     {entry.points > 0 ? "+" : ""}
                     {entry.points}

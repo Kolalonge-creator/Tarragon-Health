@@ -41,9 +41,9 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent>
         {versions.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">Nothing to show yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing to show yet.</p>
         ) : (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {versions.map((version) => {
               const record = accepted.find(
                 (c) => c.consent_type === version.consent_type && c.version === version.version
@@ -51,15 +51,15 @@ export function ConsentStatusPanel({ patientId }: { patientId: string }) {
               return (
                 <li key={version.id} className="flex items-center justify-between gap-3 py-3">
                   <div>
-                    <p className="text-sm font-medium text-charcoal-ink">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {CONSENT_TYPE_LABEL[version.consent_type] ?? version.consent_type.replace(/_/g, " ")}
                     </p>
                     {record ? (
-                      <p className="text-xs text-charcoal-ink/50">
+                      <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                         Accepted {formatDate(record.accepted_at)} · v{version.version}
                       </p>
                     ) : (
-                      <p className="text-xs text-charcoal-ink/50">Not yet recorded</p>
+                      <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Not yet recorded</p>
                     )}
                   </div>
                   <Badge variant={record ? "green" : "grey"}>

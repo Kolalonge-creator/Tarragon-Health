@@ -179,14 +179,14 @@ export default async function PreventionHubPage() {
     >
       <Card className="border-brand-green/25">
         <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-soft-sage">
-            <SEMANTIC_ICON.preventive className="h-6 w-6 text-deep-forest" strokeWidth={2} />
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-soft-sage dark:bg-brand-green/20">
+            <SEMANTIC_ICON.preventive className="h-6 w-6 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           </span>
           <div className="flex-1">
-            <p className="font-heading text-base font-semibold text-charcoal-ink">
+            <p className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">
               Your yearly Health Check
             </p>
-            <p className="mt-1 text-sm text-charcoal-ink/70">
+            <p className="mt-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               A guided, whole-body check-in: your health profile, wellbeing, measurements,
               screenings, and immunisations, reviewed by a doctor at the end.
             </p>

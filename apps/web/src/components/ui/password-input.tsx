@@ -20,7 +20,7 @@ export function PasswordInput({
         tabIndex={-1}
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
-        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-charcoal-ink/40 hover:text-charcoal-ink/70"
+        className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-charcoal-ink/40 hover:text-charcoal-ink/70 dark:text-night-ink/50 dark:hover:text-night-ink/70"
       >
         {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
       </button>

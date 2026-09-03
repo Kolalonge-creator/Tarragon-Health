@@ -51,7 +51,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "food",
         placeholder: "e.g. Drink more water",
         enrollmentId: primary.id,
-        tint: "bg-green-50",
+        tint: "bg-green-50 dark:bg-green-500/15",
       },
       {
         kind: "module",
@@ -60,7 +60,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "lifestyle",
         placeholder: "e.g. Walk for 20 minutes",
         enrollmentId: primary.id,
-        tint: "bg-amber-50",
+        tint: "bg-amber-50 dark:bg-amber-500/15",
       },
       {
         kind: "module",
@@ -69,7 +69,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "sleep",
         placeholder: "e.g. Get to bed by 10pm",
         enrollmentId: primary.id,
-        tint: "bg-blue-50",
+        tint: "bg-blue-50 dark:bg-blue-500/15",
       },
       {
         kind: "module",
@@ -78,7 +78,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "mood",
         placeholder: "e.g. Try one mindful moment a day",
         enrollmentId: primary.id,
-        tint: "bg-charcoal-ink/5",
+        tint: "bg-charcoal-ink/5 dark:bg-night-ink/10",
       },
       {
         kind: "module",
@@ -87,7 +87,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
         icon: "warning",
         placeholder: "e.g. Smoke-free by the end of the month",
         enrollmentId: primary.id,
-        tint: "bg-red-50",
+        tint: "bg-red-50 dark:bg-red-500/15",
       },
     );
   }
@@ -101,7 +101,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
       icon: "bp",
       placeholder: "e.g. Cut back on added salt",
       enrollmentId: htn.id,
-      tint: "bg-charcoal-ink/5",
+      tint: "bg-charcoal-ink/5 dark:bg-night-ink/10",
     });
   }
   const diabetes = findActive("diabetes");
@@ -112,7 +112,7 @@ function buildTiles(enrollments: LifestyleEnrollmentView[]): Tile[] {
       icon: "diabetes",
       placeholder: "e.g. Check my blood sugar after meals",
       enrollmentId: diabetes.id,
-      tint: "bg-blue-50",
+      tint: "bg-blue-50 dark:bg-blue-500/15",
     });
   }
 
@@ -157,7 +157,7 @@ export function GoalsDialog({
           }}
         >
           <div
-            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white shadow-xl"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white dark:bg-night-card shadow-xl dark:shadow-none"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between rounded-t-2xl bg-brand-green px-6 py-5 text-white">
@@ -174,7 +174,7 @@ export function GoalsDialog({
               </button>
             </div>
 
-            <div className="flex items-center gap-2 border-b border-charcoal-ink/10 px-6 py-4">
+            <div className="flex items-center gap-2 border-b border-charcoal-ink/10 dark:border-night-ink/15 px-6 py-4">
               <button
                 type="button"
                 onClick={() => {
@@ -184,7 +184,7 @@ export function GoalsDialog({
                 className={
                   tab === "new"
                     ? "rounded-full bg-brand-green px-4 py-1.5 text-sm font-medium text-white"
-                    : "rounded-full px-4 py-1.5 text-sm font-medium text-charcoal-ink/60 hover:text-charcoal-ink"
+                    : "rounded-full px-4 py-1.5 text-sm font-medium text-charcoal-ink/60 dark:text-night-ink/60 hover:text-charcoal-ink dark:hover:text-night-ink"
                 }
               >
                 Set a new goal
@@ -194,8 +194,8 @@ export function GoalsDialog({
                 onClick={() => setTab("past")}
                 className={
                   tab === "past"
-                    ? "px-2 text-sm font-medium text-brand-green underline underline-offset-4"
-                    : "px-2 text-sm font-medium text-charcoal-ink/60 hover:text-charcoal-ink"
+                    ? "px-2 text-sm font-medium text-brand-green dark:text-brand-green-bright underline underline-offset-4"
+                    : "px-2 text-sm font-medium text-charcoal-ink/60 dark:text-night-ink/60 hover:text-charcoal-ink dark:hover:text-night-ink"
                 }
               >
                 View past goals
@@ -208,7 +208,7 @@ export function GoalsDialog({
                   <GoalForm tile={selectedTile} onDone={close} onBack={() => setSelectedTile(null)} />
                 ) : (
                   <div className="space-y-4">
-                    <p className="text-sm font-medium text-charcoal-ink">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       What would you like to do next?
                     </p>
                     <div className="grid grid-cols-2 gap-3">
@@ -221,8 +221,8 @@ export function GoalsDialog({
                             onClick={() => setSelectedTile(tile)}
                             className={`${tile.tint} flex flex-col gap-3 rounded-xl p-4 text-left transition hover:brightness-95`}
                           >
-                            <Icon className="h-6 w-6 text-charcoal-ink/70" />
-                            <span className="text-sm font-medium text-charcoal-ink">
+                            <Icon className="h-6 w-6 text-charcoal-ink/70 dark:text-night-ink/70" />
+                            <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                               {tile.label}
                             </span>
                           </button>
@@ -267,7 +267,7 @@ function GoalForm({
   if (state?.success) {
     return (
       <div className="space-y-4 text-center">
-        <p className="text-sm font-medium text-brand-green">{state.message}</p>
+        <p className="text-sm font-medium text-brand-green dark:text-brand-green-bright">{state.message}</p>
       </div>
     );
   }
@@ -277,7 +277,7 @@ function GoalForm({
       <button
         type="button"
         onClick={onBack}
-        className="flex items-center gap-1 text-sm text-charcoal-ink/60 hover:text-charcoal-ink"
+        className="flex items-center gap-1 text-sm text-charcoal-ink/60 dark:text-night-ink/60 hover:text-charcoal-ink dark:hover:text-night-ink"
       >
         <APP_ICON.chevronRight className="h-4 w-4 rotate-180" />
         Back
@@ -290,10 +290,10 @@ function GoalForm({
         <span className={`${tile.tint} rounded-lg p-2`}>
           {(() => {
             const Icon = APP_ICON[tile.icon];
-            return <Icon className="h-5 w-5 text-charcoal-ink/70" />;
+            return <Icon className="h-5 w-5 text-charcoal-ink/70 dark:text-night-ink/70" />;
           })()}
         </span>
-        <span className="text-sm font-medium text-charcoal-ink">{tile.label}</span>
+        <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{tile.label}</span>
       </div>
 
       {tile.kind === "condition" && (
@@ -303,7 +303,7 @@ function GoalForm({
             id="goal-focus"
             value={module}
             onChange={(e) => setModule(e.target.value as GoalModule)}
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+            className="border-input dark:border-night-ink/20 bg-background dark:bg-night-card h-9 w-full rounded-md border px-2 text-sm"
           >
             <option value="diet">Food & drinks</option>
             <option value="activity">Activity</option>
@@ -335,7 +335,7 @@ function GoalForm({
         <Input id="goal-target-date" name="targetDate" type="date" />
       </div>
 
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
 
       <Button type="submit" className="w-full">
         Save goal
@@ -347,7 +347,7 @@ function GoalForm({
 function PastGoalsList({ goals }: { goals: PastLifestyleGoalView[] }) {
   if (goals.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground dark:text-night-ink/60">
         No past goals yet, goals you complete or let go of will show up here.
       </p>
     );
@@ -357,8 +357,8 @@ function PastGoalsList({ goals }: { goals: PastLifestyleGoalView[] }) {
       {goals.map((g) => (
         <li key={g.id} className="flex items-start justify-between gap-3 rounded-lg border p-3">
           <div>
-            <p className="text-sm font-medium text-charcoal-ink">{g.title}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{g.title}</p>
+            <p className="text-xs text-muted-foreground dark:text-night-ink/60">
               {g.conditionLabel} · {formatPatientDate(g.updatedAt)}
             </p>
           </div>

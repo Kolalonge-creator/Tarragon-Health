@@ -102,7 +102,7 @@ export function CareVisibilityList() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {followers.map((follower) => {
             const name = follower.fullName ?? "Someone you have added";
             const open = openId === follower.grantId;
@@ -115,7 +115,7 @@ export function CareVisibilityList() {
                   onClick={() => setOpenId(open ? null : follower.grantId)}
                   aria-expanded={open}
                 >
-                  <span className="font-medium text-charcoal-ink">{name}</span>
+                  <span className="font-medium text-charcoal-ink dark:text-night-ink">{name}</span>
                   <span className="flex flex-wrap items-center gap-2">
                     <Badge variant={follower.permissionLevel === "manage" ? "green" : "grey"}>
                       {follower.permissionLevel === "manage" ? "Can act for you" : "Next of kin"}
@@ -132,8 +132,8 @@ export function CareVisibilityList() {
                 </button>
 
                 {open && (
-                  <div className="mt-3 space-y-4 rounded-lg bg-charcoal-ink/5 p-4">
-                    <p className="text-sm text-charcoal-ink/70">
+                  <div className="mt-3 space-y-4 rounded-lg bg-charcoal-ink/5 dark:bg-night-ink/10 p-4">
+                    <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                       Tick what {name} should be able to see. They will never be able to change
                       anything on your record, or end a conversation you are having. You will see
                       every message they send.
@@ -143,11 +143,11 @@ export function CareVisibilityList() {
                       {CARE_ACCESS_CATEGORIES.map((cat) => (
                         <label
                           key={cat.value}
-                          className="flex items-center gap-2 text-sm text-charcoal-ink"
+                          className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink"
                         >
                           <input
                             type="checkbox"
-                            className="h-4 w-4 rounded border-charcoal-ink/30"
+                            className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
                             checked={follower.categories.includes(cat.value)}
                             disabled={setCategories.isPending}
                             onChange={() =>
@@ -159,11 +159,11 @@ export function CareVisibilityList() {
                       ))}
                     </div>
 
-                    <div className="rounded-lg border border-charcoal-ink/10 bg-white p-3">
-                      <label className="flex items-center gap-2 text-sm font-medium text-charcoal-ink">
+                    <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-3">
+                      <label className="flex items-center gap-2 text-sm font-medium text-charcoal-ink dark:text-night-ink">
                         <input
                           type="checkbox"
-                          className="h-4 w-4 rounded border-charcoal-ink/30"
+                          className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
                           checked={reproductiveHealthOn}
                           disabled={setCategories.isPending}
                           onChange={() =>
@@ -175,15 +175,15 @@ export function CareVisibilityList() {
                         />
                         Reproductive health
                       </label>
-                      <p className="mt-1 text-xs text-charcoal-ink/60">
+                      <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                         Kept separate on purpose: turning on everything else above never
                         includes this. Cycle, pregnancy and related information stays private
                         unless you choose to share it here too.
                       </p>
                     </div>
 
-                    <p className="text-xs text-charcoal-ink/50">Added {shortDate(follower.since)}.</p>
-                    {error && <p className="text-sm text-red-600">{error}</p>}
+                    <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Added {shortDate(follower.since)}.</p>
+                    {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
                     <AccessScopeEditor follower={follower} />
                   </div>
@@ -252,19 +252,19 @@ function AccessScopeEditor({ follower }: { follower: CareFollower }) {
   }
 
   return (
-    <div className="space-y-3 border-t border-charcoal-ink/10 pt-3">
+    <div className="space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
       {follower.permissionLevel === "manage" && (
         <div className="space-y-2">
-          <p className="text-xs font-medium text-charcoal-ink">What they can do</p>
+          <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">What they can do</p>
           <ul className="grid gap-1.5 sm:grid-cols-2">
             {CAREGIVER_PERMISSIONS.map((permission) => (
               <li key={permission}>
-                <label className="flex items-center gap-2 text-sm text-charcoal-ink/80">
+                <label className="flex items-center gap-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                   <input
                     type="checkbox"
                     checked={selected.includes(permission)}
                     onChange={() => toggle(permission)}
-                    className="h-4 w-4 rounded border-charcoal-ink/30 text-brand-green focus:ring-brand-green"
+                    className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35 text-brand-green dark:text-brand-green-bright focus:ring-brand-green"
                   />
                   {CAREGIVER_PERMISSION_LABEL[permission]}
                 </label>
@@ -286,9 +286,9 @@ function AccessScopeEditor({ follower }: { follower: CareFollower }) {
             >
               {setPermissions.isPending ? "Saving…" : "Save what they can do"}
             </Button>
-            {savedPermissions && <span className="text-xs text-brand-green">Saved.</span>}
+            {savedPermissions && <span className="text-xs text-brand-green dark:text-brand-green-bright">Saved.</span>}
             {setPermissions.isError && (
-              <span className="text-xs text-red-600">That did not save. Try again.</span>
+              <span className="text-xs text-red-600 dark:text-red-400">That did not save. Try again.</span>
             )}
           </div>
         </div>
@@ -309,9 +309,9 @@ function AccessScopeEditor({ follower }: { follower: CareFollower }) {
               </option>
             ))}
           </Select>
-          {setExpiry.isPending && <span className="text-xs text-charcoal-ink/50">Saving…</span>}
+          {setExpiry.isPending && <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Saving…</span>}
           {savedDuration && !setExpiry.isPending && (
-            <span className="text-xs text-brand-green">Saved.</span>
+            <span className="text-xs text-brand-green dark:text-brand-green-bright">Saved.</span>
           )}
         </div>
       </div>

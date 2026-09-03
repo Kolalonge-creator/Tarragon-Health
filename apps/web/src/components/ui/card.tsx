@@ -3,9 +3,9 @@ import { Slot } from "@radix-ui/react-slot";
 import { cn } from "@/lib/utils";
 
 const CARD_VARIANT = {
-  default: "bg-white",
-  soft: "bg-warm-ivory",
-  sage: "bg-soft-sage",
+  default: "bg-white dark:bg-night-card",
+  soft: "bg-warm-ivory dark:bg-night-ink/10",
+  sage: "bg-soft-sage dark:bg-brand-green/20",
   /** For use on a dark (navy) section background — see Section variant="navy". */
   dark: "border-white/15 bg-white/5",
 } as const;
@@ -20,7 +20,7 @@ export function Card({
   return (
     <Comp
       className={cn(
-        "rounded-xl border border-charcoal-ink/10 shadow-sm transition-shadow hover:shadow-md",
+        "rounded-xl border border-charcoal-ink/10 shadow-sm transition-shadow hover:shadow-md dark:border-night-ink/15 dark:shadow-none dark:hover:shadow-none",
         CARD_VARIANT[variant],
         className
       )}
@@ -36,14 +36,19 @@ export function CardHeader({ className, ...props }: React.ComponentProps<"div">)
 export function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
   return (
     <h3
-      className={cn("font-heading text-xl font-semibold text-charcoal-ink", className)}
+      className={cn(
+        "font-heading text-xl font-semibold text-charcoal-ink dark:text-night-ink",
+        className
+      )}
       {...props}
     />
   );
 }
 
 export function CardDescription({ className, ...props }: React.ComponentProps<"p">) {
-  return <p className={cn("text-sm text-charcoal-ink/60", className)} {...props} />;
+  return (
+    <p className={cn("text-sm text-charcoal-ink/60 dark:text-night-ink/60", className)} {...props} />
+  );
 }
 
 export function CardContent({ className, ...props }: React.ComponentProps<"div">) {

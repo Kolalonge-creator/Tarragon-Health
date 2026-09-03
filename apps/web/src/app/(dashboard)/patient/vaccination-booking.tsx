@@ -29,13 +29,13 @@ export function VaccinationBooking(_props: {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Book a vaccination near you
         </CardTitle>
         <CardDescription>Booking through a vaccination centre isn&apos;t available yet.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           We haven&apos;t contracted a vaccination centre yet, so there is nowhere to book through
           the app right now. If you get a dose done elsewhere, log it below and your care team will
           see it on your record.

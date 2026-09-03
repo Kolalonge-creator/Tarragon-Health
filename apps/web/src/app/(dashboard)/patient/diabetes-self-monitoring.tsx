@@ -27,8 +27,8 @@ const FINDING_LABEL: Record<(typeof FOOT_FINDINGS)[number], string> = {
 };
 
 function Feedback({ state }: { state: { error?: string; success?: boolean } | undefined }) {
-  if (state?.error) return <p className="text-sm text-red-600">{state.error}</p>;
-  if (state?.success) return <p className="text-sm text-brand-green">Saved. Thank you for logging this.</p>;
+  if (state?.error) return <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>;
+  if (state?.success) return <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved. Thank you for logging this.</p>;
   return null;
 }
 
@@ -52,7 +52,7 @@ export function DiabetesSelfMonitoring() {
       <CardContent className="space-y-8">
         {/* Insulin */}
         <form action={insulinAction} className="space-y-3">
-          <p className="text-sm font-medium text-deep-forest">Insulin dose</p>
+          <p className="text-sm font-medium text-deep-forest dark:text-brand-green-bright">Insulin dose</p>
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="insulin_type">Type</Label>
@@ -79,9 +79,9 @@ export function DiabetesSelfMonitoring() {
         </form>
 
         {/* Foot self-check */}
-        <form action={footAction} className="space-y-3 border-t border-charcoal-ink/10 pt-6">
-          <p className="text-sm font-medium text-deep-forest">Daily foot check</p>
-          <p className="text-xs text-charcoal-ink/60">
+        <form action={footAction} className="space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-6">
+          <p className="text-sm font-medium text-deep-forest dark:text-brand-green-bright">Daily foot check</p>
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             Look at both feet (a mirror or family member helps). Tick anything new.
           </p>
           <input type="hidden" name="any_problem" value={footProblem ? "true" : "false"} />
@@ -115,9 +115,9 @@ export function DiabetesSelfMonitoring() {
         </form>
 
         {/* Sick-day */}
-        <form action={sickAction} className="space-y-3 border-t border-charcoal-ink/10 pt-6">
-          <p className="text-sm font-medium text-deep-forest">Sick-day log</p>
-          <p className="text-xs text-charcoal-ink/60">
+        <form action={sickAction} className="space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-6">
+          <p className="text-sm font-medium text-deep-forest dark:text-brand-green-bright">Sick-day log</p>
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             If you&apos;re unwell, keep taking your insulin; never stop it; test more often, and
             keep fluids going.
           </p>

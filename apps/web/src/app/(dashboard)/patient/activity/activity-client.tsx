@@ -51,6 +51,9 @@ function StepRing({ current, goal }: { current: number; goal: number }) {
           stroke="var(--color-charcoal-ink, #e5e5e0)"
           strokeOpacity={0.1}
           strokeWidth={stroke}
+          // The ink track doesn't flip with the theme; the class wins over
+          // the presentation attribute in dark only, so light is untouched.
+          className="dark:stroke-night-ink"
         />
         <circle
           cx={size / 2}
@@ -65,10 +68,10 @@ function StepRing({ current, goal }: { current: number; goal: number }) {
         />
       </svg>
       <div className="absolute flex flex-col items-center">
-        <p className="text-[10px] font-medium uppercase tracking-wide text-charcoal-ink/50">
+        <p className="text-[10px] font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
           {goal.toLocaleString()} step goal
         </p>
-        <p className="font-heading text-3xl font-semibold text-charcoal-ink">
+        <p className="font-heading text-3xl font-semibold text-charcoal-ink dark:text-night-ink">
           {current.toLocaleString()}
         </p>
       </div>
@@ -131,14 +134,14 @@ export function ActivityClient({ patientId }: { patientId: string }) {
           <CardTitle>History</CardTitle>
         </CardHeader>
         <CardContent>
-          {entries.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {entries.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {!entries.isLoading && grouped.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">Nothing logged yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing logged yet.</p>
           )}
           <div className="space-y-5">
             {grouped.map(([dateKey, rows]) => (
               <div key={dateKey}>
-                <p className="mb-2 text-sm font-semibold text-charcoal-ink">{groupLabel(dateKey)}</p>
+                <p className="mb-2 text-sm font-semibold text-charcoal-ink dark:text-night-ink">{groupLabel(dateKey)}</p>
                 <ul className="space-y-2">
                   {rows.map((entry) => (
                     <EntryRow
@@ -169,22 +172,22 @@ function WeeklyGuidelineCard({ minutes, loading }: { minutes: number | undefined
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-sm text-charcoal-ink/60">Loading…</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>
         ) : (
           <>
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               WHO recommends {WHO_WEEKLY_TARGET_MINUTES} minutes of moderate activity a week (vigorous
               minutes count double). You&apos;re at{" "}
-              <span className="font-semibold text-charcoal-ink">{total} min</span> from this week&apos;s
+              <span className="font-semibold text-charcoal-ink dark:text-night-ink">{total} min</span> from this week&apos;s
               logged workouts.
             </p>
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
+            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15">
               <div
                 className="h-full rounded-full bg-brand-green transition-all"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
-            <p className="mt-2 text-xs text-charcoal-ink/60">
+            <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {progressPct >= 100 ? "Weekly guideline reached, nice work." : `${progressPct}% of the way there.`}
             </p>
           </>
@@ -231,7 +234,7 @@ function TodayCard({
         <div>
           <CardTitle>Today</CardTitle>
           {!loading && (
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               {remaining > 0 ? `Try for ${remaining.toLocaleString()} more steps today` : "Goal reached, nice work"}
             </p>
           )}
@@ -246,7 +249,7 @@ function TodayCard({
         </div>
 
         {editing && (
-          <div className="grid gap-4 border-t border-charcoal-ink/10 pt-4 sm:grid-cols-2">
+          <div className="grid gap-4 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4 sm:grid-cols-2">
             <form action={formAction} className="space-y-2">
               <input type="hidden" name="_intent" value="steps" />
               <Label htmlFor="step_count">Log today&apos;s steps</Label>
@@ -279,7 +282,7 @@ function TodayCard({
             </form>
           </div>
         )}
-        {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
       </CardContent>
     </Card>
   );
@@ -324,8 +327,8 @@ function LogWorkoutCard({ patientId }: { patientId: string }) {
             {pending ? "Logging…" : "Log workout"}
           </Button>
         </form>
-        {state?.error && <p className="mt-2 text-sm text-destructive">{state.error}</p>}
-        {state?.success && <p className="mt-2 text-sm text-brand-green">Logged.</p>}
+        {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
+        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">Logged.</p>}
       </CardContent>
     </Card>
   );
@@ -370,18 +373,18 @@ function EntryRow({
     workoutDetail && weightKg ? caloriesBurned(workoutDetail.met, weightKg, entry.duration_minutes as number) : null;
 
   return (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-charcoal-ink/10 p-3">
+    <li className="flex items-center justify-between gap-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
       <div className="flex items-center gap-3">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-soft-sage">
-          <StepsIcon className="h-4 w-4 text-deep-forest" strokeWidth={2} />
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-soft-sage dark:bg-brand-green/20">
+          <StepsIcon className="h-4 w-4 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
         </span>
         <div>
-          <p className="text-sm font-medium text-charcoal-ink">{entrySummary(entry)}</p>
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{entrySummary(entry)}</p>
           {entry.entry_type === "steps" && entry.step_count != null && (
-            <p className="text-xs text-charcoal-ink/50">Logged for the day</p>
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Logged for the day</p>
           )}
           {workoutDetail && (
-            <p className="text-xs text-charcoal-ink/50">
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
               {INTENSITY_LABEL[workoutDetail.intensity]} intensity
               {calories != null ? ` · ~${calories.toLocaleString()} kcal` : ""}
             </p>

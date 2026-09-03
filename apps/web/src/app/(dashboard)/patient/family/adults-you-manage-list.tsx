@@ -27,13 +27,13 @@ export function AdultsYouManageList() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load this.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-400">Could not load this.</p>}
         {adults && adults.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {adults.map((adult) => (
               <li key={adult.id} className="flex items-center justify-between gap-4 py-3">
-                <p className="text-sm font-medium text-charcoal-ink">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                   {adult.full_name ?? "Unnamed"}
                 </p>
                 <Badge variant="grey">

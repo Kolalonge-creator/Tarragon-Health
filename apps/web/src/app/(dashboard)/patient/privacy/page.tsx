@@ -48,8 +48,8 @@ export default async function PrivacyCentrePage() {
       <CareVisibilityList />
 
       <div>
-        <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Your data rights</h2>
-        <p className="mb-3 text-sm text-charcoal-ink/60">
+        <h2 className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Your data rights</h2>
+        <p className="mb-3 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Under Nigeria&apos;s Data Protection Act, you can ask to see, correct, or delete the data we
           hold about you.
         </p>

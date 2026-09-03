@@ -24,21 +24,21 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
   const meter = riskLevel ? HEALTH_STATUS_METER[riskLevel] : null;
 
   return (
-    <div className="flex flex-col justify-center gap-2.5 bg-white p-6 sm:p-8">
-      <p className="text-sm text-charcoal-ink/60">{eyebrow}</p>
-      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+    <div className="flex flex-col justify-center gap-2.5 bg-white dark:bg-night-card p-6 sm:p-8">
+      <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{eyebrow}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
         How you&apos;re doing
       </p>
 
       {isLoading && (
         <div aria-hidden className="space-y-3 py-1">
-          <div className="h-12 w-36 animate-pulse rounded-lg bg-charcoal-ink/[0.07]" />
-          <div className="h-2.5 w-full animate-pulse rounded-full bg-charcoal-ink/[0.07]" />
+          <div className="h-12 w-36 animate-pulse rounded-lg bg-charcoal-ink/[0.07] dark:bg-night-ink/10" />
+          <div className="h-2.5 w-full animate-pulse rounded-full bg-charcoal-ink/[0.07] dark:bg-night-ink/10" />
         </div>
       )}
 
       {!isLoading && isError && (
-        <p className="max-w-sm text-sm text-charcoal-ink/70">
+        <p className="max-w-sm text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Your Health Score is taking a moment to load. It will be back the next time this page
           refreshes.
         </p>
@@ -47,7 +47,7 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
       {!isLoading && !isError && !hasScore && (
         // A brand-new patient has no score yet — an honest invitation, never
         // a fake number or a fabricated status word.
-        <p className="max-w-sm text-sm text-charcoal-ink/70">
+        <p className="max-w-sm text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Log your first readings and your score appears here. It builds from the everyday
           numbers you already track.
         </p>
@@ -57,14 +57,14 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
         <>
           {/* Proportional figures on purpose — display numbers never use
               tabular-nums. */}
-          <p className="font-heading text-5xl font-semibold text-charcoal-ink sm:text-6xl">
+          <p className="font-heading text-5xl font-semibold text-charcoal-ink dark:text-night-ink sm:text-6xl">
             {data.score}
-            <span className="ml-1.5 align-baseline text-lg font-normal text-charcoal-ink/50">
+            <span className="ml-1.5 align-baseline text-lg font-normal text-charcoal-ink/50 dark:text-night-ink/55">
               /100
             </span>
           </p>
           {status && (
-            <p className="flex items-center gap-2 text-sm font-medium text-charcoal-ink">
+            <p className="flex items-center gap-2 text-sm font-medium text-charcoal-ink dark:text-night-ink">
               <span className={`h-2 w-2 shrink-0 rounded-full ${status.dot}`} aria-hidden />
               {status.word}
             </p>
@@ -84,7 +84,7 @@ export function HeroScoreZone({ patientId, eyebrow }: { patientId: string; eyebr
               />
             </div>
           )}
-          <p className="text-xs text-charcoal-ink/50">
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             A summary of your recent numbers, not a diagnosis.
           </p>
         </>

@@ -94,7 +94,7 @@ export default async function EmergencyCardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <ul className="space-y-1 text-sm text-charcoal-ink/80">
+            <ul className="space-y-1 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               <li>Your name, date of birth and sex</li>
               <li>Your blood group and genotype, if we have them</li>
               <li>Your allergies</li>
@@ -102,7 +102,7 @@ export default async function EmergencyCardPage() {
               <li>Any ongoing conditions you are being treated for</li>
               <li>Your emergency contact</li>
             </ul>
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Nothing else: no test results, no notes from your care team, no history. A QR code
               on the printed card carries the same facts as plain text, so any phone&rsquo;s
               camera can read it with no app and no internet.
@@ -128,14 +128,14 @@ export default async function EmergencyCardPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             {expiresSoon ? (
-              <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+              <p className="rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 p-2 text-xs text-amber-900 dark:text-amber-200">
                 This link expires soon. Replace it below to keep it working, or let it lapse.
                 Your printed card is unaffected either way.
               </p>
             ) : null}
 
             {active && qrSvg && url ? (
-              <div className="flex flex-col gap-4 rounded-lg border border-charcoal-ink/15 p-4 sm:flex-row sm:items-center">
+              <div className="flex flex-col gap-4 rounded-lg border border-charcoal-ink/15 dark:border-night-ink/20 p-4 sm:flex-row sm:items-center">
                 <div
                   className="shrink-0"
                   aria-label="QR code linking to your emergency card"
@@ -144,14 +144,14 @@ export default async function EmergencyCardPage() {
                   dangerouslySetInnerHTML={{ __html: qrSvg }}
                 />
                 <div className="min-w-0 space-y-1">
-                  <p className="text-sm font-medium text-charcoal-ink">
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     Scan this, or open the link below.
                   </p>
-                  <p className="break-all text-xs text-charcoal-ink/60">{url}</p>
+                  <p className="break-all text-xs text-charcoal-ink/60 dark:text-night-ink/60">{url}</p>
                   <Link
                     href={`/emergency/${active.token}`}
                     target="_blank"
-                    className="inline-block text-sm font-medium text-brand-green hover:underline"
+                    className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
                   >
                     See exactly what a stranger would see →
                   </Link>
@@ -175,15 +175,15 @@ export default async function EmergencyCardPage() {
           </CardHeader>
           <CardContent>
             {!lookups || lookups.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/70">Nobody has opened it yet.</p>
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Nobody has opened it yet.</p>
             ) : (
               <>
-                <p className="mb-2 text-sm text-charcoal-ink">
+                <p className="mb-2 text-sm text-charcoal-ink dark:text-night-ink">
                   Opened {active.view_count} time{active.view_count === 1 ? "" : "s"}.
                 </p>
                 <ul className="space-y-1">
                   {lookups.map((l) => (
-                    <li key={l.id} className="text-sm text-charcoal-ink/75">
+                    <li key={l.id} className="text-sm text-charcoal-ink/75 dark:text-night-ink/75">
                       {new Date(l.looked_up_at).toLocaleString("en-GB", { timeZone: "Africa/Lagos",
                         day: "numeric",
                         month: "short",
@@ -194,7 +194,7 @@ export default async function EmergencyCardPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-2 text-xs text-charcoal-ink/55">
+                <p className="mt-2 text-xs text-charcoal-ink/55 dark:text-night-ink/60">
                   If any of these look wrong, replace your link. The old one stops working
                   straight away.
                 </p>

@@ -116,26 +116,26 @@ export function AtAGlancePanel({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-charcoal-ink/10 p-3">
-            <div className="flex items-center gap-2 text-charcoal-ink/60">
+          <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+            <div className="flex items-center gap-2 text-charcoal-ink/60 dark:text-night-ink/60">
               <SEMANTIC_ICON.weight className="h-4 w-4" strokeWidth={2} />
               <span className="text-xs">Weight</span>
             </div>
-            <p className="mt-1 text-sm font-medium text-charcoal-ink">{weightLine}</p>
+            <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{weightLine}</p>
           </div>
-          <div className="rounded-lg border border-charcoal-ink/10 p-3">
-            <div className="flex items-center gap-2 text-charcoal-ink/60">
+          <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+            <div className="flex items-center gap-2 text-charcoal-ink/60 dark:text-night-ink/60">
               <SEMANTIC_ICON.steps className="h-4 w-4" strokeWidth={2} />
               <span className="text-xs">Activity</span>
             </div>
-            <p className="mt-1 text-sm font-medium text-charcoal-ink">{stepsLine}</p>
+            <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{stepsLine}</p>
           </div>
-          <div className="rounded-lg border border-charcoal-ink/10 p-3">
-            <div className="flex items-center gap-2 text-charcoal-ink/60">
+          <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+            <div className="flex items-center gap-2 text-charcoal-ink/60 dark:text-night-ink/60">
               <NAV_ICON.wellness className="h-4 w-4" strokeWidth={2} />
               <span className="text-xs">Rewards</span>
             </div>
-            <p className="mt-1 text-sm font-medium text-charcoal-ink">
+            <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">
               {points.toLocaleString()} points banked
             </p>
           </div>
@@ -145,11 +145,11 @@ export function AtAGlancePanel({ patientId }: { patientId: string }) {
             <Link
               key={href}
               href={href}
-              className="flex flex-col gap-2 rounded-lg border border-charcoal-ink/10 p-4 transition-colors hover:border-brand-green hover:bg-soft-sage"
+              className="flex flex-col gap-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4 transition-colors hover:border-brand-green hover:bg-soft-sage dark:hover:bg-brand-green/20"
             >
-              <Icon className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-              <span className="text-sm font-medium text-charcoal-ink">{label}</span>
-              <span className="text-xs text-charcoal-ink/60">{description}</span>
+              <Icon className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+              <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{label}</span>
+              <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{description}</span>
             </Link>
           ))}
         </div>
@@ -219,10 +219,10 @@ export function LifestyleClient({
           </CardHeader>
           <CardContent className="space-y-3">
             {enrollState?.message && (
-              <p className="text-sm text-brand-green">{enrollState.message}</p>
+              <p className="text-sm text-brand-green dark:text-brand-green-bright">{enrollState.message}</p>
             )}
             {enrollState?.error && (
-              <p className="text-sm text-destructive">{enrollState.error}</p>
+              <p className="text-sm text-destructive dark:text-red-400">{enrollState.error}</p>
             )}
 
             {showEdScreenGate ? (
@@ -236,7 +236,7 @@ export function LifestyleClient({
                     checked={consented}
                     onChange={(e) => setConsented(e.target.checked)}
                   />
-                  <span className="text-muted-foreground">
+                  <span className="text-muted-foreground dark:text-night-ink/60">
                     I agree that my logged readings and check-ins can be reviewed by
                     my Tarragon care team to support this programme, and I can
                     withdraw at any time.
@@ -292,7 +292,7 @@ function ObesityEdScreenGateForm({ consented }: { consented: boolean }) {
   return (
     <form action={submit} className="space-y-4">
       <input type="hidden" name="consent" value={consented ? "on" : "off"} />
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-muted-foreground dark:text-night-ink/60">
         Before we start on weight or eating goals, a few quick questions: this
         is just so your care team can support you well from day one.
       </p>
@@ -307,7 +307,7 @@ function ObesityEdScreenGateForm({ consented }: { consented: boolean }) {
       </fieldset>
 
       <fieldset className="space-y-2">
-        <legend className="text-sm font-medium text-charcoal-ink">
+        <legend className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
           Any of these lately?
         </legend>
         {ED_DISORDERED_BEHAVIOURS.map((code) => (
@@ -334,7 +334,7 @@ function ObesityEdScreenGateForm({ consented }: { consented: boolean }) {
         <Textarea id="ed_notes" name="notes" rows={2} />
       </div>
 
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
       <Button type="submit" disabled={!consented}>
         Continue
       </Button>

@@ -13,13 +13,13 @@ export function CoverageDecisionNote({ denialReason }: { denialReason: string | 
   if (!denialReason) return null;
 
   return (
-    <div className="rounded-md bg-amber-50 p-3 text-sm">
-      <p className="font-medium text-charcoal-ink">Your plan doesn&apos;t cover this</p>
-      <p className="mt-0.5 text-charcoal-ink/70">
+    <div className="rounded-md bg-amber-50 dark:bg-amber-500/15 p-3 text-sm">
+      <p className="font-medium text-charcoal-ink dark:text-night-ink">Your plan doesn&apos;t cover this</p>
+      <p className="mt-0.5 text-charcoal-ink/70 dark:text-night-ink/70">
         That&apos;s a decision about what your insurance pays for. It doesn&apos;t change what your care
         team recommended.
       </p>
-      <p className="mt-1 text-charcoal-ink/70">{denialReason}</p>
+      <p className="mt-1 text-charcoal-ink/70 dark:text-night-ink/70">{denialReason}</p>
     </div>
   );
 }

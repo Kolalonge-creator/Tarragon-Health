@@ -14,7 +14,7 @@ export function OverviewHero({ patientId, eyebrow }: { patientId: string; eyebro
   return (
     <section
       aria-label="How you're doing and your next best step"
-      className="overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white shadow-sm"
+      className="overflow-hidden rounded-2xl border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card shadow-sm dark:shadow-none"
     >
       {/* Stacks score-first on phones; two zones side by side from lg. */}
       <div className="grid grid-cols-1 lg:grid-cols-2">

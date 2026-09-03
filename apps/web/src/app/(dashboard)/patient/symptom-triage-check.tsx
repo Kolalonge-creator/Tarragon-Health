@@ -133,7 +133,7 @@ export function SymptomTriageCheck({
       <CardContent className="space-y-4">
         {stage.step === "pick_complaint" && (
           <div className="space-y-2">
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Tell us what&apos;s going on and we&apos;ll help you work out the safest next step.
             </p>
             <div className="flex flex-wrap gap-2">
@@ -159,14 +159,14 @@ export function SymptomTriageCheck({
             <Badge variant={CATEGORY_BADGE_VARIANT[stage.category]}>
               {CATEGORY_LABEL[stage.category] ?? stage.category.replace(/_/g, " ")}
             </Badge>
-            <p className="text-sm text-charcoal-ink">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
               {getSafetyNetMessage(
                 stage.safetyNetMessageKey,
                 stage.category as keyof typeof CATEGORY_SAFETY_NET_MESSAGE
               )}
             </p>
             {stage.clinicianReviewRequired && (
-              <p className="text-sm text-charcoal-ink/70">
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                 A member of our care team will also take a look at this one directly.
               </p>
             )}
@@ -177,13 +177,13 @@ export function SymptomTriageCheck({
         )}
 
         {stage.step === "unavailable" && (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             The symptom checker isn&apos;t available right now. If something&apos;s worrying you, please use the emergency
             check above or reach out to your care team.
           </p>
         )}
 
-        {stage.step === "error" && <p className="text-sm text-red-700">{stage.message}</p>}
+        {stage.step === "error" && <p className="text-sm text-red-700 dark:text-red-300">{stage.message}</p>}
       </CardContent>
     </Card>
   );
@@ -232,7 +232,7 @@ function InitialCaptureForm({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <Label htmlFor="severity">Severity</Label>
-          <span className="text-sm font-semibold text-charcoal-ink">{severity}/10</span>
+          <span className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">{severity}/10</span>
         </div>
         <input
           id="severity"
@@ -263,7 +263,7 @@ function QuestionStep({
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-charcoal-ink">{question.prompt}</p>
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{question.prompt}</p>
       {question.kind === "boolean" ? (
         <div className="flex gap-2">
           <Button type="button" disabled={pending} onClick={() => onAnswer(true)}>

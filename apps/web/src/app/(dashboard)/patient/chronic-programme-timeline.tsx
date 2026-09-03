@@ -111,29 +111,29 @@ function CheckinBooker({
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-charcoal-ink/10 bg-warm-ivory/60 p-3">
+    <div className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 bg-warm-ivory/60 dark:bg-night-ink/10 p-3">
       {message && (
-        <p className={`text-xs ${message.tone === "success" ? "text-brand-green" : "text-red-600"}`}>
+        <p className={`text-xs ${message.tone === "success" ? "text-brand-green dark:text-brand-green-bright" : "text-red-600 dark:text-red-300"}`}>
           {message.text}
         </p>
       )}
-      {isLoading && <p className="text-xs text-charcoal-ink/60">Looking for open times…</p>}
+      {isLoading && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Looking for open times…</p>}
       {!isLoading && slots && slots.length === 0 && (
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           No open doctor times in the next two weeks. Check back shortly, or contact us if this
           call is due soon.
         </p>
       )}
       {!isLoading && slots && slots.length > 0 && (
-        <ul className="max-h-56 divide-y divide-charcoal-ink/10 overflow-y-auto">
+        <ul className="max-h-56 divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 overflow-y-auto">
           {slots.slice(0, 20).map((slot) => (
             <li
               key={`${slot.clinician_id}-${slot.slot_start}`}
               className="flex flex-wrap items-center gap-2 py-1.5"
             >
               <div>
-                <p className="text-xs text-charcoal-ink">{formatSlot(slot.slot_start)}</p>
-                <p className="text-[11px] text-charcoal-ink/60">with {slot.clinician_name}</p>
+                <p className="text-xs text-charcoal-ink dark:text-night-ink">{formatSlot(slot.slot_start)}</p>
+                <p className="text-[11px] text-charcoal-ink/60 dark:text-night-ink/60">with {slot.clinician_name}</p>
               </div>
               <Button
                 size="sm"
@@ -173,14 +173,14 @@ function OccurrenceRow({
   return (
     <li className="space-y-1.5 py-2.5">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-charcoal-ink/60">Week {occurrence.week_number}</span>
-        <p className="text-sm text-charcoal-ink">{OCCURRENCE_LABEL[occurrence.occurrence_type]}</p>
+        <span className="text-xs font-medium text-charcoal-ink/60 dark:text-night-ink/60">Week {occurrence.week_number}</span>
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">{OCCURRENCE_LABEL[occurrence.occurrence_type]}</p>
         <Badge variant={status.variant}>{status.label}</Badge>
         {occurrence.status === "pending" && (
-          <span className="text-xs text-charcoal-ink/50">Due {formatDate(occurrence.due_date)}</span>
+          <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Due {formatDate(occurrence.due_date)}</span>
         )}
         {occurrence.occurrence_type === "doctor_checkin" && occurrence.appointment_id && occurrence.status === "pending" && (
-          <span className="text-xs text-brand-green">Booked</span>
+          <span className="text-xs text-brand-green dark:text-brand-green-bright">Booked</span>
         )}
       </div>
       {canBook && (
@@ -201,8 +201,8 @@ function BuyDoctorSupportedAddon({ enrolmentId }: { enrolmentId: string }) {
 
   return (
     <div className="space-y-2 rounded-md border border-brand-green/20 bg-brand-green/5 p-3">
-      <p className="text-sm font-medium text-charcoal-ink">Want a doctor on this with you?</p>
-      <p className="text-xs text-charcoal-ink/70">
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Want a doctor on this with you?</p>
+      <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
         Adds 3 check-in calls with whichever doctor has capacity that week, active dose
         adjustments, and doctor-suggested testing across your 12 weeks.
       </p>
@@ -211,8 +211,8 @@ function BuyDoctorSupportedAddon({ enrolmentId }: { enrolmentId: string }) {
           {pending ? "Starting…" : "Add doctor support"}
         </Button>
       </form>
-      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
-      {state?.message && <p className="text-xs text-brand-green">{state.message}</p>}
+      {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
+      {state?.message && <p className="text-xs text-brand-green dark:text-brand-green-bright">{state.message}</p>}
     </div>
   );
 }
@@ -244,9 +244,9 @@ function EnrolmentCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading your schedule…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading your schedule…</p>}
         {occurrences && occurrences.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {occurrences.map((occurrence) => (
               <OccurrenceRow
                 key={occurrence.id}

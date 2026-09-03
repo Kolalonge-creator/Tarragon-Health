@@ -72,8 +72,8 @@ export function BloodAttestationForm({
       </CardHeader>
       <CardContent className="space-y-3">
         {initial && (initial.bloodGroup || initial.genotype) ? (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-charcoal-ink/15 p-3">
-            <span className="text-sm font-medium text-charcoal-ink">
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-charcoal-ink/15 dark:border-night-ink/20 p-3">
+            <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               {initial.bloodGroup ?? "Group not recorded"}
               {initial.genotype ? ` · Genotype ${initial.genotype}` : ""}
             </span>
@@ -82,21 +82,21 @@ export function BloodAttestationForm({
             </Badge>
           </div>
         ) : (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Not recorded yet. Your card will simply say so.
           </p>
         )}
 
         {labBacked ? (
-          <p className="text-xs text-charcoal-ink/60">
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             Your care team recorded this from a lab report you uploaded, so it shows on your card as
             confirmed. To change it, upload a newer report.
           </p>
         ) : (
           <>
-            <p className="text-sm text-charcoal-ink/80">
+            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               The best way to get this on your card is to{" "}
-              <Link href="/patient/labs" className="font-medium text-brand-green hover:underline">
+              <Link href="/patient/labs" className="font-medium text-brand-green dark:text-brand-green-bright hover:underline">
                 upload your lab result
               </Link>
               , and your care team will confirm it. If you do not have the report to hand, you can
@@ -108,14 +108,14 @@ export function BloodAttestationForm({
                 Tell us myself
               </Button>
             ) : (
-              <div className="space-y-3 rounded-lg border border-charcoal-ink/15 p-3">
+              <div className="space-y-3 rounded-lg border border-charcoal-ink/15 dark:border-night-ink/20 p-3">
                 <div className="flex flex-wrap gap-3">
                   <label className="text-sm">
-                    <span className="block text-xs text-charcoal-ink/60">Blood group</span>
+                    <span className="block text-xs text-charcoal-ink/60 dark:text-night-ink/60">Blood group</span>
                     <select
                       value={bloodGroup}
                       onChange={(e) => setBloodGroup(e.target.value)}
-                      className="mt-1 rounded border border-charcoal-ink/20 px-2 py-1 text-sm"
+                      className="mt-1 rounded border border-charcoal-ink/20 dark:border-night-ink/25 px-2 py-1 text-sm"
                     >
                       <option value="">I am not sure</option>
                       {BLOOD_GROUPS.map((g) => (
@@ -126,11 +126,11 @@ export function BloodAttestationForm({
                     </select>
                   </label>
                   <label className="text-sm">
-                    <span className="block text-xs text-charcoal-ink/60">Genotype</span>
+                    <span className="block text-xs text-charcoal-ink/60 dark:text-night-ink/60">Genotype</span>
                     <select
                       value={genotype}
                       onChange={(e) => setGenotype(e.target.value)}
-                      className="mt-1 rounded border border-charcoal-ink/20 px-2 py-1 text-sm"
+                      className="mt-1 rounded border border-charcoal-ink/20 dark:border-night-ink/25 px-2 py-1 text-sm"
                     >
                       <option value="">I am not sure</option>
                       {GENOTYPES.map((g) => (
@@ -144,17 +144,17 @@ export function BloodAttestationForm({
 
                 {genotype === "other" ? (
                   <label className="block text-sm">
-                    <span className="block text-xs text-charcoal-ink/60">Which one?</span>
+                    <span className="block text-xs text-charcoal-ink/60 dark:text-night-ink/60">Which one?</span>
                     <input
                       value={note}
                       onChange={(e) => setNote(e.target.value)}
-                      className="mt-1 w-full rounded border border-charcoal-ink/20 px-2 py-1 text-sm"
+                      className="mt-1 w-full rounded border border-charcoal-ink/20 dark:border-night-ink/25 px-2 py-1 text-sm"
                     />
                   </label>
                 ) : null}
 
-                <div className="rounded border border-charcoal-ink/15 bg-charcoal-ink/[0.02] p-2">
-                  <label className="flex items-start gap-2 text-xs text-charcoal-ink/85">
+                <div className="rounded border border-charcoal-ink/15 dark:border-night-ink/20 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-2">
+                  <label className="flex items-start gap-2 text-xs text-charcoal-ink/85 dark:text-night-ink/85">
                     <input
                       type="checkbox"
                       checked={attested}
@@ -172,7 +172,7 @@ export function BloodAttestationForm({
                   </label>
                 </div>
 
-                {error ? <p className="text-sm text-red-600">{error}</p> : null}
+                {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
 
                 <div className="flex gap-2">
                   <Button type="button" size="sm" disabled={pending || !attested} onClick={submit}>
@@ -193,7 +193,7 @@ export function BloodAttestationForm({
           </>
         )}
 
-        {message ? <p className="text-sm text-brand-green">{message}</p> : null}
+        {message ? <p className="text-sm text-brand-green dark:text-brand-green-bright">{message}</p> : null}
       </CardContent>
     </Card>
   );

@@ -35,12 +35,12 @@ function FeedbackPrompt({ requestId }: { requestId: string }) {
   const [given, setGiven] = useState(false);
 
   if (given) {
-    return <p className="text-xs text-charcoal-ink/50">Thanks for letting us know.</p>;
+    return <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Thanks for letting us know.</p>;
   }
 
   return (
     <div className="flex items-center gap-2">
-      <span className="text-xs text-charcoal-ink/60">How did we do?</span>
+      <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">How did we do?</span>
       {[1, 2, 3, 4, 5].map((n) => (
         <button
           key={n}
@@ -52,7 +52,7 @@ function FeedbackPrompt({ requestId }: { requestId: string }) {
               { onSuccess: () => setGiven(true) }
             )
           }
-          className="flex h-6 w-6 items-center justify-center rounded-full border border-charcoal-ink/15 text-xs text-charcoal-ink/70 hover:border-brand-green hover:text-brand-green"
+          className="flex h-6 w-6 items-center justify-center rounded-full border border-charcoal-ink/15 dark:border-night-ink/20 text-xs text-charcoal-ink/70 dark:text-night-ink/70 hover:border-brand-green hover:text-brand-green dark:hover:text-brand-green-bright"
         >
           {n}
         </button>
@@ -101,7 +101,7 @@ export function NavigationRequests({ patientId }: { patientId: string }) {
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+            <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
             Need help with something?
           </CardTitle>
           <CardDescription>
@@ -117,7 +117,7 @@ export function NavigationRequests({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {open && (
-          <div className="space-y-3 rounded-lg border border-charcoal-ink/10 p-4">
+          <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
             <div className="grid gap-2">
               <Label htmlFor="nav-request-category">What&apos;s this about?</Label>
               <Select
@@ -143,12 +143,12 @@ export function NavigationRequests({ patientId }: { patientId: string }) {
                 placeholder="e.g. My pharmacy doesn't have my usual medicine in stock"
               />
             </div>
-            <label className="flex items-center gap-2 text-sm text-charcoal-ink/70">
+            <label className="flex items-center gap-2 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               <input
                 type="checkbox"
                 checked={isComplaint}
                 onChange={(e) => setIsComplaint(e.target.checked)}
-                className="h-4 w-4 rounded border-charcoal-ink/30"
+                className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
               />
               This is a formal complaint
             </label>
@@ -159,26 +159,26 @@ export function NavigationRequests({ patientId }: { patientId: string }) {
               <Button type="button" variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              {error && <span className="text-sm text-red-600">{error}</span>}
+              {error && <span className="text-sm text-red-600 dark:text-red-300">{error}</span>}
             </div>
           </div>
         )}
 
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {!isLoading && (!requests || requests.length === 0) && !open && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             No requests yet -- if something about the app or your care admin is getting in the way, let
             us know above.
           </p>
         )}
         {requests && requests.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {requests.map((r) => {
               const statusBadge = NAVIGATION_REQUEST_STATUS_BADGE[r.status];
               return (
                 <li key={r.id} className="space-y-1 py-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-semibold text-charcoal-ink">
+                    <span className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
                       {NAVIGATION_REQUEST_CATEGORY_LABEL[r.category]}
                     </span>
                     <div className="flex items-center gap-1.5">
@@ -186,10 +186,10 @@ export function NavigationRequests({ patientId }: { patientId: string }) {
                       <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
                     </div>
                   </div>
-                  <p className="text-sm text-charcoal-ink/70">{r.description}</p>
-                  <p className="text-xs text-charcoal-ink/45">Sent {when(r.created_at)}</p>
+                  <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{r.description}</p>
+                  <p className="text-xs text-charcoal-ink/45 dark:text-night-ink/55">Sent {when(r.created_at)}</p>
                   {r.status === "resolved" && r.resolution_note && (
-                    <p className="rounded-md bg-warm-ivory p-2 text-sm text-charcoal-ink/80">
+                    <p className="rounded-md bg-warm-ivory dark:bg-night-ink/10 p-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                       {r.resolution_note}
                     </p>
                   )}

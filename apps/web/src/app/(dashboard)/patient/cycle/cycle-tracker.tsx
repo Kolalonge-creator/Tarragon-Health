@@ -76,14 +76,14 @@ function FlagCard({ flags }: { flags: CycleClinicalFlag[] }) {
           // An urgent flag is the one place on this page that borrows the
           // clinical red, because it is the one place something is actually
           // wrong rather than simply being a phase of a normal cycle.
-          className="rounded-lg border-l-4 border-red-600 bg-red-50 p-4"
+          className="rounded-lg border-l-4 border-red-600 bg-red-50 dark:bg-red-500/15 p-4"
           role="alert"
         >
-          <p className="text-sm font-semibold text-red-800">{flag.label}</p>
-          <p className="mt-1 text-sm text-red-900/80">{flag.detail}</p>
+          <p className="text-sm font-semibold text-red-800 dark:text-red-300">{flag.label}</p>
+          <p className="mt-1 text-sm text-red-900/80 dark:text-red-200">{flag.detail}</p>
           <Link
             href="/patient/messages"
-            className="mt-2 inline-block text-sm font-medium text-red-800 underline"
+            className="mt-2 inline-block text-sm font-medium text-red-800 dark:text-red-300 underline"
           >
             Message your care team
           </Link>
@@ -101,13 +101,13 @@ function FlagCard({ flags }: { flags: CycleClinicalFlag[] }) {
           <CardContent className="space-y-3">
             {rest.map((flag) => (
               <div key={flag.id}>
-                <p className="text-sm font-medium text-charcoal-ink">{flag.label}</p>
-                <p className="text-sm text-charcoal-ink/70">{flag.detail}</p>
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{flag.label}</p>
+                <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{flag.detail}</p>
               </div>
             ))}
             <Link
               href="/patient/messages"
-              className="inline-block text-sm font-medium text-brand-green underline"
+              className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright underline"
             >
               Message your care team
             </Link>
@@ -120,10 +120,10 @@ function FlagCard({ flags }: { flags: CycleClinicalFlag[] }) {
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-lg bg-warm-ivory p-3">
-      <p className="text-[11px] uppercase tracking-wide text-charcoal-ink/50">{label}</p>
-      <p className="mt-0.5 text-lg font-semibold text-charcoal-ink">{value}</p>
-      {hint && <p className="text-[11px] text-charcoal-ink/60">{hint}</p>}
+    <div className="rounded-lg bg-warm-ivory dark:bg-night-ink/10 p-3">
+      <p className="text-[11px] uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">{label}</p>
+      <p className="mt-0.5 text-lg font-semibold text-charcoal-ink dark:text-night-ink">{value}</p>
+      {hint && <p className="text-[11px] text-charcoal-ink/60 dark:text-night-ink/60">{hint}</p>}
     </div>
   );
 }
@@ -163,7 +163,7 @@ export function CycleTracker({
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-sm text-charcoal-ink/60">
+        <CardContent className="py-10 text-center text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Loading your cycle...
         </CardContent>
       </Card>
@@ -173,7 +173,7 @@ export function CycleTracker({
   if (error) {
     return (
       <Card>
-        <CardContent className="py-10 text-center text-sm text-red-600">
+        <CardContent className="py-10 text-center text-sm text-red-600 dark:text-red-400">
           We could not load your cycle just now. Please refresh and try again.
         </CardContent>
       </Card>
@@ -189,7 +189,7 @@ export function CycleTracker({
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
-              <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+              <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
               Your cycle
             </CardTitle>
             <Badge variant={confidence.variant}>{confidence.label}</Badge>
@@ -201,7 +201,7 @@ export function CycleTracker({
           <CycleLegend />
 
           {prediction.currentPhase !== "unknown" && (
-            <p className="rounded-lg bg-soft-sage/50 p-3 text-center text-sm text-charcoal-ink/80">
+            <p className="rounded-lg bg-soft-sage/50 dark:bg-brand-green/10 p-3 text-center text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               <span className="font-medium">{PHASE_LABEL[prediction.currentPhase]}.</span>{" "}
               {PHASE_DESCRIPTION[prediction.currentPhase]}
             </p>
@@ -267,7 +267,7 @@ export function CycleTracker({
             </Button>
           </div>
           {logPeriod.isError && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-600 dark:text-red-400">
               {(logPeriod.error as Error)?.message ?? "Could not save that."}
             </p>
           )}
@@ -307,7 +307,7 @@ export function CycleTracker({
                 }
               />
             </div>
-            <p className="text-xs text-charcoal-ink/60">{FERTILE_WINDOW_DISCLAIMER}</p>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{FERTILE_WINDOW_DISCLAIMER}</p>
           </CardContent>
         </Card>
       )}
@@ -411,15 +411,15 @@ export function CycleTracker({
               <Link
                 key={item.code}
                 href="/patient/learn"
-                className="flex items-start justify-between gap-3 rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/5"
+                className="flex items-start justify-between gap-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3 hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10"
               >
                 <span>
-                  <span className="block text-sm font-medium text-charcoal-ink">
+                  <span className="block text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     {item.title}
                   </span>
-                  <span className="block text-xs text-charcoal-ink/60">{item.reason}</span>
+                  <span className="block text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.reason}</span>
                 </span>
-                <span aria-hidden className="text-brand-green">
+                <span aria-hidden className="text-brand-green dark:text-brand-green-bright">
                   &rarr;
                 </span>
               </Link>
@@ -442,7 +442,7 @@ export function CycleTracker({
             <ul className="divide-y">
               {cycles.slice(0, 12).map((cycle) => (
                 <li key={cycle.id} className="flex items-center justify-between gap-3 py-2">
-                  <span className="text-sm text-charcoal-ink">
+                  <span className="text-sm text-charcoal-ink dark:text-night-ink">
                     {longDate(cycle.period_start_date)}
                     {cycle.period_end_date ? ` to ${shortDate(cycle.period_end_date)}` : " (open)"}
                   </span>
@@ -463,7 +463,7 @@ export function CycleTracker({
         </Card>
       )}
 
-      <p className="text-xs text-charcoal-ink/50">
+      <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         Your cycle information is part of your health record. Your care team can see it; nobody
         else can. It is never used to score your health risk.
       </p>

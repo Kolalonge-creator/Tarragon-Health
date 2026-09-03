@@ -118,8 +118,8 @@ export function ConfirmScreeningDoneForm({
 
   if (completionId) {
     return (
-      <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
-        <p className="text-sm text-brand-green">
+      <div className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+        <p className="text-sm text-brand-green dark:text-brand-green-bright">
           Marked as done for {formatPatientDate(performedDate)}. We&apos;ve scheduled
           your next {screenTypeName.toLowerCase()} from that date.
         </p>
@@ -134,7 +134,7 @@ export function ConfirmScreeningDoneForm({
               onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
             {(validationError || uploadError) && (
-              <p className="text-xs text-red-600">{validationError ?? uploadError}</p>
+              <p className="text-xs text-red-600 dark:text-red-300">{validationError ?? uploadError}</p>
             )}
             <div className="flex gap-2">
               <Button type="submit" size="sm" disabled={!file || uploadResult.isPending}>
@@ -146,7 +146,7 @@ export function ConfirmScreeningDoneForm({
             </div>
           </form>
         ) : (
-          <p className="text-xs text-charcoal-ink/60">
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             Result uploaded. Your care team will review it.
           </p>
         )}
@@ -157,7 +157,7 @@ export function ConfirmScreeningDoneForm({
   return (
     <form
       onSubmit={handleConfirm}
-      className="space-y-2 rounded-md border border-charcoal-ink/10 p-3"
+      className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
     >
       <div className="space-y-1.5">
         <Label htmlFor={`performed-date-${scheduleId}`}>Date the test was done</Label>
@@ -176,7 +176,7 @@ export function ConfirmScreeningDoneForm({
         onChange={(event) => setNote(event.target.value)}
         rows={2}
       />
-      {confirmError && <p className="text-xs text-red-600">{confirmError}</p>}
+      {confirmError && <p className="text-xs text-red-600 dark:text-red-300">{confirmError}</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={logCompletion.isPending}>
           {logCompletion.isPending ? "Saving…" : "Confirm completed"}

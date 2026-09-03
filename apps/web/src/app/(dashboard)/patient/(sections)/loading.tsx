@@ -9,7 +9,7 @@
  * these are plain pulse blocks in the app's own neutral tones.
  */
 function SkeletonBlock({ className }: { className: string }) {
-  return <div aria-hidden className={`animate-pulse rounded-2xl bg-charcoal-ink/[0.07] ${className}`} />;
+  return <div aria-hidden className={`animate-pulse rounded-2xl bg-charcoal-ink/[0.07] dark:bg-night-ink/10 ${className}`} />;
 }
 
 export default function PatientSectionLoading() {

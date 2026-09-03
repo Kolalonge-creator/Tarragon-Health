@@ -9,12 +9,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 function YesNoQuestion({ name, prompt }: { name: string; prompt: string }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm text-charcoal-ink">{prompt}</legend>
+      <legend className="text-sm text-charcoal-ink dark:text-night-ink">{prompt}</legend>
       <div className="flex gap-2">
         {YES_NO_OPTIONS.map((opt) => (
           <label
             key={opt.value}
-            className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 px-3 py-1.5 text-xs text-charcoal-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
+            className="flex cursor-pointer items-center gap-2 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 px-3 py-1.5 text-xs text-charcoal-ink/80 dark:text-night-ink/80 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5 dark:has-[:checked]:bg-brand-green/10"
           >
             <input type="radio" name={name} value={opt.value} required className="accent-[color:var(--brand-green,#0E7C52)]" />
             {opt.label}
@@ -41,17 +41,17 @@ export function AdolescentHealthForm() {
         <CardHeader>
           <CardTitle className="text-base">Thanks for checking in</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm text-charcoal-ink/80">
+        <CardContent className="space-y-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           <p>Your answers are saved and stay private to your care team.</p>
           {(state.selfHarmFlagged || state.immediateDangerFlagged) && (
-            <p className="rounded-md bg-red-50 p-3 text-red-700">
+            <p className="rounded-md bg-red-50 dark:bg-red-500/15 p-3 text-red-700 dark:text-red-300">
               You told us something worrying. You are not alone. A member of your care team will
               reach out to you directly. If you are in immediate danger, please contact emergency
               services or go to the nearest hospital now.
             </p>
           )}
           {state.abuseNeglectExploitationFlagged && !state.selfHarmFlagged && !state.immediateDangerFlagged && (
-            <p className="rounded-md bg-amber-50 p-3 text-amber-800">
+            <p className="rounded-md bg-amber-50 dark:bg-amber-500/15 p-3 text-amber-800 dark:text-amber-300">
               You told us something that matters. A senior member of your care team will look into
               this carefully and privately. This is never shared with anyone else without your
               safety being the first priority.
@@ -68,14 +68,14 @@ export function AdolescentHealthForm() {
         <CardTitle className="text-base">Your whole-life check-in</CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="mb-4 text-sm text-charcoal-ink/70">
+        <p className="mb-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           A few questions about home, school, activity, and how you&apos;re really doing, the kind
           of thing a doctor might ask in person. There are no wrong answers, and your answers stay
           private to your care team.
         </p>
         <form action={formAction} className="space-y-6">
           <div className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest">Home</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest dark:text-brand-green-bright">Home</h3>
             <YesNoQuestion name="home_feels_safe" prompt="Do you feel safe at home?" />
             <YesNoQuestion
               name="home_hurt_or_threatened"
@@ -84,11 +84,11 @@ export function AdolescentHealthForm() {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest dark:text-brand-green-bright">
               School and everyday life
             </h3>
             <fieldset className="space-y-2">
-              <legend className="text-sm text-charcoal-ink">
+              <legend className="text-sm text-charcoal-ink dark:text-night-ink">
                 Anything you&apos;d like to share about school or how things are going day to day?
                 (optional)
               </legend>
@@ -96,17 +96,17 @@ export function AdolescentHealthForm() {
                 name="education_note"
                 maxLength={500}
                 rows={2}
-                className="w-full rounded-md border border-charcoal-ink/15 p-2 text-sm"
+                className="w-full rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 p-2 text-sm"
               />
             </fieldset>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest dark:text-brand-green-bright">
               Activity and sleep
             </h3>
             <fieldset className="space-y-2">
-              <legend className="text-sm text-charcoal-ink">
+              <legend className="text-sm text-charcoal-ink dark:text-night-ink">
                 In a typical week, how many days are you physically active?
               </legend>
               <input
@@ -115,11 +115,11 @@ export function AdolescentHealthForm() {
                 min={0}
                 max={7}
                 required
-                className="w-24 rounded-md border border-charcoal-ink/15 p-2 text-sm"
+                className="w-24 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 p-2 text-sm"
               />
             </fieldset>
             <fieldset className="space-y-2">
-              <legend className="text-sm text-charcoal-ink">
+              <legend className="text-sm text-charcoal-ink dark:text-night-ink">
                 On a typical night, how many hours do you sleep?
               </legend>
               <input
@@ -129,13 +129,13 @@ export function AdolescentHealthForm() {
                 max={24}
                 step={0.5}
                 required
-                className="w-24 rounded-md border border-charcoal-ink/15 p-2 text-sm"
+                className="w-24 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 p-2 text-sm"
               />
             </fieldset>
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest dark:text-brand-green-bright">
               Substances
             </h3>
             <YesNoQuestion
@@ -145,7 +145,7 @@ export function AdolescentHealthForm() {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest dark:text-brand-green-bright">
               Sexual health
             </h3>
             <YesNoQuestion
@@ -155,7 +155,7 @@ export function AdolescentHealthForm() {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-deep-forest dark:text-brand-green-bright">
               How you&apos;re really doing
             </h3>
             <YesNoQuestion
@@ -171,17 +171,17 @@ export function AdolescentHealthForm() {
               prompt="Are you in danger right now and need help immediately?"
             />
             <fieldset className="space-y-2">
-              <legend className="text-sm text-charcoal-ink">Anything else you want us to know? (optional)</legend>
+              <legend className="text-sm text-charcoal-ink dark:text-night-ink">Anything else you want us to know? (optional)</legend>
               <textarea
                 name="notes"
                 maxLength={1000}
                 rows={2}
-                className="w-full rounded-md border border-charcoal-ink/15 p-2 text-sm"
+                className="w-full rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 p-2 text-sm"
               />
             </fieldset>
           </div>
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
 
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save check-in"}

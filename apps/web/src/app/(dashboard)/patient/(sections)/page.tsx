@@ -33,15 +33,15 @@ import { formatPatientDate } from "@/lib/format-date";
 // the brand guide) — same convention as vitals-history.tsx's LEVEL_STYLE,
 // just split into StatTile's separate icon-circle/icon-colour props.
 const BP_TINT_CLASS: Record<Exclude<BpLevel, "unknown">, string> = {
-  green: "bg-emerald-100",
-  amber: "bg-amber-100",
-  red: "bg-red-100",
+  green: "bg-emerald-100 dark:bg-emerald-500/25",
+  amber: "bg-amber-100 dark:bg-amber-500/25",
+  red: "bg-red-100 dark:bg-red-500/25",
   emergency: "bg-red-600",
 };
 const BP_ICON_CLASS: Record<Exclude<BpLevel, "unknown">, string> = {
-  green: "text-emerald-800",
-  amber: "text-amber-800",
-  red: "text-red-800",
+  green: "text-emerald-800 dark:text-emerald-300",
+  amber: "text-amber-800 dark:text-amber-300",
+  red: "text-red-800 dark:text-red-300",
   emergency: "text-white",
 };
 // StatTile's `status` line renders in the clinical status palette — the band
@@ -59,7 +59,7 @@ const BP_STATUS_TONE: Record<Exclude<BpLevel, "unknown">, "green" | "amber" | "r
  * lets the rest of the page paint instead of the whole Overview waiting on
  * the slowest one. Matches (sections)/loading.tsx's pulse-block treatment. */
 function CardSkeleton({ className = "h-40" }: { className?: string }) {
-  return <div aria-hidden className={`animate-pulse rounded-2xl bg-charcoal-ink/[0.07] ${className}`} />;
+  return <div aria-hidden className={`animate-pulse rounded-2xl bg-charcoal-ink/[0.07] dark:bg-night-ink/10 ${className}`} />;
 }
 
 export default async function PatientOverviewPage() {
@@ -117,15 +117,15 @@ export default async function PatientOverviewPage() {
           renders for a child-band dependent (parent-managed, no carve-out)
           or an adult/unknown band (no adolescent framing needed). */}
       {isAdolescentBand && !acting && (
-        <p className="text-sm text-charcoal-ink/60">
-          <Link href="/patient/adolescent-health" className="text-brand-green hover:underline">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+          <Link href="/patient/adolescent-health" className="text-brand-green dark:text-brand-green-bright hover:underline">
             Your private whole-life check-in
           </Link>{" "}
           is there whenever you want it, just for you, on your own time.
         </p>
       )}
       {isAdolescentBand && acting && (
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Some things, like {acting.fullName ?? "their"} own private wellbeing check-in, stay just
           between them and their care team.
         </p>
@@ -219,9 +219,9 @@ export default async function PatientOverviewPage() {
             />
           </div>
           {!prevention.hasRiskAssessment && (
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Two minutes on your{" "}
-              <Link href="/patient/prevention" className="text-brand-green hover:underline">
+              <Link href="/patient/prevention" className="text-brand-green dark:text-brand-green-bright hover:underline">
                 health profile
               </Link>{" "}
               builds your personal screening and vaccination calendar: the checks that keep

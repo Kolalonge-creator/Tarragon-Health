@@ -15,7 +15,7 @@ import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-c
 import { Card, CardContent } from "@/components/ui/card";
 
 function SectionHeading({ children }: { children: ReactNode }) {
-  return <h2 className="font-heading text-lg font-semibold text-charcoal-ink">{children}</h2>;
+  return <h2 className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">{children}</h2>;
 }
 
 /**
@@ -55,12 +55,12 @@ export default async function HealthSummaryPage() {
         <SectionHeading>Medications</SectionHeading>
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Today&apos;s doses and your full medicines cabinet.
             </p>
             <Link
               href="/patient/medications"
-              className="shrink-0 text-sm font-medium text-brand-green hover:underline"
+              className="shrink-0 text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
             >
               See your medications
             </Link>
@@ -78,7 +78,7 @@ export default async function HealthSummaryPage() {
         <LabResults patientId={subjectId} />
         <Link
           href="/patient/labs"
-          className="inline-block text-sm font-medium text-brand-green hover:underline"
+          className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
         >
           See all labs &amp; bookings
         </Link>
@@ -94,7 +94,7 @@ export default async function HealthSummaryPage() {
         <CareScheduleCard patientId={subjectId} />
         <Link
           href="/patient/appointments"
-          className="inline-block text-sm font-medium text-brand-green hover:underline"
+          className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
         >
           Book or manage an appointment
         </Link>

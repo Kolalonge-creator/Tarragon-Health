@@ -41,26 +41,26 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-4">
         {documents.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">No result documents yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No result documents yet.</p>
         ) : (
           <ul className="space-y-4">
             {documents.map((doc) => (
               <li
                 key={doc.id}
-                className="space-y-1 border-b border-charcoal-ink/10 pb-4 last:border-0 last:pb-0"
+                className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4 last:border-0 last:pb-0"
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <p className="text-sm font-medium text-charcoal-ink">
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     {doc.originalFilename ?? "Result"}
                   </p>
                   <div className="flex shrink-0 items-center gap-2">
                     <Badge variant={doc.interpretationSentAt ? "green" : "amber"}>
                       {doc.interpretationSentAt ? "Interpreted" : "Awaiting review"}
                     </Badge>
-                    <p className="text-xs text-charcoal-ink/50">{formatDate(doc.createdAt)}</p>
+                    <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{formatDate(doc.createdAt)}</p>
                   </div>
                 </div>
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   {sourceLabel(doc.source)}
                   {doc.note ? ` · ${doc.note}` : ""}
                 </p>
@@ -69,18 +69,18 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                     href={doc.signedUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-block text-sm font-medium text-brand-green hover:underline"
+                    className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
                   >
                     {doc.isPdf ? "Open original (PDF) →" : "View original →"}
                   </a>
                 ) : (
-                  <p className="text-xs text-charcoal-ink/50">File unavailable.</p>
+                  <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">File unavailable.</p>
                 )}
                 {doc.interpretationSentAt && doc.patientInterpretation ? (
-                  <div className="rounded-lg border border-brand-green/20 bg-brand-green/5 p-3">
-                    <p className="text-sm text-charcoal-ink">{doc.patientInterpretation}</p>
+                  <div className="rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 bg-brand-green/5 dark:bg-brand-green/15 p-3">
+                    <p className="text-sm text-charcoal-ink dark:text-night-ink">{doc.patientInterpretation}</p>
                     {doc.nextSteps && (
-                      <p className="mt-2 text-sm text-charcoal-ink">
+                      <p className="mt-2 text-sm text-charcoal-ink dark:text-night-ink">
                         <span className="font-medium">Next steps:</span> {doc.nextSteps}
                       </p>
                     )}
@@ -88,14 +88,14 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                       <ReviewedResultLine reviewedBy={doc.reviewedBy} reviewedAt={doc.reviewedAt} />
                       <a
                         href={`/api/patient/lab-result/${doc.id}/pdf`}
-                        className="text-sm font-medium text-brand-green hover:underline"
+                        className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
                       >
                         Download as PDF →
                       </a>
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-charcoal-ink/60">
+                  <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                     Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon
                     as they have.
                   </p>

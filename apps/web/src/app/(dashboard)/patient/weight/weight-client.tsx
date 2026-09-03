@@ -68,12 +68,12 @@ export function WeightClient({ patientId }: { patientId: string }) {
             ))}
           </div>
 
-          {trend.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {trend.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {trend.isError && (
-            <p className="text-sm text-red-600">Could not load your weight trend.</p>
+            <p className="text-sm text-red-600 dark:text-red-400">Could not load your weight trend.</p>
           )}
           {!trend.isLoading && !trend.isError && points.length < 2 && (
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               Not enough readings in this range yet; log weight from your vitals or lifestyle
               check-in to build the chart.
             </p>
@@ -189,7 +189,7 @@ function WeightGoalSection({
                 />
               </div>
             </div>
-            {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+            {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
             <div className="flex gap-2">
               <Button type="submit">Save goal</Button>
               {hasGoal && (
@@ -201,22 +201,22 @@ function WeightGoalSection({
           </form>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-4 border-b border-charcoal-ink/10 pb-4">
+            <div className="grid grid-cols-2 gap-4 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4">
               <div>
-                <p className="text-xs uppercase tracking-wide text-charcoal-ink/50">Starting</p>
-                <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                <p className="text-xs uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">Starting</p>
+                <p className="font-heading text-xl font-semibold text-charcoal-ink dark:text-night-ink">
                   {startingWeightKg != null ? fmtKg(startingWeightKg) : "—"}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs uppercase tracking-wide text-charcoal-ink/50">Goal</p>
-                <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                <p className="text-xs uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">Goal</p>
+                <p className="font-heading text-xl font-semibold text-charcoal-ink dark:text-night-ink">
                   {goalWeightKg != null ? fmtKg(goalWeightKg) : "—"}
                 </p>
               </div>
             </div>
 
-            <p className="text-sm font-medium text-charcoal-ink">Overall progress</p>
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Overall progress</p>
             <div className="grid grid-cols-2 gap-3">
               <StatTile
                 icon={SEMANTIC_ICON.weight}

@@ -164,7 +164,7 @@ function StatementActions({ statement }: { statement: StatementRow }) {
           </Button>
         </div>
       )}
-      {feedback?.error && <span className="text-xs text-clinical-red">{feedback.error}</span>}
+      {feedback?.error && <span className="text-xs text-red-600 dark:text-red-300">{feedback.error}</span>}
       {feedback?.message && <span className="text-xs text-deep-forest">{feedback.message}</span>}
     </div>
   );

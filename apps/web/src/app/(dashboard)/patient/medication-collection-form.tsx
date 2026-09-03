@@ -63,7 +63,7 @@ export function MedicationCollectionForm({
 
   if (done) {
     return (
-      <p className="text-xs font-medium text-brand-green">
+      <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">
         Noted, thank you. Your care team can see you have this one.
       </p>
     );
@@ -78,8 +78,8 @@ export function MedicationCollectionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
-      <p className="text-xs text-charcoal-ink/60">
+    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Buy this wherever suits you. Telling us when you collected it keeps your refill reminders
         accurate.
       </p>
@@ -119,7 +119,7 @@ export function MedicationCollectionForm({
           Cancel
         </Button>
         {logCollection.isError && (
-          <p className="text-xs text-red-600">Could not save that. Please try again.</p>
+          <p className="text-xs text-red-600 dark:text-red-300">Could not save that. Please try again.</p>
         )}
       </div>
     </form>

@@ -96,11 +96,11 @@ export function CareAccessLog({ events }: { events: CareAccessLogRow[] }) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {events.map((row) => (
             <li key={row.id} className="flex items-center justify-between gap-4 py-3">
-              <span className="text-sm text-charcoal-ink">{describe(row)}</span>
-              <span className="shrink-0 text-xs text-charcoal-ink/50">
+              <span className="text-sm text-charcoal-ink dark:text-night-ink">{describe(row)}</span>
+              <span className="shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                 {shortDate(row.occurredAt)}
               </span>
             </li>

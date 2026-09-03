@@ -52,8 +52,8 @@ export function SmokingClient({ patientId }: { patientId: string }) {
       {(status === "current" || status === "former") && streak > 0 && (
         <Card>
           <CardContent className="flex items-center gap-3 pt-6">
-            <SEMANTIC_ICON.smoking className="h-6 w-6 text-brand-green" strokeWidth={2} />
-            <p className="text-sm font-medium text-charcoal-ink">
+            <SEMANTIC_ICON.smoking className="h-6 w-6 text-brand-green dark:text-brand-green-bright" strokeWidth={2} />
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               {streak} smoke-free day{streak === 1 ? "" : "s"} in a row
             </p>
           </CardContent>
@@ -63,16 +63,16 @@ export function SmokingClient({ patientId }: { patientId: string }) {
       <Card>
         <CardContent className="flex items-center justify-between gap-3 pt-6">
           <div>
-            <p className="text-sm font-medium text-charcoal-ink">Want some support?</p>
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Want some support?</p>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Read up on quitting, or message your care team if you&apos;d like a hand.
             </p>
           </div>
           <div className="flex gap-2">
-            <Link href="/patient/learn" className="text-sm font-medium text-brand-green hover:underline">
+            <Link href="/patient/learn" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
               Learn
             </Link>
-            <Link href="/patient/messages" className="text-sm font-medium text-brand-green hover:underline">
+            <Link href="/patient/messages" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
               Message care team
             </Link>
           </div>
@@ -86,18 +86,18 @@ export function SmokingClient({ patientId }: { patientId: string }) {
           <CardTitle>History</CardTitle>
         </CardHeader>
         <CardContent>
-          {checkIns.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {checkIns.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {!checkIns.isLoading && (checkIns.data?.length ?? 0) === 0 && (
-            <p className="text-sm text-charcoal-ink/60">Nothing logged yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing logged yet.</p>
           )}
           <ul className="space-y-2">
             {(checkIns.data ?? []).map((entry) => (
               <li
                 key={entry.id}
-                className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 p-3"
+                className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
               >
                 <div>
-                  <p className="text-sm font-medium text-charcoal-ink">
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     {formatPatientDate(entry.logged_on, {
                       month: "long",
                       day: "numeric",
@@ -105,7 +105,7 @@ export function SmokingClient({ patientId }: { patientId: string }) {
                     {entry.cigarettes_smoked === 0 ? "Smoke-free" : `${entry.cigarettes_smoked} cigarettes`}
                   </p>
                   {entry.triggers.length > 0 && (
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Triggers: {entry.triggers.map((t) => SMOKING_TRIGGER_LABELS[t]).join(", ")}
                     </p>
                   )}
@@ -151,7 +151,7 @@ function ProfileCard({
             Update
           </Button>
         </CardHeader>
-        <CardContent className="space-y-1 text-sm text-charcoal-ink/70">
+        <CardContent className="space-y-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           {profile.status === "current" && profile.cigarettes_per_day != null && (
             <p>{profile.cigarettes_per_day} cigarettes/day</p>
           )}
@@ -226,7 +226,7 @@ function ProfileCard({
               </div>
             </div>
           )}
-          {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+          {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
           <div className="flex gap-2">
             <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : "Save"}
@@ -269,18 +269,18 @@ function CheckInForm({ patientId }: { patientId: string }) {
         </div>
       </div>
       <fieldset className="space-y-1">
-        <legend className="text-sm text-charcoal-ink/70">Any triggers today?</legend>
+        <legend className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Any triggers today?</legend>
         <div className="flex flex-wrap gap-2">
           {SMOKING_TRIGGERS.map((t) => (
-            <label key={t} className="flex items-center gap-1.5 rounded-full border border-charcoal-ink/15 px-3 py-1 text-xs">
+            <label key={t} className="flex items-center gap-1.5 rounded-full border border-charcoal-ink/15 dark:border-night-ink/20 px-3 py-1 text-xs">
               <input type="checkbox" name="triggers" value={t} className="h-3 w-3" />
               {SMOKING_TRIGGER_LABELS[t]}
             </label>
           ))}
         </div>
       </fieldset>
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Logged.</p>}
+      {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
+      {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Logged.</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save check-in"}
       </Button>

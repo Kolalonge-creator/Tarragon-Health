@@ -41,17 +41,17 @@ export default async function SupportingPage() {
         // is an ADDITION — they keep supporting whoever they support.
         <form
           action={joinAsPatientToo}
-          className="space-y-2 rounded-xl border border-brand-green/20 bg-brand-green/[0.04] p-5"
+          className="space-y-2 rounded-xl border border-brand-green/20 bg-brand-green/[0.04] dark:bg-brand-green/10 p-5"
         >
-          <p className="font-heading text-base font-semibold text-charcoal-ink">
+          <p className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">
             Want care here yourself as well?
           </p>
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             You can join as a patient too, starting on the free plan if you like, and carry on
             supporting {profile.full_name ? "them" : "the people you support"} exactly as you do
             now.
           </p>
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             It does mean answering the health questions we have not asked you: your date of birth,
             the care consents and a short intake. Those answers are what build your screening
             calendar and your risk scoring, so there is no useful shortcut past them.
@@ -64,10 +64,10 @@ export default async function SupportingPage() {
           </button>
         </form>
       ) : (
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Looking for who can follow <em>your</em> care, or the children whose records you keep?
           That is on{" "}
-          <Link href="/patient/family" className="text-brand-green underline">
+          <Link href="/patient/family" className="text-brand-green dark:text-brand-green-bright underline">
             your people
           </Link>
           .

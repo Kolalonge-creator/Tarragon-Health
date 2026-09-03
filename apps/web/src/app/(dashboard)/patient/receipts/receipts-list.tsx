@@ -47,25 +47,25 @@ function formatDate(iso: string): string {
 function ReceiptRow({ receipt }: { receipt: PatientReceipt }) {
   const Icon = APP_ICON[SERVICE_ICON[receipt.service_type] ?? "billing"];
   return (
-    <div className="flex items-center justify-between gap-4 border-b border-charcoal-ink/5 py-3 last:border-b-0">
+    <div className="flex items-center justify-between gap-4 border-b border-charcoal-ink/5 dark:border-night-ink/10 py-3 last:border-b-0">
       <div className="flex items-center gap-3">
-        <Icon className="h-5 w-5 shrink-0 text-deep-forest" strokeWidth={2} />
+        <Icon className="h-5 w-5 shrink-0 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
         <div>
-          <p className="text-sm font-medium text-charcoal-ink">{receipt.service_label}</p>
-          <p className="text-xs text-charcoal-ink/50">
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{receipt.service_label}</p>
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             {formatDate(receipt.occurred_at)} · Ref {receipt.reference.slice(0, 18)}
           </p>
         </div>
       </div>
       <div className="text-right">
-        <p className="text-sm font-semibold tabular-nums text-charcoal-ink">
+        <p className="text-sm font-semibold tabular-nums text-charcoal-ink dark:text-night-ink">
           {formatAmount(receipt.amount_minor, receipt.currency)}
         </p>
         <Badge variant={STATUS_VARIANT[receipt.status]}>{STATUS_LABEL[receipt.status]}</Badge>
         {INVOICEABLE_STATUSES.includes(receipt.status) && (
           <a
             href={`/api/patient/receipts/${receipt.service_type}/${receipt.id}/invoice`}
-            className="mt-1 block text-xs font-medium text-brand-green hover:underline"
+            className="mt-1 block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
           >
             Download invoice
           </a>
@@ -81,7 +81,7 @@ export function ReceiptsList() {
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50">Loading your receipts…</CardContent>
+        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">Loading your receipts…</CardContent>
       </Card>
     );
   }
@@ -89,7 +89,7 @@ export function ReceiptsList() {
   if (isError) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50">
+        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
           Could not load your receipts. Try again in a moment.
         </CardContent>
       </Card>
@@ -99,7 +99,7 @@ export function ReceiptsList() {
   if (!receipts || receipts.length === 0) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50">
+        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
           Nothing here yet. Payments you make will show up as receipts.
         </CardContent>
       </Card>

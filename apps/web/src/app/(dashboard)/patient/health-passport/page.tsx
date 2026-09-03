@@ -85,7 +85,7 @@ export default async function HealthPassportPage() {
             </Link>
             <Link
               href="/api/patient/data-export/json"
-              className="rounded-md border border-brand-green px-4 py-2 text-sm font-medium text-brand-green hover:bg-brand-green/5"
+              className="rounded-md border border-brand-green px-4 py-2 text-sm font-medium text-brand-green dark:text-brand-green-bright hover:bg-brand-green/5 dark:hover:bg-brand-green/10"
             >
               Download your complete record
             </Link>
@@ -100,22 +100,22 @@ export default async function HealthPassportPage() {
           </CardHeader>
           <CardContent>
             {data.vitals.length === 0 && data.bmi === null && (
-              <p className="text-sm text-charcoal-ink/60">No vitals logged in this period.</p>
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No vitals logged in this period.</p>
             )}
             {(data.vitals.length > 0 || data.bmi !== null) && (
-              <ul className="divide-y divide-charcoal-ink/10">
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {data.bmi !== null && (
                   <li className="flex items-center justify-between py-2">
-                    <span className="text-sm font-medium text-charcoal-ink">BMI</span>
-                    <span className="text-sm text-charcoal-ink/60">{data.bmi} kg/m²</span>
+                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">BMI</span>
+                    <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{data.bmi} kg/m²</span>
                   </li>
                 )}
                 {data.vitals.map((v) => (
                   <li key={v.vitalType} className="flex items-center justify-between py-2">
-                    <span className="text-sm font-medium text-charcoal-ink">
+                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {VITAL_LABEL[v.vitalType] ?? v.vitalType.replace(/_/g, " ")}
                     </span>
-                    <span className="text-sm text-charcoal-ink/60">
+                    <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                       {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
                       period · last logged {formatPatientDate(v.takenAt)}
                     </span>
@@ -132,17 +132,17 @@ export default async function HealthPassportPage() {
           </CardHeader>
           <CardContent>
             {data.screenings.length === 0 && (
-              <p className="text-sm text-charcoal-ink/60">No screenings due in this period.</p>
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No screenings due in this period.</p>
             )}
             {data.screenings.length > 0 && (
-              <ul className="divide-y divide-charcoal-ink/10">
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {data.screenings.map((s, i) => (
                   <li key={i} className="py-2">
-                    <p className="text-sm font-medium text-charcoal-ink">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {s.screenTypeName}: {s.status}
                     </p>
                     {s.resultStatus && (
-                      <p className="text-xs text-charcoal-ink/60">
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                         Result: {s.resultStatus}
                         {s.resultSummary ? `, ${s.resultSummary}` : ""}
                       </p>
@@ -161,14 +161,14 @@ export default async function HealthPassportPage() {
         </CardHeader>
         <CardContent>
           {data.labReadings.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No lab results on file this period.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No lab results on file this period.</p>
           )}
           {data.labReadings.length > 0 && (
-            <ul className="divide-y divide-charcoal-ink/10">
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
               {data.labReadings.map((r, i) => (
                 <li key={i} className="flex items-center justify-between py-2 text-sm">
-                  <span className="font-medium text-charcoal-ink">{labResultLabel(r.code)}</span>
-                  <span className="text-charcoal-ink/60">
+                  <span className="font-medium text-charcoal-ink dark:text-night-ink">{labResultLabel(r.code)}</span>
+                  <span className="text-charcoal-ink/60 dark:text-night-ink/60">
                     {r.code === "hba1c" ? formatHba1cWithBracket(r.value) : `${r.value} ${r.unit}`} ·{" "}
                     {formatPatientDate(r.takenAt)}
                   </span>
@@ -186,8 +186,8 @@ export default async function HealthPassportPage() {
           </CardHeader>
           <CardContent className="space-y-3">
             {data.reviewedEscalations.map((esc) => (
-              <div key={esc.id} className="space-y-1 border-b border-charcoal-ink/10 pb-3 last:border-0">
-                <p className="text-sm text-charcoal-ink/70">{esc.reason}</p>
+              <div key={esc.id} className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-3 last:border-0">
+                <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{esc.reason}</p>
                 <ReviewedByDoctor escalationId={esc.id} />
               </div>
             ))}
@@ -195,7 +195,7 @@ export default async function HealthPassportPage() {
         </Card>
       )}
 
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         {data.protocolAuthor
           ? `Protocols supervised by Dr. ${data.protocolAuthor.fullName}${
               data.protocolAuthor.credentialType && data.protocolAuthor.credentialNumber

@@ -19,19 +19,19 @@ const SCALE = [1, 2, 3, 4, 5] as const;
 function ScaleQuestion({ name, prompt, low, high }: { name: string; prompt: string; low: string; high: string }) {
   return (
     <fieldset className="space-y-2">
-      <legend className="text-sm text-charcoal-ink">{prompt}</legend>
+      <legend className="text-sm text-charcoal-ink dark:text-night-ink">{prompt}</legend>
       <div className="grid grid-cols-5 gap-1.5">
         {SCALE.map((value) => (
           <label
             key={value}
-            className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-charcoal-ink/15 px-1.5 py-1.5 text-xs text-charcoal-ink/70 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
+            className="flex cursor-pointer flex-col items-center gap-1 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 px-1.5 py-1.5 text-xs text-charcoal-ink/70 dark:text-night-ink/70 has-[:checked]:border-brand-green has-[:checked]:bg-brand-green/5"
           >
             <input type="radio" name={name} value={value} required className="accent-[color:var(--brand-green,#0E7C52)]" />
             {value}
           </label>
         ))}
       </div>
-      <div className="flex justify-between text-[11px] text-charcoal-ink/50">
+      <div className="flex justify-between text-[11px] text-charcoal-ink/50 dark:text-night-ink/55">
         <span>{low}</span>
         <span>{high}</span>
       </div>
@@ -73,15 +73,15 @@ export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
             <ScaleQuestion key={q.name} name={q.name} prompt={q.prompt} low={q.low} high={q.high} />
           ))}
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-          {state?.success && <p className="text-sm text-brand-green">Check-in saved.</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+          {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Check-in saved.</p>}
 
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save check-in"}
           </Button>
         </form>
 
-        <form action={freqAction} className="flex items-end gap-3 border-t border-charcoal-ink/10 pt-4">
+        <form action={freqAction} className="flex items-end gap-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
           <div className="space-y-1.5">
             <Label htmlFor="reminder_frequency_days">Remind me to check in every</Label>
             <Select

@@ -185,22 +185,22 @@ export async function CareScheduleCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           What&apos;s coming up
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {items.map((item, i) => {
             const Icon = APP_ICON[item.icon] ?? SEMANTIC_ICON.carePlan;
             return (
               <li key={i} className="flex items-start gap-3 py-2.5">
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/50" aria-hidden />
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/50 dark:text-night-ink/55" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+                  <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
                     {item.type}
                   </p>
-                  <Link href={item.href} className="text-sm text-charcoal-ink hover:underline">
+                  <Link href={item.href} className="text-sm text-charcoal-ink dark:text-night-ink hover:underline">
                     {item.title}
                   </Link>
                 </div>
@@ -209,8 +209,8 @@ export async function CareScheduleCard({ patientId }: { patientId: string }) {
                 <span
                   className={
                     isOverdue(item.dueDate)
-                      ? "shrink-0 whitespace-nowrap text-xs font-medium text-amber-700"
-                      : "shrink-0 whitespace-nowrap text-xs text-charcoal-ink/50"
+                      ? "shrink-0 whitespace-nowrap text-xs font-medium text-amber-700 dark:text-amber-300"
+                      : "shrink-0 whitespace-nowrap text-xs text-charcoal-ink/50 dark:text-night-ink/55"
                   }
                 >
                   {daysLabel(item.dueDate)}

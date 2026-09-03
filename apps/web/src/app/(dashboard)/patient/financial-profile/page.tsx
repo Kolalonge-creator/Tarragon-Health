@@ -126,15 +126,15 @@ export default async function FinancialProfilePage() {
           </CardHeader>
           <CardContent>
             {activeServices.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/60">No active services yet.</p>
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No active services yet.</p>
             ) : (
               <div className="space-y-3 text-sm">
                 {activeServices.map((service) => (
                   <div key={service.id} className="space-y-1">
-                    <p className="font-medium text-charcoal-ink">
+                    <p className="font-medium text-charcoal-ink dark:text-night-ink">
                       {service.service_product?.name ?? "Service"}
                     </p>
-                    <p className="text-charcoal-ink/70">
+                    <p className="text-charcoal-ink/70 dark:text-night-ink/70">
                       {naira(service.payable_kobo ?? 0)} {service.currency}
                       {service.expires_at &&
                         ` · runs until ${formatPatientDate(service.expires_at)}`}
@@ -142,7 +142,7 @@ export default async function FinancialProfilePage() {
                   </div>
                 ))}
                 <p className="pt-1">
-                  <Link href="/patient/subscription" className="text-xs font-medium text-deep-forest hover:underline">
+                  <Link href="/patient/subscription" className="text-xs font-medium text-deep-forest dark:text-brand-green-bright hover:underline">
                     Manage your services →
                   </Link>
                 </p>
@@ -161,11 +161,11 @@ export default async function FinancialProfilePage() {
           </CardHeader>
           <CardContent>
             {recentFailures.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/60">No recent payment problems.</p>
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No recent payment problems.</p>
             ) : (
               <ul className="space-y-1 text-sm">
                 {recentFailures.map((f) => (
-                  <li key={f.id} className="text-charcoal-ink/70">
+                  <li key={f.id} className="text-charcoal-ink/70 dark:text-night-ink/70">
                     {formatPatientDate(f.created_at)}: {f.error}
                   </li>
                 ))}
@@ -189,11 +189,11 @@ export default async function FinancialProfilePage() {
               {pendingShares.map((share) => (
                 <li
                   key={share.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/10 pb-2 text-sm last:border-0"
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-2 text-sm last:border-0"
                 >
-                  <span className="text-charcoal-ink/80">
+                  <span className="text-charcoal-ink/80 dark:text-night-ink/80">
                     {ORDER_TYPE_LABEL[share.transaction_subsidy?.order_type ?? ""] ?? "bill"} ·{" "}
-                    <span className="font-medium text-charcoal-ink">{naira(share.amount_minor)}</span>
+                    <span className="font-medium text-charcoal-ink dark:text-night-ink">{naira(share.amount_minor)}</span>
                   </span>
                   <PayMyShareButton contributionId={share.id} label="Pay my share" />
                 </li>
@@ -209,18 +209,18 @@ export default async function FinancialProfilePage() {
         </CardHeader>
         <CardContent>
           {vouchers.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">No vouchers yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No vouchers yet.</p>
           ) : (
             <ul className="space-y-2">
               {vouchers.map((v) => (
                 <li
                   key={v.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/10 pb-2 text-sm last:border-0"
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-2 text-sm last:border-0"
                 >
-                  <span className="text-charcoal-ink/80">
+                  <span className="text-charcoal-ink/80 dark:text-night-ink/80">
                     {v.sku_name ?? (v.kind === "reward_discount" ? "Reward credit" : "Care voucher")}{" "}
-                    <span className="text-charcoal-ink/40">{v.voucher_number}</span>
-                    <span className="text-charcoal-ink/40">
+                    <span className="text-charcoal-ink/40 dark:text-night-ink/50">{v.voucher_number}</span>
+                    <span className="text-charcoal-ink/40 dark:text-night-ink/50">
                       {" "}
                       · {naira(v.amount_paid_kobo)} of {naira(v.face_value_kobo)}
                     </span>
@@ -244,9 +244,9 @@ export default async function FinancialProfilePage() {
               {refunds.map((r) => (
                 <li
                   key={r.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/10 pb-2 text-sm last:border-0"
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-2 text-sm last:border-0"
                 >
-                  <span className="text-charcoal-ink/80">
+                  <span className="text-charcoal-ink/80 dark:text-night-ink/80">
                     {naira(r.amount_minor)} {r.currency} via {r.provider}
                   </span>
                   <Badge variant={REFUND_STATUS_VARIANT[r.status] ?? "grey"}>{r.status}</Badge>
@@ -263,12 +263,12 @@ export default async function FinancialProfilePage() {
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">No transactions yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No transactions yet.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-charcoal-ink/10 text-left">
+                  <tr className="border-b border-charcoal-ink/10 dark:border-night-ink/15 text-left">
                     <th className="py-2 pr-4 font-medium">Date</th>
                     <th className="py-2 pr-4 font-medium">What for</th>
                     <th className="py-2 pr-4 font-medium">To/from</th>
@@ -278,7 +278,7 @@ export default async function FinancialProfilePage() {
                 </thead>
                 <tbody>
                   {transactions.map((t) => (
-                    <tr key={t.payment_transaction_id ?? t.entry_id} className="border-b border-charcoal-ink/5">
+                    <tr key={t.payment_transaction_id ?? t.entry_id} className="border-b border-charcoal-ink/5 dark:border-night-ink/10">
                       <td className="py-2 pr-4">{formatPatientDate(t.posted_at)}</td>
                       <td className="py-2 pr-4">{t.service_label}</td>
                       <td className="py-2 pr-4">{t.direction === "money_in" ? t.recipient_label : t.payer_label}</td>

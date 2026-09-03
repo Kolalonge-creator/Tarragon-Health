@@ -51,14 +51,14 @@ export default async function WomensHealthPage() {
           backTo={{ href: "/patient", label: "Dashboard" }}
         />
         <Card variant="soft">
-          <CardContent className="space-y-3 py-4 text-sm text-charcoal-ink/70">
+          <CardContent className="space-y-3 py-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             {sexUnrecorded ? (
               <p>
                 This section covers cycle tracking, contraception, pregnancy, postnatal care and
                 menopause for female patients. We don&apos;t have a sex recorded on your health
                 profile yet, so we can&apos;t tell whether it applies to you. You can add it on
                 your{" "}
-                <Link href="/patient/profile" className="text-brand-green hover:underline">
+                <Link href="/patient/profile" className="text-brand-green dark:text-brand-green-bright hover:underline">
                   profile
                 </Link>{" "}
                 and this section will open up if it&apos;s relevant.
@@ -72,7 +72,7 @@ export default async function WomensHealthPage() {
             )}
             <p>
               The screenings and checks that are relevant to you live in{" "}
-              <Link href="/patient/prevention" className="text-brand-green hover:underline">
+              <Link href="/patient/prevention" className="text-brand-green dark:text-brand-green-bright hover:underline">
                 Prevention
               </Link>
               , built around your own age and history.
@@ -182,7 +182,7 @@ export default async function WomensHealthPage() {
       {showMenopause && <MenopauseSymptomCard patientId={subjectId} />}
       {showMenopause && menopauseTreatmentCautionNote(activeConditions) && (
         <Card>
-          <CardContent className="py-4 text-sm text-charcoal-ink/80">
+          <CardContent className="py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             {menopauseTreatmentCautionNote(activeConditions)}
           </CardContent>
         </Card>
@@ -196,8 +196,8 @@ export default async function WomensHealthPage() {
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">{label}</p>
-      <p className="text-sm font-semibold text-charcoal-ink">{value}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">{label}</p>
+      <p className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">{value}</p>
     </div>
   );
 }

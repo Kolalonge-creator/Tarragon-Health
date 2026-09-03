@@ -53,9 +53,19 @@ const ROUTINE_TEMPLATES = new Set<string>([
 type DisplayTier = "critical" | "important" | "routine";
 
 const TIER_STYLE: Record<DisplayTier, { label: string; className: string }> = {
-  critical: { label: "Critical", className: "bg-red-100 text-red-800" },
-  important: { label: "Important", className: "bg-amber-100 text-amber-800" },
-  routine: { label: "Routine", className: "bg-charcoal-ink/10 text-charcoal-ink/60" },
+  critical: {
+    label: "Critical",
+    className: "bg-red-100 text-red-800 dark:bg-red-500/25 dark:text-red-300",
+  },
+  important: {
+    label: "Important",
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-500/25 dark:text-amber-300",
+  },
+  routine: {
+    label: "Routine",
+    className:
+      "bg-charcoal-ink/10 text-charcoal-ink/60 dark:bg-night-ink/10 dark:text-night-ink/70",
+  },
 };
 
 function displayTier(n: InAppNotification): DisplayTier {
@@ -168,7 +178,8 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "health_reset_complete") {
     return {
-      text: "Your 90-Day Health Reset is complete: claim your free trial",
+      // Plans were retired 2026-09-02; the completed Reset is its own win now.
+      text: "Your 90-Day Health Reset is complete. Well done",
       href: "/patient",
     };
   }
@@ -639,7 +650,7 @@ export function NotificationBell() {
         type="button"
         variant="ghost"
         size="sm"
-        className="relative h-9 w-9 p-0 text-charcoal-ink/60 hover:text-charcoal-ink"
+        className="relative h-9 w-9 p-0 text-charcoal-ink/60 hover:text-charcoal-ink dark:text-night-ink/60 dark:hover:text-night-ink"
         aria-label={unread.length > 0 ? `Notifications, ${unread.length} unread` : "Notifications"}
         onClick={() => setOpen((v) => !v)}
       >
@@ -654,13 +665,13 @@ export function NotificationBell() {
         )}
       </Button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-charcoal-ink/10 bg-white shadow-lg">
-          <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-4 py-2.5">
-            <p className="text-sm font-semibold text-charcoal-ink">Notifications</p>
+        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-charcoal-ink/10 bg-white shadow-lg dark:border-night-ink/15 dark:bg-night-card dark:shadow-none">
+          <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-4 py-2.5 dark:border-night-ink/15">
+            <p className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Notifications</p>
             {unread.length > 0 && (
               <button
                 type="button"
-                className="text-xs font-medium text-brand-green hover:underline"
+                className="text-xs font-medium text-brand-green hover:underline dark:text-brand-green-bright"
                 onClick={() => markAllRead.mutate(unread.map((n) => n.id))}
               >
                 Mark all read
@@ -669,11 +680,11 @@ export function NotificationBell() {
           </div>
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-charcoal-ink/50">
+              <p className="px-4 py-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
                 No notifications yet.
               </p>
             ) : (
-              <ul className="divide-y divide-charcoal-ink/10">
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {items.map((n) => {
                   const { text } = describe(n);
                   const tier = TIER_STYLE[displayTier(n)];
@@ -691,7 +702,7 @@ export function NotificationBell() {
                         type="button"
                         onClick={() => openItem(n)}
                         className={cn(
-                          "flex w-full items-start gap-2 px-4 py-3 text-left text-sm hover:bg-charcoal-ink/[0.03]",
+                          "flex w-full items-start gap-2 px-4 py-3 text-left text-sm hover:bg-charcoal-ink/[0.03] dark:hover:bg-night-ink/10",
                           n.status === "pending" && "bg-brand-green/[0.04]"
                         )}
                       >
@@ -710,8 +721,8 @@ export function NotificationBell() {
                           >
                             {tier.label}
                           </span>
-                          <span className="block text-charcoal-ink">{text}</span>
-                          <span className="mt-0.5 block text-xs text-charcoal-ink/50">
+                          <span className="block text-charcoal-ink dark:text-night-ink">{text}</span>
+                          <span className="mt-0.5 block text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                             {timeAgo(n.created_at)}
                           </span>
                         </span>
@@ -737,7 +748,7 @@ export function NotificationBell() {
                                   },
                                 );
                               }}
-                              className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-xs font-medium text-charcoal-ink hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+                              className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-xs font-medium text-charcoal-ink hover:border-brand-green hover:text-brand-green disabled:opacity-50 dark:border-night-ink/20 dark:text-night-ink dark:hover:text-brand-green-bright"
                             >
                               {o.label}
                             </button>
@@ -745,7 +756,7 @@ export function NotificationBell() {
                         </div>
                       )}
                       {n.responded_at && options.length > 0 && (
-                        <p className="px-4 pb-3 text-xs text-charcoal-ink/50">
+                        <p className="px-4 pb-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                           You responded: {options.find((o) => o.value === n.response_value)?.label ?? n.response_value}
                         </p>
                       )}

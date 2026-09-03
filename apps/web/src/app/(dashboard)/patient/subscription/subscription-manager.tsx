@@ -45,8 +45,8 @@ export function SubscriptionManager() {
     }
   }, [buyState, refetchPurchases]);
 
-  if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
-  if (isError) return <p className="text-sm text-red-600">Could not load your services.</p>;
+  if (isLoading) return <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>;
+  if (isError) return <p className="text-sm text-red-600 dark:text-red-400">Could not load your services.</p>;
 
   const active = (purchases ?? []).filter(isPurchaseCurrentlyActive);
   const activeProductIds = new Set(active.map((p) => p.service_product_id));
@@ -72,21 +72,21 @@ export function SubscriptionManager() {
           </CardHeader>
           <CardContent>
             {active.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/60">
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                 Nothing active yet. The app itself is free; you only ever pay for a doctor&apos;s
                 time. Buy a service when you want one.
               </p>
             ) : (
-              <ul className="divide-y divide-charcoal-ink/10">
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {active.map((purchase) => {
                   const endLabel = formatDate(purchase.expires_at);
                   return (
                     <li key={purchase.id} className="flex items-center justify-between gap-4 py-3">
                       <div>
-                        <p className="text-sm font-medium text-charcoal-ink">
+                        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                           {purchase.service_product?.name ?? "Unknown service"}
                         </p>
-                        <p className="text-xs text-charcoal-ink/60">
+                        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                           {endLabel ? `Active until ${endLabel}` : "Active, no expiry"}
                         </p>
                       </div>
@@ -105,11 +105,11 @@ export function SubscriptionManager() {
             <CardDescription>One-off payment, no auto-renewal.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {buyState?.error && <p className="text-sm text-red-600">{buyState.error}</p>}
-            {buyState?.message && <p className="text-sm text-charcoal-ink/70">{buyState.message}</p>}
+            {buyState?.error && <p className="text-sm text-red-600 dark:text-red-400">{buyState.error}</p>}
+            {buyState?.message && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{buyState.message}</p>}
             {buyable.length > 0 && (
               <div className="space-y-1">
-                <Label htmlFor="promo-code" className="text-xs text-charcoal-ink/60">
+                <Label htmlFor="promo-code" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   Promo code (optional)
                 </Label>
                 <Input
@@ -123,7 +123,7 @@ export function SubscriptionManager() {
               </div>
             )}
             {buyable.length === 0 ? (
-              <p className="text-sm text-charcoal-ink/60">
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                 You already have everything currently on offer.
               </p>
             ) : (
@@ -156,12 +156,12 @@ export function SubscriptionManager() {
             <CardTitle>Past services</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="divide-y divide-charcoal-ink/10">
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
               {(purchases ?? [])
                 .filter((p) => !isPurchaseCurrentlyActive(p))
                 .map((purchase) => (
                   <li key={purchase.id} className="flex items-center justify-between gap-4 py-3">
-                    <p className="text-sm text-charcoal-ink/70">
+                    <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                       {purchase.service_product?.name ?? "Unknown service"}
                     </p>
                     <Badge variant="grey">

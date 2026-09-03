@@ -87,7 +87,7 @@ export function SymptomLogForm({
           {medicationId && (
             <>
               <input type="hidden" name="medication_id" value={medicationId} />
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 Reporting a side effect for {drugName ?? "this medication"}. Your care team will
                 see this alongside your medication list.
               </p>
@@ -107,7 +107,7 @@ export function SymptomLogForm({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="severity">Severity</Label>
-              <span className="text-sm font-semibold text-charcoal-ink">{severity}/10</span>
+              <span className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">{severity}/10</span>
             </div>
             <input
               id="severity"
@@ -119,7 +119,7 @@ export function SymptomLogForm({
               onChange={(event) => setSeverity(Number(event.target.value))}
               className={`w-full ${severityTrackColor(severity)}`}
             />
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               1 = barely noticeable, 10 = worst you&apos;ve ever felt.
             </p>
           </div>
@@ -129,9 +129,9 @@ export function SymptomLogForm({
             <Input id="description" name="description" type="text" maxLength={500} />
           </div>
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">Symptom logged.</p>
+            <p className="text-sm text-brand-green dark:text-brand-green-bright">Symptom logged.</p>
           )}
 
           <Button type="submit" disabled={pending}>

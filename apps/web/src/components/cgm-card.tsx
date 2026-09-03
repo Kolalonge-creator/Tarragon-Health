@@ -30,7 +30,7 @@ export function CgmCard({ patientId }: { patientId: string }) {
           <CardTitle>Continuous glucose monitoring</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Continuous glucose monitoring is now available. Ask your care team to connect your
             monitor so your readings appear here automatically.
           </p>
@@ -48,12 +48,12 @@ export function CgmCard({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent>
         {tir.count === 0 ? (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Your monitor is connected. Readings will appear here once they sync.
           </p>
         ) : (
           <div className="space-y-2">
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Last 14 days · {tir.count} readings
             </p>
             <div className="flex overflow-hidden rounded-md" aria-hidden>
@@ -63,16 +63,16 @@ export function CgmCard({ patientId }: { patientId: string }) {
             </div>
             <ul className="flex flex-wrap gap-4 text-sm">
               <li>
-                <span className="font-medium text-green-700">{tir.inRangePct}%</span> in range
+                <span className="font-medium text-green-700 dark:text-green-300">{tir.inRangePct}%</span> in range
               </li>
               <li>
-                <span className="font-medium text-red-600">{tir.lowPct}%</span> low
+                <span className="font-medium text-red-600 dark:text-red-300">{tir.lowPct}%</span> low
               </li>
               <li>
-                <span className="font-medium text-amber-600">{tir.highPct}%</span> high
+                <span className="font-medium text-amber-600 dark:text-amber-300">{tir.highPct}%</span> high
               </li>
             </ul>
-            <p className="text-xs text-charcoal-ink/50">
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
               A coaching summary of your time in range (3.9–10.0 mmol/L), not a medical assessment.
             </p>
           </div>

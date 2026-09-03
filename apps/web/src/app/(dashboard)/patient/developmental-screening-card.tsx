@@ -67,27 +67,27 @@ export function DevelopmentalScreeningCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {latest && (
-          <div className="rounded-lg border border-charcoal-ink/10 bg-off-white p-3 text-sm">
-            <p className="font-medium text-charcoal-ink">
+          <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-off-white dark:bg-night-ink/10 p-3 text-sm">
+            <p className="font-medium text-charcoal-ink dark:text-night-ink">
               Last screening: {formatPatientDate(latest.screening_date)}
             </p>
             {latest.overall_flag ? (
-              <p className="mt-1 text-amber-700">
+              <p className="mt-1 text-amber-700 dark:text-amber-300">
                 Flagged for clinical review: {latest.flagged_domains.map((d) => DEVELOPMENTAL_DOMAIN_LABEL[d]).join(", ")}
               </p>
             ) : (
-              <p className="mt-1 text-charcoal-ink/60">No domains flagged.</p>
+              <p className="mt-1 text-charcoal-ink/60 dark:text-night-ink/60">No domains flagged.</p>
             )}
           </div>
         )}
 
-        {itemsLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {itemsLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
 
         {items && items.length > 0 && (
           <form onSubmit={handleSubmit} className="space-y-5">
             {items.map((item) => (
               <div key={item.id} className="space-y-1.5">
-                <p className="text-sm font-medium text-charcoal-ink">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                   {DEVELOPMENTAL_DOMAIN_LABEL[item.domain]}: {item.prompt}
                 </p>
                 <div className="flex gap-2">
@@ -100,7 +100,7 @@ export function DevelopmentalScreeningCard({
                       className={`min-h-9 rounded-full border px-3 py-1.5 text-xs transition ${
                         answers[item.id] === answer
                           ? "border-brand-green bg-brand-green text-white"
-                          : "border-charcoal-ink/20 bg-white text-charcoal-ink hover:border-brand-green/50"
+                          : "border-charcoal-ink/20 dark:border-night-ink/25 bg-white dark:bg-night-card text-charcoal-ink dark:text-night-ink hover:border-brand-green/50"
                       }`}
                     >
                       {ANSWER_LABEL[answer]}
@@ -110,7 +110,7 @@ export function DevelopmentalScreeningCard({
               </div>
             ))}
 
-            {submit.isError && <p className="text-sm text-red-600">Could not save this screening.</p>}
+            {submit.isError && <p className="text-sm text-red-600 dark:text-red-300">Could not save this screening.</p>}
 
             <Button type="submit" disabled={submit.isPending || answeredCount < items.length || !organisationId}>
               {submit.isPending

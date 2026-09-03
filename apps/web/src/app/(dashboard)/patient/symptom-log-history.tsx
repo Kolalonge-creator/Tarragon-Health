@@ -28,24 +28,24 @@ export function SymptomLogHistory({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.escalation className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.escalation className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Recent symptoms
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load your symptom log.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load your symptom log.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No symptoms logged yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No symptoms logged yet.</p>
         )}
         {data && data.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {data.map((symptom) => (
               <li key={symptom.id} className="flex items-center justify-between gap-4 py-2">
                 <div>
-                  <p className="text-sm font-medium text-charcoal-ink">
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                     {SYMPTOM_LABEL[symptom.symptom_type] ?? symptom.symptom_type.replace(/_/g, " ")}: severity{" "}
                     {symptom.severity ?? "—"}/10
                     {symptom.is_red_flag && (
@@ -55,10 +55,10 @@ export function SymptomLogHistory({ patientId }: { patientId: string }) {
                     )}
                   </p>
                   {symptom.description && (
-                    <p className="text-xs text-charcoal-ink/60">{symptom.description}</p>
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{symptom.description}</p>
                   )}
                 </div>
-                <span className="text-xs text-charcoal-ink/60">
+                <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   {formatPatientDateTime(symptom.reported_at)}
                 </span>
               </li>

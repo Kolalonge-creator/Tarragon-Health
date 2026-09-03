@@ -10,12 +10,12 @@ function Milestone({ done, label }: { done: boolean; label: string }) {
       <span
         aria-hidden
         className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
-          done ? "bg-brand-green text-white" : "border border-charcoal-ink/25 text-transparent"
+          done ? "bg-brand-green text-white" : "border border-charcoal-ink/25 dark:border-night-ink/30 text-transparent"
         }`}
       >
         ✓
       </span>
-      <span className={done ? "text-charcoal-ink" : "text-charcoal-ink/60"}>{label}</span>
+      <span className={done ? "text-charcoal-ink dark:text-night-ink" : "text-charcoal-ink/60 dark:text-night-ink/60"}>{label}</span>
     </li>
   );
 }
@@ -40,7 +40,7 @@ export function HealthResetCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Icon className="h-5 w-5 text-brand-green" aria-hidden />
+          <Icon className="h-5 w-5 text-brand-green dark:text-brand-green-bright" aria-hidden />
           {isComplete ? "90-Day Health Reset: complete" : `90-Day Health Reset: day ${dayLabel} of 90`}
         </CardTitle>
       </CardHeader>
@@ -52,12 +52,12 @@ export function HealthResetCard({ patientId }: { patientId: string }) {
         </ul>
 
         {isComplete ? (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             You&apos;ve completed your 90-Day Health Reset: the habit is yours now. Keep logging,
             and everything here stays free for as long as you use Tarragon.
           </p>
         ) : (
-          <p className="text-xs text-charcoal-ink/50">
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             Free, for as long as you use Tarragon, with no expiry date.
           </p>
         )}

@@ -137,7 +137,7 @@ export function CaregiverRequestFlow() {
     return (
       <Card>
         <CardContent className="space-y-4 pt-6 text-center">
-          <p className="text-sm font-medium text-brand-green">{doneMessage}</p>
+          <p className="text-sm font-medium text-brand-green dark:text-brand-green-bright">{doneMessage}</p>
           <Button asChild>
             <Link href="/patient/family">Back to your people</Link>
           </Button>
@@ -160,7 +160,7 @@ export function CaregiverRequestFlow() {
               record, not just follow it. It only ever starts once the other person accepts, and either side can
               withdraw it at any time. For someone who should only be able to follow your care, not
               act on it, use{" "}
-              <Link href="/patient/family" className="text-brand-green underline">
+              <Link href="/patient/family" className="text-brand-green dark:text-brand-green-bright underline">
                 next of kin
               </Link>{" "}
               instead.
@@ -173,12 +173,12 @@ export function CaregiverRequestFlow() {
                 setDirection("i_will_manage");
                 setStep("details");
               }}
-              className="w-full rounded-lg border border-charcoal-ink/15 p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-brand-green/[0.03]"
+              className="w-full rounded-lg border border-charcoal-ink/15 dark:border-night-ink/20 p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-brand-green/[0.03] dark:hover:bg-brand-green/10"
             >
-              <p className="font-medium text-charcoal-ink">
+              <p className="font-medium text-charcoal-ink dark:text-night-ink">
                 I want someone to manage my care for me
               </p>
-              <p className="mt-1 text-sm text-charcoal-ink/60">
+              <p className="mt-1 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                 For example, a family member helping you with bookings and prescriptions.
               </p>
             </button>
@@ -188,12 +188,12 @@ export function CaregiverRequestFlow() {
                 setDirection("i_will_help");
                 setStep("details");
               }}
-              className="w-full rounded-lg border border-charcoal-ink/15 p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-brand-green/[0.03]"
+              className="w-full rounded-lg border border-charcoal-ink/15 dark:border-night-ink/20 p-4 text-left transition-colors hover:border-brand-green/50 hover:bg-brand-green/[0.03] dark:hover:bg-brand-green/10"
             >
-              <p className="font-medium text-charcoal-ink">
+              <p className="font-medium text-charcoal-ink dark:text-night-ink">
                 I want to help manage someone else&apos;s care
               </p>
-              <p className="mt-1 text-sm text-charcoal-ink/60">
+              <p className="mt-1 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                 For example, an elderly parent you look after; they&apos;ll need to accept before
                 anything changes.
               </p>
@@ -214,7 +214,7 @@ export function CaregiverRequestFlow() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor="cg_phone">Their phone number</Label>
@@ -245,7 +245,7 @@ export function CaregiverRequestFlow() {
               </div>
             </div>
             {lookupTried && !candidate && (
-              <p className="text-sm text-red-600">
+              <p className="text-sm text-red-600 dark:text-red-400">
                 We couldn&apos;t find a Tarragon account on that number in your organisation. They
                 need their own account first.
               </p>
@@ -276,12 +276,12 @@ export function CaregiverRequestFlow() {
             <ul className="space-y-2">
               {CAREGIVER_PERMISSIONS.map((permission) => (
                 <li key={permission}>
-                  <label className="flex items-center gap-2 text-sm text-charcoal-ink">
+                  <label className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
                     <input
                       type="checkbox"
                       checked={permissions.includes(permission)}
                       onChange={() => togglePermission(permission)}
-                      className="h-4 w-4 rounded border-charcoal-ink/30 text-brand-green focus:ring-brand-green"
+                      className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35 text-brand-green dark:text-brand-green-bright focus:ring-brand-green"
                     />
                     {CAREGIVER_PERMISSION_LABEL[permission]}
                   </label>
@@ -289,7 +289,7 @@ export function CaregiverRequestFlow() {
               ))}
             </ul>
             {permissions.length === 0 && (
-              <p className="text-sm text-red-600">Choose at least one thing they can do.</p>
+              <p className="text-sm text-red-600 dark:text-red-400">Choose at least one thing they can do.</p>
             )}
             <div className="space-y-1.5">
               <Label htmlFor="cg_duration">How long should this last?</Label>
@@ -305,7 +305,7 @@ export function CaregiverRequestFlow() {
                   </option>
                 ))}
               </Select>
-              <p className="text-xs text-charcoal-ink/50">
+              <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                 Useful when travelling or handing something off for a while: access ends itself,
                 nothing to remember to undo.
               </p>
@@ -329,33 +329,33 @@ export function CaregiverRequestFlow() {
             <CardDescription>Nothing changes until they accept.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {error && <p className="text-sm text-red-600">{error}</p>}
-            <div className="rounded-md border border-charcoal-ink/10 p-3 text-sm">
-              <p className="font-medium text-charcoal-ink">
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            <div className="rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3 text-sm">
+              <p className="font-medium text-charcoal-ink dark:text-night-ink">
                 {candidate.full_name ?? "This person"}
               </p>
-              <p className="text-charcoal-ink/60">
+              <p className="text-charcoal-ink/60 dark:text-night-ink/60">
                 {RELATIONSHIP_LABEL[relationship] ?? relationship} · {phone}
               </p>
             </div>
-            <div className="rounded-md border border-charcoal-ink/10 p-3 text-sm">
-              <p className="font-medium text-charcoal-ink">
+            <div className="rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3 text-sm">
+              <p className="font-medium text-charcoal-ink dark:text-night-ink">
                 {permissions.length === CAREGIVER_PERMISSIONS.length
                   ? "Everything (unrestricted manage access)"
                   : "Can do:"}
               </p>
               {permissions.length !== CAREGIVER_PERMISSIONS.length && (
-                <ul className="mt-1 list-inside list-disc text-charcoal-ink/70">
+                <ul className="mt-1 list-inside list-disc text-charcoal-ink/70 dark:text-night-ink/70">
                   {permissions.map((permission) => (
                     <li key={permission}>{CAREGIVER_PERMISSION_LABEL[permission]}</li>
                   ))}
                 </ul>
               )}
-              <p className="mt-2 text-charcoal-ink/60">
+              <p className="mt-2 text-charcoal-ink/60 dark:text-night-ink/60">
                 {CAREGIVER_ACCESS_DURATION_LABEL[duration]}
               </p>
             </div>
-            <p className="text-sm text-charcoal-ink">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
               {direction === "i_will_manage"
                 ? `We'll ask ${candidate.full_name ?? "them"} to accept managing your care. Until they do, nothing changes.`
                 : `We'll ask ${candidate.full_name ?? "them"} to accept you managing their care. Until they do, nothing changes.`}

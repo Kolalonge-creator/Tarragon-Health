@@ -32,14 +32,14 @@ export function DiabetesTypeSelector({
       </CardHeader>
       <CardContent className="space-y-2">
       {confirmed ? (
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Your care team has confirmed:{" "}
-          <span className="font-medium text-deep-forest">
+          <span className="font-medium text-deep-forest dark:text-brand-green-bright">
             {DIABETES_TYPE_LABEL[confirmed as keyof typeof DIABETES_TYPE_LABEL] ?? confirmed}
           </span>
         </p>
       ) : (
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           This helps your care team give you the right guidance (for example, insulin should
           never be stopped in type 1). Tell us what you were told at diagnosis; your care team
           will confirm it.
@@ -63,8 +63,8 @@ export function DiabetesTypeSelector({
           {pending ? "Saving…" : "Save"}
         </Button>
       </form>
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Saved.</p>}
+      {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+      {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved.</p>}
       </CardContent>
     </Card>
   );

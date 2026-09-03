@@ -124,7 +124,7 @@ export function CycleCalendar({
         >
           &larr;
         </Button>
-        <p className="text-sm font-medium text-charcoal-ink">
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
           {monthLabel(cursor.year, cursor.month)}
         </p>
         <Button
@@ -142,7 +142,7 @@ export function CycleCalendar({
         {WEEKDAYS.map((day, index) => (
           <div
             key={`${day}-${index}`}
-            className="pb-1 text-center text-[11px] font-medium text-charcoal-ink/50"
+            className="pb-1 text-center text-[11px] font-medium text-charcoal-ink/50 dark:text-night-ink/55"
             aria-hidden
           >
             {day}
@@ -169,7 +169,7 @@ export function CycleCalendar({
           // Recorded beats predicted: a day the patient actually bled is a
           // period day even if it also falls inside a fertile estimate.
           let background = "transparent";
-          let textClass = "text-charcoal-ink";
+          let textClass = "text-charcoal-ink dark:text-night-ink";
           let ring = "";
           if (isPeriod) {
             background = "var(--cycle-period)";
@@ -205,9 +205,9 @@ export function CycleCalendar({
               aria-pressed={isSelected}
               className={[
                 "relative flex aspect-square items-center justify-center rounded-full text-xs transition",
-                cell.inMonth ? textClass : "text-charcoal-ink/25",
+                cell.inMonth ? textClass : "text-charcoal-ink/25 dark:text-night-ink/40",
                 ring,
-                isSelected ? "outline outline-2 outline-offset-1 outline-charcoal-ink" : "",
+                isSelected ? "outline outline-2 outline-offset-1 outline-charcoal-ink dark:outline-night-ink" : "",
                 isToday && !isSelected ? "font-bold underline underline-offset-2" : "",
                 "hover:opacity-80 focus:outline focus:outline-2 focus:outline-brand-green",
               ]
@@ -222,8 +222,14 @@ export function CycleCalendar({
               {hasLog && (
                 <span
                   aria-hidden
-                  className="absolute bottom-0.5 h-1 w-1 rounded-full"
-                  style={{ backgroundColor: isPeriod ? "white" : "var(--charcoal-ink)" }}
+                  // Same colours as before (bg-white = white, bg-charcoal-ink =
+                  // var(--charcoal-ink)), moved from an inline style to classes so
+                  // the ink dot can take a dark: override — inline styles would
+                  // beat any dark class. Period days keep the white dot on the
+                  // theme-stable period fill in both themes.
+                  className={`absolute bottom-0.5 h-1 w-1 rounded-full ${
+                    isPeriod ? "bg-white" : "bg-charcoal-ink dark:bg-night-ink"
+                  }`}
                 />
               )}
             </button>
@@ -231,7 +237,7 @@ export function CycleCalendar({
         })}
       </div>
 
-      <p className="mt-3 text-xs text-charcoal-ink/60">
+      <p className="mt-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Solid days are what you logged. The dashed outline is when your next period is expected,
         and the shaded band is your estimated fertile window. A dot means you added notes or
         symptoms that day.

@@ -31,8 +31,8 @@ export async function ComplicationStatus({ patientId }: { patientId: string }) {
       <CardContent className="space-y-2 text-sm">
         {[...latest.values()].map((row) => (
           <div key={row.check_type} className="flex flex-wrap justify-between gap-x-4">
-            <span className="text-charcoal-ink">{LABEL[row.check_type] ?? row.check_type.replace(/_/g, " ")}</span>
-            <span className="text-charcoal-ink/60">
+            <span className="text-charcoal-ink dark:text-night-ink">{LABEL[row.check_type] ?? row.check_type.replace(/_/g, " ")}</span>
+            <span className="text-charcoal-ink/60 dark:text-night-ink/60">
               Done {formatPatientDate(row.done_at)}
               {row.next_due_at ? ` · next due ${formatPatientDate(row.next_due_at)}` : ""}
             </span>

@@ -43,7 +43,7 @@ export default async function QuickLogPage({
       />
       <Link
         href="/patient/vitals"
-        className="block text-center text-sm text-charcoal-ink/60 hover:underline"
+        className="block text-center text-sm text-charcoal-ink/60 dark:text-night-ink/60 hover:underline"
       >
         Go to my full dashboard
       </Link>

@@ -26,14 +26,14 @@ export function EmergencyAccessBanner() {
   if (!grants || grants.length === 0) return null;
 
   return (
-    <Card className="border-amber-300 bg-amber-50">
+    <Card className="border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15">
       <CardContent className="space-y-2 pt-6">
-        <p className="font-heading text-sm font-semibold text-charcoal-ink">
+        <p className="font-heading text-sm font-semibold text-charcoal-ink dark:text-night-ink">
           Emergency access is active on your record
         </p>
         {grants.map((g) => (
           <div key={g.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-            <span className="text-charcoal-ink/80">
+            <span className="text-charcoal-ink/80 dark:text-night-ink/80">
               <strong>{g.granteeName ?? "Someone you gave care access to"}</strong> can see your
               health information until {shortDateTime(g.expiresAt)}. Reason given:{" "}
               <em>{g.reason}</em>

@@ -19,11 +19,11 @@ export default async function SmokingPage() {
   return (
     <DashboardPlaceholder greeting="Smoking" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.smoking}>
       <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green hover:underline">
+        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
           ← Back to lifestyle coaching
         </Link>
       </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
+      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Whether you&apos;re thinking about quitting, mid-quit, or just want to keep track: this is
         yours to log, and your care team can support you along the way.
       </p>

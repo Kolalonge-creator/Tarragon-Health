@@ -22,45 +22,49 @@ const BMI_CATEGORY_LABEL: Record<BmiCategory, string> = {
   obesity_class_iii: "Higher weight range",
 };
 
+/* Series colours reference the bare --chart-* vars (not the :root-resolved
+ * --color-chart-* aliases) so they re-resolve inside the data-theme="dark"
+ * subtree and flip automatically in Night mode. */
 const BP_CONFIG: ChartConfig = {
-  systolic: { label: "Systolic (mmHg)", color: "var(--color-chart-systolic)" },
-  diastolic: { label: "Diastolic (mmHg)", color: "var(--color-chart-diastolic)" },
+  systolic: { label: "Systolic (mmHg)", color: "var(--chart-systolic)" },
+  diastolic: { label: "Diastolic (mmHg)", color: "var(--chart-diastolic)" },
 };
 
 const GLUCOSE_CONFIG: ChartConfig = {
-  glucose_mmol_l: { label: "Glucose (mmol/L)", color: "var(--color-chart-glucose)" },
+  glucose_mmol_l: { label: "Glucose (mmol/L)", color: "var(--chart-glucose)" },
 };
 
 const HBA1C_CONFIG: ChartConfig = {
-  value: { label: "HbA1c (%)", color: "var(--color-chart-glucose)" },
+  value: { label: "HbA1c (%)", color: "var(--chart-glucose)" },
 };
 
 const WEIGHT_CONFIG: ChartConfig = {
-  weight_kg: { label: "Weight (kg)", color: "var(--color-chart-glucose)" },
+  weight_kg: { label: "Weight (kg)", color: "var(--chart-glucose)" },
 };
 
 const PULSE_CONFIG: ChartConfig = {
-  pulse_bpm: { label: "Heart rate (bpm)", color: "var(--color-chart-systolic)" },
+  pulse_bpm: { label: "Heart rate (bpm)", color: "var(--chart-systolic)" },
 };
 
 const BMI_CONFIG: ChartConfig = {
-  bmi: { label: "BMI", color: "var(--color-chart-glucose)" },
+  bmi: { label: "BMI", color: "var(--chart-glucose)" },
 };
 
 function formatDate(taken_at: string): string {
   return formatPatientDate(taken_at, { month: "short", day: "numeric" });
 }
 
-// Recessive horizontal gridlines: 1px solid, one step off the white surface.
+// Recessive horizontal gridlines: 1px solid, one step off the surface.
+// --chart-grid carries its own alpha (0.08 light / 0.10 dark) and flips
+// with the theme, so no separate strokeOpacity.
 const GRID_PROPS = {
   vertical: false,
-  stroke: "var(--color-charcoal-ink)",
-  strokeOpacity: 0.08,
+  stroke: "var(--chart-grid)",
 } as const;
 
 // Small axis labels in text tokens, no axis/tick strokes competing with the
-// gridlines.
-const AXIS_TICK = { fontSize: 12, fill: "var(--color-charcoal-ink)", fillOpacity: 0.5 } as const;
+// gridlines. --chart-tick carries its own alpha (0.5 light / 0.55 dark).
+const AXIS_TICK = { fontSize: 12, fill: "var(--chart-tick)" } as const;
 
 // 2px series lines with round joins/caps, shared by every mode below.
 const LINE_PROPS = {
@@ -91,14 +95,21 @@ function makeEndpointDot(lastIndex: number, color: string, placement: "above" | 
     }
     return (
       <g key={key}>
-        <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="#ffffff" strokeWidth={2} />
+        <circle
+          cx={cx}
+          cy={cy}
+          r={4.5}
+          fill={color}
+          strokeWidth={2}
+          className="stroke-white dark:stroke-night-card"
+        />
         <text
           x={cx - 8}
           y={placement === "above" ? cy - 9 : cy + 17}
           textAnchor="end"
           fontSize={12}
           fontWeight={600}
-          fill="var(--color-charcoal-ink)"
+          className="fill-charcoal-ink dark:fill-night-ink"
         >
           {value}
         </text>
@@ -171,12 +182,12 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           </Button>
         </div>
 
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load the trend chart.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load the trend chart.</p>
         )}
         {mode === "bmi" && !isLoading && !isError && noHeightOnFile && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             Add your height in your{" "}
             <a href="/patient/prevention#risk-assessment" className="underline">
               risk assessment
@@ -185,7 +196,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           </p>
         )}
         {!isLoading && !isError && !noHeightOnFile && points.length < 2 && (
-          <p className="text-sm text-charcoal-ink/60">Not enough readings yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Not enough readings yet.</p>
         )}
         {points.length >= 2 && mode === "blood_pressure" && (
           <div className="space-y-2">
@@ -205,19 +216,19 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
                   {...LINE_PROPS}
                   dataKey="systolic"
                   stroke="var(--color-systolic)"
-                  dot={makeEndpointDot(lastIndex, "var(--color-chart-systolic)", "above")}
+                  dot={makeEndpointDot(lastIndex, "var(--chart-systolic)", "above")}
                 />
                 <Line
                   {...LINE_PROPS}
                   dataKey="diastolic"
                   stroke="var(--color-diastolic)"
-                  dot={makeEndpointDot(lastIndex, "var(--color-chart-diastolic)", "below")}
+                  dot={makeEndpointDot(lastIndex, "var(--chart-diastolic)", "below")}
                 />
               </LineChart>
             </ChartContainer>
             {/* Legend only for the one multi-series metric — the selector
                 buttons already name the single-series charts. */}
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-charcoal-ink/70">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
               {(["systolic", "diastolic"] as const).map((seriesKey) => (
                 <span key={seriesKey} className="flex items-center gap-1.5">
                   <span
@@ -248,7 +259,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
                 {...LINE_PROPS}
                 dataKey="glucose_mmol_l"
                 stroke="var(--color-glucose_mmol_l)"
-                dot={makeEndpointDot(lastIndex, "var(--color-chart-glucose)", "above")}
+                dot={makeEndpointDot(lastIndex, "var(--chart-glucose)", "above")}
               />
             </LineChart>
           </ChartContainer>
@@ -270,7 +281,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
                 {...LINE_PROPS}
                 dataKey="weight_kg"
                 stroke="var(--color-weight_kg)"
-                dot={makeEndpointDot(lastIndex, "var(--color-chart-glucose)", "above")}
+                dot={makeEndpointDot(lastIndex, "var(--chart-glucose)", "above")}
               />
             </LineChart>
           </ChartContainer>
@@ -292,7 +303,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
                 {...LINE_PROPS}
                 dataKey="pulse_bpm"
                 stroke="var(--color-pulse_bpm)"
-                dot={makeEndpointDot(lastIndex, "var(--color-chart-systolic)", "above")}
+                dot={makeEndpointDot(lastIndex, "var(--chart-systolic)", "above")}
               />
             </LineChart>
           </ChartContainer>
@@ -315,7 +326,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
                   {...LINE_PROPS}
                   dataKey="value"
                   stroke="var(--color-value)"
-                  dot={makeEndpointDot(lastIndex, "var(--color-chart-glucose)", "above")}
+                  dot={makeEndpointDot(lastIndex, "var(--chart-glucose)", "above")}
                 />
               </LineChart>
             </ChartContainer>
@@ -323,7 +334,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
               const latest = points[points.length - 1] as { value: number };
               const bracket = getHba1cBracket(latest.value);
               return (
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   Latest: {latest.value}% ({bracket.label})
                 </p>
               );
@@ -348,14 +359,14 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
                   {...LINE_PROPS}
                   dataKey="bmi"
                   stroke="var(--color-bmi)"
-                  dot={makeEndpointDot(lastIndex, "var(--color-chart-glucose)", "above")}
+                  dot={makeEndpointDot(lastIndex, "var(--chart-glucose)", "above")}
                 />
               </LineChart>
             </ChartContainer>
             {(() => {
               const latest = points[points.length - 1] as { bmi: number };
               return (
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   Latest: {latest.bmi.toFixed(1)} ({BMI_CATEGORY_LABEL[bmiCategory(latest.bmi)]})
                 </p>
               );

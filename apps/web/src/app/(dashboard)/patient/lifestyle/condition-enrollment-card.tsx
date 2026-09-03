@@ -32,7 +32,7 @@ export function ConditionEnrollmentCard({ enrollment }: { enrollment: LifestyleE
       </CardHeader>
       <CardContent className="space-y-4">
         {enrollment.status === "paused" ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground dark:text-night-ink/60">
             This programme is paused while your care team checks in with you.
             We&apos;re here to support you.
           </p>
@@ -49,7 +49,7 @@ export function ConditionEnrollmentCard({ enrollment }: { enrollment: LifestyleE
                 {enrollment.goals.map((g) => (
                   <li key={g.id} className="flex items-center justify-between gap-2">
                     <span>
-                      <span className="text-muted-foreground capitalize">{g.module}</span>{" "}
+                      <span className="text-muted-foreground dark:text-night-ink/60 capitalize">{g.module}</span>{" "}
                       {g.title}
                     </span>
                     {g.personalised && <ResolveGoalControls goalId={g.id} />}
@@ -58,7 +58,7 @@ export function ConditionEnrollmentCard({ enrollment }: { enrollment: LifestyleE
               </ul>
             )}
             {enrollment.nextReviewDue && (
-              <p className="text-muted-foreground text-xs">
+              <p className="text-muted-foreground dark:text-night-ink/60 text-xs">
                 Next care-team review:{" "}
                 {formatPatientDate(enrollment.nextReviewDue)}
               </p>
@@ -102,7 +102,7 @@ function LogForm({
           <select
             id={`type-${enrollmentId}`}
             name="type"
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
+            className="border-input dark:border-night-ink/20 bg-background dark:bg-night-card h-9 w-full rounded-md border px-2 text-sm"
             defaultValue="mood"
           >
             <option value="mood">How I&apos;m feeling</option>
@@ -129,8 +129,8 @@ function LogForm({
         </label>
       )}
 
-      {state?.message && <p className="text-sm text-brand-green">{state.message}</p>}
-      {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+      {state?.message && <p className="text-sm text-brand-green dark:text-brand-green-bright">{state.message}</p>}
+      {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
 
       <Button type="submit" size="sm">
         Log check-in
@@ -146,7 +146,7 @@ function ResolveGoalControls({ goalId }: { goalId: string }) {
   );
 
   if (state?.success) {
-    return <span className="text-xs text-brand-green">{state.message}</span>;
+    return <span className="text-xs text-brand-green dark:text-brand-green-bright">{state.message}</span>;
   }
 
   return (
@@ -154,14 +154,14 @@ function ResolveGoalControls({ goalId }: { goalId: string }) {
       <form action={resolve}>
         <input type="hidden" name="goalId" value={goalId} />
         <input type="hidden" name="status" value="achieved" />
-        <button type="submit" className="text-xs text-brand-green hover:underline">
+        <button type="submit" className="text-xs text-brand-green dark:text-brand-green-bright hover:underline">
           Mark achieved
         </button>
       </form>
       <form action={resolve}>
         <input type="hidden" name="goalId" value={goalId} />
         <input type="hidden" name="status" value="abandoned" />
-        <button type="submit" className="text-xs text-muted-foreground hover:underline">
+        <button type="submit" className="text-xs text-muted-foreground dark:text-night-ink/60 hover:underline">
           Let this go
         </button>
       </form>

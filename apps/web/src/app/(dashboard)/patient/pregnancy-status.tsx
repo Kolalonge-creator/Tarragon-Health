@@ -38,8 +38,8 @@ export async function PregnancyStatus({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {banner && (
-          <div className="rounded-md border border-amber-300 bg-amber-50/60 p-3 text-sm text-charcoal-ink/90">
-            <p className="font-medium text-amber-800">Your care in pregnancy is led by antenatal care</p>
+          <div className="rounded-md border border-amber-300 dark:border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/10 p-3 text-sm text-charcoal-ink/90 dark:text-night-ink/90">
+            <p className="font-medium text-amber-800 dark:text-amber-300">Your care in pregnancy is led by antenatal care</p>
             <p className="mt-1">{banner}</p>
           </div>
         )}

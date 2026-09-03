@@ -71,12 +71,12 @@ export function RedeemVoucherButton({
             : `Apply ₦${koboToNaira(chosen.face_value_kobo).toLocaleString()} reward voucher`}
       </Button>
       {!isPrepaid && (
-        <p className="pt-1 text-xs text-slate-500">
+        <p className="pt-1 text-xs text-slate-500 dark:text-night-ink/60">
           Covers ₦{koboToNaira(Math.min(chosen.face_value_kobo, payableKobo)).toLocaleString()} of
           this order. You pay the rest by card.
         </p>
       )}
-      {error && <p className="pt-1 text-xs text-red-600">{error}</p>}
+      {error && <p className="pt-1 text-xs text-red-600 dark:text-red-300">{error}</p>}
     </div>
   );
 }

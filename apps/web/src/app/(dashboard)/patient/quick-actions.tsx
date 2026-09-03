@@ -97,7 +97,7 @@ export function QuickActions({ showCycle = false }: { showCycle?: boolean }) {
     <section aria-labelledby="quick-actions-heading">
       <h2
         id="quick-actions-heading"
-        className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/45"
+        className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/45 dark:text-night-ink/55"
       >
         Quick actions
       </h2>
@@ -111,23 +111,23 @@ export function QuickActions({ showCycle = false }: { showCycle?: boolean }) {
                 className={cn(
                   "group flex w-full flex-col gap-2 rounded-xl border p-4 transition hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2",
                   action.emphasis
-                    ? "border-brand-green/30 bg-soft-sage/40 hover:border-brand-green/50 hover:bg-soft-sage"
-                    : "border-charcoal-ink/10 bg-white hover:border-brand-green/40 hover:bg-charcoal-ink/[0.03]"
+                    ? "border-brand-green/30 dark:border-brand-green-bright/30 bg-soft-sage/40 dark:bg-brand-green/10 hover:border-brand-green/50 dark:hover:border-brand-green-bright/50 hover:bg-soft-sage dark:hover:bg-brand-green/20"
+                    : "border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card hover:border-brand-green/40 dark:hover:border-brand-green-bright/40 hover:bg-charcoal-ink/[0.03] dark:hover:bg-night-ink/10"
                 )}
               >
                 <span
                   className={cn(
                     "flex h-9 w-9 items-center justify-center rounded-full",
-                    action.emphasis ? "bg-brand-green/15" : "bg-soft-sage"
+                    action.emphasis ? "bg-brand-green/15 dark:bg-brand-green/25" : "bg-soft-sage dark:bg-brand-green/20"
                   )}
                 >
-                  <Icon className="h-4.5 w-4.5 text-deep-forest" strokeWidth={2} />
+                  <Icon className="h-4.5 w-4.5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-semibold leading-snug text-charcoal-ink">
+                  <span className="block text-sm font-semibold leading-snug text-charcoal-ink dark:text-night-ink">
                     {action.label}
                   </span>
-                  <span className="mt-0.5 block text-xs leading-snug text-charcoal-ink/55">
+                  <span className="mt-0.5 block text-xs leading-snug text-charcoal-ink/55 dark:text-night-ink/60">
                     {action.hint}
                   </span>
                 </span>

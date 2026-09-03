@@ -59,16 +59,16 @@ export function ConditionsList({ patientId }: { patientId: string }) {
         {data.map((condition) => (
           <div
             key={condition.id}
-            className="space-y-1 border-b border-charcoal-ink/10 pb-3 last:border-0 last:pb-0"
+            className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-3 last:border-0 last:pb-0"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium text-charcoal-ink">{condition.condition_name}</p>
+              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{condition.condition_name}</p>
               <Badge variant={STATUS_BADGE_VARIANT[condition.status]}>
                 {STATUS_LABEL[condition.status]}
               </Badge>
             </div>
             {(condition.severity || condition.date_identified) && (
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 {condition.severity && `${SEVERITY_LABEL[condition.severity]} severity`}
                 {condition.severity && condition.date_identified && " · "}
                 {condition.date_identified &&

@@ -82,16 +82,16 @@ export function SexualHealthPrivacyGate({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto max-w-sm space-y-4 py-16 text-center">
-      <SEMANTIC_ICON.privacy className="mx-auto h-8 w-8 text-clinical-navy" strokeWidth={1.5} />
+      <SEMANTIC_ICON.privacy className="mx-auto h-8 w-8 text-clinical-navy dark:text-night-ink" strokeWidth={1.5} />
       <div>
-        <p className="text-base font-semibold text-charcoal-ink">Enter your privacy PIN</p>
-        <p className="mt-1 text-sm text-charcoal-ink/60">
+        <p className="text-base font-semibold text-charcoal-ink dark:text-night-ink">Enter your privacy PIN</p>
+        <p className="mt-1 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           You set this up so this section stays private on shared devices.
         </p>
       </div>
 
       {isLocked ? (
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Too many attempts. Try again after{" "}
           {formatPatientTime(lockedUntil!, { hour: "2-digit", minute: "2-digit" })},
           or reset your PIN below.
@@ -112,7 +112,7 @@ export function SexualHealthPrivacyGate({ children }: { children: ReactNode }) {
             placeholder="••••"
             className="text-center text-lg tracking-[0.5em]"
           />
-          {error && <p className="text-center text-sm text-red-600">{error}</p>}
+          {error && <p className="text-center text-sm text-red-600 dark:text-red-400">{error}</p>}
           <Button
             type="submit"
             className="w-full"
@@ -127,7 +127,7 @@ export function SexualHealthPrivacyGate({ children }: { children: ReactNode }) {
         type="button"
         onClick={() => clear.mutate()}
         disabled={clear.isPending}
-        className="text-xs font-medium text-charcoal-ink/50 underline underline-offset-4 hover:text-charcoal-ink"
+        className="text-xs font-medium text-charcoal-ink/50 dark:text-night-ink/55 underline underline-offset-4 hover:text-charcoal-ink dark:hover:text-night-ink"
       >
         Forgot your PIN? Reset it
       </button>

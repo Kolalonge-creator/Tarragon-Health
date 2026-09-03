@@ -29,21 +29,21 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithAnswerer }) 
   return (
     <li className="space-y-1 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">{request.existing_diagnosis_or_result}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{request.existing_diagnosis_or_result}</p>
         {answered ? <Badge variant="green">Answered</Badge> : <Badge variant="blue">With your care team</Badge>}
       </div>
       {!answered && (
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           A doctor will respond by {formatPatientDateTime(request.sla_due_at)}.
         </p>
       )}
       {answered && request.answer && (
-        <div className="rounded-lg border border-brand-green/20 bg-brand-green/[0.04] p-3">
-          <p className="text-sm text-charcoal-ink">{request.answer}</p>
+        <div className="rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 bg-brand-green/[0.04] dark:bg-brand-green/15 p-3">
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">{request.answer}</p>
           {/* Attribution is null-gated on the trigger-stamped answered_by record —
               never rendered without a real clinical_staff match. */}
           {request.answerer && request.answered_at && (
-            <p className="mt-1 text-xs text-charcoal-ink/60">
+            <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Answered by Dr. {request.answerer.full_name}
               {credential ? ` (${credential})` : ""} on{" "}
               {formatPatientDate(request.answered_at)}
@@ -146,14 +146,14 @@ export function SecondOpinionRequestCard({
         <CardTitle>Second opinion</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Already have a result or diagnosis from somewhere else? A doctor on your care team reviews
           it and writes back their own assessment, no visit needed.
         </p>
 
         {!isCheckingCredit && !hasCredit && (
-          <div className="space-y-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
-            <p className="text-sm text-charcoal-ink">
+          <div className="space-y-2 rounded-md border border-brand-green/30 dark:border-brand-green-bright/30 bg-brand-green/5 dark:bg-brand-green/15 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
               Buy a second opinion credit to send a request.
             </p>
             <Button size="sm" disabled={isBuying} onClick={buyCredit}>
@@ -193,16 +193,16 @@ export function SecondOpinionRequestCard({
             disabled={!hasCredit}
           />
         </div>
-        {formError && <p className="text-sm text-red-600">{formError}</p>}
+        {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
         {submit.isSuccess && (
-          <p className="text-sm text-brand-green">Sent. A doctor will answer here within 72 hours.</p>
+          <p className="text-sm text-brand-green dark:text-brand-green-bright">Sent. A doctor will answer here within 72 hours.</p>
         )}
         <Button onClick={onSubmit} disabled={submit.isPending || !hasCredit}>
           {submit.isPending ? "Sending…" : "Send for review"}
         </Button>
 
         {requests && requests.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10 border-t border-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 border-t border-charcoal-ink/10 dark:border-night-ink/15">
             {requests.map((r) => (
               <RequestRow key={r.id} request={r} />
             ))}

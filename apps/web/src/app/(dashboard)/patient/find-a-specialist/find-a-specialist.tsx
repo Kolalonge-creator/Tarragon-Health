@@ -107,7 +107,7 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
               placeholder="e.g. Yoruba"
             />
           </div>
-          <label className="flex items-end gap-2 pb-1.5 text-sm text-charcoal-ink/80">
+          <label className="flex items-end gap-2 pb-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             <input
               type="checkbox"
               checked={requireTelemedicine}
@@ -121,39 +121,39 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
       <Card>
         <CardContent className="space-y-3 pt-6">
           {isLoading ? (
-            <p className="text-sm text-charcoal-ink/60">Searching…</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Searching…</p>
           ) : (providers ?? []).length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               No specialists match yet. Your care team is growing the network in your area. Message them and
               they can help arrange a referral.
             </p>
           ) : (
             (providers ?? []).map((provider) => (
-              <div key={provider.id} className="space-y-1 rounded-md border border-charcoal-ink/10 p-3">
+              <div key={provider.id} className="space-y-1 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium text-charcoal-ink">{provider.name}</span>
+                  <span className="font-medium text-charcoal-ink dark:text-night-ink">{provider.name}</span>
                   <Badge variant="grey">{provider.specialist_type.replace(/_/g, " ")}</Badge>
                   {provider.subspecialty && <Badge variant="blue">{provider.subspecialty}</Badge>}
                   {provider.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
                 </div>
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"}, ₦
                   {koboToNaira(provider.consultation_fee_kobo).toLocaleString()}
                   {provider.years_of_experience != null && ` · ${provider.years_of_experience} yrs experience`}
                 </p>
                 {provider.qualifications.length > 0 && (
-                  <p className="text-xs text-charcoal-ink/60">{provider.qualifications.join(", ")}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{provider.qualifications.join(", ")}</p>
                 )}
                 {provider.clinical_interests.length > 0 && (
-                  <p className="text-xs text-charcoal-ink/50">Focus: {provider.clinical_interests.join(", ")}</p>
+                  <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Focus: {provider.clinical_interests.join(", ")}</p>
                 )}
                 {provider.languages.length > 0 && (
-                  <p className="text-xs text-charcoal-ink/50">Languages: {provider.languages.join(", ")}</p>
+                  <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Languages: {provider.languages.join(", ")}</p>
                 )}
               </div>
             ))
           )}
-          <p className="text-xs text-charcoal-ink/50">
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             Interested in seeing one of these specialists? Message your care team and they&apos;ll arrange the
             referral.
           </p>

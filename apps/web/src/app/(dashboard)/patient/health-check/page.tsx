@@ -167,7 +167,7 @@ export default async function HealthCheckPage() {
           description="A yearly, whole-body check: the right checks for you, and a plan to keep you well. Work through each step; your care team reviews everything at the end."
         />
         {tierName && (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             You&apos;re completing the <span className="font-medium">{tierName}</span> this year.
           </p>
         )}
@@ -177,12 +177,12 @@ export default async function HealthCheckPage() {
         <CardHeader>
           <CardTitle className="text-base">Your {year} check</CardTitle>
         </CardHeader>
-        <CardContent className="divide-y divide-charcoal-ink/10">
+        <CardContent className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {stages.map((stage) => (
             <div key={stage.title} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
               <div>
-                <p className="text-sm font-medium text-charcoal-ink">{stage.title}</p>
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{stage.title}</p>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   {stage.done ? stage.doneLabel : stage.toDoLabel}
                 </p>
               </div>
@@ -191,7 +191,7 @@ export default async function HealthCheckPage() {
                   <Badge variant={stage.done ? "green" : "amber"}>{stage.done ? "Done" : "To do"}</Badge>
                 )}
                 {stage.href && (
-                  <Link href={stage.href} className="text-sm text-brand-green hover:underline">
+                  <Link href={stage.href} className="text-sm text-brand-green dark:text-brand-green-bright hover:underline">
                     Open →
                   </Link>
                 )}
@@ -226,7 +226,7 @@ export default async function HealthCheckPage() {
         <CardContent className="space-y-1 text-sm">
           {check?.reviewed_at ? (
             <>
-              <p className="text-charcoal-ink/80">
+              <p className="text-charcoal-ink/80 dark:text-night-ink/80">
                 Completed{reviewerName ? ` · Reviewed by ${reviewerName}` : " · Reviewed by your care team"} ·{" "}
                 {new Date(check.reviewed_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                   day: "numeric",
@@ -234,18 +234,18 @@ export default async function HealthCheckPage() {
                   year: "numeric",
                 })}
               </p>
-              {check.review_summary && <p className="text-charcoal-ink/70">{check.review_summary}</p>}
+              {check.review_summary && <p className="text-charcoal-ink/70 dark:text-night-ink/70">{check.review_summary}</p>}
               <p>
                 <a
                   href="/api/patient/health-check/report"
-                  className="text-brand-green hover:underline"
+                  className="text-brand-green dark:text-brand-green-bright hover:underline"
                 >
                   Download your Health Check report (PDF) →
                 </a>
               </p>
             </>
           ) : (
-            <p className="text-charcoal-ink/60">
+            <p className="text-charcoal-ink/60 dark:text-night-ink/60">
               Once your checks are in, a doctor reviews everything and walks you through your
               results and plan on a video call.
             </p>
@@ -258,7 +258,7 @@ export default async function HealthCheckPage() {
       <MentalHealthSummary patientId={profile.id} />
 
       <div>
-        <h2 className="mb-2 font-heading text-lg font-semibold text-charcoal-ink">Mental wellbeing check-in</h2>
+        <h2 className="mb-2 font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Mental wellbeing check-in</h2>
         <MentalHealthScreenForm patientId={profile.id} />
       </div>
     </div>

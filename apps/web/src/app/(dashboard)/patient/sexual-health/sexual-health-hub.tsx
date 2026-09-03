@@ -44,15 +44,15 @@ type TabKey = (typeof TABS)[number]["key"];
  */
 function PrivacyBanner() {
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-clinical-navy/15 bg-clinical-navy/[0.04] p-3">
-      <p className="flex items-center gap-1.5 text-xs font-semibold text-clinical-navy">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-clinical-navy/15 dark:border-night-ink/20 bg-clinical-navy/[0.04] dark:bg-night-ink/10 p-3">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-clinical-navy dark:text-night-ink">
         <SEMANTIC_ICON.privacy className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
         Your answers here stay between you and your care team, never shown to a family member,
         an employer, or an HMO, even one that pays for your plan.
       </p>
       <Link
         href="/patient"
-        className="shrink-0 rounded-md border border-clinical-navy/20 px-2.5 py-1 text-xs font-medium text-clinical-navy hover:bg-clinical-navy/5"
+        className="shrink-0 rounded-md border border-clinical-navy/20 dark:border-night-ink/25 px-2.5 py-1 text-xs font-medium text-clinical-navy dark:text-night-ink hover:bg-clinical-navy/5 dark:hover:bg-night-ink/10"
       >
         Quick exit
       </Link>
@@ -96,7 +96,7 @@ function ConfidentialMessageCta() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.privacy className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.privacy className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Message your care team confidentially
         </CardTitle>
         <CardDescription>
@@ -106,8 +106,8 @@ function ConfidentialMessageCta() {
       </CardHeader>
       <CardContent className="space-y-3">
         {sent && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-brand-green/20 bg-brand-green/5 p-3">
-            <p className="text-sm text-charcoal-ink/80">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-brand-green/20 bg-brand-green/5 dark:bg-brand-green/10 p-3">
+            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               Sent. Your care team will reply in Messages.
             </p>
             <Button asChild size="sm">
@@ -144,7 +144,7 @@ function ConfidentialMessageCta() {
                 maxLength={4000}
               />
             </div>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -179,7 +179,7 @@ function ConfidentialMessageCta() {
 function ResultsTab({ patientId }: { patientId: string }) {
   return (
     <div className="space-y-4">
-      <p className="text-sm text-charcoal-ink/60">
+      <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
         If a chlamydia, gonorrhoea, or syphilis result needs follow-up, it shows up here
         automatically. Nothing to do here unless you have an open case.
       </p>
@@ -213,7 +213,7 @@ function LearnTab() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.learn className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.learn className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Learn
         </CardTitle>
         <CardDescription>
@@ -221,22 +221,22 @@ function LearnTab() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {!isLoading && items.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">Nothing here yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing here yet.</p>
         )}
         {items.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {items.map((item) => (
               <li key={item.content_id} className="py-2.5">
                 <Link
                   href="/patient/learn"
-                  className="text-sm font-medium text-charcoal-ink hover:text-brand-green"
+                  className="text-sm font-medium text-charcoal-ink dark:text-night-ink hover:text-brand-green dark:hover:text-brand-green-bright"
                 >
                   {item.title}
                 </Link>
                 {item.summary && (
-                  <p className="text-xs text-charcoal-ink/60">{item.summary}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.summary}</p>
                 )}
               </li>
             ))}
@@ -244,7 +244,7 @@ function LearnTab() {
         )}
         <Link
           href="/patient/learn"
-          className="inline-block text-sm font-medium text-brand-green underline underline-offset-4"
+          className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright underline underline-offset-4"
         >
           Browse everything in Learn
         </Link>
@@ -268,7 +268,7 @@ export function SexualHealthHub({ patientId }: { patientId: string }) {
 
       <SexualHealthPrivacySettingsCard />
 
-      <div className="flex gap-1.5 overflow-x-auto border-b border-charcoal-ink/10 pb-px">
+      <div className="flex gap-1.5 overflow-x-auto border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-px">
         {TABS.map((tab) => (
           <button
             key={tab.key}
@@ -276,8 +276,8 @@ export function SexualHealthHub({ patientId }: { patientId: string }) {
             onClick={() => setActiveTab(tab.key)}
             className={`shrink-0 rounded-t-md border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
               activeTab === tab.key
-                ? "border-brand-green text-brand-green"
-                : "border-transparent text-charcoal-ink/60 hover:text-charcoal-ink"
+                ? "border-brand-green text-brand-green dark:text-brand-green-bright"
+                : "border-transparent text-charcoal-ink/60 dark:text-night-ink/60 hover:text-charcoal-ink dark:hover:text-night-ink"
             }`}
           >
             {tab.label}

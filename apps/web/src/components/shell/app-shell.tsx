@@ -11,6 +11,7 @@ import { NotificationBell } from "./notification-bell";
 import { PushSubscribePrompt } from "./push-subscribe-prompt";
 import { DeviceHeartbeat } from "./device-heartbeat";
 import { ProfileMenu } from "./profile-menu";
+import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
 
@@ -45,7 +46,7 @@ function BottomTabBar({
   return (
     <nav
       aria-label="Primary"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-ink/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-charcoal-ink/10 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden print:hidden dark:border-night-ink/15 dark:bg-night-ground/95"
     >
       <ul className="flex items-stretch">
         {items.map((item) => {
@@ -59,11 +60,18 @@ function BottomTabBar({
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   tabClass,
-                  active ? "text-deep-forest" : "text-charcoal-ink/55"
+                  active
+                    ? "text-deep-forest dark:text-brand-green-bright"
+                    : "text-charcoal-ink/55 dark:text-night-ink/60"
                 )}
               >
                 <Icon
-                  className={cn("h-5 w-5", active ? "text-brand-green" : "text-charcoal-ink/45")}
+                  className={cn(
+                    "h-5 w-5",
+                    active
+                      ? "text-brand-green dark:text-brand-green-bright"
+                      : "text-charcoal-ink/45 dark:text-night-ink/55"
+                  )}
                   strokeWidth={2}
                 />
                 <span className="truncate">{item.shortLabel ?? item.label}</span>
@@ -77,9 +85,12 @@ function BottomTabBar({
               type="button"
               onClick={onMore}
               aria-label="Open menu"
-              className={cn(tabClass, "text-charcoal-ink/55")}
+              className={cn(tabClass, "text-charcoal-ink/55 dark:text-night-ink/60")}
             >
-              <NAV_ICON.menu className="h-5 w-5 text-charcoal-ink/45" strokeWidth={2} />
+              <NAV_ICON.menu
+                className="h-5 w-5 text-charcoal-ink/45 dark:text-night-ink/55"
+                strokeWidth={2}
+              />
               <span>More</span>
             </button>
           </li>
@@ -111,20 +122,20 @@ function NavLinkItem({
         className={cn(
           "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
           danger
-            ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100"
+            ? "border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-300 dark:hover:bg-red-500/25"
             : active
-              ? "bg-brand-green/10 text-deep-forest"
-              : "text-charcoal-ink/70 hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
+              ? "bg-brand-green/10 text-deep-forest dark:text-brand-green-bright"
+              : "text-charcoal-ink/70 hover:bg-charcoal-ink/5 hover:text-charcoal-ink dark:text-night-ink/70 dark:hover:bg-night-ink/10 dark:hover:text-night-ink"
         )}
       >
         <Icon
           className={cn(
             "h-4.5 w-4.5 shrink-0",
             danger
-              ? "text-red-600"
+              ? "text-red-600 dark:text-red-400"
               : active
-                ? "text-brand-green"
-                : "text-charcoal-ink/40 group-hover:text-charcoal-ink/60"
+                ? "text-brand-green dark:text-brand-green-bright"
+                : "text-charcoal-ink/40 group-hover:text-charcoal-ink/60 dark:text-night-ink/50 dark:group-hover:text-night-ink/60"
           )}
           strokeWidth={2}
         />
@@ -148,7 +159,7 @@ function SidebarNav({
       {sections.map((section, i) => (
         <div key={section.label ?? i}>
           {section.label && (
-            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40">
+            <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40 dark:text-night-ink/50">
               {section.label}
             </p>
           )}
@@ -210,7 +221,7 @@ function CollapsibleNavGroup({
         aria-expanded={open}
         aria-controls={panelId}
         onClick={() => onToggle(label, open)}
-        className="flex w-full items-center justify-between rounded-lg px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40 transition-colors hover:text-charcoal-ink/70"
+        className="flex w-full items-center justify-between rounded-lg px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40 transition-colors hover:text-charcoal-ink/70 dark:text-night-ink/50 dark:hover:text-night-ink/70"
       >
         {label}
         <NAV_ICON.chevronRight
@@ -373,7 +384,7 @@ function BrandLockup({ homeHref }: { homeHref: string }) {
         className="h-7 w-7"
         priority
       />
-      <span className="font-heading text-lg font-semibold tracking-tight text-deep-forest">
+      <span className="font-heading text-lg font-semibold tracking-tight text-deep-forest dark:text-brand-green-bright">
         TarragonHealth
       </span>
     </Link>
@@ -389,6 +400,7 @@ export function AppShell({
   profileHref,
   navSections,
   surface = "default",
+  initialTheme = "light",
   signOutAction,
   children,
 }: {
@@ -408,11 +420,49 @@ export function AppShell({
    * clinical consoles keep the default white canvas and the always-expanded
    * sidebar (per docs/BRAND_GUIDE.md §5). */
   surface?: "warm" | "default";
+  /** Cookie-persisted theme preference (patient surface only). Server-read
+   * so the data-theme attribute is on the first paint — no wrong-theme
+   * flash. Ignored on the default surface, which never themes. */
+  initialTheme?: ThemePreference;
   signOutAction: () => Promise<void>;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = React.useState(false);
+  const [theme, setTheme] = React.useState<ThemePreference>(initialTheme);
+
+  // "system" resolves to a concrete dark/light here (the CSS variant only
+  // matches data-theme="dark"). Server snapshot is false, so a dark-system
+  // user gets one light first paint; an explicit dark choice never flashes
+  // because the cookie renders the attribute server-side.
+  const systemPrefersDark = React.useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia("(prefers-color-scheme: dark)");
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia("(prefers-color-scheme: dark)").matches,
+    () => false
+  );
+  const resolvedTheme: "light" | "dark" =
+    theme === "system" ? (systemPrefersDark ? "dark" : "light") : theme;
+
+  // Paper must always print ink-on-white: beforeprint flips the attribute
+  // to light with a direct DOM write (a React state update may not flush
+  // before the print snapshot), afterprint restores it.
+  const themedRootRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    const el = themedRootRef.current;
+    if (!el || surface !== "warm") return;
+    const toLight = () => el.setAttribute("data-theme", "light");
+    const restore = () => el.setAttribute("data-theme", resolvedTheme);
+    window.addEventListener("beforeprint", toLight);
+    window.addEventListener("afterprint", restore);
+    return () => {
+      window.removeEventListener("beforeprint", toLight);
+      window.removeEventListener("afterprint", restore);
+    };
+  }, [surface, resolvedTheme]);
 
   // Close the drawer whenever the route changes (state-adjust-during-render
   // pattern — drawer links also close on click; this catches back/forward).
@@ -433,12 +483,15 @@ export function AppShell({
   const showMoreTab = allItems.length > primaryItems.length;
 
   const userBlock = (
-    <div className="space-y-3 border-t border-charcoal-ink/10 px-4 py-4">
-      <Link href={profileHref} className="flex items-center gap-3 rounded-lg hover:bg-charcoal-ink/5">
+    <div className="space-y-3 border-t border-charcoal-ink/10 px-4 py-4 dark:border-night-ink/15">
+      <Link
+        href={profileHref}
+        className="flex items-center gap-3 rounded-lg hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10"
+      >
         <Avatar fullName={userName} photoUrl={avatarUrl} size="md" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-charcoal-ink">{userName}</p>
-          <p className="truncate text-xs text-charcoal-ink/50">{roleLabel}</p>
+          <p className="truncate text-sm font-medium text-charcoal-ink dark:text-night-ink">{userName}</p>
+          <p className="truncate text-xs text-charcoal-ink/50 dark:text-night-ink/55">{roleLabel}</p>
         </div>
       </Link>
       <form action={signOutAction}>
@@ -446,7 +499,7 @@ export function AppShell({
           type="submit"
           variant="outline"
           size="sm"
-          className="w-full justify-center gap-2 text-charcoal-ink/70 hover:text-charcoal-ink"
+          className="w-full justify-center gap-2 text-charcoal-ink/70 hover:text-charcoal-ink dark:text-night-ink/70 dark:hover:text-night-ink"
         >
           <NAV_ICON.signOut className="h-4 w-4" strokeWidth={2} />
           Sign out
@@ -456,10 +509,17 @@ export function AppShell({
   );
 
   return (
-    <div className="flex min-h-screen bg-white print:block print:min-h-0">
+    <div
+      ref={themedRootRef}
+      // data-theme scopes every dark: variant to this subtree (globals.css'
+      // Night theme block). Only the warm patient surface ever carries it;
+      // staff consoles stay light regardless of any stored preference.
+      data-theme={surface === "warm" ? resolvedTheme : undefined}
+      className="flex min-h-screen bg-white print:block print:min-h-0 dark:bg-night-ground"
+    >
       {/* Desktop sidebar */}
       {hasNav && (
-        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden">
+        <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden dark:border-night-ink/15 dark:bg-night-card">
           <BrandLockup homeHref={homeHref} />
           {surface === "warm" ? (
             <CollapsibleSidebarNav sections={navSections} pathname={pathname} />
@@ -475,10 +535,10 @@ export function AppShell({
         <div className="fixed inset-0 z-50 print:hidden lg:hidden" role="dialog" aria-modal="true">
           <button
             aria-label="Close menu"
-            className="absolute inset-0 bg-charcoal-ink/40"
+            className="absolute inset-0 bg-charcoal-ink/40 dark:bg-black/60"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl">
+          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl dark:bg-night-card dark:shadow-none">
             <div className="flex items-center justify-between pr-3">
               <BrandLockup homeHref={homeHref} />
               <Button
@@ -507,10 +567,10 @@ export function AppShell({
           // The warm patient ground: cards stay white and float on the ivory,
           // while the sidebar and top chrome keep their own white surface.
           // Print always stays white.
-          surface === "warm" && "bg-warm-ivory print:bg-white"
+          surface === "warm" && "bg-warm-ivory print:bg-white dark:bg-night-ground"
         )}
       >
-        <header className="sticky top-0 z-40 border-b border-charcoal-ink/10 bg-white/90 backdrop-blur print:hidden">
+        <header className="sticky top-0 z-40 border-b border-charcoal-ink/10 bg-white/90 backdrop-blur print:hidden dark:border-night-ink/15 dark:bg-night-ground/90">
           <div className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
               {hasNav && (
@@ -526,7 +586,7 @@ export function AppShell({
               )}
               <span
                 className={cn(
-                  "font-heading text-base font-semibold text-deep-forest",
+                  "font-heading text-base font-semibold text-deep-forest dark:text-brand-green-bright",
                   hasNav && "lg:hidden"
                 )}
               >
@@ -534,6 +594,7 @@ export function AppShell({
               </span>
             </div>
             <div className="flex items-center gap-3 text-sm">
+              {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}
               <DeviceHeartbeat />
               <PushSubscribePrompt />
               <NotificationBell />
@@ -554,7 +615,7 @@ export function AppShell({
         </main>
         <footer
           className={cn(
-            "px-4 pb-6 text-center text-xs text-charcoal-ink/40 sm:px-6 print:hidden",
+            "px-4 pb-6 text-center text-xs text-charcoal-ink/40 sm:px-6 print:hidden dark:text-night-ink/50",
             // Clears the fixed bottom bar so the last of the page is never
             // sitting underneath it.
             showBottomBar && "pb-24 lg:pb-6"

@@ -70,24 +70,24 @@ export async function PreventionCompletionCard({ patientId }: { patientId: strin
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your preventive care
         </CardTitle>
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           {outstandingCount === 0
             ? "Everything below is up to date."
             : `${outstandingCount} ${outstandingCount === 1 ? "area needs" : "areas need"} attention.`}
         </p>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {summaries.map((summary) => (
             <li key={summary.category} className="flex items-center justify-between gap-3 py-2.5">
-              <Link href="/patient/prevention" className="text-sm text-charcoal-ink hover:underline">
+              <Link href="/patient/prevention" className="text-sm text-charcoal-ink dark:text-night-ink hover:underline">
                 {PREVENTION_CATEGORY_LABEL[summary.category]}
               </Link>
               {summary.status === "complete" ? (
-                <span className="shrink-0 text-sm font-medium text-brand-green" aria-label="Up to date">
+                <span className="shrink-0 text-sm font-medium text-brand-green dark:text-brand-green-bright" aria-label="Up to date">
                   ✓
                 </span>
               ) : (

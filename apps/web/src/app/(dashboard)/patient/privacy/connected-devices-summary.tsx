@@ -30,20 +30,20 @@ export function ConnectedDevicesSummary({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {active.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">No devices connected.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No devices connected.</p>
         ) : (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {active.map((c) => (
               <li key={c.id} className="flex items-center justify-between py-2 text-sm">
-                <span className="capitalize text-charcoal-ink">{c.provider.replace(/_/g, " ")}</span>
-                <span className="text-xs text-charcoal-ink/50">
+                <span className="capitalize text-charcoal-ink dark:text-night-ink">{c.provider.replace(/_/g, " ")}</span>
+                <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                   Connected {c.connected_at ? formatDate(c.connected_at) : "—"}
                 </span>
               </li>
             ))}
           </ul>
         )}
-        <Link href="/patient/vitals" className="text-sm text-brand-green hover:underline">
+        <Link href="/patient/vitals" className="text-sm text-brand-green dark:text-brand-green-bright hover:underline">
           Manage device connections
         </Link>
       </CardContent>

@@ -19,11 +19,11 @@ export default async function AlcoholPage() {
   return (
     <DashboardPlaceholder greeting="Alcohol" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.alcohol}>
       <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green hover:underline">
+        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
           ← Back to lifestyle coaching
         </Link>
       </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
+      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Track how much you&apos;re drinking and set a goal to cut back, at your own pace.
       </p>
       <RequiresEntitlement

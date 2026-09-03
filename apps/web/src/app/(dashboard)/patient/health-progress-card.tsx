@@ -58,10 +58,10 @@ export async function HealthProgressCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.impact className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.impact className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your health progress
         </CardTitle>
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           A quick look at how things are going across the areas you&apos;re working on.
         </p>
       </CardHeader>
@@ -71,10 +71,10 @@ export async function HealthProgressCard({ patientId }: { patientId: string }) {
           return (
             <div key={d.key} className="space-y-1">
               <div className="flex items-center justify-between text-sm">
-                <span className="text-charcoal-ink">{d.label}</span>
-                <span className="font-medium text-charcoal-ink">{rounded}%</span>
+                <span className="text-charcoal-ink dark:text-night-ink">{d.label}</span>
+                <span className="font-medium text-charcoal-ink dark:text-night-ink">{rounded}%</span>
               </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15">
                 {/* Clinical status colours (green/amber), never brand-green: this bar
                     communicates status, and the two colour systems must not mix. */}
                 <div

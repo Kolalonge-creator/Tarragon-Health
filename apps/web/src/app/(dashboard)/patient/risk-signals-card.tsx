@@ -63,19 +63,19 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.escalation className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.escalation className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           What your care team is watching
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {elevated.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Your recent readings and risk checks are within the normal range:
             nothing here needs extra attention right now.
           </p>
         ) : (
           <>
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               A plain-language look at what&apos;s shaping your care, not a diagnosis.
               If your care team reaches out, this is usually part of why.
             </p>
@@ -83,7 +83,7 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
               {elevated.map((row) => {
                 const label = SCORE_TYPE_LABEL[row.score_type] ?? row.score_type.replace(/_/g, " ");
                 return (
-                  <li key={row.score_type} className="text-sm text-charcoal-ink">
+                  <li key={row.score_type} className="text-sm text-charcoal-ink dark:text-night-ink">
                     <span className="font-medium">{label}</span>
                     {": "}
                     {RISK_LEVEL_COPY[row.risk_level]}
@@ -99,7 +99,7 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
             </ul>
           </>
         )}
-        <p className="text-xs text-charcoal-ink/40">
+        <p className="text-xs text-charcoal-ink/40 dark:text-night-ink/50">
           Last updated {formatPatientDate(lastUpdated)}
         </p>
       </CardContent>

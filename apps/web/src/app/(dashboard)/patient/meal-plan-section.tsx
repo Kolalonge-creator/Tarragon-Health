@@ -66,19 +66,19 @@ export function MealPlanSection({
       </CardHeader>
       <CardContent className="space-y-4">
         {isCkd ? (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             CKD nutrition needs careful, individual balancing of sodium, potassium and phosphorus.
             A generated generic plan isn&apos;t the right tool here. Use the nutrition support
             request above to get a plan built around your own lab results with a dietitian.
           </p>
         ) : !generationConfigured ? (
-          <p className="text-sm text-charcoal-ink/60">Meal plan generation isn&apos;t switched on yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Meal plan generation isn&apos;t switched on yet.</p>
         ) : (
           <>
             <div className="flex items-center gap-2">
               <Badge variant="grey">AI-generated: a starting point, not a prescription</Badge>
             </div>
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Generated from our Nigerian food list and tailored to your active conditions. Swap
               anything that doesn&apos;t suit you. It&apos;s a coaching starting point, not a rule.
             </p>
@@ -114,14 +114,14 @@ export function MealPlanSection({
                     ? "Regenerate plan"
                     : "Generate my 7-day plan"}
               </Button>
-              {state?.status === "error" && <p className="text-sm text-red-600">{state.error}</p>}
+              {state?.status === "error" && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
             </form>
 
-            {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+            {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
 
             {plan && plan.days.length > 0 && (
-              <div className="space-y-3 border-t border-charcoal-ink/10 pt-4">
-                {plan.summary && <p className="text-sm text-charcoal-ink/80">{plan.summary}</p>}
+              <div className="space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+                {plan.summary && <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{plan.summary}</p>}
 
                 <div className="flex flex-wrap gap-1.5">
                   {plan.days.map((d) => (
@@ -134,7 +134,7 @@ export function MealPlanSection({
                         "rounded-full px-3 py-1 text-xs font-medium transition-colors",
                         selectedDay === d.day
                           ? "bg-brand-green text-white"
-                          : "bg-charcoal-ink/5 text-charcoal-ink/70 hover:bg-charcoal-ink/10",
+                          : "bg-charcoal-ink/5 dark:bg-night-ink/10 text-charcoal-ink/70 dark:text-night-ink/70 hover:bg-charcoal-ink/10 dark:hover:bg-night-ink/15",
                       )}
                     >
                       Day {d.day}
@@ -149,16 +149,16 @@ export function MealPlanSection({
                       if (!items || items.length === 0) return null;
                       return (
                         <div key={slot}>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
                             {MEAL_TYPE_LABELS[slot]}
                           </p>
                           <ul className="mt-1 space-y-1">
                             {items.map((item, i) => (
-                              <li key={i} className="text-sm text-charcoal-ink">
+                              <li key={i} className="text-sm text-charcoal-ink dark:text-night-ink">
                                 {item.foodName}: {item.quantity} {item.unit}
                                 {item.quantity > 1 ? "s" : ""}
                                 {item.rationale && (
-                                  <span className="text-charcoal-ink/60"> · {item.rationale}</span>
+                                  <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {item.rationale}</span>
                                 )}
                               </li>
                             ))}
@@ -168,7 +168,7 @@ export function MealPlanSection({
                     })}
 
                     {currentDay.analysis && (
-                      <p className="rounded-md bg-charcoal-ink/5 p-2 text-xs text-charcoal-ink/70">
+                      <p className="rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
                         ~{Math.round(currentDay.analysis.caloriesKcal)} kcal ·{" "}
                         {Math.round(currentDay.analysis.carbsG)}g carbs ·{" "}
                         {Math.round(currentDay.analysis.proteinG)}g protein ·{" "}
@@ -180,9 +180,9 @@ export function MealPlanSection({
                   </div>
                 )}
 
-                {plan.notes && <p className="text-xs text-amber-700">{plan.notes}</p>}
+                {plan.notes && <p className="text-xs text-amber-700 dark:text-amber-300">{plan.notes}</p>}
                 {plan.droppedItems.length > 0 && (
-                  <p className="text-xs text-charcoal-ink/40">
+                  <p className="text-xs text-charcoal-ink/40 dark:text-night-ink/50">
                     Some suggested items weren&apos;t in our food list and were left out of this plan.
                   </p>
                 )}
@@ -190,7 +190,7 @@ export function MealPlanSection({
             )}
 
             {!plan && !isLoading && mealPlanRow?.ai_status === "failed" && (
-              <p className="text-sm text-charcoal-ink/60">
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                 Couldn&apos;t generate a plan last time. Give it another try.
               </p>
             )}

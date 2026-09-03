@@ -75,7 +75,7 @@ export function EcgReportUpload({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
-      <p className="rounded border border-charcoal-ink/10 bg-charcoal-ink/[0.03] p-2 text-[0.7rem] text-charcoal-ink/70">
+      <p className="rounded border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.03] dark:bg-night-ink/10 p-2 text-[0.7rem] text-charcoal-ink/70 dark:text-night-ink/70">
         Only a 12-lead ECG, the kind done at a hospital or lab, showing 12 strips labelled I, II,
         III, aVR, aVL, aVF, V1&ndash;V6. Not a Watch or single-lead strip.
       </p>
@@ -94,7 +94,7 @@ export function EcgReportUpload({
             setSuccess(null);
           }}
         />
-        <p className="text-xs text-charcoal-ink/50">
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           A photo of the printout is fine. PDF or image, up to 10 MB.
         </p>
       </div>
@@ -109,8 +109,8 @@ export function EcgReportUpload({
         <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
           {upload.isPending ? "Sending…" : "Send to my care team"}
         </Button>
-        {success && <p className="text-xs font-medium text-brand-green">{success}</p>}
-        {displayError && <p className="text-xs text-red-600">{displayError}</p>}
+        {success && <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">{success}</p>}
+        {displayError && <p className="text-xs text-red-600 dark:text-red-300">{displayError}</p>}
       </div>
     </form>
   );

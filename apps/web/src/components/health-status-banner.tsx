@@ -16,8 +16,8 @@ export const HEALTH_STATUS_WORD: Record<HealthScoreRiskLevel, { word: string; do
 // Meter fill/track pairs stay on one hue ramp per risk level (never a grey
 // track) so the state reads across the whole bar, filled or not.
 export const HEALTH_STATUS_METER: Record<HealthScoreRiskLevel, { fill: string; track: string }> = {
-  low: { fill: "bg-green-500", track: "bg-green-100" },
-  moderate: { fill: "bg-amber-500", track: "bg-amber-100" },
-  high: { fill: "bg-red-500", track: "bg-red-100" },
-  very_high: { fill: "bg-red-500", track: "bg-red-100" },
+  low: { fill: "bg-green-500", track: "bg-green-100 dark:bg-green-500/25" },
+  moderate: { fill: "bg-amber-500", track: "bg-amber-100 dark:bg-amber-500/25" },
+  high: { fill: "bg-red-500", track: "bg-red-100 dark:bg-red-500/25" },
+  very_high: { fill: "bg-red-500", track: "bg-red-100 dark:bg-red-500/25" },
 };

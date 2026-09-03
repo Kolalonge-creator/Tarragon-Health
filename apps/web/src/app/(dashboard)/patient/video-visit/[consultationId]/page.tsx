@@ -31,7 +31,7 @@ export default async function VideoVisitWaitingRoomPage({
   return (
     <DashboardPlaceholder greeting="Video visit" roleLabel="Patient" comingUp={[]}>
       <div className="flex justify-end">
-        <Link href="/patient" className="text-sm font-medium text-brand-green hover:underline">
+        <Link href="/patient" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
           ← Back to dashboard
         </Link>
       </div>

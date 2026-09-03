@@ -194,7 +194,7 @@ export async function NextBestAction({ patientId }: { patientId: string }) {
       </div>
       <Link
         href={action.href}
-        className="inline-flex w-fit shrink-0 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-deep-forest transition-colors hover:bg-white/90"
+        className="inline-flex w-fit shrink-0 items-center justify-center rounded-lg bg-white dark:bg-night-card px-5 py-2.5 text-sm font-semibold text-deep-forest dark:text-brand-green-bright transition-colors hover:bg-white/90 dark:hover:bg-night-ground/90"
       >
         {action.cta}
       </Link>

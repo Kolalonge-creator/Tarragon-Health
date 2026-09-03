@@ -75,19 +75,19 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
         <CardTitle>Your care team</CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
-        <p className="text-sm text-charcoal-ink">
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">
           A team of MDCN-registered doctors follows your readings and checks in with you.
           Whoever reviews a reading or handles a check-in is named on that specific note, not
           assigned to you as a single doctor ahead of time.
         </p>
         {coordinatorName && (
           <>
-            <p className="text-sm text-charcoal-ink">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
               Your care coordinator: <span className="font-medium">{coordinatorName}.</span>
-              <span className="text-charcoal-ink/60">
+              <span className="text-charcoal-ink/60 dark:text-night-ink/60">
                 {" "}
                 They help with bookings, refills and check-ins.{" "}
-                <Link href="/patient/messages" className="text-brand-green hover:underline">
+                <Link href="/patient/messages" className="text-brand-green dark:text-brand-green-bright hover:underline">
                   Send a message
                 </Link>
               </span>
@@ -103,7 +103,7 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
           </>
         )}
         {director && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             Your care protocols are supervised by Dr. {director.full_name}
           </p>
         )}

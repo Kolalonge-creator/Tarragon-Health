@@ -22,16 +22,16 @@ export function EmergencyContraceptionCard() {
 
   if (state?.success) {
     return (
-      <Card className="border-2 border-sprout-gold bg-sprout-gold/5">
+      <Card className="border-2 border-sprout-gold bg-sprout-gold/5 dark:bg-sprout-gold/10">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-deep-forest">
+          <CardTitle className="flex items-center gap-2 text-deep-forest dark:text-brand-green-bright">
             <NAV_ICON.warning className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
             Request received
           </CardTitle>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-charcoal-ink/80">
+        <CardContent className="space-y-3 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           <p>{state.guidance}</p>
-          <p className="rounded-md bg-white p-3 font-medium text-deep-forest">
+          <p className="rounded-md bg-white dark:bg-night-card p-3 font-medium text-deep-forest dark:text-brand-green-bright">
             Your care team has been notified and will follow up quickly.
           </p>
         </CardContent>
@@ -40,13 +40,13 @@ export function EmergencyContraceptionCard() {
   }
 
   return (
-    <Card className="border-2 border-sprout-gold bg-sprout-gold/5">
+    <Card className="border-2 border-sprout-gold bg-sprout-gold/5 dark:bg-sprout-gold/10">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-deep-forest">
+        <CardTitle className="flex items-center gap-2 text-deep-forest dark:text-brand-green-bright">
           <NAV_ICON.warning className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
           Need emergency contraception?
         </CardTitle>
-        <CardDescription className="text-charcoal-ink/70">
+        <CardDescription className="text-charcoal-ink/70 dark:text-night-ink/70">
           Timing matters here, but there is almost always still something that can help. Tell us
           roughly when, and your care team will follow up fast.
         </CardDescription>
@@ -65,7 +65,7 @@ export function EmergencyContraceptionCard() {
               placeholder="e.g. 6"
               disabled={notSure}
             />
-            <label className="flex items-center gap-2 text-sm text-charcoal-ink/70">
+            <label className="flex items-center gap-2 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               <input
                 type="checkbox"
                 checked={notSure}
@@ -76,12 +76,12 @@ export function EmergencyContraceptionCard() {
             </label>
           </div>
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
 
           <Button
             type="submit"
             disabled={pending}
-            className="w-full bg-sprout-gold text-clinical-navy hover:bg-sprout-gold/90"
+            className="w-full bg-sprout-gold text-clinical-navy dark:text-night-ink hover:bg-sprout-gold/90"
           >
             {pending ? "Sending…" : "Request emergency contraception"}
           </Button>

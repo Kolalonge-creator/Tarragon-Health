@@ -59,8 +59,8 @@ function Stat({
 }) {
   return (
     <div className="space-y-1">
-      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">{label}</p>
-      <p className="font-heading text-lg font-semibold text-charcoal-ink">{value}</p>
+      <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">{label}</p>
+      <p className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">{value}</p>
       {badge && <Badge variant={badge.variant}>{badge.text}</Badge>}
     </div>
   );

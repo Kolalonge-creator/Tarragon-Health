@@ -31,7 +31,7 @@ function BackToList({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="Back to messages"
-      className="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-charcoal-ink/60 hover:bg-charcoal-ink/5 hover:text-charcoal-ink lg:hidden"
+      className="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-charcoal-ink/60 dark:text-night-ink/60 hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10 hover:text-charcoal-ink dark:hover:text-night-ink lg:hidden"
     >
       <NAV_ICON.chevronRight className="h-5 w-5 rotate-180" strokeWidth={2} aria-hidden />
     </button>
@@ -89,9 +89,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
       <div
         className={`${
           showDetail ? "hidden lg:flex" : "flex"
-        } w-full min-h-0 shrink-0 flex-col border-charcoal-ink/10 lg:w-72 lg:border-r`}
+        } w-full min-h-0 shrink-0 flex-col border-charcoal-ink/10 dark:border-night-ink/15 lg:w-72 lg:border-r`}
       >
-        <div className="flex items-center justify-between border-b border-charcoal-ink/10 p-4">
+        <div className="flex items-center justify-between border-b border-charcoal-ink/10 dark:border-night-ink/15 p-4">
           <CardTitle className="text-base">Messages</CardTitle>
           <Button
             type="button"
@@ -105,9 +105,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {isLoading && <p className="p-4 text-sm text-charcoal-ink/60">Loading…</p>}
+          {isLoading && <p className="p-4 text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {!isLoading && (!threads || threads.length === 0) && (
-            <p className="p-4 text-sm text-charcoal-ink/60">
+            <p className="p-4 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               No messages yet. Start a conversation with your care team.
             </p>
           )}
@@ -120,17 +120,17 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                     setComposing(false);
                     setOpenId(thread.id);
                   }}
-                  className={`w-full border-b border-charcoal-ink/6 px-4 py-3 text-left transition-colors ${
-                    openId === thread.id ? "bg-warm-ivory" : "hover:bg-warm-ivory/60"
+                  className={`w-full border-b border-charcoal-ink/6 dark:border-night-ink/10 px-4 py-3 text-left transition-colors ${
+                    openId === thread.id ? "bg-warm-ivory dark:bg-night-ink/10" : "hover:bg-warm-ivory/60 dark:hover:bg-night-ink/10"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold text-charcoal-ink">
+                    <span className="truncate text-sm font-semibold text-charcoal-ink dark:text-night-ink">
                       {thread.subject}
                     </span>
                     {thread.status === "closed" && <Badge variant="grey">Closed</Badge>}
                   </div>
-                  <p className="mt-0.5 text-xs text-charcoal-ink/50">
+                  <p className="mt-0.5 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                     {CATEGORY_LABEL[thread.category]} · {when(thread.last_message_at)}
                   </p>
                 </button>
@@ -143,14 +143,14 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
       <div className={`${showDetail ? "flex" : "hidden lg:flex"} min-h-0 flex-1 flex-col`}>
         {composing ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-2 border-b border-charcoal-ink/10 p-4">
+            <div className="flex items-center gap-2 border-b border-charcoal-ink/10 dark:border-night-ink/15 p-4">
               <BackToList
                 onClick={() => {
                   setComposing(false);
                   setError(null);
                 }}
               />
-              <span className="font-heading text-sm font-semibold text-charcoal-ink">
+              <span className="font-heading text-sm font-semibold text-charcoal-ink dark:text-night-ink">
                 New message to your care team
               </span>
             </div>
@@ -171,7 +171,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   id="category"
                   value={category}
                   onChange={(e) => setCategory(e.target.value as CareMessageCategory)}
-                  className="h-10 rounded-md border border-charcoal-ink/15 bg-white px-3 text-sm text-charcoal-ink"
+                  className="h-10 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 bg-white dark:bg-night-card px-3 text-sm text-charcoal-ink dark:text-night-ink"
                 >
                   {careMessageCategories.map((c) => (
                     <option key={c} value={c}>
@@ -198,15 +198,15 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                 >
                   {start.isPending ? "Sending…" : "Send"}
                 </Button>
-                {error && <span className="text-sm text-red-600">{error}</span>}
+                {error && <span className="text-sm text-red-600 dark:text-red-300">{error}</span>}
               </div>
             </div>
           </div>
         ) : openThread ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex items-center gap-2 border-b border-charcoal-ink/10 p-4">
+            <div className="flex items-center gap-2 border-b border-charcoal-ink/10 dark:border-night-ink/15 p-4">
               <BackToList onClick={() => setOpenId(null)} />
-              <span className="min-w-0 truncate font-heading text-sm font-semibold text-charcoal-ink">
+              <span className="min-w-0 truncate font-heading text-sm font-semibold text-charcoal-ink dark:text-night-ink">
                 {openThread.subject}
               </span>
               {openThread.status === "closed" && <Badge variant="grey">Closed</Badge>}
@@ -221,7 +221,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
             </div>
           </div>
         ) : (
-          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-charcoal-ink/50">
+          <div className="flex flex-1 items-center justify-center p-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
             Select a conversation, or start a new one with your care team.
           </div>
         )}

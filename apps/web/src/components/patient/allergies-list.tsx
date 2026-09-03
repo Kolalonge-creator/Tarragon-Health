@@ -84,24 +84,24 @@ export function AllergiesList({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {allergies.length === 0 && !formOpen && (
-          <p className="text-sm text-charcoal-ink/60">No allergies on file yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No allergies on file yet.</p>
         )}
 
         {allergies.map((allergy) => (
           <div
             key={allergy.id}
-            className="space-y-1 border-b border-charcoal-ink/10 pb-3 last:border-0 last:pb-0"
+            className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-3 last:border-0 last:pb-0"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium text-charcoal-ink">{allergy.allergen}</p>
+              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{allergy.allergen}</p>
               {allergy.severity && (
                 <Badge variant={SEVERITY_BADGE_VARIANT[allergy.severity]}>
                   {SEVERITY_LABEL[allergy.severity]}
                 </Badge>
               )}
             </div>
-            {allergy.reaction && <p className="text-xs text-charcoal-ink/70">{allergy.reaction}</p>}
-            <p className="text-xs text-charcoal-ink/50">{SOURCE_LABEL[allergy.source]}</p>
+            {allergy.reaction && <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{allergy.reaction}</p>}
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{SOURCE_LABEL[allergy.source]}</p>
             <ResultExplainer kind="allergy" subjectKey={allergy.id} label={allergy.allergen} />
           </div>
         ))}
@@ -109,7 +109,7 @@ export function AllergiesList({ patientId }: { patientId: string }) {
         {formOpen ? (
           <form
             onSubmit={handleSubmit}
-            className="space-y-3 rounded-lg border border-charcoal-ink/10 p-3"
+            className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
           >
             <div className="space-y-1">
               <Label htmlFor="allergy-allergen">Allergen</Label>

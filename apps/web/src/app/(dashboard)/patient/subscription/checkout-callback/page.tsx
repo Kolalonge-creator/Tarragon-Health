@@ -37,8 +37,8 @@ export default async function SubscriptionCheckoutCallbackPage({
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-charcoal-ink/[0.02] px-4 py-16">
-      <div className="w-full max-w-md space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
+    <div className="flex flex-1 items-center justify-center bg-charcoal-ink/[0.02] dark:bg-night-ink/10 px-4 py-16">
+      <div className="w-full max-w-md space-y-4 rounded-xl border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-6 shadow-sm dark:shadow-none">
         <PageHeader
           title={succeeded ? "Payment received" : "Checkout finished"}
           icon={SEMANTIC_ICON.billing}

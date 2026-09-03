@@ -63,9 +63,9 @@ function WomensHealthScreeningStatus({ patientId }: { patientId: string }) {
   if (schedules.isLoading || relevant.length === 0) return null;
 
   return (
-    <ul className="mt-1 space-y-0.5 rounded-md bg-brand-green/5 p-2">
+    <ul className="mt-1 space-y-0.5 rounded-md bg-brand-green/5 dark:bg-brand-green/15 p-2">
       {relevant.map((schedule) => (
-        <li key={schedule.id} className="text-xs text-charcoal-ink/70">
+        <li key={schedule.id} className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
           <span className="font-medium">{schedule.screen_type?.name}</span>:{" "}
           {SCREENING_STATUS_LABEL[schedule.status]}
           {schedule.due_date && `, ${formatPatientDate(schedule.due_date)}`}
@@ -121,36 +121,36 @@ export function PreventiveProgrammes({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Preventive programmes
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Choose a prevention track to follow. Each one bundles the right
           screenings and a periodic review with your care team.
         </p>
         {nextReview.data && (
-          <p className="text-xs text-brand-green">
+          <p className="text-xs text-brand-green dark:text-brand-green-bright">
             Next health review due {formatPatientDate(nextReview.data.due_date)}.
           </p>
         )}
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load preventive programmes.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load preventive programmes.</p>
         )}
         {programmes.data && visibleProgrammes.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No programmes available yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No programmes available yet.</p>
         )}
         {programmes.data && visibleProgrammes.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {visibleProgrammes.map((programme) => {
               const enrolment = enrolmentByProgramme.get(programme.id);
               const rationale = recommendedByCode.get(programme.code);
               return (
                 <li key={programme.id} className="space-y-1.5 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-charcoal-ink">{programme.name}</p>
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{programme.name}</p>
                     {enrolment ? (
                       <Badge variant="green">Enrolled</Badge>
                     ) : (
@@ -158,10 +158,10 @@ export function PreventiveProgrammes({
                     )}
                   </div>
                   {programme.description && (
-                    <p className="text-xs text-charcoal-ink/60">{programme.description}</p>
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{programme.description}</p>
                   )}
                   {!enrolment && rationale && (
-                    <p className="text-xs text-charcoal-ink/50">{rationale}</p>
+                    <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{rationale}</p>
                   )}
                   {enrolment && programme.code === "womens_health" && (
                     <WomensHealthScreeningStatus patientId={patientId} />
@@ -197,7 +197,7 @@ export function PreventiveProgrammes({
           </ul>
         )}
         {(enrol.isError || withdraw.isError) && (
-          <p className="text-xs text-red-600">
+          <p className="text-xs text-red-600 dark:text-red-300">
             {((enrol.error ?? withdraw.error) as Error)?.message ||
               "Could not update your enrolment."}
           </p>

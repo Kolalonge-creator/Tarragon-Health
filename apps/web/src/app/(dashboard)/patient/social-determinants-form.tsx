@@ -19,14 +19,14 @@ export function SocialDeterminantsForm() {
     <form action={formAction} className="space-y-3">
       <div className="flex flex-col gap-1.5">
         {FACTORS.map((f) => (
-          <label key={f.name} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80">
+          <label key={f.name} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             <input type="checkbox" name={f.name} className="h-4 w-4" />
             {f.label}
           </label>
         ))}
       </div>
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Thanks. Recorded.</p>}
+      {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+      {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Thanks. Recorded.</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save"}
       </Button>

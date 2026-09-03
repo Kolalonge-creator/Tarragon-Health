@@ -41,10 +41,10 @@ export async function BariatricReferralStatus({ patientId }: { patientId: string
         <Badge variant={data.status === "completed" ? "green" : "blue"}>{data.status}</Badge>
       </CardHeader>
       <CardContent className="space-y-2">
-        <p className="text-sm text-charcoal-ink/80">
+        <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           {STATUS_COPY[data.status] ?? "Your care team is coordinating a specialist assessment."}
         </p>
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Raised {formatPatientDate(data.referred_at)}. Questions about this are
           welcome, your care team can walk you through what happens next.
         </p>

@@ -126,7 +126,7 @@ export function PushSubscribePrompt() {
         type="button"
         onClick={enable}
         disabled={busy}
-        className="text-xs font-medium text-deep-forest hover:underline disabled:opacity-60"
+        className="text-xs font-medium text-deep-forest hover:underline disabled:opacity-60 dark:text-brand-green-bright"
       >
         Enable alerts
       </button>
@@ -134,7 +134,7 @@ export function PushSubscribePrompt() {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-6 w-6 p-0 text-charcoal-ink/40 hover:text-charcoal-ink"
+        className="h-6 w-6 p-0 text-charcoal-ink/40 hover:text-charcoal-ink dark:text-night-ink/50 dark:hover:text-night-ink"
         aria-label="Dismiss"
         onClick={dismiss}
       >

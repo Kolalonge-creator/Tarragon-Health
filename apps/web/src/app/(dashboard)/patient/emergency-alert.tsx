@@ -70,7 +70,7 @@ export function EmergencyAlert({
       aria-labelledby="emergency-alert-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-charcoal-ink/70 p-4"
     >
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-xl">
+      <div className="w-full max-w-lg rounded-2xl bg-white dark:bg-night-card shadow-xl dark:shadow-none">
         <div className="rounded-t-2xl bg-red-600 px-6 py-5 text-white">
           <div className="flex items-center gap-3">
             <TriangleAlert className="h-7 w-7 shrink-0" strokeWidth={2.5} />
@@ -81,7 +81,7 @@ export function EmergencyAlert({
         </div>
 
         <div className="space-y-5 px-6 py-6">
-          <p className="text-base leading-relaxed text-charcoal-ink">
+          <p className="text-base leading-relaxed text-charcoal-ink dark:text-night-ink">
             TarragonHealth does not provide emergency care. If this is a medical emergency, please{" "}
             <span className="font-semibold">go to your nearest hospital or emergency department now</span>
             , or call one of the numbers below.
@@ -100,7 +100,7 @@ export function EmergencyAlert({
             ))}
           </div>
 
-          <div className="flex items-start gap-3 rounded-lg bg-red-50 p-4 text-sm text-red-800">
+          <div className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-500/15 p-4 text-sm text-red-800 dark:text-red-300">
             <Hospital className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} />
             <p>
               Go to the nearest hospital&apos;s emergency department. Don&apos;t wait for a reply from
@@ -109,17 +109,17 @@ export function EmergencyAlert({
           </div>
 
           {event.trigger_detail && (
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               Reported: {event.trigger_detail}
             </p>
           )}
 
-          {error && <p className="text-sm text-red-600">{error}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
 
           <div className="space-y-3">
             {hasEmergencyContact ? (
               contactAlerted || event.contact_notified_at ? (
-                <p className="flex items-center gap-2 text-sm font-medium text-brand-green">
+                <p className="flex items-center gap-2 text-sm font-medium text-brand-green dark:text-brand-green-bright">
                   <Phone className="h-4 w-4" strokeWidth={2} />
                   Your emergency contact has been alerted.
                 </p>
@@ -135,7 +135,7 @@ export function EmergencyAlert({
                 </Button>
               )
             ) : (
-              <p className="text-sm text-charcoal-ink/70">
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                 You haven&apos;t saved an emergency contact yet. Add one on your dashboard so we can
                 message them automatically if you don&apos;t respond.
               </p>
@@ -152,7 +152,7 @@ export function EmergencyAlert({
             </Button>
           </div>
 
-          <p className="text-center text-xs text-charcoal-ink/50">
+          <p className="text-center text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             Choosing &quot;I&apos;m getting help&quot; lets us know you&apos;re responding, so we
             won&apos;t automatically message your emergency contact.
           </p>

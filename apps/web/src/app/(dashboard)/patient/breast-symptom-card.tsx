@@ -70,7 +70,7 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
                       "rounded-full border px-3 py-1.5 text-xs font-medium transition",
                       isOn
                         ? "border-brand-green bg-brand-green text-white"
-                        : "border-charcoal-ink/20 bg-white text-charcoal-ink hover:border-brand-green/50"
+                        : "border-charcoal-ink/20 dark:border-night-ink/25 bg-white dark:bg-night-card text-charcoal-ink dark:text-night-ink hover:border-brand-green/50"
                     )}
                   >
                     {BREAST_SYMPTOM_LABEL[type]}
@@ -104,9 +104,9 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
             <Input id="notes" name="notes" />
           </div>
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">
+            <p className="text-sm text-brand-green dark:text-brand-green-bright">
               Reported. Your care team has been notified for clinical assessment.
             </p>
           )}
@@ -117,12 +117,12 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
         </form>
 
         {reports.data && reports.data.length > 0 && (
-          <div className="space-y-1.5 border-t border-charcoal-ink/10 pt-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+          <div className="space-y-1.5 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
               Past reports
             </p>
             {reports.data.slice(0, 5).map((r) => (
-              <p key={r.id} className="text-sm text-charcoal-ink/80">
+              <p key={r.id} className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                 {formatPatientDate(r.created_at)}:{" "}
                 {r.symptom_types.map((t) => BREAST_SYMPTOM_LABEL[t]).join(", ")}
               </p>

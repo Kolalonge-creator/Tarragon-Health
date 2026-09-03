@@ -146,7 +146,7 @@ export function VitalsForm({
                     <option value="mg_dl">mg/dL</option>
                   </Select>
                 </div>
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   {glucoseUnit === "mmol_l" ? "e.g. 5.6 mmol/L" : "e.g. 100 mg/dL"}; check
                   your glucometer&apos;s display unit before entering.
                 </p>
@@ -170,7 +170,7 @@ export function VitalsForm({
 
           {vitalType === "ketones" && (
             <div className="space-y-4">
-              <p className="rounded-md bg-brand-green/5 p-3 text-xs text-charcoal-ink/70">
+              <p className="rounded-md bg-brand-green/5 dark:bg-brand-green/15 p-3 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
                 Ketone testing is <strong>optional</strong>: only if you have a blood ketone
                 meter or urine strips. Most people don&apos;t, and that&apos;s fine. If your
                 sugar is high and you can&apos;t test ketones, just log your glucose reading and
@@ -198,7 +198,7 @@ export function VitalsForm({
                     step="0.1"
                     required
                   />
-                  <p className="text-xs text-charcoal-ink/60">
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                     Test your ketones if your glucose stays high or you feel unwell,
                     especially if you have type 1 diabetes.
                   </p>
@@ -232,7 +232,7 @@ export function VitalsForm({
             <div className="space-y-1.5">
               <Label htmlFor="waist_cm">Waist (cm)</Label>
               <Input id="waist_cm" name="waist_cm" type="number" step="0.5" required />
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 Measure around your middle, level with your belly button.
               </p>
             </div>
@@ -269,7 +269,7 @@ export function VitalsForm({
             <div className="space-y-1.5">
               <Label htmlFor="waist_cm">Waist circumference (cm)</Label>
               <Input id="waist_cm" name="waist_cm" type="number" step="0.5" required />
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 Measure around your middle, just above the hip bones, after breathing out.
                 A raised measurement is 94 cm or more for men, 80 cm or more for women.
               </p>
@@ -284,11 +284,11 @@ export function VitalsForm({
           {crosscheck && (
             <div
               role="alert"
-              className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm"
+              className="rounded-lg border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 p-3 text-sm"
             >
-              <p className="font-medium text-amber-900">{crosscheck.message}</p>
-              <p className="mt-1 text-amber-900/80">Tips for an accurate reading:</p>
-              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-amber-900/80">
+              <p className="font-medium text-amber-900 dark:text-amber-300">{crosscheck.message}</p>
+              <p className="mt-1 text-amber-900/80 dark:text-amber-300/90">Tips for an accurate reading:</p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-amber-900/80 dark:text-amber-300/90">
                 {crosscheck.tips.map((tip) => (
                   <li key={tip}>{tip}</li>
                 ))}
@@ -309,9 +309,9 @@ export function VitalsForm({
             </div>
           )}
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">Reading logged.</p>
+            <p className="text-sm text-brand-green dark:text-brand-green-bright">Reading logged.</p>
           )}
 
           {!crosscheck && (

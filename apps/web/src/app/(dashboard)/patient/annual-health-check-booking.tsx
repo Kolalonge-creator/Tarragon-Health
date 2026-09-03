@@ -154,16 +154,16 @@ export function AnnualHealthCheckBooking({
           "w-full rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green",
           isSelected
             ? "border-brand-green bg-brand-green/5"
-            : "border-charcoal-ink/10 hover:border-charcoal-ink/25",
+            : "border-charcoal-ink/10 dark:border-night-ink/15 hover:border-charcoal-ink/25 dark:hover:border-night-ink/30",
           hasOpenOrder && "opacity-60"
         )}
       >
-        <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{bundle.name}</p>
         {bundle.description && (
-          <p className="mt-1 text-xs text-charcoal-ink/60">{bundle.description}</p>
+          <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{bundle.description}</p>
         )}
         {hasOpenOrder && (
-          <p className="mt-1 text-xs text-amber-700">
+          <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
             You already have a request open for this one.
           </p>
         )}
@@ -175,12 +175,12 @@ export function AnnualHealthCheckBooking({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Health checks &amp; screenings
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           We tell you which tests are worth doing and why, and a doctor reads every result with
           you, including the all-clear ones.
         </p>
@@ -192,11 +192,11 @@ export function AnnualHealthCheckBooking({
           patientId={patientId}
           bundleCode={selected?.code ?? null}
           patientState={state}
-          className="space-y-1 text-sm text-charcoal-ink/70"
+          className="space-y-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70"
         />
 
         {rebookDue && lastResulted && (
-          <p className="rounded-md bg-soft-sage p-3 text-sm text-charcoal-ink">
+          <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 p-3 text-sm text-charcoal-ink dark:text-night-ink">
             Your last check was{" "}
             {new Date(lastResulted.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
               month: "long",
@@ -209,16 +209,16 @@ export function AnnualHealthCheckBooking({
 
         {pendingPaymentOrders.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+            <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">
               Waiting on payment
             </p>
             {pendingPaymentOrders.map((order) => (
-              <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+              <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="amber">Not yet paid</Badge>
-                  <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+                  <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
                 </div>
-                <p className="text-sm text-charcoal-ink">
+                <p className="text-sm text-charcoal-ink dark:text-night-ink">
                   {order.panel_bundle?.name ?? "Health check"}
                 </p>
                 {/* A prepaid Care Voucher for this exact bundle — bought by the
@@ -246,21 +246,21 @@ export function AnnualHealthCheckBooking({
 
         {openOrders.length > 0 && (
           <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+            <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">
               Waiting on your result
             </p>
             {openOrders.map((order) => (
-              <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+              <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                 <div className="flex items-center gap-2">
                   <Badge variant="blue">Ready to take to a lab</Badge>
-                  <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+                  <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
                 </div>
-                <p className="text-sm text-charcoal-ink">
+                <p className="text-sm text-charcoal-ink dark:text-night-ink">
                   {order.panel_bundle?.name ?? "Health check"}
                 </p>
                 <a
                   href={`/api/patient/lab-order/${order.id}/request`}
-                  className="inline-block text-xs font-medium text-brand-green hover:underline"
+                  className="inline-block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
                 >
                   Download the request to take with you
                 </a>
@@ -273,7 +273,7 @@ export function AnnualHealthCheckBooking({
         {screensEnabled ? (
           <>
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+              <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">
                 Health Check packages
               </p>
               {packages.map(bundleRow)}
@@ -281,10 +281,10 @@ export function AnnualHealthCheckBooking({
 
             {confidential.length > 0 && (
               <div className="space-y-2 pt-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">
                   Confidential screenings
                 </p>
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   Recommended by the World Health Organization for everyone, and requested without
                   having to explain yourself to anybody.
                 </p>
@@ -295,10 +295,10 @@ export function AnnualHealthCheckBooking({
 
             {otherTests.length > 0 && (
               <div className="space-y-2 pt-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
+                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">
                   Other self-service tests
                 </p>
-                <p className="text-xs text-charcoal-ink/60">
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                   Request these directly: no due screening or doctor referral needed.
                 </p>
                 {otherTests.map(bundleRow)}
@@ -313,11 +313,11 @@ export function AnnualHealthCheckBooking({
                     <Button type="submit" size="sm" disabled={payPending}>
                       {payPending ? "Taking you to payment…" : `Book & pay for ${selected.name}`}
                     </Button>
-                    <p className="mt-2 text-xs text-charcoal-ink/60">
+                    <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       We book it with our lab partner and send you the result, no separate lab
                       visit to arrange.
                     </p>
-                    {payState?.error && <p className="mt-1 text-xs text-red-600">{payState.error}</p>}
+                    {payState?.error && <p className="mt-1 text-xs text-red-600 dark:text-red-300">{payState.error}</p>}
                   </form>
                 ) : (
                   <>
@@ -335,12 +335,12 @@ export function AnnualHealthCheckBooking({
                     >
                       {createOrder.isPending ? "Getting it ready…" : `Get ${selected.name}`}
                     </Button>
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Costs vary quite a bit between labs, so it&apos;s worth asking two before you
                       go.
                     </p>
                     {createOrder.isError && (
-                      <p className="text-xs text-red-600">
+                      <p className="text-xs text-red-600 dark:text-red-300">
                         Could not set that up just now. Please try again.
                       </p>
                     )}
@@ -363,8 +363,8 @@ export function AnnualHealthCheckBooking({
             )}
           </>
         ) : (
-          <div className="space-y-3 rounded-md border border-dashed border-charcoal-ink/15 p-3">
-            <p className="text-sm text-charcoal-ink/70">
+          <div className="space-y-3 rounded-md border border-dashed border-charcoal-ink/15 dark:border-night-ink/20 p-3">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               The Health Check packages come with a paid plan. You can still upload any result you
               already have and a doctor will read it, on any plan.
             </p>

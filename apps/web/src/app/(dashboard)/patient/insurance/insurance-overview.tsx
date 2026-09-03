@@ -83,7 +83,7 @@ function AddPolicyForm({
   const [groupNumber, setGroupNumber] = useState("");
 
   return (
-    <div className="space-y-3 rounded-md bg-charcoal-ink/5 p-3">
+    <div className="space-y-3 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3">
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">
           <Label htmlFor="insurer">Insurer</Label>
@@ -132,7 +132,7 @@ function AddPolicyForm({
           <Input id="group_number" value={groupNumber} onChange={(e) => setGroupNumber(e.target.value)} />
         </div>
       </div>
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Your care team will confirm this against your insurer before it&apos;s used for anything.
       </p>
       <div className="flex gap-2">
@@ -161,7 +161,7 @@ function AddPolicyForm({
         </Button>
       </div>
       {addPolicy.isError && (
-        <p className="text-xs text-red-600">Could not save your policy. Try again.</p>
+        <p className="text-xs text-red-600 dark:text-red-400">Could not save your policy. Try again.</p>
       )}
     </div>
   );
@@ -173,14 +173,14 @@ function BenefitsTable({ insurerId, planName }: { insurerId: string; planName: s
 
   return (
     <div className="mt-3">
-      <p className="mb-1 text-xs font-medium text-charcoal-ink/70">What your plan covers</p>
-      <ul className="divide-y divide-charcoal-ink/10 text-sm">
+      <p className="mb-1 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">What your plan covers</p>
+      <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 text-sm">
         {benefits.map((benefit) => (
           <li key={benefit.id} className="flex items-center justify-between py-1.5">
-            <span className="text-charcoal-ink">
+            <span className="text-charcoal-ink dark:text-night-ink">
               {SERVICE_CATEGORY_LABEL[benefit.service_category] ?? benefit.service_category.replace(/_/g, " ")}
             </span>
-            <span className="text-charcoal-ink/60">
+            <span className="text-charcoal-ink/60 dark:text-night-ink/60">
               {Math.round(benefit.coverage_pct * 100)}% covered
               {benefit.copay_fixed_kobo > 0 && ` · ${naira(benefit.copay_fixed_kobo)} copay`}
               {benefit.requires_preauth && " · needs pre-authorisation"}
@@ -217,8 +217,8 @@ function PolicyCard({ patientId, organisationId }: { patientId: string; organisa
                   {policy.verified_at ? "Confirmed" : "Not yet confirmed"}
                 </Badge>
               </div>
-              <p className="text-sm font-medium text-charcoal-ink">{policy.insurer?.name ?? "Unknown insurer"}</p>
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{policy.insurer?.name ?? "Unknown insurer"}</p>
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 Member ID {policy.member_id}
                 {policy.plan_name && ` · ${policy.plan_name}`}
                 {policy.relationship !== "self" && policy.policy_holder_name && (
@@ -254,21 +254,21 @@ function PreauthorizationsList({ patientId }: { patientId: string }) {
         <CardDescription>Your care team asks your insurer to approve certain services in advance.</CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {requests.map((request) => {
             const badge = PREAUTH_STATUS_BADGE[request.status];
             return (
               <li key={request.id} className="space-y-1.5 py-3">
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
-                  <span className="text-xs text-charcoal-ink/60">{formatDate(request.requested_at)}</span>
+                  <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{formatDate(request.requested_at)}</span>
                 </div>
-                <p className="text-sm text-charcoal-ink">
+                <p className="text-sm text-charcoal-ink dark:text-night-ink">
                   {SERVICE_CATEGORY_LABEL[request.service_category] ?? request.service_category.replace(/_/g, " ")} ·{" "}
                   {naira(request.estimated_amount_kobo)}
                 </p>
                 {request.status === "approved" && request.authorization_number && (
-                  <p className="text-xs text-charcoal-ink/60">Authorisation {request.authorization_number}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Authorisation {request.authorization_number}</p>
                 )}
                 {request.status === "denied" && <CoverageDecisionNote denialReason={request.denial_reason} />}
               </li>
@@ -291,23 +291,23 @@ function ClaimsList({ patientId }: { patientId: string }) {
         <CardDescription>What your insurer paid, and what you&apos;re responsible for.</CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {claims.map((claim) => {
             const badge = CLAIM_STATUS_BADGE[claim.status];
             return (
               <li key={claim.id} className="space-y-1.5 py-3">
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
-                  <span className="text-xs text-charcoal-ink/60">{formatDate(claim.submitted_at)}</span>
+                  <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{formatDate(claim.submitted_at)}</span>
                 </div>
-                <p className="text-sm text-charcoal-ink">
+                <p className="text-sm text-charcoal-ink dark:text-night-ink">
                   {SERVICE_CATEGORY_LABEL[claim.service_category] ?? claim.service_category.replace(/_/g, " ")} ·{" "}
                   {naira(claim.billed_amount_kobo)}
                 </p>
                 {(claim.status === "approved" ||
                   claim.status === "partially_approved" ||
                   claim.status === "paid") && (
-                  <p className="text-xs text-charcoal-ink/60">
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                     Insurer covered {claim.insurer_covered_kobo !== null ? naira(claim.insurer_covered_kobo) : "—"} ·
                     Your share {naira(claim.patient_copay_kobo)}
                   </p>

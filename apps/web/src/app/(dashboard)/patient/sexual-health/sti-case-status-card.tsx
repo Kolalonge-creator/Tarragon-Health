@@ -72,8 +72,8 @@ function CopyBox({ label, text }: { label: string; text: string }) {
 
   return (
     <div className="space-y-1.5">
-      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">{label}</p>
-      <p className="rounded-md border border-charcoal-ink/15 bg-charcoal-ink/5 p-3 text-sm text-charcoal-ink/80">
+      <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">{label}</p>
+      <p className="rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 bg-charcoal-ink/5 dark:bg-night-ink/10 p-3 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
         {text}
       </p>
       <Button type="button" size="sm" variant="outline" onClick={copy}>
@@ -132,7 +132,7 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
     return (
       <div className="space-y-1.5">
         {(history?.length ?? 0) > 0 && (
-          <p className="text-xs text-charcoal-ink/60">
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             You&apos;ve already looked into this for this result. You&apos;re welcome to do it
             again, or not, entirely up to you.
           </p>
@@ -145,8 +145,8 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 bg-white p-4">
-      <p className="text-sm text-charcoal-ink/70">
+    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-4">
+      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Totally optional, and entirely your call. A partner might want to get tested too, but
         there&apos;s no pressure either way.
       </p>
@@ -167,7 +167,7 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
 
       {mode === "self_notify" && templates && (
         <div className="space-y-4">
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Copy whichever fits how you&apos;d usually message them. It doesn&apos;t mention you,
             your result, or Tarragon.
           </p>
@@ -212,7 +212,7 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
 
       {mode === "done" && (
         <div className="space-y-3">
-          <p className="text-sm text-charcoal-ink/80">
+          <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             Thanks. Your care team has what they need and will take it from here.
           </p>
           <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
@@ -221,7 +221,7 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
     </div>
   );
 }
@@ -247,7 +247,7 @@ function StiCaseCard({ episode }: { episode: StiCaseEpisode }) {
         {showConfidentialNotice ? (
           <ConfidentialResultNotice />
         ) : (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Your care team has been in touch about this directly. Anything from here (treatment,
             follow-up) is between you and them.
           </p>
@@ -274,8 +274,8 @@ export function StiCaseStatusCard({ patientId }: { patientId: string }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <SEMANTIC_ICON.escalation className="h-5 w-5 text-deep-forest" strokeWidth={2} />
-        <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
+        <SEMANTIC_ICON.escalation className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+        <h2 className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">
           Following up on a result
         </h2>
       </div>

@@ -46,32 +46,32 @@ function AdmissionRow({
   return (
     <li className="space-y-2 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
           {admission.facility_name ?? "Hospital admission"}
           <Badge variant={admission.is_current ? "amber" : "grey"} className="ml-2">
             {admission.is_current ? "Currently admitted" : "Discharged"}
           </Badge>
         </p>
-        <span className="text-xs text-charcoal-ink/60">{durationLabel(admission)}</span>
+        <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{durationLabel(admission)}</span>
       </div>
-      <p className="text-xs text-charcoal-ink/70">
+      <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
         Admitted {formatPatientDate(admission.admitted_on)}
         {admission.discharged_on
           ? ` · discharged ${formatPatientDate(admission.discharged_on)}`
           : ""}
       </p>
       {admission.self_reported_diagnosis && (
-        <p className="text-xs text-charcoal-ink/70">
+        <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
           Reason (self-reported): {admission.self_reported_diagnosis}
         </p>
       )}
       {admission.discharge_summary && (
-        <p className="text-xs text-charcoal-ink/70">
+        <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
           Discharge notes: {admission.discharge_summary}
         </p>
       )}
       {admission.source === "staff_recorded" && (
-        <p className="text-xs text-charcoal-ink/60">Recorded by your care team.</p>
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Recorded by your care team.</p>
       )}
 
       {admission.is_current && (
@@ -112,7 +112,7 @@ function AdmissionRow({
           </Button>
         </form>
       )}
-      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
     </li>
   );
 }
@@ -135,12 +135,12 @@ export function HospitalAdmissionsCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Hospital admissions
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-5">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Let your care team know if you&apos;ve been admitted to hospital. What you enter here is
           self-reported; your care team reviews it and updates your care plan if needed.
         </p>
@@ -170,14 +170,14 @@ export function HospitalAdmissionsCard({ patientId }: { patientId: string }) {
               type="text"
               maxLength={500}
             />
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               In your own words: this is recorded as self-reported, not a diagnosis.
             </p>
           </div>
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">
+            <p className="text-sm text-brand-green dark:text-brand-green-bright">
               Saved. Your care team has been notified to review your plan.
             </p>
           )}
@@ -187,16 +187,16 @@ export function HospitalAdmissionsCard({ patientId }: { patientId: string }) {
           </Button>
         </form>
 
-        <div className="border-t border-charcoal-ink/10 pt-4">
-          {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+          {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {isError && (
-            <p className="text-sm text-red-600">Could not load your admissions.</p>
+            <p className="text-sm text-red-600 dark:text-red-300">Could not load your admissions.</p>
           )}
           {data && data.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No admissions recorded.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No admissions recorded.</p>
           )}
           {data && data.length > 0 && (
-            <ul className="divide-y divide-charcoal-ink/10">
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
               {data.map((admission) => (
                 <AdmissionRow key={admission.id} admission={admission} patientId={patientId} />
               ))}

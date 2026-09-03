@@ -47,25 +47,25 @@ export function ProfileMenu({
         aria-label="Account menu"
         aria-expanded={open}
         aria-haspopup="menu"
-        className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm hover:bg-charcoal-ink/5 sm:pr-2.5"
+        className="flex items-center gap-2 rounded-full py-1 pl-1 pr-1 text-sm hover:bg-charcoal-ink/5 sm:pr-2.5 dark:hover:bg-night-ink/10"
       >
         <Avatar fullName={userName} photoUrl={avatarUrl} size="sm" />
-        <span className="hidden max-w-32 truncate text-charcoal-ink/70 sm:inline">{userName}</span>
+        <span className="hidden max-w-32 truncate text-charcoal-ink/70 sm:inline dark:text-night-ink/70">{userName}</span>
       </button>
       {open && (
         <div
           role="menu"
-          className="absolute right-0 z-50 mt-2 w-64 max-w-[90vw] rounded-xl border border-charcoal-ink/10 bg-white shadow-lg"
+          className="absolute right-0 z-50 mt-2 w-64 max-w-[90vw] rounded-xl border border-charcoal-ink/10 bg-white shadow-lg dark:border-night-ink/15 dark:bg-night-card dark:shadow-none"
         >
-          <div className="border-b border-charcoal-ink/10 px-4 py-3">
-            <p className="truncate text-sm font-medium text-charcoal-ink">{userName}</p>
-            <span className="mt-1 inline-block rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-deep-forest">
+          <div className="border-b border-charcoal-ink/10 px-4 py-3 dark:border-night-ink/15">
+            <p className="truncate text-sm font-medium text-charcoal-ink dark:text-night-ink">{userName}</p>
+            <span className="mt-1 inline-block rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-deep-forest dark:text-brand-green-bright">
               {roleLabel}
             </span>
             {idLabel && idValue && (
-              <p className="mt-2 text-xs text-charcoal-ink/50">
+              <p className="mt-2 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                 {idLabel}:{" "}
-                <span className="font-mono font-medium text-charcoal-ink/70">{idValue}</span>
+                <span className="font-mono font-medium text-charcoal-ink/70 dark:text-night-ink/70">{idValue}</span>
               </p>
             )}
           </div>
@@ -74,18 +74,18 @@ export function ProfileMenu({
               href={profileHref}
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-charcoal-ink/80 hover:bg-charcoal-ink/5"
+              className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-charcoal-ink/80 hover:bg-charcoal-ink/5 dark:text-night-ink/80 dark:hover:bg-night-ink/10"
             >
               <NAV_ICON.settings className="h-4 w-4" strokeWidth={2} />
               Profile &amp; settings
             </Link>
           </div>
-          <div className="border-t border-charcoal-ink/10 p-1">
+          <div className="border-t border-charcoal-ink/10 p-1 dark:border-night-ink/15">
             <form action={signOutAction}>
               <button
                 type="submit"
                 role="menuitem"
-                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-charcoal-ink/70 hover:bg-charcoal-ink/5"
+                className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-charcoal-ink/70 hover:bg-charcoal-ink/5 dark:text-night-ink/70 dark:hover:bg-night-ink/10"
               >
                 <NAV_ICON.signOut className="h-4 w-4" strokeWidth={2} />
                 Sign out
