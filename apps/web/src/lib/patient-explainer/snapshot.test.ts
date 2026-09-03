@@ -1,5 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
-import { formatResultSnapshotForPrompt, type ResultSnapshot } from "./snapshot";
+import {
+  formatMedicationSnapshotForPrompt,
+  formatResultSnapshotForPrompt,
+  type MedicationSnapshot,
+  type ResultSnapshot,
+} from "./snapshot";
 
 function snapshot(overrides: Partial<ResultSnapshot> = {}): ResultSnapshot {
   return {
@@ -78,5 +83,55 @@ describe("formatResultSnapshotForPrompt", () => {
     );
     expect(text).toContain("Target: systolic: <130");
     expect(text).not.toContain("Notes:");
+  });
+});
+
+function medicationSnapshot(overrides: Partial<MedicationSnapshot> = {}): MedicationSnapshot {
+  return {
+    kind: "medication",
+    subjectKey: "med-1",
+    label: "Lisinopril",
+    drugName: "Lisinopril",
+    dose: "10mg",
+    frequency: "Once daily",
+    route: null,
+    indication: null,
+    instructions: null,
+    source: "clinician",
+    startedAt: "2026-07-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+describe("formatMedicationSnapshotForPrompt", () => {
+  it("includes the drug name, dose and frequency", () => {
+    const text = formatMedicationSnapshotForPrompt(medicationSnapshot());
+    expect(text).toContain("Lisinopril");
+    expect(text).toContain("10mg");
+    expect(text).toContain("Once daily");
+  });
+
+  it("attributes a clinician-sourced medication to the Tarragon care team", () => {
+    const text = formatMedicationSnapshotForPrompt(medicationSnapshot({ source: "clinician" }));
+    expect(text).toContain("the Tarragon care team");
+  });
+
+  it("attributes a patient-sourced medication as self-reported, not prescribed here", () => {
+    const text = formatMedicationSnapshotForPrompt(medicationSnapshot({ source: "patient" }));
+    expect(text).toContain("self-reported by the patient");
+  });
+
+  it("includes the recorded indication and instructions when present", () => {
+    const text = formatMedicationSnapshotForPrompt(
+      medicationSnapshot({ indication: "Blood pressure", instructions: "Take with food" })
+    );
+    expect(text).toContain("Recorded reason for taking it: Blood pressure");
+    expect(text).toContain("Recorded instructions: Take with food");
+  });
+
+  it("omits indication/instructions lines when not recorded", () => {
+    const text = formatMedicationSnapshotForPrompt(medicationSnapshot());
+    expect(text).not.toContain("Recorded reason");
+    expect(text).not.toContain("Recorded instructions");
   });
 });

@@ -56,7 +56,7 @@ export interface ResultSnapshot {
 export async function buildResultSnapshot(
   supabase: SupabaseClient<Database>,
   patientId: string,
-  kind: ExplainerKind,
+  kind: Exclude<ExplainerKind, "medication">,
   subjectKey: string,
   label: string
 ): Promise<ResultSnapshot | null> {
@@ -86,32 +86,6 @@ export async function buildResultSnapshot(
             recordedAt: previous.computed_at,
           }
         : null,
-    };
-  }
-
-  if (kind === "medication") {
-    const { data } = await supabase
-      .from("medications")
-      .select("drug_name, dose, frequency, route, instructions, indication, created_at")
-      .eq("patient_id", patientId)
-      .eq("id", subjectKey)
-      .maybeSingle();
-    if (!data) return null;
-    const details: Record<string, string> = {};
-    if (data.route) details.route = data.route;
-    if (data.instructions) details.instructions = data.instructions;
-    if (data.indication) details.indication = data.indication;
-    return {
-      kind,
-      subjectKey,
-      label,
-      latest: {
-        value: [data.dose, data.frequency].filter(Boolean).join(", ") || "no dose/frequency on file",
-        unit: null,
-        recordedAt: data.created_at,
-      },
-      previous: null,
-      details,
     };
   }
 
@@ -286,5 +260,83 @@ export function formatResultSnapshotForPrompt(snapshot: ResultSnapshot): string 
       lines.push(`${key.charAt(0).toUpperCase()}${key.slice(1)}: ${value}`);
     }
   }
+  return lines.join("\n");
+}
+
+// ---------------------------------------------------------------------------
+// "Explain my medication" (docs Module 20 §20.7) -- same cache/generation table
+// as the result explainer, different snapshot shape: a medication has no
+// latest/previous trend, it has a name, dose, frequency, indication and
+// instructions. subjectKey is the specific medications.id (see ExplainerKind).
+// ---------------------------------------------------------------------------
+
+export interface MedicationSnapshot {
+  kind: "medication";
+  subjectKey: string;
+  /** Human label for the thing being explained -- the drug name. */
+  label: string;
+  drugName: string;
+  dose: string | null;
+  frequency: string | null;
+  route: string | null;
+  indication: string | null;
+  instructions: string | null;
+  /** 'clinician' | 'specialist' | 'patient' -- who this was prescribed/added by. */
+  source: string;
+  startedAt: string;
+}
+
+/**
+ * Best-effort -- never throws. Scoped to the CALLER's own medication row
+ * (patientId, enforced both here and by RLS) so this can never be pointed at
+ * another patient's medicine.
+ */
+export async function buildMedicationSnapshot(
+  supabase: SupabaseClient<Database>,
+  patientId: string,
+  medicationId: string,
+  label: string
+): Promise<MedicationSnapshot | null> {
+  const { data } = await supabase
+    .from("medications")
+    .select("drug_name, dose, frequency, route, indication, instructions, source, created_at")
+    .eq("id", medicationId)
+    .eq("patient_id", patientId)
+    .maybeSingle();
+  if (!data) return null;
+
+  return {
+    kind: "medication",
+    subjectKey: medicationId,
+    label,
+    drugName: data.drug_name,
+    dose: data.dose,
+    frequency: data.frequency,
+    route: data.route,
+    indication: data.indication,
+    instructions: data.instructions,
+    source: data.source,
+    startedAt: data.created_at,
+  };
+}
+
+/** Renders a medication snapshot into the plain-text block the model sees. */
+export function formatMedicationSnapshotForPrompt(snapshot: MedicationSnapshot): string {
+  const prescribedBy =
+    snapshot.source === "clinician"
+      ? "the Tarragon care team"
+      : snapshot.source === "specialist"
+        ? "a specialist doctor"
+        : "self-reported by the patient (not prescribed on this platform)";
+  const lines: string[] = [
+    `Medication name: ${snapshot.drugName}`,
+    `Dose: ${snapshot.dose ?? "not recorded"}`,
+    `Frequency: ${snapshot.frequency ?? "not recorded"}`,
+  ];
+  if (snapshot.route) lines.push(`Route: ${snapshot.route}`);
+  if (snapshot.indication) lines.push(`Recorded reason for taking it: ${snapshot.indication}`);
+  if (snapshot.instructions) lines.push(`Recorded instructions: ${snapshot.instructions}`);
+  lines.push(`Added to the record by: ${prescribedBy}`);
+  lines.push(`On file since: ${snapshot.startedAt.slice(0, 10)}`);
   return lines.join("\n");
 }

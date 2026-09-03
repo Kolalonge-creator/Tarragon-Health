@@ -16,6 +16,7 @@ import {
   useCloseReferral,
   type SpecialistReferralWithDetails,
 } from "@/lib/queries/specialist-referrals";
+import { ReferralOutcomeDocumentUpload } from "@/components/referral-outcome-document-upload";
 import type { ReferralUrgency } from "@tarragon/shared";
 import { assembleAndSaveClinicalSummary } from "./actions";
 
@@ -66,7 +67,13 @@ function formatVital(vital: ClinicalSummaryVital): string {
  * generator; @react-pdf/renderer already exists for Health Passport, but
  * pulling it in here is scope creep for a v1).
  */
-export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferralWithDetails }) {
+export function ClinicalSummaryPanel({
+  referral,
+  outcomeDocumentUrl,
+}: {
+  referral: SpecialistReferralWithDetails;
+  outcomeDocumentUrl?: string | null;
+}) {
   const router = useRouter();
   const setUrgency = useSetReferralUrgency();
   const recordTreatmentPlan = useRecordTreatmentPlanReceived();
@@ -257,11 +264,33 @@ export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferra
                 </Button>
               ))}
 
+            {/* Uploading the specialist's own document (what the referral
+                letter promises: "upload it in the app") is an alternative
+                to transcribing a report by hand — either satisfies the
+                closure gate below. */}
+            <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
+              {referral.outcome_document_path ? (
+                <p className="text-sm text-charcoal-ink">
+                  Specialist document on file
+                  {outcomeDocumentUrl && (
+                    <>
+                      {" — "}
+                      <a href={outcomeDocumentUrl} target="_blank" rel="noreferrer" className="text-brand-green hover:underline">
+                        view
+                      </a>
+                    </>
+                  )}
+                </p>
+              ) : (
+                <ReferralOutcomeDocumentUpload referralId={referral.id} asStaff />
+              )}
+            </div>
+
             {/* Closure is a separate, deliberate step from receiving the
                 report — the care-plan update has to actually be documented,
                 not just implied by the report having arrived. Enforced by
                 specialist_referrals_closed_requires_outcome. */}
-            {referral.treatment_plan_received_at && (
+            {(referral.treatment_plan_received_at || referral.outcome_document_path) && (
               <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
                 <Label htmlFor="care-plan-update-note">Care plan update (required to close this referral)</Label>
                 <Textarea
@@ -299,6 +328,11 @@ export function ClinicalSummaryPanel({ referral }: { referral: SpecialistReferra
             <CardTitle>Closed</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 print:hidden">
+            {referral.closed_at && (
+              <p className="text-xs text-charcoal-ink/60">
+                Closed {new Date(referral.closed_at).toLocaleDateString("en-GB")}
+              </p>
+            )}
             <p className="text-sm text-charcoal-ink">
               Specialist report:{" "}
               {referral.treatment_plan_note ?? "on file"}

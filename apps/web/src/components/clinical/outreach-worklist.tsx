@@ -33,6 +33,7 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   overdue_lab_monitoring: "Lab monitoring overdue",
   medication_engagement_barrier: "Struggling to take medication as prescribed",
   engagement_decline: "Newly at risk of disengaging",
+  disengagement_risk: "Falling behind on engagement",
 };
 
 export function triggerContext(task: OutreachTaskWithPatient): string | null {
@@ -42,6 +43,18 @@ export function triggerContext(task: OutreachTaskWithPatient): string | null {
     const level = typeof detail.risk_level === "string" ? detail.risk_level : null;
     const type = typeof detail.score_type === "string" ? detail.score_type : null;
     return [type, level ? `${level.replace("_", " ")} risk` : null].filter(Boolean).join(" · ") || null;
+  }
+  if (task.trigger_type === "disengagement_risk") {
+    const level = typeof detail.engagement_level === "string" ? detail.engagement_level : null;
+    const runs = typeof detail.low_engagement_runs === "number" ? detail.low_engagement_runs : null;
+    return (
+      [
+        level ? level.replace("_", " ") : null,
+        runs != null ? `${runs} low-engagement day${runs === 1 ? "" : "s"} in the last 2 weeks` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ") || null
+    );
   }
   const condition =
     typeof detail.condition_or_type === "string" ? detail.condition_or_type : null;
