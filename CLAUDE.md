@@ -311,7 +311,16 @@ taken on faith:**
   (`20260831125450`/`20260831125511`, a "since you were last here" summary feature +
   engagement-decline notification) are live in production with **zero git record on any branch** —
   the full SQL is recoverable losslessly from `schema_migrations.statements` per the PR #313
-  pattern, but nobody has backfilled a migration file for it yet.
+  pattern, but nobody has backfilled a migration file for it yet. **Update, 2026-09-03 audit-fix
+  pass: the loss-risk core of this is closed** — all 9 zero-git-record live migrations (those two
+  included) were recovered verbatim from `schema_migrations.statements` into committed files pinned
+  at their live versions, 5 `main-dev` files whose content was verified already live were
+  repair-marked applied, and the unpushed doctor-retention-pool branch was pushed. The
+  release-integrity migration-drift job was also rewritten so it can actually run in CI
+  (management-API auth instead of a DB password it never had) and now fails only on loss-risk
+  classes (UNTRACED / UNPUSHED / LOCAL-NOT-APPLIED) while listing branch-owned drift as a warning
+  inventory — the remaining bulk of the 124/148 is that branch-owned class, which merges away with
+  the open-PR backlog rather than needing a reconciliation PR of its own.
 - **2026-09-02 — a single day, ~70 previously-built feature branches merged into `main-dev` at once**,
   closing most of the outstanding spec-module backlog this file's "Where to Look" section still
   describes as design/reconciliation-only (product of the deliberate large concurrent-worktree
@@ -330,6 +339,9 @@ taken on faith:**
   source across this project's history (found stale and redeployed at least half a dozen separate
   times). Before assuming any notification template works in production, check its deployed version
   against source rather than trusting a past changelog entry that says it was "just redeployed."
+  (Redeployed again from `main-dev` on 2026-09-03, v39, after being found ~344 lines stale; the
+  release-integrity edge-drift job diffs every deployed function against `origin/main-dev` on each
+  push and every 6 hours — trust that job's current status over any dated claim, this line included.)
 - Several regulatory/compliance items were still open the last time they were touched: MDCN/NMCN
   confirmation that the five-tier doctor-authority split is compliant; a Nigerian fintech counsel
   opinion on the Care Voucher structuring; NDPC registration and a DPO appointment; Meta WhatsApp
@@ -354,10 +366,12 @@ taken on faith:**
   `.github/workflows/mobile-ota-publish.yml`: auto-publishes JS-only pushes to `main-dev` (that
   touch `apps/mobile`) to the `preview` channel, skips publishing (rather than guessing) when a push
   touches anything native-affecting — that still needs a manual `eas build` — and never auto-publishes
-  to `production`. **It will fail closed until an `EXPO_TOKEN` repo secret is added** (Settings ->
-  Secrets and variables -> Actions; generate at expo.dev/accounts/[account]/settings/access-tokens)
-  — no agent in this sandbox has EAS/Expo credentials to add it. Confirm the secret has actually been
-  added before assuming this workflow is doing anything.
+  to `production`. **RESOLVED — the `EXPO_TOKEN` secret exists (added 2026-08-27) and the workflow
+  has been publishing green since.** The live caution is now `runtimeVersion`: it was bumped to
+  `0.2.0` on 2026-09-03 after three native deps (expo-crypto, expo-sqlite, async-storage) had landed
+  against the never-bumped `0.1.0` — a fresh manual `eas build` for 0.2.0 must exist before the next
+  OTA publish reaches devices, and any future native-affecting change needs the same bump-then-build
+  before the auto-publisher's next JS-only run.
 
 ### 2026-08-04 — Second occurrence: a push to `main` built on Vercel but was never promoted to production
 Founder reported the live site still showed retired partner-lab/booking copy (prices for lab tests and
