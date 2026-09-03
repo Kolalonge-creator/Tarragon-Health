@@ -55,11 +55,11 @@ export const DEVICES_FAQ: readonly FaqItem[] = [
   {
     question: "Do I have to buy one of these?",
     answer:
-      "No. Any Bluetooth device with Health Connect or Apple Health support will work — these are simply the ones we've tested and clinically vetted.",
+      "No. Any Bluetooth device with Health Connect or Apple Health support will work: these are simply the ones we've tested and clinically vetted.",
   },
   {
     question: "Does Tarragon sell these or make money if I buy one?",
     answer:
-      "No. Tarragon doesn't sell, ship, or earn a commission on any of these devices — buy from whichever retailer you trust. We recommend them purely based on clinical accuracy and confirmed compatibility.",
+      "No. Tarragon doesn't sell, ship, or earn a commission on any of these devices. Buy from whichever retailer you trust. We recommend them purely based on clinical accuracy and confirmed compatibility.",
   },
 ] as const;

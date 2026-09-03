@@ -73,7 +73,7 @@ export function CgmCard({ patientId }: { patientId: string }) {
               </li>
             </ul>
             <p className="text-xs text-charcoal-ink/50">
-              A coaching summary of your time in range (3.9–10.0 mmol/L) — not a medical assessment.
+              A coaching summary of your time in range (3.9–10.0 mmol/L), not a medical assessment.
             </p>
           </div>
         )}

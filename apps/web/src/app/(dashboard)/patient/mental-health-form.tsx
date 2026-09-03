@@ -163,8 +163,8 @@ export function MentalHealthScreenForm({ patientId }: { patientId: string }) {
                   How you have been feeling since your pregnancy or birth
                 </h3>
                 <p className="text-xs text-charcoal-ink/60">
-                  These extra questions are about the past 7 days, and are in addition to — not
-                  instead of — the questions above.
+                  These extra questions are about the past 7 days, and are in addition to (not
+                  instead of) the questions above.
                 </p>
                 {EPDS_QUESTIONS.map((q, i) => (
                   <OwnScaleQuestion

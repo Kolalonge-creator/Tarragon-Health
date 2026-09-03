@@ -100,9 +100,9 @@ export const RISK_LABEL: Record<string, string> = {
 
 export const AUTONOMY_LABEL: Record<string, string> = {
   inform_only: "Inform only",
-  recommend: "Recommend — a human decides",
-  assist: "Assist — performs part of a workflow",
-  execute: "Execute — acts automatically",
+  recommend: "Recommend: a human decides",
+  assist: "Assist: performs part of a workflow",
+  execute: "Execute: acts automatically",
 };
 
 /** Higher risk reads redder, matching the clinical status palette. */

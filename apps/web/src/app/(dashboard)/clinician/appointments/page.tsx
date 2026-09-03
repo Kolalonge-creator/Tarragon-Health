@@ -15,7 +15,7 @@ export default async function ClinicianAppointmentsPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Appointments</h1>
         <p className="text-sm text-charcoal-ink/60">
           Define recurring availability, manage leave, and work your appointment calendar across every
-          appointment type — separate from the video-visit slots under Availability.
+          appointment type, separate from the video-visit slots under Availability.
         </p>
       </div>
       <AppointmentsCalendarList clinicianId={profile.id} />

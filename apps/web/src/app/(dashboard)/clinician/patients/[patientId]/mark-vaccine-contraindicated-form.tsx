@@ -41,7 +41,7 @@ export function MarkVaccineContraindicatedForm({ patientId }: { patientId: strin
         <CardTitle>Mark a vaccine contraindicated</CardTitle>
         <CardDescription>
           Records a clinical finding that this vaccine should not be given, and stops it
-          resurfacing as due. Document why — this becomes part of the patient&apos;s record.
+          resurfacing as due. Document why: this becomes part of the patient&apos;s record.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

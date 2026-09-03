@@ -148,14 +148,14 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   if (n.template === "referral_closed") {
     const specialist = String(payload.specialist_type ?? "your specialist").replace(/_/g, " ");
     return {
-      text: `Your ${specialist} referral is closed — your care plan was updated`,
+      text: `Your ${specialist} referral is closed. Your care plan was updated`,
       href: "/patient",
     };
   }
   if (n.template === "referral_reminder") {
     const specialist = String(payload.specialist_type ?? "your specialist").replace(/_/g, " ");
     return {
-      text: `Don't forget your ${specialist} referral — bring back what they find`,
+      text: `Don't forget your ${specialist} referral. Bring back what they find`,
       href: "/patient",
     };
   }
@@ -199,7 +199,7 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "lab_result_consult_needs_rescheduling") {
     return {
-      text: "Your doctor can no longer make your lab-result consultation — it needs a new time",
+      text: "Your doctor can no longer make your lab-result consultation, so it needs a new time",
       href: "/patient/labs",
     };
   }

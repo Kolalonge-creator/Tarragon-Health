@@ -156,7 +156,7 @@ export async function careTasksThisMonth(
   items.sort((a, b) => a.dueOn.localeCompare(b.dueOn));
 
   return {
-    monthLabel: now.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" }),
+    monthLabel: now.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "Africa/Lagos" }),
     items,
   };
 }

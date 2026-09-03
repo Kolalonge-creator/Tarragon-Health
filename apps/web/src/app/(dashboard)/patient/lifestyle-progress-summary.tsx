@@ -23,7 +23,7 @@ export function LifestyleProgressSummary({ patientId }: { patientId: string }) {
     if (!latestWeight?.weight_kg) return "Track your weight & activity";
     if (!weightGoal?.goal_weight_kg) return `${latestWeight.weight_kg} kg logged`;
     const remaining = latestWeight.weight_kg - weightGoal.goal_weight_kg;
-    if (Math.abs(remaining) < 0.1) return `${latestWeight.weight_kg} kg — at your goal`;
+    if (Math.abs(remaining) < 0.1) return `${latestWeight.weight_kg} kg, at your goal`;
     return remaining > 0
       ? `${remaining.toFixed(1)} kg to your goal`
       : `${Math.abs(remaining).toFixed(1)} kg past your goal`;

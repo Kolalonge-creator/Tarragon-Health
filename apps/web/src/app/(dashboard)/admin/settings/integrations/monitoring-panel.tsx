@@ -98,7 +98,7 @@ export function IntegrationMonitoringPanel({
         <CardContent>
           {catalogue.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
-              No partner connections registered yet — add one below.
+              No partner connections registered yet. Add one below.
             </p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10">
@@ -122,7 +122,7 @@ export function IntegrationMonitoringPanel({
 
       <Card>
         <CardHeader>
-          <CardTitle>Health — last {health?.window_hours ?? 24}h</CardTitle>
+          <CardTitle>Health: last {health?.window_hours ?? 24}h</CardTitle>
         </CardHeader>
         <CardContent>
           {!health || health.total_requests === 0 ? (
@@ -180,7 +180,7 @@ function DeadLetterQueueSection({ rows }: { rows: DeadLetteredRow[] }) {
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/60">
           Every retry (§33.11) was exhausted for these events. Fix the partner-side cause,
-          then requeue — a requeued event gets a fresh attempt count and retries from the
+          then requeue. A requeued event gets a fresh attempt count and retries from the
           start of the backoff ladder.
         </p>
         <ul className="divide-y divide-charcoal-ink/10">

@@ -21,7 +21,7 @@ export async function CoordinatedCareSummaryCard({ patientId }: { patientId: str
         <CardTitle>Coordinated care</CardTitle>
         <CardDescription>
           {summary.activeConditionCount > 1
-            ? `${summary.activeConditionCount} conditions being managed together — one view, not ${summary.activeConditionCount} separate ones.`
+            ? `${summary.activeConditionCount} conditions being managed together: one view, not ${summary.activeConditionCount} separate ones.`
             : "What's active across your care right now."}
         </CardDescription>
       </CardHeader>

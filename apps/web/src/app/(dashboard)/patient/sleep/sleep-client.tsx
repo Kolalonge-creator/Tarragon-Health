@@ -39,7 +39,7 @@ export function SleepClient({ patientId }: { patientId: string }) {
             {(entries.data ?? []).map((entry) => (
               <li key={entry.id} className="rounded-lg border border-charcoal-ink/10 p-3">
                 <p className="text-sm font-medium text-charcoal-ink">
-                  {new Date(entry.logged_on).toLocaleDateString(undefined, { month: "long", day: "numeric" })} —{" "}
+                  {new Date(entry.logged_on).toLocaleDateString(undefined, { month: "long", day: "numeric" })}:{" "}
                   {entry.duration_hours}h
                   {entry.quality_rating != null && ` · quality ${entry.quality_rating}/5`}
                 </p>

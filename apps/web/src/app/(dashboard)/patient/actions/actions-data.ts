@@ -221,7 +221,7 @@ export async function resolveActionCentreItems(patientId: string): Promise<Actio
     items.push({
       icon: "booking",
       type: "Video call",
-      title: "Your doctor offered times for a video call — pick one",
+      title: "Your doctor offered times for a video call: pick one",
       dueDate: null,
       href: "/patient/care",
       alwaysHighPriority: true,

@@ -68,7 +68,7 @@ function buildStatementCsv(people: SupportedPerson[]): string {
   const totalReady = people.reduce((sum, p) => sum + p.readyVouchers.length, 0);
 
   const lines: string[] = [
-    "Tarragon Health — statement of care you have funded",
+    "Tarragon Health: statement of care you have funded",
     `Generated,${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
     "",
     "Summary",
@@ -640,7 +640,7 @@ function RefillAction({
           requestRefill.mutate(
             { beneficiaryId: person.profileId, medicationId: medication.id },
             {
-              onSuccess: () => setNote("Added to their bills below — you can pay it there."),
+              onSuccess: () => setNote("Added to their bills below. You can pay it there."),
               onError: (error) =>
                 setNote(error instanceof Error ? error.message : "Could not arrange that refill."),
             },
@@ -768,8 +768,8 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
                 <p className="text-sm text-charcoal-ink/70">
                   Last test result recorded {shortDate(data.latestResult.recordedAt)}
                   {data.latestResult.status === "normal"
-                    ? " — nothing flagged."
-                    : " — flagged for their care team."}
+                    ? ": nothing flagged."
+                    : ": flagged for their care team."}
                 </p>
               )}
               {data.openFollowUps > 0 && (

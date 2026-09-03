@@ -30,7 +30,7 @@ export default async function CompanyProfileSettingsPage() {
           Company &amp; legal profile
         </h1>
         <p className="text-charcoal-ink/60">
-          The registered facts every printed report puts on its letterhead — CAC particulars, FIRS
+          The registered facts every printed report puts on its letterhead: CAC particulars, FIRS
           TIN/VAT number, registered address, directors, auditor and settlement bank details. Kept
           here rather than in Finance because this is company-secretarial data, not bookkeeping;
           Finance&apos;s Reports &amp; Filings pack (Finance → Reports) reads it read-only.

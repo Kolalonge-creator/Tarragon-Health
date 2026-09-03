@@ -76,7 +76,7 @@ export function EcgReportUpload({
   return (
     <form onSubmit={handleSubmit} className="space-y-2">
       <p className="rounded border border-charcoal-ink/10 bg-charcoal-ink/[0.03] p-2 text-[0.7rem] text-charcoal-ink/70">
-        Only a 12-lead ECG — the kind done at a hospital or lab, showing 12 strips labelled I, II,
+        Only a 12-lead ECG, the kind done at a hospital or lab, showing 12 strips labelled I, II,
         III, aVR, aVL, aVF, V1&ndash;V6. Not a Watch or single-lead strip.
       </p>
       <div className="space-y-1.5">

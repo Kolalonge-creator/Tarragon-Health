@@ -45,7 +45,7 @@ function CandidateCard({
 function TablesAffected({ tables }: { tables: Record<string, number> }) {
   const entries = Object.entries(tables);
   if (entries.length === 0) {
-    return <p className="text-sm text-charcoal-ink/60">No rows reference the losing record — nothing to move.</p>;
+    return <p className="text-sm text-charcoal-ink/60">No rows reference the losing record. Nothing to move.</p>;
   }
   return (
     <div className="max-h-64 overflow-y-auto rounded-md border border-charcoal-ink/10">
@@ -99,7 +99,7 @@ export function MergeTool({ candidateA, candidateB }: { candidateA: MergeCandida
           id="reason"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="e.g. Same person — confirmed by phone number and DOB match, patient re-signed up after losing access to their first account."
+          placeholder="e.g. Same person: confirmed by phone number and DOB match, patient re-signed up after losing access to their first account."
           rows={3}
         />
       </div>

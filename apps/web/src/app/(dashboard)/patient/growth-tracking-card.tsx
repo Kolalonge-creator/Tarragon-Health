@@ -72,7 +72,7 @@ export function GrowthTrackingCard({
       <CardHeader>
         <CardTitle>Growth</CardTitle>
         <CardDescription>
-          Weight, height, and head circumference over time — flagged for clinical review on a
+          Weight, height, and head circumference over time, flagged for clinical review on a
           significant change, never diagnosed from the chart alone.
         </CardDescription>
       </CardHeader>
@@ -85,7 +85,7 @@ export function GrowthTrackingCard({
             Latest:{" "}
             {latestZ !== null
               ? formatPercentile(zScoreToPercentile(latestZ))
-              : "Reference data pending — showing raw measurements only"}
+              : "Reference data pending, showing raw measurements only"}
           </p>
         )}
 

@@ -96,8 +96,8 @@ export function WearableConnectCard({
         </CardTitle>
         <CardDescription>
           Sync steps, sleep, heart rate, or continuous glucose from your Oura, WHOOP,
-          Garmin, Fitbit, or Dexcom device. Choose what to share before connecting —
-          you can change it any time.
+          Garmin, Fitbit, or Dexcom device. Choose what to share before connecting.
+          You can change it any time.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -189,8 +189,8 @@ export function WearableConnectCard({
                 FreeStyle Libre (Abbott)
               </span>
               <p className="text-xs text-charcoal-ink/50">
-                Abbott requires a direct data-sharing partnership for Libre access —
-                it isn&apos;t a self-serve connection like the others above.
+                Abbott requires a direct data-sharing partnership for Libre access.
+                It isn&apos;t a self-serve connection like the others above.
               </p>
             </div>
             <Badge variant="grey">Requires partnership</Badge>

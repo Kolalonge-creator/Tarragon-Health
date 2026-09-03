@@ -101,7 +101,7 @@ export function PromoCodeManager() {
         <CardHeader>
           <CardTitle>New promo code</CardTitle>
           <CardDescription>
-            Applies only to one-off lab, pharmacy, and referral orders — not subscriptions or
+            Applies only to one-off lab, pharmacy, and referral orders, not subscriptions or
             video visits, which are billed as recurring provider objects and cannot take a
             per-order discount this way.
           </CardDescription>

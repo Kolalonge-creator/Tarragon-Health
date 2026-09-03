@@ -314,7 +314,7 @@ export function AnnualHealthCheckBooking({
                       {payPending ? "Taking you to payment…" : `Book & pay for ${selected.name}`}
                     </Button>
                     <p className="mt-2 text-xs text-charcoal-ink/60">
-                      We book it with our lab partner and send you the result — no separate lab
+                      We book it with our lab partner and send you the result, no separate lab
                       visit to arrange.
                     </p>
                     {payState?.error && <p className="mt-1 text-xs text-red-600">{payState.error}</p>}

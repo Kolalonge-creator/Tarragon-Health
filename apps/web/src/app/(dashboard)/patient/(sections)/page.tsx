@@ -110,7 +110,7 @@ export default async function PatientOverviewPage() {
           <Link href="/patient/adolescent-health" className="text-brand-green hover:underline">
             Your private whole-life check-in
           </Link>{" "}
-          is there whenever you want it — just for you, on your own time.
+          is there whenever you want it, just for you, on your own time.
         </p>
       )}
       {isAdolescentBand && acting && (

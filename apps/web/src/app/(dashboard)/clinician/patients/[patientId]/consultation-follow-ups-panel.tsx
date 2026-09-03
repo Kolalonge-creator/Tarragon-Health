@@ -170,7 +170,7 @@ function ActionFollowUpControls({ followUp }: { followUp: ConsultationFollowUp }
           </Select>
         </div>
         <div className="min-w-[12rem]">
-          <Label>Referral reason (optional — defaults to the follow-up note)</Label>
+          <Label>Referral reason (optional, defaults to the follow-up note)</Label>
           <Input value={reason} onChange={(e) => setReason(e.target.value)} />
         </div>
         <Button
@@ -255,7 +255,7 @@ export function ConsultationFollowUpsPanel({
       <p className="text-sm font-medium text-charcoal-ink">Follow-ups</p>
       {(followUps?.length ?? 0) === 0 && (
         <p className="text-xs text-charcoal-ink/50">
-          Nothing recorded — a monitoring schedule, investigation, or referral mentioned in the plan
+          Nothing recorded. A monitoring schedule, investigation, or referral mentioned in the plan
           should be added here so it actually happens.
         </p>
       )}

@@ -68,7 +68,7 @@ function RequestForm() {
                 </option>
                 {(bundles ?? []).map((bundle) => (
                   <option key={bundle.id} value={bundle.id}>
-                    {bundle.name} — {bundle.price_kobo ? naira(bundle.price_kobo) : "price on request"}
+                    {bundle.name} ({bundle.price_kobo ? naira(bundle.price_kobo) : "price on request"})
                   </option>
                 ))}
               </Select>

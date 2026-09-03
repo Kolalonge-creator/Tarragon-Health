@@ -70,7 +70,7 @@ export default async function ProviderOrgOverviewPage({
             <Card>
               <CardHeader>
                 <CardTitle>Referral queue</CardTitle>
-                <CardDescription>28.8 — referrals routed to this organisation, by status.</CardDescription>
+                <CardDescription>28.8: referrals routed to this organisation, by status.</CardDescription>
               </CardHeader>
               <CardContent>
                 <ul className="space-y-1 text-sm">

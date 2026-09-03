@@ -133,7 +133,7 @@ export default async function AdminPage() {
   const attentionCopy =
     attentionParts.length > 0
       ? `${attentionParts.join(" and ")} need attention today.`
-      : "Nothing needs attention right now — you're caught up.";
+      : "Nothing needs attention right now. You're caught up.";
 
   const groups: AdminTileGroup[] = [
     {
@@ -263,7 +263,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/lpe-content-library",
           label: "Lifestyle coaching content",
-          blurb: "The AI Coach's reference material — draft until a Clinical Director signs it off",
+          blurb: "The AI Coach's reference material, draft until a Clinical Director signs it off",
           icon: SEMANTIC_ICON.learn,
           visible: can("protocols.manage"),
         },
@@ -310,7 +310,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/subscriptions",
           label: "Subscription plans & add-ons",
-          blurb: "Legacy plan/add-on editor — no longer sets live patient pricing",
+          blurb: "Legacy plan/add-on editor, no longer sets live patient pricing",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },
@@ -432,7 +432,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/feature-flags",
           label: "Feature flags",
-          blurb: "Roll a feature out by state, role, org or percentage — no deploy",
+          blurb: "Roll a feature out by state, role, org or percentage, no deploy",
           icon: NAV_ICON.flag,
           visible: can("feature_flags.manage"),
         },
@@ -527,7 +527,7 @@ export default async function AdminPage() {
           <CardTitle>System status</CardTitle>
           <CardDescription>
             Live dependency checks, also reachable unauthenticated at{" "}
-            <code className="text-xs">/api/status</code> — see{" "}
+            <code className="text-xs">/api/status</code>, see{" "}
             <code className="text-xs">docs/BUSINESS_CONTINUITY_DR_SPEC.md</code>.
           </CardDescription>
         </CardHeader>

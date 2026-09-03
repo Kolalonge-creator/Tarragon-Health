@@ -55,7 +55,7 @@ export function CareMessageTemplateManager() {
       <div>
         <p className="text-sm font-medium text-charcoal-ink">Reply templates</p>
         <p className="text-xs text-charcoal-ink/60">
-          Starting text for a reply — always editable before you send.
+          Starting text for a reply, always editable before you send.
         </p>
       </div>
 
@@ -114,7 +114,7 @@ export function CareMessageTemplateManager() {
         <Textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          placeholder="Your result looks normal — no action needed. We'll keep monitoring as usual."
+          placeholder="Your result looks normal. No action needed. We'll keep monitoring as usual."
           rows={3}
           maxLength={4000}
         />

@@ -38,7 +38,7 @@ export function MedicationOutcomesCard({
           Medication &amp; control outcomes
         </CardTitle>
         <CardDescription>
-          What managed care changes on the ground — medicines safely reduced, numbers back
+          What managed care changes on the ground: medicines safely reduced, numbers back
           in range.
         </CardDescription>
       </CardHeader>

@@ -26,7 +26,7 @@ export function SocialDeterminantsForm() {
         ))}
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Thanks — recorded.</p>}
+      {state?.success && <p className="text-sm text-brand-green">Thanks. Recorded.</p>}
       <Button type="submit" disabled={pending}>
         {pending ? "Saving…" : "Save"}
       </Button>

@@ -55,13 +55,13 @@ export function AppointmentPrepHelper({
 
   return (
     <div className="space-y-2 rounded-md border border-mist-grey/60 bg-mist-grey/20 p-3">
-      <Badge variant="grey">AI-drafted — questions to consider, not medical advice</Badge>
+      <Badge variant="grey">AI-drafted: questions to consider, not medical advice</Badge>
 
       {isPending && <p className="text-sm text-charcoal-ink/60">Thinking about what might be useful to ask…</p>}
 
       {!isPending && result?.status === "failed" && (
         <p className="text-sm text-charcoal-ink/60">
-          Couldn&apos;t put together suggestions right now — you can still write your own notes above.
+          Couldn&apos;t put together suggestions right now. You can still write your own notes above.
         </p>
       )}
 

@@ -43,7 +43,7 @@ export function FertilityRequestCard({ patientId }: { patientId: string }) {
         <CardTitle>Fertility</CardTitle>
         <CardDescription>
           Fertility assessment involves your history, some tests and, where appropriate, a
-          specialist review — never a guaranteed outcome or a certain timeline.
+          specialist review, never a guaranteed outcome or a certain timeline.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -55,7 +55,7 @@ export function FertilityRequestCard({ patientId }: { patientId: string }) {
           <div className="space-y-1.5">
             {requests.data.map((r) => (
               <p key={r.id} className="text-sm text-charcoal-ink/80">
-                {new Date(r.created_at).toLocaleDateString()} — {STATUS_LABEL[r.status] ?? r.status}
+                {new Date(r.created_at).toLocaleDateString()}: {STATUS_LABEL[r.status] ?? r.status}
               </p>
             ))}
           </div>

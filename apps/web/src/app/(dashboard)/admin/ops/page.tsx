@@ -68,7 +68,7 @@ export default async function OpsConsolePage() {
             Tarragon Today
           </h1>
           <p className="text-charcoal-ink/60">
-            The operational state of the platform, right now — one queue across appointments,
+            The operational state of the platform, right now: one queue across appointments,
             referrals, laboratory, pharmacy, alerts, support and payments, instead of seven tabs.
           </p>
         </div>

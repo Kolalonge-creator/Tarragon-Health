@@ -54,7 +54,7 @@ export function ServiceNavigationAssistant() {
 
         {result && (
           <div className="space-y-2 rounded-md border border-mist-grey/60 bg-mist-grey/20 p-3">
-            <Badge variant="grey">AI-drafted — from our facility directory, not a recommendation</Badge>
+            <Badge variant="grey">AI-drafted: from our facility directory, not a recommendation</Badge>
 
             {result.status === "failed" && (
               <p className="text-sm text-charcoal-ink/60">{result.error}</p>
@@ -68,7 +68,7 @@ export function ServiceNavigationAssistant() {
                     {result.facilities.map((facility) => (
                       <li key={facility.id} className="text-xs text-charcoal-ink/70">
                         <span className="font-medium text-charcoal-ink">{facility.name}</span>
-                        {" — "}
+                        {", "}
                         {[facility.address, facility.area, facility.city, facility.state]
                           .filter(Boolean)
                           .join(", ")}

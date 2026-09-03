@@ -132,7 +132,7 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
       <div className="space-y-1.5">
         {(history?.length ?? 0) > 0 && (
           <p className="text-xs text-charcoal-ink/60">
-            You&apos;ve already looked into this for this result — you&apos;re welcome to do it
+            You&apos;ve already looked into this for this result. You&apos;re welcome to do it
             again, or not, entirely up to you.
           </p>
         )}
@@ -146,7 +146,7 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
   return (
     <div className="space-y-3 rounded-lg border border-charcoal-ink/10 bg-white p-4">
       <p className="text-sm text-charcoal-ink/70">
-        Totally optional, and entirely your call — a partner might want to get tested too, but
+        Totally optional, and entirely your call. A partner might want to get tested too, but
         there&apos;s no pressure either way.
       </p>
 
@@ -212,7 +212,7 @@ function PartnerNotifyFlow({ episode }: { episode: StiCaseEpisode }) {
       {mode === "done" && (
         <div className="space-y-3">
           <p className="text-sm text-charcoal-ink/80">
-            Thanks — your care team has what they need and will take it from here.
+            Thanks. Your care team has what they need and will take it from here.
           </p>
           <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
             Close
@@ -247,8 +247,8 @@ function StiCaseCard({ episode }: { episode: StiCaseEpisode }) {
           <ConfidentialResultNotice />
         ) : (
           <p className="text-sm text-charcoal-ink/70">
-            Your care team has been in touch about this directly. Anything from here — treatment,
-            follow-up — is between you and them.
+            Your care team has been in touch about this directly. Anything from here (treatment,
+            follow-up) is between you and them.
           </p>
         )}
 

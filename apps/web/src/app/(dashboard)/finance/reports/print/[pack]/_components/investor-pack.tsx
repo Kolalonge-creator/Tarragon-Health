@@ -47,12 +47,12 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
       />
 
       <Disclaimer>
-        Built from the same live general ledger the rest of Finance uses — not audited or reviewed by
+        Built from the same live general ledger the rest of Finance uses, not audited or reviewed by
         an external accountant. Say so to anyone you share it with, and have it reviewed before it goes
         into a formal data room.
       </Disclaimer>
 
-      <PrintSection title="Key metrics (as of today)" description="Point-in-time ratios — independent of the date range above.">
+      <PrintSection title="Key metrics (as of today)" description="Point-in-time ratios, independent of the date range above.">
         {kpi.isLoading ? (
           <PrintEmpty>Loading…</PrintEmpty>
         ) : (
@@ -151,8 +151,8 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
       <PrintSection title="Non-financial KPIs" description="Not included in this pack.">
         <p className="text-xs text-charcoal-ink/60">
           Active patients, retention, condition-programme enrolment and partner-network metrics live in
-          the Analytics console (Analytics → Overview and category pages) rather than duplicated here —
-          pull those separately for a complete data room.
+          the Analytics console (Analytics → Overview and category pages) rather than duplicated here.
+          Pull those separately for a complete data room.
         </p>
       </PrintSection>
 

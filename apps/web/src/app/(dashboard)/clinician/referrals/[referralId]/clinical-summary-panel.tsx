@@ -274,7 +274,7 @@ export function ClinicalSummaryPanel({
                   Specialist document on file
                   {outcomeDocumentUrl && (
                     <>
-                      {" — "}
+                      {": "}
                       <a href={outcomeDocumentUrl} target="_blank" rel="noreferrer" className="text-brand-green hover:underline">
                         view
                       </a>

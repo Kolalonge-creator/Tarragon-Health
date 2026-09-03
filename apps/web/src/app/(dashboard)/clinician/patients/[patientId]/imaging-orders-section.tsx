@@ -64,7 +64,7 @@ export async function ImagingOrdersSection({
       <CardHeader>
         <CardTitle>Imaging & diagnostic procedures</CardTitle>
         <CardDescription>
-          X-ray, ultrasound, CT, MRI, mammography, echocardiography and other diagnostic imaging —
+          X-ray, ultrasound, CT, MRI, mammography, echocardiography and other diagnostic imaging, with
           the same safety loop as laboratory results.
         </CardDescription>
       </CardHeader>
@@ -97,11 +97,11 @@ export async function ImagingOrdersSection({
                     <div key={report.id} className="rounded border border-charcoal-ink/10 p-2 text-xs">
                       <div className="flex items-center justify-between gap-2">
                         <p className="font-medium text-charcoal-ink">
-                          {report.modality} — {report.body_region}
+                          {report.modality}: {report.body_region}
                         </p>
                         {report.is_abnormal && (
                           <Badge variant={report.urgency === "critical" ? "red" : "amber"}>
-                            Abnormal — {report.urgency}
+                            Abnormal ({report.urgency})
                           </Badge>
                         )}
                       </div>

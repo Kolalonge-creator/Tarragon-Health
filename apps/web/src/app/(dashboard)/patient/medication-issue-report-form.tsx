@@ -68,7 +68,7 @@ export function MedicationIssueReportForm({
   if (done) {
     return (
       <p className="text-xs font-medium text-brand-green">
-        Thanks for letting us know — your care team can see this.
+        Thanks for letting us know. Your care team can see this.
       </p>
     );
   }
@@ -100,7 +100,7 @@ export function MedicationIssueReportForm({
           onChange={(event) => setKind(event.target.value as ReportKind)}
         >
           <option value="cost">I couldn&apos;t afford it</option>
-          <option value="concern">Something else — a concern about this medication</option>
+          <option value="concern">Something else (a concern about this medication)</option>
         </Select>
       </div>
       <div className="space-y-1">

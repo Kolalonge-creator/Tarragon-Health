@@ -72,7 +72,7 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
             </div>
             <p className="text-xs text-charcoal-ink/60">
               A non-diagnostic summary of a few everyday habits and numbers we already have on
-              file — not a medical diagnosis. Updated {new Date(data.computed_at).toLocaleDateString()}.
+              file, not a medical diagnosis. Updated {new Date(data.computed_at).toLocaleDateString()}.
             </p>
             {trend && (
               <p className="rounded-md bg-soft-sage px-3 py-2 text-sm text-deep-forest">

@@ -36,9 +36,9 @@ const INSTRUMENT_CONFIG: Record<
  * the point is reassurance and a next step, not a label. */
 const SEVERITY_COPY: Record<SexualHealthSeverityBand, string> = {
   none_minimal: "This doesn't seem to be much of a concern right now.",
-  mild: "This seems like a mild concern — common, and it often eases with small changes.",
-  moderate: "This seems like a moderate concern — worth talking to your care team about.",
-  severe: "This seems like a significant concern, and your care team can help — worth reaching out soon.",
+  mild: "This seems like a mild concern: common, and it often eases with small changes.",
+  moderate: "This seems like a moderate concern, worth talking to your care team about.",
+  severe: "This seems like a significant concern, and your care team can help, so it's worth reaching out soon.",
 };
 
 function LikertQuestion({
@@ -108,7 +108,7 @@ export function SexualWellnessPanel() {
           Sexual wellness
         </CardTitle>
         <CardDescription>
-          A short, private check-in — never a diagnosis, and only your care team can see it.
+          A short, private check-in: never a diagnosis, and only your care team can see it.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -131,7 +131,7 @@ export function SexualWellnessPanel() {
           <form action={formAction} className="space-y-5">
             <input type="hidden" name="instrument" value={instrument} />
             <p className="text-sm text-charcoal-ink/70">
-              {SEXUAL_HEALTH_INSTRUMENT_LABEL[instrument]} — over the last few weeks:
+              {SEXUAL_HEALTH_INSTRUMENT_LABEL[instrument]}, over the last few weeks:
             </p>
             {INSTRUMENT_CONFIG[instrument].questions.map((prompt, i) => (
               <LikertQuestion
@@ -159,7 +159,7 @@ export function SexualWellnessPanel() {
           <div className="space-y-4">
             <div className="rounded-lg bg-brand-green/5 p-4">
               <p className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
-                {SEXUAL_HEALTH_INSTRUMENT_LABEL[state.instrument]} —{" "}
+                {SEXUAL_HEALTH_INSTRUMENT_LABEL[state.instrument]}:{" "}
                 {SEXUAL_HEALTH_SEVERITY_BAND_LABEL[state.severityBand]}
               </p>
               <p className="mt-1 text-sm text-charcoal-ink/80">
@@ -170,7 +170,7 @@ export function SexualWellnessPanel() {
             {state.cardiometabolicFlag && (
               <div className="rounded-lg border border-sprout-gold/40 bg-sprout-gold/5 p-4">
                 <p className="text-sm text-charcoal-ink/80">
-                  Sexual health is often connected to heart and metabolic health — it&apos;s worth
+                  Sexual health is often connected to heart and metabolic health. It&apos;s worth
                   checking your cardiovascular risk too.
                 </p>
                 <Link

@@ -317,7 +317,7 @@ export function EcgReportExtractionPanel({
 
                     {isText ? (
                       <p className="mt-1 pl-6 text-[0.65rem] text-charcoal-ink/50">
-                        As printed by the ECG machine — not a Tarragon or clinician assessment.
+                        As printed by the ECG machine, not a Tarragon or clinician assessment.
                       </p>
                     ) : null}
 
@@ -349,7 +349,7 @@ export function EcgReportExtractionPanel({
                 {blockedParams.map((param, i) => (
                   <li key={`${param.reportedLabel}-${i}`}>
                     {param.reportedLabel}: {param.valueText ?? param.value ?? "—"}{" "}
-                    {param.unit ?? ""} — {STATUS_COPY[param.status]}
+                    {param.unit ?? ""} ({STATUS_COPY[param.status]})
                   </li>
                 ))}
               </ul>
@@ -378,7 +378,7 @@ export function EcgReportExtractionPanel({
       </div>
       <p className="text-[0.65rem] text-charcoal-ink/50">
         Filing records these numbers on the patient&rsquo;s record. It is not a clinical reading of
-        the ECG — record your own assessment separately below, in the result field for this screen.
+        the ECG. Record your own assessment separately below, in the result field for this screen.
       </p>
     </div>
   );

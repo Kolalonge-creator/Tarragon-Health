@@ -117,7 +117,7 @@ export function ProtocolApiManager({ partners }: { partners: PartnerRow[] }) {
                         month
                       </>
                     ) : (
-                      "No license set — calls are unrestricted"
+                      "No license set: calls are unrestricted"
                     )}
                   </p>
                 </div>
@@ -297,7 +297,7 @@ function PartnerKeys({
       {issuedKey && (
         <div className="space-y-1 rounded-md bg-amber-50 p-3">
           <p className="text-sm font-medium text-charcoal-ink">
-            Copy this key now — it won&apos;t be shown again.
+            Copy this key now. It won&apos;t be shown again.
           </p>
           <code className="block break-all rounded bg-white p-2 text-xs">{issuedKey}</code>
           <Button size="sm" variant="ghost" onClick={() => setIssuedKey(null)}>
@@ -327,7 +327,7 @@ function PartnerKeys({
         {(keys ?? []).map((k) => (
           <li key={k.id} className="flex items-center justify-between text-sm">
             <span>
-              {k.name} — <code className="text-xs">{k.key_prefix}…</code>
+              {k.name}: <code className="text-xs">{k.key_prefix}…</code>
               {k.revoked_at ? (
                 <Badge variant="grey" className="ml-2">
                   Revoked

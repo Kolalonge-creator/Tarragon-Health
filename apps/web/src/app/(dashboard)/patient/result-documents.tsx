@@ -96,7 +96,7 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                   </div>
                 ) : (
                   <p className="text-sm text-charcoal-ink/60">
-                    Your care team hasn&apos;t reviewed this yet — we&apos;ll let you know here as soon
+                    Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon
                     as they have.
                   </p>
                 )}

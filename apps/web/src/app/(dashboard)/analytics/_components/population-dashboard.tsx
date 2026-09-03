@@ -139,7 +139,7 @@ export function PopulationDashboard() {
 
       <SectionCard
         title="Programme funnel"
-        description="Enrolled → actively monitored → controlled/uncontrolled → lost to follow-up, per chronic condition. Controlled/uncontrolled only exists today for hypertension (BP) and diabetes (glucose) — shown as “—” elsewhere."
+        description="Enrolled → actively monitored → controlled/uncontrolled → lost to follow-up, per chronic condition. Controlled/uncontrolled only exists today for hypertension (BP) and diabetes (glucose), shown as “—” elsewhere."
         actions={<ExportButton filename="programme-funnel" rows={funnel ?? []} />}
       >
         {funnelLoading ? (
@@ -180,7 +180,7 @@ export function PopulationDashboard() {
 
       <SectionCard
         title="Disease surveillance"
-        description="New enrollments, risk-score computations, and screening results by month. Reports inflow, not a historical prevalence snapshot — care plans only store current status, not a status-as-of-past-date history."
+        description="New enrollments, risk-score computations, and screening results by month. Reports inflow, not a historical prevalence snapshot. Care plans only store current status, not a status-as-of-past-date history."
         actions={<ExportButton filename="disease-surveillance" rows={surveillance?.new_enrollment_trend ?? []} />}
       >
         {surveillanceLoading ? (
@@ -215,7 +215,7 @@ export function PopulationDashboard() {
 
       <SectionCard
         title="Geographic distribution"
-        description="State-level risk concentration and overdue-screening load — never anyone's own location. A state with fewer than 10 patients shows as insufficient data, not a number."
+        description="State-level risk concentration and overdue-screening load, never anyone's own location. A state with fewer than 10 patients shows as insufficient data, not a number."
         actions={<ExportButton filename="geographic-health" rows={geo ?? []} />}
       >
         {geoLoading ? (

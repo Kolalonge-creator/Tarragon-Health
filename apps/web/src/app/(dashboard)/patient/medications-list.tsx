@@ -105,14 +105,14 @@ export function MedicationsList({
           <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
           Medications
           {data && isPolypharmacy(data.length) && (
-            <Badge variant="amber" title={`${data.length} active medicines — this is a lot to keep track of, worth a review`}>
+            <Badge variant="amber" title={`${data.length} active medicines. This is a lot to keep track of, worth a review`}>
               Polypharmacy
             </Badge>
           )}
         </CardTitle>
         {data && isPolypharmacy(data.length) && (
           <p className="text-xs text-charcoal-ink/60">
-            {data.length} active medicines on file — {POLYPHARMACY_THRESHOLD} or more is worth a clinician
+            {data.length} active medicines on file. {POLYPHARMACY_THRESHOLD} or more is worth a clinician
             review for duplicate therapy or interactions, not a reason to stop anything on your own.
           </p>
         )}
@@ -621,7 +621,7 @@ function RepeatRequestControl({
     <div className="mt-1 space-y-1">
       {latest?.status === "approved" && (
         <p className="text-xs text-brand-green">
-          Approved {new Date(latest.reviewed_at ?? latest.requested_at).toLocaleDateString()} — you can
+          Approved {new Date(latest.reviewed_at ?? latest.requested_at).toLocaleDateString()}. You can
           collect your next supply.
         </p>
       )}

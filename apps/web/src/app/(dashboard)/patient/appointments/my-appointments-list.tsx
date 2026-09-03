@@ -60,7 +60,7 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
       const result = await ensureVideo.mutateAsync(appointmentId);
       router.push(`/patient/video-visit/${result.videoConsultationId}`);
     } catch (e) {
-      setError((e as Error).message || "Could not open the video visit — try again in a moment.");
+      setError((e as Error).message || "Could not open the video visit. Try again in a moment.");
     }
   }
 
@@ -84,7 +84,7 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
                 <li key={appt.id} className="flex flex-wrap items-center gap-2 py-2">
                   <div>
                     <p className="text-sm text-charcoal-ink">
-                      {APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type} —{" "}
+                      {APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type},{" "}
                       {formatSlot(appt.scheduled_for)}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
@@ -133,7 +133,7 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
                       {entry.status === "offered"
-                        ? "A slot just opened up — accept it before the offer expires."
+                        ? "A slot just opened up. Accept it before the offer expires."
                         : "Waiting for a slot to open."}
                     </p>
                   </div>

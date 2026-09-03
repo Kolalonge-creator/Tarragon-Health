@@ -31,7 +31,7 @@ export default async function SubscriptionsSettingsPage() {
           <code className="rounded bg-amber-100 px-1 py-0.5">public_price_list()</code>), not the{" "}
           <code className="rounded bg-amber-100 px-1 py-0.5">subscription_plans</code>/
           <code className="rounded bg-amber-100 px-1 py-0.5">add_ons</code> tables this page reads and
-          writes below. Creating, pricing, or syncing a plan or add-on here — including to Paystack —
+          writes below. Creating, pricing, or syncing a plan or add-on here (including to Paystack)
           changes nothing for patients. There is currently no admin UI for{" "}
           <code className="rounded bg-amber-100 px-1 py-0.5">service_products</code> pricing; it is
           managed directly in the database until one is built.

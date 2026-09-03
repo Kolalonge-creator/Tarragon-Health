@@ -91,7 +91,7 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: OpsIncidentRow) => vo
       <CardHeader>
         <CardTitle>Raise a new incident</CardTitle>
         <CardDescription>
-          Log it now, even before the full picture is clear — the SLA clock is set from the
+          Log it now, even before the full picture is clear. The SLA clock is set from the
           severity you pick and starts immediately. You can add detail, a root cause and
           corrective action as the incident progresses.
         </CardDescription>
@@ -122,10 +122,10 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: OpsIncidentRow) => vo
             value={severity}
             onChange={(e) => setSeverity(e.target.value as OpsIncidentSeverity)}
           >
-            <option value="sev1">Sev1 — patient safety / platform down / confirmed breach</option>
-            <option value="sev2">Sev2 — core journey broken, or money moving wrongly</option>
-            <option value="sev3">Sev3 — degraded, workaround in place</option>
-            <option value="sev4">Sev4 — cosmetic / low impact</option>
+            <option value="sev1">Sev1: patient safety / platform down / confirmed breach</option>
+            <option value="sev2">Sev2: core journey broken, or money moving wrongly</option>
+            <option value="sev3">Sev3: degraded, workaround in place</option>
+            <option value="sev4">Sev4: cosmetic / low impact</option>
           </Select>
         </div>
         <div className="space-y-1 sm:col-span-2">

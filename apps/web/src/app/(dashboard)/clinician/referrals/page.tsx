@@ -75,7 +75,7 @@ export default function ClinicianReferralsPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Referrals</h1>
         <p className="text-sm text-charcoal-ink/60">
           Specialist referrals you have sent or need to action. Start a new one from the patient&apos;s
-          own record — open their Referrals tab.
+          own record. Open their Referrals tab.
         </p>
       </div>
       <Card>

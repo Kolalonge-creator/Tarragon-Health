@@ -268,7 +268,7 @@ export function CaregiverRequestFlow() {
             <CardTitle>What can they do?</CardTitle>
             <CardDescription>
               Every box is checked by default, which is today&apos;s full &quot;manage&quot;
-              access. Uncheck anything that should stay off limits — the rest still needs their
+              access. Uncheck anything that should stay off limits. The rest still needs their
               acceptance, and any of this can be changed or taken back later.
             </CardDescription>
           </CardHeader>
@@ -306,7 +306,7 @@ export function CaregiverRequestFlow() {
                 ))}
               </Select>
               <p className="text-xs text-charcoal-ink/50">
-                Useful when travelling or handing something off for a while — access ends itself,
+                Useful when travelling or handing something off for a while: access ends itself,
                 nothing to remember to undo.
               </p>
             </div>
@@ -341,7 +341,7 @@ export function CaregiverRequestFlow() {
             <div className="rounded-md border border-charcoal-ink/10 p-3 text-sm">
               <p className="font-medium text-charcoal-ink">
                 {permissions.length === CAREGIVER_PERMISSIONS.length
-                  ? "Everything — unrestricted manage access"
+                  ? "Everything (unrestricted manage access)"
                   : "Can do:"}
               </p>
               {permissions.length !== CAREGIVER_PERMISSIONS.length && (

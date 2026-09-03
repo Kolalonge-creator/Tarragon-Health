@@ -72,7 +72,7 @@ export function AddElderProxyForm() {
       <CardHeader>
         <CardTitle>Set up an account for someone who can&apos;t do this themselves</CardTitle>
         <CardDescription>
-          For an adult who doesn&apos;t use a smartphone or won&apos;t be signing up on their own —
+          For an adult who doesn&apos;t use a smartphone or won&apos;t be signing up on their own:
           you keep their record and handle their bookings, reminders and pharmacy orders. Only for
           someone who&apos;s agreed to this; if they already have a Tarragon account, ask them to
           accept an eldercare request instead so they keep control of it.

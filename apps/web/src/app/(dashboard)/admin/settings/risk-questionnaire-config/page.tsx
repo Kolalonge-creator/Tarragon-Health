@@ -42,7 +42,7 @@ export default async function RiskQuestionnaireConfigSettingsPage() {
         </h1>
         <p className="text-charcoal-ink/60">
           The question bank and per-condition scoring rules behind every patient&apos;s risk
-          assessment — including which questions branch on earlier answers, and the points/
+          assessment, including which questions branch on earlier answers, and the points/
           thresholds that produce a Low/Moderate/High/Unknown tier per condition. The seeded
           version is a verbatim port of the platform&apos;s existing built-in logic (zero clinical
           change) and is{" "}

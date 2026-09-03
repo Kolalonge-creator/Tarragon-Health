@@ -57,18 +57,18 @@ const REQUEST_STATUS: Record<
   payment_confirmed: {
     label: "Paid, waiting for a doctor to accept",
     tone: "amber",
-    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time — or offer a different one that works — within 48 hours. If nobody can, you're refunded in full.",
+    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time (or offer a different one that works) within 48 hours. If nobody can, you're refunded in full.",
   },
   alternate_proposed: {
     label: "Your doctor offered different times",
     tone: "amber",
-    note: "Your original time didn't work, so your doctor offered these instead — pick one below within 24 hours or you're refunded in full.",
+    note: "Your original time didn't work, so your doctor offered these instead. Pick one below within 24 hours or you're refunded in full.",
   },
   accepted: { label: "Booked", tone: "green" },
   declined: {
     label: "Not available",
     tone: "red",
-    note: "A doctor couldn't take this visit. Your payment is being refunded in full automatically — you don't need to do anything or contact support.",
+    note: "A doctor couldn't take this visit. Your payment is being refunded in full automatically. You don't need to do anything or contact support.",
   },
   expired: {
     label: "Not accepted in time",
@@ -232,7 +232,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
           A paid, self-serve 15-minute online consultation with a Tarragon doctor, over
           video. Pick a time and pay: your payment is{" "}
           <span className="font-medium">held by Tarragon</span> and only goes through once a
-          time is confirmed — either your doctor accepts the time you picked, or offers a
+          time is confirmed: either your doctor accepts the time you picked, or offers a
           different time that works better for them, within 48 hours. If nobody can take it,
           you get a full refund.
         </p>

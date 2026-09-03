@@ -91,7 +91,7 @@ function CreateStatementForm({ providers }: { providers: PartnerOption[] }) {
             placeholder={"screen_type_code,invoiced_naira,lab_order_id (optional),their_reference (optional)\nFBC,3500,,\nLIPID_PANEL,8000,,"}
           />
           <p className="mt-1 text-xs text-charcoal-ink/50">
-            Leave blank to save just the total for now — lines can be reconciled line-by-line once
+            Leave blank to save just the total for now. Lines can be reconciled line-by-line once
             entered, but matching works from these rows, so add them when you have the detail.
           </p>
         </div>
@@ -183,7 +183,7 @@ export function PartnerSettlementsClient({
 
       <SectionCard
         title="Statements"
-        description="Amounts payable to the laboratory — from Tarragon's side, this is what we owe them, not the reverse."
+        description="Amounts payable to the laboratory. From Tarragon's side, this is what we owe them, not the reverse."
       >
         {statements.length === 0 ? (
           <CenterNote>No laboratory statements recorded yet.</CenterNote>

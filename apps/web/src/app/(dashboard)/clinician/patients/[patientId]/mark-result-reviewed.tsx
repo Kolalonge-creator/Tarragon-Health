@@ -77,7 +77,7 @@ export function MarkResultReviewed({ documentId, extraction, patientSex, patient
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <label className="text-xs font-medium text-charcoal-ink/70">
-            What this result means — the patient will read this exactly
+            What this result means: the patient will read this exactly
           </label>
           {canDraft && (
             <Button
@@ -93,7 +93,7 @@ export function MarkResultReviewed({ documentId, extraction, patientSex, patient
         </div>
         {drafted && (
           <p className="mt-1 text-[0.65rem] text-amber-700">
-            Drafted from the filed results — check it reads right for this patient before sending.
+            Drafted from the filed results. Check it reads right for this patient before sending.
           </p>
         )}
         <Textarea
@@ -109,7 +109,7 @@ export function MarkResultReviewed({ documentId, extraction, patientSex, patient
       </div>
       <div>
         <label className="text-xs font-medium text-charcoal-ink/70">
-          Next steps (optional — only if something needs attention)
+          Next steps (optional, only if something needs attention)
         </label>
         <Textarea
           placeholder="e.g. Book a follow-up blood test in 3 months…"

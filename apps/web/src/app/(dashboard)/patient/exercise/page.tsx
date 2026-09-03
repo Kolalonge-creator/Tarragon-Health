@@ -24,7 +24,7 @@ export default async function ExercisePage() {
         </Link>
       </div>
       <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Structured plans to build activity safely — a walking programme is open to anyone; anything
+        Structured plans to build activity safely: a walking programme is open to anyone; anything
         more intensive asks a few safety questions first.
       </p>
       <RequiresEntitlement

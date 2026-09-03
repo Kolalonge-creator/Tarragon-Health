@@ -54,7 +54,7 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithPatient }) {
           value={plan}
           onChange={(e) => setPlan(e.target.value)}
           rows={6}
-          placeholder="A coordinated plan across everything this patient is managing — written for them, not for the chart."
+          placeholder="A coordinated plan across everything this patient is managing, written for them, not for the chart."
         />
         <Button
           size="sm"
@@ -100,7 +100,7 @@ export default function SeniorCaseReviewsPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Senior case reviews</h1>
         <p className="text-sm text-charcoal-ink/60">
           Complex, often multi-condition cases awaiting a coordinated written plan. Completing one
-          is restricted server-side to Tier 3+ doctors and Clinical Directors — everyone can see
+          is restricted server-side to Tier 3+ doctors and Clinical Directors. Everyone can see
           the queue, but only a senior doctor&apos;s account can actually submit a plan.
         </p>
       </div>

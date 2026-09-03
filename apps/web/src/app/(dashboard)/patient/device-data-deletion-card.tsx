@@ -95,7 +95,7 @@ export function DeviceDataDeletionCard({ patientId }: { patientId: string }) {
             <Textarea
               id="deletion-reason"
               rows={3}
-              placeholder="Tell us why, if you'd like — this is optional."
+              placeholder="Tell us why, if you'd like. This is optional."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               maxLength={2000}
@@ -114,7 +114,7 @@ export function DeviceDataDeletionCard({ patientId }: { patientId: string }) {
           </div>
           {justSubmitted && (
             <p className="text-sm text-brand-green">
-              Request submitted — your care team will review and process it.
+              Request submitted. Your care team will review and process it.
             </p>
           )}
         </div>

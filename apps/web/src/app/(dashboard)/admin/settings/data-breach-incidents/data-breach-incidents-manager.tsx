@@ -35,8 +35,8 @@ const SEVERITY_VARIANT: Record<DataBreachIncidentRow["severity"], "green" | "amb
 };
 
 const STATUS_LABEL: Record<DataBreachIncidentRow["status"], string> = {
-  open: "Open — contain",
-  contained: "Contained — notify NDPC",
+  open: "Open: contain",
+  contained: "Contained: notify NDPC",
   notified: "NDPC notified",
   closed: "Closed",
 };
@@ -75,7 +75,7 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: DataBreachIncidentRow
       <CardHeader>
         <CardTitle>Log a new incident</CardTitle>
         <CardDescription>
-          Log it now, even before all the facts are confirmed — the 72-hour NDPC clock starts the
+          Log it now, even before all the facts are confirmed. The 72-hour NDPC clock starts the
           moment TarragonHealth becomes aware, not once the investigation finishes.
         </CardDescription>
       </CardHeader>
@@ -126,7 +126,7 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: DataBreachIncidentRow
           />
         </div>
         <div className="space-y-1 sm:col-span-2">
-          <Label htmlFor="incident-description">What happened (running log — you can add more later)</Label>
+          <Label htmlFor="incident-description">What happened (running log, you can add more later)</Label>
           <Textarea
             id="incident-description"
             rows={4}

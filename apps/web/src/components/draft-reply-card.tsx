@@ -39,7 +39,7 @@ export function DraftReplyCard({ threadId }: { threadId: string }) {
   function onGenerate() {
     setError(null);
     generate.mutate(threadId, {
-      onError: () => setError("Couldn't generate a draft reply — write your own reply below."),
+      onError: () => setError("Couldn't generate a draft reply. Write your own reply below."),
     });
   }
 
@@ -50,10 +50,10 @@ export function DraftReplyCard({ threadId }: { threadId: string }) {
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle className="text-sm">Suggested reply</CardTitle>
-          <Badge variant="grey">AI-drafted — not yet reviewed</Badge>
+          <Badge variant="grey">AI-drafted, not yet reviewed</Badge>
         </div>
         <CardDescription>
-          Read this, then write your own reply below — it is never sent for you.
+          Read this, then write your own reply below. It is never sent for you.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -72,7 +72,7 @@ export function DraftReplyCard({ threadId }: { threadId: string }) {
         {!isLoading && draft?.status === "failed" && (
           <div className="space-y-2">
             <p className="text-sm text-charcoal-ink/60">
-              Couldn&apos;t draft a suggestion — write your own reply below.
+              Couldn&apos;t draft a suggestion. Write your own reply below.
             </p>
             <Button size="sm" variant="outline" disabled={isBusy} onClick={onGenerate}>
               {isBusy ? "Retrying…" : "Try again"}
@@ -103,7 +103,7 @@ function DraftReplyBody({
     <div className="space-y-3">
       {draft.needs_clinical_review && (
         <Badge variant="amber">
-          May need clinical input{draft.review_reason ? ` — ${draft.review_reason}` : ""}
+          May need clinical input{draft.review_reason ? `: ${draft.review_reason}` : ""}
         </Badge>
       )}
 
@@ -113,7 +113,7 @@ function DraftReplyBody({
 
       {draft.needs_clinical_review && (
         <p className="text-xs text-charcoal-ink/60">
-          This only covers a short holding reply — if this needs a doctor&apos;s attention, raise it
+          This only covers a short holding reply. If this needs a doctor&apos;s attention, raise it
           through the escalation worklist rather than replying here alone.
         </p>
       )}

@@ -32,7 +32,7 @@ export default async function DataBreachIncidentsPage() {
         </h1>
         <p className="text-charcoal-ink/60">
           Log any confirmed or reasonably suspected personal data breach here the moment
-          TarragonHealth becomes aware of it — that starts the Nigeria Data Protection Act&apos;s
+          TarragonHealth becomes aware of it. That starts the Nigeria Data Protection Act&apos;s
           72-hour NDPC-notification clock. See{" "}
           <code>docs/legal/breach-notification-runbook.md</code> for the full procedure.
         </p>

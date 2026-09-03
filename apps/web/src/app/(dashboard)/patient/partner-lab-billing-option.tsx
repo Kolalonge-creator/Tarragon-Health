@@ -60,7 +60,7 @@ export function PartnerLabBillingOption({
     <div className="space-y-2 rounded-lg border border-charcoal-ink/10 bg-warm-ivory/50 p-3">
       <p className="text-xs text-charcoal-ink/70">
         We&apos;ll book {bundleName} with our contracted lab partner and charge you ₦
-        {koboToNaira(priceKobo).toLocaleString()} now — no separate payment to the lab.
+        {koboToNaira(priceKobo).toLocaleString()} now. No separate payment to the lab.
       </p>
       {createPartnerOrder.isError && (
         <p className="text-xs text-red-600">Could not set that up just now. Please try again.</p>

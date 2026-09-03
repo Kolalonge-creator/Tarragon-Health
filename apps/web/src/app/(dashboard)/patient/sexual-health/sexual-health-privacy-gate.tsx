@@ -72,7 +72,7 @@ export function SexualHealthPrivacyGate({ children }: { children: ReactNode }) {
         setPin("");
         setError(
           isLockoutError(err)
-            ? "Too many attempts — try again in a few minutes, or reset your PIN below."
+            ? "Too many attempts. Try again in a few minutes, or reset your PIN below."
             : "Something went wrong. Please try again."
         );
       },

@@ -19,7 +19,7 @@ export default async function PatientSubscriptionPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">My services</h1>
         <p className="text-charcoal-ink/60">
-          One-off purchases covering a fixed window each. Nothing auto-renews — buy again any time to extend.
+          One-off purchases covering a fixed window each. Nothing auto-renews. Buy again any time to extend.
         </p>
       </div>
       <SubscriptionManager />

@@ -24,7 +24,7 @@ const STATUS_VARIANT: Record<string, "green" | "amber" | "red" | "grey"> = {
 };
 
 function particular(label: string, value: string | null | undefined) {
-  return { label, value: value || "— not on file —" };
+  return { label, value: value || "not on file" };
 }
 
 export function GovernmentFilingsPack({ year }: { year: number }) {
@@ -62,13 +62,13 @@ export function GovernmentFilingsPack({ year }: { year: number }) {
       <PrintToolbar />
       <ReportLetterhead
         title="Government filings pack"
-        subtitle={`Financial year ${year} · Nigeria — CAC, FIRS, PAYE, pension, NHF, NSITF and ITF`}
+        subtitle={`Financial year ${year} · Nigeria: CAC, FIRS, PAYE, pension, NHF, NSITF and ITF`}
       />
 
       <Disclaimer>
         This pack assembles what the ledger and the compliance calendar already know for {year}. It
         does not file, submit or lodge anything with CAC, FIRS, PENCOM, NSITF, ITF or any other agency,
-        and it is not tax or legal advice — confirm every figure and every due date with a licensed
+        and it is not tax or legal advice. Confirm every figure and every due date with a licensed
         accountant/tax adviser before relying on it for an actual submission.
       </Disclaimer>
 
@@ -81,8 +81,8 @@ export function GovernmentFilingsPack({ year }: { year: number }) {
       </PrintSection>
 
       <PrintSection
-        title="Companies Income Tax (CIT) — indicative position"
-        description="Profit before tax for the year, from the ledger's income statement. Nigeria's CIT rate depends on turnover band (0%/20%/30% under the current Finance Act) — this pack does not compute a liability figure; take the figures below to your tax adviser for the actual CIT/TET computation."
+        title="Companies Income Tax (CIT): indicative position"
+        description="Profit before tax for the year, from the ledger's income statement. Nigeria's CIT rate depends on turnover band (0%/20%/30% under the current Finance Act). This pack does not compute a liability figure; take the figures below to your tax adviser for the actual CIT/TET computation."
       >
         {pnl.isLoading ? (
           <PrintEmpty>Loading…</PrintEmpty>
@@ -171,8 +171,8 @@ export function GovernmentFilingsPack({ year }: { year: number }) {
 
       <p className="mt-6 text-[10px] text-charcoal-ink/40 print-avoid-break">
         Also worth reviewing before {year}&apos;s filings close out: NDPC data-protection registration
-        status and the platform&apos;s pension/NSITF/ITF exposure once payroll is processed on-platform
-        — none of that is tracked here yet. Day-to-day filing tracking (mark as filed, remittance
+        status and the platform&apos;s pension/NSITF/ITF exposure once payroll is processed on-platform.
+        None of that is tracked here yet. Day-to-day filing tracking (mark as filed, remittance
         references) lives on Finance → Compliance calendar.
       </p>
     </div>

@@ -82,7 +82,7 @@ export function EcgResultPanel({
     <div className="space-y-3">
       <div className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
         <p className="text-xs font-medium text-charcoal-ink">
-          Only a genuine 12-lead ECG — the kind done at a hospital or lab, showing 12 strips
+          Only a genuine 12-lead ECG, the kind done at a hospital or lab, showing 12 strips
           labelled I, II, III, aVR, aVL, aVF, V1&ndash;V6. Not a Watch or single-lead strip.
         </p>
         <form onSubmit={handleUploadSubmit} className="mt-2 space-y-2">

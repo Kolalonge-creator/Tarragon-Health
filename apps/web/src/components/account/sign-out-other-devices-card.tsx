@@ -20,7 +20,7 @@ export function SignOutOtherDevicesCard() {
       <CardHeader>
         <CardTitle>Sign out everywhere else</CardTitle>
         <CardDescription>
-          This won&apos;t sign you out here — only on your other devices and browsers.
+          This won&apos;t sign you out here, only on your other devices and browsers.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -28,7 +28,7 @@ export function SignOutOtherDevicesCard() {
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
             <p className="text-sm text-brand-green">
-              Done — every other device and browser has been signed out.
+              Done. Every other device and browser has been signed out.
             </p>
           )}
           <Button type="submit" variant="outline" disabled={pending}>

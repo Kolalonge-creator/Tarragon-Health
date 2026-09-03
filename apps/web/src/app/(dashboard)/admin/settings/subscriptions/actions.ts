@@ -35,7 +35,7 @@ async function syncPlanRow(row: {
   interval: "monthly" | "yearly";
 }): Promise<SyncResult> {
   if (row.currency !== "NGN") {
-    return { ok: false, error: "Non-naira plans can no longer be synced — Stripe billing was removed." };
+    return { ok: false, error: "Non-naira plans can no longer be synced. Stripe billing was removed." };
   }
   const result = await syncPlanToPaystack(row);
   if (!result.ok) return result;

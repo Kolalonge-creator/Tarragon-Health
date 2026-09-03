@@ -18,7 +18,7 @@ export default async function NotificationTemplatesSettingsPage() {
           Notification templates
         </h1>
         <p className="text-charcoal-ink/60">
-          The catalogue of every notification the platform sends — what it&apos;s for, how
+          The catalogue of every notification the platform sends: what it&apos;s for, how
           urgent, which channels, and whether it needs Clinical Director sign-off.
         </p>
       </div>

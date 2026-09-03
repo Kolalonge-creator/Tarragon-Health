@@ -28,7 +28,7 @@ export async function buyProgrammeDoctorSupportedAddon(
   });
 
   if (result?.error) return { error: result.error };
-  if (result?.activated) return { message: "Added — your doctor-supported calls are set up now." };
+  if (result?.activated) return { message: "Added. Your doctor-supported calls are set up now." };
   if (result?.checkoutUrl) {
     redirect(result.checkoutUrl);
   }

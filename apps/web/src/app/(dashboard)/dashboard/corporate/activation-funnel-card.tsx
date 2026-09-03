@@ -31,7 +31,7 @@ export function ActivationFunnelCard({ funnel }: { funnel: ActivationFunnel | nu
     <Card>
       <CardHeader>
         <CardTitle>Workforce activation</CardTitle>
-        <CardDescription>Module 26 §26.8 — eligibility through to engagement, this billing period.</CardDescription>
+        <CardDescription>Module 26 §26.8: eligibility through to engagement, this billing period.</CardDescription>
       </CardHeader>
       <CardContent className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <StatTile label="Eligible" value={String(funnel.eligible)} />
@@ -61,7 +61,7 @@ export function DepartmentBreakdownTable({ rows }: { rows: DepartmentBreakdownRo
       <CardHeader>
         <CardTitle>By department</CardTitle>
         <CardDescription>
-          Module 26 §26.9 — a department too small to report on safely shows &quot;too small to show&quot;
+          Module 26 §26.9: a department too small to report on safely shows &quot;too small to show&quot;
           instead of a number that could identify someone.
         </CardDescription>
       </CardHeader>

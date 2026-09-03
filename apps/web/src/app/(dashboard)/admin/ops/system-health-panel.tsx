@@ -34,7 +34,7 @@ export function SystemHealthPanel({ components }: { components: SystemHealthComp
         <CardTitle>System health</CardTitle>
         <CardDescription>
           Derived live from notification delivery, payment webhook processing, partner
-          integration checks and the clinical alert pipeline — not a status page anyone has to
+          integration checks and the clinical alert pipeline, not a status page anyone has to
           remember to update.
         </CardDescription>
       </CardHeader>

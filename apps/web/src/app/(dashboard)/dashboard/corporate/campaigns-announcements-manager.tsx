@@ -55,7 +55,7 @@ function CampaignsCard({ organisationId }: { organisationId: string }) {
         <CardTitle>Health campaigns</CardTitle>
         <CardDescription>
           Screening drives and workplace challenges (Module 26 §26.10). Participation is shown here only as
-          an aggregate count — individual participation stays with your Tarragon care team, per platform
+          an aggregate count. Individual participation stays with your Tarragon care team, per platform
           privacy policy.
         </CardDescription>
       </CardHeader>
@@ -104,7 +104,7 @@ function CampaignsCard({ organisationId }: { organisationId: string }) {
             </li>
           ))}
           {campaigns.data?.length === 0 && (
-            <li className="py-2 text-sm text-charcoal-ink/50">No campaigns yet — launch one above.</li>
+            <li className="py-2 text-sm text-charcoal-ink/50">No campaigns yet. Launch one above.</li>
           )}
         </ul>
       </CardContent>
@@ -142,7 +142,7 @@ function AnnouncementsCard({ organisationId }: { organisationId: string }) {
       <CardHeader>
         <CardTitle>Organisational messages</CardTitle>
         <CardDescription>
-          Approved, non-clinical announcements to your workforce (Module 26 §26.11) — e.g. &quot;Annual health
+          Approved, non-clinical announcements to your workforce (Module 26 §26.11): e.g. &quot;Annual health
           assessment is now available.&quot; Kept separate from clinical care messages.
         </CardDescription>
       </CardHeader>

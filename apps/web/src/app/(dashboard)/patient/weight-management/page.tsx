@@ -64,7 +64,7 @@ export default async function WeightManagementPage() {
           </h1>
           <p className="mt-1 text-sm text-charcoal-ink/70">
             Your assessment, your programme, your trackers, and what your care team is doing for
-            you — all in one place.
+            you, all in one place.
           </p>
         </div>
         {obesityEnrollment && (

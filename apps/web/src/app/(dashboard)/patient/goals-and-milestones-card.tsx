@@ -32,7 +32,7 @@ const MILESTONE_COPY: Record<string, string> = {
   medication_adherence_90pct_month: "90%+ medication adherence this month",
   preventive_assessment_completed: "Preventive assessment completed",
   patient_goal_achieved: "Goal achieved",
-  engagement_recovery: "Back on track — great to have you back",
+  engagement_recovery: "Back on track. Great to have you back",
 };
 
 function todayLagosDateString(): string {
@@ -122,7 +122,7 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
         {goals.isLoading && <p className="text-sm text-charcoal-ink/60">Loading your goals…</p>}
         {!goals.isLoading && (goals.data?.length ?? 0) === 0 && !addingGoal && (
           <p className="text-sm text-charcoal-ink/60">
-            No active goals yet — small, specific goals (like a daily step count) tend to stick
+            No active goals yet. Small, specific goals (like a daily step count) tend to stick
             best.
           </p>
         )}

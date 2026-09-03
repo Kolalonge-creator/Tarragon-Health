@@ -19,7 +19,7 @@ export async function SocialDeterminantsSection({ patientId }: { patientId: stri
       <CardHeader>
         <CardTitle>Support at home</CardTitle>
         <CardDescription>
-          A few questions about day-to-day life — these help us connect you with the right support, not
+          A few questions about day-to-day life. These help us connect you with the right support, not
           just record them.
         </CardDescription>
       </CardHeader>

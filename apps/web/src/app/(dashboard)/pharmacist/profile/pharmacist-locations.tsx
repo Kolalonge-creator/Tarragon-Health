@@ -39,7 +39,7 @@ export function PharmacistLocations() {
         <CardTitle>Your branches</CardTitle>
         <CardDescription>
           Add every branch patients can be routed to. A branch only appears on the public coverage
-          map once it has coordinates on file — contact support to have one geocoded.
+          map once it has coordinates on file. Contact support to have one geocoded.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

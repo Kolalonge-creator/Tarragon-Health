@@ -1,3 +1,4 @@
+import { NETWORK_ERROR_MESSAGE } from "./api";
 import { supabase } from "./supabase";
 
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
@@ -45,6 +46,6 @@ export async function uploadLabResult(photo: {
     }
     return { success: true };
   } catch {
-    return { success: false, error: "Couldn't reach the server. Check your connection and try again." };
+    return { success: false, error: NETWORK_ERROR_MESSAGE };
   }
 }

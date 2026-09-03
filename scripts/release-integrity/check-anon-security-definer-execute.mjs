@@ -59,6 +59,11 @@ const ALLOWLIST = new Set([
   "public.public_response_commitments()",
   // 20260731014200_public_service_coverage.sql -- public service-area coverage page.
   "public.public_service_coverage()",
+  // 20260902211636_payer_board_outcomes_report.sql (PR #462) -- revokes from public then
+  // grants anon explicitly, and its own DO-block asserts "anon may verify a document it
+  // holds, and may do nothing else": a third party holding a printed report checks the
+  // report-number + content-hash pair with no account and sees no figures.
+  "public.verify_payer_board_report(p_report_number text, p_content_hash text)",
 ]);
 
 const QUERY = `

@@ -99,7 +99,7 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
           </label>
           {bleeding && (
             <p className="text-xs text-amber-700">
-              Any bleeding after menopause always needs assessment — reporting this notifies your
+              Any bleeding after menopause always needs assessment. Reporting this notifies your
               care team.
             </p>
           )}
@@ -122,7 +122,7 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
             <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">Recent</p>
             {logs.data.slice(0, 5).map((log) => (
               <p key={log.id} className="text-sm text-charcoal-ink/80">
-                {new Date(log.logged_at).toLocaleDateString()} —{" "}
+                {new Date(log.logged_at).toLocaleDateString()}:{" "}
                 {log.symptom_types.map((t) => MENOPAUSE_SYMPTOM_LABEL[t]).join(", ") || "no symptoms"}
                 {log.postmenopausal_bleeding ? " · bleeding reported" : ""}
               </p>

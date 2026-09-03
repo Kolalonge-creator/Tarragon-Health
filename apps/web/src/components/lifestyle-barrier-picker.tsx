@@ -61,7 +61,7 @@ export function LifestyleBarrierPicker({ domain }: { domain: (typeof LIFESTYLE_D
       </div>
       <Textarea name="note" placeholder="Anything else you'd like your care team to know? (optional)" rows={2} />
       {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Thanks — your care team can see this.</p>}
+      {state?.success && <p className="text-sm text-brand-green">Thanks. Your care team can see this.</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={pending}>
           {pending ? "Saving…" : "Share this"}

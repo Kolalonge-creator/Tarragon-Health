@@ -74,10 +74,10 @@ export function CaseBriefCard({
       <CardHeader>
         <div className="flex items-center gap-2">
           <CardTitle>Case summary</CardTitle>
-          <Badge variant="grey">AI-drafted — not yet reviewed</Badge>
+          <Badge variant="grey">AI-drafted, not yet reviewed</Badge>
         </div>
         <CardDescription>
-          A quick summary grounded only in this patient&apos;s recorded data — read it alongside the
+          A quick summary grounded only in this patient&apos;s recorded data. Read it alongside the
           case detail, not instead of it.
         </CardDescription>
       </CardHeader>
@@ -94,7 +94,7 @@ export function CaseBriefCard({
         {initialBrief?.status === "failed" && (
           <div className="space-y-2">
             <p className="text-sm text-charcoal-ink/60">
-              Couldn&apos;t generate a summary for this case — the case detail is unaffected.
+              Couldn&apos;t generate a summary for this case. The case detail is unaffected.
             </p>
             <Button size="sm" variant="outline" disabled={isPending} onClick={generate}>
               {isPending ? "Retrying…" : "Try again"}
@@ -139,7 +139,7 @@ export function CaseBriefCard({
             {initialBrief.draftReviewNote && (
               <div className="space-y-1">
                 <p className="text-xs font-medium text-charcoal-ink/70">
-                  Draft review note — yours to edit, with your assessment still to add
+                  Draft review note: yours to edit, with your assessment still to add
                 </p>
                 <p className="whitespace-pre-wrap rounded-md bg-charcoal-ink/[0.03] p-3 text-sm text-charcoal-ink">
                   {initialBrief.draftReviewNote}

@@ -22,8 +22,8 @@ export default async function ProviderQualityPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Provider quality</h1>
         <p className="text-charcoal-ink/60">
-          Operational, documentation, and patient-experience performance by metric — never a
-          single provider score (§29.10) — plus the roster&apos;s credential status and the
+          Operational, documentation, and patient-experience performance by metric (never a
+          single provider score, §29.10), plus the roster&apos;s credential status and the
           complaints pipeline. Clinical quality indicators appear only once a Clinical Director
           has validated and signed one off.
         </p>

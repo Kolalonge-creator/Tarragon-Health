@@ -125,7 +125,7 @@ function DeviceTest() {
       setStatus("ok");
     } catch {
       setStatus("error");
-      setError("Couldn't reach your camera or microphone — check your browser's permissions and try again.");
+      setError("Couldn't reach your camera or microphone. Check your browser's permissions and try again.");
     }
   }
 
@@ -179,7 +179,7 @@ function ReportProblemButton({ consultationId, patientId }: { consultationId: st
   const [description, setDescription] = useState("");
 
   if (sent) {
-    return <p className="text-sm text-charcoal-ink/70">Reported — your care team will follow up in Messages.</p>;
+    return <p className="text-sm text-charcoal-ink/70">Reported. Your care team will follow up in Messages.</p>;
   }
 
   if (!open) {
@@ -280,7 +280,7 @@ export function VideoVisitWaitingRoom({
           )}
           {!isPast && !consult.join_url && (
             <p className="text-sm text-charcoal-ink/60">
-              Your join link will appear here once it&apos;s ready — check back closer to your visit.
+              Your join link will appear here once it&apos;s ready. Check back closer to your visit.
             </p>
           )}
         </CardContent>
@@ -328,8 +328,8 @@ export function VideoVisitWaitingRoom({
             <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
               <p className="text-sm font-medium text-charcoal-ink">Having connection trouble?</p>
               <p className="text-xs text-charcoal-ink/60">
-                If your video keeps freezing, try turning your camera off and continuing on audio only —
-                the call itself doesn&apos;t need video to work. If sound is unreliable too, end the call
+                If your video keeps freezing, try turning your camera off and continuing on audio only.
+                The call itself doesn&apos;t need video to work. If sound is unreliable too, end the call
                 and your care team will follow up by phone instead.
               </p>
               <ReportProblemButton consultationId={consultationId} patientId={patientId} />

@@ -18,7 +18,7 @@ export default async function OpsConsoleSettingsPage() {
           Operations console
         </h1>
         <p className="text-charcoal-ink/60">
-          One cross-domain worklist — alerts, appointments, referrals, labs, pharmacy, support,
+          One cross-domain worklist: alerts, appointments, referrals, labs, pharmacy, support,
           payments, incidents, and provider governance, all in one place, worst first.
         </p>
       </div>

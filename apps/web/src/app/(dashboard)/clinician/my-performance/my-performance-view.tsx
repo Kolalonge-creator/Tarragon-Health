@@ -23,7 +23,7 @@ export function MyPerformanceView() {
     return (
       <Card>
         <CardContent className="py-6 text-sm text-charcoal-ink/60">
-          Nothing to show yet — this fills in as you review cases, confirm medications, and see
+          Nothing to show yet. This fills in as you review cases, confirm medications, and see
           patients.
         </CardContent>
       </Card>

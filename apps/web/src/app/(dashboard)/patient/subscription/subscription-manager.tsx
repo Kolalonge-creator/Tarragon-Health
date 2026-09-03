@@ -65,14 +65,14 @@ export function SubscriptionManager() {
           <CardHeader>
             <CardTitle>Your active services</CardTitle>
             <CardDescription>
-              Each is a one-off purchase covering a fixed window — nothing renews automatically,
+              Each is a one-off purchase covering a fixed window: nothing renews automatically,
               and payments aren&apos;t refundable. Buy again any time to extend.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {active.length === 0 ? (
               <p className="text-sm text-charcoal-ink/60">
-                Nothing active yet — you&apos;re on Tarragon Free. Buy a service to unlock more.
+                Nothing active yet. You&apos;re on Tarragon Free. Buy a service to unlock more.
               </p>
             ) : (
               <ul className="divide-y divide-charcoal-ink/10">

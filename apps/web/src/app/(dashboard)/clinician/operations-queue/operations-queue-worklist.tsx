@@ -215,7 +215,7 @@ export function OperationsQueueWorklist() {
                       <Link href={`/clinician/patients/${gap.patient_id}`} className="hover:underline">
                         {gap.patient.full_name ?? "Unknown patient"}
                       </Link>
-                      {gap.detail.specialist_type ? ` — ${gap.detail.specialist_type.replace(/_/g, " ")}` : ""}
+                      {gap.detail.specialist_type ? `: ${gap.detail.specialist_type.replace(/_/g, " ")}` : ""}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">Open since {timeAgo(gap.opened_at)}</p>
                   </div>

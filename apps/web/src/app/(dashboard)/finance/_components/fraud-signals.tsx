@@ -76,7 +76,7 @@ export function FraudSignals() {
   return (
     <SectionCard
       title="Fraud signals"
-      description="Duplicate charges, unusual payment velocity, refund concentration, and disputes/chargebacks — detection only, nothing here takes automated action on an account."
+      description="Duplicate charges, unusual payment velocity, refund concentration, and disputes/chargebacks: detection only, nothing here takes automated action on an account."
     >
       {isLoading ? (
         <CenterNote>Loading…</CenterNote>
