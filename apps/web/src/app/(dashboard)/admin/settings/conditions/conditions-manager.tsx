@@ -9,6 +9,7 @@ import {
   type ChronicProgramme,
   type ConditionProtocol,
 } from "@/lib/queries/chronic-programmes";
+import { useCareManagementKpis } from "@/lib/queries/care-management-analytics";
 import { useProtocolVersions, useCreateProtocolVersion } from "@/lib/queries/protocol-versions";
 import {
   Card,
@@ -132,6 +133,90 @@ function HtnQualityCard({ organisationId }: { organisationId: string | null | un
         ))}
       </div>
     </div>
+  );
+}
+
+/**
+ * §3.20's cross-programme analytics — enrolment, task completion, dropout,
+ * and escalation across every chronic programme (not per-condition like
+ * HtnQualityCard, so this renders once above the programme list, not once
+ * per row).
+ */
+function CareManagementKpiCard({ organisationId }: { organisationId: string | null | undefined }) {
+  const { data, isLoading, isError } = useCareManagementKpis(organisationId);
+
+  if (isLoading) return <p className="text-xs text-charcoal-ink/50">Loading care management KPIs…</p>;
+  if (isError || !data) return null;
+
+  const stats: Array<{ label: string; value: string | number; tone?: "red" | "amber" }> = [
+    {
+      label: "Task completion (30d)",
+      value: data.tasks_completion_rate_30d !== null ? `${data.tasks_completion_rate_30d}%` : "—",
+    },
+    {
+      label: "Overdue tasks",
+      value: data.tasks_overdue_now,
+      tone: data.tasks_overdue_now > 0 ? "amber" : undefined,
+    },
+    {
+      label: "High-priority overdue",
+      value: data.tasks_high_priority_overdue,
+      tone: data.tasks_high_priority_overdue > 0 ? "red" : undefined,
+    },
+    {
+      label: "Escalated to clinician (30d)",
+      value: data.care_task_escalations_30d,
+      tone: data.care_task_escalations_30d > 0 ? "red" : undefined,
+    },
+    { label: "Goals achieved (30d)", value: data.goals_achieved_30d },
+    { label: "Active goals", value: data.goals_active },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Care management</CardTitle>
+        <CardDescription>
+          Programme enrolment, task completion, and escalation across every chronic programme.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {stats.map((s) => (
+            <div key={s.label} className="rounded bg-mist-grey/40 p-2">
+              <p
+                className={
+                  "text-lg font-semibold " +
+                  (s.tone === "red"
+                    ? "text-red-600"
+                    : s.tone === "amber"
+                      ? "text-amber-600"
+                      : "text-charcoal-ink")
+                }
+              >
+                {s.value}
+              </p>
+              <p className="text-[11px] leading-tight text-charcoal-ink/60">{s.label}</p>
+            </div>
+          ))}
+        </div>
+        {data.programme_enrolments.length > 0 && (
+          <div>
+            <p className="mb-1 text-xs font-medium text-charcoal-ink/60">Enrolment by programme</p>
+            <ul className="divide-y divide-charcoal-ink/10 text-sm">
+              {data.programme_enrolments.map((p) => (
+                <li key={p.programme} className="flex items-center justify-between py-1">
+                  <span className="text-charcoal-ink">{p.programme}</span>
+                  <span className="text-xs text-charcoal-ink/60">
+                    {p.enrolled} enrolled · {p.completed} completed · {p.withdrawn} withdrawn
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -268,6 +353,7 @@ export function ConditionsManager({
 
   return (
     <div className="space-y-4">
+      <CareManagementKpiCard organisationId={organisationId} />
       {programmes.data.map((programme) => (
         <ProgrammeRow
           key={programme.id}

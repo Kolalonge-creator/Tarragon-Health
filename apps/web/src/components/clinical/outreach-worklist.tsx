@@ -24,9 +24,9 @@ export const TRIGGER_LABEL: Record<OutreachTriggerType, string> = {
   awaiting_result: "Self-arranged test not yet uploaded",
   repeated_no_show: "Repeated no-show",
   consultation_follow_up: "Consultation follow-up needed",
-  missed_care_task: "Missed care task",
-  missed_appointment: "Missed appointment",
-  failed_referral: "Failed referral",
+  missed_care_task: "Missed care-plan task",
+  missed_appointment: "Missed appointment (no-show)",
+  failed_referral: "Specialist referral declined",
   referral_follow_up: "Referral follow-up",
   overdue_referral: "Specialist referral overdue",
   overdue_medication_review: "Medication review overdue",
@@ -43,6 +43,20 @@ export function triggerContext(task: OutreachTaskWithPatient): string | null {
     const level = typeof detail.risk_level === "string" ? detail.risk_level : null;
     const type = typeof detail.score_type === "string" ? detail.score_type : null;
     return [type, level ? `${level.replace("_", " ")} risk` : null].filter(Boolean).join(" · ") || null;
+  }
+  if (task.trigger_type === "missed_appointment") {
+    const scheduledFor = typeof detail.scheduled_for === "string" ? detail.scheduled_for : null;
+    const reason = typeof detail.reason === "string" ? detail.reason : null;
+    return (
+      [scheduledFor ? `was due ${new Date(scheduledFor).toLocaleDateString("en-GB")}` : null, reason]
+        .filter(Boolean)
+        .join(" · ") || null
+    );
+  }
+  if (task.trigger_type === "failed_referral") {
+    const specialistType = typeof detail.specialist_type === "string" ? detail.specialist_type : null;
+    const reason = typeof detail.reason === "string" ? detail.reason : null;
+    return [specialistType?.replace("_", " "), reason].filter(Boolean).join(" · ") || null;
   }
   if (task.trigger_type === "disengagement_risk") {
     const level = typeof detail.engagement_level === "string" ? detail.engagement_level : null;
