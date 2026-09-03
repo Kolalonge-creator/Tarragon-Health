@@ -48,9 +48,9 @@ export default function WhoItsForPage() {
               Not four different products
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              You, the family you look after, the employer sponsoring a plan, or the HMO backing
-              one: everyone reads from the same longitudinal record, scoped to what they actually
-              need to see. Nobody re-explains their history to a new system.
+              You, your family, the sponsoring employer, or the backing HMO all read from the
+              same longitudinal record, scoped to what each actually needs to see, so nobody
+              re-explains their history to a new system.
             </p>
           </div>
           <MarketingMediaFrame

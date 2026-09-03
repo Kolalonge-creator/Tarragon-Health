@@ -47,9 +47,9 @@ export default async function AccountabilityPage() {
               What happens when something looks wrong
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              These are the times we commit to, and they are read straight out of the version our
-              Clinical Director signed. If that document changes, this page changes with it. We
-              cannot quote you a number nobody has approved.
+              These times come straight from the version our Clinical Director signed. If that
+              document changes, this page changes with it, and we won&apos;t quote a number
+              nobody has approved.
             </p>
           </div>
           <MarketingMediaFrame
@@ -86,8 +86,8 @@ export default async function AccountabilityPage() {
 
             <p className="rounded-2xl bg-white/60 p-6 text-sm text-charcoal-ink/70">
               Each figure is the longest we allow ourselves, not our best case. Most emergency
-              flags are set to reach a doctor far faster than the ceiling shown, and the ceiling
-              is what we hold ourselves to regardless of which part of the platform raised it.
+              flags reach a doctor far faster than the ceiling shown; the ceiling is what we hold
+              ourselves to, whichever part of the platform raised it.
               {published.approvedByName && (
                 <>
                   {" "}
@@ -111,10 +111,10 @@ export default async function AccountabilityPage() {
         ) : (
           <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-6">
             <p className="text-sm text-charcoal-ink/70">
-              Our response commitments are being reviewed and re-signed. Rather than quote you a
-              number that is not currently approved, we would rather say so. The escalation
-              process itself runs unchanged throughout: a flagged reading still reaches a doctor,
-              and no urgent case can be closed without one.
+              Our response commitments are being reviewed and re-signed, so we won&apos;t quote a
+              number that isn&apos;t currently approved. The escalation process runs unchanged
+              throughout: a flagged reading still reaches a doctor, and no urgent case can be
+              closed without one.
             </p>
           </div>
         )}
@@ -129,7 +129,7 @@ export default async function AccountabilityPage() {
         <div className="mx-auto max-w-3xl space-y-4">
           <DataPoint
             title="Stored in Europe, not Nigeria"
-            body="Our database is hosted in Ireland. We would prefer to host in Nigeria; our infrastructure provider has no African region yet. We have said this out loud rather than leave you to find it in a policy document, and we will move if that changes."
+            body="Our database is hosted in Ireland; we'd prefer Nigeria, but our infrastructure provider has no African region yet. We're saying this outright rather than leaving it for a policy document, and we will move if that changes."
           />
           <DataPoint
             title="Encrypted in transit and at rest"
@@ -137,11 +137,11 @@ export default async function AccountabilityPage() {
           />
           <DataPoint
             title="Access enforced by the database, not by our code"
-            body="Every table that holds patient information carries row-level rules inside the database itself, so a mistake in an app screen cannot show one person another person's record. That is checked on every single query, not once at login."
+            body="Every table that holds patient information carries row-level rules inside the database itself, so a mistake in an app screen cannot show one person another person's record. That's checked on every query, not once at login."
           />
           <DataPoint
             title="Family access is granted by you, and it is not symmetrical"
-            body="Someone you name as next of kin has to accept, and can then follow your record without changing it. Someone funding your care can see what their money paid for and what it cost. Neither can see your readings, your results or your notes unless you have given them that level yourself."
+            body="Someone you name as next of kin must accept, then can follow your record without changing it. Someone funding your care sees what their money paid for and what it cost. Neither sees your readings, results, or notes unless you've given them that level yourself."
           />
           <DataPoint
             title="Every clinical action is attributed"

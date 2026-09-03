@@ -22,7 +22,7 @@ const GENERAL_STEPS = [
   },
   {
     title: "Request it, take it anywhere",
-    body: "We say what to get and why, and write you a real request. You take it to whichever laboratory or clinic you like, pay them directly, and we take nothing on it.",
+    body: "We tell you what to get and why, and write you a real request you can take to any laboratory or clinic. You pay them directly; we take nothing on it.",
   },
   {
     title: "One visit, most of the time",
@@ -30,7 +30,7 @@ const GENERAL_STEPS = [
   },
   {
     title: "A doctor reads every result",
-    body: "Nothing is left to a printout. A doctor reviews every result against your history. An abnormal result triggers an immediate alert and same-day follow-up; it's never just filed away.",
+    body: "A doctor reviews every result against your history, never just a printout. An abnormal result triggers an immediate alert and same-day follow-up.",
   },
 ];
 
@@ -46,10 +46,9 @@ export default function ScreeningJourneyPage() {
             Your Screening Journey
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Recommended screenings change with age and sex, and it&apos;s easy to lose track of
-            what you actually need. Tell us your age group and sex, and see the screenings
-            recommended for you, walked through step by step: why it matters, how to book it,
-            what the day looks like, and how you get your results.
+            Screening needs change with age and sex, and it&apos;s easy to lose track. Tell us
+            your age group and sex, and we&apos;ll walk you through what&apos;s recommended: why
+            it matters, how to book it, and how your results come back.
           </p>
         </div>
       </Section>
@@ -92,7 +91,7 @@ export default function ScreeningJourneyPage() {
               real screening calendar
             </Link>{" "}
             is built from your actual age, sex, and family history, with reminders when something
-            comes due, and the whole thing bundled into the one-day{" "}
+            comes due, bundled into the one-day{" "}
             <Link href={MARKETING_ROUTES.annualHealthCheck} className="text-brand-green hover:underline">
               Annual Health Check
             </Link>{" "}

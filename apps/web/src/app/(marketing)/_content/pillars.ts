@@ -21,33 +21,32 @@ export const PILLARS: readonly PillarCopy[] = [
   {
     module: "diet",
     title: "Eat",
-    body: "Food moves your numbers more than almost anything else. We help you build an eating pattern you can actually keep, built around food you already have access to, not a diet you quit by February.",
+    body: "An eating pattern built around food you already have access to.",
   },
   {
     module: "activity",
     title: "Move",
-    body: "You don't need to become an athlete. Regular movement, a daily walk, two short strength sessions a week, does real work on blood pressure, blood sugar, and mood.",
+    body: "Regular movement, a daily walk, a couple of strength sessions a week.",
   },
   {
     module: "sleep",
     title: "Sleep",
-    body: "Poor sleep makes blood pressure and blood sugar harder to control. We start with the basics, a steadier bedtime, less light at night, whatever's keeping you up, before anything else.",
+    body: "Better sleep makes blood pressure and blood sugar easier to control.",
   },
   {
     module: "stress",
     title: "Relax",
-    body: "Stress you carry every day shows up in your readings. A few minutes of breathing or a boundary you finally set can matter more than you'd expect.",
+    body: "A few minutes of breathing can lower your readings more than you'd expect.",
   },
   {
     module: "behaviour",
     title: "Follow through",
-    body: "Knowing what to do is rarely the hard part. Doing it on a busy Tuesday is. This is the part of your plan built around what actually fits your week, not an ideal one.",
+    body: "A weekly plan built around your actual week, not an ideal one.",
   },
 ] as const;
 
 export const PILLARS_SECTION_COPY = {
   eyebrow: "Beyond the numbers",
   title: "Five habits move the numbers your care team already watches",
-  description:
-    "A results PDF full of numbers doesn't tell you what to do next, and reading it alone rarely feels good. Your care team turns your readings into a short, personal weekly plan built around these five areas, not a longer list of numbers to worry about.",
+  description: "Your care team turns your readings into a short, personal weekly plan.",
 } as const;

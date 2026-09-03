@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Get the right device for your health plan",
   description:
-    "Blood pressure monitors, scales and glucometers TarragonHealth has clinically vetted for accuracy and app compatibility — readings sync straight into your record.",
+    "Blood pressure monitors, scales and glucometers TarragonHealth has clinically vetted for accuracy and app compatibility, syncing straight into your record.",
   path: MARKETING_ROUTES.devices,
 });
 
@@ -22,7 +22,7 @@ export default function DevicesPage() {
           as="h1"
           eyebrow="Devices"
           title="Get the right device for your health plan"
-          description="These are third-party devices we've clinically vetted for accuracy and app compatibility — Tarragon doesn't manufacture, sell, or earn anything from them. Pick one below, or use any Bluetooth device that syncs to Apple Health or Health Connect."
+          description="These are third-party devices we've clinically vetted for accuracy and app compatibility. Tarragon doesn't manufacture, sell, or earn anything from them. Pick one below, or use any Bluetooth device that syncs to Apple Health or Health Connect."
         />
 
         <div className="mx-auto mt-10 grid max-w-5xl gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -48,7 +48,7 @@ export default function DevicesPage() {
 
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Don&apos;t have a compatible device yet, or would rather not buy one? Every reading can
-          be logged by hand in the app too — a device just makes it faster.{" "}
+          be logged by hand in the app too, a device just makes it faster.{" "}
           <Link href="/signup" className="font-medium text-deep-forest hover:underline">
             Get started
           </Link>

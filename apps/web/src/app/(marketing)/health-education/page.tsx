@@ -139,13 +139,13 @@ export default function HealthEducationPage() {
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Managing hypertension, diabetes, or your weight? You&apos;ll see the practical detail
-            that turns a reading into an understanding: why a target matters, what a trend means,
+            that turns a reading into understanding: why a target matters, what a trend means,
             what to watch for. Healthy and using{" "}
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
               Tarragon Prevent
             </Link>
             ? You&apos;ll see what your screenings and vaccinations are actually for, so a clear
-            result means something and not just a form filled in.
+            result means something, not just a form filled in.
           </p>
         </div>
       </Section>

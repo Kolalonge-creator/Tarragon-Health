@@ -35,7 +35,7 @@ const ABOUT_COMMITMENTS = [
     value: "Built to scale",
     label: "how one doctor covers more ground",
     detail:
-      "We invest in protocols, automation, and triage so a doctor can safely support far more patients than a traditional clinic, without cutting corners on review.",
+      "Protocols, automation, and triage let a doctor safely support far more patients than a traditional clinic, without cutting corners on review.",
   },
 ] as const;
 
@@ -67,10 +67,9 @@ export default function AboutPage() {
       <Section className="pt-14">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-lg leading-relaxed text-charcoal-ink/75">
-            We started in the emergency department, watching people arrive in crisis with
-            conditions that were entirely manageable days or weeks earlier, if someone had
-            been watching. That&apos;s the gap we built TarragonHealth to close, for families
-            in Nigeria and for the people keeping watch on them from abroad.
+            We started in the emergency department, watching preventable crises arrive days too
+            late. We built TarragonHealth to close that gap, for families in Nigeria and the
+            people keeping watch on them from abroad.
           </p>
           <p className="mt-6 font-heading text-2xl font-semibold text-deep-forest">
             Care that stays with you.
@@ -106,9 +105,8 @@ export default function AboutPage() {
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Prevention and chronic disease management share the same patient record at
-              TarragonHealth. The same family, the same phone, and the same care team follow a
-              person from a routine screening through an ongoing condition, and the story never
-              resets.
+              TarragonHealth: the same family, phone, and care team follow you from a routine
+              screening through an ongoing condition, so the story never resets.
             </p>
           </div>
           <MarketingMediaFrame
@@ -130,7 +128,7 @@ export default function AboutPage() {
             },
             {
               title: "Family included, if you choose",
-              body: "Someone looking after a parent can be named as their next of kin, so they stay informed rather than left guessing. It is the parent's choice, not a default, and they can withdraw it.",
+              body: "Someone looking after a parent can be named as next of kin, so they stay informed rather than left guessing. It's the parent's choice, not a default, and it can be withdrawn.",
             },
           ].map((item) => (
             <div
@@ -151,7 +149,7 @@ export default function AboutPage() {
           invert
           eyebrow="What we stand for"
           title="How we work, and what we won't do"
-          description="Tarragon is built for the care between doctor visits: protocol-driven, evidence-focused, and consistent. These are the commitments behind that."
+          description="Tarragon is built for the care between doctor visits: protocol-driven, evidence-focused, and consistent."
         />
         <TrustPillars />
       </Section>

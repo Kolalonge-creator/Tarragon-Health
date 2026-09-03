@@ -61,12 +61,10 @@ export default async function ObesityPage() {
             Honest expectations
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            This programme is lifestyle-led and doctor-reviewed: tracking, a personalised plan,
-            monitoring for related conditions, and regular check-ins with escalation when closer
-            care is needed. It does not currently include weight-loss medication (such as GLP-1
-            injections) or any other prescribing specific to weight. If that&apos;s what
-            you&apos;re looking for, say so at your first review, your doctor can talk you
-            through the options available to you elsewhere.
+            This programme is lifestyle-led and doctor-reviewed. It does not currently include
+            weight-loss medication (such as GLP-1 injections) or any other prescribing specific
+            to weight. If that&apos;s what you&apos;re looking for, say so at your first review,
+            your doctor can talk you through the options available elsewhere.
           </p>
         </div>
       </Section>

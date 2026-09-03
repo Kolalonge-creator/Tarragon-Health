@@ -112,9 +112,7 @@ export default async function MarketingHomePage({
                 Stay that way →
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-                A screening and vaccination calendar built for your age and history, a yearly
-                health check, and education that makes sense of your numbers. Prevention that
-                actually gets done.
+                A screening and vaccination calendar built for you, plus a yearly health check.
               </p>
             </Link>
           </Card>
@@ -130,8 +128,8 @@ export default async function MarketingHomePage({
                 Get followed up properly →
               </h3>
               <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-                Hypertension, diabetes, weight: monitored between visits, reviewed against care
-                protocols, and escalated to a doctor when something needs attention.
+                Hypertension, diabetes, weight: monitored between visits, escalated to a doctor
+                when needed.
               </p>
             </Link>
           </Card>
@@ -142,7 +140,7 @@ export default async function MarketingHomePage({
         <StoryPanel
           eyebrow="The problem"
           title="Chronic disease is poorly followed up between doctor visits"
-          description="Families worry because readings drift, medication gets missed, and preventive checks slip, with no one watching consistently in between. And for healthy people, the screenings and vaccinations that would catch problems early rarely happen at all, until something is missed."
+          description="Readings drift, medication gets missed, and screenings slip, because nobody's watching in between."
           media={homepage.problem}
         />
       </Section>
@@ -178,7 +176,7 @@ export default async function MarketingHomePage({
         <SectionHeading
           eyebrow="Chronic care programmes"
           title="Hypertension, diabetes, and weight, managed with follow-up"
-          description="Three conditions drive most preventable emergencies in Nigeria. Tarragon runs a structured, doctor-reviewed programme for each, on one shared record, so related conditions are watched together, not separately."
+          description="A structured, doctor-reviewed programme for each, on one shared record."
         />
         <div className="mx-auto flex max-w-3xl flex-wrap justify-center gap-3">
           {SERVICE_CARDS.filter((card) =>
@@ -282,9 +280,7 @@ export default async function MarketingHomePage({
               Take Tarragon with you
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Download the TarragonHealth app for iPhone and Android and check in wherever you are.
-              The same secure record you already use on the web, with your care team in your
-              pocket whenever you need them.
+              The same secure record you use on the web, now in your pocket.
             </p>
             <ul className="mt-6 grid gap-3 sm:grid-cols-2">
               {[
@@ -292,7 +288,7 @@ export default async function MarketingHomePage({
                 "Get reminders for medication, screenings, and reviews",
                 "Message your care team any time, right in the app",
                 "Share your Health Passport with any doctor",
-                "Automatic sync from Apple Health, Health Connect, and wearables, rolling out device by device",
+                "Automatic sync from Apple Health, Health Connect, and wearables",
               ].map((item) => (
                 <li key={item} className="flex items-start gap-2.5 text-sm text-charcoal-ink/75">
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-brand-green" aria-hidden />
