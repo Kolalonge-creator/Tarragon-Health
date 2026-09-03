@@ -56,8 +56,12 @@ begin
     values (v_org, (select v from pq_fixture where k = 'tier1'), 'PQ Test Tier1', 'tier_1'::public.doctor_tier, true, now())
   on conflict do nothing;
 
+  -- indemnity_exempt_by must differ from the record's own profile_id
+  -- (clinical_staff_no_self_indemnity_exemption) -- uses the Tier 1
+  -- fixture profile as the (fictional, test-only) grantor rather than the
+  -- director's own id.
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, is_clinical_director, active, license_verified_at, indemnity_exempt, indemnity_exempt_by)
-    values (v_org, (select v from pq_fixture where k = 'director'), 'PQ Test Director', 'tier_4_senior_registrar'::public.doctor_tier, true, true, now(), true, (select v from pq_fixture where k = 'director'))
+    values (v_org, (select v from pq_fixture where k = 'director'), 'PQ Test Director', 'tier_4_senior_registrar'::public.doctor_tier, true, true, now(), true, (select v from pq_fixture where k = 'tier1'))
   on conflict do nothing;
 end $$;
 

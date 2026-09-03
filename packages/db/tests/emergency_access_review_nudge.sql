@@ -47,7 +47,7 @@ begin
   insert into public.profiles (id, organisation_id, role, full_name) values
     (v_requester, v_org_b, 'clinician', 'Nudge Test Requester'),
     (v_director, v_org_a, 'clinician', 'Nudge Test Director')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, full_name = excluded.full_name;
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, is_clinical_director, license_verified_at)
   values (v_org_a, v_director, 'Nudge Test Director', 'tier_4_senior_registrar', true, true, now());
