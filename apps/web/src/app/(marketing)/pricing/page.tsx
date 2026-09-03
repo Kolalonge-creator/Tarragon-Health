@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
-import { PricingTable } from "../_components/pricing-table";
-import { fetchTierPriceOverrides } from "@/lib/marketing/plan-prices";
-import { PricingAddOns } from "../_components/pricing-addons";
+import { PricingFreeFeatures } from "../_components/pricing-free-features";
+import { PricingServices } from "../_components/pricing-services";
+import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
 import { PricingLabelBadge } from "../_components/pricing-label";
-import { PlanFinder } from "../_components/plan-finder";
 import { CtaBand } from "../_components/cta-band";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -38,7 +37,7 @@ const pricingFaqJsonLd = {
 };
 
 export default async function PricingPage() {
-  const priceOverrides = await fetchTierPriceOverrides();
+  const priceOverrides = await fetchServicePriceOverrides();
   return (
     <>
       <script
@@ -49,17 +48,16 @@ export default async function PricingPage() {
         <SectionHeading
           as="h1"
           eyebrow="Pricing"
-          title="Simple, transparent plans"
-          description="Every line item carries exactly one label: included, you pay the lab, free elsewhere, or add-on. No hidden costs."
+          title="The app is free. You pay for a doctor's time."
+          description="Everything you can do yourself costs nothing, with no time limit and no card required. We charge only when a doctor does a specific piece of work for you, and you always see that price first."
         />
-        {/* The early exit for somebody who did not come here to shop for a
-            subscription at all. A healthy visitor who wants one blood test has
-            very little patience for a plan comparison, and the Health Check is
-            genuinely pay-once on any plan, so sending them straight out of
-            this page is the honest thing to do rather than a leak. */}
+        {/* The early exit for somebody who came here for one blood test, not to
+            read a pricing page. The Health Check is genuinely pay-once and the
+            lab sets its own price, so sending them straight out of this page is
+            the honest thing to do rather than a leak. */}
         <div className="mx-auto mb-10 max-w-2xl rounded-xl border border-clinical-navy/15 bg-clinical-navy/[0.04] px-5 py-4 text-center">
           <p className="text-sm font-semibold text-clinical-navy">
-            Not looking for a plan? You do not need one.
+Just want one blood test? You do not need an account for that.
           </p>
           <p className="mt-1.5 text-sm text-charcoal-ink/75">
             You pay laboratories and pharmacies directly, at their price, for every test, including a
@@ -70,8 +68,7 @@ export default async function PricingPage() {
             <Link href={MARKETING_ROUTES.annualHealthCheck}>Book a one-off check instead</Link>
           </Button>
         </div>
-        <PlanFinder />
-        <PricingTable priceOverrides={priceOverrides} />
+        <PricingFreeFeatures />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
             <Link href="/signup">Get started</Link>
@@ -83,7 +80,7 @@ export default async function PricingPage() {
         <p className="mt-6 text-center text-sm text-charcoal-ink/70">
           Want the full picture first? Read our{" "}
           <Link href={MARKETING_ROUTES.howPricingWorks} className="font-semibold text-brand-green underline underline-offset-2">
-            No-Hidden-Cost Promise, free trials, care vouchers, and how we compare to your HMO
+No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
           </Link>
           .
         </p>
@@ -91,15 +88,15 @@ export default async function PricingPage() {
 
       <Section variant="sage">
         <SectionHeading
-          eyebrow="Add-ons"
-          title="Optional extras, fully explained"
-          description="Nothing here is automatically added to your plan. You choose them, you see the price, you confirm."
+          eyebrow="What costs money"
+          title="A doctor's time, priced per piece of work"
+          description="This is the whole paid list. Nothing here is ever added on your behalf: you choose it, you see the price, you confirm, and it does not renew."
         />
-        <PricingAddOns />
+        <PricingServices priceOverrides={priceOverrides} />
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="What's always free" title="On any plan, including Free" />
+        <SectionHeading eyebrow="What's always free" title="Free, and not from us" />
         <div className="mx-auto max-w-2xl">
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
             <div className="flex items-start justify-between gap-3">

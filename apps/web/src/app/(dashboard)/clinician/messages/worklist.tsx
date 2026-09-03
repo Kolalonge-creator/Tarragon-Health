@@ -67,6 +67,7 @@ function ThreadRow({ thread }: { thread: CareThreadWithPatient }) {
             patientId={thread.patient_id}
             closed={thread.status === "closed"}
             isStaff
+            showDraftAssist
           />
           {thread.status === "open" && (
             <Button

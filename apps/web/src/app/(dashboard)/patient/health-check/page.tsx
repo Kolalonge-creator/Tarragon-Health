@@ -37,16 +37,11 @@ export default async function HealthCheckPage() {
   // Ensure this year's check row exists (caller-scoped, idempotent).
   await supabase.rpc("open_health_check");
 
-  // Same gate as the prevention hub: the curated Screen ladder is a paid-plan
-  // feature. Uploading a result and having a doctor read it never is.
-  const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "lab_coordination",
-  });
-  const { data: preventionCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "prevention_coordination",
-  });
-  const screensEnabled =
-    (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
+  // The screening calendar and lab-request coordination are free to every
+  // patient since the pay-per-service rework — neither costs clinician time.
+  // Kept as a named constant rather than deleted so the downstream layout
+  // reads the same, and so re-gating it later is a one-line change.
+  const screensEnabled = true;
 
   const year = new Date().getFullYear();
   const yearStart = `${year}-01-01T00:00:00.000Z`;

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { SEMANTIC_ICON, type AppIconName, APP_ICON } from "@/lib/icons";
 
 type NextAction = {
@@ -165,7 +166,8 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
  * presentation changed, from a soft inline card to the lead banner.
  */
 export async function NextBestAction({ patientId }: { patientId: string }) {
-  const action = await resolveNextAction(patientId);
+  const supabase = await createClient();
+  const [action, coachAccess] = await Promise.all([resolveNextAction(patientId), hasCoachAccess(supabase)]);
   const Icon = APP_ICON[action.icon] ?? SEMANTIC_ICON.preventive;
 
   return (
@@ -178,6 +180,13 @@ export async function NextBestAction({ patientId }: { patientId: string }) {
           </p>
           <p className="font-heading text-lg font-semibold sm:text-xl">{action.title}</p>
           <p className="max-w-xl text-sm text-white/80">{action.body}</p>
+          {/* §78.3 -- a conversational alternative to this deterministic card,
+              for a patient who'd rather ask than click through. */}
+          {coachAccess && (
+            <Link href="/patient/care#ai-coach" className="inline-block text-xs text-white/70 underline">
+              Or ask your AI Coach what to do today
+            </Link>
+          )}
         </div>
       </div>
       <Link

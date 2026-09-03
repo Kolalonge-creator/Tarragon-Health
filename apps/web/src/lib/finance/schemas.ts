@@ -472,6 +472,7 @@ export const riskFlagsSchema = z.object({
   pending_approvals_count: int,
   aged_unreconciled_count: int,
   reconciliation_flags_count: int,
+  fraud_signals_count: int,
   ap_due_soon_count: int,
   ap_overdue_count: int,
   compliance_overdue_count: int,

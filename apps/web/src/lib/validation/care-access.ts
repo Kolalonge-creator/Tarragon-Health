@@ -58,6 +58,68 @@ export type EldercareRelationship = (typeof ELDERCARE_RELATIONSHIPS)[number];
 export const CARE_ACCESS_REQUEST_DIRECTIONS = ["i_will_manage", "i_will_help"] as const;
 export type CareAccessRequestDirection = (typeof CARE_ACCESS_REQUEST_DIRECTIONS)[number];
 
+/**
+ * The nine capabilities a "manage" grant can be scoped to
+ * (public.caregiver_permission). Order here is the order they are offered in
+ * the wizard and rendered as chips elsewhere — grouped by the everyday
+ * errand they cover, not alphabetically.
+ *
+ * Leaving every box checked keeps today's behaviour exactly as it is:
+ * createEldercareAccessRequestAction sends permissions = null (unrestricted)
+ * whenever all nine are selected, same as every "manage" grant made before
+ * this list existed. Unchecking one is what actually narrows it — this
+ * constant is the client-side selection set, not the stored value.
+ */
+export const CAREGIVER_PERMISSIONS = [
+  "view_appointments",
+  "book_appointments",
+  "view_medication",
+  "manage_pharmacy",
+  "view_results",
+  "view_care_plan",
+  "communicate_with_care_team",
+  "manage_payments",
+  "receive_alerts",
+] as const;
+
+export type CaregiverPermission = (typeof CAREGIVER_PERMISSIONS)[number];
+
+export const CAREGIVER_PERMISSION_LABEL: Record<CaregiverPermission, string> = {
+  view_appointments: "See appointments",
+  // Also gates requesting a screening/lab check (sponsor_book_care) — there
+  // is no separate "book a check" capability in this list, and both are the
+  // same kind of action (scheduling care, not spending money or reading a
+  // record), so the label says so rather than only naming the narrower half.
+  book_appointments: "Book appointments and screening checks",
+  view_medication: "See medications",
+  manage_pharmacy: "Order and refill medication",
+  view_results: "See test results",
+  view_care_plan: "See the care plan",
+  communicate_with_care_team: "Message the care team",
+  manage_payments: "Pay bills",
+  receive_alerts: "Be told when something needs attention",
+};
+
+/**
+ * How long a grant lasts. "permanent" stores expires_at = null, matching
+ * every grant made before temporary access existed; every other option is a
+ * number of days, resolved to an absolute timestamp once, when the request
+ * is sent (createEldercareAccessRequestAction), and carried unchanged from
+ * there into the grant on acceptance (respond_to_care_access_request). A
+ * request that sits unanswered eats into its own window rather than
+ * starting the clock over on acceptance — the same "the offer itself has a
+ * shelf life" behaviour as everything else about that request.
+ */
+export const CAREGIVER_ACCESS_DURATIONS = ["permanent", "7", "30", "90"] as const;
+export type CaregiverAccessDuration = (typeof CAREGIVER_ACCESS_DURATIONS)[number];
+
+export const CAREGIVER_ACCESS_DURATION_LABEL: Record<CaregiverAccessDuration, string> = {
+  permanent: "Until I take it back",
+  "7": "7 days",
+  "30": "30 days",
+  "90": "90 days",
+};
+
 export const eldercareAccessRequestSchema = z.object({
   phone: z
     .string()
@@ -65,6 +127,13 @@ export const eldercareAccessRequestSchema = z.object({
     .regex(/^\+\d{10,15}$/, "Use the international format, e.g. +2348012345678"),
   relationship: z.enum(ELDERCARE_RELATIONSHIPS),
   direction: z.enum(CARE_ACCESS_REQUEST_DIRECTIONS),
+  // The selection set from the wizard, at least one required — a "manage"
+  // grant with no capability at all authorises nothing and is never what
+  // anyone means to send. createEldercareAccessRequestAction is what turns
+  // "all nine selected" into permissions = null; this schema only validates
+  // the selection itself.
+  permissions: z.array(z.enum(CAREGIVER_PERMISSIONS)).min(1, "Choose at least one thing they can do"),
+  duration: z.enum(CAREGIVER_ACCESS_DURATIONS),
 });
 
 export type EldercareAccessRequestInput = z.infer<typeof eldercareAccessRequestSchema>;

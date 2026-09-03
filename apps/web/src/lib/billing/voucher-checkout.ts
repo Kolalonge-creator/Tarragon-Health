@@ -1,11 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
-import { isStripeConfigured } from "@/lib/stripe/client";
-import { createOneOffCheckoutSession } from "@/lib/stripe/checkout";
-import { resolveProvider } from "@/lib/billing/provider";
 import type { CheckoutMetadata } from "@/lib/billing/checkout-metadata";
-import type { Currency } from "@tarragon/shared";
 
 export type VoucherCheckoutResult =
   | { ok: true; checkoutUrl: string }
@@ -14,11 +10,14 @@ export type VoucherCheckoutResult =
 /**
  * Starts a checkout for one instalment toward a specific Care Voucher.
  *
- * The amount is expressed in kobo against the voucher's own price, which is
- * pinned server-side at purchase. If the payer's own currency is not NGN (the
- * diaspora case) the charge is converted at the admin-set reference rate; an
- * unset rate simply means dollar payments are not offered yet, rather than a
- * silent wrong-price charge.
+ * The amount is charged in kobo against the voucher's own naira price, which
+ * is pinned server-side at purchase. NGN via Paystack only — a payer-currency
+ * conversion path for a non-NGN (diaspora) payer used to sit here, converting
+ * at the admin-set reference rate and billing through Stripe. That path is
+ * removed 2026-09-03: there was never a registered Stripe account behind it
+ * (needs a UK business registration that hasn't happened), so no non-NGN
+ * payment could ever actually complete. A diaspora sponsor still funds
+ * someone's care today, just in naira via Paystack, same as anyone else.
  *
  * No Edge Function involvement. private.apply_voucher_payment_from_transaction
  * is an AFTER INSERT trigger on payment_transactions (see
@@ -30,7 +29,6 @@ export type VoucherCheckoutResult =
 export async function initiateVoucherPaymentCheckout(args: {
   voucherId: string;
   instalmentKobo: number;
-  payerCurrency: Currency;
   email: string;
   callbackUrl: string;
   description: string;
@@ -41,22 +39,7 @@ export async function initiateVoucherPaymentCheckout(args: {
   } = await supabase.auth.getUser();
   if (!user) return { ok: false, error: "Not signed in" };
 
-  let chargeAmountMinor = args.instalmentKobo;
-  if (args.payerCurrency !== "NGN") {
-    const { data: fx } = await supabase
-      .from("platform_currency_settings")
-      .select("ngn_per_usd")
-      .eq("id", true)
-      .single();
-    const rate = fx?.ngn_per_usd;
-    if (!rate) {
-      return {
-        ok: false,
-        error: `${args.payerCurrency} payments aren't set up yet — pay in NGN for now.`,
-      };
-    }
-    chargeAmountMinor = Math.round(args.instalmentKobo / rate);
-  }
+  if (!isPaystackConfigured()) return { ok: false, error: "Card payments aren't set up yet" };
 
   const metadata: CheckoutMetadata = {
     kind: "voucher_payment",
@@ -64,50 +47,27 @@ export async function initiateVoucherPaymentCheckout(args: {
     item_code: "voucher_payment",
   };
 
-  const provider = resolveProvider(args.payerCurrency);
-  let reference: string;
-  let checkoutUrl: string;
-
-  if (provider === "paystack") {
-    if (!isPaystackConfigured()) return { ok: false, error: "Card payments aren't set up yet" };
-    const result = await initializeOneOffTransaction({
-      email: args.email,
-      amountMinor: chargeAmountMinor,
-      currency: "NGN",
-      callbackUrl: args.callbackUrl,
-      metadata,
-    });
-    if (!result.ok) return { ok: false, error: result.error };
-    reference = result.data.reference;
-    checkoutUrl = result.data.authorizationUrl;
-  } else {
-    if (!isStripeConfigured()) return { ok: false, error: "Card payments aren't set up yet" };
-    const result = await createOneOffCheckoutSession({
-      email: args.email,
-      amountMinor: chargeAmountMinor,
-      currency: args.payerCurrency as "GBP" | "USD",
-      description: args.description,
-      successUrl: args.callbackUrl,
-      cancelUrl: args.callbackUrl,
-      metadata,
-    });
-    if (!result.ok) return { ok: false, error: result.error };
-    reference = result.data.sessionId;
-    checkoutUrl = result.data.checkoutUrl;
-  }
+  const result = await initializeOneOffTransaction({
+    email: args.email,
+    amountMinor: args.instalmentKobo,
+    currency: "NGN",
+    callbackUrl: args.callbackUrl,
+    metadata,
+  });
+  if (!result.ok) return { ok: false, error: result.error };
 
   // Recorded AFTER the provider reference exists, so a pending row can never
   // point at a charge that was never created. The RPC re-checks authorisation
   // and that the instalment fits inside what is still outstanding.
   const { error } = await supabase.rpc("record_voucher_payment_intent", {
     p_voucher: args.voucherId,
-    p_amount_minor: chargeAmountMinor,
-    p_currency: args.payerCurrency,
+    p_amount_minor: args.instalmentKobo,
+    p_currency: "NGN",
     p_instalment_kobo: args.instalmentKobo,
-    p_provider: provider,
-    p_reference: reference,
+    p_provider: "paystack",
+    p_reference: result.data.reference,
   });
   if (error) return { ok: false, error: error.message };
 
-  return { ok: true, checkoutUrl };
+  return { ok: true, checkoutUrl: result.data.authorizationUrl };
 }

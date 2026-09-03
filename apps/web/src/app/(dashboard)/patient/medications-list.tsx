@@ -23,6 +23,7 @@ import { MedicationAccessBarrierForm } from "./medication-access-barrier-form";
 import { computeRefillGapSignal, REFILL_GAP_DISCLAIMER } from "@/lib/rules/adherence-signals";
 import { usePatientNextReview } from "@/lib/queries/medication-reviews";
 import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
+import { ResultExplainer } from "@/components/result-explainer";
 import {
   useMedicationRenewalRequest,
   useRequestPrescriptionRenewal,
@@ -207,6 +208,11 @@ export function MedicationsList({
                     // whether a patient actually has their medicine is a
                     // safety signal, not a paid feature.
                     <>
+                      <ResultExplainer
+                        kind="medication"
+                        subjectKey={medication.id}
+                        label={medication.drug_name}
+                      />
                       <MedicationCollectionForm medication={medication} patientId={patientId} />
                       <MedicationIssueReportForm medication={medication} patientId={patientId} />
                       <RequestRenewalButton

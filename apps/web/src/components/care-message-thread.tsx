@@ -14,6 +14,7 @@ import { validateCareMessageAttachment } from "@/lib/validation/care-messages";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
+import { DraftReplyCard } from "@/components/draft-reply-card";
 import { NAV_ICON } from "@/lib/icons";
 
 function when(iso: string): string {
@@ -119,12 +120,18 @@ export function CareMessageThread({
   threadId,
   patientId,
   closed,
+  showDraftAssist = false,
   isStaff = false,
   showEmergencyNotice = false,
 }: {
   threadId: string;
   patientId: string;
   closed: boolean;
+  /** Renders the AI-drafted "Suggested reply" card above the compose box.
+   * Staff-only surface (the underlying care_message_draft_replies table is
+   * unreadable to a patient session via RLS) -- the patient-facing call
+   * sites (messages-flow.tsx, supported-people.tsx) leave this unset. */
+  showDraftAssist?: boolean;
   /** Renders the 77.7 template picker and skips the 77.10 attach control —
    * only a patient's own session can upload into their own storage folder
    * (see care-message-attachments.sql's storage policies). */
@@ -223,7 +230,8 @@ export function CareMessageThread({
       {closed ? (
         <p className="text-sm text-charcoal-ink/50">This conversation is closed.</p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-3">
+          {showDraftAssist && <DraftReplyCard threadId={threadId} />}
           {isStaff && (
             <TemplatePicker onPick={(templateBody) => setBody(templateBody)} />
           )}

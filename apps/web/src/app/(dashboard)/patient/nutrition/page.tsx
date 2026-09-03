@@ -1,8 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isMealVisionConfigured } from "@/lib/nutrition/meal-vision";
 import { NutritionFlow } from "../nutrition-flow";
@@ -24,12 +22,7 @@ export default async function NutritionPage() {
         backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
         description="Log what you eat, with a photo if you like. We'll estimate the portions and carbs to help you and your care team spot patterns. It's a coaching guide, not a medical measurement."
       />
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <NutritionFlow patientId={profile.id} visionConfigured={isMealVisionConfigured()} />
-      </RequiresEntitlement>
+      <NutritionFlow patientId={profile.id} visionConfigured={isMealVisionConfigured()} />
     </div>
   );
 }

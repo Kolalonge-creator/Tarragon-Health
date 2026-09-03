@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState, useState } from "react";
 import { koboToNaira } from "@tarragon/shared";
+import { APPOINTMENT_TYPE_LABELS } from "../appointments/appointment-labels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -442,7 +443,6 @@ function PayBillOnMyCard({
     <form action={action} className="inline-flex flex-col items-end gap-1">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
       <input type="hidden" name="orderId" value={bill.order_id} />
-      <input type="hidden" name="currency" value="NGN" />
       <Button type="submit" disabled={pending}>
         {pending ? "Starting…" : `Pay ${naira(bill.amount_kobo)} on my card`}
       </Button>
@@ -520,7 +520,6 @@ function PayTheirPlan({ person }: { person: SupportedPerson }) {
   return (
     <form action={action} className="space-y-2 rounded-lg border border-charcoal-ink/10 p-4">
       <input type="hidden" name="beneficiaryProfileId" value={person.profileId} />
-      <input type="hidden" name="currency" value="NGN" />
       <p className="text-xs font-medium text-charcoal-ink">Pay for their plan</p>
       <div className="flex flex-wrap items-center gap-2">
         <Select name="planCode" defaultValue="" className="max-w-xs">
@@ -735,6 +734,18 @@ function HealthSummary({ person }: { person: SupportedPerson }) {
               {data.nextScreeningDue && (
                 <p className="text-xs text-charcoal-ink/50">
                   Next {shortDate(data.nextScreeningDue)}
+                </p>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-charcoal-ink/60">Next appointment</p>
+              <p className="font-heading text-lg font-semibold text-charcoal-ink">
+                {data.nextAppointment ? shortDate(data.nextAppointment.scheduledFor) : "None booked"}
+              </p>
+              {data.nextAppointment && (
+                <p className="text-xs text-charcoal-ink/50">
+                  {APPOINTMENT_TYPE_LABELS[data.nextAppointment.appointmentType] ??
+                    data.nextAppointment.appointmentType}
                 </p>
               )}
             </div>
