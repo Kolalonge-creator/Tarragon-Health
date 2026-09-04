@@ -221,7 +221,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Comprehensive Screen",
               price: "You pay the lab, once",
-              body: "Everything in Advanced Screen, plus imaging and a syphilis screen.",
+              body: "Everything in Advanced Screen, plus imaging.",
             },
           ].map((tier) => (
             <div

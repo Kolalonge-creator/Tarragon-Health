@@ -220,12 +220,6 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
         frequency: "Once",
         tier: "Core",
       },
-      {
-        name: "Syphilis: VDRL with TPHA confirmation",
-        explanation: "A two-step confirmatory test for a treatable infection that causes serious harm if missed.",
-        frequency: "Every year",
-        tier: "Comprehensive",
-      },
     ],
   },
   {
