@@ -15,10 +15,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+// Only codes scoreStiRiskCheck can actually produce (see sti-risk-assessment.ts) —
+// syphilis and chlamydia_gonorrhoea are deliberately absent, neither has a
+// bookable product since 2026-09-04.
 const RECOMMENDED_SCREEN_LABEL: Record<string, string> = {
   hiv: "HIV",
-  syphilis: "Syphilis",
-  chlamydia_gonorrhoea: "Chlamydia & Gonorrhoea",
   hep_b: "Hepatitis B",
   hep_c: "Hepatitis C",
 };
