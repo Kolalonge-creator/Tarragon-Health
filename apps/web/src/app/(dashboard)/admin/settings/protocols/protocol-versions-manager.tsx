@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { protocolContentText } from "./protocol-content-text";
 import { useProtocolVersions, useCreateProtocolVersion } from "@/lib/queries/protocol-versions";
 import {
   Card,
@@ -13,27 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-
-/**
- * The readable body of a signed protocol.
- *
- * `content` is jsonb. The signing form writes `{ text }`, but the column is
- * free-form and other rows may hold arbitrary JSON, so fall back to pretty
- * JSON rather than rendering "[object Object]" or nothing at all.
- */
-function protocolContentText(content: unknown): string {
-  if (content == null) return "";
-  if (typeof content === "string") return content;
-  if (typeof content === "object" && "text" in (content as Record<string, unknown>)) {
-    const text = (content as Record<string, unknown>).text;
-    if (typeof text === "string") return text;
-  }
-  try {
-    return JSON.stringify(content, null, 2);
-  } catch {
-    return "";
-  }
-}
 
 function formatApprovedAt(approvedAt: string): string {
   return new Date(approvedAt).toLocaleDateString("en-GB", {
