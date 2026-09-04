@@ -14,6 +14,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+/**
+ * The readable body of a signed protocol.
+ *
+ * `content` is jsonb. The signing form writes `{ text }`, but the column is
+ * free-form and other rows may hold arbitrary JSON, so fall back to pretty
+ * JSON rather than rendering "[object Object]" or nothing at all.
+ */
+function protocolContentText(content: unknown): string {
+  if (content == null) return "";
+  if (typeof content === "string") return content;
+  if (typeof content === "object" && "text" in (content as Record<string, unknown>)) {
+    const text = (content as Record<string, unknown>).text;
+    if (typeof text === "string") return text;
+  }
+  try {
+    return JSON.stringify(content, null, 2);
+  } catch {
+    return "";
+  }
+}
+
 function formatApprovedAt(approvedAt: string): string {
   return new Date(approvedAt).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -143,6 +164,21 @@ export function ProtocolVersionsManager() {
                       ` · ${v.approved_by_staff.credential_type} ${v.approved_by_staff.credential_number}`}
                   </p>
                   <p className="text-sm text-charcoal-ink/80">{v.change_summary}</p>
+                  {/* The signed text itself. It was previously written and
+                      never read back anywhere in the app, so nobody could
+                      see what they had signed — which defeats the point of
+                      a signed record. Collapsed by default because these
+                      run to several screens. */}
+                  {protocolContentText(v.content) && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-xs font-medium text-brand-green">
+                        Read the signed protocol
+                      </summary>
+                      <pre className="mt-2 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg bg-warm-ivory p-3 font-sans text-sm leading-relaxed text-charcoal-ink/90">
+                        {protocolContentText(v.content)}
+                      </pre>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>
