@@ -554,6 +554,7 @@ export function getNavSections(
         {
           items: [
             { label: "Overview", href: "/payer", icon: "dashboard", exact: true },
+            { label: "Outcomes reports", href: "/payer/board-report", icon: "statements" },
           ],
         },
         {
