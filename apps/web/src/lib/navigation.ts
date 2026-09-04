@@ -225,6 +225,13 @@ export function getNavSections(
               href: "/patient/notification-settings",
               icon: "bell",
             },
+            // Patient Support & Service Centre (spec §24), narrowed to
+            // technical/app issues and formal complaints — appointment,
+            // pharmacy, laboratory, insurance, referral, and payment help
+            // is the "Need help" card on Care & support (navigation_requests,
+            // module 75) instead. See the support_tickets_category_technical_only
+            // migration for the full reconciliation.
+            { label: "Technical support", href: "/patient/support", icon: "helpCenter" },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
             { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {
@@ -276,6 +283,8 @@ export function getNavSections(
                 },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
+                { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
                 {
                   label: "Safety incidents",
                   href: "/clinician/safety-incidents",
@@ -319,6 +328,8 @@ export function getNavSections(
                 },
                 { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
+                { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
               ],
             },

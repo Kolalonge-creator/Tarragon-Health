@@ -917,3 +917,33 @@ export const serviceCoverageSchema = z
   )
   .default([]);
 export type ServiceCoverage = z.infer<typeof serviceCoverageSchema>;
+
+// ---- Patient Support & Service Centre (spec §24, technical support only) --
+// Matches the jsonb shape returned by analytics_support_ticket_summary/
+// analytics_complaints_summary (20260829002650_support_centre_analytics_rpcs.sql).
+export const supportTicketSummarySchema = z.object({
+  total: z.number().default(0),
+  open_count: z.number().default(0),
+  by_category: z.record(z.string(), z.number()).default({}),
+  by_priority: z.record(z.string(), z.number()).default({}),
+  by_status: z.record(z.string(), z.number()).default({}),
+  avg_first_response_minutes: z.number().nullable().default(null),
+  avg_resolution_minutes: z.number().nullable().default(null),
+  escalation_rate_pct: z.number().nullable().default(null),
+  repeat_contact_rate_pct: z.number().nullable().default(null),
+  avg_satisfaction: z.number().nullable().default(null),
+  satisfaction_response_count: z.number().default(0),
+});
+export type SupportTicketSummary = z.infer<typeof supportTicketSummarySchema>;
+
+export const complaintsSummarySchema = z.object({
+  total: z.number().default(0),
+  open_count: z.number().default(0),
+  by_category: z.record(z.string(), z.number()).default({}),
+  by_status: z.record(z.string(), z.number()).default({}),
+  avg_acknowledgement_minutes: z.number().nullable().default(null),
+  avg_resolution_minutes: z.number().nullable().default(null),
+  incident_escalation_count: z.number().default(0),
+  governance_reviewed_count: z.number().default(0),
+});
+export type ComplaintsSummary = z.infer<typeof complaintsSummarySchema>;
