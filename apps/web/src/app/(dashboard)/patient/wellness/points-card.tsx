@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { koboToNaira } from "@tarragon/shared";
 
 const REASON_LABEL: Record<string, string> = {
   vitals_logged: "Logged a vitals reading",
@@ -40,7 +41,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.points className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.points className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Wellness points
         </CardTitle>
         <CardDescription>
@@ -73,7 +74,10 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
             }
             redeem.mutate(points, {
               onSuccess: (res) => {
-                setMessage(`Redeemed: a ₦${((res.kobo_credited ?? 0) / 100).toLocaleString()} reward voucher is now on your account.`);
+                // koboToNaira rather than an inline /100: every NGN amount on the
+                // platform is stored in kobo, and the one shared converter is
+                // what keeps a stray factor of 100 from reaching a patient.
+                setMessage(`Redeemed: a ₦${koboToNaira(res.kobo_credited ?? 0).toLocaleString()} reward voucher is now on your account.`);
                 setAmount("");
               },
               onError: (err) => setMessage(err instanceof Error ? err.message : "Something went wrong."),

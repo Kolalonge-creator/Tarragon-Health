@@ -11,7 +11,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Screening Journey",
   description:
-    "See exactly which health screenings are recommended for your age and sex, and walk through each one step by step: what it's for, how to book it, what happens on the day, and how results come back.",
+    "See which screenings are recommended for your age and sex, then walk through each one: what it is for, where to get it, and how the result comes back.",
   path: MARKETING_ROUTES.screeningJourney,
 });
 

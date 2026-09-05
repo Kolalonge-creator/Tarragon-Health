@@ -101,7 +101,7 @@ export function NavigationRequests({ patientId }: { patientId: string }) {
       <CardHeader className="flex-row items-center justify-between space-y-0">
         <div>
           <CardTitle className="flex items-center gap-2">
-            <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+            <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
             Need help with something?
           </CardTitle>
           <CardDescription>

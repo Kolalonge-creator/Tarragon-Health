@@ -81,6 +81,21 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
+  // Marketing pages live on the root domain only. Without this every one of
+  // them is also reachable, and crawlable, on app.* — a duplicate of the whole
+  // public site, saved from an indexing penalty only by the canonical tags.
+  //
+  // Deliberately placed AFTER the `pathname === "/"` branch above: "/" is a
+  // legitimate platform entry point on the app host and must keep resolving to
+  // the role home. 308 rather than 307 so the permanence is a real signal to a
+  // crawler. `url.port` is left intact so app.localhost:3000 redirects to
+  // localhost:3000 in development rather than to port 80.
+  if (isApp && pathname !== "/" && isMarketingPath(pathname)) {
+    const url = new URL(request.url);
+    url.hostname = url.hostname.replace(/^app\./, "");
+    return NextResponse.redirect(url, 308);
+  }
+
   if (!user) {
     if (isRoleHomePrefixed(pathname)) {
       const loginUrl = new URL("/login", request.url);
@@ -210,6 +225,22 @@ export async function proxy(request: NextRequest) {
         "/clinician/orders",
         "/clinician/support-inbox",
         "/clinician/safety-incidents",
+        // Added 2026-09-05. Both were in the Coordinator's sidebar and not on
+        // this list, so they bounced with no explanation. Each was checked
+        // against CLAUDE.md's rule that a Coordinator never gains write access
+        // to medications, escalation resolution or protocol signing, and
+        // neither does:
+        //   - operations-queue is read-only by construction (no mutation, no
+        //     form, no server action anywhere in the route).
+        //   - medication-issues self-gates the clinical half in the page
+        //     itself (`canResolveConcerns = isClinicalTier(staff)`), and its
+        //     own docstring records that any org staff may see and raise both,
+        //     while "care coordinator intervention" is a valid resolution for
+        //     an affordability report specifically (Pharmacy Engine §12.16).
+        // The list stays a fixed allow-list rather than a /clinician/* prefix
+        // for the reason given above.
+        "/clinician/operations-queue",
+        "/clinician/medication-issues",
       ].some((allowed) => pathname === allowed || pathname.startsWith(`${allowed}/`));
     if (isCoordinatorClinicianPath) {
       return response;

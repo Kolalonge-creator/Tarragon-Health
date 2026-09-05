@@ -52,7 +52,7 @@ export function SmokingClient({ patientId }: { patientId: string }) {
       {(status === "current" || status === "former") && streak > 0 && (
         <Card>
           <CardContent className="flex items-center gap-3 pt-6">
-            <SEMANTIC_ICON.smoking className="h-6 w-6 text-brand-green dark:text-brand-green-bright" strokeWidth={2} />
+            <SEMANTIC_ICON.smoking className="h-6 w-6 text-brand-green dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               {streak} smoke-free day{streak === 1 ? "" : "s"} in a row
             </p>

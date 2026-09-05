@@ -6,6 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  compareLifestyleFlags,
+  lifestyleSeverityLabel,
+  lifestyleSeverityVariant,
+} from "@/lib/worklist/lifestyle-flag-rank";
+import { timeAgo } from "@/lib/worklist/sla-label";
 
 export interface OpenFlag {
   id: string;
@@ -17,13 +23,11 @@ export interface OpenFlag {
   openedAt: string;
 }
 
-function severityTone(severity: string): "amber" | "red" | "grey" {
-  if (severity === "emergency" || severity === "red") return "red";
-  if (severity === "amber") return "amber";
-  return "grey";
-}
-
 export function LifestyleFlagsClient({ flags }: { flags: OpenFlag[] }) {
+  // The page fetches oldest-first, which put an emergency flag raised this
+  // morning below last week's amber one. Severity leads; age only breaks ties.
+  const ranked = flags.slice().sort(compareLifestyleFlags);
+
   if (flags.length === 0) {
     return (
       <Card>
@@ -35,7 +39,7 @@ export function LifestyleFlagsClient({ flags }: { flags: OpenFlag[] }) {
   }
   return (
     <div className="space-y-4">
-      {flags.map((f) => (
+      {ranked.map((f) => (
         <FlagRow key={f.id} flag={f} />
       ))}
     </div>
@@ -52,7 +56,9 @@ function FlagRow({ flag }: { flag: OpenFlag }) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-base">{flag.patientName}</CardTitle>
         <div className="flex items-center gap-2">
-          <Badge variant={severityTone(flag.severity)}>{flag.severity}</Badge>
+          <Badge variant={lifestyleSeverityVariant(flag.severity)}>
+            {lifestyleSeverityLabel(flag.severity)}
+          </Badge>
           <Badge variant="grey">Level {flag.escalationLevel}</Badge>
         </div>
       </CardHeader>
@@ -67,7 +73,7 @@ function FlagRow({ flag }: { flag: OpenFlag }) {
           )}
         </p>
         <p className="text-charcoal-ink/60 text-xs">
-          Opened {new Date(flag.openedAt).toLocaleString()}
+          Open {timeAgo(flag.openedAt)} (opened {new Date(flag.openedAt).toLocaleString()})
         </p>
         <form action={submit} className="flex flex-wrap items-end gap-2">
           <input type="hidden" name="flagId" value={flag.id} />

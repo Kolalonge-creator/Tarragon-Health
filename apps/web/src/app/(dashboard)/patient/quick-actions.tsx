@@ -121,7 +121,7 @@ export function QuickActions({ showCycle = false }: { showCycle?: boolean }) {
                     action.emphasis ? "bg-brand-green/15 dark:bg-brand-green/25" : "bg-soft-sage dark:bg-brand-green/20"
                   )}
                 >
-                  <Icon className="h-4.5 w-4.5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+                  <Icon className="h-4.5 w-4.5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold leading-snug text-charcoal-ink dark:text-night-ink">

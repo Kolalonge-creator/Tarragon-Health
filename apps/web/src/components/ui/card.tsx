@@ -33,9 +33,20 @@ export function CardHeader({ className, ...props }: React.ComponentProps<"div">)
   return <div className={cn("flex flex-col gap-1.5 p-6", className)} {...props} />;
 }
 
-export function CardTitle({ className, ...props }: React.ComponentProps<"h3">) {
+/**
+ * `as` exists only to fix heading order, never to change size: a card sitting
+ * directly under a page's h1 with no section heading between them produced an
+ * h1 -> h3 skip on nine patient pages. Passing `as="h2"` there closes the skip
+ * without inventing a visible section band the design does not want. The
+ * styling is identical whichever tag is chosen, so nothing moves on screen.
+ */
+export function CardTitle({
+  as: Tag = "h3",
+  className,
+  ...props
+}: React.ComponentProps<"h3"> & { as?: "h2" | "h3" | "h4" }) {
   return (
-    <h3
+    <Tag
       className={cn(
         "font-heading text-xl font-semibold text-charcoal-ink dark:text-night-ink",
         className

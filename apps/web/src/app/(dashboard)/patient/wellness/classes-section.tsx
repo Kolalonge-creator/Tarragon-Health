@@ -42,7 +42,7 @@ export function ClassesSection({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.wellnessClass className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.wellnessClass className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Workout classes &amp; health workshops
         </CardTitle>
         <CardDescription>

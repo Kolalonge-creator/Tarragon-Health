@@ -27,7 +27,7 @@ export function ConditionLanguageForm({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.messages className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <NAV_ICON.messages className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           How we talk about your weight
         </CardTitle>
         <CardDescription>

@@ -6,6 +6,7 @@ import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashbo
 import { adolescentAgeBandFromDateOfBirth } from "@tarragon/shared";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
+import { statTileValue } from "@/components/ui/stat-tile-value";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { OverviewHero } from "@/app/(dashboard)/patient/overview-hero";
@@ -146,25 +147,36 @@ export default async function PatientOverviewPage() {
           <StatTile
             icon={SEMANTIC_ICON.bp}
             label="Latest BP"
-            value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"}
-            unit="mmHg"
+            {...statTileValue(
+              stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : null,
+              "No reading yet",
+              "mmHg"
+            )}
             {...bpTileProps}
           />
           <StatTile
             icon={SEMANTIC_ICON.diabetes}
             label="Latest glucose"
-            value={stats.latestGlucoseMmolL !== null ? String(stats.latestGlucoseMmolL) : "—"}
-            unit="mmol/L"
+            {...statTileValue(stats.latestGlucoseMmolL, "No reading yet", "mmol/L")}
           />
           <StatTile
             icon={SEMANTIC_ICON.medication}
             label="Active meds"
-            value={String(stats.activeMedicationCount)}
+            {...statTileValue(
+              stats.activeMedicationCount === 0 ? null : stats.activeMedicationCount,
+              "None on your list yet"
+            )}
           />
           <StatTile
             icon={SEMANTIC_ICON.preventive}
             label="Doses today"
-            value={`${stats.dosesTaken}/${stats.dosesTotal}`}
+            // dosesTotal counts scheduled slots, so 0 means "nothing is due
+            // today", not "you have taken none of them" — a bare "0/0" reads
+            // like a missed day.
+            {...statTileValue(
+              stats.dosesTotal === 0 ? null : `${stats.dosesTaken}/${stats.dosesTotal}`,
+              "Nothing due today"
+            )}
           />
         </div>
       ) : (
@@ -188,14 +200,15 @@ export default async function PatientOverviewPage() {
             <StatTile
               icon={SEMANTIC_ICON.labs}
               label="Next screening"
-              value={
+              {...statTileValue(
                 prevention.nextScreening
                   ? formatPatientDate(prevention.nextScreening.dueDate, {
                       day: "numeric",
                       month: "short",
                     })
-                  : "—"
-              }
+                  : null,
+                "None scheduled yet"
+              )}
             />
             {prevention.hasRiskAssessment ? (
               <StatTile
@@ -213,8 +226,11 @@ export default async function PatientOverviewPage() {
             <StatTile
               icon={SEMANTIC_ICON.bp}
               label="Latest BP"
-              value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"}
-              unit="mmHg"
+              {...statTileValue(
+                stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : null,
+                "No reading yet",
+                "mmHg"
+              )}
               {...bpTileProps}
             />
           </div>

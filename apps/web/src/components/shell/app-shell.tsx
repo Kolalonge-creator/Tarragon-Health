@@ -517,6 +517,16 @@ export function AppShell({
       data-theme={surface === "warm" ? resolvedTheme : undefined}
       className="flex min-h-screen bg-white print:block print:min-h-0 dark:bg-night-ground"
     >
+      {/* The patient sidebar runs to around 30 links, so a keyboard or
+          screen-reader user reached the page content only after tabbing
+          through every one of them, on every navigation. Same treatment the
+          marketing layout has always had, pointed at <main> below. */}
+      <a
+        href="#main-content"
+        className="sr-only z-[60] rounded-full bg-brand-green px-4 py-2 text-sm font-medium text-white focus:not-sr-only focus:absolute focus:left-4 focus:top-4 print:hidden"
+      >
+        Skip to content
+      </a>
       {/* Desktop sidebar */}
       {hasNav && (
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden dark:border-night-ink/15 dark:bg-night-card">
@@ -610,7 +620,33 @@ export function AppShell({
             </div>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 print:max-w-none print:p-0">
+        <main
+          id="main-content"
+          // tabIndex -1 so the skip link actually moves focus here: a plain
+          // <main> is not focusable, and several browsers only scroll to the
+          // target without moving the focus ring, leaving the next Tab back
+          // in the sidebar.
+          tabIndex={-1}
+          className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 outline-none sm:px-6 sm:py-8 lg:px-8 print:max-w-none print:p-0"
+        >
+          {/* getNavSections returns [] for a role it has no menu for, a null
+              role included (lib/navigation.ts). That took the sidebar, the
+              drawer, the hamburger and the bottom bar away at once, leaving a
+              signed-in person with nothing to click and nothing explaining
+              why. Say what has happened, and where they can still go. */}
+          {!hasNav && (
+            <div
+              role="status"
+              className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-charcoal-ink print:hidden dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-night-ink"
+            >
+              <p className="font-medium">There is no menu set up for this account yet.</p>
+              <p className="mt-1 text-charcoal-ink/70 dark:text-night-ink/70">
+                This account does not have a role with its own dashboard, so there is nowhere for
+                the menu to point. Ask an administrator to set the role on it. You can still reach
+                your profile and sign out from the menu at the top right.
+              </p>
+            </div>
+          )}
           {children}
         </main>
         <footer

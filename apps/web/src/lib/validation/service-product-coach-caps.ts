@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const planDailyLimitSchema = z.coerce
+export const productDailyLimitSchema = z.coerce
   .number()
   .int()
   .min(1, "Must be at least 1 message")

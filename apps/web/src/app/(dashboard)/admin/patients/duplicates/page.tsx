@@ -95,7 +95,14 @@ export default async function AdminPatientDuplicatesPage() {
                 )}
               </div>
               {renderPair(f.profile_id_a, f.profile_id_b)}
-              <DuplicateFlagActions flagId={f.id} profileIdA={f.profile_id_a} profileIdB={f.profile_id_b} />
+              <DuplicateFlagActions
+                flagId={f.id}
+                profileIdA={f.profile_id_a}
+                profileIdB={f.profile_id_b}
+                nameA={profileById.get(f.profile_id_a)?.full_name ?? "Unnamed patient"}
+                nameB={profileById.get(f.profile_id_b)?.full_name ?? "Unnamed patient"}
+                confidencePct={Math.round(f.confidence * 100)}
+              />
             </div>
           ))}
         </CardContent>

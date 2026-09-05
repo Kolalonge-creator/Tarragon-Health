@@ -77,7 +77,7 @@ export default async function EmergencyCardPage() {
       {bloodError ? (
         <Card>
           <CardHeader>
-            <CardTitle>Blood group and genotype</CardTitle>
+            <CardTitle as="h2">Blood group and genotype</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
@@ -105,7 +105,7 @@ export default async function EmergencyCardPage() {
         {/* THE DEFAULT: a printed card, no new exposure, nothing to consent to. */}
         <Card>
           <CardHeader>
-            <CardTitle>Your printable card</CardTitle>
+            <CardTitle as="h2">Your printable card</CardTitle>
             <CardDescription>
               Print it, fold it into your wallet, or save the page to your phone. This is just
               your own record (the same as printing your Health Passport), so there is nothing
@@ -138,7 +138,7 @@ export default async function EmergencyCardPage() {
             its own terms — a genuinely different, always-current exposure. */}
         <Card>
           <CardHeader>
-            <CardTitle>Also want a live link?</CardTitle>
+            <CardTitle as="h2">Also want a live link?</CardTitle>
             <CardDescription>
               {/* Three states, not two: the body below already refuses to
                   claim anything when the read failed, and this line has to
@@ -203,7 +203,7 @@ export default async function EmergencyCardPage() {
       {active ? (
         <Card>
           <CardHeader>
-            <CardTitle>Who has looked at your live link</CardTitle>
+            <CardTitle as="h2">Who has looked at your live link</CardTitle>
             <CardDescription>
               You&rsquo;re also notified the moment it&rsquo;s viewed, so you don&rsquo;t need to
               check back here to know.

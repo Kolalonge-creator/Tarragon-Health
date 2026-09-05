@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
+import { PASSWORD_MIN_LENGTH, PASSWORD_RULE_HINT } from "@/lib/validation/password";
 
 const FIELD_CLASS = "h-11 rounded-xl";
 
@@ -23,6 +26,10 @@ export function SignupForm({
   intent?: "health_check" | "support";
 }) {
   const [state, formAction, pending] = useActionState(signUp, undefined);
+  const errorId = fieldErrorId("signup");
+  // Server actions here return the failing field name alongside the message
+  // (see firstIssue), so only that control is marked invalid.
+  const invalid = (field: string) => Boolean(state?.error) && state?.field === field;
 
   if (state?.success) {
     return (
@@ -30,7 +37,7 @@ export function SignupForm({
         <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-green/10">
           <Check className="h-6 w-6 text-brand-green" strokeWidth={2.5} />
         </div>
-        <p className="text-sm text-charcoal-ink/80">
+        <p role="status" className="text-sm text-charcoal-ink/80">
           Check your email to confirm your account, then sign in.
         </p>
       </div>
@@ -63,6 +70,7 @@ export function SignupForm({
             autoComplete="given-name"
             required
             className={FIELD_CLASS}
+            {...fieldErrorProps(errorId, invalid("firstName"))}
           />
         </div>
         <div className="space-y-1.5">
@@ -75,6 +83,7 @@ export function SignupForm({
             autoComplete="family-name"
             required
             className={FIELD_CLASS}
+            {...fieldErrorProps(errorId, invalid("lastName"))}
           />
         </div>
       </div>
@@ -86,9 +95,11 @@ export function SignupForm({
           id="email"
           name="email"
           type="email"
+          inputMode="email"
           autoComplete="email"
           required
           className={FIELD_CLASS}
+          {...fieldErrorProps(errorId, invalid("email"))}
         />
       </div>
       <div className="space-y-1.5">
@@ -112,16 +123,18 @@ export function SignupForm({
             ))}
           </Select>
           <Input
-            id="phone"
-            name="phone"
-            type="tel"
-            autoComplete="tel-national"
-            placeholder="XXXXXXXXXX"
-            required
+            {...phoneInputProps}
             className={FIELD_CLASS}
+            {...fieldErrorProps(
+              errorId,
+              invalid("phone") || invalid("countryCode"),
+              PHONE_HINT_ID,
+              "signup-phone-diaspora-hint"
+            )}
           />
         </div>
-        <p className="text-xs text-charcoal-ink/50">
+        <PhoneNumberHint />
+        <p id="signup-phone-diaspora-hint" className="text-xs text-charcoal-ink/50">
           Living abroad and registering a family member? Choose their country code.
         </p>
       </div>
@@ -135,6 +148,7 @@ export function SignupForm({
           autoComplete="address-level1"
           defaultValue=""
           className={FIELD_CLASS}
+          aria-describedby="signup-state-hint"
         >
           <option value="">Prefer not to say</option>
           {NIGERIAN_STATES.map((s) => (
@@ -143,7 +157,7 @@ export function SignupForm({
             </option>
           ))}
         </Select>
-        <p className="text-xs text-charcoal-ink/50">
+        <p id="signup-state-hint" className="text-xs text-charcoal-ink/50">
           Helps us show what&apos;s available near you. You can add or change this anytime.
         </p>
       </div>
@@ -156,10 +170,18 @@ export function SignupForm({
           name="password"
           autoComplete="new-password"
           required
+          minLength={PASSWORD_MIN_LENGTH}
           className={FIELD_CLASS}
+          {...fieldErrorProps(errorId, invalid("password"), "signup-password-rule")}
         />
+        {/* The rule, before submit rather than after a rejection. Comes from
+            lib/validation/password.ts, the same constant the schema enforces,
+            so the two cannot drift. */}
+        <p id="signup-password-rule" className="text-xs text-charcoal-ink/50">
+          {PASSWORD_RULE_HINT}
+        </p>
       </div>
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+      <FormError id={errorId} message={state?.error} />
       <Button type="submit" size="lg" className="w-full rounded-xl" disabled={pending}>
         {pending ? "Creating account…" : "Create account"}
       </Button>

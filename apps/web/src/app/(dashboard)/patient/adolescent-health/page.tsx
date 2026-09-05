@@ -109,7 +109,7 @@ export default async function AdolescentHealthPage() {
       {transitionPlan && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Your path to adult care</CardTitle>
+            <CardTitle as="h2" className="text-base">Your path to adult care</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             <p>

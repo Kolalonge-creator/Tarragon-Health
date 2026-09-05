@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { EmptyHint } from "@/components/ui/empty-hint";
 import {
   computePreventionCompletion,
   lifestyleCategoryStatus,
@@ -60,9 +61,15 @@ async function resolvePreventionCompletion(patientId: string): Promise<Preventio
   );
 }
 
-export async function PreventionCompletionCard({ patientId }: { patientId: string }) {
+export async function PreventionCompletionCard({
+  patientId,
+  emptyHint,
+}: {
+  patientId: string;
+  emptyHint?: string;
+}) {
   const summaries = await resolvePreventionCompletion(patientId);
-  if (summaries.length === 0) return null;
+  if (summaries.length === 0) return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
 
   const outstandingCount = summaries.filter((s) => s.status === "needs_attention").length;
 
@@ -70,7 +77,7 @@ export async function PreventionCompletionCard({ patientId }: { patientId: strin
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your preventive care
         </CardTitle>
         <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">

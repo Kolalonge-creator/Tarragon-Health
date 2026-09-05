@@ -3,30 +3,32 @@ import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
 import { PricingFreeFeatures } from "../_components/pricing-free-features";
 import { PricingServices } from "../_components/pricing-services";
-import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
+import { fetchPlanPrices, servicePriceOverridesFrom } from "@/lib/marketing/plan-prices";
 import { PricingLabelBadge } from "../_components/pricing-label";
 import { CtaBand } from "../_components/cta-band";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
-import { pageMetadata } from "@/lib/marketing/site";
+import { SITE, SITE_URL, absoluteUrl, pageMetadata } from "@/lib/marketing/site";
+import { paidServicesJsonLd } from "@/lib/marketing/structured-data";
 import {
   ALWAYS_FREE,
   ALWAYS_FREE_NOTE,
   EMPLOYER_HMO_NOTE,
   getPricingFaq,
+  PAID_SERVICES,
 } from "../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   description:
-    "The TarragonHealth app is free. You pay only for a doctor's time, per piece of work, in naira, with the exact price shown before you confirm. No hidden costs, nothing recurring.",
+    "The app is free. You pay only for a doctor's time, priced per piece of work, in naira, with the exact price shown before you confirm. Nothing recurs.",
   path: MARKETING_ROUTES.pricing,
 });
 
 export const revalidate = 3600;
 
 export default async function PricingPage() {
-  const priceOverrides = await fetchServicePriceOverrides();
+  const priceOverrides = servicePriceOverridesFrom(await fetchPlanPrices());
   // Resolved once and used for both the rendered FAQ and its JSON-LD, so the
   // structured data always quotes the same (live) prices as the visible page.
   const pricingFaq = getPricingFaq(priceOverrides);
@@ -40,11 +42,33 @@ export default async function PricingPage() {
       acceptedAnswer: { "@type": "Answer", text: faq.answer },
     })),
   };
+  /**
+   * Offer markup for the nine-item paid menu, built from the SAME resolved
+   * prices the page renders, so the structured data can never advertise a
+   * number the visible card contradicts. NGN only: Paystack is the one live
+   * provider and there is no other currency to quote.
+   */
+  const paidServicesStructuredData = paidServicesJsonLd({
+    services: PAID_SERVICES.map((service) => ({
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      price: priceOverrides[service.code] ?? service.price,
+    })),
+    pageUrl: absoluteUrl(MARKETING_ROUTES.pricing),
+    providerName: SITE.name,
+    providerUrl: SITE_URL,
+  });
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingFaqJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(paidServicesStructuredData) }}
       />
       <Section className="pt-20">
         <SectionHeading

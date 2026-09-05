@@ -3,7 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
 import { AccessRulesManager } from "./access-rules-manager";
-import { PlanCapsManager } from "./plan-caps-manager";
+import { ServiceCapsManager } from "./service-caps-manager";
 
 export default async function AiCoachSettingsPage() {
   const profile = await getCurrentProfile();
@@ -23,7 +23,7 @@ export default async function AiCoachSettingsPage() {
         description="Same LangGraph + Claude flow patients get, running against your own admin profile. Each message is a real Claude API call, so it's billed the same as a patient conversation. Use the controls below to grant it to specific patients or open it to everyone once you're ready."
       />
       <AccessRulesManager />
-      <PlanCapsManager />
+      <ServiceCapsManager />
       <AiCoachChat patientId={profile.id} />
     </div>
   );

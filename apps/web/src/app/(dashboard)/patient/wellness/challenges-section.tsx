@@ -64,7 +64,7 @@ export function ChallengesSection({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.challenge className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.challenge className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Challenges
         </CardTitle>
         <CardDescription>Time-boxed goals that pay a points bonus when you finish.</CardDescription>

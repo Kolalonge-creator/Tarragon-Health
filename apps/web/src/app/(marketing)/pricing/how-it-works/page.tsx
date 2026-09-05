@@ -2,8 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Section, SectionHeading } from "../../_components/section";
 import { CtaBand } from "../../_components/cta-band";
-import { PhotoBannerHero } from "../../_components/marketing-photo-banner-hero";
-import { MARKETING_MEDIA } from "../../_content/media";
+import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 import {
@@ -33,28 +32,30 @@ export const metadata: Metadata = pageMetadata({
 export const revalidate = 3600;
 
 export default function HowPricingWorksPage() {
-  const { homepage } = MARKETING_MEDIA;
   return (
     <>
-      {/* Full-bleed photo hero, same PhotoBannerHero pattern as the homepage
-          and every product page with a sourced photo (see that component's
-          own header comment for why it must render outside Section). No
-          photo has been sourced specifically for this page yet, so this
-          reuses the homepage's own hero photo rather than falling back to
-          the boxed illustration hero -- still real photography, still
-          within the same max-w-6xl content grid as the rest of the page. */}
-      <PhotoBannerHero
-        eyebrow="Pricing, in detail"
-        title="How pricing works"
-        description="The promise behind every price, why there is nothing to trial, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."
-        primaryHref="/signup"
-        primaryLabel="Get started"
-        secondaryHref={MARKETING_ROUTES.pricing}
-        secondaryLabel="← Back to pricing"
-        imageSrc={homepage.hero.imageSrc ?? ""}
-        imageAlt={homepage.hero.imageAlt ?? ""}
-        imagePosition={homepage.hero.imageFocus}
-      />
+      {/* Text hero, matching its parent /pricing (which has no photo hero
+          either). This page used to borrow the HOMEPAGE's hero photograph
+          because none had been sourced for it -- the same photograph then
+          fronted three separate pages. Borrowing another page's hero is not
+          a fallback; if a photograph is genuinely sourced for this page,
+          swap PhotoBannerHero back in. */}
+      <Section className="pt-20 pb-0">
+        <SectionHeading
+          as="h1"
+          eyebrow="Pricing, in detail"
+          title="How pricing works"
+          description="The promise behind every price, why there is nothing to trial, care vouchers, how we compare to your HMO, and exactly what happens each time you book something."
+        />
+        <div className="flex flex-wrap justify-center gap-3">
+          <Button asChild size="lg">
+            <Link href="/signup">Get started</Link>
+          </Button>
+          <Button asChild variant="outline" size="lg">
+            <Link href={MARKETING_ROUTES.pricing}>Back to pricing</Link>
+          </Button>
+        </div>
+      </Section>
 
       <Section variant="sage">
         <SectionHeading eyebrow="Our promise" title="The No-Hidden-Cost Promise" />

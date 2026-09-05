@@ -654,6 +654,47 @@ export function describe(n: InAppNotification): { text: string; href: string } {
           : `Your period is ${days} days later than expected. Cycles shift for all sorts of reasons.`;
     return { text, href: "/patient/cycle" };
   }
+  if (n.template === "finance_posting_failed") {
+    // From private.finance_record_posting_failure(). A payment landed but its
+    // general-ledger entry did not post, most often because the accounting
+    // period had already been closed. The money is real and the purchase is
+    // active; only the books are short, so this needs an accountant today,
+    // not a clinician now.
+    const code = String(payload.error_code ?? "");
+    return {
+      text:
+        code === "23514"
+          ? "A payment could not be posted to the ledger: its accounting period is closed"
+          : "A payment could not be posted to the ledger and needs a look",
+      href: "/finance/ledger",
+    };
+  }
+  if (n.template === "payment_integrity_flag_raised") {
+    // From private.record_payment_integrity_flag(). An activation was REFUSED
+    // because what was charged did not match what was owed, or because the
+    // event carried no provider reference. The purchase is deliberately still
+    // unactivated, so somebody has paid and is waiting.
+    const flagType = String(payload.flag_type ?? "");
+    return {
+      text:
+        flagType === "amount_mismatch"
+          ? "A payment was refused because the amount did not match what was owed"
+          : "A payment could not be matched to what it was paying for",
+      href: "/finance/reconciliation",
+    };
+  }
+  if (n.template === "payment_reconciliation_flags_open") {
+    // From the daily reconcile-payment-providers cron. Paystack and this
+    // platform disagree about something and nobody has resolved it yet.
+    const count = Number(payload.open_count ?? 0);
+    return {
+      text:
+        count === 1
+          ? "1 payment discrepancy is waiting to be reviewed"
+          : `${count} payment discrepancies are waiting to be reviewed`,
+      href: "/finance/reconciliation",
+    };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 

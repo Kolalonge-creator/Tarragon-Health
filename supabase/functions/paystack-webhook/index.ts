@@ -121,7 +121,30 @@ async function verifySignature(rawBody: string, signatureHeader: string | null):
   );
   const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
   const expected = Array.from(new Uint8Array(mac)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return signatureHeader === expected;
+  return timingSafeEqual(signatureHeader, expected);
+}
+
+/**
+ * Constant-time string comparison for the signature check. `===` on strings
+ * short-circuits at the first differing byte, so the time it takes leaks how
+ * many leading hex characters of a guess were right — enough, in principle,
+ * for an attacker who can replay the same body to walk a valid signature out
+ * one character at a time and forge a charge.success. Practically remote over
+ * the public internet, and the secret is 64 hex characters, but a signature
+ * comparison is the one place where "practically remote" is not the standard
+ * to build to.
+ *
+ * Length is compared first and returned on, which is safe: the length of an
+ * HMAC-SHA512 hex digest is a public constant, not a secret. Everything after
+ * that runs over the full string with no early exit.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 function intervalToMs(interval: string | null): number {

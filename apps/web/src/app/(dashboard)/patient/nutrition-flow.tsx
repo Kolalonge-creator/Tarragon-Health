@@ -167,7 +167,7 @@ function LogMealSection({
                         : "border-charcoal-ink/10 dark:border-night-ink/15 text-charcoal-ink/70 dark:text-night-ink/70 hover:border-charcoal-ink/20 dark:hover:border-night-ink/25",
                     )}
                   >
-                    <Icon className="h-5 w-5" strokeWidth={2} />
+                    <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
                     {MEAL_TYPE_LABELS[t]}
                   </button>
                 );

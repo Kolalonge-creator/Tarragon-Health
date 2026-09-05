@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { ChannelHero } from "./_components/channel-hero";
 import { ContinuityPath } from "./_components/continuity-path";
 import { CtaBand } from "./_components/cta-band";
 import { PhotoBannerHero } from "./_components/marketing-photo-banner-hero";
@@ -19,7 +21,7 @@ import { AnimatedNumber } from "./_components/animated-number";
 import { StepsExplorer } from "./_components/steps-explorer";
 import { StaggeredReveal } from "./_components/staggered-reveal";
 import { HOW_IT_WORKS_STEPS, PREVENTION_CALLOUT, PROOF_STATS, SERVICE_CARDS } from "./_content/services";
-import { getChannelHero } from "./_content/channel-heroes";
+import { DEFAULT_HERO } from "./_content/channel-heroes";
 import { PILLARS, PILLARS_SECTION_COPY } from "./_content/pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
@@ -45,15 +47,17 @@ export const metadata: Metadata = {
   title: { absolute: HOME_TITLE },
 };
 
-export default async function MarketingHomePage({
-  searchParams,
-}: {
-  searchParams: Promise<{ channel?: string }>;
-}) {
+/**
+ * ISR, not per-request rendering. The only live data on this page is the
+ * testimonials block (anon key, published rows only), and an hour-stale
+ * quote is fine; docs/MARKETING_SITE_SPEC.md §4 requires marketing pages to
+ * be static or ISR.
+ */
+export const revalidate = 3600;
+
+export default async function MarketingHomePage() {
   const { homepage } = MARKETING_MEDIA;
   const { walkthroughVideo } = homepage;
-  const { channel } = await searchParams;
-  const hero = getChannelHero(channel);
 
   return (
     <>
@@ -69,18 +73,28 @@ export default async function MarketingHomePage({
           heroes.ts); everything below the fold is the same page for every
           visitor. An unknown or missing value falls back to the copy every
           other visitor sees. */}
-      <PhotoBannerHero
-        eyebrow={hero.eyebrow}
-        title={hero.title}
-        description={hero.description}
-        primaryHref={hero.primaryHref}
-        primaryLabel={hero.primaryLabel}
-        secondaryHref={hero.secondaryHref}
-        secondaryLabel={hero.secondaryLabel}
-        imageSrc={homepage.hero.imageSrc ?? ""}
-        imageAlt={homepage.hero.imageAlt ?? ""}
-        imagePosition={homepage.hero.imageFocus}
-      />
+      <Suspense
+        fallback={
+          <PhotoBannerHero
+            eyebrow={DEFAULT_HERO.eyebrow}
+            title={DEFAULT_HERO.title}
+            description={DEFAULT_HERO.description}
+            primaryHref={DEFAULT_HERO.primaryHref}
+            primaryLabel={DEFAULT_HERO.primaryLabel}
+            secondaryHref={DEFAULT_HERO.secondaryHref}
+            secondaryLabel={DEFAULT_HERO.secondaryLabel}
+            imageSrc={homepage.hero.imageSrc ?? ""}
+            imageAlt={homepage.hero.imageAlt ?? ""}
+            imagePosition={homepage.hero.imageFocus}
+          />
+        }
+      >
+        <ChannelHero
+          imageSrc={homepage.hero.imageSrc ?? ""}
+          imageAlt={homepage.hero.imageAlt ?? ""}
+          imagePosition={homepage.hero.imageFocus}
+        />
+      </Suspense>
       <Section className="py-8 sm:py-10">
         <ContinuityPath />
         <div className="mt-10 grid gap-4 rounded-2xl border border-charcoal-ink/10 bg-white p-4 shadow-sm sm:grid-cols-2 sm:p-6 lg:grid-cols-4">
@@ -94,9 +108,13 @@ export default async function MarketingHomePage({
                 <p className="font-heading text-3xl font-bold text-brand-green">
                   <AnimatedNumber value={stat.value} />
                 </p>
-                <h2 className="mt-1 font-heading text-sm font-semibold uppercase tracking-wide text-charcoal-ink">
+                {/* Deliberately not a heading. These four stat labels used to
+                    be <h2>s, which put "priority programmes" / "escalation
+                    levels" ahead of the page's first real section heading in
+                    every outline and screen-reader heading list. */}
+                <p className="mt-1 font-heading text-sm font-semibold uppercase tracking-wide text-charcoal-ink">
                   {stat.label}
-                </h2>
+                </p>
                 <p className="mt-2 text-sm text-charcoal-ink/65">{stat.detail}</p>
               </CardContent>
             </Card>
@@ -223,14 +241,21 @@ export default async function MarketingHomePage({
         </p>
       </Section>
 
-      <Section variant="sage">
-        <MarketingVideo
-          youtubeId={walkthroughVideo.youtubeId}
-          title={walkthroughVideo.title}
-          caption={walkthroughVideo.caption}
-          poster={walkthroughVideo.poster}
-        />
-      </Section>
+      {/* Same rule the product pages already follow (see PRODUCT_VIDEOS in
+          _content/media.ts: "empty youtubeId = section not rendered"). The
+          homepage was the one exception, shipping a play button that opened a
+          tap-through mockup captioned "Full video walkthrough coming soon" as
+          a live section. Set walkthroughVideo.youtubeId to bring it back. */}
+      {walkthroughVideo.youtubeId.trim() ? (
+        <Section variant="sage">
+          <MarketingVideo
+            youtubeId={walkthroughVideo.youtubeId}
+            title={walkthroughVideo.title}
+            caption={walkthroughVideo.caption}
+            poster={walkthroughVideo.poster}
+          />
+        </Section>
+      ) : null}
 
       {/* The "beyond the numbers" habit framing (competitive-teardown addition,
           2026-08-20): five daily-habit areas keyed 1:1 to the Lifestyle

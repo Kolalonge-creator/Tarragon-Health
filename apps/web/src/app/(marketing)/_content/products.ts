@@ -177,7 +177,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Preventive Health",
       description:
-        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and education, with doctor follow-up within a day if a result needs attention.",
+        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and doctor follow-up if a result needs attention.",
     },
   },
   medication: {

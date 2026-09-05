@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
     ...pageMetadata({
       title: "Our impact",
       description:
-        "Platform-wide numbers on what TarragonHealth's monitoring and doctor review actually catches, updated daily, with small numbers held back to protect patient privacy.",
+        "Platform-wide numbers on what our monitoring and doctor review actually catches, updated daily, with small counts held back to protect patient privacy.",
       path: MARKETING_ROUTES.impact,
     }),
     ...(anyVisible ? {} : { robots: { index: false, follow: true } }),

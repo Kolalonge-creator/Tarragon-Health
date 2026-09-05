@@ -4,6 +4,12 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { LoadFailure } from "@/components/ui/load-failure";
+import {
+  compareSafeguardingConcerns,
+  safeguardingCategoryVariant,
+} from "@/lib/worklist/safeguarding-rank";
+import { timeAgo } from "@/lib/worklist/sla-label";
+import Link from "next/link";
 import { ResolveSafeguardingConcernForm } from "./resolve-form";
 
 const CONCERN_CATEGORY_LABEL: Record<string, string> = {
@@ -29,6 +35,15 @@ const STATUS_BADGE: Record<string, { label: string; variant: "amber" | "grey" | 
   closed: { label: "Closed", variant: "grey" },
 };
 
+/** Open work vs the whole register. Plain links, since this is a Server
+ * Component and the view belongs in the URL. */
+const VIEWS = [
+  { value: "open", label: "Open and under review" },
+  { value: "all", label: "All, including closed" },
+] as const;
+
+type ConcernView = (typeof VIEWS)[number]["value"];
+
 /**
  * Safeguarding worklist (spec §49.11), reading the shared, general Patient
  * Safety safeguarding_concerns table (§89,
@@ -46,7 +61,13 @@ const STATUS_BADGE: Record<string, { label: string; variant: "amber" | "grey" | 
  * (canReviewSafeguardingConcern mirrors the DB trigger that actually
  * enforces this — private.enforce_safeguarding_concern_attribution).
  */
-export default async function SafeguardingPage() {
+export default async function SafeguardingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
+  const requestedView = (await searchParams).view;
+  const view: ConcernView = requestedView === "all" ? "all" : "open";
   const staff = await getCurrentClinicalStaff();
   const canResolve = canReviewSafeguardingConcern(staff);
 
@@ -58,6 +79,14 @@ export default async function SafeguardingPage() {
     )
     .order("created_at", { ascending: false })
     .limit(50);
+
+  // The fetch order (newest first, closed interleaved with open) is not a
+  // triage order. Rank open work first, most severe category first, oldest
+  // first within that — an old open immediate-safety-risk is the row that
+  // must be at the top, not whatever was filed most recently.
+  const ranked = (concerns ?? []).slice().sort(compareSafeguardingConcerns);
+  const openCount = ranked.filter((c) => c.status !== "closed").length;
+  const visible = view === "all" ? ranked : ranked.filter((c) => c.status !== "closed");
 
   return (
     <div className="space-y-6">
@@ -71,10 +100,35 @@ export default async function SafeguardingPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Concerns</CardTitle>
-          <CardDescription>Most recent first, including closed cases.</CardDescription>
+          <CardTitle>Concerns{concernsError ? "" : ` (${openCount} open)`}</CardTitle>
+          <CardDescription>
+            Open work first, most serious category first, oldest first within that. Closed cases
+            sit behind the open ones.
+          </CardDescription>
         </CardHeader>
         <CardContent>
+          {!concernsError && ranked.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {VIEWS.map((option) => (
+                <Link
+                  key={option.value}
+                  href={
+                    option.value === "open"
+                      ? "/clinician/safeguarding"
+                      : `/clinician/safeguarding?view=${option.value}`
+                  }
+                  aria-current={view === option.value ? "page" : undefined}
+                  className={
+                    view === option.value
+                      ? "rounded-full border border-brand-green bg-brand-green/10 px-3 py-1 text-xs font-medium text-deep-forest"
+                      : "rounded-full border border-charcoal-ink/20 px-3 py-1 text-xs text-charcoal-ink/70 hover:border-brand-green"
+                  }
+                >
+                  {option.label} ({option.value === "open" ? openCount : ranked.length})
+                </Link>
+              ))}
+            </div>
+          )}
           {/* A swallowed error here used to render "No safeguarding concerns
               on file." — a false all-clear on the child-safety and
               vulnerable-adult queue, the highest-consequence one on the
@@ -85,18 +139,28 @@ export default async function SafeguardingPage() {
               keeps failing, raise it with the platform team before assuming there is nothing open.
             </LoadFailure>
           )}
-          {!concernsError && (!concerns || concerns.length === 0) && (
+          {!concernsError && ranked.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">No safeguarding concerns on file.</p>
           )}
-          {!concernsError && concerns && concerns.length > 0 && (
+          {!concernsError && ranked.length > 0 && visible.length === 0 && (
+            <p className="text-sm text-charcoal-ink/60">
+              Nothing open. Choose &ldquo;All, including closed&rdquo; to see the register.
+            </p>
+          )}
+          {!concernsError && visible.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
-              {concerns.map((concern) => {
+              {visible.map((concern) => {
                 const statusBadge = STATUS_BADGE[concern.status] ?? { label: concern.status, variant: "grey" as const };
                 const isOpen = concern.status === "open" || concern.status === "under_review";
                 return (
                   <li key={concern.id} className="space-y-2 py-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="red">
+                      {/* Not red on every row: red on everything reads the
+                          same as red on nothing. Only the categories that mean
+                          somebody may be in danger right now carry it. */}
+                      <Badge
+                        variant={safeguardingCategoryVariant(concern.concern_category, concern.status)}
+                      >
                         {CONCERN_CATEGORY_LABEL[concern.concern_category] ?? concern.concern_category}
                       </Badge>
                       <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
@@ -106,11 +170,13 @@ export default async function SafeguardingPage() {
                         </span>
                       )}
                       <span className="text-xs text-charcoal-ink/60">
+                        Raised {timeAgo(concern.created_at)} (
                         {new Date(concern.created_at).toLocaleDateString("en-GB", {
                           day: "numeric",
                           month: "short",
                           year: "numeric",
                         })}
+                        )
                       </span>
                     </div>
                     <p className="text-sm font-medium text-charcoal-ink">
@@ -130,7 +196,14 @@ export default async function SafeguardingPage() {
                       </p>
                     )}
                     {isOpen && (
-                      <ResolveSafeguardingConcernForm concernId={concern.id} canResolve={canResolve} />
+                      <ResolveSafeguardingConcernForm
+                        concernId={concern.id}
+                        canResolve={canResolve}
+                        patientName={concern.patient?.full_name ?? "Unknown patient"}
+                        categoryLabel={
+                          CONCERN_CATEGORY_LABEL[concern.concern_category] ?? concern.concern_category
+                        }
+                      />
                     )}
                   </li>
                 );

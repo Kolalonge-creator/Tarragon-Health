@@ -69,7 +69,7 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.challenge className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.challenge className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your goals
         </CardTitle>
         {!addingGoal && (
@@ -140,7 +140,7 @@ export function GoalsAndMilestonesCard({ patientId }: { patientId: string }) {
             <ul className="space-y-1.5">
               {milestones.data!.map((m) => (
                 <li key={m.id} className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
-                  <SEMANTIC_ICON.badge className="h-4 w-4 shrink-0 text-sprout-gold" strokeWidth={2} />
+                  <SEMANTIC_ICON.badge className="h-4 w-4 shrink-0 text-sprout-gold" strokeWidth={2} aria-hidden />
                   <span>{MILESTONE_COPY[m.milestone_type] ?? m.milestone_type.replace(/_/g, " ")}</span>
                   <span className="ml-auto shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                     {formatPatientDate(m.achieved_at, { month: "short", day: "numeric" })}

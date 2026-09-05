@@ -27,8 +27,16 @@ function SectionHeading({ children }: { children: ReactNode }) {
  * already-RLS'd components/queries: ConditionsList/AllergiesList are the
  * only genuinely new reads on this page (patient_conditions/
  * patient_allergies had no reader anywhere in the app before this) --
- * everything else reuses an existing, self-hiding card, or links out to its
- * own dedicated page rather than rebuilding it here.
+ * everything else reuses an existing card, or links out to its own dedicated
+ * page rather than rebuilding it here.
+ *
+ * Those cards self-hide when empty, which is right where they sit among
+ * other content but wrong here: this page heads each one itself, so a new
+ * patient met six headings with nothing under any of them and no way to tell
+ * an empty record from a half-finished page. Each now takes an `emptyHint`
+ * and answers its own heading with one muted line. The two that already
+ * carry their own empty state (AllergiesList, VitalsTrendChart) are left
+ * alone, and Medications is a static link card that is never empty.
  */
 export default async function HealthSummaryPage() {
   const { subjectId } = await getPatientDashboardContext();
@@ -43,7 +51,10 @@ export default async function HealthSummaryPage() {
 
       <div className="space-y-3">
         <SectionHeading>Conditions</SectionHeading>
-        <ConditionsList patientId={subjectId} />
+        <ConditionsList
+          patientId={subjectId}
+          emptyHint="Nothing on file yet. Your care team adds a condition here once it has been confirmed."
+        />
       </div>
 
       <div className="space-y-3">
@@ -75,7 +86,10 @@ export default async function HealthSummaryPage() {
 
       <div className="space-y-3">
         <SectionHeading>Recent investigations</SectionHeading>
-        <LabResults patientId={subjectId} />
+        <LabResults
+          patientId={subjectId}
+          emptyHint="Nothing on file yet. Results appear here once a lab report has been reviewed."
+        />
         <Link
           href="/patient/labs"
           className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
@@ -86,12 +100,18 @@ export default async function HealthSummaryPage() {
 
       <div className="space-y-3">
         <SectionHeading>Care programmes</SectionHeading>
-        <WeeklyPlanCard patientId={subjectId} />
+        <WeeklyPlanCard
+          patientId={subjectId}
+          emptyHint="You are not on a care programme at the moment. Your weekly plan shows up here when you join one."
+        />
       </div>
 
       <div className="space-y-3">
         <SectionHeading>Appointments</SectionHeading>
-        <CareScheduleCard patientId={subjectId} />
+        <CareScheduleCard
+          patientId={subjectId}
+          emptyHint="Nothing booked yet. Anything coming up shows here."
+        />
         <Link
           href="/patient/appointments"
           className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
@@ -102,13 +122,19 @@ export default async function HealthSummaryPage() {
 
       <div className="space-y-3">
         <SectionHeading>Referrals</SectionHeading>
-        <YourReferrals patientId={subjectId} />
+        <YourReferrals
+          patientId={subjectId}
+          emptyHint="No specialist referrals on file yet."
+        />
         <BariatricReferralStatus patientId={subjectId} />
       </div>
 
       <div className="space-y-3">
         <SectionHeading>Preventive tasks</SectionHeading>
-        <PreventionCompletionCard patientId={subjectId} />
+        <PreventionCompletionCard
+          patientId={subjectId}
+          emptyHint="Nothing outstanding yet. Fill in your health profile and your screening and vaccination calendar appears here."
+        />
       </div>
     </div>
   );

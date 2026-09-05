@@ -118,21 +118,21 @@ export function AtAGlancePanel({ patientId }: { patientId: string }) {
         <div className="grid gap-3 sm:grid-cols-3">
           <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <div className="flex items-center gap-2 text-charcoal-ink/60 dark:text-night-ink/60">
-              <SEMANTIC_ICON.weight className="h-4 w-4" strokeWidth={2} />
+              <SEMANTIC_ICON.weight className="h-4 w-4" strokeWidth={2} aria-hidden />
               <span className="text-xs">Weight</span>
             </div>
             <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{weightLine}</p>
           </div>
           <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <div className="flex items-center gap-2 text-charcoal-ink/60 dark:text-night-ink/60">
-              <SEMANTIC_ICON.steps className="h-4 w-4" strokeWidth={2} />
+              <SEMANTIC_ICON.steps className="h-4 w-4" strokeWidth={2} aria-hidden />
               <span className="text-xs">Activity</span>
             </div>
             <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{stepsLine}</p>
           </div>
           <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <div className="flex items-center gap-2 text-charcoal-ink/60 dark:text-night-ink/60">
-              <NAV_ICON.wellness className="h-4 w-4" strokeWidth={2} />
+              <NAV_ICON.wellness className="h-4 w-4" strokeWidth={2} aria-hidden />
               <span className="text-xs">Rewards</span>
             </div>
             <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">
@@ -147,7 +147,7 @@ export function AtAGlancePanel({ patientId }: { patientId: string }) {
               href={href}
               className="flex flex-col gap-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4 transition-colors hover:border-brand-green hover:bg-soft-sage dark:hover:bg-brand-green/20"
             >
-              <Icon className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+              <Icon className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
               <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{label}</span>
               <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{description}</span>
             </Link>

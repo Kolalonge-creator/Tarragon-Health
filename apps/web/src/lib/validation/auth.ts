@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { E164_GENERIC } from "@tarragon/shared";
+import { PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE } from "./password";
 
 export const emailLoginSchema = z.object({
   email: z.email(),
-  password: z.string().min(8, "Password must be at least 8 characters"),
+  password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
 });
 export type EmailLoginInput = z.infer<typeof emailLoginSchema>;
 
@@ -44,8 +45,8 @@ export type MfaCodeInput = z.infer<typeof mfaCodeSchema>;
 
 export const newPasswordSchema = z
   .object({
-    password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z.string().min(8, "Password must be at least 8 characters"),
+    password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
+    confirmPassword: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -104,7 +105,7 @@ export const signupSchema = z
       .nullish()
       .catch(undefined)
       .transform((v) => v ?? undefined),
-    password: z.string().min(8, "Password must be at least 8 characters"),
+    password: z.string().min(PASSWORD_MIN_LENGTH, PASSWORD_TOO_SHORT_MESSAGE),
   })
   .transform((data) => ({
     ...data,

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -17,21 +16,19 @@ export default async function AlcoholPage() {
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
   return (
-    <DashboardPlaceholder greeting="Alcohol" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.alcohol}>
-      <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-          ← Back to lifestyle coaching
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        Track how much you&apos;re drinking and set a goal to cut back, at your own pace.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Alcohol"
+        icon={SEMANTIC_ICON.alcohol}
+        backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
+        description="Track how much you're drinking and set a goal to cut back, at your own pace."
+      />
       <RequiresEntitlement
         feature="lifestyle_coaching"
         fallback={<UpgradePrompt feature="lifestyle_coaching" />}
       >
         <AlcoholClient patientId={profile.id} />
       </RequiresEntitlement>
-    </DashboardPlaceholder>
+    </div>
   );
 }

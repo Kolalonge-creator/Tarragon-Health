@@ -59,7 +59,7 @@ function OrderDispenses({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+          className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
           onClick={() => setOpen(true)}
         >
           Record what you collected

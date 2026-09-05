@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { NAV_ICON } from "@/lib/icons";
 import { careMessageCategories, type CareMessageCategory } from "@/lib/validation/care-messages";
 
@@ -70,11 +71,15 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
           setComposing(false);
           setOpenId(id);
         },
-        onError: (err) => setError(err instanceof Error ? err.message : "Couldn't start"),
+        // Was `err.message`, i.e. the raw PostgREST string, under the Send
+        // button. Nothing in it is actionable for a patient.
+        onError: () =>
+          setError("We could not send that just then. Please try again."),
       },
     );
   };
 
+  const composeErrorId = fieldErrorId("care-message");
   const openThread = (threads ?? []).find((t) => t.id === openId) ?? null;
   /* Phones get one pane at a time — the list, or the conversation you picked,
      with a way back. Two panes side by side needs about 600px; inside a
@@ -105,7 +110,11 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
           </Button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {isLoading && <p className="p-4 text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+          {isLoading && (
+            <p role="status" className="p-4 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+              Loading…
+            </p>
+          )}
           {!isLoading && (!threads || threads.length === 0) && (
             <p className="p-4 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               No messages yet. Start a conversation with your care team.
@@ -163,7 +172,15 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   onChange={(e) => setSubject(e.target.value)}
                   placeholder="e.g. Question about my medication"
                   maxLength={150}
+                  required
+                  {...fieldErrorProps(composeErrorId, Boolean(error), "care-message-subject-hint")}
                 />
+                <p
+                  id="care-message-subject-hint"
+                  className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
+                >
+                  At least three characters, so your care team can see what it is about.
+                </p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="category">What&apos;s this about?</Label>
@@ -188,6 +205,8 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   onChange={(e) => setBody(e.target.value)}
                   rows={5}
                   maxLength={4000}
+                  required
+                  {...fieldErrorProps(composeErrorId, Boolean(error))}
                 />
               </div>
               <div className="flex items-center gap-3">
@@ -198,7 +217,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                 >
                   {start.isPending ? "Sending…" : "Send"}
                 </Button>
-                {error && <span className="text-sm text-red-600 dark:text-red-300">{error}</span>}
+                <FormError id={composeErrorId} message={error} />
               </div>
             </div>
           </div>

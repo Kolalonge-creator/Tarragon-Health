@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
 import type { Enums } from "@tarragon/shared";
 
 const CARE_PLAN_STATUSES: Enums<"care_plan_status">[] = [
@@ -45,6 +46,13 @@ function ProgrammeEnrolments({ patientId }: { patientId: string }) {
   const { data: enrolments } = useChronicEnrolments(patientId);
   const enrol = useEnrolChronicProgramme();
   const withdraw = useWithdrawChronicEnrolment();
+  // Withdrawing ends the patient's place on a doctor-supported programme and
+  // stops its scheduled check-ins. It fired on one click, and a failure was
+  // rendered nowhere at all, so a withdrawal that silently did not happen
+  // looked exactly like one that did.
+  const [confirmingWithdraw, setConfirmingWithdraw] = useState<
+    { enrolmentId: string; programmeName: string } | null
+  >(null);
 
   return (
     <div>
@@ -64,7 +72,12 @@ function ProgrammeEnrolments({ patientId }: { patientId: string }) {
                     size="sm"
                     variant="outline"
                     disabled={withdraw.isPending}
-                    onClick={() => withdraw.mutate({ enrolmentId: enrolment.id, patientId })}
+                    onClick={() =>
+                      setConfirmingWithdraw({
+                        enrolmentId: enrolment.id,
+                        programmeName: programme.name,
+                      })
+                    }
                   >
                     Withdraw
                   </Button>
@@ -90,6 +103,34 @@ function ProgrammeEnrolments({ patientId }: { patientId: string }) {
           {(enrol.error as Error)?.message ?? "Could not enrol this patient."}
         </p>
       )}
+      {/* Previously unrendered: a failed withdrawal left the row looking
+          exactly as it did before, with no way to tell the write had not
+          landed. */}
+      {withdraw.isError && (
+        <p className="mt-1 text-xs text-red-600">
+          {(withdraw.error as Error)?.message ??
+            "Could not withdraw this patient. They are still enrolled."}
+        </p>
+      )}
+
+      <ConfirmDialog
+        open={confirmingWithdraw !== null}
+        title="Withdraw this patient from the programme?"
+        description="Their place on the programme ends and its scheduled check-ins and tasks stop. Re-enrolling later starts a new enrolment rather than resuming this one."
+        confirmLabel="Withdraw from programme"
+        cancelLabel="Keep them enrolled"
+        destructive
+        onConfirm={() => {
+          const target = confirmingWithdraw;
+          setConfirmingWithdraw(null);
+          if (target) withdraw.mutate({ enrolmentId: target.enrolmentId, patientId });
+        }}
+        onCancel={() => setConfirmingWithdraw(null)}
+      >
+        <ConfirmDialogFacts
+          rows={[{ label: "Programme", value: confirmingWithdraw?.programmeName ?? "" }]}
+        />
+      </ConfirmDialog>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Devices that work well with Tarragon",
   description:
-    "You never need to buy a device: every reading can be logged in the app in seconds. If you'd like one, these well-regarded BP monitors, scales and glucometers share readings through Apple Health or Health Connect.",
+    "You never need to buy a device: typing a reading takes seconds and is free. If you want one, these BP monitors, scales and glucometers work well with us.",
   path: MARKETING_ROUTES.devices,
 });
 

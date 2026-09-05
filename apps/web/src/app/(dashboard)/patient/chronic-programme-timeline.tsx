@@ -138,7 +138,7 @@ function CheckinBooker({
               <Button
                 size="sm"
                 variant="outline"
-                className="ml-auto h-7 px-2 text-xs"
+                className="ml-auto min-h-11 px-2 text-xs"
                 disabled={isBooking}
                 onClick={() => bookSlot(slot)}
               >
@@ -148,7 +148,7 @@ function CheckinBooker({
           ))}
         </ul>
       )}
-      <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={() => setOpen(false)}>
+      <Button size="sm" variant="ghost" className="min-h-11 px-2 text-xs" onClick={() => setOpen(false)}>
         Cancel
       </Button>
     </div>

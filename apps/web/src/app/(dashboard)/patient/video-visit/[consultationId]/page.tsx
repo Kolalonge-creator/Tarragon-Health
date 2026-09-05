@@ -1,8 +1,8 @@
 import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { VideoVisitWaitingRoom } from "./waiting-room";
 
 export default async function VideoVisitWaitingRoomPage({
@@ -29,13 +29,14 @@ export default async function VideoVisitWaitingRoomPage({
   }
 
   return (
-    <DashboardPlaceholder greeting="Video visit" roleLabel="Patient" comingUp={[]}>
-      <div className="flex justify-end">
-        <Link href="/patient" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-          ← Back to dashboard
-        </Link>
-      </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Video visit"
+        icon={SEMANTIC_ICON.clinicianFollowUp}
+        backTo={{ href: "/patient", label: "Dashboard" }}
+        description="Join from here when it is time. Your care team will let you in."
+      />
       <VideoVisitWaitingRoom consultationId={consultationId} patientId={profile.id} />
-    </DashboardPlaceholder>
+    </div>
   );
 }

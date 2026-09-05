@@ -35,8 +35,8 @@ export function FinanceOverview() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         This is the platform&apos;s live double-entry general ledger. Payments, refunds, voucher
-        top-ups and commissions post automatically; subscription revenue is deferred and recognised
-        over each billing period. Figures below are NGN; diaspora currencies are shown per statement.
+        top-ups and commissions post automatically; a service bought up front is deferred until it
+        is delivered. All figures are NGN through Paystack, the only live payment provider.
       </p>
 
       {flagCount > 0 && (

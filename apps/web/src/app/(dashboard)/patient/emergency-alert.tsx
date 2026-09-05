@@ -7,6 +7,7 @@ import { useActiveEmergency, activeEmergencyKey } from "@/lib/queries/emergency"
 import { acknowledgeEmergency, alertEmergencyContactNow } from "./actions";
 import { Button } from "@/components/ui/button";
 import { getEmergencyNumbers } from "@/lib/nigeria-emergency-numbers";
+import { emergencyHospitalGuidance } from "./emergency-guidance";
 
 /**
  * Site-wide emergency alert. Whenever the patient has an active, un-acknowledged
@@ -152,10 +153,17 @@ export function EmergencyAlert({
 
           <div className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-500/15 p-4 text-sm text-red-800 dark:text-red-300">
             <Hospital className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
-            <p>
-              Go to the nearest hospital&apos;s emergency department. Don&apos;t wait for a reply from
-              your care team; your care team has also been notified and will follow up.
-            </p>
+            {/* Whether a clinician was actually paged is carried by the
+                event itself: private.handle_emergency_event sets
+                clinician_alert_id only when the patient holds the
+                vitals_red_flag_doctor_escalation entitlement, and leaves it
+                null on the free tier, where no clinician_alerts row is
+                created and nobody is paged (CLAUDE.md, 2026-08-10). The
+                hospital guidance below is plan-independent and always true;
+                the care-team half is not, and mid-emergency is the worst
+                place on the platform to tell someone a doctor is coming when
+                none has been told. */}
+            <p>{emergencyHospitalGuidance(event.clinician_alert_id)}</p>
           </div>
 
           {event.trigger_detail && (

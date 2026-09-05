@@ -74,7 +74,7 @@ export function AppointmentPrepHelper({
                 type="button"
                 size="sm"
                 variant="outline"
-                className="h-6 shrink-0 px-2 text-xs"
+                className="min-h-11 shrink-0 px-2 text-xs"
                 disabled={added.has(question)}
                 onClick={() => {
                   onAddToNotes(question);

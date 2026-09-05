@@ -87,7 +87,7 @@ export default async function PatientActionsPage() {
       {isFullyEmpty && (
         <Card>
           <CardContent className="flex items-center gap-3 py-6">
-            <SEMANTIC_ICON.preventive className="h-5 w-5 shrink-0 text-brand-green dark:text-brand-green-bright" strokeWidth={2} />
+            <SEMANTIC_ICON.preventive className="h-5 w-5 shrink-0 text-brand-green dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               You&apos;re all caught up. Nothing outstanding right now. Keep logging readings and
               we&apos;ll flag anything that needs your attention.
@@ -99,8 +99,8 @@ export default async function PatientActionsPage() {
       {buckets.highPriority.length > 0 && (
         <Card className="border-red-200 dark:border-red-500/30 bg-red-50/40 dark:bg-red-500/10">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base text-red-800 dark:text-red-300">
-              <SEMANTIC_ICON.escalation className="h-5 w-5" strokeWidth={2} />
+            <CardTitle as="h2" className="flex items-center gap-2 text-base text-red-800 dark:text-red-300">
+              <SEMANTIC_ICON.escalation className="h-5 w-5" strokeWidth={2} aria-hidden />
               High priority
             </CardTitle>
           </CardHeader>
@@ -128,7 +128,7 @@ export default async function PatientActionsPage() {
       {buckets.dueThisWeek.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Due this week</CardTitle>
+            <CardTitle as="h2" className="text-base">Due this week</CardTitle>
           </CardHeader>
           <CardContent>
             <ActionList items={buckets.dueThisWeek} />
@@ -139,7 +139,7 @@ export default async function PatientActionsPage() {
       {buckets.upcoming.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Upcoming</CardTitle>
+            <CardTitle as="h2" className="text-base">Upcoming</CardTitle>
           </CardHeader>
           <CardContent>
             <ActionList items={buckets.upcoming} />

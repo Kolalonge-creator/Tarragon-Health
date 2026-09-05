@@ -13,7 +13,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
-    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. We say what to get and why, you use any lab you like, and a doctor reads the result with you.",
+    "One day a year for your health: bloods, blood pressure, BMI and the screening that fits your age and sex. Use any lab you like, a doctor reads it.",
   path: MARKETING_ROUTES.annualHealthCheck,
 });
 

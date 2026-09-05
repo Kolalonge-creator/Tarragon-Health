@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { EmptyHint } from "@/components/ui/empty-hint";
 import { RoutineProfilePrompt } from "@/app/(dashboard)/patient/routine-profile-prompt";
 
 /** A 14-day dot trend, oldest-first (today last) — unlike a bare streak
@@ -75,13 +76,22 @@ function GoalRow({ goal, patientId }: { goal: WeeklyPlanGoal; patientId: string 
   );
 }
 
-export function WeeklyPlanCard({ patientId }: { patientId: string }) {
+export function WeeklyPlanCard({
+  patientId,
+  emptyHint,
+}: {
+  patientId: string;
+  emptyHint?: string;
+}) {
   const { data: plan, isLoading } = useWeeklyPlan(patientId);
 
   // No active lifestyle enrolment: nothing to show, same "render nothing"
   // pattern as CareScheduleCard when there's nothing due — this card is
   // additive, never a forced universal habit tracker for every patient.
-  if (isLoading || !plan || plan.goals.length === 0) return null;
+  // A caller that has already put a heading above this one (Health summary)
+  // passes `emptyHint` so that heading is answered instead of left bare.
+  if (isLoading) return null;
+  if (!plan || plan.goals.length === 0) return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
 
   // Adaptive, not a flat list: the goal most needing attention (a raised
   // miss streak, then any recent miss) leads, matching the "start here"
@@ -93,7 +103,7 @@ export function WeeklyPlanCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your weekly plan
         </CardTitle>
         {plan.totalToday > 0 && (

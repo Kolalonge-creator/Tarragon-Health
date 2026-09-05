@@ -191,3 +191,56 @@ describe("supporter default-deny gate", () => {
     expect(res.status).toBe(200);
   });
 });
+
+describe("marketing pages on the app host", () => {
+  // Every public page was reachable and crawlable on app.* as well as the root
+  // domain: a duplicate of the whole marketing site, saved from an indexing
+  // penalty only by the canonical tags.
+  it("redirects a marketing path on app.* to the root domain, permanently", async () => {
+    stubSession({ user: null, profile: null });
+    const res = await proxy(request("/pricing"));
+
+    expect(res.status).toBe(308);
+    const location = new URL(res.headers.get("location") as string);
+    expect(location.hostname).toBe("tarragonhealth.ng");
+    expect(location.pathname).toBe("/pricing");
+  });
+
+  it("keeps the port, so app.localhost:3000 goes to localhost:3000 in development", async () => {
+    stubSession({ user: null, profile: null });
+    const res = await proxy(
+      new NextRequest(new URL("/pricing", "http://app.localhost:3000"), {
+        headers: { host: "app.localhost:3000" },
+      })
+    );
+
+    expect(res.status).toBe(308);
+    const location = new URL(res.headers.get("location") as string);
+    expect(location.hostname).toBe("localhost");
+    expect(location.port).toBe("3000");
+  });
+
+  it("still resolves / on the app host to the role home rather than redirecting off it", async () => {
+    // "/" is a legitimate platform entry point on app.*, which is why the
+    // marketing redirect sits after that branch and excludes it.
+    stubSession({
+      user: { id: "u1" },
+      profile: { role: "patient", custom_role_id: null, receives_care: true },
+    });
+    const res = await proxy(request("/"));
+
+    expect(res.status).toBe(307);
+    expect(new URL(res.headers.get("location") as string).pathname).toBe("/patient");
+  });
+
+  it("leaves a platform path on the app host alone", async () => {
+    stubSession({ user: null, profile: null });
+    const res = await proxy(request("/patient/vitals"));
+
+    // Bounced to login because there is no session, NOT redirected to the
+    // root domain.
+    const location = res.headers.get("location");
+    expect(location).not.toBeNull();
+    expect(new URL(location as string).hostname).toBe("app.tarragonhealth.ng");
+  });
+});

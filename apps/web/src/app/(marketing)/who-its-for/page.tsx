@@ -2,39 +2,54 @@ import type { Metadata } from "next";
 import { AudienceTabs } from "../_components/audience-tabs";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
-import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
+import { MarketingHero } from "../_components/marketing-hero";
 import { Section } from "../_components/section";
 import { AUDIENCE_TABS } from "../_content/services";
 import { MARKETING_MEDIA } from "../_content/media";
+import { Button } from "@/components/ui/button";
+import Link from "next/link";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export const metadata: Metadata = pageMetadata({
   title: "Who it's for",
   description:
-    "TarragonHealth is built for individuals managing their health, families looking after a parent, employers, and HMOs.",
+    "Pick your starting point: managing your own health, staying well, looking after a parent, running a workforce, or covering an HMO membership.",
   path: MARKETING_ROUTES.whoItsFor,
 });
 
 export default function WhoItsForPage() {
   return (
     <>
-      {/* Rendered outside Section on purpose — full-bleed spans the full
-          viewport width; see marketing-photo-banner-hero.tsx's header comment. */}
-      <PhotoBannerHero
-        eyebrow="Who it's for"
-        title="Whoever you're looking after, Tarragon speaks your language."
-        description="The same connected record works whether you're managing your own health, keeping watch over a parent, or overseeing a whole workforce or membership."
-        primaryHref="/signup"
-        primaryLabel="Get started"
-        secondaryHref={MARKETING_ROUTES.pricing}
-        secondaryLabel="View pricing"
-        imageSrc={MARKETING_MEDIA.pageHero.whoItsFor.imageSrc ?? ""}
-        imageAlt={MARKETING_MEDIA.pageHero.whoItsFor.imageAlt ?? ""}
-        imagePosition={MARKETING_MEDIA.pageHero.whoItsFor.imageFocus}
-      />
+      {/* This page is the audience ROUTER: five doors, each leading to the
+          page that answers that audience properly (individuals to /for-you,
+          families to /parentcare, employers to /corporate, HMOs to /hmo).
+          It deliberately does not restate what /for-you says at length. */}
+      <Section className="pt-20">
+        <MarketingHero media={MARKETING_MEDIA.pageHero.whoItsFor}>
+          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+            Who it&apos;s for
+          </p>
+          <h1 className="mt-2 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
+            Find your starting point
+          </h1>
+          <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+            Five people arrive here for five different reasons. Pick the one that sounds like
+            you, and we will take you to the page written for it. The same connected record sits
+            underneath all of them.
+          </p>
+          <div className="mt-7 flex flex-wrap justify-center gap-3 lg:justify-start">
+            <Button asChild size="lg">
+              <Link href={MARKETING_ROUTES.forYou}>I&apos;m here for myself</Link>
+            </Button>
+            <Button asChild variant="outline" size="lg">
+              <Link href={MARKETING_ROUTES.pricing}>View pricing</Link>
+            </Button>
+          </div>
+        </MarketingHero>
+      </Section>
 
-      <Section className="pt-14">
+      <Section className="pt-2">
         <AudienceTabs tabs={AUDIENCE_TABS} />
       </Section>
 

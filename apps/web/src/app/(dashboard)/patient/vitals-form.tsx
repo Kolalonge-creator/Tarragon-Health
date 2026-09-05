@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 type KetoneKind = "blood" | "urine";
 
@@ -42,6 +43,14 @@ export function VitalsForm({
   const formRef = useRef<HTMLFormElement>(null);
   const confirmedRef = useRef(false);
   const [crosscheck, setCrosscheck] = useState<VitalCrosscheck | null>(null);
+
+  // The action returns one message for the reading as a whole rather than a
+  // per-field one, so every reading input for the selected type points at the
+  // same alert and is marked invalid together. Announcing it at all is the
+  // change that matters: before this, a rejected reading was inserted silently
+  // below the button and a screen-reader user got no feedback whatsoever.
+  const errorId = fieldErrorId("vitals-form");
+  const readingErrorProps = fieldErrorProps(errorId, Boolean(state?.error));
 
   useEffect(() => {
     if (state?.success) {
@@ -113,11 +122,11 @@ export function VitalsForm({
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="systolic">Systolic (mmHg)</Label>
-                <Input id="systolic" name="systolic" type="number" required />
+                <Input id="systolic" name="systolic" type="number" required {...readingErrorProps} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="diastolic">Diastolic (mmHg)</Label>
-                <Input id="diastolic" name="diastolic" type="number" required />
+                <Input id="diastolic" name="diastolic" type="number" required {...readingErrorProps} />
               </div>
             </div>
           )}
@@ -134,6 +143,11 @@ export function VitalsForm({
                     step={glucoseUnit === "mmol_l" ? "0.1" : "1"}
                     required
                     className="flex-1"
+                    {...fieldErrorProps(
+                      errorId,
+                      Boolean(state?.error),
+                      "glucose-unit-hint"
+                    )}
                   />
                   <input type="hidden" name="glucose_unit" value={glucoseUnit} />
                   <Select
@@ -146,14 +160,23 @@ export function VitalsForm({
                     <option value="mg_dl">mg/dL</option>
                   </Select>
                 </div>
-                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                <p
+                  id="glucose-unit-hint"
+                  className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
+                >
                   {glucoseUnit === "mmol_l" ? "e.g. 5.6 mmol/L" : "e.g. 100 mg/dL"}; check
                   your glucometer&apos;s display unit before entering.
                 </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="glucose_context">Context</Label>
-                <Select id="glucose_context" name="glucose_context" required defaultValue="">
+                <Select
+                  id="glucose_context"
+                  name="glucose_context"
+                  required
+                  defaultValue=""
+                  {...readingErrorProps}
+                >
                   <option value="" disabled>
                     Select context
                   </option>
@@ -197,6 +220,7 @@ export function VitalsForm({
                     type="number"
                     step="0.1"
                     required
+                    {...readingErrorProps}
                   />
                   <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                     Test your ketones if your glucose stays high or you feel unwell,
@@ -206,7 +230,13 @@ export function VitalsForm({
               ) : (
                 <div className="space-y-1.5">
                   <Label htmlFor="ketone_urine">Urine ketone level</Label>
-                  <Select id="ketone_urine" name="ketone_urine" required defaultValue="">
+                  <Select
+                    id="ketone_urine"
+                    name="ketone_urine"
+                    required
+                    defaultValue=""
+                    {...readingErrorProps}
+                  >
                     <option value="" disabled>
                       Match the strip colour
                     </option>
@@ -224,24 +254,21 @@ export function VitalsForm({
           {vitalType === "weight" && (
             <div className="space-y-1.5">
               <Label htmlFor="weight_kg">Weight (kg)</Label>
-              <Input id="weight_kg" name="weight_kg" type="number" step="0.1" required />
-            </div>
-          )}
-
-          {vitalType === "waist_circumference" && (
-            <div className="space-y-1.5">
-              <Label htmlFor="waist_cm">Waist (cm)</Label>
-              <Input id="waist_cm" name="waist_cm" type="number" step="0.5" required />
-              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                Measure around your middle, level with your belly button.
-              </p>
+              <Input
+                id="weight_kg"
+                name="weight_kg"
+                type="number"
+                step="0.1"
+                required
+                {...readingErrorProps}
+              />
             </div>
           )}
 
           {vitalType === "pulse" && (
             <div className="space-y-1.5">
               <Label htmlFor="pulse_bpm">Pulse (bpm)</Label>
-              <Input id="pulse_bpm" name="pulse_bpm" type="number" required />
+              <Input id="pulse_bpm" name="pulse_bpm" type="number" required {...readingErrorProps} />
             </div>
           )}
 
@@ -254,6 +281,7 @@ export function VitalsForm({
                 type="number"
                 step="0.1"
                 required
+                {...readingErrorProps}
               />
             </div>
           )}
@@ -261,15 +289,25 @@ export function VitalsForm({
           {vitalType === "spo2" && (
             <div className="space-y-1.5">
               <Label htmlFor="spo2_pct">SpO2 (%)</Label>
-              <Input id="spo2_pct" name="spo2_pct" type="number" required />
+              <Input id="spo2_pct" name="spo2_pct" type="number" required {...readingErrorProps} />
             </div>
           )}
 
           {vitalType === "waist_circumference" && (
             <div className="space-y-1.5">
               <Label htmlFor="waist_cm">Waist circumference (cm)</Label>
-              <Input id="waist_cm" name="waist_cm" type="number" step="0.5" required />
-              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              <Input
+                id="waist_cm"
+                name="waist_cm"
+                type="number"
+                step="0.5"
+                required
+                {...fieldErrorProps(errorId, Boolean(state?.error), "waist-measure-hint")}
+              />
+              <p
+                id="waist-measure-hint"
+                className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
+              >
                 Measure around your middle, just above the hip bones, after breathing out.
                 A raised measurement is 94 cm or more for men, 80 cm or more for women.
               </p>
@@ -278,7 +316,16 @@ export function VitalsForm({
 
           <div className="space-y-1.5">
             <Label htmlFor="note">Note (optional)</Label>
-            <Input id="note" name="note" type="text" maxLength={500} />
+            <Input
+              id="note"
+              name="note"
+              type="text"
+              maxLength={500}
+              {...fieldErrorProps(errorId, false, "vitals-note-hint")}
+            />
+            <p id="vitals-note-hint" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Anything worth remembering about this reading. Up to 500 characters.
+            </p>
           </div>
 
           {crosscheck && (
@@ -309,10 +356,8 @@ export function VitalsForm({
             </div>
           )}
 
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
-          {state?.success && (
-            <p className="text-sm text-brand-green dark:text-brand-green-bright">Reading logged.</p>
-          )}
+          <FormError id={errorId} message={state?.error} />
+          <FormSuccess message={state?.success && "Reading logged."} />
 
           {!crosscheck && (
             <Button type="submit" disabled={pending}>

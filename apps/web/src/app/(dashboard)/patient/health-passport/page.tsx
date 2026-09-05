@@ -96,7 +96,7 @@ export default async function HealthPassportPage() {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Vitals</CardTitle>
+            <CardTitle as="h2">Vitals</CardTitle>
           </CardHeader>
           <CardContent>
             {data.vitals.length === 0 && data.bmi === null && (
@@ -128,7 +128,7 @@ export default async function HealthPassportPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Preventive screenings</CardTitle>
+            <CardTitle as="h2">Preventive screenings</CardTitle>
           </CardHeader>
           <CardContent>
             {data.screenings.length === 0 && (
@@ -157,7 +157,7 @@ export default async function HealthPassportPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lab results</CardTitle>
+          <CardTitle as="h2">Lab results</CardTitle>
         </CardHeader>
         <CardContent>
           {data.labReadings.length === 0 && (
@@ -182,7 +182,7 @@ export default async function HealthPassportPage() {
       {data.reviewedEscalations.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Direct doctor review</CardTitle>
+            <CardTitle as="h2">Direct doctor review</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {data.reviewedEscalations.map((esc) => (

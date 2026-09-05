@@ -116,7 +116,7 @@ export async function getClientIp(): Promise<string> {
   return h.get("x-real-ip") ?? "unknown";
 }
 
-export const RATE_LIMIT_MESSAGE = "Too many attempts — please wait a moment and try again.";
+export const RATE_LIMIT_MESSAGE = "Too many attempts. Please wait a moment, then try again.";
 
 /**
  * Checks both an IP-scoped limit (catches one source hammering many

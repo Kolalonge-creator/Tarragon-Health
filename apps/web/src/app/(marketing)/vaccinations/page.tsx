@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Vaccinations",
   description:
-    "A personal vaccination schedule for you and your children, reminders when a dose is due, and a doctor-verified certificate you'll never lose. Get the dose wherever suits you, then log it.",
+    "A personal vaccination schedule for you and your children, a reminder when a dose is due, and a doctor-verified certificate. Get the dose anywhere.",
   path: MARKETING_ROUTES.vaccinations,
 });
 

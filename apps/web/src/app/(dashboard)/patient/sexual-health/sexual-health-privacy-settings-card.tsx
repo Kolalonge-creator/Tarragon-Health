@@ -57,7 +57,7 @@ export function SexualHealthPrivacySettingsCard() {
     <Card variant="soft">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-sm">
-          <SEMANTIC_ICON.privacy className="h-4 w-4 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.privacy className="h-4 w-4 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Privacy PIN
         </CardTitle>
         <CardDescription>

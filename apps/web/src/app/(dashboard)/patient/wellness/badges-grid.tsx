@@ -15,7 +15,7 @@ export function BadgesGrid({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.badge className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.badge className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Badges
         </CardTitle>
         <CardDescription>
@@ -40,8 +40,7 @@ export function BadgesGrid({ patientId }: { patientId: string }) {
                 >
                   <SEMANTIC_ICON.badge
                     className={cn("h-6 w-6", isEarned ? "text-sprout-gold" : "text-charcoal-ink/30 dark:text-night-ink/45")}
-                    strokeWidth={2}
-                  />
+                    strokeWidth={2} aria-hidden />
                   <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">{badge.name}</p>
                   <p className="text-[11px] leading-snug text-charcoal-ink/60 dark:text-night-ink/60">{badge.description}</p>
                 </li>

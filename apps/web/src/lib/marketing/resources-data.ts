@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { marketingAnonClient as anonClient } from "./anon-client";
 import {
   RESOURCE_ARTICLES as STATIC_FALLBACK,
   type ResourceArticle,
@@ -31,13 +31,6 @@ type ResourceRow = {
 
 const RESOURCE_ROW_COLUMNS =
   "slug, title, description, category, read_minutes, related_href, related_label, sections, reviewed_by_name, reviewed_at, created_at, updated_at" as const;
-
-function anonClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 function toArticle(row: ResourceRow): ResourceArticle {
   const sections = Array.isArray(row.sections)

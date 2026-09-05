@@ -198,7 +198,7 @@ export default async function HealthCheckPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Your {year} check</CardTitle>
+          <CardTitle as="h2" className="text-base">Your {year} check</CardTitle>
         </CardHeader>
         <CardContent className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {stages.map((stage) => (
@@ -244,7 +244,7 @@ export default async function HealthCheckPage() {
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>
         <CardHeader>
-          <CardTitle className="text-base">Review &amp; communicate</CardTitle>
+          <CardTitle as="h2" className="text-base">Review &amp; communicate</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1 text-sm">
           {check?.reviewed_at ? (

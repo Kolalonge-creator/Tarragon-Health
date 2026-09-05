@@ -242,8 +242,8 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
     items: [
       {
         href: "/admin/settings/subscriptions",
-        label: "Subscription plans & add-ons",
-        blurb: "Create, price, and activate plans, synced to Paystack.",
+        label: "Retired subscription catalogue",
+        blurb: "Read-only history of the plans and add-ons retired in 2026.",
         icon: SEMANTIC_ICON.billing,
         visible: adminOnly,
       },

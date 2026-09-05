@@ -25,7 +25,7 @@ export function EmergencyContraceptionCard() {
       <Card className="border-2 border-sprout-gold bg-sprout-gold/5 dark:bg-sprout-gold/10">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-deep-forest dark:text-brand-green-bright">
-            <NAV_ICON.warning className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+            <NAV_ICON.warning className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
             Request received
           </CardTitle>
         </CardHeader>
@@ -43,7 +43,7 @@ export function EmergencyContraceptionCard() {
     <Card className="border-2 border-sprout-gold bg-sprout-gold/5 dark:bg-sprout-gold/10">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-deep-forest dark:text-brand-green-bright">
-          <NAV_ICON.warning className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+          <NAV_ICON.warning className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Need emergency contraception?
         </CardTitle>
         <CardDescription className="text-charcoal-ink/70 dark:text-night-ink/70">

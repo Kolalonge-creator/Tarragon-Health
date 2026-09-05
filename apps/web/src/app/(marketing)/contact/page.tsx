@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Section, SectionHeading } from "../_components/section";
 import { ContactForm } from "./contact-form";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
@@ -11,13 +12,7 @@ export const metadata: Metadata = pageMetadata({
   path: MARKETING_ROUTES.contact,
 });
 
-export default async function ContactPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ source?: string }>;
-}) {
-  const { source = "homepage" } = await searchParams;
-
+export default function ContactPage() {
   return (
     <>
       <Section className="pt-20">
@@ -28,7 +23,13 @@ export default async function ContactPage({
           description="Tell us who you are and what you need: patient, family, employer, or HMO. We will follow up personally."
         />
         <div className="mx-auto max-w-xl">
-          <ContactForm source={source} />
+          {/* The form reads `?source=` itself (client-side), so this page
+              stays statically rendered; awaiting searchParams here made the
+              only page with a form the only marketing page rendered per
+              request. The fallback is the form's own skeleton height. */}
+          <Suspense fallback={<div className="min-h-[28rem]" />}>
+            <ContactForm />
+          </Suspense>
           <p className="mt-6 text-center text-sm text-charcoal-ink/60">
             Prefer email? Reach us at{" "}
             <a href="mailto:hello@tarragonhealth.ng" className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
