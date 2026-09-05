@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { marketingAnonClient as anonClient } from "./anon-client";
 
 /**
  * The public partner-location map for the marketing site.
@@ -17,9 +17,14 @@ import { createClient } from "@supabase/supabase-js";
  * not a self-arranged listing). It never touches public.facilities, the
  * separate self-arranged lab/pharmacy directory that stays suspended.
  *
- * Fails soft, same as getServiceCoverage(): missing env vars or an RPC error
- * both just return [], so the page can render an honest empty/fallback state
- * rather than crashing.
+ * Fails soft, same as getServiceCoverage(), but reports HOW it failed. It used
+ * to collapse "the RPC said there are none" and "we could not reach the RPC"
+ * into the same empty array, and /coverage rendered that as a definitive
+ * negative claim on a public page ("We haven't activated a contracted lab,
+ * home visit or delivery partner yet"). The RPC returns 39 rows live, so a
+ * transient read failure would have published a statement that contradicts
+ * both the truth and this site's own "our partner laboratory" pricing copy.
+ * Callers must distinguish `status: "unavailable"` from an empty `locations`.
  */
 
 export type PartnerLocation = {
@@ -31,13 +36,6 @@ export type PartnerLocation = {
   longitude: number;
   regions: string[];
 };
-
-function anonClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 function toPartnerLocation(raw: unknown): PartnerLocation | null {
   if (typeof raw !== "object" || raw === null) return null;
@@ -59,12 +57,27 @@ function toPartnerLocation(raw: unknown): PartnerLocation | null {
   };
 }
 
-export async function getPartnerLocations(): Promise<PartnerLocation[]> {
+/**
+ * `"ok"` means the list below is the real, current answer, empty or not.
+ * `"unavailable"` means we never got an answer, so the caller must not claim
+ * anything about how many partners exist.
+ */
+export type PartnerLocationsResult = {
+  status: "ok" | "unavailable";
+  locations: PartnerLocation[];
+};
+
+export async function getPartnerLocations(): Promise<PartnerLocationsResult> {
   const supabase = anonClient();
-  if (!supabase) return [];
+  if (!supabase) return { status: "unavailable", locations: [] };
 
   const { data, error } = await supabase.rpc("public_partner_locations");
-  if (error || !Array.isArray(data)) return [];
+  if (error || !Array.isArray(data)) return { status: "unavailable", locations: [] };
 
-  return data.map(toPartnerLocation).filter((row): row is PartnerLocation => row !== null);
+  return {
+    status: "ok",
+    locations: data
+      .map(toPartnerLocation)
+      .filter((row): row is PartnerLocation => row !== null),
+  };
 }

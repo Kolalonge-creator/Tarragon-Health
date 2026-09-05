@@ -56,10 +56,16 @@ export interface NormalisedReading {
   externalReadingId: string;
 }
 
-type VitalsColumn = "pulse_bpm" | "weight_kg" | "spo2_pct" | "glucose_mmol_l" | "systolic";
+type VitalsColumn =
+  | "pulse_bpm"
+  | "weight_kg"
+  | "spo2_pct"
+  | "glucose_mmol_l"
+  | "systolic"
+  | "respiratory_rate_bpm";
 
 interface VitalsEquivalent {
-  vitalType: "pulse" | "weight" | "spo2" | "glucose" | "blood_pressure";
+  vitalType: "pulse" | "weight" | "spo2" | "glucose" | "blood_pressure" | "respiratory_rate";
   column: VitalsColumn;
   /** Set only for blood_pressure, where NormalisedReading.secondaryValue
    * holds the diastolic figure. */
@@ -101,10 +107,174 @@ const VITALS_EQUIVALENT: Partial<Record<WearableReadingType, VitalsEquivalent>> 
     secondaryMax: 160,
     integer: true,
   },
+  // vitals_readings.respiratory_rate_bpm and vital_type 'respiratory_rate'
+  // have existed since the 20260827203548 migration, and
+  // lib/clinical-rules/window.ts already maps the vital to that column — but
+  // this table had no entry, so Oura's and WHOOP's breaths/min landed in
+  // wearable_readings only: invisible to the vitals chart, to the
+  // clinical-rules window, and to every trigger. That is the overlapping-
+  // metric rule in CLAUDE.md's Device & Wearable Integration section being
+  // broken, so the mapping belongs here.
+  //
+  // The bounds are the one part with no precedent to mirror: unlike every
+  // other row above there is no respiratory-rate schema in
+  // lib/validation/vitals.ts, because nothing on the platform lets a human
+  // type one. They are therefore a MIS-MAPPING GUARD, not a clinical band —
+  // wide enough that no real measurement is clamped away, narrow enough that
+  // a value arriving in the wrong unit (or a sleep-minutes figure landing in
+  // this slot) is rejected. There is no respiratory-rate classifier anywhere
+  // on this platform and this module deliberately does not invent one:
+  // deciding what counts as an abnormal rate is a Clinical Director
+  // decision. Rounded because respiratory_rate_bpm is an integer column,
+  // while Oura and WHOOP both report a decimal — up to half a breath per
+  // minute of reported precision is lost, which is a column shape to revisit
+  // if a classifier ever needs the fraction.
+  respiratory_rate: {
+    vitalType: "respiratory_rate",
+    column: "respiratory_rate_bpm",
+    min: 1,
+    max: 80,
+    integer: true,
+  },
 };
 
 export function vitalsEquivalentFor(readingType: WearableReadingType): VitalsEquivalent | null {
   return VITALS_EQUIVALENT[readingType] ?? null;
+}
+
+/**
+ * The four patient-facing consent categories a wearable connection can be
+ * narrowed to (53.3/53.4's "separate permission where practical" — steps,
+ * heart rate, sleep, weight are the categories actually named). Glucose,
+ * blood pressure and SpO2 deliberately have no category here: they already
+ * flow through vitals_readings' own plan-gated red-flag pipeline, which is
+ * the more load-bearing consent surface for those, and reading()'s
+ * per-metric routing already keeps clinically-significant readings out of
+ * an all-or-nothing "give us everything" connect step regardless.
+ *
+ * Note that a category being listed here is not the same as it being able to
+ * stop a reading from being stored: see SAFETY_PIPELINE_READING_TYPES and
+ * consentDecisionFor. resting_heart_rate stays in the heart_rate category
+ * and weight stays in the weight category — the patient's preference is
+ * still recorded and still governs the passive/analytics copy — but neither
+ * can switch off the red-flag classifier its vitals_readings row arms.
+ */
+export type WearableConsentCategory = "activity" | "heart_rate" | "sleep" | "weight";
+
+const CONSENT_CATEGORY: Partial<Record<WearableReadingType, WearableConsentCategory>> = {
+  steps: "activity",
+  calories: "activity",
+  resting_heart_rate: "heart_rate",
+  hrv_ms: "heart_rate",
+  respiratory_rate: "heart_rate",
+  sleep_minutes: "sleep",
+  sleep_efficiency: "sleep",
+  weight: "weight",
+};
+
+/** Null for a reading type with no gated category (glucose, blood pressure,
+ * SpO2, recovery/readiness/strain) — those are never filtered by consent. */
+export function consentCategoryFor(readingType: WearableReadingType): WearableConsentCategory | null {
+  return CONSENT_CATEGORY[readingType] ?? null;
+}
+
+/** One connection's per-category grants. Keyed to match the
+ * wearable_connections consent_* columns directly. */
+export interface WearableConsent {
+  activity: boolean;
+  heart_rate: boolean;
+  sleep: boolean;
+  weight: boolean;
+}
+
+export const FULL_WEARABLE_CONSENT: WearableConsent = {
+  activity: true,
+  heart_rate: true,
+  sleep: true,
+  weight: true,
+};
+
+/** True unless the reading's category is explicitly denied. A reading with
+ * no gated category (see consentCategoryFor) is always permitted.
+ *
+ * This answers "did the patient ask us to stop collecting this?" only. It is
+ * NOT on its own the decision of whether to store the reading — see
+ * consentDecisionFor, which is what the ingest path uses. */
+export function isConsentedTo(reading: NormalisedReading, consent: WearableConsent): boolean {
+  const category = consentCategoryFor(reading.readingType);
+  if (!category) return true;
+  return consent[category];
+}
+
+/**
+ * Reading types whose vitals_readings row is what arms a red-flag /
+ * escalation classifier. Verified against the live triggers on
+ * vitals_readings rather than inferred:
+ *
+ *   resting_heart_rate -> vital_type 'pulse'  -> vitals_readings_pulse_red_flag
+ *                                                (private.handle_pulse_reading_red_flag)
+ *   weight             -> vital_type 'weight' -> vitals_readings_heart_failure_weight_gain
+ *                                                (+ vitals_readings_queue_reassessment)
+ *
+ * glucose, blood_pressure and spo2 are in exactly this class and are already
+ * outside the consent model entirely — they have no CONSENT_CATEGORY at all,
+ * for the stated reason that vitals_readings' own plan-gated red-flag
+ * pipeline is the load-bearing surface for them and a consumer checkbox is
+ * the wrong thing to put in front of it. Pulse and weight feed that same
+ * pipeline and were simply missed: with consent_heart_rate off, a
+ * resting-heart-rate reading was counted as denied and never inserted, so
+ * the pulse red-flag trigger never fired and the trailing-window heart-rate
+ * assessment never ran — a switch the patient holds a column-level UPDATE
+ * grant on silently turned off their own dangerous-heart-rate detection.
+ * consent_weight did the same to the heart-failure weight-gain trigger.
+ *
+ * respiratory_rate is deliberately NOT here even though it now routes to
+ * vitals_readings: nothing on the platform classifies it, so gating it costs
+ * no safety signal and the heart_rate toggle keeps a real effect (it still
+ * stops HRV and respiratory rate). The exemption is scoped to safety, not to
+ * "anything with a vitals_readings home".
+ *
+ * Add a type here when — and only when — a red-flag classifier for its
+ * vital_type actually ships. A type in this list cannot be switched off by a
+ * consumer consent checkbox.
+ */
+const SAFETY_PIPELINE_READING_TYPES = new Set<WearableReadingType>([
+  "resting_heart_rate",
+  "weight",
+]);
+
+export function feedsSafetyPipeline(readingType: WearableReadingType): boolean {
+  return SAFETY_PIPELINE_READING_TYPES.has(readingType);
+}
+
+/**
+ * What the ingest path should do with one reading given the patient's
+ * per-category grants.
+ *
+ *  - "allowed": consented, store it everywhere it belongs.
+ *  - "denied": the patient turned this category off and the metric is purely
+ *    passive/analytical (steps, calories, sleep, HRV, respiratory rate).
+ *    Dropped before it reaches any table — the genuine privacy intent of
+ *    53.3/53.4, preserved exactly.
+ *  - "denied_safety_retained": the patient turned the category off, but the
+ *    metric arms a red-flag classifier. Stored in vitals_readings anyway,
+ *    and kept out of the passive/analytics surfaces. The consent flags
+ *    govern the passive copy of the data, never the safety pipeline.
+ *
+ * A patient who wants a connection to stop producing these readings entirely
+ * still has three real, complete controls that this does not weaken: pause
+ * the connection, disconnect it, or call delete_wearable_connection_data()
+ * to erase what it has synced. What they can no longer do is narrow one
+ * category and, without being told, disable their own escalation path.
+ */
+export type ConsentDecision = "allowed" | "denied" | "denied_safety_retained";
+
+export function consentDecisionFor(
+  reading: NormalisedReading,
+  consent: WearableConsent
+): ConsentDecision {
+  if (isConsentedTo(reading, consent)) return "allowed";
+  return feedsSafetyPipeline(reading.readingType) ? "denied_safety_retained" : "denied";
 }
 
 export function isVitalsEquivalent(readingType: WearableReadingType): boolean {

@@ -8,7 +8,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, radius, spacing } from "./theme";
+import { colors, inkAlpha, radius, spacing, typeScale } from "./theme";
 
 interface ButtonProps {
   title: string;
@@ -41,7 +41,35 @@ export function PrimaryButton({ title, onPress, disabled, loading }: ButtonProps
   );
 }
 
-export function SecondaryButton({ title, onPress, disabled }: ButtonProps) {
+export function SecondaryButton({ title, onPress, disabled, loading }: ButtonProps) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading }}
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={({ pressed }) => ({
+        backgroundColor: pressed ? colors.pressed : colors.card,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.control,
+        paddingVertical: 13,
+        alignItems: "center",
+        justifyContent: "center",
+        opacity: disabled ? 0.5 : 1,
+      })}
+    >
+      {loading ? (
+        <ActivityIndicator color={colors.ink} />
+      ) : (
+        <Text style={{ color: colors.ink, fontSize: 16, fontWeight: "600" }}>{title}</Text>
+      )}
+    </Pressable>
+  );
+}
+
+/** Compact pill used for inline choices (e.g. glucose context). */
+export function ChoiceChip({ title, onPress, disabled }: ButtonProps) {
   return (
     <Pressable
       accessibilityRole="button"
@@ -49,31 +77,11 @@ export function SecondaryButton({ title, onPress, disabled }: ButtonProps) {
       onPress={onPress}
       disabled={disabled}
       style={({ pressed }) => ({
-        backgroundColor: pressed ? "#F5F5F4" : colors.card,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: radius.control,
-        paddingVertical: 13,
-        alignItems: "center",
-        justifyContent: "center",
-      })}
-    >
-      <Text style={{ color: colors.ink, fontSize: 16, fontWeight: "600" }}>{title}</Text>
-    </Pressable>
-  );
-}
-
-/** Compact pill used for inline choices (e.g. glucose context). */
-export function ChoiceChip({ title, onPress }: ButtonProps) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={onPress}
-      style={({ pressed }) => ({
         backgroundColor: pressed ? colors.brandPressed : colors.brand,
         borderRadius: 999,
         paddingVertical: 8,
         paddingHorizontal: 14,
+        opacity: disabled ? 0.5 : 1,
       })}
     >
       <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "600" }}>{title}</Text>
@@ -107,16 +115,16 @@ export function ScreenTitle({ children }: { children: ReactNode }) {
 }
 
 export function MutedText({ children }: { children: ReactNode }) {
-  return <Text style={{ color: colors.muted, fontSize: 14, lineHeight: 20 }}>{children}</Text>;
+  return <Text style={{ color: colors.muted, fontSize: typeScale.body, lineHeight: 20 }}>{children}</Text>;
 }
 
 export function ErrorText({ children }: { children: ReactNode }) {
-  return <Text style={{ color: colors.danger, fontSize: 14 }}>{children}</Text>;
+  return <Text style={{ color: colors.danger, fontSize: typeScale.body }}>{children}</Text>;
 }
 
 const BADGE_TONES = {
-  brand: { bg: "#E7EEE7", text: colors.brandPressed },
-  neutral: { bg: "rgba(23,23,23,0.08)", text: colors.muted },
+  brand: { bg: colors.brandTint, text: colors.brandPressed },
+  neutral: { bg: inkAlpha(0.08), text: colors.muted },
 } as const;
 
 export function Badge({ children, tone = "neutral" }: { children: ReactNode; tone?: keyof typeof BADGE_TONES }) {
@@ -168,6 +176,8 @@ export function GroupedList({ children, style }: { children: ReactNode; style?: 
   const rows = Children.toArray(children);
   return (
     <View style={[{ backgroundColor: colors.groupBg, borderRadius: radius.card, overflow: "hidden" }, style]}>
+      {/* Index keys are fine here: rows are arbitrary children with no
+          natural id of their own, and callers own any list-item keying. */}
       {rows.map((row, i) => (
         <View key={i} style={{ borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border }}>
           {row}
@@ -213,7 +223,7 @@ export function GroupedListRow({ title, subtitle, onPress, trailing = "chevron",
         gap: 10,
         paddingVertical: 13,
         paddingHorizontal: spacing.card,
-        backgroundColor: pressed ? "rgba(23,23,23,0.04)" : "transparent",
+        backgroundColor: pressed ? inkAlpha(0.04) : "transparent",
       })}
     >
       {leading}
@@ -263,7 +273,7 @@ export function QuickActionButton({
           width: 52,
           height: 52,
           borderRadius: radius.control,
-          backgroundColor: active ? "#E7EEE7" : colors.groupBg,
+          backgroundColor: active ? colors.brandTint : colors.groupBg,
           alignItems: "center",
           justifyContent: "center",
         }}

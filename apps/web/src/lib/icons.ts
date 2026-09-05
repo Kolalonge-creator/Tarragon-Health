@@ -9,6 +9,7 @@ import {
   Users,
   Headphones,
   ShieldCheck,
+  Handshake,
   Link2,
   FileText,
   ShoppingBag,
@@ -77,6 +78,18 @@ import {
   Thermometer,
   Wind,
   Heart,
+  Cigarette,
+  Wine,
+  ReceiptText,
+  Briefcase,
+  Workflow,
+  Timer,
+  Map,
+  Paperclip,
+  Download,
+  HeartHandshake,
+  Flag,
+  Siren,
   type LucideIcon,
 } from "lucide-react";
 
@@ -127,6 +140,10 @@ export const SEMANTIC_ICON = {
   spo2: Wind,
   pulse: Heart,
   hrv: Activity,
+  smoking: Cigarette,
+  alcohol: Wine,
+  exerciseProgramme: Dumbbell,
+  barrier: AlertTriangle,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Meal-type tab icons for the "Log a meal" picker — a page-local visual set,
@@ -146,6 +163,7 @@ export const MEAL_TYPE_ICON = {
 export const NAV_ICON = {
   dashboard: LayoutDashboard,
   passport: IdCard,
+  insurance: Handshake,
   lifestyle: Activity,
   vaccination: Syringe,
   review: ClipboardCheck,
@@ -163,6 +181,7 @@ export const NAV_ICON = {
   statements: FileSpreadsheet,
   tax: Receipt,
   reconcile: Scale,
+  receipts: ReceiptText,
   budget: PiggyBank,
   payables: Wallet,
   compliance: CalendarClock,
@@ -178,6 +197,11 @@ export const NAV_ICON = {
   chevronRight: ChevronRight,
   security: KeyRound,
   devices: Bluetooth,
+  attachment: Paperclip,
+  download: Download,
+  healthyAgeing: HeartHandshake,
+  flag: Flag,
+  siren: Siren,
   // Platform Analytics console category icons — the `analyst` role's sidebar
   // (apps/web/src/lib/analytics/sections.ts is the single source of truth for
   // which category gets which of these).
@@ -196,6 +220,10 @@ export const NAV_ICON = {
   outcomes: Stethoscope,
   governance: Gavel,
   population: HeartPulse,
+  executive: Briefcase,
+  patientFlow: Workflow,
+  serviceLevels: Timer,
+  geographicCapacity: Map,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Combined lookup for places that must reference icons by NAME (a plain

@@ -2,55 +2,39 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  Activity,
-  BarChart3,
-  Building,
-  Calculator,
-  Gavel,
-  Globe,
-  HeartPulse,
-  LayoutDashboard,
-  Landmark,
-  ScrollText,
-  Clock4,
-  Network,
-  Stethoscope,
-  UserRound,
-  UserSearch,
-  Users,
-  Wallet,
-} from "lucide-react";
+import { APP_ICON, type AppIconName } from "@/lib/icons";
+import { ANALYTICS_SECTIONS, OVERVIEW_SECTION } from "@/lib/analytics/sections";
 import { cn } from "@/lib/utils";
 
-const TABS = [
-  { href: "/analytics", label: "Overview", icon: LayoutDashboard },
-  { href: "/analytics/acquisition", label: "Acquisition", icon: Globe },
-  { href: "/analytics/engagement", label: "Engagement", icon: Users },
-  { href: "/analytics/users", label: "Users", icon: UserRound },
-  { href: "/analytics/business", label: "Business", icon: BarChart3 },
-  { href: "/analytics/financial", label: "Financial", icon: Wallet },
-  { href: "/analytics/investor", label: "Investor", icon: Landmark },
-  { href: "/analytics/accounting", label: "Accounting", icon: Calculator },
-  { href: "/analytics/population", label: "Population health", icon: HeartPulse },
-  { href: "/analytics/outcomes", label: "Clinical outcomes", icon: Stethoscope },
-  { href: "/analytics/operations", label: "Operations", icon: Activity },
-  { href: "/analytics/facilities", label: "Facilities", icon: Building },
-  { href: "/analytics/doctors", label: "Doctor performance", icon: Stethoscope },
-  { href: "/analytics/capacity", label: "Provider capacity", icon: Network },
-  { href: "/analytics/team", label: "Team activity", icon: Clock4 },
-  { href: "/analytics/patient-activity", label: "Patient activity", icon: UserSearch },
-  { href: "/analytics/governance", label: "Governance", icon: Gavel },
-  { href: "/analytics/audit", label: "Audit log", icon: ScrollText },
+/**
+ * Derived from ANALYTICS_SECTIONS, not a list of its own.
+ *
+ * This nav used to keep a hand-maintained 23-entry array parallel to the
+ * analyst sidebar's ANALYTICS_SECTIONS. The two drifted, and the drift was not
+ * cosmetic: /analytics/capacity and /analytics/safety existed and were linked
+ * from here, but were missing from ANALYTICS_SECTIONS, so the `analyst` role
+ * whose whole job is this console could not reach either page. Both lists are
+ * now the same list, and analytics-nav.test.ts fails if this file ever grows
+ * its own again.
+ */
+const OVERVIEW_ICON: AppIconName = "dashboard";
+
+export const ANALYTICS_TABS = [
+  { href: OVERVIEW_SECTION.href, label: OVERVIEW_SECTION.label, icon: OVERVIEW_ICON },
+  ...ANALYTICS_SECTIONS.map((section) => ({
+    href: section.href,
+    label: section.label,
+    icon: section.icon,
+  })),
 ] as const;
 
 export function AnalyticsNav() {
   const pathname = usePathname();
   return (
     <nav className="flex flex-wrap gap-1 border-b border-charcoal-ink/10">
-      {TABS.map((tab) => {
+      {ANALYTICS_TABS.map((tab) => {
         const active = pathname === tab.href;
-        const Icon = tab.icon;
+        const Icon = APP_ICON[tab.icon];
         return (
           <Link
             key={tab.href}

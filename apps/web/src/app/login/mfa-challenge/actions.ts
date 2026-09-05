@@ -5,8 +5,10 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { mfaCodeSchema } from "@/lib/validation/auth";
 import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
+import { firstIssue } from "@/lib/validation/first-issue";
 
-export type MfaChallengeState = { error?: string } | undefined;
+export type MfaChallengeState = { error?: string; field?: string } | undefined;
 
 export async function verifyLoginMfaChallenge(
   _prevState: MfaChallengeState,
@@ -14,7 +16,7 @@ export async function verifyLoginMfaChallenge(
 ): Promise<MfaChallengeState> {
   const parsed = mfaCodeSchema.safeParse({ code: formData.get("code") });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid code" };
+    return firstIssue(parsed.error, "Enter the 6-digit code from your authenticator app.");
   }
 
   const user = await getCurrentUser();
@@ -52,7 +54,7 @@ export async function verifyLoginMfaChallenge(
     factorId: factor.id,
   });
   if (challengeError || !challenge) {
-    return { error: challengeError?.message ?? "Something went wrong — try again" };
+    return { error: authErrorMessage(challengeError, "mfa_setup") };
   }
 
   const { error: verifyError } = await supabase.auth.mfa.verify({
@@ -61,7 +63,7 @@ export async function verifyLoginMfaChallenge(
     code: parsed.data.code,
   });
   if (verifyError) {
-    return { error: "That code didn't match — check the app and try again" };
+    return { error: "That code did not match. Check the app and try again.", field: "code" };
   }
 
   redirect(

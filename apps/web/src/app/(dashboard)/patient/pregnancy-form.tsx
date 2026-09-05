@@ -38,8 +38,8 @@ export function PregnancyForm({
           />
         </div>
       )}
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Saved.</p>}
+      {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+      {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved.</p>}
       <Button type="submit" disabled={pending} variant="outline" size="sm">
         {pending ? "Saving…" : "Update"}
       </Button>

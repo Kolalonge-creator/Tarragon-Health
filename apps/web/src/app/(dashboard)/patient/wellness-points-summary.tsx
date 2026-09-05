@@ -14,18 +14,18 @@ export function WellnessPointsSummary({ patientId }: { patientId: string }) {
     <Card>
       <CardContent className="flex items-center justify-between gap-3 py-4">
         <div className="flex items-center gap-3">
-          <SEMANTIC_ICON.points className="h-8 w-8 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.points className="h-8 w-8 text-sprout-gold" strokeWidth={2} aria-hidden />
           <div>
-            <p className="font-heading text-xl font-bold text-charcoal-ink">
+            <p className="font-heading text-xl font-bold text-charcoal-ink dark:text-night-ink">
               {(balance?.balance ?? 0).toLocaleString()} points
             </p>
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {badges?.length ?? 0} badge{badges?.length === 1 ? "" : "s"} earned · challenges &amp;
               rewards
             </p>
           </div>
         </div>
-        <Link href="/patient/wellness" className="text-sm font-medium text-brand-green hover:underline">
+        <Link href="/patient/wellness" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
           View →
         </Link>
       </CardContent>

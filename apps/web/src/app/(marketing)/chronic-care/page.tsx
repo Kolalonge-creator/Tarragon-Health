@@ -18,7 +18,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "Chronic care",
   description:
-    "Ongoing monitoring for chronic conditions like hypertension, diabetes, and weight management: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
+    "Ongoing monitoring for hypertension, diabetes and weight: readings, medication, labs and doctor review on one record, escalated when care is needed.",
   path: MARKETING_ROUTES.chronicCare,
 });
 
@@ -93,7 +93,7 @@ export default async function ChronicCarePage() {
         </div>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Looking after a parent with a long-term condition?{" "}
-          <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
           brings the same monitoring together for a loved one, with opt-in family updates.
@@ -106,7 +106,7 @@ export default async function ChronicCarePage() {
         </p>
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Managing a chronic condition can weigh on you too. Try our free, two-minute{" "}
-          <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             mental well-being check
           </Link>
           , no sign-up required.

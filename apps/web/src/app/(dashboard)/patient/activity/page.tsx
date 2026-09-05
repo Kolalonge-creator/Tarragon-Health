@@ -1,18 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
-import { RequiresEntitlement } from "@/components/requires-entitlement";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
+import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ActivityClient } from "./activity-client";
 
 /**
- * Steps/activity tracking (Omada-style "Today" screen) — manual entry only.
- * Real wearable step counts have no live provider configured yet (see
- * CLAUDE.md "Device & Wearable Integration"); when one lands, it should
- * write into activity_log_entries (entry_type='steps') rather than a
- * separate store, same "no dual source of truth" rule as vitals_readings.
+ * Steps/activity tracking (Omada-style "Today" screen). A connected wearable
+ * (Connect card on the Vitals page) syncs its step counts straight into
+ * activity_log_entries (entry_type='steps', source='wearable') via
+ * lib/wearables/ingest.ts's recordStepDays — same table and meter a manual
+ * "log my steps" entry writes to, per the "no dual source of truth" rule.
  */
 export default async function ActivityPage() {
   const profile = await getCurrentProfile();
@@ -20,22 +18,22 @@ export default async function ActivityPage() {
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
   return (
-    <DashboardPlaceholder greeting="Activity" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.steps}>
-      <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green hover:underline">
-          ← Back to lifestyle coaching
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70">
-        Log your steps and workouts. There&apos;s no automatic step counter yet, wearable sync is
-        coming, but for now this tracks whatever you log yourself.
-      </p>
-      <RequiresEntitlement
-        feature="lifestyle_coaching"
-        fallback={<UpgradePrompt feature="lifestyle_coaching" />}
-      >
-        <ActivityClient patientId={profile.id} />
-      </RequiresEntitlement>
-    </DashboardPlaceholder>
+    <div className="space-y-6">
+      <PageHeader
+        title="Activity"
+        icon={SEMANTIC_ICON.steps}
+        backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
+        description={
+          <>
+            Log your steps and workouts, or connect a wearable on your{" "}
+            <Link href="/patient/vitals" className="text-brand-green dark:text-brand-green-bright underline hover:no-underline">
+              Vitals page
+            </Link>{" "}
+            to have them sync automatically.
+          </>
+        }
+      />
+      <ActivityClient patientId={profile.id} />
+    </div>
   );
 }

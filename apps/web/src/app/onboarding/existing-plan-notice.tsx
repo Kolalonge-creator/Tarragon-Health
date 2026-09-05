@@ -3,18 +3,18 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { completeOnboarding } from "./actions";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 
 /**
- * Shown instead of the "Choose your plan" step when the caller already has
- * an active/trialing subscription (see onboarding/page.tsx). Without this,
- * a returning patient whose `onboarding_completed_at` gets cleared for any
- * reason — a data migration, an account-recovery flow, anything — was walked
- * straight into "choose a plan and pay" with zero acknowledgment they were
- * already a paying customer. Two real risks that fixes: (1) it read like
- * their subscription had vanished, and (2) `startCheckout` had nothing
- * stopping them from actually creating a second paid subscription and being
- * charged twice (that path is now also blocked server-side as a second,
- * independent safeguard — see the guard at the top of startCheckout).
+ * Shown instead of the free-app confirmation (see ready-notice.tsx) when the
+ * caller already has something active: a legacy pack still running, or a
+ * paid service (the 12-week programme, a credit) bought before finishing
+ * onboarding. Without this, a returning patient whose `onboarding_completed_at`
+ * gets cleared for any reason — a data migration, an account-recovery flow,
+ * anything — was walked straight past what they already had with zero
+ * acknowledgment. There is no purchase flow left in onboarding to duplicate
+ * (see onboarding/page.tsx for existingPlan's source), so this is now purely
+ * informational rather than also a second guard against a double charge.
  */
 export function ExistingPlanNotice({ planName, status }: { planName: string; status: string }) {
   const [pending, setPending] = useState(false);
@@ -29,7 +29,7 @@ export function ExistingPlanNotice({ planName, status }: { planName: string; sta
         Your account already has{" "}
         <strong className="font-semibold">
           {planName}
-          {status === "trialing" ? " (trial)" : ""}
+          {status === "pending_payment" ? " (payment pending)" : ""}
         </strong>{" "}
         active. You won&apos;t be asked to choose or pay for a plan again: this just finishes
         setting up your account with the plan you already have.
@@ -59,10 +59,10 @@ export function ExistingPlanNotice({ planName, status }: { planName: string; sta
           {pending ? "Continuing…" : "Continue to my dashboard"}
         </Button>
       </form>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <FormError id={fieldErrorId("onboarding-existing-plan")} message={error} />
       <p className="text-center text-xs text-charcoal-ink/50">
         This isn&apos;t right, or you meant to change plans? You can do that any time from your
-        dashboard&apos;s Subscription page instead.
+        dashboard&apos;s My services page instead.
       </p>
     </div>
   );

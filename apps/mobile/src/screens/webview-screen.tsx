@@ -43,22 +43,29 @@ export function WebViewScreen({ path }: WebViewScreenProps) {
 
   useEffect(() => {
     let cancelled = false;
-    supabase.auth.getSession().then(({ data }) => {
-      if (cancelled) return;
-      const session = data.session;
-      if (!session) {
-        // Not expected on an authenticated screen, but falls back to the
-        // platform's own login page rather than a dead WebView.
-        setUri(`${PLATFORM_URL}${path}`);
-        return;
-      }
-      const fragment = new URLSearchParams({
-        access_token: session.access_token,
-        refresh_token: session.refresh_token,
-        next: path,
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const session = data.session;
+        if (!session) {
+          // Not expected on an authenticated screen, but falls back to the
+          // platform's own login page rather than a dead WebView.
+          setUri(`${PLATFORM_URL}${path}`);
+          return;
+        }
+        const fragment = new URLSearchParams({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+          next: path,
+        });
+        setUri(`${PLATFORM_URL}/auth/mobile-bridge#${fragment.toString()}`);
+      })
+      .catch(() => {
+        // Same fallback as the no-session case: the platform's own login
+        // page beats a spinner that never resolves.
+        if (!cancelled) setUri(`${PLATFORM_URL}${path}`);
       });
-      setUri(`${PLATFORM_URL}/auth/mobile-bridge#${fragment.toString()}`);
-    });
     return () => {
       cancelled = true;
     };
@@ -119,7 +126,13 @@ export function WebViewScreen({ path }: WebViewScreenProps) {
       onError={() => setFailed(true)}
       onShouldStartLoadWithRequest={(request) => {
         if (isPlatformUrl(request.url)) return true;
-        void Linking.openURL(request.url);
+        // Only ordinary web links leave the shell for the system browser.
+        // Anything else (intent:, javascript:, file:, custom schemes) is
+        // dropped rather than handed to Linking, where a page-controlled
+        // scheme could open arbitrary apps.
+        if (request.url.startsWith("https:")) {
+          void Linking.openURL(request.url).catch(() => {});
+        }
         return false;
       }}
       startInLoadingState

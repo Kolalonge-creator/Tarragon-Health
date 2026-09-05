@@ -18,10 +18,10 @@ export function ActingForBanner({ acting }: { acting: ActingFor | null }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-clinical-amber/40 bg-clinical-amber/10 px-4 py-3">
       <div>
-        <p className="text-sm font-medium text-charcoal-ink">
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
           You are in {name}&apos;s account, not your own.
         </p>
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Anything you record here is saved in their name with yours next to it, so they and their
           care team can see you did it.
         </p>
@@ -29,7 +29,7 @@ export function ActingForBanner({ acting }: { acting: ActingFor | null }) {
       <form action={closeTheirAccount}>
         <button
           type="submit"
-          className="rounded-md border border-charcoal-ink/20 bg-white px-3 py-1.5 text-sm font-medium text-charcoal-ink"
+          className="rounded-md border border-charcoal-ink/20 dark:border-night-ink/25 bg-white dark:bg-night-card px-3 py-1.5 text-sm font-medium text-charcoal-ink dark:text-night-ink"
         >
           Back to my account
         </button>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { LegalDocumentPage } from "../_components/legal-document";
 import { loadLegalDocument } from "@/lib/marketing/legal-data";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export const revalidate = 300;
@@ -8,8 +9,8 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "Terms of Service",
   description:
-    "The terms that govern your use of TarragonHealth, including subscriptions, billing, cancellation, and what the platform is and isn't.",
-  path: "/terms",
+    "The terms that govern your use of TarragonHealth: the free app, how paid services are charged, refunds, and what the platform is and isn't.",
+  path: MARKETING_ROUTES.terms,
 });
 
 export default async function TermsPage() {

@@ -14,7 +14,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "BMI & Calorie Calculator",
   description:
-    "Free BMI calculator and daily calorie estimate. See your body mass index range and an estimated calorie target for maintaining, losing, or gaining weight, no sign-up required.",
+    "Free BMI calculator and daily calorie estimate. See your body mass index range and a calorie target for maintaining, losing or gaining weight, no sign-up.",
   path: MARKETING_ROUTES.bmiCalculator,
 });
 
@@ -81,7 +81,7 @@ export default async function BmiCalculatorPage() {
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
               Our{" "}
-              <Link href={MARKETING_ROUTES.prevention} className="font-medium text-deep-forest hover:underline">
+              <Link href={MARKETING_ROUTES.prevention} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Prevention programme
               </Link>{" "}
               builds a screening and vaccination calendar around you, so small things get caught
@@ -94,7 +94,7 @@ export default async function BmiCalculatorPage() {
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
               Our{" "}
-              <Link href={MARKETING_ROUTES.obesity} className="font-medium text-deep-forest hover:underline">
+              <Link href={MARKETING_ROUTES.obesity} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Weight Health programme
               </Link>{" "}
               is lifestyle-first support, not judgment: a doctor reviews your progress and adjusts
@@ -104,7 +104,7 @@ export default async function BmiCalculatorPage() {
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Curious how active you are day to day too? Try the{" "}
-          <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             physical activity intensity calculator
           </Link>
           .

@@ -5,6 +5,7 @@ import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { MarkResultReviewed } from "./mark-result-reviewed";
 import { MarkActionCompletedButton } from "./mark-action-completed-button";
+import { MarkResultDocumentSupersedes } from "./mark-result-document-supersedes";
 import { LabReportExtractionPanel, type ExtractionView } from "./lab-report-extraction-panel";
 import type { ExtractedRow } from "@/lib/lab-reports/extract";
 import type { Database } from "@tarragon/shared";
@@ -126,6 +127,17 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-medium text-charcoal-ink">
                     {doc.originalFilename ?? "Result"}
+                    {/* Module 57.14 — the original stays visible, just labelled. */}
+                    {doc.supersededByDocumentId && (
+                      <Badge variant="amber" className="ml-1.5">
+                        Amended
+                      </Badge>
+                    )}
+                    {doc.supersedesDocumentId && (
+                      <Badge variant="blue" className="ml-1.5">
+                        Correction
+                      </Badge>
+                    )}
                   </p>
                   <Badge variant={ACK_STATUS_BADGE[doc.acknowledgementStatus].variant}>
                     {ACK_STATUS_BADGE[doc.acknowledgementStatus].label}
@@ -135,6 +147,11 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                   {SOURCE_LABEL[doc.source] ?? doc.source} · {formatDate(doc.createdAt)}
                   {doc.note ? ` · ${doc.note}` : ""}
                 </p>
+                {doc.supersededByDocumentId && doc.supersededAt && (
+                  <p className="text-xs text-amber-700">
+                    Corrected {formatDate(doc.supersededAt)}. See the newer document below.
+                  </p>
+                )}
                 {doc.signedUrl ? (
                   <a
                     href={doc.signedUrl}
@@ -177,9 +194,24 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                 ) : (
                   <MarkResultReviewed
                     documentId={doc.id}
+                    patientName={patient?.full_name ?? null}
                     extraction={extractionByDocument.get(doc.id) ?? null}
                     patientSex={patient?.sex ?? null}
                     patientAgeYears={patientAgeYears}
+                  />
+                )}
+                {/* Only offered when this document hasn't already been linked
+                    either way — undoing a mistaken link is a separate,
+                    deliberate action, not exposed from this list. */}
+                {!doc.supersedesDocumentId && !doc.supersededByDocumentId && (
+                  <MarkResultDocumentSupersedes
+                    documentId={doc.id}
+                    candidates={documents
+                      .filter((d) => d.id !== doc.id && !d.supersededByDocumentId)
+                      .map((d) => ({
+                        id: d.id,
+                        label: `${d.originalFilename ?? "Result"} · ${formatDate(d.createdAt)}`,
+                      }))}
                   />
                 )}
               </li>

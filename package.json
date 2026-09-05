@@ -12,6 +12,7 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "db:test": "./scripts/run-db-proofs.sh",
     "clean": "turbo run clean"
   },
   "devDependencies": {

@@ -1,11 +1,23 @@
 import type { EscalationLevel } from "@tarragon/shared";
 
+// Order matches docs spec §89.16's ladder: Emergency > Specialist >
+// Significant(doctor) > Concern(clinician) > Normal(routine).
 const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
   emergency: 0,
-  urgent_escalation: 1,
-  clinician_review: 2,
-  routine: 3,
+  specialist_review: 1,
+  urgent_escalation: 2,
+  clinician_review: 3,
+  routine: 4,
 };
+
+/**
+ * Rank of a single level, lowest number = most severe. Exposed so a queue
+ * that ranks rows carrying a level but no SLA (the results inbox) can reuse
+ * exactly this ladder instead of inventing a second, drifting one.
+ */
+export function levelRank(level: EscalationLevel): number {
+  return LEVEL_PRIORITY[level];
+}
 
 /**
  * The level a worklist should actually triage/rank by. A clinician's

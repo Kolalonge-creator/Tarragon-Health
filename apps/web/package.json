@@ -23,6 +23,7 @@
     "@supabase/supabase-js": "^2.110.0",
     "@tanstack/react-query": "^5.101.2",
     "@tarragon/lifestyle-engine": "workspace:*",
+    "@tarragon/symptom-triage-engine": "workspace:*",
     "@tarragon/shared": "workspace:*",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.2",
@@ -36,9 +37,9 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.9.2",
-    "stripe": "^22.3.1",
     "tailwind-merge": "^3.6.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zod3": "npm:zod@^3.25.32"
   },
   "devDependencies": {
     "@jest/globals": "^30.4.1",

@@ -77,19 +77,19 @@ export async function PreventionCampaignsCard({ patientId }: { patientId: string
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           For you right now
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {campaigns.map((campaign) => (
-          <div key={campaign.id} className="rounded-lg border border-charcoal-ink/10 p-4">
-            <p className="font-heading text-sm font-semibold text-charcoal-ink">{campaign.name}</p>
+          <div key={campaign.id} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
+            <p className="font-heading text-sm font-semibold text-charcoal-ink dark:text-night-ink">{campaign.name}</p>
             {campaign.description && (
-              <p className="mt-1 text-sm text-charcoal-ink/70">{campaign.description}</p>
+              <p className="mt-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">{campaign.description}</p>
             )}
             {campaign.actions.length > 0 && (
-              <ul className="mt-2 list-inside list-disc text-xs text-charcoal-ink/60">
+              <ul className="mt-2 list-inside list-disc text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 {campaign.actions.map((a, i) => (
                   <li key={i}>{a.detail}</li>
                 ))}

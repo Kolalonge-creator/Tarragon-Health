@@ -2,12 +2,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { AddChildForm } from "./add-child-form";
+import { AddElderProxyForm } from "./add-elder-form";
+import { MaturedDependentBanner } from "./matured-dependent-banner";
+import { HouseholdOverview } from "./household-overview";
 import { NextOfKinForm, type NextOfKinState } from "./next-of-kin-form";
 import { DependantsList } from "./dependants-list";
 import { AdultsYouManageList } from "./adults-you-manage-list";
 import { CareAccessRequestsList, type CareAccessRequestRow } from "./care-access-requests-list";
 import { CareVisibilityList } from "./care-visibility-list";
+import { EmergencyAccessBanner } from "./emergency-access-banner";
+import { CareAccessLog, type CareAccessLogRow } from "./care-access-log";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -103,33 +110,66 @@ export default async function CareCirclePage() {
     pendingRequestId: pendingNextOfKinRequest?.id ?? null,
   };
 
+  // Grant-lifecycle events RLS already scopes to the caller: rows about their
+  // own record (patient_id) or actions they themselves took (actor_profile_id).
+  const { data: rawAccessEvents } = await supabase
+    .from("care_access_events")
+    .select(
+      `id, kind, occurred_at, patient_id, actor_profile_id,
+       patient:profiles!care_access_events_patient_id_fkey(full_name),
+       actor:profiles!care_access_events_actor_profile_id_fkey(full_name),
+       subject:profiles!care_access_events_subject_profile_id_fkey(full_name)`
+    )
+    .order("occurred_at", { ascending: false })
+    .limit(30);
+
+  const accessEvents: CareAccessLogRow[] = (rawAccessEvents ?? []).map((row) => ({
+    id: row.id,
+    kind: row.kind,
+    occurredAt: row.occurred_at,
+    isAboutMe: row.patient_id === profile.id,
+    actorIsMe: row.actor_profile_id === profile.id,
+    patientName: row.patient?.full_name ?? null,
+    actorName: row.actor?.full_name ?? null,
+    subjectName: row.subject?.full_name ?? null,
+  }));
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your people</h1>
-        <p className="text-charcoal-ink/60">
-          Who we contact if something urgent comes up, who can follow your care, and the children
-          whose records you keep. Everyone keeps their own account and their own subscription.
-        </p>
-      </div>
+      <PageHeader
+        title="Your people"
+        icon={SEMANTIC_ICON.parentCare}
+        description="Who we contact if something urgent comes up, who can follow your care, and the children whose records you keep. Everyone keeps their own account and their own subscription."
+      />
+
+      <EmergencyAccessBanner />
 
       <CareAccessRequestsList requests={requests} currentUserId={profile.id} />
+
+      <HouseholdOverview />
+
+      <MaturedDependentBanner />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <div className="space-y-4">
           <DependantsList />
           <AddChildForm />
         </div>
-        <AdultsYouManageList />
+        <div className="space-y-4">
+          <AdultsYouManageList />
+          <AddElderProxyForm />
+        </div>
       </div>
 
       <NextOfKinForm current={nextOfKin} />
 
       <CareVisibilityList />
 
+      <CareAccessLog events={accessEvents} />
+
       <Card>
         <CardHeader>
-          <CardTitle>Managing care together</CardTitle>
+          <CardTitle as="h2">Managing care together</CardTitle>
           <CardDescription>
             For an adult who should be able to act on a record, not just follow it (bookings,
             prescriptions, vaccinations), set that up with its own step-by-step request.

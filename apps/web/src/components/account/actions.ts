@@ -2,8 +2,12 @@
 
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { newPasswordSchema } from "@/lib/validation/auth";
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
+import { firstIssue } from "@/lib/validation/first-issue";
 
-export type UpdateOwnPasswordState = { error?: string; success?: boolean } | undefined;
+export type UpdateOwnPasswordState =
+  | { error?: string; field?: string; success?: boolean }
+  | undefined;
 
 /** Changes the signed-in caller's own password from inside the dashboard —
  * distinct from /reset-password, which runs against a recovery session
@@ -20,18 +24,18 @@ export async function updateOwnPassword(
     confirmPassword: formData.get("confirmPassword"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid password" };
+    return firstIssue(parsed.error, "Check the password and try again.");
   }
 
   const user = await getCurrentUser();
   if (!user) {
-    return { error: "Not signed in" };
+    return { error: "Your session has expired. Sign in again, then retry." };
   }
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password: parsed.data.password });
   if (error) {
-    return { error: error.message };
+    return { error: authErrorMessage(error, "password_update"), field: "password" };
   }
   return { success: true };
 }

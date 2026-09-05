@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { SupportedPeople } from "./supported-people";
 import { joinAsPatientToo } from "./actions";
 
@@ -24,16 +26,11 @@ export default async function SupportingPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          People you support
-        </h1>
-        <p className="max-w-2xl text-charcoal-ink/60">
-          Money you put toward someone else&apos;s care, and what it actually paid for. Every
-          person here keeps their own account and their own plan; you are funding their care, not
-          holding it.
-        </p>
-      </div>
+      <PageHeader
+        title="People you support"
+        icon={NAV_ICON.healthyAgeing}
+        description="Money you put toward someone else's care, and what it actually paid for. Every person here keeps their own account and their own plan; you are funding their care, not holding it."
+      />
 
       <SupportedPeople />
 
@@ -44,17 +41,17 @@ export default async function SupportingPage() {
         // is an ADDITION — they keep supporting whoever they support.
         <form
           action={joinAsPatientToo}
-          className="space-y-2 rounded-xl border border-brand-green/20 bg-brand-green/[0.04] p-5"
+          className="space-y-2 rounded-xl border border-brand-green/20 bg-brand-green/[0.04] dark:bg-brand-green/10 p-5"
         >
-          <p className="font-heading text-base font-semibold text-charcoal-ink">
+          <p className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">
             Want care here yourself as well?
           </p>
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             You can join as a patient too, starting on the free plan if you like, and carry on
             supporting {profile.full_name ? "them" : "the people you support"} exactly as you do
             now.
           </p>
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             It does mean answering the health questions we have not asked you: your date of birth,
             the care consents and a short intake. Those answers are what build your screening
             calendar and your risk scoring, so there is no useful shortcut past them.
@@ -67,10 +64,10 @@ export default async function SupportingPage() {
           </button>
         </form>
       ) : (
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Looking for who can follow <em>your</em> care, or the children whose records you keep?
           That is on{" "}
-          <Link href="/patient/family" className="text-brand-green underline">
+          <Link href="/patient/family" className="text-brand-green dark:text-brand-green-bright underline">
             your people
           </Link>
           .

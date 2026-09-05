@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { MarketingNav } from "./_components/marketing-nav";
 import { MarketingFooter } from "./_components/marketing-footer";
+import { BreadcrumbJsonLd } from "./_components/breadcrumb-json-ld";
 import { SITE, SITE_URL, absoluteUrl } from "@/lib/marketing/site";
 
 const DEFAULT_TITLE = `${SITE.name} | ${SITE.tagline}`;
@@ -53,6 +54,35 @@ const organizationJsonLd = {
   description: SITE.description,
   areaServed: { "@type": "Country", name: "Nigeria" },
   founder: { "@type": "Person", name: SITE.founder },
+  // Contact facts, all already published in the footer. Without these the
+  // Organization node was brand-only, so nothing tied the phone number or the
+  // company registration to the entity a search engine resolves.
+  telephone: SITE.telephone,
+  email: SITE.email,
+  identifier: SITE.registrationNumber,
+  // Country-level only: Tarragon runs no clinics and publishes no street
+  // address, and a fabricated one would be worse than none.
+  address: {
+    "@type": "PostalAddress",
+    addressCountry: SITE.addressCountry,
+  },
+  contactPoint: [
+    {
+      "@type": "ContactPoint",
+      contactType: "customer support",
+      telephone: SITE.telephone,
+      email: SITE.supportEmail,
+      areaServed: "NG",
+      availableLanguage: ["English"],
+    },
+    {
+      "@type": "ContactPoint",
+      contactType: "sales",
+      email: SITE.email,
+      areaServed: "NG",
+      availableLanguage: ["English"],
+    },
+  ],
   ...(SITE.sameAs.length > 0 ? { sameAs: SITE.sameAs } : {}),
 };
 
@@ -64,8 +94,15 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
         // Static, first-party JSON; safe to inline for rich results.
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
       />
+      <BreadcrumbJsonLd />
+      <a
+        href="#main-content"
+        className="sr-only z-[60] rounded-full bg-brand-green px-4 py-2 text-sm font-medium text-white focus:not-sr-only focus:absolute focus:left-4 focus:top-4"
+      >
+        Skip to content
+      </a>
       <MarketingNav />
-      <main className="flex-1">{children}</main>
+      <main id="main-content" className="flex-1">{children}</main>
       <MarketingFooter />
     </div>
   );

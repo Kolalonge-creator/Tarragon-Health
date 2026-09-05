@@ -34,11 +34,11 @@ export function MedicationOutcomesCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Medication &amp; control outcomes
         </CardTitle>
         <CardDescription>
-          What managed care changes on the ground — medicines safely reduced, numbers back
+          What managed care changes on the ground: medicines safely reduced, numbers back
           in range.
         </CardDescription>
       </CardHeader>
@@ -63,7 +63,7 @@ export function MedicationOutcomesCard({
             />
           )}
         </div>
-        <p className="text-xs text-charcoal-ink/50">{MEDICATION_OUTCOMES_DISCLAIMER}</p>
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{MEDICATION_OUTCOMES_DISCLAIMER}</p>
       </CardContent>
     </Card>
   );

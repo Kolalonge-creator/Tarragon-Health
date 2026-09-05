@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { EmptyHint } from "@/components/ui/empty-hint";
 import {
   computePreventionCompletion,
   lifestyleCategoryStatus,
@@ -59,9 +61,15 @@ async function resolvePreventionCompletion(patientId: string): Promise<Preventio
   );
 }
 
-export async function PreventionCompletionCard({ patientId }: { patientId: string }) {
+export async function PreventionCompletionCard({
+  patientId,
+  emptyHint,
+}: {
+  patientId: string;
+  emptyHint?: string;
+}) {
   const summaries = await resolvePreventionCompletion(patientId);
-  if (summaries.length === 0) return null;
+  if (summaries.length === 0) return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
 
   const outstandingCount = summaries.filter((s) => s.status === "needs_attention").length;
 
@@ -69,33 +77,34 @@ export async function PreventionCompletionCard({ patientId }: { patientId: strin
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.preventive className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your preventive care
         </CardTitle>
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           {outstandingCount === 0
             ? "Everything below is up to date."
             : `${outstandingCount} ${outstandingCount === 1 ? "area needs" : "areas need"} attention.`}
         </p>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {summaries.map((summary) => (
             <li key={summary.category} className="flex items-center justify-between gap-3 py-2.5">
-              <Link href="/patient/prevention" className="text-sm text-charcoal-ink hover:underline">
+              <Link href="/patient/prevention" className="text-sm text-charcoal-ink dark:text-night-ink hover:underline">
                 {PREVENTION_CATEGORY_LABEL[summary.category]}
               </Link>
               {summary.status === "complete" ? (
-                <span className="shrink-0 text-sm font-medium text-brand-green" aria-label="Up to date">
+                <span className="shrink-0 text-sm font-medium text-brand-green dark:text-brand-green-bright" aria-label="Up to date">
                   ✓
                 </span>
               ) : (
-                <span
-                  className="shrink-0 text-sm font-medium text-amber-600"
+                <Badge
+                  variant={summary.overdueCount > 0 ? "red" : "amber"}
+                  className="shrink-0"
                   aria-label={`${summary.dueCount + summary.overdueCount} item(s) need attention`}
                 >
-                  {summary.overdueCount > 0 ? "! Overdue" : "! Due"}
-                </span>
+                  {summary.overdueCount > 0 ? "Overdue" : "Due"}
+                </Badge>
               )}
             </li>
           ))}

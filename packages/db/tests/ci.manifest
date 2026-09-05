@@ -1,0 +1,21 @@
+# Proof scripts run by scripts/run-db-proofs.sh, and therefore by the
+# "Supabase migration replay" CI job, against a freshly reset local stack.
+#
+# A file here must: be idempotent, build its own fixtures, wrap itself in
+# BEGIN/ROLLBACK, and depend on nothing but what the migrations and
+# supabase/seed/seed.sql create. It must fail loudly (raise exception) rather
+# than only recording a FAIL row, though the runner catches both.
+#
+# Everything else lives in ci.excluded with a reason. Nothing may be in
+# neither: the runner fails if a .sql file is unlisted, because a proof that
+# runs nowhere is the exact problem this manifest was added to fix.
+care_access_request_identity_and_pending_read_window.sql
+care_access_request_phone_proof.sql
+doctor_time_entitlement_grantable_by_purchasable_product.sql
+force_safe_patient_order_insert_defaults.sql
+refund_ledger_reversal.sql
+service_purchases_insert_only_via_intent_rpc.sql
+symptom_red_flag_handler_pages_a_clinician.sql
+critical_notification_dead_letter_without_pathway.sql
+finance_posting_failures_queue.sql
+payment_activation_amount_and_reference.sql

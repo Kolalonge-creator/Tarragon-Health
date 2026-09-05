@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import { DataBreachIncidentsManager, type DataBreachIncidentRow } from "./data-breach-incidents-manager";
 
 /**
@@ -26,17 +27,17 @@ export default async function DataBreachIncidentsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Data breach incidents
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Log any confirmed or reasonably suspected personal data breach here the moment
-          TarragonHealth becomes aware of it — that starts the Nigeria Data Protection Act&apos;s
-          72-hour NDPC-notification clock. See{" "}
-          <code>docs/legal/breach-notification-runbook.md</code> for the full procedure.
-        </p>
-      </div>
+      <PageHeader
+        title="Data breach incidents"
+        description={
+          <>
+            Log any confirmed or reasonably suspected personal data breach here the moment
+            TarragonHealth becomes aware of it. That starts the Nigeria Data Protection Act&apos;s
+            72-hour NDPC-notification clock. See{" "}
+            <code>docs/legal/breach-notification-runbook.md</code> for the full procedure.
+          </>
+        }
+      />
       <DataBreachIncidentsManager initialIncidents={(incidents ?? []) as DataBreachIncidentRow[]} />
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
 import {
   useReproductiveHealthProfile,
   useSaveReproductiveHealthProfile,
@@ -79,7 +80,7 @@ export function ReproductiveHealthCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your cycle & life stage
         </CardTitle>
         <CardDescription>
@@ -88,11 +89,31 @@ export function ReproductiveHealthCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* The tracker is the real feature; this card is now the life-stage
+            half of it. Linking rather than embedding keeps the Prevention hub
+            from growing a calendar. */}
+        <Link
+          href="/patient/cycle"
+          className="flex items-center justify-between rounded-lg border border-brand-green/25 dark:border-brand-green-bright/25 bg-brand-green/5 dark:bg-brand-green/15 p-3 hover:bg-brand-green/10 dark:hover:bg-brand-green/20"
+        >
+          <span>
+            <span className="block text-sm font-medium text-charcoal-ink dark:text-night-ink">
+              Open your cycle tracker
+            </span>
+            <span className="block text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+              Log your period, see what to expect next, and track how you feel.
+            </span>
+          </span>
+          <span aria-hidden className="text-brand-green dark:text-brand-green-bright">
+            &rarr;
+          </span>
+        </Link>
+
         {nudges.length > 0 && (
-          <div className="rounded-lg bg-brand-green/5 p-3">
+          <div className="rounded-lg bg-brand-green/5 dark:bg-brand-green/15 p-3">
             <ul className="space-y-1">
               {nudges.map((nudge) => (
-                <li key={nudge.id} className="text-xs text-charcoal-ink/80">
+                <li key={nudge.id} className="text-xs text-charcoal-ink/80 dark:text-night-ink/80">
                   {nudge.label}
                 </li>
               ))}
@@ -102,7 +123,7 @@ export function ReproductiveHealthCard({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {save.isError && (
-            <p className="text-sm text-red-600">
+            <p className="text-sm text-red-600 dark:text-red-300">
               {(save.error as Error)?.message ?? "Could not save."}
             </p>
           )}

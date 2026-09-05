@@ -25,8 +25,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -57,18 +58,18 @@ const REQUEST_STATUS: Record<
   payment_confirmed: {
     label: "Paid, waiting for a doctor to accept",
     tone: "amber",
-    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time — or offer a different one that works — within 48 hours. If nobody can, you're refunded in full.",
+    note: "Your payment is held by Tarragon and only goes through once a time is confirmed. A doctor will accept your time (or offer a different one that works) within 48 hours. If nobody can, you're refunded in full.",
   },
   alternate_proposed: {
     label: "Your doctor offered different times",
     tone: "amber",
-    note: "Your original time didn't work, so your doctor offered these instead — pick one below within 24 hours or you're refunded in full.",
+    note: "Your original time didn't work, so your doctor offered these instead. Pick one below within 24 hours or you're refunded in full.",
   },
   accepted: { label: "Booked", tone: "green" },
   declined: {
     label: "Not available",
     tone: "red",
-    note: "A doctor couldn't take this visit. Your payment is being refunded in full automatically — you don't need to do anything or contact support.",
+    note: "A doctor couldn't take this visit. Your payment is being refunded in full automatically. You don't need to do anything or contact support.",
   },
   expired: {
     label: "Not accepted in time",
@@ -100,7 +101,7 @@ function VideoVisitFeedbackPrompt({ consultationId }: { consultationId: string }
     return (
       <Card>
         <CardContent className="pt-6">
-          <p className="text-sm text-charcoal-ink/70">{state.message}</p>
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{state.message}</p>
         </CardContent>
       </Card>
     );
@@ -122,7 +123,7 @@ function VideoVisitFeedbackPrompt({ consultationId }: { consultationId: string }
                 type="button"
                 onClick={() => setOverall(n)}
                 className={`h-9 w-9 rounded-full text-sm font-medium ${
-                  overall >= n ? "bg-brand-green text-white" : "bg-charcoal-ink/10 text-charcoal-ink/60"
+                  overall >= n ? "bg-brand-green text-white" : "bg-charcoal-ink/10 dark:bg-night-ink/15 text-charcoal-ink/60 dark:text-night-ink/60"
                 }`}
                 aria-label={`${n} star${n === 1 ? "" : "s"}`}
               >
@@ -133,7 +134,7 @@ function VideoVisitFeedbackPrompt({ consultationId }: { consultationId: string }
           <Button type="submit" size="sm" disabled={overall === 0 || isPending}>
             {isPending ? "Sending…" : "Send feedback"}
           </Button>
-          {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
         </form>
       </CardContent>
     </Card>
@@ -175,7 +176,7 @@ function AlternateSlotPicker({
           </Button>
         ))}
       </div>
-      {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+      {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
     </form>
   );
 }
@@ -212,7 +213,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
   if (!hasSlots && !hasUpcoming && !hasRequests && !hasUnrated) return null;
 
   return (
-    <div className="space-y-4">
+    <div id="book-video-visit" className="space-y-4">
     {hasUnrated &&
       (unrated ?? []).map((visit) => <VideoVisitFeedbackPrompt key={visit.id} consultationId={visit.id} />)}
     {(hasSlots || hasUpcoming || hasRequests) && (
@@ -221,18 +222,18 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
         <CardTitle>15-minute online consultation with a doctor</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="rounded-lg border border-red-200 bg-red-50 p-3">
-          <p className="text-sm font-medium text-red-700">
+        <div className="rounded-lg border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 p-3">
+          <p className="text-sm font-medium text-red-700 dark:text-red-300">
             Not for emergencies. If this is an emergency (severe chest pain, trouble
             breathing, sudden weakness, heavy bleeding), go to the nearest emergency
             department now.
           </p>
         </div>
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           A paid, self-serve 15-minute online consultation with a Tarragon doctor, over
           video. Pick a time and pay: your payment is{" "}
           <span className="font-medium">held by Tarragon</span> and only goes through once a
-          time is confirmed — either your doctor accepts the time you picked, or offers a
+          time is confirmed: either your doctor accepts the time you picked, or offers a
           different time that works better for them, within 48 hours. If nobody can take it,
           you get a full refund.
         </p>
@@ -240,7 +241,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
         {hasUpcoming && (
           <div className="space-y-1">
             {(upcoming ?? []).map((visit) => (
-              <p key={visit.id} className="text-sm text-charcoal-ink">
+              <p key={visit.id} className="text-sm text-charcoal-ink dark:text-night-ink">
                 Booked:{" "}
                 <span className="font-medium">
                   {visit.scheduled_at ? formatSlot(visit.scheduled_at) : "time TBC"}
@@ -253,7 +254,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                       href={visit.join_url}
                       target="_blank"
                       rel="noreferrer"
-                      className="text-brand-green hover:underline"
+                      className="text-brand-green dark:text-brand-green-bright hover:underline"
                     >
                       Join link
                     </a>
@@ -261,7 +262,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                 )}
                 {" "}
                 ·{" "}
-                <Link href={`/patient/video-visit/${visit.id}`} className="text-brand-green hover:underline">
+                <Link href={`/patient/video-visit/${visit.id}`} className="text-brand-green dark:text-brand-green-bright hover:underline">
                   Prepare / manage
                 </Link>
               </p>
@@ -272,13 +273,13 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
         {hasSlots && (
           <form action={formAction} className="space-y-3">
             {acceptanceStats && (
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 {acceptanceStats.suppressed
                   ? "Not enough recent requests here yet to show a reliable acceptance estimate."
                   : `In the last 30 days, ${acceptanceStats.acceptance_rate_pct}% of requests like this were accepted, usually within about ${formatMinutes(acceptanceStats.median_minutes_to_accept)}.`}
               </p>
             )}
-            <p className="text-sm font-medium text-charcoal-ink">
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               Request a time: {formatPrice(price!.amount_minor, price!.currency)} per visit
             </p>
             <div className="flex flex-wrap gap-2">
@@ -301,12 +302,12 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                 ? "Redirecting…"
                 : `Request & pay ${price ? formatPrice(price.amount_minor, price.currency) : ""}`}
             </Button>
-            {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+            {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           </form>
         )}
 
         {hasRequests && (
-          <ul className="divide-y divide-charcoal-ink/10 border-t border-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 border-t border-charcoal-ink/10 dark:border-night-ink/15">
             {(requests ?? []).map((req) => {
               const status = REQUEST_STATUS[req.status] ?? {
                 label: req.status,
@@ -315,19 +316,19 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
               return (
                 <li key={req.id} className="space-y-1 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm text-charcoal-ink">
+                    <p className="text-sm text-charcoal-ink dark:text-night-ink">
                       {req.slot?.slot_start ? formatSlot(req.slot.slot_start) : "Requested visit"}
                     </p>
                     <Badge variant={status.tone}>{status.label}</Badge>
                   </div>
                   {status.note && (
-                    <p className="text-xs text-charcoal-ink/60">{status.note}</p>
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{status.note}</p>
                   )}
                   {req.status === "alternate_proposed" && req.proposedSlots.length > 0 && (
                     <AlternateSlotPicker requestId={req.id} slots={req.proposedSlots} />
                   )}
                   {req.status === "declined" && req.declined_reason && (
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Doctor&apos;s note: {req.declined_reason}
                     </p>
                   )}

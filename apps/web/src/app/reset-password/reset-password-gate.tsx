@@ -57,7 +57,12 @@ export function ResetPasswordGate({ hasServerSession }: { hasServerSession: bool
 
   useEffect(() => {
     if (status === "none") {
-      router.replace("/forgot-password?error=expired_link");
+      // Must be the value /forgot-password actually renders a message for.
+      // This used to send `expired_link`, which that page has never handled,
+      // so an expired recovery link landed on a reset form with no
+      // explanation of why it had been sent back. /auth/confirm has always
+      // used `invalid_or_expired_link`; this is now the one spelling.
+      router.replace("/forgot-password?error=invalid_or_expired_link");
     }
   }, [status, router]);
 
@@ -65,7 +70,9 @@ export function ResetPasswordGate({ hasServerSession }: { hasServerSession: bool
 
   if (status === "checking") {
     return (
-      <p className="text-center text-sm text-charcoal-ink/50">Checking your reset link…</p>
+      <p role="status" className="text-center text-sm text-charcoal-ink/50">
+        Checking your reset link…
+      </p>
     );
   }
 

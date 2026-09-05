@@ -87,7 +87,7 @@ export function EmergencyCardBody({
       <Section title="Allergies" tone={severeAllergies.length > 0 ? "danger" : "normal"}>
         {facts.allergies.length === 0 ? (
           <p className="text-sm text-charcoal-ink/70">
-            None recorded. That is not the same as none — ask if you can.
+            None recorded. That is not the same as none. Ask if you can.
           </p>
         ) : (
           <ul className="space-y-1">
@@ -168,7 +168,7 @@ function formatDob(dob: string | null): string {
   const date = new Date(dob);
   if (Number.isNaN(date.getTime())) return "Not recorded";
   const age = Math.floor((Date.now() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-  return `${date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} (age ${age})`;
+  return `${date.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })} (age ${age})`;
 }
 
 function Section({

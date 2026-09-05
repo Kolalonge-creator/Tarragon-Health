@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import { ProtocolApiManager } from "./protocol-api-manager";
 
 /**
@@ -24,19 +25,21 @@ export default async function ProtocolApiSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Protocol API</h1>
-        <p className="max-w-2xl text-charcoal-ink/60">
-          License Tarragon&apos;s validated, stateless classifiers (BP triage, FINDRISC diabetes
-          screening, cardiovascular-risk stratification) to a partner clinic, state PHC, or NGO --
-          without giving them a patient-serving tenant on this platform. Every call is stateless:
-          no patient record is created or touched, only the call itself is logged. See{" "}
-          <code className="rounded bg-mist-grey/60 px-1 py-0.5 text-xs">
-            docs/INTEGRATIONS_API.md
-          </code>{" "}
-          for the partner-facing spec.
-        </p>
-      </div>
+      <PageHeader
+        title="Protocol API"
+        description={
+          <>
+            License Tarragon&apos;s validated, stateless classifiers (BP triage, FINDRISC diabetes
+            screening, cardiovascular-risk stratification) to a partner clinic, state PHC, or NGO --
+            without giving them a patient-serving tenant on this platform. Every call is stateless:
+            no patient record is created or touched, only the call itself is logged. See{" "}
+            <code className="rounded bg-mist-grey/60 px-1 py-0.5 text-xs">
+              docs/INTEGRATIONS_API.md
+            </code>{" "}
+            for the partner-facing spec.
+          </>
+        }
+      />
       <ProtocolApiManager partners={partners ?? []} />
     </div>
   );

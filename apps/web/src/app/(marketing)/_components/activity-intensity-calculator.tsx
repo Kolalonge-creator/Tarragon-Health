@@ -152,7 +152,7 @@ export function ActivityIntensityCalculator() {
         </div>
       </div>
 
-      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/50">
+      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
         A general estimate from average energy-expenditure tables, not a personalised
         prescription. Actual calories burned vary with fitness level, terrain, and effort. If
         you&apos;re starting a new routine and live with a heart condition, high blood pressure, or

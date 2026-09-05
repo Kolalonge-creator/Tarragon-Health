@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { hasCoachAccess } from "@/lib/ai-coach/entitlement";
 import { SEMANTIC_ICON, type AppIconName, APP_ICON } from "@/lib/icons";
 
 type NextAction = {
@@ -100,11 +101,18 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
       cta: "Book it now",
     };
   } else if (consult.data) {
+    // proposed_slots lives directly on video_consultations only for the
+    // Health Check's bundled video consult (every Screen tier since
+    // 20260829140114_health_check_video_consult_all_tiers.sql) — the other
+    // video-consult product (paid "Online Doctor Consultation") tracks its
+    // own alternate-time offers on video_visit_requests.proposed_slot_ids
+    // instead, a separate column on a separate table. So this always means
+    // the Health Check page, where the pick-a-time card actually lives.
     action = {
       icon: "booking",
       title: "Your doctor offered times for a video call",
       body: "Pick whichever works for you; it only takes a tap to confirm.",
-      href: "/patient/care",
+      href: "/patient/health-check",
       cta: "Pick a time",
     };
   } else if (checkin.data) {
@@ -119,7 +127,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     action = {
       icon: "medication",
       title: "Your medication review is due",
-      body: "A quick review with your care team keeps your treatment on track — book it when you're ready.",
+      body: "A quick review with your care team keeps your treatment on track. Book it when you're ready.",
       href: "/patient/medications",
       cta: "See my review",
     };
@@ -141,9 +149,12 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     };
   } else {
     action = {
+      // Careful to claim only that the TASK QUEUE is clear, never that the
+      // patient's health is fine — the hero band's score zone sits right
+      // beside this and can be saying "Needs attention" at the same moment.
       icon: "preventive",
-      title: "You're up to date",
-      body: "Nothing is waiting on you right now. Keep logging readings and we'll flag anything that needs attention.",
+      title: "You're all caught up",
+      body: "No tasks are waiting on you right now. Keep logging readings so your care team can keep an eye on things.",
       href: "/patient/vitals",
       cta: "Log another reading",
     };
@@ -152,17 +163,18 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
 }
 
 /**
- * The dashboard's hero banner — a gradient card leading the Overview page
- * (Tarragon Health Web Dashboard design, 2026-08-09). Renders the same
- * real, priority-ordered "next best step" computed above; only the
- * presentation changed, from a soft inline card to the lead banner.
+ * The action zone of the Overview's hero band (see overview-hero.tsx) — the
+ * deep-green gradient half carrying the same real, priority-ordered "next
+ * best step" computed above. No rounded corners of its own: the band clips
+ * both zones to one rounded-2xl shape.
  */
 export async function NextBestAction({ patientId }: { patientId: string }) {
-  const action = await resolveNextAction(patientId);
+  const supabase = await createClient();
+  const [action, coachAccess] = await Promise.all([resolveNextAction(patientId), hasCoachAccess(supabase)]);
   const Icon = APP_ICON[action.icon] ?? SEMANTIC_ICON.preventive;
 
   return (
-    <div className="flex flex-col gap-4 rounded-2xl bg-gradient-to-br from-deep-forest to-brand-green p-6 text-white sm:flex-row sm:items-center sm:justify-between sm:p-8">
+    <div className="flex h-full flex-col justify-center gap-4 bg-gradient-to-br from-deep-forest to-brand-green p-6 text-white sm:p-8">
       <div className="flex min-w-0 items-start gap-3">
         <Icon className="mt-0.5 h-5 w-5 shrink-0 text-white/80" aria-hidden />
         <div className="min-w-0 space-y-1">
@@ -171,11 +183,18 @@ export async function NextBestAction({ patientId }: { patientId: string }) {
           </p>
           <p className="font-heading text-lg font-semibold sm:text-xl">{action.title}</p>
           <p className="max-w-xl text-sm text-white/80">{action.body}</p>
+          {/* §78.3 -- a conversational alternative to this deterministic card,
+              for a patient who'd rather ask than click through. */}
+          {coachAccess && (
+            <Link href="/patient/care#ai-coach" className="inline-block text-xs text-white/70 underline">
+              Or ask your AI Coach what to do today
+            </Link>
+          )}
         </div>
       </div>
       <Link
         href={action.href}
-        className="inline-flex shrink-0 items-center justify-center rounded-lg bg-white px-5 py-2.5 text-sm font-semibold text-deep-forest transition-colors hover:bg-white/90"
+        className="inline-flex w-fit shrink-0 items-center justify-center rounded-lg bg-white dark:bg-night-card px-5 py-2.5 text-sm font-semibold text-deep-forest dark:text-brand-green-bright transition-colors hover:bg-white/90 dark:hover:bg-night-ground/90"
       >
         {action.cta}
       </Link>

@@ -1,9 +1,16 @@
 import { StateGraph, Annotation, START, END } from "@langchain/langgraph";
 import { ChatAnthropic } from "@langchain/anthropic";
-import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, SystemMessage, ToolMessage } from "@langchain/core/messages";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { COACH_TIERS, type CoachChatMessage, type CoachTier, type Database } from "@tarragon/shared";
+import {
+  COACH_TIERS,
+  COACH_SUGGESTED_ACTIONS,
+  type CoachChatMessage,
+  type CoachTier,
+  type CoachSuggestedAction,
+  type Database,
+} from "@tarragon/shared";
 import {
   COACH_SYSTEM_PROMPT,
   COACH_UNAVAILABLE_REPLY,
@@ -13,15 +20,27 @@ import {
 import { detectEmergencyKeywords } from "./keyword-guardrail";
 import { loadPatientContext } from "./context";
 import { logAiCoachEscalation, logAiCoachReviewFlag } from "./escalate";
-import { buildAnthropicModel } from "./model";
+import { buildAnthropicModel, getConfiguredModelId } from "./model";
+import { buildPatientRecordTools } from "./tools";
+import { buildReferralRequestTool } from "./referral-tool";
 import type { Embedder } from "@/lib/lifestyle/embed-content";
 import { createVoyageEmbedderFromEnv } from "@/lib/lifestyle/voyage-embedder";
 import { findRelevantLifestyleContent } from "@/lib/lifestyle/find-relevant-content";
+import { findRelevantHealthEducationContent } from "./knowledge-base";
 
 const structuredReplySchema = z.object({
   tier: z.enum(COACH_TIERS),
   reply: z.string(),
+  // §78.2 -- classification only, never executed by the model itself. See
+  // COACH_SUGGESTED_ACTIONS' doc comment for the full contract.
+  suggestedAction: z.enum(COACH_SUGGESTED_ACTIONS),
 });
+
+/** Hard cap on tool-calling round trips within a single turn — see llmTurn's
+ * tool loop below. Bounds latency/cost and guarantees the loop always
+ * terminates and reaches the final structured classify+reply call, even if
+ * the model kept requesting more tools. */
+const MAX_TOOL_ITERATIONS = 4;
 
 const CoachState = Annotation.Root({
   profileId: Annotation<string>,
@@ -31,7 +50,65 @@ const CoachState = Annotation.Root({
   priorMessages: Annotation<CoachChatMessage[]>,
   tier: Annotation<CoachTier | null>({ reducer: (_prev, next) => next, default: () => null }),
   reply: Annotation<string>({ reducer: (_prev, next) => next, default: () => "" }),
+  /** §78.2 in-chat suggestion the model classified for this reply -- see
+   * COACH_SUGGESTED_ACTIONS' doc comment for the full contract. */
+  suggestedAction: Annotation<CoachSuggestedAction>({ reducer: (_prev, next) => next, default: () => "none" }),
+  /** The model id actually used for this turn's classify+reply call — null
+   * if the turn never reached a model call (keyword-guardrail-only). Feeds
+   * ai_assistant_turns.model_id (audit.ts), via index.ts. Also an honest
+   * "no model was used" signal for §78.18 auditability. */
+  modelId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  /** Approved-content ids (lpe_content_blocks + health_education_content)
+   * the retrieval stage actually surfaced for this turn — feeds
+   * ai_assistant_turns.retrieved_source_ids. */
+  retrievedSourceIds: Annotation<string[]>({ reducer: (_prev, next) => next, default: () => [] }),
+  /** §78.18 "knowledge source" auditability -- human-readable titles (not
+   * ids) of any retrieved content that fed this reply, carried through to
+   * the persisted message (index.ts) and the audit_log event for a
+   * clinician_review flag. Deliberately separate from retrievedSourceIds
+   * above (that's the audit-row-level id linkage; this is what the patient-
+   * facing message and audit_log event actually display). */
+  knowledgeSourceUsed: Annotation<string[]>({ reducer: (_prev, next) => next, default: () => [] }),
+  /** Names of the read-only record tools (tools.ts) the model actually
+   * called this turn, for the audit row's input_snapshot — not the same
+   * thing as retrievedSourceIds (approved *content*, not record lookups). */
+  toolsCalled: Annotation<string[]>({ reducer: (_prev, next) => next, default: () => [] }),
+  /** True only when llmTurn's own try/catch caught a model failure and
+   * degraded to COACH_UNAVAILABLE_REPLY — distinct from a clean
+   * 'clinician_review' classification, which is not a degraded turn. */
+  degraded: Annotation<boolean>({ reducer: (_prev, next) => next, default: () => false }),
+  errorMessage: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  /** Set only when this turn actually caused one to exist (escalate()
+   * node). clinicianAlertId is set on both the emergency and
+   * clinician_review paths; escalationId (the real `escalations` row, not
+   * the alert) only on the emergency path — logAiCoachReviewFlag never
+   * creates one, matching its own "clinician_review isn't an escalation"
+   * design note. */
+  clinicianAlertId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
   escalationId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  /** §36.14 human handoff — the care_messages thread opened for the patient
+   * to see the clinician's reply in-app. Only ever set on the emergency
+   * path (see escalate.ts's logAiCoachEscalation) — clinician_review has no
+   * real `escalations` row to link a thread to via
+   * care_message_threads.escalation_id, so that path is left unlinked for
+   * now (docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §7 Phase D). */
+  careMessageThreadId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  /** §36.10 referral-request path (referral-tool.ts) — set when the model
+   * actually called requestSpecialistReferral this turn. Deliberately
+   * separate from clinicianAlertId/escalationId above (those are the
+   * keyword-guardrail/llmTurn emergency-classification outcome; this is a
+   * tool call that can happen on ANY tier, including 'routine'). */
+  referralRequestClinicianAlertId: Annotation<string | null>({ reducer: (_prev, next) => next, default: () => null }),
+  referralRequestCareMessageThreadId: Annotation<string | null>({
+    reducer: (_prev, next) => next,
+    default: () => null,
+  }),
+  /** Exactly what was sent to the model for this turn — context lines,
+   * retrieved source ids, tools called, prior-message window size. Feeds
+   * ai_assistant_turns.input_snapshot (audit.ts), via index.ts. Never the
+   * raw patient message body (that already lives in
+   * ai_conversations.messages). */
+  inputSnapshotForAudit: Annotation<Record<string, unknown>>({ reducer: (_prev, next) => next, default: () => ({}) }),
 });
 
 export type CoachGraphState = typeof CoachState.State;
@@ -45,6 +122,15 @@ export interface CoachGraphDeps {
   getServiceRoleSupabase: () => SupabaseClient<Database>;
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic;
+  /**
+   * The governed system prompt for AI-001, when a Clinical Director has
+   * activated one (Module 40.6). Undefined means no governed version is
+   * active, and the in-repo COACH_SYSTEM_PROMPT constant is used — which is
+   * the normal state, and must stay a working state: a governance table that
+   * could take the coach down by being empty would make governance itself
+   * the single point of failure 40.18 exists to prevent.
+   */
+  systemPrompt?: string;
   /** Injectable for tests; defaults to a real Voyage AI client built from
    * VOYAGE_API_KEY (voyage-embedder.ts). `null` (the default when unset)
    * means "no embedder configured" — content retrieval is skipped
@@ -65,6 +151,15 @@ export interface CoachGraphDeps {
  * degrades to the cautious 'clinician_review' tier (never silently
  * 'routine') on any Claude failure.
  *
+ * `llmTurn` itself has two phases: a bounded tool-calling loop (tools.ts's
+ * read-only record tools — vitals, medications, allergies, appointments,
+ * conditions, recent labs) so the model can ground an answer in the
+ * patient's own record instead of guessing, followed by one final
+ * structured call that classifies the tier and produces the reply. The
+ * tools are strictly read-only (see tools.ts's own HARD INVARIANT comment)
+ * — tool-calling only ever adds grounding before the same classify step
+ * that already existed, never a way to bypass it or take an action.
+ *
  * The graph only decides what to say and whether to escalate — it does not
  * write to ai_conversations itself. Persisting the turn happens once in
  * runCoachTurn() (index.ts), against the full, untruncated message history;
@@ -83,9 +178,56 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
   async function llmTurn(state: CoachGraphState) {
     const context = await loadPatientContext(deps.supabase, state.profileId);
     const contextLines: string[] = [];
+
+    // Deliberately narrow static context — demographics + risk tiers +
+    // lifestyle programme state only. Everything else loadPatientContext
+    // now also reads (medications, allergies, vitals, labs, appointments,
+    // conditions — docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §4.2) is
+    // available on demand via the read-only tools below instead of being
+    // pushed into every single prompt regardless of relevance — see the
+    // architecture doc's §4.1 comparison of "wide static context" against
+    // "retrieval tools" and its PHI-minimization reasoning for preferring
+    // tools. loadPatientContext's fuller snapshot is also what the Phase C
+    // composed surfaces (explain-record, this-month, appointment-prep)
+    // read directly, deterministically, with no LLM involved.
+    if (context.demographics.ageYears !== null || context.demographics.sex) {
+      const parts = [
+        context.demographics.ageYears !== null ? `${context.demographics.ageYears} years old` : null,
+        context.demographics.sex,
+      ].filter(Boolean);
+      if (parts.length > 0) contextLines.push(`The patient is ${parts.join(", ")}.`);
+    }
     if (context.elevatedConditions.length > 0) {
       contextLines.push(
         `The patient currently has an elevated risk tier for: ${context.elevatedConditions.join(", ")}.`
+      );
+    }
+    // §78.17 safety-layer signals — bias toward caution, never toward false
+    // reassurance. These only ever push the classification toward
+    // clinician_review; the tier-classification instructions in the system
+    // prompt remain the real enforcement, this just gives the model the
+    // fact it needs to apply "when in doubt, pick the more cautious tier"
+    // correctly for these specific situations.
+    if (context.highRiskConditions.length > 0) {
+      contextLines.push(
+        `The patient has a HIGH or VERY HIGH risk tier (not just elevated) for: ` +
+          `${context.highRiskConditions.join(", ")}. Be more readily cautious about any symptom-adjacent ` +
+          `message from this patient -- prefer clinician_review over routine when genuinely unsure.`
+      );
+    }
+    if (context.isPregnant) {
+      contextLines.push(
+        `The patient is currently pregnant. Any symptom, medication question, or bleeding/pain report ` +
+          `should be treated more cautiously than for a non-pregnant patient -- prefer clinician_review ` +
+          `over routine when genuinely unsure, and never suggest an over-the-counter medication.`
+      );
+    }
+    if (context.possibleMinor) {
+      contextLines.push(
+        `This account's date of birth on file suggests the patient may be under 18. This platform is ` +
+          `built for adult self-enrolment, so treat this as an edge case worth extra caution rather than ` +
+          `a supported scenario -- prefer clinician_review over routine when genuinely unsure, and avoid ` +
+          `any guidance that assumes an adult's judgement or independence.`
       );
     }
     // Per-programme grounding. A paused/flagged programme gets a deference
@@ -113,27 +255,36 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       }
     }
 
-    // Reference-material retrieval (find-relevant-content.ts), scoped to the
-    // patient's own active (non-paused, non-flagged) lifestyle programme —
-    // paused/flagged programmes already got a deference instruction above
-    // and shouldn't also be handed goal-adjacent reading material. Never
-    // throws; this whole block is a no-op today (no VOYAGE_API_KEY
-    // configured, and no lpe_content_blocks row is clinician_reviewed yet —
-    // see the 58-block draft library) and starts surfacing content
-    // automatically the moment both exist, no further code change needed.
-    const activeProgramme = context.lifestyleProgrammes.find(
-      (p) => p.status !== "paused" && !p.hasOpenRedFlag
-    );
-    if (activeProgramme) {
-      const embedder = deps.embedder ?? createVoyageEmbedderFromEnv();
-      if (embedder) {
-        const relevant = await findRelevantLifestyleContent(
-          deps.supabase,
-          embedder,
-          state.incomingMessage,
-          { matchCount: 2, conditionFilter: activeProgramme.condition }
-        );
+    // Multi-source retrieval — closes the "one library out of three" gap
+    // (docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §2.4/§7 Phase B). Both
+    // sources degrade gracefully to nothing when unconfigured (no
+    // VOYAGE_API_KEY, or nothing clinician_reviewed yet), so this whole
+    // block is a no-op today and starts surfacing content automatically
+    // the moment either is populated — no further code change needed.
+    const retrievedSourceIds: string[] = [];
+    // §78.18 "knowledge source" auditability -- human-readable titles (as
+    // opposed to retrievedSourceIds' ids) of any retrieved content that fed
+    // this reply, carried through to the persisted message and the
+    // audit_log event regardless of which branch below returns.
+    const knowledgeSourceUsed: string[] = [];
+    const embedder = deps.embedder ?? createVoyageEmbedderFromEnv();
+    if (embedder) {
+      // 1. Lifestyle content — deliberately still scoped to the patient's
+      // own active (non-paused, non-flagged) lifestyle programme, by
+      // design (see find-relevant-content.ts's own docstring). A
+      // paused/flagged programme already got a deference instruction
+      // above and shouldn't also be handed goal-adjacent reading material.
+      const activeProgramme = context.lifestyleProgrammes.find(
+        (p) => p.status !== "paused" && !p.hasOpenRedFlag
+      );
+      if (activeProgramme) {
+        const relevant = await findRelevantLifestyleContent(deps.supabase, embedder, state.incomingMessage, {
+          matchCount: 2,
+          conditionFilter: activeProgramme.condition,
+        });
         if (relevant.length > 0) {
+          retrievedSourceIds.push(...relevant.map((r) => r.id));
+          knowledgeSourceUsed.push(...relevant.map((r) => r.title));
           contextLines.push(
             "Clinician-approved reference material that may be relevant to this message " +
               "(use it to inform your answer in your own words and voice, don't quote it at " +
@@ -142,47 +293,196 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
           );
         }
       }
+
+      // 2. General health-education content — NOT scoped to lifestyle
+      // enrolment (unlike the source above), so a patient with no
+      // programme at all still gets grounded, reviewed reference material
+      // for a general question. This is the source that was previously
+      // not retrievable at all — see the architecture doc §2.4/§4.
+      const relevantEducation = await findRelevantHealthEducationContent(deps.supabase, embedder, state.incomingMessage, {
+        matchCount: 2,
+      });
+      if (relevantEducation.length > 0) {
+        retrievedSourceIds.push(...relevantEducation.map((r) => r.id));
+        knowledgeSourceUsed.push(...relevantEducation.map((r) => r.title));
+        contextLines.push(
+          "Clinician-approved health education material that may be relevant to this message " +
+            "(use it to inform your answer in your own words and voice, don't quote it at length " +
+            "or present it as a document):\n" +
+            relevantEducation.map((r) => `- ${r.title}: ${r.excerpt}`).join("\n")
+        );
+      }
     }
 
     const contextLine = contextLines.join("\n\n");
+    // deps.systemPrompt is the governed prompt override (Module 40.6) — set
+    // only when a Clinical Director has activated an approved version for
+    // AI-001 in the AI governance console. Falls back to the in-repo
+    // COACH_SYSTEM_PROMPT constant, which must stay a working default: a
+    // governance table that could take the coach down by being empty would
+    // make governance itself the single point of failure 40.18 exists to
+    // prevent.
+    const basePrompt = deps.systemPrompt ?? COACH_SYSTEM_PROMPT;
+    const systemPrompt = contextLine ? `${basePrompt}\n\n${contextLine}` : basePrompt;
 
     const history = state.priorMessages.map((message) =>
       message.role === "user" ? new HumanMessage(message.content) : new AIMessage(message.content)
     );
 
+    const modelId = getConfiguredModelId();
+    const toolsCalled: string[] = [];
+    let referralRequestClinicianAlertId: string | null = null;
+    let referralRequestCareMessageThreadId: string | null = null;
+
     try {
       // Built inside the try block, not at graph-build time — a missing/invalid
       // ANTHROPIC_API_KEY must degrade this turn, not throw before we can catch it.
       const model = deps.model ?? buildAnthropicModel({ maxTokens: 500 });
-      const structuredModel = model.withStructuredOutput(structuredReplySchema);
-      const result = await structuredModel.invoke([
-        new SystemMessage(contextLine ? `${COACH_SYSTEM_PROMPT}\n\n${contextLine}` : COACH_SYSTEM_PROMPT),
+
+      // Phase 1: bounded tool-calling loop. Offers the model read-only
+      // record lookups so it can ground an answer in the patient's own
+      // vitals/medications/allergies/appointments/conditions/labs instead
+      // of guessing (docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §4.1), plus
+      // the one write-capable tool (referral-tool.ts — see its own header
+      // for why it's built this way). Most turns (general questions,
+      // chit-chat) won't trigger a tool call at all — the loop exits after
+      // the first response with none.
+      const tools = [
+        ...buildPatientRecordTools(deps.supabase, state.profileId),
+        buildReferralRequestTool({
+          patientSupabase: deps.supabase,
+          getServiceRoleSupabase: deps.getServiceRoleSupabase,
+          organisationId: state.organisationId,
+          patientId: state.profileId,
+          conversationId: state.conversationId,
+          onReferralRequested: (result) => {
+            referralRequestClinicianAlertId = result.clinicianAlertId;
+            referralRequestCareMessageThreadId = result.careMessageThreadId;
+          },
+        }),
+      ];
+      const toolsByName = new Map(tools.map((t) => [t.name, t]));
+      const modelWithTools = model.bindTools(tools);
+
+      // cache_control on the newest turn (not the system message) is the
+      // "multi-turn conversation" caching pattern: it marks system + all prior
+      // history + this message as one cached prefix, so next turn's request
+      // re-reads everything up to here instead of re-billing it, and only
+      // pays full price for whatever's new. The system message + a single
+      // turn or two often sits under Sonnet 5's 1024-token cacheable-prefix
+      // minimum (a marker below it is a documented no-op, not an error), so
+      // this mostly starts paying off from the 3rd exchange in a session
+      // onward — but it costs nothing on the turns where it doesn't.
+      const messages: (SystemMessage | HumanMessage | AIMessage | ToolMessage)[] = [
+        new SystemMessage(systemPrompt),
         ...history,
-        new HumanMessage(state.incomingMessage),
-      ]);
+        new HumanMessage({
+          content: [
+            { type: "text", text: state.incomingMessage, cache_control: { type: "ephemeral" } },
+          ],
+        }),
+      ];
+
+      for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
+        const response = await modelWithTools.invoke(messages);
+        messages.push(response);
+        if (!response.tool_calls || response.tool_calls.length === 0) break;
+
+        for (const call of response.tool_calls) {
+          const matchedTool = toolsByName.get(call.name);
+          const output = matchedTool
+            ? await matchedTool.invoke(call.args)
+            : JSON.stringify({ error: `Unknown tool: ${call.name}` });
+          toolsCalled.push(call.name);
+          messages.push(new ToolMessage({ content: output, tool_call_id: call.id ?? call.name, name: call.name }));
+        }
+      }
+
+      // Phase 2: final classify+reply call, over the same message history
+      // (including whatever tool exchanges just happened) — tool-calling
+      // only ever adds grounding ahead of this step, never replaces or
+      // bypasses it. A separate structured-output-bound model instance,
+      // not modelWithTools, since withStructuredOutput and bindTools
+      // configure the request differently.
+      const structuredModel = model.withStructuredOutput(structuredReplySchema);
+      const result = await structuredModel.invoke(messages);
+
+      const inputSnapshot = {
+        contextLines,
+        retrievedSourceIds,
+        toolsCalled,
+        historyMessageCount: history.length,
+        referralRequestClinicianAlertId,
+        referralRequestCareMessageThreadId,
+      };
 
       // The emergency-tier safety sentence is always the canned copy, never
-      // the model's own phrasing of it — see prompts.ts.
+      // the model's own phrasing of it — see prompts.ts. No suggestion chip
+      // on an emergency reply either — nothing should compete with it.
       if (result.tier === "emergency") {
-        return { tier: "emergency" as const, reply: `${result.reply}\n\n${EMERGENCY_SAFETY_REPLY}` };
+        return {
+          tier: "emergency" as const,
+          reply: `${result.reply}\n\n${EMERGENCY_SAFETY_REPLY}`,
+          suggestedAction: "none" as const,
+          modelId,
+          retrievedSourceIds,
+          knowledgeSourceUsed,
+          toolsCalled,
+          referralRequestClinicianAlertId,
+          referralRequestCareMessageThreadId,
+          inputSnapshotForAudit: inputSnapshot,
+        };
       }
-      return { tier: result.tier, reply: `${result.reply}\n\n${DISCLAIMER_LINE}` };
+      return {
+        tier: result.tier,
+        reply: `${result.reply}\n\n${DISCLAIMER_LINE}`,
+        suggestedAction: result.suggestedAction,
+        modelId,
+        retrievedSourceIds,
+        knowledgeSourceUsed,
+        toolsCalled,
+        referralRequestClinicianAlertId,
+        referralRequestCareMessageThreadId,
+        inputSnapshotForAudit: inputSnapshot,
+      };
     } catch (error) {
       // Degrading to the patient is correct either way, but swallowing the
       // real cause entirely makes a bad key/model/network issue undebuggable.
+      // referralRequestClinicianAlertId/ThreadId are still included here —
+      // the referral request write already happened for real (it's a
+      // separate try/catch inside the tool itself, see referral-tool.ts) even
+      // if something later in this turn subsequently failed.
       console.error("ai-coach: llmTurn failed, degrading to clinician_review", error);
-      return { tier: "clinician_review" as const, reply: COACH_UNAVAILABLE_REPLY };
+      return {
+        tier: "clinician_review" as const,
+        reply: COACH_UNAVAILABLE_REPLY,
+        modelId,
+        retrievedSourceIds,
+        toolsCalled,
+        referralRequestClinicianAlertId,
+        referralRequestCareMessageThreadId,
+        degraded: true,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
   async function escalate(state: CoachGraphState) {
-    const escalationId = await logAiCoachEscalation(deps.getServiceRoleSupabase(), {
-      organisationId: state.organisationId,
-      patientId: state.profileId,
-      conversationId: state.conversationId,
-      triggerMessage: state.incomingMessage,
-    });
-    return { escalationId };
+    const { clinicianAlertId, escalationId, careMessageThreadId } = await logAiCoachEscalation(
+      deps.supabase,
+      deps.getServiceRoleSupabase(),
+      {
+        organisationId: state.organisationId,
+        patientId: state.profileId,
+        conversationId: state.conversationId,
+        triggerMessage: state.incomingMessage,
+        recentMessages: state.priorMessages,
+        aiAction: state.modelId
+          ? "Classified as an emergency by the AI Coach and escalated"
+          : "Escalated immediately via deterministic safety-keyword match, before any AI response",
+      }
+    );
+    return { clinicianAlertId, escalationId, careMessageThreadId };
   }
 
   async function logReview(state: CoachGraphState) {
@@ -191,11 +491,13 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     // indefinitely (see logAiCoachReviewFlag's docstring). Now also opens a
     // real clinician_alerts row so a flagged-but-non-emergency turn actually
     // reaches a worklist, not just a log.
-    await logAiCoachReviewFlag(deps.getServiceRoleSupabase(), {
+    const { clinicianAlertId } = await logAiCoachReviewFlag(deps.getServiceRoleSupabase(), {
       organisationId: state.organisationId,
       patientId: state.profileId,
       conversationId: state.conversationId,
       triggerMessage: state.incomingMessage,
+      recentMessages: state.priorMessages,
+      aiAction: "Classified as worth a clinician's review, not urgent",
     });
     await deps.supabase.from("audit_log").insert({
       organisation_id: state.organisationId,
@@ -203,9 +505,9 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       action: "ai_coach.clinician_review_flagged",
       entity_type: "ai_conversations",
       entity_id: state.conversationId,
-      event: { message: state.incomingMessage },
+      event: { message: state.incomingMessage, model: state.modelId, knowledge_source: state.knowledgeSourceUsed },
     });
-    return {};
+    return { clinicianAlertId };
   }
 
   return new StateGraph(CoachState)

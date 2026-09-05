@@ -8,7 +8,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Health resources: plain answers to real questions",
+  title: "Health resources in plain language",
   description:
     "Clear, honest articles on blood pressure, diabetes, weight, cholesterol and screening, written for Nigerians, in plain language.",
   path: MARKETING_ROUTES.resources,
@@ -41,13 +41,21 @@ export default async function ResourcesPage() {
           <div className="mx-auto grid max-w-4xl gap-4 sm:grid-cols-2">
             {articles
               .filter((a) => a.category === category)
-              .map((article) => (
+              .map((article, index) => (
                 <Link
                   key={article.slug}
                   href={`/resources/${article.slug}`}
                   className="group overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white shadow-sm transition hover:border-brand-green/40 hover:shadow-md"
                 >
-                  <ResourceThumbnail icon={resourceThumbnailIcon(article)} className="aspect-[16/9]" />
+                  <ResourceThumbnail
+                    category={article.category}
+                    icon={resourceThumbnailIcon(article)}
+                    className="aspect-[16/9]"
+                    // Every card in this grid shares one category, so repeating
+                    // the category photo on all of them reads as duplication;
+                    // keep it on the lead card, give the rest their own icons.
+                    variant={index === 0 ? "photo" : "icon"}
+                  />
                   <div className="p-6">
                     <p className="text-xs font-medium uppercase tracking-wide text-deep-forest">
                       {article.readMinutes} min read

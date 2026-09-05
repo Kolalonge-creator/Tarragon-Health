@@ -19,6 +19,9 @@
   --chart-systolic: #b91c1c;
   --chart-diastolic: #1d4ed8;
   --chart-glucose: #0e7c52;
+  /* Chart chrome (gridlines/ticks) — recessive in both themes. */
+  --chart-grid: rgba(23, 23, 23, 0.08);
+  --chart-tick: rgba(23, 23, 23, 0.5);
 
   /* Categorical palette for the platform analytics console (business/financial/
      population distributions). Reuses brand hexes so it stays on-brand; a
@@ -29,6 +32,18 @@
   --chart-analytics-4: #1d4ed8;
   --chart-analytics-5: #b91c1c;
   --chart-analytics-6: #0b5c3e;
+
+  /* Menstrual cycle phases — a fourth, separate colour system (brand,
+     clinical-status and chart series are the others, docs/BRAND_GUIDE.md §5).
+     Kept apart from the clinical status colours on purpose: a cycle phase is
+     a normal state of a healthy body, so period days must never borrow the
+     red that means "danger" on a clinical dashboard. */
+  --cycle-period: #be4a6a;
+  --cycle-fertile: #2f8f83;
+  --cycle-ovulation: #c9962b;
+  --cycle-luteal: #7c6bb0;
+  --cycle-follicular: #9aa8b5;
+  --cycle-predicted: #d8a3b4;
 }
 
 @theme inline {
@@ -50,21 +65,27 @@
   --color-chart-analytics-4: var(--chart-analytics-4);
   --color-chart-analytics-5: var(--chart-analytics-5);
   --color-chart-analytics-6: var(--chart-analytics-6);
+  --color-cycle-period: var(--cycle-period);
+  --color-cycle-fertile: var(--cycle-fertile);
+  --color-cycle-ovulation: var(--cycle-ovulation);
+  --color-cycle-luteal: var(--cycle-luteal);
+  --color-cycle-follicular: var(--cycle-follicular);
+  --color-cycle-predicted: var(--cycle-predicted);
   --font-sans: var(--font-inter);
   --font-heading: var(--font-sora);
 }
 
-/* This app has no dark theme (no `dark:` Tailwind variants anywhere in the
-   codebase — every component uses hardcoded light-theme tokens, e.g.
-   bg-warm-ivory/text-charcoal-ink, per docs/BRAND_GUIDE.md). A prior
-   `prefers-color-scheme: dark` override here flipped --foreground to
-   near-white while every component's background stayed hardcoded light,
-   which is the root cause behind repeated "invisible text" bugs (login
-   fields, and separately the subscription page's outline buttons) — fixed
-   narrowly each time instead of here. `color-scheme: light` also stops
-   native form controls (date pickers, scrollbars) from rendering dark.
-   Reintroduce the dark override only alongside real dark: variants across
-   the component library, not in isolation. */
+/* Dark theme history: a prior bare `prefers-color-scheme: dark` override
+   here flipped --foreground to near-white while every component's
+   background stayed hardcoded light — the root cause behind repeated
+   "invisible text" bugs (login fields, the subscription page's outline
+   buttons). The rule that replaced it stands: never a global flip. The
+   real dark theme added 2026-09-03 is the opposite shape — opt-in `dark:`
+   variants across the patient component library, activated only inside an
+   AppShell subtree carrying data-theme="dark"/"system" (see the Night
+   theme block below). `color-scheme: light` here keeps native form
+   controls light everywhere OUTSIDE that subtree (marketing, staff
+   consoles), which never carry dark variants. */
 :root {
   color-scheme: light;
 }
@@ -73,6 +94,50 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-inter), Arial, Helvetica, sans-serif;
+}
+
+/*
+ * Night (dark) theme - scoped to the PATIENT surface only, via a
+ * data-theme attribute AppShell sets on its own root when the signed-in
+ * role is patient. Marketing and staff/clinical consoles never carry the
+ * attribute, so they can never half-flip - which is the failure mode the
+ * color-scheme note above documents. Every dark: utility below compiles to
+ * this variant; "system" defers to the OS preference with no JS flash.
+ */
+:root {
+  --night-ground: #17130e;
+  --night-card: #221c15;
+  --night-ink: #f1ece2;
+  /* Brand green legible as TEXT on the night surfaces; buttons keep the
+     standard brand green fill, which already carries white text. */
+  --brand-green-bright: #45b389;
+}
+
+@theme inline {
+  --color-night-ground: var(--night-ground);
+  --color-night-card: var(--night-card);
+  --color-night-ink: var(--night-ink);
+  --color-brand-green-bright: var(--brand-green-bright);
+}
+
+/* Functional (shorthand) form on purpose: the block form with nested
+   at-rules compiled to nothing here (silently dropping every dark:
+   utility), so keep this single-selector shape. The "system" preference is
+   resolved to dark/light in AppShell via matchMedia before it reaches this
+   attribute, and AppShell flips the attribute to light on beforeprint so
+   paper always prints ink-on-white. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+/* Native form controls, scrollbars and the vitals chart series follow the
+   theme inside the themed subtree. Chart series get LIGHTER steps so they
+   clear contrast on the night card surface. */
+[data-theme="dark"] {
+  color-scheme: dark;
+  --chart-systolic: #e05a4e;
+  --chart-diastolic: #4f88e0;
+  --chart-glucose: #2f9e6e;
+  --chart-grid: rgba(241, 236, 226, 0.1);
+  --chart-tick: rgba(241, 236, 226, 0.55);
 }
 
 @keyframes marketing-fade-in {

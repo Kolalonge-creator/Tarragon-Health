@@ -46,16 +46,16 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
       />
 
       <Disclaimer>
-        A working folder assembled from the live ledger and the finance system&apos;s own audit trail —
+        A working folder assembled from the live ledger and the finance system&apos;s own audit trail,
         not itself an audit opinion, an auditor&apos;s report, or a substitute for independent testing.
         Reconciliation and AP aging below are point-in-time snapshots (as of today), not restated for
         the date range.
       </Disclaimer>
 
-      <PrintSection title="Significant accounting policies" description="Draft — for the reviewing auditor to confirm or amend, not asserted as final.">
+      <PrintSection title="Significant accounting policies" description="Draft: for the reviewing auditor to confirm or amend, not asserted as final.">
         <ul className="list-disc space-y-1 pl-4 text-xs text-charcoal-ink/70">
           <li>Amounts are recorded in minor currency units (kobo/pence/cents) and presented above in major units.</li>
-          <li>Revenue from subscriptions and bundled services is deferred and recognised over the service period it covers, not at the point of cash receipt (Finance → Revenue recognition).</li>
+          <li>Revenue from a service bought up front is deferred and recognised over the period it covers, not at the point of cash receipt (Finance → Revenue recognition).</li>
           <li>The books are prepared on a going-concern basis.</li>
           <li>All journal entries post through a single balance-validated posting primitive; every entry must debit and credit equally in the same currency, enforced at the database level, not just in the UI.</li>
         </ul>
@@ -74,7 +74,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
             <tbody>
               {(tb.data ?? []).map((r) => (
                 <tr key={r.code}>
-                  <PrintTd>{r.code} — {r.name}</PrintTd>
+                  <PrintTd>{r.code}: {r.name}</PrintTd>
                   <PrintTd right>{r.debit_minor ? formatMinor(r.debit_minor, currency) : ""}</PrintTd>
                   <PrintTd right>{r.credit_minor ? formatMinor(r.credit_minor, currency) : ""}</PrintTd>
                 </tr>
@@ -119,7 +119,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
         )}
       </PrintSection>
 
-      <PrintSection title="Accounts payable aging" description="Approved, unpaid bills — as of today." breakBefore>
+      <PrintSection title="Accounts payable aging" description="Approved, unpaid bills, as of today." breakBefore>
         {apAging.isLoading ? (
           <PrintEmpty>Loading…</PrintEmpty>
         ) : (apAging.data ?? []).length === 0 ? (

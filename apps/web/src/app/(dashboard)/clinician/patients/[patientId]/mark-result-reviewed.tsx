@@ -8,10 +8,14 @@ import { draftInterpretationFromRows } from "@/lib/lab-results/draft-interpretat
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
 import type { ExtractionView } from "./lab-report-extraction-panel";
 
 interface Props {
   documentId: string;
+  /** Who will read the interpretation. Named in the confirmation so the
+   * clinician can see they are about to publish to the right person. */
+  patientName: string | null;
   /** Confirmed/filed values for this document, if any were extracted and filed. */
   extraction: ExtractionView | null;
   patientSex: string | null;
@@ -32,8 +36,18 @@ interface Props {
  * cross-checks, edits, approves" shape as filing the numbers themselves. It
  * never auto-fills next steps: that stays a judgement only the doctor makes.
  */
-export function MarkResultReviewed({ documentId, extraction, patientSex, patientAgeYears }: Props) {
+export function MarkResultReviewed({
+  documentId,
+  patientName,
+  extraction,
+  patientSex,
+  patientAgeYears,
+}: Props) {
   const router = useRouter();
+  // Sending publishes a clinical interpretation into the patient's own app,
+  // where they read it as their doctor's words. There is no unsend, so the
+  // last step is a recap of exactly what they will see.
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [interpretation, setInterpretation] = useState("");
   const [nextSteps, setNextSteps] = useState("");
   const [note, setNote] = useState("");
@@ -77,7 +91,7 @@ export function MarkResultReviewed({ documentId, extraction, patientSex, patient
       <div>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <label className="text-xs font-medium text-charcoal-ink/70">
-            What this result means — the patient will read this exactly
+            What this result means: the patient will read this exactly
           </label>
           {canDraft && (
             <Button
@@ -93,7 +107,7 @@ export function MarkResultReviewed({ documentId, extraction, patientSex, patient
         </div>
         {drafted && (
           <p className="mt-1 text-[0.65rem] text-amber-700">
-            Drafted from the filed results — check it reads right for this patient before sending.
+            Drafted from the filed results. Check it reads right for this patient before sending.
           </p>
         )}
         <Textarea
@@ -109,7 +123,7 @@ export function MarkResultReviewed({ documentId, extraction, patientSex, patient
       </div>
       <div>
         <label className="text-xs font-medium text-charcoal-ink/70">
-          Next steps (optional — only if something needs attention)
+          Next steps (optional, only if something needs attention)
         </label>
         <Textarea
           placeholder="e.g. Book a follow-up blood test in 3 months…"
@@ -133,11 +147,49 @@ export function MarkResultReviewed({ documentId, extraction, patientSex, patient
       <Button
         size="sm"
         disabled={review.isPending || interpretation.trim().length < 10}
-        onClick={() => review.mutate()}
+        onClick={() => setConfirmOpen(true)}
       >
         {review.isPending ? "Sending…" : "Send to patient & mark reviewed"}
       </Button>
       {error && <p className="text-xs text-red-600">{error}</p>}
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Send this interpretation to the patient?"
+        description="It appears in their app as their care team's reading of this result, and the document is marked reviewed. It cannot be unsent."
+        confirmLabel="Send to patient"
+        cancelLabel="Keep editing"
+        onConfirm={() => {
+          setConfirmOpen(false);
+          review.mutate();
+        }}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        <ConfirmDialogFacts
+          rows={[
+            { label: "Patient", value: patientName ?? "This patient" },
+            { label: "Next steps", value: nextSteps.trim() ? "Included" : "None given" },
+            { label: "Internal note", value: note.trim() ? "Saved, not shown to them" : "None" },
+          ]}
+        />
+        <div className="space-y-1 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
+          <p className="text-xs uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/50">
+            What they will read
+          </p>
+          <p className="whitespace-pre-wrap text-sm">{interpretation.trim()}</p>
+          {nextSteps.trim() && (
+            <p className="whitespace-pre-wrap text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              Next steps: {nextSteps.trim()}
+            </p>
+          )}
+        </div>
+        {drafted && (
+          <p className="text-sm text-amber-700">
+            This started as a draft composed from the filed results. Read it once more before it
+            reaches the patient.
+          </p>
+        )}
+      </ConfirmDialog>
     </div>
   );
 }

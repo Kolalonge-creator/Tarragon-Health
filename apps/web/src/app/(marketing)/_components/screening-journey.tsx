@@ -63,7 +63,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Results & what's next",
-        body: "A doctor reads every result against your history, usually within about two weeks, and adds it to your Health Passport. Most checks come back clear; that's the point, and it's worth paying for. If something needs attention, your doctor follows up the same day.",
+        body: "A doctor reads every result against your history, usually within about two weeks, and adds it to your Health Passport. Most checks come back clear; that's the point, and it's worth paying for. If something needs attention, a doctor follows up within a day, and within 12 hours if it's critical.",
       },
     ],
   },
@@ -330,7 +330,7 @@ export function ScreeningJourney() {
                     : "border-charcoal-ink/10 bg-white hover:border-charcoal-ink/25"
                 )}
               >
-                <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+                <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/65">
                   {item.category}
                 </p>
                 <h4 className="mt-1 font-heading text-base font-semibold text-charcoal-ink">

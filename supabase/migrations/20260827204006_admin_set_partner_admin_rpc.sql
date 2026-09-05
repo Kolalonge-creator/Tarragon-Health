@@ -1,18 +1,3 @@
--- Tarragon Health
--- Admin action to designate a linked lab_partner/pharmacist login as its own
--- provider's self-service admin (profiles.is_partner_admin, 20260827203240).
--- Same shape as admin_link_lab_partner (20260730215245): profiles_update RLS
--- can't cover this (a lab_partner/pharmacist profile has organisation_id =
--- null, so an admin editing someone else's such profile fails that policy's
--- is_org_staff clause outright) -- one SECURITY DEFINER RPC, narrowly scoped
--- to exactly one column, gated the same way the Labs/Pharmacies admin pages
--- already are.
---
--- Requires the profile to already be linked to a provider (lab_provider_id
--- or pharmacy_partner_id set) -- being "admin of nothing" isn't a meaningful
--- state, and it keeps this RPC from being usable to pre-stage a privilege on
--- an unlinked login before anyone reviews which provider it belongs to.
-
 create or replace function public.admin_set_partner_admin(
   p_profile_id uuid,
   p_is_partner_admin boolean

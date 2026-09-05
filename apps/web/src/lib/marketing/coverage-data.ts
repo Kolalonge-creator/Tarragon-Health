@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { marketingAnonClient as anonClient } from "./anon-client";
 import type { CoverageItem } from "@/lib/coverage/what-works-where";
 
 /**
@@ -22,13 +22,6 @@ export type StateCoverage = {
   isActive: boolean;
   services: Record<NonNullable<CoverageItem["gatedBy"]>, boolean>;
 };
-
-function anonClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 function toStateCoverage(raw: unknown): StateCoverage | null {
   if (typeof raw !== "object" || raw === null) return null;

@@ -6,6 +6,8 @@ import {
   useSubmitAsyncConsult,
   type AsyncConsultWithAnswerer,
 } from "@/lib/queries/async-consults";
+import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
+import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import {
   asyncConsultSchema,
   ASYNC_CONSULT_CATEGORIES,
@@ -17,6 +19,9 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 
+import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
+const ASYNC_CONSULT_CREDIT_CODE = "async_consult_credit";
+
 function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
   const answered = consult.status === "answered" || consult.status === "closed";
   const credential =
@@ -27,7 +32,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
   return (
     <li className="space-y-1 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">{consult.question}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{consult.question}</p>
         {answered ? (
           <Badge variant="green">Answered</Badge>
         ) : (
@@ -35,20 +40,20 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
         )}
       </div>
       {!answered && consult.sla_due_at && (
-        <p className="text-xs text-charcoal-ink/60">
-          A doctor will respond by {new Date(consult.sla_due_at).toLocaleString()}.
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+          A doctor will respond by {formatPatientDateTime(consult.sla_due_at)}.
         </p>
       )}
       {answered && consult.answer && (
         <div className="rounded-lg border border-brand-green/20 bg-brand-green/[0.04] p-3">
-          <p className="text-sm text-charcoal-ink">{consult.answer}</p>
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">{consult.answer}</p>
           {/* Attribution is null-gated on the trigger-stamped answered_by record —
               never rendered without a real clinical_staff match. */}
           {consult.answerer && consult.answered_at && (
-            <p className="mt-1 text-xs text-charcoal-ink/60">
+            <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Answered by Dr. {consult.answerer.full_name}
               {credential ? ` (${credential})` : ""} on{" "}
-              {new Date(consult.answered_at).toLocaleDateString()}
+              {formatPatientDate(consult.answered_at)}
             </p>
           )}
         </div>
@@ -66,18 +71,31 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
 export function AskADoctor({
   patientId,
   organisationId,
+  hasPlanAccess,
 }: {
   patientId: string;
   organisationId: string | null;
+  /** async_doctor_visit already on the patient's plan — when false, the
+   * form still shows, gated instead on holding (or buying) one
+   * async_consult_credit; server-side, async_consults' own insert trigger
+   * enforces this the same way regardless of what this prop says. */
+  hasPlanAccess: boolean;
 }) {
   const { data: consults } = useMyAsyncConsults(patientId);
+  const { data: hasCredit, isLoading: isCheckingCredit } = useHasAvailableServicePurchase(
+    patientId,
+    ASYNC_CONSULT_CREDIT_CODE
+  );
   const submit = useSubmitAsyncConsult();
   const [category, setCategory] = useState<string>("general");
   const [question, setQuestion] = useState("");
   const [durationNote, setDurationNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [isBuying, setIsBuying] = useState(false);
 
   if (!organisationId) return null;
+
+  const canAsk = hasPlanAccess || Boolean(hasCredit);
 
   const onSubmit = () => {
     setFormError(null);
@@ -107,23 +125,64 @@ export function AskADoctor({
     );
   };
 
+  async function buyCredit() {
+    setIsBuying(true);
+    setFormError(null);
+    try {
+      const result = await purchaseServiceProduct({
+        serviceProductCode: ASYNC_CONSULT_CREDIT_CODE,
+        callbackPath: "/patient/care",
+      });
+      if (result?.error) {
+        setFormError(result.error);
+        return;
+      }
+      if (result?.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+    } finally {
+      setIsBuying(false);
+    }
+  }
+
   return (
-    <Card>
+    <Card id="ask-a-doctor">
       <CardHeader>
         <CardTitle>Ask a doctor</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Send a written question and a doctor on your care team answers here, usually
           within 72 hours. Not for emergencies: if something feels urgent, use the
           symptom check at the top of this page or go to a hospital.
         </p>
+
+        {!isCheckingCredit && !canAsk && (
+          <div className="space-y-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
+              Ask a doctor isn&apos;t included on your current plan. Buy a one-off credit to send this
+              question, or upgrade for unlimited access.
+            </p>
+            {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" disabled={isBuying} onClick={buyCredit}>
+                {isBuying ? "Redirecting to payment…" : "Buy a credit"}
+              </Button>
+              <Button size="sm" variant="outline" asChild>
+                <a href="/patient/subscription">See plans</a>
+              </Button>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="consult-category">What is it about?</Label>
           <Select
             id="consult-category"
             value={category}
             onChange={(e) => setCategory(e.target.value)}
+            disabled={!canAsk}
           >
             {ASYNC_CONSULT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
@@ -140,6 +199,7 @@ export function AskADoctor({
             onChange={(e) => setQuestion(e.target.value)}
             rows={3}
             placeholder="e.g. I've felt dizzy in the mornings since my dose changed. Is that expected?"
+            disabled={!canAsk}
           />
         </div>
         <div className="space-y-2">
@@ -148,6 +208,7 @@ export function AskADoctor({
             id="consult-duration"
             value={durationNote}
             onChange={(e) => setDurationNote(e.target.value)}
+            disabled={!canAsk}
           >
             <option value="">Prefer not to say</option>
             <option value="today">Just today</option>
@@ -156,21 +217,21 @@ export function AskADoctor({
             <option value="longer">Longer</option>
           </Select>
         </div>
-        {formError && <p className="text-sm text-red-600">{formError}</p>}
+        {canAsk && formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
         {submit.isError && (
-          <p className="text-sm text-red-600">Could not send your question. Try again.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not send your question. Try again.</p>
         )}
         {submit.isSuccess && (
-          <p className="text-sm text-brand-green">
+          <p className="text-sm text-brand-green dark:text-brand-green-bright">
             Sent. A doctor will answer here within 72 hours.
           </p>
         )}
-        <Button onClick={onSubmit} disabled={submit.isPending}>
+        <Button onClick={onSubmit} disabled={submit.isPending || !canAsk}>
           {submit.isPending ? "Sending…" : "Send to my care team"}
         </Button>
 
         {consults && consults.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10 border-t border-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 border-t border-charcoal-ink/10 dark:border-night-ink/15">
             {consults.map((c) => (
               <ConsultRow key={c.id} consult={c} />
             ))}

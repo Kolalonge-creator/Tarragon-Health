@@ -117,19 +117,19 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Know how your parent is doing, even when you are not there every day.",
     campaignLine: "Your parents looked after you. Now help look after them.",
     intro:
-      "Your parent keeps their own Tarragon account, with the plan that suits their health. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can fund their plan, in naira or dollars, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
+      "Your parent keeps their own free Tarragon account. You are named as their next of kin, so you can follow their readings, appointments and results, and we call you first if something urgent comes up. You can pay for their health checks and their doctor's time, in naira, from Lagos or from anywhere; their lab tests are still paid straight to the laboratory when they go.",
     included: [
-      "Their own plan and their own health record, held in their name",
+      "Their own free account and their own health record, held in their name",
       "Vitals, medication, and preventive check tracking",
       "Next of kin access: you see their care, you cannot change it, and they can withdraw it whenever they want",
       "We contact you first if something urgent comes up",
-      "Fund their plan outright, in naira or dollars, from anywhere",
+      "Pay for their checks and doctor's time, in naira, from anywhere",
       "Doctor follow-up when readings or care gaps need attention",
     ],
     howItWorks: [
       {
         title: "They sign up, on their own account",
-        body: "One person, one subscription. Their record is theirs, which is what lets a doctor treat them and what keeps their consent meaningful.",
+        body: "One person, one record. Their record is theirs, which is what lets a doctor treat them and what keeps their consent meaningful. The account itself is free.",
       },
       {
         title: "They name you as next of kin",
@@ -137,7 +137,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You cover the cost, if you want to",
-        body: "Buy them a year of their plan whenever suits you, in one go or in instalments. It's for their account alone, and is never exchangeable for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a check costs if you want to help with that too.",
+        body: "Buy them a named health check or a doctor's time whenever suits you, in one go or in instalments. It's for their account alone, and is never exchangeable for cash. Their other lab tests are still paid straight to the laboratory, at that lab's price; send them what a test costs if you want to help with that too.",
       },
     ],
     metadata: {
@@ -151,13 +151,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Healthy today? Let's keep it that way.",
     campaignLine: "The best emergency is the one you prevent.",
     intro:
-      "You don't need a diagnosis to use Tarragon: prevention is one of our four priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up the same day, years earlier than it would otherwise have been caught.",
+      "You don't need a diagnosis to use Tarragon: prevention is one of our four priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up within a day, and within 12 hours if it's critical, years earlier than it would otherwise have been caught.",
     included: [
       "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
       "Vaccination schedule, booking, and doctor-verified certificates",
       "The Annual Health Check, up to a full Comprehensive Screen: we say what to get, you use any lab, a doctor reads it",
       "Personalised health education with short knowledge checks",
-      "Doctor follow-up the same day on any result that needs attention",
+      "Doctor follow-up within a day on any result that needs attention",
       "A seamless path into chronic care monitoring in the rare case follow-up is needed: same record, no starting over",
     ],
     howItWorks: [
@@ -177,7 +177,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Preventive Health",
       description:
-        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and education, with doctor follow-up the same day if a result needs attention.",
+        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and doctor follow-up if a result needs attention.",
     },
   },
   medication: {
@@ -187,7 +187,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       "Tarragon keeps your medication schedule in the same record as your vitals and labs: reminders on WhatsApp or app, refill alerts before you run out, and a care team that follows up when doses are missed.",
     included: [
       "Medication schedule built into your health record",
-      "WhatsApp and app reminders for every dose",
+      "App and WhatsApp reminders for your doses",
       "Refill alerts before you run out",
       "Buy from any pharmacy you like, log the collection in seconds",
       "Doctor follow-up when doses are missed",

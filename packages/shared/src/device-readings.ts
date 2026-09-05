@@ -69,6 +69,21 @@ export function base64ToBytes(base64: string): Uint8Array {
 }
 
 function readUint16LE(data: Uint8Array, offset: number): number {
+  // Bounds-check rather than trusting the frame length. Indexing a Uint8Array
+  // past its end yields `undefined`, and `undefined << 8` is 0, so a truncated
+  // characteristic silently decoded to the low byte alone: a 2-byte Blood
+  // Pressure Measurement came out as a clean-looking 1/0 mmHg instead of
+  // failing. Every one of the five GATT profiles reads through here, so a
+  // short or corrupt frame from any of them could fabricate a plausible
+  // clinical number. Throwing matches how these parsers already report bad
+  // data (see the NaN and measurement-unsuccessful guards below) and is
+  // surfaced by the mobile BLE layer as a failed read, which is the honest
+  // outcome: no reading is better than an invented one.
+  if (offset < 0 || offset + 1 >= data.length) {
+    throw new Error(
+      `Measurement frame is too short: needed 2 bytes at offset ${offset}, frame is ${data.length} bytes`,
+    );
+  }
   return data[offset] + (data[offset + 1] << 8);
 }
 

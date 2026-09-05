@@ -1,8 +1,8 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { getLifestyleState, getPastLifestyleGoals } from "@/lib/lifestyle/service";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { PageHeader } from "@/components/ui/page-header";
 import { obesityLabelTitleCase } from "@/lib/copy/condition-language";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
 import { AtAGlancePanel } from "@/app/(dashboard)/patient/lifestyle/lifestyle-client";
@@ -40,18 +40,6 @@ export default async function WeightManagementPage() {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: hasAccess } = await supabase.rpc("has_feature_access", {
-    feature: "lifestyle_coaching",
-  });
-  if (!hasAccess) {
-    return (
-      <div className="mx-auto max-w-3xl space-y-6 py-6">
-        <h1 className="text-2xl font-semibold">Weight management</h1>
-        <UpgradePrompt feature="lifestyle_coaching" />
-      </div>
-    );
-  }
-
   const [enrollments, pastGoals, { data: profile }] = await Promise.all([
     getLifestyleState(supabase, user.id),
     getPastLifestyleGoals(supabase, user.id),
@@ -69,21 +57,16 @@ export default async function WeightManagementPage() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 py-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="flex items-center gap-2 font-heading text-2xl font-semibold text-charcoal-ink">
-            <SEMANTIC_ICON.weight className="h-6 w-6 text-deep-forest" strokeWidth={2} />
-            {label} management
-          </h1>
-          <p className="mt-1 text-sm text-charcoal-ink/70">
-            Your assessment, your programme, your trackers, and what your care team is doing for
-            you — all in one place.
-          </p>
-        </div>
-        {obesityEnrollment && (
-          <GoalsDialog enrollments={[obesityEnrollment]} pastGoals={obesityGoals} />
-        )}
-      </div>
+      <PageHeader
+        title={`${label} management`}
+        icon={SEMANTIC_ICON.weight}
+        description="Your assessment, your programme, your trackers, and what your care team is doing for you, all in one place."
+        actions={
+          obesityEnrollment && (
+            <GoalsDialog enrollments={[obesityEnrollment]} pastGoals={obesityGoals} />
+          )
+        }
+      />
 
       <ObesitySummary patientId={user.id} conditionLanguagePreference={preference} />
 

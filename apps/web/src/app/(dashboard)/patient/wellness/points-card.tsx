@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { koboToNaira } from "@tarragon/shared";
 
 const REASON_LABEL: Record<string, string> = {
   vitals_logged: "Logged a vitals reading",
@@ -40,7 +41,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.points className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.points className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Wellness points
         </CardTitle>
         <CardDescription>
@@ -49,13 +50,13 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {!isLoading && (
           <div className="flex items-baseline gap-2">
-            <span className="font-heading text-3xl font-bold text-charcoal-ink">
+            <span className="font-heading text-3xl font-bold text-charcoal-ink dark:text-night-ink">
               {currentBalance.toLocaleString()}
             </span>
-            <span className="text-sm text-charcoal-ink/60">
+            <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               points{balance?.lifetime_earned ? ` · ${balance.lifetime_earned.toLocaleString()} earned all-time` : ""}
             </span>
           </div>
@@ -73,7 +74,10 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
             }
             redeem.mutate(points, {
               onSuccess: (res) => {
-                setMessage(`Redeemed: a ₦${((res.kobo_credited ?? 0) / 100).toLocaleString()} reward voucher is now on your account.`);
+                // koboToNaira rather than an inline /100: every NGN amount on the
+                // platform is stored in kobo, and the one shared converter is
+                // what keeps a stray factor of 100 from reaching a patient.
+                setMessage(`Redeemed: a ₦${koboToNaira(res.kobo_credited ?? 0).toLocaleString()} reward voucher is now on your account.`);
                 setAmount("");
               },
               onError: (err) => setMessage(err instanceof Error ? err.message : "Something went wrong."),
@@ -81,7 +85,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
           }}
         >
           <div className="grid gap-1">
-            <label htmlFor="redeem-points" className="text-xs font-medium text-charcoal-ink/70">
+            <label htmlFor="redeem-points" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
               Redeem for a voucher
             </label>
             <Input
@@ -98,20 +102,20 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
           <Button type="submit" size="sm" disabled={redeem.isPending || currentBalance <= 0}>
             {redeem.isPending ? "Redeeming…" : "Redeem"}
           </Button>
-          {message && <span className="text-sm text-charcoal-ink/70">{message}</span>}
+          {message && <span className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{message}</span>}
         </form>
 
         {ledger && ledger.length > 0 && (
           <div>
-            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
               Recent activity
             </p>
-            <ul className="divide-y divide-charcoal-ink/10 text-sm">
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 text-sm">
               {ledger.map((entry) => (
                 <li key={entry.id} className="flex items-center justify-between py-1.5">
-                  <span className="text-charcoal-ink/80">{reasonLabel(entry.reason)}</span>
+                  <span className="text-charcoal-ink/80 dark:text-night-ink/80">{reasonLabel(entry.reason)}</span>
                   <span
-                    className={entry.points > 0 ? "font-medium text-brand-green" : "font-medium text-charcoal-ink/60"}
+                    className={entry.points > 0 ? "font-medium text-brand-green dark:text-brand-green-bright" : "font-medium text-charcoal-ink/60 dark:text-night-ink/60"}
                   >
                     {entry.points > 0 ? "+" : ""}
                     {entry.points}

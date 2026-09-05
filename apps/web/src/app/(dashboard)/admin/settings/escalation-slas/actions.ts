@@ -3,19 +3,45 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import type { Json } from "@tarragon/shared";
+import { slaFieldName } from "./sla-field";
+
+/** One row of the escalation_slas JSON config. Indexed by string so it round-
+ * trips through the Json column type without losing the fields this action
+ * does not touch. */
+interface SlaConfigEntry {
+  tier: string;
+  pathway: string;
+  sla_minutes: number;
+  [key: string]: Json[keyof Json] | string | number | undefined;
+}
 
 export type CreateEscalationSlaDraftState = { error?: string; success?: boolean } | undefined;
 export type SignEscalationSlasState = { error?: string; success?: boolean } | undefined;
 
 /**
- * Create a new draft version, duplicating the CURRENTLY ACTIVE config
- * verbatim so the record shows exactly what was in force at the moment the
- * draft was opened. This page never edits SLA numbers directly — a numeric
- * change is a clinical-safety decision that belongs in a reviewed, tested
- * migration (see supabase/migrations/*escalation_sla_config.sql); this
- * action exists only so a Director can re-attest an unchanged config, or so
- * an admin can open a draft immediately after a migration changes the
- * numbers, ready for the Director to review and sign.
+ * Create a new draft version from the CURRENTLY ACTIVE config, optionally
+ * with edited SLA minutes.
+ *
+ * This used to refuse numeric edits outright, on the reasoning that changing
+ * an SLA is a clinical-safety decision belonging in a reviewed migration.
+ * The intent was right but the instrument was wrong: escalation_slas exists
+ * precisely so these numbers can change WITHOUT a deployment, and requiring
+ * a migration to alter one number meant the config drifted from what anyone
+ * had actually reviewed (v5 sat active and unsigned, carrying entries whose
+ * own notes said "DRAFT, needs Clinical Director sign-off").
+ *
+ * The safety property is preserved where it actually lives: an edit never
+ * touches the active config. It writes a NEW, unsigned, inactive version,
+ * and nothing comes into force until a Clinical Director signs it through
+ * public.sign_escalation_slas — which stamps approved_by from their own
+ * clinical_staff record and deactivates the prior version. So a number can
+ * now be changed in the app, but it still cannot take effect without a
+ * signature, and the version history shows exactly what changed and who
+ * approved it.
+ *
+ * Edits arrive as `sla__<tier>__<pathway>` form fields holding minutes. Any
+ * entry with no matching field is carried through byte-for-byte.
  */
 export async function createEscalationSlaDraftAction(
   _prev: CreateEscalationSlaDraftState,
@@ -43,13 +69,36 @@ export async function createEscalationSlaDraftAction(
     .maybeSingle();
   const nextVersion = (latest?.version ?? 0) + 1;
 
+  // Apply any edited minutes onto a copy of the active config.
+  const entries = Array.isArray(active.config)
+    ? (active.config as SlaConfigEntry[])
+    : [];
+  const changes: string[] = [];
+  const nextConfig = entries.map((entry) => {
+    const field = formData.get(slaFieldName(entry.tier, entry.pathway));
+    if (field === null) return entry;
+    const parsed = Number(String(field).trim());
+    // A blank, non-numeric or unchanged field is not an edit. Rejecting
+    // silently would be worse than ignoring: the draft would claim a change
+    // it did not make.
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed === entry.sla_minutes) {
+      return entry;
+    }
+    changes.push(
+      `${entry.tier}/${entry.pathway} ${entry.sla_minutes} -> ${parsed} min`
+    );
+    return { ...entry, sla_minutes: parsed };
+  });
+
   const notes =
     String(formData.get("notes") ?? "").trim() ||
-    `Re-attested by admin, version ${nextVersion}, config unchanged from the prior active version. Sign to bring into force.`;
+    (changes.length > 0
+      ? `Version ${nextVersion}: ${changes.join("; ")}. Sign to bring into force.`
+      : `Re-attested by admin, version ${nextVersion}, config unchanged from the prior active version. Sign to bring into force.`);
 
   const { error } = await supabase.from("escalation_slas").insert({
     version: nextVersion,
-    config: active.config,
+    config: nextConfig as unknown as Json,
     notes,
   });
   if (error) return { error: error.message };

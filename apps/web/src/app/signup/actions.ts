@@ -4,8 +4,12 @@ import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { signupSchema } from "@/lib/validation/auth";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
+import { firstIssue } from "@/lib/validation/first-issue";
 
-export type SignupActionState = { error?: string; success?: boolean } | undefined;
+export type SignupActionState =
+  | { error?: string; field?: string; success?: boolean }
+  | undefined;
 
 /**
  * Public self-serve signup always provisions a `patient` profile — this
@@ -30,7 +34,7 @@ export async function signUp(
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return firstIssue(parsed.error, "Check the details above and try again.");
   }
 
   // IP-scoped (10/hour) blunts scripted mass account creation; email-scoped
@@ -73,7 +77,10 @@ export async function signUp(
     },
   });
   if (error) {
-    return { error: error.message };
+    // GoTrue's raw string leaked its own 6-character minimum here, which
+    // directly contradicted the 8-character rule this form enforces and is
+    // now shown under the password field.
+    return { error: authErrorMessage(error, "sign_up") };
   }
 
   return { success: true };

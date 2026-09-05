@@ -93,28 +93,28 @@ export function CheckMyPack() {
             accept="image/*"
             capture="environment"
             required
-            className="block w-full text-sm text-charcoal-ink/80 file:mr-3 file:rounded file:border-0 file:bg-brand-green file:px-3 file:py-1.5 file:text-sm file:text-white"
+            className="block w-full text-sm text-charcoal-ink/80 dark:text-night-ink/80 file:mr-3 file:rounded file:border-0 file:bg-brand-green file:px-3 file:py-1.5 file:text-sm file:text-white"
           />
           <Button type="submit" size="sm" disabled={pending}>
             {pending ? "Reading the pack…" : "Check this pack"}
           </Button>
         </form>
 
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}
 
         {reading && check && verdict ? (
-          <div className="space-y-3 rounded-lg border border-charcoal-ink/15 p-3">
+          <div className="space-y-3 rounded-lg border border-charcoal-ink/15 dark:border-night-ink/20 p-3">
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={verdict.badge}>{verdict.label}</Badge>
               {reading.confidence === "low" ? (
-                <span className="text-xs text-amber-700">the photo was hard to read</span>
+                <span className="text-xs text-amber-700 dark:text-amber-300">the photo was hard to read</span>
               ) : null}
             </div>
 
-            <p className="text-sm text-charcoal-ink/85">{verdict.body}</p>
+            <p className="text-sm text-charcoal-ink/85 dark:text-night-ink/85">{verdict.body}</p>
 
             {check.verdict === "strength_differs" ? (
-              <p className="rounded border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900">
+              <p className="rounded border border-amber-300 dark:border-amber-500/40 bg-amber-50 dark:bg-amber-500/15 p-2 text-sm text-amber-900 dark:text-amber-300">
                 The pack says {check.packStrength?.value}
                 {check.packStrength?.unit}. Your record says {check.prescribedStrength?.value}
                 {check.prescribedStrength?.unit} of {check.matchedDrugName}.{" "}
@@ -126,7 +126,7 @@ export function CheckMyPack() {
             ) : null}
 
             {reading.unreadable_reason ? (
-              <p className="text-sm text-charcoal-ink/70">{reading.unreadable_reason}</p>
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{reading.unreadable_reason}</p>
             ) : (
               <dl className="grid grid-cols-2 gap-x-3 gap-y-1 text-sm">
                 <Row label="Name" value={reading.drug_name} />
@@ -141,19 +141,19 @@ export function CheckMyPack() {
 
             {/* Shown on EVERY result, including a clean one. A matching name and
                 strength says nothing whatsoever about whether a pack is real. */}
-            <div className="rounded border border-charcoal-ink/15 bg-charcoal-ink/[0.02] p-2">
-              <p className="text-xs font-medium text-charcoal-ink">
-                Is it genuine? We cannot tell you that — NAFDAC can.
+            <div className="rounded border border-charcoal-ink/15 dark:border-night-ink/20 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-2">
+              <p className="text-xs font-medium text-charcoal-ink dark:text-night-ink">
+                Is it genuine? We cannot tell you that. NAFDAC can.
               </p>
-              <p className="mt-1 text-xs text-charcoal-ink/70">
+              <p className="mt-1 text-xs text-charcoal-ink/70 dark:text-night-ink/70">
                 {reading.has_scratch_panel
                   ? NAFDAC_MAS.howTo
                   : `We could not see a scratch panel on this pack. ${NAFDAC_MAS.howTo}`}
               </p>
-              <p className="mt-1 text-xs text-charcoal-ink/60">{NAFDAC_MAS.caveat}</p>
+              <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{NAFDAC_MAS.caveat}</p>
             </div>
 
-            <p className="text-[0.65rem] text-charcoal-ink/50">
+            <p className="text-[0.65rem] text-charcoal-ink/50 dark:text-night-ink/55">
               We read this from your photo and did not keep the picture or the result.
             </p>
           </div>
@@ -167,8 +167,8 @@ function Row({ label, value }: { label: string; value: string | null }) {
   if (!value) return null;
   return (
     <>
-      <dt className="text-charcoal-ink/55">{label}</dt>
-      <dd className="text-charcoal-ink">{value}</dd>
+      <dt className="text-charcoal-ink/55 dark:text-night-ink/55">{label}</dt>
+      <dd className="text-charcoal-ink dark:text-night-ink">{value}</dd>
     </>
   );
 }

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { SubscriptionManager } from "./subscription-manager";
 
 export default async function PatientSubscriptionPage() {
@@ -16,12 +18,11 @@ export default async function PatientSubscriptionPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Your subscription</h1>
-        <p className="text-charcoal-ink/60">
-          Manage your plan and add-on services. You can change or cancel any time.
-        </p>
-      </div>
+      <PageHeader
+        title="My services"
+        icon={SEMANTIC_ICON.billing}
+        description="One-off purchases covering a fixed window each. Nothing auto-renews. Buy again any time to extend."
+      />
       <SubscriptionManager />
     </div>
   );

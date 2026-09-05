@@ -1,7 +1,7 @@
 import type { AppIconName } from "@/lib/icons";
 
 /**
- * The 16 Platform Analytics categories — single source of truth for the
+ * The Platform Analytics categories — single source of truth for the
  * `analyst` sidebar (lib/navigation.ts), the per-page header
  * (analytics/_components/page-header.tsx), and the Overview page's grouped
  * quick-link cards (analytics/_components/overview-dashboard.tsx). Group
@@ -40,7 +40,7 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     id: "financial",
     href: "/analytics/financial",
     label: "Financial",
-    subtitle: "MRR, subscriptions, churn and receivables",
+    subtitle: "Revenue by service, purchases and receivables",
     icon: "financial",
     group: "Financial",
   },
@@ -56,7 +56,7 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     id: "investor",
     href: "/analytics/investor",
     label: "Investor",
-    subtitle: "ARR, retention, unit economics, burn and runway",
+    subtitle: "Revenue, repeat purchase, unit economics and runway",
     icon: "investor",
     group: "Financial",
   },
@@ -101,11 +101,35 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     group: "Growth",
   },
   {
+    id: "executive",
+    href: "/analytics/executive",
+    label: "Executive",
+    subtitle: "Cross-cutting rollup of active clinical load",
+    icon: "executive",
+    group: "Operations",
+  },
+  {
+    id: "patient-flow",
+    href: "/analytics/patient-flow",
+    label: "Patient flow",
+    subtitle: "Screening to referral to treatment funnel",
+    icon: "patientFlow",
+    group: "Operations",
+  },
+  {
     id: "operations",
     href: "/analytics/operations",
     label: "Operations",
     subtitle: "Escalation and notification-delivery throughput",
     icon: "operations",
+    group: "Operations",
+  },
+  {
+    id: "service-levels",
+    href: "/analytics/service-levels",
+    label: "Service levels",
+    subtitle: "Appointments, alert response and referral turnaround",
+    icon: "serviceLevels",
     group: "Operations",
   },
   {
@@ -122,6 +146,27 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     label: "Facilities",
     subtitle: "Utilization across labs, pharmacies and hospitals",
     icon: "facilities",
+    group: "Operations",
+  },
+  {
+    // /analytics/capacity existed as a real page, linked only from the
+    // admin-only pill-tab bar in analytics/_components/analytics-nav.tsx, so
+    // the analyst whose job it is could not reach it from anywhere. Icon
+    // reuses the existing `caseload` gauge rather than adding a name to
+    // lib/icons.ts for one entry.
+    id: "capacity",
+    href: "/analytics/capacity",
+    label: "Provider capacity",
+    subtitle: "Specialist load, waitlists and appointment capacity",
+    icon: "caseload",
+    group: "Operations",
+  },
+  {
+    id: "geographic-capacity",
+    href: "/analytics/geographic-capacity",
+    label: "Geographic capacity",
+    subtitle: "Specialist coverage by zone and state rollout",
+    icon: "geographicCapacity",
     group: "Operations",
   },
   {
@@ -146,6 +191,16 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     label: "Population",
     subtitle: "Conditions, risk tiers and care gaps",
     icon: "population",
+    group: "Governance",
+  },
+  {
+    // Same gap as Provider capacity above: a real page reachable only from
+    // the admin tab bar, invisible to the analyst sidebar this list feeds.
+    id: "safety",
+    href: "/analytics/safety",
+    label: "Patient safety",
+    subtitle: "Safety incidents, safeguarding and near-miss reporting",
+    icon: "siren",
     group: "Governance",
   },
   {

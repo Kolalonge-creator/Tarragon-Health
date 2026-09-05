@@ -1,20 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   useAvailableAppointmentSlots,
   useHoldAppointmentSlot,
   useConfirmAppointmentBooking,
   useJoinWaitingList,
+  useEnsureAppointmentVideoConsultation,
   type AppointmentType,
 } from "@/lib/queries/appointments";
 import { APPOINTMENT_TYPE_LABELS } from "./appointment-labels";
+import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -23,23 +27,46 @@ function formatSlot(iso: string): string {
   });
 }
 
+/** Appointment types that carry a direct charge, satisfied by a pre-bought
+ * single-use service_purchases credit — see the redemption logic inside
+ * confirm_appointment_booking (20260831163838). Everything else stays free
+ * (payment_status defaults 'not_required'). */
+const PAID_APPOINTMENT_PRODUCT_CODE: Partial<Record<AppointmentType, string>> = {
+  telemedicine: "video_visit_credit",
+  result_interpretation: "result_interpretation_credit",
+};
+
 /**
  * Patient-facing search + book flow (10.11): pick an appointment type,
  * see open slots over the next two weeks, and book one. Booking is
- * hold -> confirm in sequence — most appointment types here carry no direct
- * charge (payment_status defaults 'not_required'), so confirm resolves
- * straight to 'confirmed' with no separate payment step to wait on.
+ * hold -> confirm in sequence. For a free appointment type, confirm resolves
+ * straight to 'confirmed'. For a paid type (video/audio visit, result
+ * interpretation session) with no available credit yet, confirm instead
+ * leaves the hold at 'booked' and this component offers to buy the credit —
+ * checkout redirects back here with ?resume_appointment=<id>, which
+ * re-confirms automatically once the purchase has gone through.
  */
 export function BookAppointment({
   organisationId,
   patientId,
+  initialAppointmentType,
 }: {
   organisationId: string;
   patientId: string;
+  /** Preselects the type picker — e.g. the Wellbeing page linking straight
+   * into "Therapy session" rather than defaulting to GP. */
+  initialAppointmentType?: AppointmentType;
 }) {
-  const [appointmentType, setAppointmentType] = useState<AppointmentType>("gp");
+  const router = useRouter();
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>(initialAppointmentType ?? "gp");
   const [consultationMethod, setConsultationMethod] = useState<"telemedicine" | "in_person" | "">("");
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
+  const [pendingPaymentAppointment, setPendingPaymentAppointment] = useState<{
+    id: string;
+    productCode: string;
+    slotStart: string;
+  } | null>(null);
+  const [isBuying, setIsBuying] = useState(false);
 
   const { data: slots, isLoading } = useAvailableAppointmentSlots({
     organisationId,
@@ -49,8 +76,33 @@ export function BookAppointment({
   const hold = useHoldAppointmentSlot();
   const confirm = useConfirmAppointmentBooking();
   const joinWaitingList = useJoinWaitingList();
+  const ensureVideo = useEnsureAppointmentVideoConsultation();
 
-  const isBooking = hold.isPending || confirm.isPending;
+  const isBooking = hold.isPending || confirm.isPending || ensureVideo.isPending;
+
+  // Resume a booking left pending payment: checkout redirected back here
+  // with ?resume_appointment=<id> once the credit purchase succeeded. Read
+  // directly off window.location rather than useSearchParams() so this
+  // component doesn't force the whole page into a Suspense boundary just
+  // for a one-time redirect-back check.
+  useEffect(() => {
+    const resumeId = new URLSearchParams(window.location.search).get("resume_appointment");
+    if (!resumeId) return;
+    router.replace("/patient/appointments");
+    confirm
+      .mutateAsync(resumeId)
+      .then((appt) => {
+        setMessage(
+          appt.status === "confirmed"
+            ? { tone: "success", text: "Payment received. Your visit is booked." }
+            : { tone: "error", text: "Payment is still processing. Check back in a moment." }
+        );
+      })
+      .catch((error) => {
+        setMessage({ tone: "error", text: (error as Error).message || "Could not confirm your booking." });
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function bookSlot(slot: {
     clinician_id: string;
@@ -60,6 +112,7 @@ export function BookAppointment({
     location: string | null;
   }) {
     setMessage(null);
+    setPendingPaymentAppointment(null);
     try {
       const held = await hold.mutateAsync({
         organisationId,
@@ -69,11 +122,70 @@ export function BookAppointment({
         scheduledFor: slot.slot_start,
         endsAt: slot.slot_end,
         location: slot.location ?? undefined,
+        patientId,
       });
-      await confirm.mutateAsync(held.id);
-      setMessage({ tone: "success", text: `Booked for ${formatSlot(slot.slot_start)}.` });
+      const confirmed = await confirm.mutateAsync(held.id);
+
+      if (confirmed.status === "confirmed") {
+        // 68.3/68.5 — a telemedicine booking needs a real Zoom meeting
+        // behind it; set that up now rather than waiting for the patient to
+        // click "Join call" later, so the video-visit page shows a real
+        // link straight away.
+        if (slot.consultation_method === "telemedicine") {
+          try {
+            await ensureVideo.mutateAsync(held.id);
+          } catch {
+            // Booking itself succeeded — the join link can still be set up
+            // later from "Your upcoming appointments"; don't fail the whole
+            // booking over it.
+          }
+        }
+        setMessage({ tone: "success", text: `Booked for ${formatSlot(slot.slot_start)}.` });
+        return;
+      }
+
+      const productCode = PAID_APPOINTMENT_PRODUCT_CODE[appointmentType];
+      if (confirmed.status === "booked" && productCode) {
+        setPendingPaymentAppointment({ id: confirmed.id, productCode, slotStart: slot.slot_start });
+        setMessage({
+          tone: "success",
+          text: `Time held for ${formatSlot(slot.slot_start)}. Pay to confirm your booking.`,
+        });
+        return;
+      }
+
+      setMessage({ tone: "error", text: "Could not book that slot. Try another." });
     } catch (error) {
-      setMessage({ tone: "error", text: (error as Error).message || "Could not book that slot — try another." });
+      setMessage({ tone: "error", text: (error as Error).message || "Could not book that slot. Try another." });
+    }
+  }
+
+  async function payForPendingAppointment() {
+    if (!pendingPaymentAppointment) return;
+    setIsBuying(true);
+    setMessage(null);
+    try {
+      const result = await purchaseServiceProduct({
+        serviceProductCode: pendingPaymentAppointment.productCode,
+        callbackPath: `/patient/appointments?resume_appointment=${pendingPaymentAppointment.id}`,
+      });
+      if (result?.error) {
+        setMessage({ tone: "error", text: result.error });
+        setIsBuying(false);
+        return;
+      }
+      if (result?.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      if (result?.activated) {
+        // No charge to run (shouldn't happen for a priced credit, but stay
+        // consistent with purchaseServiceProduct's own contract) — resume
+        // immediately.
+        router.replace(`/patient/appointments?resume_appointment=${pendingPaymentAppointment.id}`);
+      }
+    } finally {
+      setIsBuying(false);
     }
   }
 
@@ -90,7 +202,7 @@ export function BookAppointment({
         preferredFrom: now.toISOString(),
         preferredUntil: in30Days.toISOString(),
       });
-      setMessage({ tone: "success", text: "You're on the waiting list — we'll notify you the moment a slot opens." });
+      setMessage({ tone: "success", text: "You're on the waiting list. We'll notify you the moment a slot opens." });
     } catch (error) {
       setMessage({ tone: "error", text: (error as Error).message || "Could not join the waiting list." });
     }
@@ -104,7 +216,7 @@ export function BookAppointment({
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
           <div className="space-y-1">
-            <label className="text-xs text-charcoal-ink/60" htmlFor="appointment-type">
+            <label className="text-xs text-charcoal-ink/60 dark:text-night-ink/60" htmlFor="appointment-type">
               Appointment type
             </label>
             <Select
@@ -120,7 +232,7 @@ export function BookAppointment({
             </Select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-charcoal-ink/60" htmlFor="consultation-method">
+            <label className="text-xs text-charcoal-ink/60 dark:text-night-ink/60" htmlFor="consultation-method">
               How
             </label>
             <Select
@@ -136,16 +248,27 @@ export function BookAppointment({
         </div>
 
         {message && (
-          <p className={`text-sm ${message.tone === "success" ? "text-brand-green" : "text-red-600"}`}>
+          <p className={`text-sm ${message.tone === "success" ? "text-brand-green dark:text-brand-green-bright" : "text-red-600 dark:text-red-400"}`}>
             {message.text}
           </p>
         )}
 
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Looking for open times…</p>}
+        {pendingPaymentAppointment && (
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-brand-green/30 bg-brand-green/5 dark:bg-brand-green/10 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
+              Your slot for {formatSlot(pendingPaymentAppointment.slotStart)} is held. Pay now to confirm it.
+            </p>
+            <Button size="sm" className="ml-auto" disabled={isBuying} onClick={payForPendingAppointment}>
+              {isBuying ? "Redirecting to payment…" : "Pay to confirm"}
+            </Button>
+          </div>
+        )}
+
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Looking for open times…</p>}
 
         {!isLoading && slots && slots.length === 0 && (
           <div className="space-y-2">
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               No open times in the next two weeks for this appointment type.
             </p>
             <Button
@@ -160,15 +283,15 @@ export function BookAppointment({
         )}
 
         {!isLoading && slots && slots.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {slots.slice(0, 20).map((slot) => (
               <li
                 key={`${slot.clinician_id}-${slot.slot_start}`}
                 className="flex flex-wrap items-center gap-2 py-2"
               >
                 <div>
-                  <p className="text-sm text-charcoal-ink">{formatSlot(slot.slot_start)}</p>
-                  <p className="text-xs text-charcoal-ink/60">
+                  <p className="text-sm text-charcoal-ink dark:text-night-ink">{formatSlot(slot.slot_start)}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                     {slot.clinician_name} · {slot.consultation_method === "telemedicine" ? "Telemedicine" : slot.location || "In person"}
                   </p>
                 </div>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import { CvRiskConfigManager, type CvRiskConfigRow } from "./cv-risk-config-manager";
 import { CvRiskConfigEditor } from "./cv-risk-config-editor";
 import { PROVISIONAL_CV_RISK_CONFIG, type CvRiskConfig } from "@/lib/rules/cv-risk";
@@ -35,19 +36,19 @@ export default async function CvRiskConfigSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Cardiovascular-risk configuration
-        </h1>
-        <p className="text-charcoal-ink/60">
-          These are the clinical parameters the lipid / CV-risk engine uses: LDL and Non-HDL
-          targets by risk category, statin-eligibility thresholds, and the levels that flag a
-          patient for review. They are seeded from published guidelines as a provisional draft and
-          are <strong>not in force until the Medical Director signs them</strong>. Confirm the
-          values, then sign to bring them into force. To change any value, edit below and save it as
-          a new version, then sign it.
-        </p>
-      </div>
+      <PageHeader
+        title="Cardiovascular-risk configuration"
+        description={
+          <>
+            These are the clinical parameters the lipid / CV-risk engine uses: LDL and Non-HDL
+            targets by risk category, statin-eligibility thresholds, and the levels that flag a
+            patient for review. They are seeded from published guidelines as a provisional draft and
+            are <strong>not in force until the Medical Director signs them</strong>. Confirm the
+            values, then sign to bring them into force. To change any value, edit below and save it as
+            a new version, then sign it.
+          </>
+        }
+      />
       <CvRiskConfigEditor defaults={configToFormValues(prefillConfig)} />
       <CvRiskConfigManager configs={rows} />
     </div>

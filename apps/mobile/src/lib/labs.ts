@@ -1,6 +1,5 @@
+import { API_BASE_URL, fetchWithTimeoutAndRetry, NETWORK_ERROR_MESSAGE } from "./api";
 import { supabase } from "./supabase";
-
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
 
 export interface UploadLabResultResult {
   success: boolean;
@@ -34,7 +33,10 @@ export async function uploadLabResult(photo: {
   formData.append("file", { uri: photo.uri, type: photo.mimeType, name: photo.fileName } as unknown as Blob);
 
   try {
-    const response = await fetch(`${API_BASE_URL}/api/mobile/lab-result-upload`, {
+    // Same timeout + single-retry policy as every JSON request in api.ts —
+    // a raw fetch here previously had no timeout at all, so a stalled
+    // connection hung the upload button indefinitely.
+    const response = await fetchWithTimeoutAndRetry(`${API_BASE_URL}/api/mobile/lab-result-upload`, {
       method: "POST",
       headers: { Authorization: `Bearer ${session.access_token}` },
       body: formData,
@@ -45,6 +47,6 @@ export async function uploadLabResult(photo: {
     }
     return { success: true };
   } catch {
-    return { success: false, error: "Couldn't reach the server. Check your connection and try again." };
+    return { success: false, error: NETWORK_ERROR_MESSAGE };
   }
 }

@@ -7,7 +7,10 @@ import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { LIPID_ANALYTE_META, isLipidAnalyteCode } from "@/lib/lipids/analytes";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const VITAL_LABEL: Record<string, string> = {
   blood_pressure: "Blood pressure",
   glucose: "Glucose",
@@ -64,55 +67,57 @@ export default async function HealthPassportPage() {
   const supabase = await createClient();
   const data = await getHealthPassportData(supabase, profile.id, profile.organisation_id);
 
-  const periodLabel = `${new Date(data.periodStart).toLocaleDateString()} – ${new Date(
-    data.periodEnd
-  ).toLocaleDateString()}`;
+  const periodLabel = `${formatPatientDate(data.periodStart)} – ${formatPatientDate(data.periodEnd)}`;
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-            Your Health Passport
-          </h1>
-          <p className="text-charcoal-ink/60">
-            A summary of your health record for {periodLabel}, for your own records or to
-            share with another doctor. Not a substitute for your full medical record.
-          </p>
-        </div>
-        <Link
-          href="/api/patient/health-passport/pdf"
-          className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          Download PDF
-        </Link>
-      </div>
+      <PageHeader
+        title="Your Health Passport"
+        icon={NAV_ICON.passport}
+        description={`A summary of your health record for ${periodLabel}, for your own records or to share with another doctor. Not a substitute for your full medical record.`}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/api/patient/health-passport/pdf"
+              className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Download PDF
+            </Link>
+            <Link
+              href="/api/patient/data-export/json"
+              className="rounded-md border border-brand-green px-4 py-2 text-sm font-medium text-brand-green dark:text-brand-green-bright hover:bg-brand-green/5 dark:hover:bg-brand-green/10"
+            >
+              Download your complete record
+            </Link>
+          </div>
+        }
+      />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Vitals</CardTitle>
+            <CardTitle as="h2">Vitals</CardTitle>
           </CardHeader>
           <CardContent>
             {data.vitals.length === 0 && data.bmi === null && (
-              <p className="text-sm text-charcoal-ink/60">No vitals logged in this period.</p>
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No vitals logged in this period.</p>
             )}
             {(data.vitals.length > 0 || data.bmi !== null) && (
-              <ul className="divide-y divide-charcoal-ink/10">
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {data.bmi !== null && (
                   <li className="flex items-center justify-between py-2">
-                    <span className="text-sm font-medium text-charcoal-ink">BMI</span>
-                    <span className="text-sm text-charcoal-ink/60">{data.bmi} kg/m²</span>
+                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">BMI</span>
+                    <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{data.bmi} kg/m²</span>
                   </li>
                 )}
                 {data.vitals.map((v) => (
                   <li key={v.vitalType} className="flex items-center justify-between py-2">
-                    <span className="text-sm font-medium text-charcoal-ink">
-                      {VITAL_LABEL[v.vitalType] ?? v.vitalType}
+                    <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+                      {VITAL_LABEL[v.vitalType] ?? v.vitalType.replace(/_/g, " ")}
                     </span>
-                    <span className="text-sm text-charcoal-ink/60">
+                    <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
                       {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
-                      period · last logged {new Date(v.takenAt).toLocaleDateString()}
+                      period · last logged {formatPatientDate(v.takenAt)}
                     </span>
                   </li>
                 ))}
@@ -123,21 +128,21 @@ export default async function HealthPassportPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Preventive screenings</CardTitle>
+            <CardTitle as="h2">Preventive screenings</CardTitle>
           </CardHeader>
           <CardContent>
             {data.screenings.length === 0 && (
-              <p className="text-sm text-charcoal-ink/60">No screenings due in this period.</p>
+              <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No screenings due in this period.</p>
             )}
             {data.screenings.length > 0 && (
-              <ul className="divide-y divide-charcoal-ink/10">
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {data.screenings.map((s, i) => (
                   <li key={i} className="py-2">
-                    <p className="text-sm font-medium text-charcoal-ink">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {s.screenTypeName}: {s.status}
                     </p>
                     {s.resultStatus && (
-                      <p className="text-xs text-charcoal-ink/60">
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                         Result: {s.resultStatus}
                         {s.resultSummary ? `, ${s.resultSummary}` : ""}
                       </p>
@@ -152,20 +157,20 @@ export default async function HealthPassportPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Lab results</CardTitle>
+          <CardTitle as="h2">Lab results</CardTitle>
         </CardHeader>
         <CardContent>
           {data.labReadings.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No lab results on file this period.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No lab results on file this period.</p>
           )}
           {data.labReadings.length > 0 && (
-            <ul className="divide-y divide-charcoal-ink/10">
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
               {data.labReadings.map((r, i) => (
                 <li key={i} className="flex items-center justify-between py-2 text-sm">
-                  <span className="font-medium text-charcoal-ink">{labResultLabel(r.code)}</span>
-                  <span className="text-charcoal-ink/60">
+                  <span className="font-medium text-charcoal-ink dark:text-night-ink">{labResultLabel(r.code)}</span>
+                  <span className="text-charcoal-ink/60 dark:text-night-ink/60">
                     {r.code === "hba1c" ? formatHba1cWithBracket(r.value) : `${r.value} ${r.unit}`} ·{" "}
-                    {new Date(r.takenAt).toLocaleDateString()}
+                    {formatPatientDate(r.takenAt)}
                   </span>
                 </li>
               ))}
@@ -177,12 +182,12 @@ export default async function HealthPassportPage() {
       {data.reviewedEscalations.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Direct doctor review</CardTitle>
+            <CardTitle as="h2">Direct doctor review</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {data.reviewedEscalations.map((esc) => (
-              <div key={esc.id} className="space-y-1 border-b border-charcoal-ink/10 pb-3 last:border-0">
-                <p className="text-sm text-charcoal-ink/70">{esc.reason}</p>
+              <div key={esc.id} className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-3 last:border-0">
+                <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{esc.reason}</p>
                 <ReviewedByDoctor escalationId={esc.id} />
               </div>
             ))}
@@ -190,7 +195,7 @@ export default async function HealthPassportPage() {
         </Card>
       )}
 
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         {data.protocolAuthor
           ? `Protocols supervised by Dr. ${data.protocolAuthor.fullName}${
               data.protocolAuthor.credentialType && data.protocolAuthor.credentialNumber

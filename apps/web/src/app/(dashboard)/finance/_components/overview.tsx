@@ -27,6 +27,7 @@ export function FinanceOverview() {
     (flags.data?.pending_approvals_count ?? 0) +
     (flags.data?.aged_unreconciled_count ?? 0) +
     (flags.data?.reconciliation_flags_count ?? 0) +
+    (flags.data?.fraud_signals_count ?? 0) +
     (flags.data?.ap_overdue_count ?? 0) +
     (flags.data?.compliance_overdue_count ?? 0);
 
@@ -34,8 +35,8 @@ export function FinanceOverview() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         This is the platform&apos;s live double-entry general ledger. Payments, refunds, voucher
-        top-ups and commissions post automatically; subscription revenue is deferred and recognised
-        over each billing period. Figures below are NGN; diaspora currencies are shown per statement.
+        top-ups and commissions post automatically; a service bought up front is deferred until it
+        is delivered. All figures are NGN through Paystack, the only live payment provider.
       </p>
 
       {flagCount > 0 && (
@@ -54,6 +55,11 @@ export function FinanceOverview() {
             {(flags.data?.reconciliation_flags_count ?? 0) > 0 && (
               <Link href="/finance/reconciliation">
                 <Badge variant="red">{flags.data?.reconciliation_flags_count} reconciliation flag{flags.data?.reconciliation_flags_count === 1 ? "" : "s"}</Badge>
+              </Link>
+            )}
+            {(flags.data?.fraud_signals_count ?? 0) > 0 && (
+              <Link href="/finance/fraud">
+                <Badge variant="red">{flags.data?.fraud_signals_count} fraud signal{flags.data?.fraud_signals_count === 1 ? "" : "s"}</Badge>
               </Link>
             )}
             {(flags.data?.ap_overdue_count ?? 0) > 0 && (

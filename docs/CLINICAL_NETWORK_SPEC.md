@@ -84,22 +84,25 @@ Primary care (doctors, nurses) and the 5-tier ladder: 🟢 `clinical_staff`
 employed staff — see the framing note in §1, this stays as-is, it is not the gap.
 Specialists: 🟡 `specialist_providers` catalogue, 9 rows, all named `[Placeholder] ...` — real table,
 no real partner contracts.
-Allied health (dietitians, physiotherapists, psychologists): 🔴 no table, no `specialist_type` enum
-values for these at all as far as the research found.
+Allied health (dietitians, physiotherapists, psychologists): 🟡, **corrected 2026-09-03** —
+`dietetics`/`podiatry` predate this doc, `psychiatry`/`psychology` were added 2026-08-29. Only
+physiotherapist is still genuinely missing — see §4.1/Phase 1 item 6 below for the Phase-1-vs-Phase-3
+conflict with the Master Operating Plan that's holding it open.
 Healthcare organisations (hospitals/clinics/diagnostic centres/labs/pharmacies): 🟡 split across
 `facilities` (directory, `hospital|lab|pharmacy|radiology|optician|vaccination_centre`), `lab_providers`,
 `pharmacy_partners` — all static reference-data rows, admin-maintained, no self-service org account.
 
-### 4.2 Provider profile — 🟡
+### 4.2 Provider profile — 🟡, `specialist_providers` half closed 2026-08-29
 `clinical_staff` has: name, credential_type/number, specialty, bio, photo, `doctor_tier`,
-indemnity fields. **Missing:** subspecialty, qualifications, years_experience, languages, multiple
-locations, telemedicine-availability flag, consultation fee/duration (deliberately absent for
-employed staff — see §1), hospital affiliations. `specialist_providers` has: specialty, location
-(single, not multi), consultation_fee_kobo, state, telemedicine/in-person flags, accepted HMOs,
-languages[] — closer to spec shape but still single-location and unverified beyond the license
-fields added 2026-07-31.
+indemnity fields. **Still missing (this half is the real, still-open Phase 1 item 2):** subspecialty,
+qualifications, years_experience, languages, multiple locations, telemedicine-availability flag,
+consultation fee/duration (deliberately absent for employed staff — see §1), hospital affiliations —
+confirmed live, `clinical_staff` still has none of these columns.
+`specialist_providers` **enrichment shipped 2026-08-29** (`20260829142444_specialist_provider_profile_enrichment.sql`):
+added `subspecialty`, `qualifications text[]`, `years_of_experience`, `clinical_interests text[]`,
+`provider_tier` — closer to spec shape now, still single-location.
 
-### 4.3 Provider verification — 🟢 (for employed staff, license-expiry tracking shipped 2026-08-27), 🟡 (for partners)
+### 4.3 Provider verification — 🟢 (for employed staff, license-expiry tracking shipped 2026-08-27), 🟢 (for `specialist_providers`, 9-stage pipeline shipped 2026-08-29), 🟡 (for other partner types)
 This is the strongest existing piece. `clinical_staff` verification is DB-enforced, not app-layer:
 a CHECK constraint blocks `active=true` without `license_verified_at`, a separate trigger blocks
 self-verification, indemnity is enforced by tier with a granular exemptions table, and Health
@@ -109,9 +112,15 @@ or expiry-warning mechanism, which §4.3's "expired credentials should trigger w
 potentially suspension" explicitly calls for. Partner-side (`lab_providers`/`pharmacy_partners`/
 `specialist_providers`/`home_visit_providers`/`logistics_partners`) got `license_type/number/
 expires_at/verified_at/verified_by` columns in `20260731011319_partner_regulatory_license_tracking.sql`
-— the *columns* exist, but nothing reads `license_expires_at` to warn or suspend yet, and there is
-no multi-step onboarding pipeline (identity → registration → qualification → licence → scope →
-approval) for any provider type — onboarding today is a manual admin insert.
+— the *columns* exist, but nothing reads `license_expires_at` to warn or suspend yet. **Closed for
+`specialist_providers` specifically, 2026-08-29** — the same `20260829142558_specialist_provider_verification_pipeline.sql`
+migration (part of PR #336, "Specialist Network & Provider Platform foundations") built a real
+9-stage `specialist_verification_stage` enum (`application → identity_verification →
+registration_verification → qualification_verification → specialty_verification → contract →
+onboarding → clinical_approval → active`), DB-enforced (`is_active` can only be true once the stage
+reaches `active`), plus an admin UI (`specialist-verification-panel.tsx`). Still 🟡/manual for
+`lab_providers`/`pharmacy_partners`/`home_visit_providers`/`logistics_partners` — that onboarding is
+still a manual admin insert.
 
 ### 4.4/4.5 Provider availability & calendar — 🟢 (built 2026-08-28, Appointment Engine)
 `consult_availability_slots` + `book_video_consult_slot` (row-locked, no double-booking),
@@ -210,9 +219,10 @@ allied health services.
 
 ### 4.16 Specialist referral compatibility — 🟡, ⚠️ guardrail-adjacent, see §3
 ### 4.17 Provider capacity management — 🟢 (shipped 2026-08-27: `analytics_provider_capacity()`)
-No shortage/capacity dashboard exists (average wait time, overloaded specialties, slot utilisation).
-`useWaitlistedReferrals` shows a live per-referral count of matching active providers, which is a
-useful primitive to build this from, but there is no aggregate ops view. This is admin-facing
+`analytics_provider_capacity()` (confirmed live in `pg_proc`) now gives a real aggregate ops view —
+average wait time, overloaded specialties, slot utilisation by specialty×state — surfaced in a
+"Provider capacity" tab in the analytics console. `useWaitlistedReferrals`'s live per-referral count
+of matching active providers remains the per-referral primitive alongside it. This is admin-facing
 analytics, not patient-facing matching — see §4 for why that keeps it outside the guardrail.
 
 ### 4.18 Acceptance criteria — reframed in §4 below as a phased checklist, not a single bar.
@@ -242,8 +252,10 @@ That line has not been crossed.
 
 But the guardrail has been **partially outpaced at the schema/workflow level**, and whoever picks up
 §4.7/4.8/4.16 next needs to know this isn't a clean slate: the `referral_status` enum already has
-all 8 stages the Master Plan calls Phase 2 (`pending_payment → payment_confirmed → pending →
-waitlisted → booked → confirmed → completed → declined`), urgency capture and clinical-summary
+grown to **10 values** (2 more added since this was written — `draft` and `closed`, via PR #338
+"Build Referral Management Engine," merged 2026-09-02), covering all 8 stages the Master Plan calls
+Phase 2 (`pending_payment → payment_confirmed → pending →
+waitlisted → booked → confirmed → completed → declined`) plus the 2 new ones, urgency capture and clinical-summary
 JSON exist, a full waitlist + interim-management-plan workflow is live, and — most notably — patients
 can already pick their own `specialist_provider` via `ChooseReferralSpecialist`, which the sprint
 archive itself flags with a self-check comment: *"Not the guardrailed full specialist-matching
@@ -277,15 +289,21 @@ Foundational, additive, filter-not-rank, matches patterns already in the codebas
    pattern. (The partner-side `license_expires_at` columns referenced below were already live
    pre-2026-08-27 with a working notify sweep of their own — this closed the equivalent gap for
    Tarragon's own `clinical_staff`.)
-4. **Unify "find a provider" discovery UX** (§4.6) — extend `ChooseReferralSpecialist`'s existing
-   filters (price/gender/language are already columns, just not exposed) and add a standalone
-   patient-initiated entry point that reuses the same filtered query — explicitly filtering, not
-   ranking, so it stays inside the guardrail per §3. *Not built yet.*
+4. ✅ **SHIPPED — patient-initiated "find a specialist" page** (§4.6) —
+   `apps/web/src/app/(dashboard)/patient/find-a-specialist/find-a-specialist.tsx`, reusing
+   `useMatchedSpecialistProviders` with price/gender/language filters exposed. Its own code comment
+   cites this doc directly: "filtering an existing catalogue, not ranking it, per
+   `docs/CLINICAL_NETWORK_SPEC.md` §3/§4 Phase 1 item 4."
 5. ✅ **SHIPPED 2026-08-27 — Capacity/shortage reporting for ops** (§4.17) —
    `analytics_provider_capacity()`, a new "Provider capacity" tab in the analytics console.
-6. **Allied health as a real `specialist_type`** (§4.1) — dietitians/physiotherapists/psychologists
-   currently have no representation at all; adding them as catalogue rows is the same shape as the
-   existing 9 placeholder specialist rows, not new architecture. *Not built yet.*
+6. **Allied health as a real `specialist_type` — partially shipped, confirmed 2026-09-03.**
+   `dietetics`/`podiatry` predate this doc; `psychiatry`/`psychology` were added 2026-08-29
+   (`20260829125430_specialist_type_psychiatry_referral_rpc.sql`). Physiotherapist is the one
+   genuinely still-missing value, and it's deliberate — migration
+   `20260829142444_specialist_provider_profile_enrichment.sql`'s header flags an unresolved
+   conflict: this doc treats physiotherapists as safe-to-add (Phase 1), while
+   `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §11 gates "Physiotherapy/rehab providers" as
+   Phase 3 — "a founder call, not this migration's to resolve." Still open.
 
 ### Phase 2 — needs an explicit founder ask before functional code
 1. ✅ **SHIPPED 2026-08-27, founder-approved — Partner org self-service** (§4.13/4.14) — scoped

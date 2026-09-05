@@ -1,13 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { headers } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
-import { isPaystackConfigured } from "@/lib/paystack/client";
-import { initializeTransaction } from "@/lib/paystack/transactions";
-import { isStripeConfigured } from "@/lib/stripe/client";
-import { createCheckoutSession } from "@/lib/stripe/checkout";
-import { resolveProvider } from "@/lib/billing/provider";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   demographicsSchema,
@@ -15,8 +9,11 @@ import {
   identityVerificationSchema,
 } from "@/lib/validation/onboarding";
 import { verifyIdentity } from "@/lib/identity/provider";
+import { firstIssue } from "@/lib/validation/first-issue";
 
-export type SaveDemographicsState = { error?: string; success?: boolean } | undefined;
+export type SaveDemographicsState =
+  | { error?: string; field?: string; success?: boolean }
+  | undefined;
 
 /**
  * Saves the patient's own date of birth + sex on their profiles row
@@ -34,7 +31,7 @@ export async function saveDemographics(
     sex: formData.get("sex"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return firstIssue(parsed.error, "Check the details above and try again.");
   }
 
   const supabase = await createClient();
@@ -50,12 +47,16 @@ export async function saveDemographics(
     .update({ date_of_birth: parsed.data.dateOfBirth, sex: parsed.data.sex })
     .eq("id", user.id);
   if (error) {
-    return { error: error.message };
+    // Never the raw PostgREST string: it names tables, columns and
+    // constraints, and says nothing a patient can act on.
+    return { error: "We could not save that just then. Please try again." };
   }
   return { success: true };
 }
 
-export type AcceptConsentsState = { error?: string; success?: boolean } | undefined;
+export type AcceptConsentsState =
+  | { error?: string; field?: string; success?: boolean }
+  | undefined;
 
 /**
  * Records the caller's acceptance of every current consent version as an
@@ -69,7 +70,7 @@ export async function acceptConsents(
 ): Promise<AcceptConsentsState> {
   const parsed = consentSchema.safeParse({ accept: formData.get("accept") === "on" });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Please accept to continue" };
+    return { error: "Tick the box to agree before continuing.", field: "accept" };
   }
 
   const supabase = await createClient();
@@ -86,7 +87,7 @@ export async function acceptConsents(
     .eq("id", user.id)
     .single();
   if (!profile?.organisation_id) {
-    return { error: "This account has no organisation on file" };
+    return { error: "Your account is not set up yet. Please contact support." };
   }
 
   const { data: versions, error: versionsError } = await supabase
@@ -94,10 +95,10 @@ export async function acceptConsents(
     .select("id, consent_type, version")
     .eq("is_current", true);
   if (versionsError) {
-    return { error: versionsError.message };
+    return { error: "We could not load the agreement just then. Please refresh and try again." };
   }
   if (!versions || versions.length === 0) {
-    return { error: "No consents are configured — contact support." };
+    return { error: "The agreement is not available right now. Please contact support." };
   }
 
   const { error } = await supabase.from("patient_consents").insert(
@@ -110,7 +111,7 @@ export async function acceptConsents(
     })),
   );
   if (error) {
-    return { error: error.message };
+    return { error: "We could not record your agreement just then. Please try again." };
   }
   return { success: true };
 }
@@ -157,7 +158,7 @@ export async function completeOnboarding() {
 }
 
 export type IdentityVerificationState =
-  | { error?: string; status?: "verified" | "failed" | "pending" | "unavailable" }
+  | { error?: string; field?: string; status?: "verified" | "failed" | "pending" | "unavailable" }
   | undefined;
 
 /**
@@ -174,9 +175,10 @@ export async function submitIdentityVerification(
   const parsed = identityVerificationSchema.safeParse({
     method: formData.get("method"),
     idNumber: formData.get("idNumber"),
+    documentType: formData.get("documentType") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return firstIssue(parsed.error, "Check the number and try again.");
   }
 
   const supabase = await createClient();
@@ -193,7 +195,7 @@ export async function submitIdentityVerification(
     .eq("id", user.id)
     .single();
   if (!profile?.organisation_id) {
-    return { error: "This account has no organisation on file" };
+    return { error: "Your account is not set up yet. Please contact support." };
   }
 
   const idLast4 = parsed.data.idNumber.slice(-4);
@@ -206,11 +208,19 @@ export async function submitIdentityVerification(
       method: parsed.data.method,
       status: "pending",
       id_last4: idLast4,
+      metadata: parsed.data.method === "document" ? { document_type: parsed.data.documentType } : {},
     })
     .select("id")
     .single();
   if (insertError || !request) {
-    return { error: insertError?.message ?? "Could not record your request" };
+    return { error: "We could not record that just then. Please try again." };
+  }
+
+  // No provider does document verification (OCR/authenticity checks) — a document submission
+  // always stays `pending` for org-staff manual review, same as a NIN/BVN submission with no
+  // provider configured. Only nin/bvn go through the provider boundary.
+  if (parsed.data.method === "document") {
+    return { status: "pending" };
   }
 
   const result = await verifyIdentity(parsed.data.method, parsed.data.idNumber);
@@ -251,172 +261,4 @@ export async function submitIdentityVerification(
   // Provider unavailable (unconfigured) or unreachable (transient error):
   // leave the request pending for a retry / ops resolution.
   return { status: result.reason === "unavailable" ? "unavailable" : "pending" };
-}
-
-export type StartCheckoutState = { error?: string } | undefined;
-
-/**
- * Free tier (price_minor === 0) activates immediately, no Paystack
- * involved, then finishes onboarding the same way the old "Continue to my
- * dashboard" button did. A paid tier creates a 'trialing' subscriptions row
- * with pending_provider_ref set to the just-initialized Paystack
- * transaction reference, then redirects the browser to Paystack's hosted
- * checkout — activation itself only ever happens later, when
- * paystack-webhook's charge.success handler matches that reference (see
- * its correlation notes). Onboarding is only marked complete for the paid
- * path once the patient lands back on /onboarding/checkout-callback.
- */
-export async function startCheckout(
-  _prevState: StartCheckoutState,
-  formData: FormData,
-): Promise<StartCheckoutState> {
-  const planCode = formData.get("planCode");
-  if (typeof planCode !== "string" || !planCode) {
-    return { error: "Choose a plan first" };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/login");
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organisation_id")
-    .eq("id", user.id)
-    .single();
-  if (!profile?.organisation_id) {
-    return { error: "This account has no organisation on file" };
-  }
-
-  // Hard safeguard, independent of whatever the UI shows: never create a
-  // second subscription (and never initiate a second charge) for an account
-  // that already has one active or trialing. This is the actual
-  // money-charging code path, so it has to be safe on its own even if
-  // onboarding's reconciliation screen (existing-plan-notice.tsx) is ever
-  // reached in a state where a plan somehow got resubmitted anyway.
-  const { data: existing } = await supabase
-    .from("subscriptions")
-    .select("id")
-    .eq("subscriber_id", user.id)
-    .in("status", ["active", "trialing"])
-    .limit(1)
-    .maybeSingle();
-  if (existing) {
-    await completeOnboarding();
-    return;
-  }
-
-  const { data: plan } = await supabase
-    .from("subscription_plans")
-    .select("id, code, price_minor, currency, interval, paystack_plan_code, stripe_price_id")
-    .eq("code", planCode)
-    .eq("is_active", true)
-    .maybeSingle();
-  if (!plan) {
-    return { error: "That plan is not available right now" };
-  }
-
-  if (plan.price_minor === 0) {
-    const { error } = await supabase.from("subscriptions").insert({
-      organisation_id: profile.organisation_id,
-      subscriber_id: user.id,
-      plan_id: plan.id,
-      status: "active",
-      currency: plan.currency,
-      amount_minor: 0,
-      interval: plan.interval,
-    });
-    if (error) {
-      return { error: error.message };
-    }
-    await completeOnboarding();
-    return;
-  }
-
-  if (!user.email) {
-    return { error: "Your account needs an email on file to check out." };
-  }
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const callbackUrl = `${origin}/onboarding/checkout-callback`;
-
-  if (resolveProvider(plan.currency) === "paystack") {
-    if (!isPaystackConfigured()) {
-      return {
-        error: "Card payments aren't set up yet — try again shortly, or start on Tarragon Free for now.",
-      };
-    }
-    if (!plan.paystack_plan_code) {
-      return { error: "This plan isn't ready for checkout yet — contact support." };
-    }
-
-    const result = await initializeTransaction({
-      email: user.email,
-      amountMinor: plan.price_minor,
-      currency: plan.currency,
-      paystackPlanCode: plan.paystack_plan_code,
-      callbackUrl,
-      metadata: { kind: "subscription", profile_id: user.id, item_code: plan.code },
-    });
-    if (!result.ok) {
-      return { error: result.error };
-    }
-
-    const { error: insertError } = await supabase.from("subscriptions").insert({
-      organisation_id: profile.organisation_id,
-      subscriber_id: user.id,
-      plan_id: plan.id,
-      status: "trialing",
-      currency: plan.currency,
-      amount_minor: plan.price_minor,
-      interval: plan.interval,
-      provider: "paystack",
-      pending_provider_ref: result.data.reference,
-    });
-    if (insertError) {
-      return { error: insertError.message };
-    }
-
-    redirect(result.data.authorizationUrl);
-  }
-
-  if (!isStripeConfigured()) {
-    return {
-      error: "Card payments aren't set up yet — try again shortly, or start on Tarragon Free for now.",
-    };
-  }
-  if (!plan.stripe_price_id) {
-    return { error: "This plan isn't ready for checkout yet — contact support." };
-  }
-
-  const result = await createCheckoutSession({
-    email: user.email,
-    stripePriceId: plan.stripe_price_id,
-    successUrl: callbackUrl,
-    cancelUrl: `${origin}/onboarding`,
-    metadata: { kind: "subscription", profile_id: user.id, item_code: plan.code },
-  });
-  if (!result.ok) {
-    return { error: result.error };
-  }
-
-  const { error: insertError } = await supabase.from("subscriptions").insert({
-    organisation_id: profile.organisation_id,
-    subscriber_id: user.id,
-    plan_id: plan.id,
-    status: "trialing",
-    currency: plan.currency,
-    amount_minor: plan.price_minor,
-    interval: plan.interval,
-    provider: "stripe",
-    pending_provider_ref: result.data.sessionId,
-  });
-  if (insertError) {
-    return { error: insertError.message };
-  }
-
-  redirect(result.data.checkoutUrl);
 }

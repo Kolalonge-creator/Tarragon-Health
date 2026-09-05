@@ -1,13 +1,3 @@
--- Tarragon Health
--- Pharmacist counterpart of admin_link_lab_partner (20260730215245) --
--- confirmed missing before writing this: there is no admin UI or RPC path to
--- link a 'pharmacist'-role login to a pharmacy_partners row at all today
--- (unlike lab_partner, which got this 2026-07-30). Same reasoning: profiles_
--- update RLS can't cover it (a pharmacist profile deliberately has
--- organisation_id = null), so this is one SECURITY DEFINER RPC, narrowly
--- scoped to exactly one column, gated the same way the Pharmacies admin page
--- already is.
-
 create or replace function public.admin_link_pharmacist(
   p_profile_id uuid,
   p_pharmacy_partner_id uuid

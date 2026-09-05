@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/ui/page-header";
 import { TestimonialModerationButtons } from "./moderation-buttons";
 
 export default async function AdminTestimonialsPage() {
@@ -21,12 +22,10 @@ export default async function AdminTestimonialsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Testimonials</h1>
-        <p className="text-charcoal-ink/60">
-          Consented patient quotes; publishing makes a quote visible on the marketing site.
-        </p>
-      </div>
+      <PageHeader
+        title="Testimonials"
+        description="Patient quotes awaiting review. Publishing puts the quote and its display name on the public marketing site, so a quote with no recorded consent to publish cannot be published from here."
+      />
 
       <Card>
         <CardHeader>
@@ -38,9 +37,21 @@ export default async function AdminTestimonialsPage() {
           )}
           {submitted.map((t) => (
             <div key={t.id} className="rounded-md border border-charcoal-ink/10 p-3">
-              <p className="text-sm font-medium text-charcoal-ink">{t.display_name}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-medium text-charcoal-ink">{t.display_name}</p>
+                {/* The fact that decides whether this may be published at all,
+                    now on the row rather than only in the table. */}
+                <Badge variant={t.consent_to_publish ? "green" : "red"}>
+                  {t.consent_to_publish ? "Consented to publish" : "No consent to publish"}
+                </Badge>
+              </div>
               <p className="mt-1 text-sm text-charcoal-ink/80">&ldquo;{t.quote}&rdquo;</p>
-              <TestimonialModerationButtons id={t.id} />
+              <TestimonialModerationButtons
+                id={t.id}
+                displayName={t.display_name}
+                quote={t.quote}
+                consentToPublish={t.consent_to_publish}
+              />
             </div>
           ))}
         </CardContent>
@@ -60,7 +71,10 @@ export default async function AdminTestimonialsPage() {
                 <p className="text-sm font-medium text-charcoal-ink">{t.display_name}</p>
                 <p className="mt-1 text-sm text-charcoal-ink/80">&ldquo;{t.quote}&rdquo;</p>
               </div>
-              <Badge variant={t.status === "published" ? "green" : "grey"}>{t.status}</Badge>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <Badge variant={t.status === "published" ? "green" : "grey"}>{t.status}</Badge>
+                {!t.consent_to_publish && <Badge variant="red">No consent on file</Badge>}
+              </div>
             </div>
           ))}
         </CardContent>

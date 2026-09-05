@@ -60,13 +60,21 @@ export function ResourceCarousel({
         onScroll={handleScroll}
         className="mt-8 flex snap-x snap-mandatory gap-5 overflow-x-auto scroll-smooth pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
-        {articles.map((article) => (
+        {articles.map((article, index) => (
           <Link
             key={article.slug}
             href={`/resources/${article.slug}`}
             className="group w-64 shrink-0 snap-start overflow-hidden rounded-2xl border border-charcoal-ink/10 bg-white shadow-sm transition hover:-translate-y-0.5 hover:border-brand-green/40 hover:shadow-md sm:w-72"
           >
-            <ResourceThumbnail icon={resourceThumbnailIcon(article)} className="rounded-t-2xl" />
+            <ResourceThumbnail
+              category={article.category}
+              icon={resourceThumbnailIcon(article)}
+              className="rounded-t-2xl"
+              // Product-page carousels are single-category, so the shared
+              // category photo would repeat on every card; lead with it once
+              // and let each article's own icon carry the rest.
+              variant={index === 0 ? "photo" : "icon"}
+            />
             <div className="p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-deep-forest">
                 {article.category} <span aria-hidden>·</span> Article

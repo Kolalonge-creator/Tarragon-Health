@@ -83,11 +83,11 @@ export default function FaqPage() {
         </div>
         <p className="mx-auto mt-8 max-w-4xl text-center text-sm text-charcoal-ink/70">
           Still have a question? See the full breakdown on our{" "}
-          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             pricing page
           </Link>{" "}
           or{" "}
-          <Link href={MARKETING_ROUTES.contact} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.contact} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             get in touch
           </Link>
           .

@@ -28,13 +28,13 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 export function ConfidentialResultNotice({ className }: { className?: string }) {
   return (
     <div
-      className={`rounded-md border border-clinical-navy/15 bg-clinical-navy/[0.04] p-3 ${className ?? ""}`}
+      className={`rounded-md border border-clinical-navy/15 dark:border-blue-500/30 bg-clinical-navy/[0.04] dark:bg-blue-500/10 p-3 ${className ?? ""}`}
     >
-      <p className="flex items-center gap-1.5 text-xs font-semibold text-clinical-navy">
+      <p className="flex items-center gap-1.5 text-xs font-semibold text-clinical-navy dark:text-blue-300">
         <SEMANTIC_ICON.privacy className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
         How your result reaches you
       </p>
-      <ul className="mt-2 space-y-1 text-xs text-charcoal-ink/75">
+      <ul className="mt-2 space-y-1 text-xs text-charcoal-ink/75 dark:text-night-ink/75">
         <li>
           A result like this is never sent to you over WhatsApp, SMS or email. A doctor tells
           you, and talks it through with you.

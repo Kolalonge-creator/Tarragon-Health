@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { slaFieldName } from "./sla-field";
 import {
   createEscalationSlaDraftAction,
   signEscalationSlasAction,
@@ -66,7 +68,13 @@ function SignButton({ versionId }: { versionId: string }) {
   );
 }
 
-function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
+function CreateDraftForm({
+  nextVersion,
+  activeConfig,
+}: {
+  nextVersion: number;
+  activeConfig: EscalationSlaEntry[];
+}) {
   const [state, action, pending] = useActionState<CreateEscalationSlaDraftState, FormData>(
     createEscalationSlaDraftAction,
     undefined
@@ -74,16 +82,18 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Re-attest the current config: version {nextVersion}</CardTitle>
+        <CardTitle className="text-base">Edit or re-attest: draft version {nextVersion}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={action} className="space-y-3">
           <p className="text-sm text-charcoal-ink/70">
-            Creates a draft that duplicates the active configuration below exactly as it stands.
-            Sign it to put a fresh reviewed-and-approved record on file. To actually change an SLA
-            number, that goes through a reviewed, tested migration first; this form only re-attests
-            or brings a migration-updated config into force.
+            Change any SLA below and save a draft, or save with nothing changed to re-attest the
+            current configuration. Editing here never touches what is in force: it writes a new,
+            unsigned version. Nothing takes effect until a Clinical Director signs it, which is
+            what actually makes the number a commitment.
           </p>
+          {activeConfig.length > 0 && <ConfigTable config={activeConfig} editable />}
+
           <div className="space-y-1">
             <label htmlFor="notes" className="text-sm font-medium text-charcoal-ink">
               Notes (optional)
@@ -97,7 +107,7 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
             />
           </div>
           <Button type="submit" size="sm" disabled={pending}>
-            {pending ? "Creating…" : "Create draft from current config"}
+            {pending ? "Saving…" : "Save draft"}
           </Button>
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
@@ -109,7 +119,14 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
   );
 }
 
-function ConfigTable({ config }: { config: EscalationSlaEntry[] }) {
+function ConfigTable({
+  config,
+  editable = false,
+}: {
+  config: EscalationSlaEntry[];
+  /** Renders the minutes as inputs, for use inside the draft form. */
+  editable?: boolean;
+}) {
   if (!Array.isArray(config) || config.length === 0) {
     return <p className="text-sm text-charcoal-ink/60">No entries in this config version.</p>;
   }
@@ -157,7 +174,26 @@ function ConfigTable({ config }: { config: EscalationSlaEntry[] }) {
                   </div>
                 </td>
                 <td className="p-2 font-mono text-xs">{entry.pathway}</td>
-                <td className="p-2">{formatMinutes(entry.sla_minutes)}</td>
+                <td className="p-2">
+                  {editable ? (
+                    <span className="flex items-center gap-1.5">
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        name={slaFieldName(entry.tier, entry.pathway)}
+                        defaultValue={entry.sla_minutes}
+                        aria-label={`SLA minutes for ${entry.tier} / ${entry.pathway}`}
+                        className="w-24 rounded border border-charcoal-ink/20 px-2 py-1 text-sm"
+                      />
+                      <span className="text-xs text-charcoal-ink/50">
+                        {formatMinutes(entry.sla_minutes)}
+                      </span>
+                    </span>
+                  ) : (
+                    formatMinutes(entry.sla_minutes)
+                  )}
+                </td>
                 <td className="p-2 text-xs text-charcoal-ink/60">
                   {Array.isArray(entry.channel_sequence) ? entry.channel_sequence.join(" → ") : "—"}
                 </td>
@@ -175,11 +211,34 @@ export function EscalationSlasManager({
   versions,
   activeVersion,
   nextVersion,
+  loadFailed,
 }: {
   versions: EscalationSlaVersionRow[];
   activeVersion: EscalationSlaVersionRow | null;
-  nextVersion: number;
+  /** Null when the version list could not be read — there is then no honest
+   * number to offer a draft against, and the draft control is withheld
+   * rather than guessed at. */
+  nextVersion: number | null;
+  loadFailed: boolean;
 }) {
+  // Withheld entirely rather than degraded: "No active configuration found"
+  // next to a "draft version 1" button is an invitation to overwrite the SLAs
+  // currently in force with a version numbered as though none existed.
+  if (loadFailed) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <LoadFailure>
+            The escalation SLA configuration could not be read, so this page cannot say what is in
+            force. Do not read this as no configuration existing: a live version is almost
+            certainly still driving sla_due_at on every alert. Editing and signing are withheld
+            until the configuration loads. Reload the page.
+          </LoadFailure>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {activeVersion ? (
@@ -206,9 +265,9 @@ export function EscalationSlasManager({
         </Card>
       )}
 
-      {activeVersion && <ConfigTable config={activeVersion.config} />}
-
-      <CreateDraftForm nextVersion={nextVersion} />
+      {nextVersion !== null && (
+        <CreateDraftForm nextVersion={nextVersion} activeConfig={activeVersion?.config ?? []} />
+      )}
 
       {versions.length > 0 && (
         <div className="space-y-4">

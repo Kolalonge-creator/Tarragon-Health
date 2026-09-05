@@ -141,6 +141,36 @@ export async function verifyTransaction(
   return { ok: true, data: { status: result.data.status, metadata: result.data.metadata } };
 }
 
+/**
+ * The same /transaction/verify call as verifyTransaction(), but returning the
+ * amount and currency as well as the status — used by the stale-purchase
+ * self-heal (lib/finance/service-purchase-expiry.ts), which has to know
+ * whether Paystack actually holds a successful charge before it cancels a
+ * checkout that never came back.
+ *
+ * Kept separate from verifyTransaction() on purpose: that function's contract
+ * is "same-request UX confirmation only, never used to activate", and this
+ * one is used to decide whether a row may be CANCELLED. Neither ever
+ * activates anything — the paystack-webhook Edge Function remains the sole
+ * source of truth for that.
+ */
+export async function verifyTransactionDetail(reference: string): Promise<
+  PaystackResult<{ status: string; amountMinor: number | null; currency: string | null }>
+> {
+  const result = await paystackFetch<VerifyTransactionData>(
+    `/transaction/verify/${encodeURIComponent(reference)}`,
+  );
+  if (!result.ok) return result;
+  return {
+    ok: true,
+    data: {
+      status: result.data.status,
+      amountMinor: typeof result.data.amount === "number" ? result.data.amount : null,
+      currency: result.data.currency ?? null,
+    },
+  };
+}
+
 interface DisableSubscriptionData {
   status: string;
 }

@@ -1,17 +1,3 @@
--- Tarragon Health — Alert System infrastructure, part 6/6: snooze creates a
--- real future task (8.10's "snoozing must require an appropriate reason and
--- create a future task" -- the reason side was already enforced by part
--- 2b's clinician_alerts_snooze_requires_reason CHECK; this is the task
--- side).
---
--- Mirrors care_outreach_tasks (20260723010019) rather than reusing it
--- directly: that table's own status enum (open/in_progress/contacted/
--- resolved/dismissed) and unique-active-per-(patient,trigger_type) index
--- carry outreach-specific semantics ("has a coordinator contacted this
--- patient") that don't fit "come back and look at this alert again on this
--- date" -- a new, narrower, purpose-fit status enum avoids stretching
--- borrowed semantics to cover a different concept.
-
 create type public.alert_follow_up_status as enum ('open', 'done', 'dismissed');
 
 create table public.alert_follow_up_tasks (

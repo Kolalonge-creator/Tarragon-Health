@@ -1,38 +1,3 @@
--- Patient Health Record architecture review — the structured problem list
--- (spec §1.7), founder-decided shape: a genuinely new table, with care_plans
--- referencing it once a condition gets an active care programme, rather
--- than extending care_plans in place (docs/PATIENT_HEALTH_RECORD_
--- ARCHITECTURE.md §3 Q1).
---
--- WHY NOT JUST EXTEND care_plans
--- care_plans is a care-MANAGEMENT-programme enrolment record — its own
--- `status` (draft/active/completed/cancelled) is the programme's lifecycle,
--- not the condition's clinical state. A patient can have a real, resolved,
--- historical, or suspected condition with NO active care plan (that's what
--- those words mean) — there was structurally nowhere for that to live.
--- patient_conditions is the "what conditions does this patient have" source
--- of truth; care_plans.patient_condition_id (added below, nullable) links a
--- programme enrolment to the condition it manages, once one exists, without
--- duplicating the condition data itself onto care_plans a second time.
--- care_plans.condition (the existing enum column) is left completely
--- untouched — nothing currently reading/writing it breaks.
---
--- WHY PATIENT-WRITE IS NOT ALLOWED HERE, UNLIKE patient_allergies
--- The spec's own intro is explicit: "A patient should never be able to
--- simply edit a diagnosis in their clinical record" — restricted, not
--- patient-reported-then-verified like allergies (§1.8). RLS below gives the
--- patient SELECT only on their own rows; only org staff may insert/update.
---
--- CORRECTION TRAIL + AUDIT: this table is added to BOTH existing generic
--- triggers (audit_row_change_trg, capture_record_correction_trg) directly
--- in this migration, since row_change_audit_triggers.sql and
--- record_corrections_platform_wide.sql already exist by the time this runs.
--- private.capture_record_correction() treats patient_conditions as one of
--- its two reason-mandatory tables (the other is patient_allergies) — an
--- UPDATE or DELETE here without app.change_reason set will raise, not
--- silently record a null reason. Safe to enforce immediately: this table
--- has no existing writer anywhere in apps/web/src.
-
 do $$ begin
   if not exists (select 1 from pg_type where typname = 'clinical_severity') then
     create type public.clinical_severity as enum ('mild', 'moderate', 'severe');

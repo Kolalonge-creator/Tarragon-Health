@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { WellnessManager } from "./wellness-manager";
 
 export default async function WellnessSettingsPage() {
@@ -13,17 +14,10 @@ export default async function WellnessSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Wellness rewards
-        </h1>
-        <p className="text-charcoal-ink/60">
-          The points/badges/challenges engagement layer, free to every patient. Toggle catalogue
-          items live or hidden here, set the points-to-voucher conversion rate, and manage the
-          workout-class partner catalogue. New badges/challenges/classes are authored via seed/
-          migration for now, same as the health education library.
-        </p>
-      </div>
+      <PageHeader
+        title="Wellness rewards"
+        description="The points/badges/challenges engagement layer, free to every patient. Toggle catalogue items live or hidden here, set the points-to-voucher conversion rate, and manage the workout-class partner catalogue. New badges/challenges/classes are authored via seed/migration for now, same as the health education library."
+      />
       <WellnessManager />
     </div>
   );

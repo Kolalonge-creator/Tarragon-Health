@@ -90,6 +90,19 @@ export function getNavSections(
                 primary: true,
                 shortLabel: "Payments",
               },
+              // A supporter's money is not always aimed at one linked person —
+              // a diaspora hometown association funding a village screening day
+              // is the same "I pay, they receive" shape as People you support,
+              // just for a group instead of one named relative.
+              // Deliberately NOT `primary` — the four items above already fill
+              // MAX_PRIMARY_NAV_ITEMS, so a fifth flag would silently never
+              // reach the phone bottom bar; this stays behind the More button.
+              {
+                label: "Group screening days",
+                href: "/patient/screening-days",
+                icon: "booking",
+                shortLabel: "Screening",
+              },
             ],
           },
         ];
@@ -100,7 +113,7 @@ export function getNavSections(
       // second-level PatientNav pill bar, but it kept growing: fifteen
       // equally-weighted links with no headings is past the point where a
       // patient scans rather than reads, and "Wellness" sat two rows from
-      // "Subscription" with nothing to say they belong to different parts of
+      // "My services" with nothing to say they belong to different parts of
       // their life. Nothing is hidden or demoted — the same links, banded by
       // the question each one answers:
       //   (top)        where am I / what needs me today
@@ -125,11 +138,22 @@ export function getNavSections(
               primary: true,
               shortLabel: "Home",
             },
+            // Spec §76.5 ("action centre") — every outstanding task in one
+            // urgency-bucketed place, not scattered across Overview's
+            // individual cards. First-class nav entry, not just a link off
+            // Overview, since it's meant to be reachable directly.
+            { label: "My actions", href: "/patient/actions", icon: "approvals" },
           ],
         },
         {
           label: "Your health",
           items: [
+            // Spec §76.3 ("personal health summary") — conditions,
+            // allergies, medications, measurements, investigations, care
+            // programmes, appointments, referrals and preventive tasks in
+            // one place, composed from the record the sections below already
+            // hold rather than a second copy of it.
+            { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
             {
               label: "Vitals & symptoms",
               href: "/patient/vitals",
@@ -146,7 +170,17 @@ export function getNavSections(
             },
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
+            { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
+            {
+              label: "Sexual & reproductive health",
+              href: "/patient/sexual-health",
+              icon: "family",
+            },
+            { label: "Wellbeing", href: "/patient/wellbeing", icon: "mood" },
             { label: "Health Check", href: "/patient/health-check", icon: "review" },
+            { label: "Adolescent Health", href: "/patient/adolescent-health", icon: "mood" },
+            { label: "Find a specialist", href: "/patient/find-a-specialist", icon: "referral" },
+            { label: "Healthy ageing", href: "/patient/healthy-ageing", icon: "healthyAgeing" },
             { label: "Get a device", href: "/patient/devices", icon: "devices" },
           ],
         },
@@ -175,14 +209,24 @@ export function getNavSections(
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
             { label: "People you support", href: "/patient/supporting", icon: "parentCare" },
+            { label: "Group screening days", href: "/patient/screening-days", icon: "booking" },
           ],
         },
         {
           label: "Your account",
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
-            { label: "Subscription", href: "/patient/subscription", icon: "billing" },
+            { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
+            { label: "Insurance", href: "/patient/insurance", icon: "insurance" },
+            { label: "My services", href: "/patient/subscription", icon: "billing" },
+            { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
+            {
+              label: "Notification settings",
+              href: "/patient/notification-settings",
+              icon: "bell",
+            },
             { label: "Profile", href: "/patient/profile", icon: "settings" },
+            { label: "Privacy & data", href: "/patient/privacy", icon: "privacy" },
             {
               label: "Emergency card",
               href: "/patient/emergency-card",
@@ -218,8 +262,54 @@ export function getNavSections(
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                // Case management, Safeguarding, Operations queue and
+                // Medication issues were listed here but are not in
+                // proxy.ts's Care Coordinator allow-list, so all four bounced
+                // straight to /dashboard/care-coordinator with no
+                // explanation — a third of this sidebar led nowhere. Removed
+                // rather than left dead. Two of the four are deliberate:
+                //   - Case management is chronic-case clinical judgment.
+                //   - Safeguarding's RLS only admits a Tier 3+/Clinical
+                //     Director or the original reporter, so a Coordinator
+                //     would see an all-but-empty page anyway.
+                // Operations queue and Medication issues WERE also removed
+                // for that reason, then restored on 2026-09-05 once proxy.ts's
+                // isCoordinatorClinicianPath was extended to admit them. Both
+                // were checked against the Coordinator write-access rule
+                // first: the operations queue has no mutation anywhere in the
+                // route, and medication-issues gates its clinical half in the
+                // page itself. If either link is ever added back after being
+                // removed again, extend the allow-list first: a link that
+                // bounces is worse than no link.
+                {
+                  label: "Operations queue",
+                  href: "/clinician/operations-queue",
+                  icon: "escalation",
+                },
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                },
                 { label: "Orders", href: "/clinician/orders", icon: "logistics" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
+                {
+                  label: "Safety incidents",
+                  href: "/clinician/safety-incidents",
+                  icon: "warning",
+                },
+              ],
+            },
+            // Only reachable for a Coordinator holding a delegated
+            // ops.console.view/incidents.* grant (e.g. the "Customer support
+            // administrator" or "Provider network administrator" role
+            // presets) — the pages self-gate, so this link is always safe to
+            // show, same pattern as every other admin-area nav entry.
+            {
+              label: "Operations",
+              items: [
+                { label: "Operations console", href: "/admin/ops", icon: "operations" },
+                { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
               ],
             },
           ]
@@ -233,6 +323,17 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
+                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
+                {
+                  label: "Operations queue",
+                  href: "/clinician/operations-queue",
+                  icon: "escalation",
+                },
+                {
+                  label: "Medication issues",
+                  href: "/clinician/medication-issues",
+                  icon: "medication",
+                },
                 { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
                 { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
@@ -242,12 +343,14 @@ export function getNavSections(
               label: "Patients & Care",
               items: [
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
+                { label: "Case management", href: "/clinician/case-management", icon: "carePlan" },
                 { label: "Care plan review", href: "/clinician/care-plan-review", icon: "carePlan" },
                 { label: "Medication reviews", href: "/clinician/medication-reviews", icon: "medication" },
                 { label: "Lifestyle reviews", href: "/clinician/lifestyle-reviews", icon: "lifestyle" },
                 { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive" },
+                { label: "Sexual health cases", href: "/clinician/sexual-health", icon: "escalation" },
               ],
             },
             {
@@ -262,9 +365,19 @@ export function getNavSections(
               label: "Quality & Growth",
               items: [
                 { label: "Diabetes quality", href: "/clinician/diabetes-quality", icon: "diabetes" },
+                { label: "Hypertension quality", href: "/clinician/hypertension-quality", icon: "bp" },
+                { label: "Obesity quality", href: "/clinician/obesity-quality", icon: "weight" },
+                {
+                  label: "Quality improvement",
+                  href: "/clinician/quality-improvement",
+                  icon: "review",
+                },
+                { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan" },
+                { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
+                { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },
               ],
             },
             {
@@ -273,50 +386,59 @@ export function getNavSections(
                 { label: "Availability", href: "/clinician/availability", icon: "booking" },
                 { label: "Appointments", href: "/clinician/appointments", icon: "booking" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox" },
+                {
+                  label: "Lab result consults",
+                  href: "/clinician/lab-result-consults",
+                  icon: "labs",
+                },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
+              ],
+            },
+            // Only reachable for a clinician holding a delegated
+            // ops.console.view/incidents.* grant (the "Clinical
+            // administrator" role preset) — self-gated, safe to always show.
+            {
+              label: "Operations administration",
+              items: [
+                { label: "Operations console", href: "/admin/ops", icon: "operations" },
+                { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
               ],
             },
           ];
     case "admin":
+      // Every settings-shaped page (members, partners, protocols, billing,
+      // compliance, ...) used to be its own sidebar link across these
+      // groups — ~15 of them, plus another ~13 reachable only from the
+      // /admin home page's tile grid. They now live behind the single
+      // "Settings" entry below, whose top tab bar
+      // (admin/settings/layout.tsx) groups all ~28 into 7 sections. Only
+      // genuinely operational pages (live data to work, not configuration)
+      // stay as direct sidebar links.
       return [
         {
           items: [
             { label: "Dashboard", href: "/admin", icon: "dashboard", exact: true },
+            { label: "Operations console", href: "/admin/ops", icon: "operations" },
             { label: "Analytics", href: "/analytics", icon: "analytics" },
           ],
         },
         {
           label: "Operations",
           items: [
-            { label: "Members & access", href: "/admin/settings/members", icon: "members" },
-            { label: "Clinical staff", href: "/admin/settings/clinical-staff", icon: "clinicianFollowUp" },
-            { label: "Partners", href: "/admin/settings/partners", icon: "corporate" },
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
-            { label: "Service regions", href: "/admin/settings/service-regions", icon: "region" },
-            { label: "Company & legal profile", href: "/admin/settings/company-profile", icon: "corporate" },
-          ],
-        },
-        {
-          label: "Commercial",
-          items: [
-            { label: "Subscriptions", href: "/admin/settings/subscriptions", icon: "billing" },
-            { label: "Commissions", href: "/admin/settings/commissions", icon: "commission" },
-            { label: "Broadcasts", href: "/admin/settings/broadcasts", icon: "broadcast" },
-            { label: "Resources hub", href: "/admin/settings/resources", icon: "messages" },
-            { label: "Wellness rewards", href: "/admin/settings/wellness", icon: "wellness" },
-            { label: "Care vouchers", href: "/admin/settings/vouchers", icon: "payables" },
-            { label: "Data breach incidents", href: "/admin/settings/data-breach-incidents", icon: "reconcile" },
-          ],
-        },
-        {
-          label: "Clinical",
-          items: [
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
-            { label: "Vaccination schedule", href: "/admin/settings/vaccination-schedule", icon: "vaccination" },
-            { label: "Escalation SLAs", href: "/admin/settings/escalation-slas", icon: "escalation" },
-            { label: "CV-risk (cholesterol) config", href: "/admin/settings/cv-risk-config", icon: "bp" },
+            { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Employers", href: "/admin/employers", icon: "corporate" },
+            { label: "Leads", href: "/admin/leads", icon: "members" },
+            { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
+            { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
+            { label: "Testimonials", href: "/admin/testimonials", icon: "review" },
           ],
+        },
+        {
+          label: "Configuration",
+          items: [{ label: "Settings", href: "/admin/settings", icon: "settings" }],
         },
       ];
     case "pharmacist":
@@ -325,6 +447,7 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/pharmacist", icon: "dashboard", exact: true },
             { label: "Orders", href: "/pharmacist/orders", icon: "pharmacy" },
+            { label: "Verify a prescription", href: "/pharmacist/verify", icon: "approvals" },
             { label: "Dispensing history", href: "/pharmacist/history", icon: "audit" },
             { label: "Pharmacy profile", href: "/pharmacist/profile", icon: "settings" },
           ],
@@ -366,6 +489,19 @@ export function getNavSections(
             icon: s.icon,
           })),
         })),
+        // Only reachable for an analyst-based account holding a delegated
+        // grant (the "Technical administrator" or "Data & analytics
+        // administrator" role presets carry ops.console.view/incidents.*;
+        // only Technical administrator carries feature_flags.manage) —
+        // self-gated, safe to always show.
+        {
+          label: "Platform operations",
+          items: [
+            { label: "Operations console", href: "/admin/ops", icon: "operations" },
+            { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
+            { label: "Feature flags", href: "/admin/settings/feature-flags", icon: "flag" },
+          ],
+        },
       ];
     case "finance":
       return [
@@ -373,11 +509,15 @@ export function getNavSections(
           items: [
             { label: "Overview", href: "/finance", icon: "dashboard", exact: true },
             { label: "General ledger", href: "/finance/ledger", icon: "ledger" },
+            { label: "Transactions", href: "/finance/transactions", icon: "billing" },
             { label: "Financial statements", href: "/finance/statements", icon: "statements" },
             { label: "Budgets", href: "/finance/budgets", icon: "budget" },
             { label: "Payables & vendors", href: "/finance/payables", icon: "payables" },
+            { label: "Employer billing", href: "/finance/employer-billing", icon: "billing" },
             { label: "Revenue recognition", href: "/finance/revenue", icon: "billing" },
             { label: "Reconciliation", href: "/finance/reconciliation", icon: "reconcile" },
+            { label: "Fraud signals", href: "/finance/fraud", icon: "warning" },
+            { label: "Laboratory settlements", href: "/finance/partner-settlements", icon: "payables" },
             { label: "Tax", href: "/finance/tax", icon: "tax" },
             { label: "Compliance calendar", href: "/finance/compliance", icon: "compliance" },
             { label: "Reports & filings", href: "/finance/reports", icon: "statements" },
@@ -388,6 +528,15 @@ export function getNavSections(
           items: [
             { label: "Approvals", href: "/finance/approvals", icon: "approvals" },
             { label: "Audit log", href: "/finance/audit", icon: "audit" },
+          ],
+        },
+        // Only reachable for a Finance administrator holding the delegated
+        // ops.console.view/incidents.* grant — self-gated, safe to show.
+        {
+          label: "Operations",
+          items: [
+            { label: "Operations console", href: "/admin/ops", icon: "operations" },
+            { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
           ],
         },
         {
@@ -410,6 +559,73 @@ export function getNavSections(
         {
           items: [
             { label: "Dashboard", href: "/dashboard/hmo", icon: "dashboard", exact: true },
+          ],
+        },
+      ];
+    // Module 27 — built dormant (platform_modules.payer_platform, off by
+    // default). Every page under /payer itself checks module + seat
+    // membership server-side and renders a "not yet activated" placeholder
+    // when either is missing, so this nav entry is always safe to render.
+    case "payer_admin":
+      return [
+        {
+          items: [
+            { label: "Overview", href: "/payer", icon: "dashboard", exact: true },
+          ],
+        },
+        {
+          label: "Product",
+          items: [
+            { label: "Plans", href: "/payer/plans", icon: "billing" },
+            { label: "Provider network", href: "/payer/network", icon: "hmo" },
+            { label: "Care programmes", href: "/payer/programmes", icon: "carePlan" },
+          ],
+        },
+        {
+          label: "Operations",
+          items: [
+            { label: "Pre-authorisations", href: "/payer/preauthorizations", icon: "approvals" },
+            { label: "Claims", href: "/payer/claims", icon: "ledger" },
+          ],
+        },
+        {
+          label: "Setup",
+          items: [
+            { label: "Team", href: "/payer/team", icon: "members" },
+          ],
+        },
+      ];
+    // Module 28 — built dormant (platform_modules.provider_org_platform, off
+    // by default). Same posture as the payer nav above: every /provider-org
+    // page checks module + org is_operational + seat membership itself.
+    case "provider_org_staff":
+      return [
+        {
+          items: [
+            { label: "Overview", href: "/provider-org", icon: "dashboard", exact: true },
+          ],
+        },
+        {
+          label: "Organisation",
+          items: [
+            { label: "Locations", href: "/provider-org/locations", icon: "region" },
+            { label: "Staff", href: "/provider-org/staff", icon: "members" },
+            { label: "Services", href: "/provider-org/services", icon: "carePlan" },
+            { label: "Resources", href: "/provider-org/resources", icon: "settings" },
+          ],
+        },
+        {
+          label: "Queues",
+          items: [
+            { label: "Referrals", href: "/provider-org/referrals", icon: "referral" },
+            { label: "Lab orders", href: "/provider-org/lab-orders", icon: "labs" },
+            { label: "Pharmacy orders", href: "/provider-org/pharmacy-orders", icon: "pharmacy" },
+          ],
+        },
+        {
+          label: "Finance",
+          items: [
+            { label: "Settlements", href: "/provider-org/settlements", icon: "statements" },
           ],
         },
       ];

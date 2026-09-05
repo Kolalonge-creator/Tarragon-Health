@@ -1,23 +1,3 @@
--- Tarragon Health — Consultation System §9.4 (pre-consultation preparation),
--- §9.5 (provider preparation).
---
--- NOTE on scope: this migration originally also covered §9.12 cancellation
--- and §9.13 no-show on video_consultations directly. Before applying,
--- live-schema inspection (2026-08-28) found a concurrent, uncommitted build
--- already on this project -- a general-purpose `appointments` +
--- `appointment_waiting_list` engine (appointment_engine_types/core/
--- availability, applied live but with no migration files in any branch of
--- this repo yet) that already owns booking/hold/confirm/cancel/reschedule/
--- no-show/check-in across every consultation type via `appointments.status`
--- (cancelled/no_show/checked_in/...), cancelled_by/cancellation_reason,
--- and video_consultations.id via appointments.video_consultation_id.
--- Shipping a second, competing cancel/no-show path directly on
--- video_consultations would create two disagreeing records of "is this
--- visit cancelled" for the same appointment. The cancel/no-show RPCs were
--- dropped from this migration for that reason -- see the founder/engineer
--- reconciliation note in the PR description. Pre/post-visit preparation
--- (§9.4/§9.5) is untouched by the other build and stays here.
-
 alter table public.video_consultations
   add column patient_prep_notes text,
   add column patient_prep_submitted_at timestamptz;
@@ -25,12 +5,6 @@ alter table public.video_consultations
 comment on column public.video_consultations.patient_prep_notes is
   'Consultation System §9.4 -- patient-submitted reason/symptoms ahead of the visit, via submit_consultation_prep(). Separate from video_visit_requests.note (captured at booking time); this can be added or edited any time before the visit.';
 
--- ---------------------------------------------------------------------------
--- §9.4 pre-consultation preparation -- the patient's own reason/symptoms,
--- editable any time before the visit. video_consultations' UPDATE policy is
--- staff-only, so this is the one narrow, audited door letting a patient set
--- just these two columns on their own row.
--- ---------------------------------------------------------------------------
 create or replace function public.submit_consultation_prep(p_consultation_id uuid, p_notes text)
 returns void
 language plpgsql
@@ -54,15 +28,6 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------------------
--- §9.5 provider preparation -- Reason -> relevant history -> current
--- medication -> recent results -> recent trends -> outstanding care gaps,
--- exactly the waterfall the spec lists, assembled server-side so the
--- clinician sees it as one read before joining. Deterministic/structured
--- (distinct from case_briefs, which is an AI-drafted narrative summary) --
--- this is the same "read model, not a new source of truth" posture as
--- patient_care_gaps itself.
--- ---------------------------------------------------------------------------
 create or replace function public.consultation_prep_bundle(p_consultation_id uuid)
 returns jsonb
 language plpgsql

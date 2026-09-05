@@ -3,12 +3,14 @@
 import { useActionState, useState } from "react";
 import {
   buyCareVoucher,
+  buyHealthCheckVoucher,
   payTowardVoucher,
-  redeemSubscriptionVoucher,
+  redeemServiceVoucher,
 } from "@/app/(dashboard)/patient/vouchers/actions";
 import {
   useMyVouchers,
   useVoucherCatalogue,
+  useHealthCheckVoucherCatalogue,
   useVoucherConfig,
   useMyReferralCode,
   useRedeemReferralCode,
@@ -16,6 +18,7 @@ import {
   type CareVoucher,
 } from "@/lib/queries/vouchers";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -33,16 +36,16 @@ const STATUS_LABEL: Record<string, string> = {
   cancelled: "Cancelled",
 };
 
-const STATUS_STYLE: Record<string, string> = {
-  reserved: "bg-amber-50 text-amber-800",
-  active: "bg-emerald-50 text-emerald-800",
-  redeemed: "bg-slate-100 text-slate-600",
-  expired: "bg-slate-100 text-slate-600",
-  cancelled: "bg-slate-100 text-slate-600",
+const STATUS_VARIANT: Record<string, "green" | "amber" | "grey"> = {
+  reserved: "amber",
+  active: "green",
+  redeemed: "grey",
+  expired: "grey",
+  cancelled: "grey",
 };
 
 function formatDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -61,6 +64,7 @@ function formatDate(iso: string) {
 export function CareVouchersCard({ patientId }: { patientId: string }) {
   const { data: vouchers } = useMyVouchers(patientId);
   const { data: catalogue } = useVoucherCatalogue();
+  const { data: healthCheckCatalogue } = useHealthCheckVoucherCatalogue();
   const { data: sponsorable } = useSponsorableProfiles();
   const { data: config } = useVoucherConfig();
   const { data: referralCode } = useMyReferralCode();
@@ -68,11 +72,16 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
   const [payingFor, setPayingFor] = useState<string | null>(null);
   const [payState, payAction, payPending] = useActionState(payTowardVoucher, undefined);
   const [buyState, buyAction, buyPending] = useActionState(buyCareVoucher, undefined);
+  const [buyHealthCheckState, buyHealthCheckAction, buyHealthCheckPending] = useActionState(
+    buyHealthCheckVoucher,
+    undefined
+  );
   const [redeemState, redeemAction, redeemPending] = useActionState(
-    redeemSubscriptionVoucher,
+    redeemServiceVoucher,
     undefined
   );
   const [buyOpen, setBuyOpen] = useState(false);
+  const [buyHealthCheckOpen, setBuyHealthCheckOpen] = useState(false);
 
   const redeemCode = useRedeemReferralCode();
   const [redeemInput, setRedeemInput] = useState("");
@@ -87,10 +96,10 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.billing className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.billing className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Your care vouchers
         </CardTitle>
-        <p className="pt-1 text-sm text-slate-600">
+        <p className="pt-1 text-sm text-slate-600 dark:text-night-ink/70">
           A voucher is for the service named on it and for you alone. It is not an account balance
           and it is never exchangeable for cash.
         </p>
@@ -98,7 +107,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
 
       <CardContent className="space-y-5">
         {live.length === 0 && (
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-600 dark:text-night-ink/70">
             You do not have any vouchers yet.
           </p>
         )}
@@ -116,42 +125,44 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
           />
         ))}
 
-        {/* Starting a gifted year is the recipient's own act, never the
-            purchaser's: public.redeem_subscription_voucher refuses anybody but
-            the beneficiary. If they already have a plan running, redeeming
-            extends it rather than opening a second one. */}
+        {/* Starting a gifted service is the recipient's own act, never the
+            purchaser's: public.redeem_service_voucher refuses anybody but
+            the beneficiary. If they already have it active, redeeming
+            extends it rather than opening a second grant. */}
         {live
-          .filter((v) => v.subscription_plan_id && isVoucherSpendable(v))
+          .filter((v) => v.service_product_id && isVoucherSpendable(v))
           .map((v) => (
             <form key={`redeem-${v.id}`} action={redeemAction} className="space-y-2">
               <input type="hidden" name="voucherId" value={v.id} />
               <Button type="submit" size="sm" disabled={redeemPending}>
-                {redeemPending ? "Starting…" : `Start my year of ${v.sku_name ?? "care"}`}
+                {redeemPending ? "Starting…" : `Start my ${v.sku_name ?? "care"}`}
               </Button>
             </form>
           ))}
-        {redeemState?.error && <p className="text-xs text-red-600">{redeemState.error}</p>}
+        {redeemState?.error && <p className="text-xs text-red-600 dark:text-red-300">{redeemState.error}</p>}
         {redeemState?.message && (
-          <p className="text-xs text-emerald-700">{redeemState.message}</p>
+          <p className="text-xs text-emerald-700 dark:text-emerald-300">{redeemState.message}</p>
         )}
-        {/* A voucher buys a YEAR OF A PLAN, never a test: tests are paid
-            straight to the laboratory, so there is nothing for us to sell in
-            advance (public.purchase_care_voucher fails closed). A plan is
-            different, because it is the thing we actually provide. */}
-        <div className="border-t border-slate-100 pt-4">
+        {/* A voucher here buys a fixed window of a SERVICE, not an individual
+            test — most lab tests are paid straight to the laboratory, so
+            there is normally nothing to sell in advance. The one deliberate
+            exception is a Synlab-priced, self-bookable health check panel,
+            which has its own separate "Buy a health check" gift flow below
+            (public.purchase_care_voucher) rather than living in this form. */}
+        <div className="border-t border-slate-100 dark:border-night-ink/10 pt-4">
           <Button type="button" size="sm" variant="outline" onClick={() => setBuyOpen(!buyOpen)}>
-            {buyOpen ? "Cancel" : "Buy a year of care"}
+            {buyOpen ? "Cancel" : "Buy care for someone"}
           </Button>
 
           {buyOpen && (
             <form action={buyAction} className="space-y-3 pt-3">
               <label className="block text-sm">
-                <span className="text-slate-700">Which plan?</span>
-                <Select name="planId" required className="mt-1">
-                  <option value="">Choose a plan</option>
+                <span className="text-slate-700 dark:text-night-ink/80">Which service?</span>
+                <Select name="serviceProductId" required className="mt-1">
+                  <option value="">Choose a service</option>
                   {(catalogue ?? []).map((plan) => (
                     <option key={plan.id} value={plan.id}>
-                      {plan.name} — {naira(plan.price_minor ?? 0)}
+                      {plan.name} ({naira(plan.price_kobo ?? 0)})
                     </option>
                   ))}
                 </Select>
@@ -159,7 +170,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
 
               {(sponsorable ?? []).length > 0 && (
                 <label className="block text-sm">
-                  <span className="text-slate-700">Who is it for?</span>
+                  <span className="text-slate-700 dark:text-night-ink/80">Who is it for?</span>
                   <Select name="beneficiaryProfileId" className="mt-1">
                     <option value={patientId}>Me</option>
                     {(sponsorable ?? []).map((person) => (
@@ -172,62 +183,130 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
               )}
 
               <label className="block text-sm">
-                <span className="text-slate-700">Add a note (optional)</span>
+                <span className="text-slate-700 dark:text-night-ink/80">Add a note (optional)</span>
                 <Input name="giftMessage" className="mt-1" placeholder="Thinking of you" />
               </label>
 
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-500 dark:text-night-ink/60">
                 Reserving is free. You pay separately, in one go or bit by bit, and it becomes
-                usable once it is paid in full. Whoever it is for starts their year when they are
-                ready, so nobody is put on a plan without choosing to be. Tests are still paid at
-                the laboratory.
+                usable once it is paid in full. Whoever it is for starts it when they are ready,
+                so nobody is put on a plan without choosing to be. Tests are still paid at the
+                laboratory.
               </p>
 
               <Button type="submit" size="sm" disabled={buyPending}>
-                {buyPending ? "Reserving…" : "Reserve this plan"}
+                {buyPending ? "Reserving…" : "Reserve this service"}
               </Button>
-              {buyState?.error && <p className="text-xs text-red-600">{buyState.error}</p>}
-              {buyState?.message && <p className="text-xs text-emerald-700">{buyState.message}</p>}
+              {buyState?.error && <p className="text-xs text-red-600 dark:text-red-300">{buyState.error}</p>}
+              {buyState?.message && <p className="text-xs text-emerald-700 dark:text-emerald-300">{buyState.message}</p>}
+            </form>
+          )}
+        </div>
+
+        {/* A health-check voucher buys ONE NAMED TEST — screen_core and
+            friends, priced from the same self_bookable, Synlab-billed
+            catalogue a patient books directly. This is the diaspora "gift a
+            health check" flow: reserve it now, pay from abroad, and whoever
+            it is for redeems it later against their own booking. */}
+        <div className="border-t border-slate-100 dark:border-night-ink/10 pt-4">
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setBuyHealthCheckOpen(!buyHealthCheckOpen)}
+          >
+            {buyHealthCheckOpen ? "Cancel" : "Buy a health check"}
+          </Button>
+
+          {buyHealthCheckOpen && (
+            <form action={buyHealthCheckAction} className="space-y-3 pt-3">
+              <label className="block text-sm">
+                <span className="text-slate-700 dark:text-night-ink/80">Which check?</span>
+                <Select name="panelBundleId" required className="mt-1">
+                  <option value="">Choose a health check</option>
+                  {(healthCheckCatalogue ?? []).map((bundle) => (
+                    <option key={bundle.id} value={bundle.id}>
+                      {bundle.name} ({naira(bundle.price_kobo ?? 0)})
+                    </option>
+                  ))}
+                </Select>
+              </label>
+
+              {(sponsorable ?? []).length > 0 && (
+                <label className="block text-sm">
+                  <span className="text-slate-700 dark:text-night-ink/80">Who is it for?</span>
+                  <Select name="beneficiaryProfileId" className="mt-1">
+                    <option value={patientId}>Me</option>
+                    {(sponsorable ?? []).map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.full_name}
+                      </option>
+                    ))}
+                  </Select>
+                </label>
+              )}
+
+              <label className="block text-sm">
+                <span className="text-slate-700 dark:text-night-ink/80">Add a note (optional)</span>
+                <Input name="giftMessage" className="mt-1" placeholder="Thinking of you" />
+              </label>
+
+              <p className="text-xs text-slate-500 dark:text-night-ink/60">
+                Reserving is free. You pay separately, in naira, in one go or bit by bit. Whoever
+                it is for books it whenever suits them, and a doctor reviews their
+                results the same way as anyone else&apos;s: in writing, with a downloadable
+                report. If they&apos;d also like a live video consult with a doctor, that&apos;s a
+                separate, low-cost booking they (or you, once they&apos;ve requested it) can pay
+                for whenever they want one.
+              </p>
+
+              <Button type="submit" size="sm" disabled={buyHealthCheckPending}>
+                {buyHealthCheckPending ? "Reserving…" : "Reserve this check"}
+              </Button>
+              {buyHealthCheckState?.error && (
+                <p className="text-xs text-red-600 dark:text-red-300">{buyHealthCheckState.error}</p>
+              )}
+              {buyHealthCheckState?.message && (
+                <p className="text-xs text-emerald-700 dark:text-emerald-300">{buyHealthCheckState.message}</p>
+              )}
             </form>
           )}
         </div>
 
         {past.length > 0 && (
-          <details className="border-t border-slate-100 pt-4">
-            <summary className="cursor-pointer text-sm text-slate-600">
+          <details className="border-t border-slate-100 dark:border-night-ink/10 pt-4">
+            <summary className="cursor-pointer text-sm text-slate-600 dark:text-night-ink/70">
               Earlier vouchers ({past.length})
             </summary>
             <ul className="space-y-2 pt-3">
               {past.map((v) => (
                 <li key={v.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-slate-700">
+                  <span className="text-slate-700 dark:text-night-ink/80">
                     {v.sku_name ?? "Care voucher"}{" "}
-                    <span className="text-xs text-slate-500">{v.voucher_number}</span>
+                    <span className="text-xs text-slate-500 dark:text-night-ink/60">{v.voucher_number}</span>
                   </span>
-                  <span
-                    className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[v.status] ?? "bg-slate-100 text-slate-600"}`}
-                  >
-                    {STATUS_LABEL[v.status] ?? v.status}
-                  </span>
+                  <Badge variant={STATUS_VARIANT[v.status] ?? "grey"}>
+                    {STATUS_LABEL[v.status] ?? v.status.replace(/_/g, " ")}
+                  </Badge>
                 </li>
               ))}
             </ul>
-            <p className="pt-2 text-xs text-slate-500">
+            <p className="pt-2 text-xs text-slate-500 dark:text-night-ink/60">
               If one expired before you could use it, ask us and we will normally put it back.
             </p>
           </details>
         )}
 
-        <div className="border-t border-slate-100 pt-4">
-          <p className="text-sm font-medium text-slate-800">Invite someone</p>
-          <p className="pt-1 text-xs text-slate-600">
+        <div className="border-t border-slate-100 dark:border-night-ink/10 pt-4">
+          <p className="text-sm font-medium text-slate-800 dark:text-night-ink/90">Invite someone</p>
+          <p className="pt-1 text-xs text-slate-600 dark:text-night-ink/70">
             When someone you invite completes their first paid order, you both get a reward voucher
             toward your care. Reward vouchers are a discount, not cash, and cannot be exchanged for
             money.
           </p>
           {referralCode && (
             <div className="flex items-center gap-2 pt-2">
-              <code className="rounded bg-slate-50 px-2 py-1 text-xs text-slate-700">
+              <code className="rounded bg-slate-50 dark:bg-night-ink/10 px-2 py-1 text-xs text-slate-700 dark:text-night-ink/80">
                 {referralCode}
               </code>
               <Button
@@ -247,7 +326,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
           )}
           <div className="flex items-end gap-2 pt-3">
             <label className="block flex-1 text-sm">
-              <span className="text-slate-700">Have a code?</span>
+              <span className="text-slate-700 dark:text-night-ink/80">Have a code?</span>
               <Input
                 className="mt-1"
                 value={redeemInput}
@@ -268,7 +347,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
             </Button>
           </div>
           {redeemResult && (
-            <p className={`pt-1 text-xs ${redeemResult.ok ? "text-emerald-700" : "text-red-600"}`}>
+            <p className={`pt-1 text-xs ${redeemResult.ok ? "text-emerald-700 dark:text-emerald-300" : "text-red-600 dark:text-red-300"}`}>
               {redeemResult.ok ? "Code applied." : redeemResult.error}
             </p>
           )}
@@ -302,29 +381,27 @@ function VoucherRow({
   );
 
   return (
-    <div className="rounded-lg border border-slate-200 p-3">
+    <div className="rounded-lg border border-slate-200 dark:border-night-ink/15 p-3">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-slate-800">
+          <p className="text-sm font-medium text-slate-800 dark:text-night-ink/90">
             {voucher.sku_name ?? "Care voucher"}
           </p>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-500 dark:text-night-ink/60">
             {voucher.voucher_number} · {naira(voucher.face_value_kobo)}
           </p>
         </div>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLE[voucher.status] ?? "bg-slate-100 text-slate-600"}`}
-        >
-          {STATUS_LABEL[voucher.status] ?? voucher.status}
-        </span>
+        <Badge variant={STATUS_VARIANT[voucher.status] ?? "grey"}>
+          {STATUS_LABEL[voucher.status] ?? voucher.status.replace(/_/g, " ")}
+        </Badge>
       </div>
 
       {voucher.status === "reserved" && (
         <div className="pt-3">
-          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-night-ink/10">
             <div className="h-full bg-brand-green" style={{ width: `${progressPct}%` }} />
           </div>
-          <p className="pt-1 text-xs text-slate-600">
+          <p className="pt-1 text-xs text-slate-600 dark:text-night-ink/70">
             {naira(voucher.amount_paid_kobo)} of {naira(voucher.face_value_kobo)} paid.{" "}
             {naira(outstanding)} to go. There is no deadline on this, and we will not take it away
             while you are still paying.
@@ -338,7 +415,7 @@ function VoucherRow({
             <form action={payAction} className="flex items-end gap-2 pt-3">
               <input type="hidden" name="voucherId" value={voucher.id} />
               <label className="block text-sm">
-                <span className="text-slate-700">Amount (₦)</span>
+                <span className="text-slate-700 dark:text-night-ink/80">Amount (₦)</span>
                 <Input
                   name="amountNaira"
                   type="number"
@@ -354,12 +431,12 @@ function VoucherRow({
               </Button>
             </form>
           )}
-          {payError && <p className="pt-1 text-xs text-red-600">{payError}</p>}
+          {payError && <p className="pt-1 text-xs text-red-600 dark:text-red-300">{payError}</p>}
         </div>
       )}
 
       {voucher.status === "active" && (
-        <p className="pt-2 text-xs text-slate-600">
+        <p className="pt-2 text-xs text-slate-600 dark:text-night-ink/70">
           Ready to use when you book your {voucher.sku_name ?? "check"}.
           {voucher.expires_at && ` Valid until ${formatDate(voucher.expires_at)}.`}
         </p>

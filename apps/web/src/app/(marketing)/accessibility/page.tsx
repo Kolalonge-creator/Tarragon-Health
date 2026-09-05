@@ -21,7 +21,7 @@ export default function AccessibilityPage() {
         <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-charcoal-ink sm:text-4xl">
           Accessibility Statement
         </h1>
-        <p className="mt-4 text-xs text-charcoal-ink/50">Last updated {LAST_UPDATED}</p>
+        <p className="mt-4 text-xs text-charcoal-ink/65">Last updated {LAST_UPDATED}</p>
 
         <div className="mt-10 space-y-8">
           <section>

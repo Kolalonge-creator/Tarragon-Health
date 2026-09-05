@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Vaccinations",
   description:
-    "A personal vaccination schedule for you and your children, reminders when a dose is due, and a doctor-verified certificate you'll never lose. Get the dose wherever suits you, then log it.",
+    "A personal vaccination schedule for you and your children, a reminder when a dose is due, and a doctor-verified certificate. Get the dose anywhere.",
   path: MARKETING_ROUTES.vaccinations,
 });
 
@@ -59,8 +59,8 @@ const WHATS_INCLUDED = [
     body: "Multi-dose series roll forward on their own once a dose is verified: no manual re-entry, no missed follow-up shots.",
   },
   {
-    title: "Available on every Tarragon plan",
-    body: "Vaccination tracking, reminders, and verification are available on every plan, including Free; this is prevention we think everyone should have.",
+    title: "Free for everyone",
+    body: "Vaccination tracking, reminders, and verification are free for every Tarragon member; this is prevention we think everyone should have.",
   },
 ];
 
@@ -160,14 +160,14 @@ export default function VaccinationsPage() {
             Caring for an adult relative, like a parent? They keep their own Tarragon account and
             their own vaccination schedule; you follow it as next of kin once they&apos;ve agreed,
             never by adding them to yours. See{" "}
-            <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}
             for how that works. Vaccinations are one part of{" "}
-            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
-              Tarragon Prevent
+            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+              preventive health at Tarragon
             </Link>
-            , which also builds your screening calendar and yearly Health Check.
+            , which also builds your free screening calendar and your yearly Health Check.
           </p>
         </div>
       </Section>

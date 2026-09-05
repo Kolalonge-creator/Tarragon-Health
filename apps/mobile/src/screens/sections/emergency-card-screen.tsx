@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
 import {
   createShareLink,
@@ -9,7 +9,7 @@ import {
   type ShareLink,
 } from "@/lib/emergency";
 import { colors, spacing } from "@/ui/theme";
-import { Card, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
 interface EmergencyCardScreenProps {
   patientId: string;
@@ -19,7 +19,20 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
   const [facts, setFacts] = useState<EmergencyFacts | null>(null);
   const [offline, setOffline] = useState(false);
   const [shareLink, setShareLink] = useState<ShareLink | null | undefined>(undefined);
+  // Distinguishes "no active link exists" (shareLink null) from "we don't
+  // know" (fetch failed) — the latter must not render the create prompt over
+  // a link that may already be live.
+  const [shareLinkError, setShareLinkError] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState(false);
+
+  const refreshShareLink = useCallback(() => {
+    setShareLinkError(false);
+    setShareLink(undefined);
+    loadActiveShareLink(patientId)
+      .then(setShareLink)
+      .catch(() => setShareLinkError(true));
+  }, [patientId]);
 
   useEffect(() => {
     loadEmergencyFacts(patientId)
@@ -27,15 +40,21 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
       .catch(() => {
         setOffline(true);
         return loadCachedEmergencyFacts().then(setFacts);
-      });
-    loadActiveShareLink(patientId).then(setShareLink);
-  }, [patientId]);
+      })
+      .catch(() => {});
+    refreshShareLink();
+  }, [patientId, refreshShareLink]);
 
   async function handleCreateLink() {
     setCreating(true);
+    setCreateError(false);
     const result = await createShareLink();
-    if (!result.error) {
-      setShareLink(await loadActiveShareLink(patientId));
+    if (result.error) {
+      // Used to just stop the spinner with nothing said — the patient had
+      // no way to know the link was never created.
+      setCreateError(true);
+    } else {
+      refreshShareLink();
     }
     setCreating(false);
   }
@@ -51,9 +70,9 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.background }} contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
       <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Emergency card</Text>
-      {offline ? <MutedText>Showing your last saved copy — you&apos;re offline.</MutedText> : null}
+      {offline ? <MutedText>You&apos;re offline, so this is your last saved copy.</MutedText> : null}
 
-      <View style={{ backgroundColor: "#B91C1C", borderRadius: 14, padding: 16, gap: 10 }}>
+      <View style={{ backgroundColor: colors.status.critical, borderRadius: 14, padding: 16, gap: 10 }}>
         <Text style={{ fontWeight: "700", fontSize: 18, color: "#fff" }}>
           {facts.fullName ?? "—"}
         </Text>
@@ -75,7 +94,12 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
       </View>
 
       <Card style={{ alignItems: "center", gap: 8 }}>
-        {shareLink === undefined ? (
+        {shareLinkError ? (
+          <>
+            <MutedText>We couldn&apos;t check your live link right now.</MutedText>
+            <SecondaryButton title="Tap to retry" onPress={refreshShareLink} />
+          </>
+        ) : shareLink === undefined ? (
           <ActivityIndicator color={colors.brand} />
         ) : shareLink ? (
           <>
@@ -84,16 +108,19 @@ export function EmergencyCardScreen({ patientId }: EmergencyCardScreenProps) {
               {shareLink.url}
             </Text>
             <MutedText>
-              Anyone with this link can view this card with no login — share it only with people you trust to have
-              it. Expires {new Date(shareLink.expiresAt).toLocaleDateString()}.
+              Anyone with this link can view this card with no login, so share it only with people you trust to
+              have it. Expires {new Date(shareLink.expiresAt).toLocaleDateString()}.
             </MutedText>
-            <SecondaryButton title="Share link" onPress={() => Share.share({ message: shareLink.url })} />
+            <SecondaryButton title="Share link" onPress={() => void Share.share({ message: shareLink.url }).catch(() => {})} />
           </>
         ) : (
           <>
             <MutedText>
               Create a no-login link so a first responder can view this card without your phone unlocked.
             </MutedText>
+            {createError ? (
+              <ErrorText>We couldn&apos;t create the link just now. Please try again.</ErrorText>
+            ) : null}
             <PrimaryButton title="Create a live link" onPress={handleCreateLink} loading={creating} />
           </>
         )}

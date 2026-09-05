@@ -40,7 +40,7 @@ export function CareProgrammeRecommendations({
         <CardTitle>Recommended for you</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Based on your answers, these programmes may help. Your care team will review and
           confirm what&apos;s right for you.
         </p>
@@ -48,17 +48,17 @@ export function CareProgrammeRecommendations({
           {recommendations.map((rec) => (
             <li
               key={rec.id}
-              className="rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3"
+              className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3"
             >
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-charcoal-ink">
+                <span className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
                   {labelFor(rec.condition)}
                 </span>
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                <span className="rounded-full bg-amber-100 dark:bg-amber-500/25 px-2 py-0.5 text-xs font-medium text-amber-800 dark:text-amber-300">
                   Pending review
                 </span>
               </div>
-              <p className="mt-1 text-sm text-charcoal-ink/70">{rec.rationale}</p>
+              <p className="mt-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">{rec.rationale}</p>
             </li>
           ))}
         </ul>

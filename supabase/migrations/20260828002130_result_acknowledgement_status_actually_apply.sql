@@ -232,7 +232,7 @@ comment on function public.mark_result_document_action_completed(uuid) is
   'enforced twice: here for a clean error message, and again inside '
   'enforce_lab_result_document_update as the real structural gate.';
 
-revoke all on function public.mark_result_document_action_completed(uuid) from public;
+revoke all on function public.mark_result_document_action_completed(uuid) from public, anon;
 grant execute on function public.mark_result_document_action_completed(uuid) to authenticated;
 revoke execute on function public.mark_result_document_action_completed(uuid) from anon;
 

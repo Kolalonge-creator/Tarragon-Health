@@ -39,7 +39,7 @@ export async function LifestyleOutcomesCard({
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
+              <tr className="border-b border-charcoal-ink/10 dark:border-night-ink/15 text-left text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                 <th className="py-1.5 pr-4 font-medium">Condition</th>
                 <th className="py-1.5 pr-4 font-medium">Enrolled</th>
                 <th className="py-1.5 pr-4 font-medium">Active</th>
@@ -49,18 +49,18 @@ export async function LifestyleOutcomesCard({
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.condition} className="border-b border-charcoal-ink/5 last:border-b-0">
-                  <td className="py-2 pr-4 capitalize text-charcoal-ink">{r.condition}</td>
-                  <td className="py-2 pr-4 text-charcoal-ink">{r.enrolled}</td>
-                  <td className="py-2 pr-4 text-charcoal-ink">{r.active}</td>
-                  <td className="py-2 pr-4 text-charcoal-ink">{r.paused}</td>
-                  <td className="py-2 pr-4 text-charcoal-ink">{r.reviews_overdue}</td>
+                <tr key={r.condition} className="border-b border-charcoal-ink/5 dark:border-night-ink/10 last:border-b-0">
+                  <td className="py-2 pr-4 capitalize text-charcoal-ink dark:text-night-ink">{r.condition}</td>
+                  <td className="py-2 pr-4 text-charcoal-ink dark:text-night-ink">{r.enrolled}</td>
+                  <td className="py-2 pr-4 text-charcoal-ink dark:text-night-ink">{r.active}</td>
+                  <td className="py-2 pr-4 text-charcoal-ink dark:text-night-ink">{r.paused}</td>
+                  <td className="py-2 pr-4 text-charcoal-ink dark:text-night-ink">{r.reviews_overdue}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-xs text-charcoal-ink/50">
+        <p className="mt-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           Aggregate programme engagement across enrolled {entityLabel === "member" ? "members" : "staff"}.
           Individual readings stay private to the {entityLabel === "member" ? "member" : "employee"} and
           their care team.

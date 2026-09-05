@@ -16,7 +16,7 @@ export type SectionId =
   | "family"
   | "supporting"
   | "passport"
-  | "subscription"
+  | "services"
   | "emergency"
   | "settings";
 
@@ -49,12 +49,12 @@ export const MAX_PRIMARY_SECTIONS = 4;
  * Five destinations that exist on web were missing from the app entirely —
  * not merely un-implemented natively, but absent from the drawer with no way
  * to reach them at all: the Learn library, Lifestyle coaching, Wellness
- * rewards, the yearly Health Check, and plan/subscription management. A
- * patient paying for Complete Care could not open the lifestyle programme
- * they were paying for, or read a single health-education article, from their
- * phone. They are WebView-backed here for now, the same proven pattern
- * Care/Prevention/Your people already use, which is what makes closing the
- * gap a matter of routing rather than of rebuilding five screens natively.
+ * rewards, the yearly Health Check, and buying a service. A patient could not
+ * open the lifestyle programme they were paying for, or read a single
+ * health-education article, from their phone. They are WebView-backed here
+ * for now, the same proven pattern Care/Prevention/Your people already use,
+ * which is what makes closing the gap a matter of routing rather than of
+ * rebuilding five screens natively.
  */
 export const SECTIONS: SectionDef[] = [
   {
@@ -147,8 +147,8 @@ export const SECTIONS: SectionDef[] = [
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
   {
-    id: "subscription",
-    label: "Subscription",
+    id: "services",
+    label: "My services",
     icon: "card-outline",
     group: "Your account",
     webviewPath: "/patient/subscription",
@@ -171,8 +171,4 @@ export const PRIMARY_SECTIONS = SECTIONS.filter((s) => s.primary).slice(0, MAX_P
 /** The path a WebView section should load, or null for a native screen. */
 export function sectionWebviewPath(id: SectionId): string | null {
   return SECTIONS.find((s) => s.id === id)?.webviewPath ?? null;
-}
-
-export function sectionLabel(id: SectionId): string {
-  return SECTIONS.find((s) => s.id === id)?.label ?? id;
 }

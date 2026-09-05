@@ -5,12 +5,27 @@ import { loadImpactMetrics } from "@/lib/marketing/impact-data";
 import { pageMetadata } from "@/lib/marketing/site";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
-export const metadata: Metadata = pageMetadata({
-  title: "Our impact",
-  description:
-    "Platform-wide numbers on what TarragonHealth's monitoring and doctor review actually catches, updated daily, with small numbers held back to protect patient privacy.",
-  path: MARKETING_ROUTES.impact,
-});
+/**
+ * Noindex while there is nothing to show. Every metric is currently either
+ * suppressed by the k-anonymity floor or zero, so the indexed page reads
+ * "Our impact" above a row of em dashes, which is a worse first impression
+ * from search than no result at all. The moment one real figure clears the
+ * floor this flips back to indexable on its own, with no code change needed:
+ * the check below is on live data, not a hardcoded flag.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const metrics = await loadImpactMetrics();
+  const anyVisible = metrics.some((m) => !m.suppressed && m.value !== null && m.value > 0);
+  return {
+    ...pageMetadata({
+      title: "Our impact",
+      description:
+        "Platform-wide numbers on what our monitoring and doctor review actually catches, updated daily, with small counts held back to protect patient privacy.",
+      path: MARKETING_ROUTES.impact,
+    }),
+    ...(anyVisible ? {} : { robots: { index: false, follow: true } }),
+  };
+}
 
 // The underlying table refreshes on a nightly cron; re-render at the same cadence.
 export const revalidate = 300;
@@ -22,7 +37,7 @@ function formatValue(value: number | null): string {
 
 export default async function ImpactPage() {
   const metrics = await loadImpactMetrics();
-  const anyVisible = metrics.some((m) => !m.suppressed && m.value !== null);
+  const anyVisible = metrics.some((m) => !m.suppressed && m.value !== null && m.value > 0);
   const computedAt = metrics.find((m) => m.computedAt)?.computedAt ?? null;
 
   return (
@@ -51,7 +66,7 @@ export default async function ImpactPage() {
           {metrics.map((metric) => (
             <div
               key={metric.metricKey}
-              className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
             >
               <p className="font-heading text-3xl font-semibold text-brand-green">
                 {formatValue(metric.value)}
@@ -61,7 +76,7 @@ export default async function ImpactPage() {
                 <p className="mt-1 text-xs text-charcoal-ink/60">{metric.description}</p>
               )}
               {metric.suppressed && (
-                <p className="mt-2 text-xs text-charcoal-ink/50">
+                <p className="mt-2 text-xs text-charcoal-ink/65">
                   Not enough activity yet to show without risking anyone&apos;s privacy.
                 </p>
               )}
@@ -69,7 +84,7 @@ export default async function ImpactPage() {
           ))}
         </div>
         {computedAt && (
-          <p className="mx-auto mt-6 max-w-4xl text-center text-xs text-charcoal-ink/50">
+          <p className="mx-auto mt-6 max-w-4xl text-center text-xs text-charcoal-ink/65">
             Last updated {new Date(computedAt).toLocaleDateString("en-NG", {
               day: "numeric",
               month: "long",

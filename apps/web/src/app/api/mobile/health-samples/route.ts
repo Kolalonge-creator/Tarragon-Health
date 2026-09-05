@@ -6,7 +6,7 @@ import {
   healthSampleBatchSchema,
   type DeviceLocalHealthProvider,
 } from "@/lib/validation/health-sample";
-import { ingestReadings } from "@/lib/wearables/ingest";
+import { ingestReadings, WearableIngestError, type IngestResult } from "@/lib/wearables/ingest";
 import type { NormalisedReading } from "@/lib/wearables/normalise";
 
 /**
@@ -114,47 +114,103 @@ export async function POST(request: Request): Promise<NextResponse> {
     externalReadingId: `${provider}:${sample.external_reading_id}`,
   }));
 
-  const result = await ingestReadings(
-    svc,
-    {
-      connectionId: connection.id,
-      organisationId: profile.organisation_id,
-      patientId: userId,
-    },
-    readings
-  );
+  // A storage failure is a failed upload, not a quiet zero: the mobile
+  // client's own recovery is to re-queue the page and retry (see
+  // health-sync.ts's `if (!result.ok)` branch), which only happens if this
+  // route stops answering 200 over a batch that did not land.
+  let result: IngestResult;
+  let failure: WearableIngestError | null = null;
+  try {
+    result = await ingestReadings(
+      svc,
+      {
+        connectionId: connection.id,
+        organisationId: profile.organisation_id,
+        patientId: userId,
+      },
+      readings
+    );
+  } catch (error) {
+    if (!(error instanceof WearableIngestError)) throw error;
+    failure = error;
+    result = error.result;
+  }
 
   // Advance the cursor to the newest sample actually accepted, so the next
   // sync resumes from there. Uses the batch's own maximum rather than "now":
   // HealthKit writes can land out of order, and a wall-clock cursor would
   // step over a sample the phone had not yet been handed.
-  const newestSample = parsed.data.samples.reduce<string | null>((newest, sample) => {
-    if (!newest || sample.recorded_at > newest) return sample.recorded_at;
-    return newest;
-  }, null);
+  //
+  // The constraint that shapes the truncation handling below: the cursor is
+  // ONE timestamp shared by every reading type, while the app pages its
+  // device-store queries PER TYPE (oldest-first, capped per page). A type
+  // that hit its page cap still has unsent samples older than the batch's
+  // overall newest, so advancing to the overall newest would skip them
+  // permanently. When the app declares which types were capped
+  // (truncated_types), the cursor may only advance as far as the oldest of
+  // those types' own newest samples — everything at or before that point has
+  // been sent for every type. Other types' newer samples simply re-upload
+  // next sync and dedupe on external_reading_id. Clients that predate the
+  // field omit it and get exactly the old behaviour.
+  const newestOf = (samples: typeof parsed.data.samples): string | null =>
+    samples.reduce<string | null>((newest, sample) => {
+      if (!newest || sample.recorded_at > newest) return sample.recorded_at;
+      return newest;
+    }, null);
+
+  const truncatedTypes = parsed.data.truncated_types ?? [];
+  let newestSample = newestOf(parsed.data.samples);
+  for (const readingType of truncatedTypes) {
+    const typeNewest = newestOf(parsed.data.samples.filter((s) => s.reading_type === readingType));
+    if (!typeNewest) {
+      // Declared truncated but sent no samples of that type: no safe bound
+      // exists, so hold the cursor where it is rather than guess.
+      newestSample = null;
+      break;
+    }
+    if (newestSample && typeNewest < newestSample) newestSample = typeNewest;
+  }
 
   await svc
     .from("wearable_connections")
     .update({
       last_synced_at: new Date().toISOString(),
-      last_sync_error: null,
-      ...(newestSample ? { sync_cursor: newestSample } : {}),
+      // Records the failure instead of erasing it, and holds the cursor
+      // where it is: advancing over a window whose rows did not store would
+      // skip those samples permanently, since the app resumes from this
+      // cursor rather than re-reading its whole health store.
+      last_sync_error: failure ? failure.message : null,
+      ...(newestSample && !failure ? { sync_cursor: newestSample } : {}),
     })
     .eq("id", connection.id);
 
-  return NextResponse.json({
-    success: true,
+  const counts = {
     vitals_inserted: result.vitalsInserted,
     wearable_inserted: result.wearableInserted,
     implausible: result.implausible,
+    // Always zero on this route today — the device-local bridge gates
+    // categories at the OS permission level and passes no per-connection
+    // consent — but reported rather than assumed, so it stays honest if this
+    // route ever starts passing one.
+    denied_by_consent: result.deniedByConsent,
+    consent_denied_safety_retained: result.consentDeniedSafetyRetained,
+    failed: result.failed,
     // Step days written to the patient-facing activity log, and days left
     // alone because the patient had typed their own count. Reported
     // separately so "steps synced but the meter didn't move" is diagnosable
     // from the response rather than by reading two tables.
     step_days_recorded: result.stepDaysRecorded,
     step_days_deferred_to_manual: result.stepDaysDeferredToManual,
-    cursor: newestSample,
-  });
+  };
+
+  if (failure) {
+    return NextResponse.json(
+      { success: false, error: failure.message, ...counts, cursor: null },
+      { status: 500 }
+    );
+  }
+
+  return NextResponse.json({ success: true, ...counts, cursor: newestSample });
 }
 
 type AuthOk = { userId: string; supabase: ReturnType<typeof createBearerClient> };

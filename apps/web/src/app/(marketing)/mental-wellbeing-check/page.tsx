@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Mental Well-being Check",
   description:
-    "A free, anonymous two-minute check-in on how you're really doing. Not a diagnosis, nothing saved, just a quick, honest pulse-check with a next step if you want one.",
+    "A free, anonymous two-minute check-in on how you are really doing. Not a diagnosis, nothing saved, just an honest pulse-check and a clear next step.",
   path: MARKETING_ROUTES.mentalWellbeingCheck,
 });
 
@@ -80,7 +80,7 @@ export default function MentalWellbeingCheckPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             A pulse-check is a starting point, not the full picture. Once you&apos;re signed up,
             Tarragon&apos;s{" "}
-            <Link href={MARKETING_ROUTES.healthEducation} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.healthEducation} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Health Education
             </Link>{" "}
             surfaces guidance built around you, and your care team can arrange a fuller,

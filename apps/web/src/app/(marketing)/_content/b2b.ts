@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { MarketingMediaSlot } from "./media";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export type B2bStat = {
@@ -70,7 +71,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       title: "Corporate Health",
       description:
         "Corporate wellness plans that surface workforce chronic disease risk and close care gaps early, with anonymised reporting for HR.",
-      path: "/corporate",
+      path: MARKETING_ROUTES.corporate,
     }),
   },
   hmo: {
@@ -98,7 +99,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       { label: "Members monitored", value: "4,820" },
       { label: "Care gaps closed (90d)", value: "", pill: { text: "+31%", tone: "green" } },
       { label: "Abnormal results caught early", value: "146" },
-      { label: "Claims impact", value: "Reporting live" },
+      { label: "Claims impact", value: "Included in your report" },
     ],
     howItWorks: [
       {
@@ -119,7 +120,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       title: "HMO Support",
       description:
         "Monitor member risk, close care gaps, and generate outcome evidence: chronic disease and preventive care for HMO members.",
-      path: "/hmo",
+      path: MARKETING_ROUTES.hmo,
     }),
   },
 };

@@ -16,9 +16,9 @@ function CategoryTile({ category }: { category: BiomarkerCategoryView }) {
         : null;
 
   return (
-    <div className="rounded-xl border border-charcoal-ink/10 bg-white p-4">
+    <div className="rounded-xl border border-charcoal-ink/10 dark:border-night-ink/15 bg-white dark:bg-night-card p-4">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">{category.label}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{category.label}</p>
         {badge ? (
           <Badge variant={badge.variant}>{badge.label}</Badge>
         ) : (
@@ -26,20 +26,20 @@ function CategoryTile({ category }: { category: BiomarkerCategoryView }) {
         )}
       </div>
       {category.status === "needs_attention" && (
-        <p className="mt-1.5 text-xs text-amber-700">
+        <p className="mt-1.5 text-xs text-amber-700 dark:text-amber-300">
           {category.needsAttentionCount} of {category.reviewedCount} reviewed result
           {category.reviewedCount === 1 ? "" : "s"} need{category.reviewedCount === 1 ? "s" : ""}{" "}
           a closer look
         </p>
       )}
       {category.status === "good" && (
-        <p className="mt-1.5 text-xs text-charcoal-ink/60">
+        <p className="mt-1.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           {category.reviewedCount} reviewed result{category.reviewedCount === 1 ? "" : "s"}, all
           within range
         </p>
       )}
       {category.status === null && (
-        <p className="mt-1.5 text-xs text-charcoal-ink/50">No reviewed result on file yet.</p>
+        <p className="mt-1.5 text-xs text-charcoal-ink/50 dark:text-night-ink/55">No reviewed result on file yet.</p>
       )}
     </div>
   );
@@ -66,7 +66,7 @@ export function BiomarkerCategoriesCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.labs className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your results, by area
         </CardTitle>
         <CardDescription>
@@ -81,7 +81,7 @@ export function BiomarkerCategoriesCard({ patientId }: { patientId: string }) {
           ))}
         </div>
         <p className="mt-4 text-sm">
-          <Link href="/patient/labs" className="font-medium text-deep-forest hover:underline">
+          <Link href="/patient/labs" className="font-medium text-deep-forest dark:text-brand-green-bright hover:underline">
             See each result in full →
           </Link>
         </p>

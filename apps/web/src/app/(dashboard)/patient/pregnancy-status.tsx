@@ -1,17 +1,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PregnancyForm } from "./pregnancy-form";
+import { pregnancyLedCareBanner, type CarePlanCondition } from "@/lib/rules/womens-health-intersections";
 
 /**
- * Pregnancy status + the obstetric-led guard (§20.2). If the patient is
- * pregnant AND on a diabetes care plan, we show a prominent "your diabetes care
- * in pregnancy is led by antenatal care" banner — the platform detects,
- * refers, coordinates and supports, but does not independently manage diabetes
- * in pregnancy. Shown to women of child-bearing context; harmless otherwise.
+ * Pregnancy status + the obstetric-led guard (§20.2, generalised 2026-08-29
+ * per §44.14: cross-programme chronic-disease intersections). If the patient
+ * is pregnant AND on an active diabetes or hypertension care plan, we show a
+ * prominent "your X care in pregnancy is led by antenatal care" banner — the
+ * platform detects, refers, coordinates and supports, but does not
+ * independently manage these conditions in pregnancy. Shown to women of
+ * child-bearing context; harmless otherwise.
  */
 export async function PregnancyStatus({ patientId }: { patientId: string }) {
   const supabase = await createClient();
-  const [{ data: preg }, { data: dmPlan }] = await Promise.all([
+  const [{ data: preg }, { data: activePlans }] = await Promise.all([
     supabase
       .from("patient_pregnancy")
       .select("is_pregnant, estimated_due_date")
@@ -19,15 +22,14 @@ export async function PregnancyStatus({ patientId }: { patientId: string }) {
       .maybeSingle(),
     supabase
       .from("care_plans")
-      .select("id")
+      .select("condition")
       .eq("patient_id", patientId)
-      .eq("condition", "diabetes")
-      .eq("status", "active")
-      .limit(1)
-      .maybeSingle(),
+      .eq("status", "active"),
   ]);
 
   const isPregnant = preg?.is_pregnant ?? false;
+  const activeConditions = (activePlans ?? []).map((p) => p.condition as CarePlanCondition);
+  const banner = isPregnant ? pregnancyLedCareBanner(activeConditions) : null;
 
   return (
     <Card>
@@ -35,16 +37,10 @@ export async function PregnancyStatus({ patientId }: { patientId: string }) {
         <CardTitle>Pregnancy</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isPregnant && dmPlan && (
-          <div className="rounded-md border border-amber-300 bg-amber-50/60 p-3 text-sm text-charcoal-ink/90">
-            <p className="font-medium text-amber-800">Your diabetes care in pregnancy is led by antenatal care</p>
-            <p className="mt-1">
-              Diabetes in pregnancy needs tighter control and specialist oversight, so your care is
-              led by an obstetric / antenatal team. Please make sure you&apos;re booked into antenatal
-              care; your Tarragon team will help coordinate and stay in touch, but won&apos;t manage
-              your diabetes on its own during pregnancy. Some diabetes tablets are usually stopped in
-              pregnancy, so don&apos;t change anything without your antenatal team.
-            </p>
+        {banner && (
+          <div className="rounded-md border border-amber-300 dark:border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/10 p-3 text-sm text-charcoal-ink/90 dark:text-night-ink/90">
+            <p className="font-medium text-amber-800 dark:text-amber-300">Your care in pregnancy is led by antenatal care</p>
+            <p className="mt-1">{banner}</p>
           </div>
         )}
         <PregnancyForm

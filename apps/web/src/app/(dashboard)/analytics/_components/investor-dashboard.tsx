@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Gauge, Percent, Repeat, TrendingUp } from "lucide-react";
+import { Gauge, Receipt, Repeat, TrendingUp } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,9 +20,6 @@ function pct(v: number | null | undefined): string {
 }
 function ngn(v: number | null | undefined): string {
   return v === null || v === undefined ? "—" : formatMinor(v, "NGN");
-}
-function ratio(v: number | null | undefined): string {
-  return v === null || v === undefined ? "—" : `${v}×`;
 }
 function months(v: number | null | undefined): string {
   return v === null || v === undefined ? "—" : `${v} mo`;
@@ -89,36 +86,34 @@ export function InvestorDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Board / diligence view. NRR, GRR and the MRR waterfall build from monthly snapshots (they
-        accrue over time). CAC, LTV, burn, runway and Rule of 40 use the finance inputs below:
-        modeled figures, not audited.
+        Board / diligence view, built on revenue actually collected. Tarragon sells pieces of
+        doctor work rather than subscriptions, so there is no MRR, ARR, net or gross revenue
+        retention, and no LTV: each of those is a function of a recurring contract and a churn
+        rate this business does not have. CAC, burn, runway and Rule of 40 use the finance inputs
+        below and are modeled figures, not audited.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={TrendingUp} label="ARR (NGN)" value={ngn(data?.arr_minor ?? 0)} />
-        <StatTile icon={Repeat} label="Net revenue retention" value={pct(data?.nrr_pct)} />
-        <StatTile icon={Percent} label="Gross revenue retention" value={pct(data?.grr_pct)} />
+        <StatTile icon={TrendingUp} label="Revenue (last 12 months)" value={ngn(data?.revenue_12m_minor ?? 0)} />
+        <StatTile icon={Receipt} label="Paying patients" value={formatNumber(data?.paying_patients ?? 0)} />
+        <StatTile icon={Repeat} label="Bought again" value={pct(data?.repeat_rate_pct)} />
         <StatTile icon={Gauge} label="Rule of 40" value={ue?.rule_of_40 == null ? "—" : formatNumber(ue.rule_of_40)} />
       </div>
 
       <SectionCard
         title="Unit economics"
-        description={ue?.inputs_present ? "Modeled from platform data + your finance inputs." : "Add finance inputs below to compute CAC / LTV / burn / runway."}
+        description={ue?.inputs_present ? "Modeled from platform data + your finance inputs." : "Add finance inputs below to compute CAC / burn / runway."}
       >
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {[
-            ["MRR (NGN)", ngn(data?.mrr_minor ?? 0)],
-            ["ARPA", ngn(data?.arpa_minor ?? 0)],
+            ["Revenue (30d)", ngn(data?.revenue_30d_minor ?? 0)],
+            ["Revenue (90d)", ngn(data?.revenue_90d_minor ?? 0)],
+            ["Revenue per paying patient", ngn(data?.arppu_minor ?? 0)],
             ["MoM growth", pct(data?.mom_growth_pct ?? 0)],
             ["Gross margin", pct(ue?.gross_margin_pct ?? 0)],
-            ["LTV", ngn(ue?.ltv_minor)],
             ["CAC", ngn(ue?.cac_minor)],
-            ["LTV : CAC", ratio(ue?.ltv_cac_ratio)],
-            ["CAC payback", months(ue?.cac_payback_months)],
             ["Net burn / mo", ngn(ue?.net_burn_minor)],
             ["Runway", months(ue?.runway_months)],
-            ["Logo churn", pct(data?.logo_churn_pct ?? 0)],
-            ["Revenue churn", pct(data?.revenue_churn_pct ?? 0)],
           ].map(([label, value]) => (
             <div key={label} className="rounded-lg border border-charcoal-ink/10 bg-white p-3">
               <p className="text-xs text-charcoal-ink/60">{label}</p>
@@ -130,32 +125,30 @@ export function InvestorDashboard() {
 
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
-          title="MRR waterfall"
-          description="Starting → new → churned → ending, per month (from snapshots)."
-          actions={<ExportButton filename="mrr-waterfall" rows={data?.mrr_waterfall ?? []} />}
+          title="Revenue by month"
+          description="Collected revenue, purchases and paying patients, per month."
+          actions={<ExportButton filename="revenue-by-month" rows={data?.revenue_by_month ?? []} />}
         >
-          {(data?.mrr_waterfall ?? []).length === 0 ? (
-            <CenterNote>No snapshot history yet.</CenterNote>
+          {(data?.revenue_by_month ?? []).length === 0 ? (
+            <CenterNote>No revenue recorded yet.</CenterNote>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
                     <th className="py-2 pr-4 font-medium">Month</th>
-                    <th className="py-2 pr-4 text-right font-medium">Starting</th>
-                    <th className="py-2 pr-4 text-right font-medium">New</th>
-                    <th className="py-2 pr-4 text-right font-medium">Churned</th>
-                    <th className="py-2 text-right font-medium">Ending</th>
+                    <th className="py-2 pr-4 text-right font-medium">Revenue</th>
+                    <th className="py-2 pr-4 text-right font-medium">Purchases</th>
+                    <th className="py-2 text-right font-medium">Paying patients</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {(data?.mrr_waterfall ?? []).map((w) => (
-                    <tr key={w.month} className="border-b border-charcoal-ink/5">
-                      <td className="py-2 pr-4 text-charcoal-ink/70">{w.month}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">{ngn(w.starting)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums text-brand-green">{ngn(w.new_mrr)}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums text-red-700">{ngn(w.churned_mrr)}</td>
-                      <td className="py-2 text-right tabular-nums font-medium">{ngn(w.ending)}</td>
+                  {(data?.revenue_by_month ?? []).map((m) => (
+                    <tr key={m.month} className="border-b border-charcoal-ink/5">
+                      <td className="py-2 pr-4 text-charcoal-ink/70">{m.month}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums font-medium">{ngn(m.revenue_minor)}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{formatNumber(m.purchases)}</td>
+                      <td className="py-2 text-right tabular-nums">{formatNumber(m.paying_patients)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -166,16 +159,16 @@ export function InvestorDashboard() {
 
         <SectionCard
           title="Revenue concentration"
-          description="Share of MRR by plan."
+          description="Share of the last 12 months of revenue, by service."
           actions={<ExportButton filename="revenue-concentration" rows={data?.concentration ?? []} />}
         >
           <MiniBarList
             items={(data?.concentration ?? []).map((x) => ({
-              label: x.plan,
-              value: x.mrr_minor,
-              display: `${formatMinor(x.mrr_minor, "NGN")} · ${x.pct}%`,
+              label: x.product,
+              value: x.revenue_minor,
+              display: `${formatMinor(x.revenue_minor, "NGN")} · ${x.pct}%`,
             }))}
-            emptyLabel="No active subscriptions."
+            emptyLabel="Nothing has been bought yet."
           />
         </SectionCard>
       </div>

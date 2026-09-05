@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 
@@ -40,26 +40,6 @@ export function useAllSubscriptionPlansAdmin() {
         .order("price_minor", { ascending: true });
       if (error) throw error;
       return data;
-    },
-  });
-}
-
-/** Toggle a plan's is_active without touching price/currency/interval — not
- * blocked by price_locked, since visibility isn't a billing-breaking edit. */
-export function useSetPlanActive() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) => {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("subscription_plans")
-        .update({ is_active: isActive })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ALL_PLANS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ACTIVE_PLANS_QUERY_KEY });
     },
   });
 }

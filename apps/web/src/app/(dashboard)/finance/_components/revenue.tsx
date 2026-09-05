@@ -33,9 +33,10 @@ export function RevenueRecognition() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Subscription and add-on payments are held in Deferred revenue and recognised straight-line
-        over the billing period (ASC 606 / IFRS 15), one journal entry per elapsed month. Recognition
-        runs automatically on the 1st of each month; you can also run it on demand.
+        A payment for a service the patient has not used yet is held in Deferred revenue and
+        recognised straight-line across the period it covers (ASC 606 / IFRS 15), one journal entry
+        per elapsed month. Recognition runs automatically on the 1st of each month; you can also
+        run it on demand.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-3">
@@ -46,7 +47,7 @@ export function RevenueRecognition() {
 
       <SectionCard
         title="Recognition schedules"
-        description="Each paid subscription period, recognised straight-line to its end date."
+        description="Each paid period, recognised straight-line to its end date."
         actions={<Button size="sm" onClick={run} disabled={running}>{running ? "Running…" : "Run recognition now"}</Button>}
       >
         {message && <p className={`mb-3 text-sm ${message.ok ? "text-brand-green" : "text-red-600"}`}>{message.text}</p>}

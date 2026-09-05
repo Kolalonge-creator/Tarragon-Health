@@ -40,7 +40,7 @@ comment on function public.high_risk_patient_ids() is
   'Patients whose latest risk tier, for any prevention condition, is high or very_high. '
   'Backs the clinician patient list''s "High-risk" filter (Care Team / Provider Workspace §5.4).';
 
-revoke all on function public.high_risk_patient_ids() from public;
+revoke all on function public.high_risk_patient_ids() from public, anon;
 grant execute on function public.high_risk_patient_ids() to authenticated;
 revoke execute on function public.high_risk_patient_ids() from anon;
 

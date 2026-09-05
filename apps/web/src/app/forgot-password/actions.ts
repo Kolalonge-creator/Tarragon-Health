@@ -9,9 +9,11 @@ import {
   phoneOtpVerifySchema,
 } from "@/lib/validation/auth";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
+import { firstIssue } from "@/lib/validation/first-issue";
 
 export type ForgotPasswordActionState =
-  | { error?: string; success?: boolean; step?: "verify"; phone?: string }
+  | { error?: string; field?: string; success?: boolean; step?: "verify"; phone?: string }
   | undefined;
 
 /** Sends a password-reset link to the given email via Supabase Auth. */
@@ -21,7 +23,7 @@ export async function requestPasswordResetEmail(
 ): Promise<ForgotPasswordActionState> {
   const parsed = passwordResetEmailSchema.safeParse({ email: formData.get("email") });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Enter a valid email" };
+    return firstIssue(parsed.error, "Enter a valid email address.");
   }
 
   // Email-scoped limit stops one target address being email-bombed with
@@ -53,7 +55,7 @@ export async function requestPasswordResetEmail(
     redirectTo: `${origin}/reset-password`,
   });
   if (error) {
-    return { error: "Could not send reset email. Please try again." };
+    return { error: "We could not send the reset email just then. Please try again." };
   }
 
   return { success: true };
@@ -69,7 +71,7 @@ export async function requestPhoneReset(
     phone: formData.get("phone"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid phone number" };
+    return firstIssue(parsed.error, "Check the phone number and try again.");
   }
 
   const limited = await checkAuthRateLimit(
@@ -85,7 +87,9 @@ export async function requestPhoneReset(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({ phone: parsed.data.phone });
   if (error) {
-    return { error: error.message };
+    // Same anti-enumeration reasoning as the email path above: the mapped
+    // wording never distinguishes "no such account" from a send failure.
+    return { error: authErrorMessage(error, "otp_send"), field: "phone" };
   }
 
   return { step: "verify", phone: parsed.data.phone };
@@ -105,7 +109,7 @@ export async function verifyPhoneReset(
   });
   if (!parsed.success) {
     return {
-      error: parsed.error.issues[0]?.message ?? "Invalid code",
+      ...firstIssue(parsed.error, "Check the code and try again."),
       step: "verify",
       phone: formData.get("phone")?.toString(),
     };
@@ -129,7 +133,8 @@ export async function verifyPhoneReset(
   });
   if (error || !data.user) {
     return {
-      error: error?.message ?? "Could not verify code",
+      error: authErrorMessage(error, "otp_verify"),
+      field: "token",
       step: "verify",
       phone: parsed.data.phone,
     };

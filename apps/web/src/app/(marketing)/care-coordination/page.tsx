@@ -12,7 +12,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Care coordination",
   description:
-    "TarragonHealth works out which tests you need and when, writes you a request to take to any laboratory you like, reads every result that comes back, and follows up. You pay the lab directly and we take nothing on it.",
+    "Free app: we work out which tests you need, write a request for any lab you choose, read every result and follow up. You pay the lab, we take no cut.",
   path: MARKETING_ROUTES.careCoordination,
 });
 
@@ -36,7 +36,7 @@ const CONNECTS = [
   },
   {
     title: "A doctor, when you need one directly",
-    body: "Send a written question and get a doctor's reply within 72 hours via the app, included on Complete Care, or book a 15-minute online consultation with a doctor on any plan. Your payment is only taken once a doctor accepts your slot, and refunded in full if none can.",
+    body: "Send a written question and a doctor on your care team replies in the app, usually within 72 hours, or book a one-off video or audio visit. Each is a simple pay-per-service booking: you see the exact price and confirm it before anything is charged, and nothing renews afterwards.",
   },
 ];
 

@@ -78,7 +78,10 @@ export async function loadPeopleISupport(userId: string): Promise<SupportedPerso
       "permission_level, profile:profiles!profile_access_profile_id_fkey(id, full_name, is_dependent_account)"
     )
     .eq("grantee_user_id", userId);
-  if (error || !data) return [];
+  // A failed query must surface as an error, not as "you support nobody" —
+  // the caller renders an explicit retry state instead of a false empty.
+  if (error) throw error;
+  if (!data) return [];
 
   return data.flatMap((row) => {
     const profile = row.profile;

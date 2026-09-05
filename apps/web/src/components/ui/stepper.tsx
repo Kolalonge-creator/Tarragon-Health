@@ -35,7 +35,7 @@ export function Stepper({ steps }: { steps: StepperStep[] }) {
               {step.label}
             </span>
             {i < steps.length - 1 && (
-              <span className="hidden text-charcoal-ink/20 md:inline" aria-hidden>
+              <span className="hidden text-charcoal-ink/20 md:inline dark:text-night-ink/30" aria-hidden>
                 &rarr;
               </span>
             )}

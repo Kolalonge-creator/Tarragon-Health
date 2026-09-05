@@ -4,6 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import type { Tables } from "@tarragon/shared";
 import { connectAndSubscribe, type ParsedReading, type SupportedDeviceType } from "@/lib/ble";
 import { postDeviceReading } from "@/lib/api";
+import { enqueueDeviceReading, flushDeviceReadingsQueue } from "@/lib/offline-queue";
 import { colors, spacing } from "@/ui/theme";
 import {
   Card,
@@ -22,8 +23,16 @@ interface PendingReading {
   /** Doubles as the idempotency key posted as external_reading_id. */
   id: string;
   reading: ParsedReading;
-  status: "pending" | "saving" | "saved" | "error";
+  /** "queued" means the upload itself failed (most likely offline) but the
+   * reading was captured into the offline queue (offline-queue.ts) rather
+   * than lost — see save() below. "error" is reserved for the queue write
+   * itself failing too, which would mean the reading genuinely isn't stored
+   * anywhere yet. */
+  status: "pending" | "saving" | "saved" | "queued" | "error";
   error?: string;
+  /** Remembered from the save attempt so a retry after "error" doesn't have
+   * to re-ask the fasting/random/after-a-meal question. */
+  glucoseContext?: GlucoseContext;
 }
 
 interface SyncScreenProps {
@@ -119,6 +128,16 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
   const supported = isSupported(device.device_type);
 
   useEffect(() => {
+    // Best-effort: a patient reopening this screen after being offline is a
+    // natural moment to retry anything left over from a previous session,
+    // without waiting on the next 15-minute-floor background run (see
+    // background-sync.ts, which also flushes this queue on its own cadence
+    // as the reliable fallback for when this screen never reopens at all).
+    // Best-effort by design: a failed flush just waits for the next cadence.
+    flushDeviceReadingsQueue().catch(() => {});
+  }, []);
+
+  useEffect(() => {
     if (!supported) return;
     let teardown: (() => void) | undefined;
     let cancelled = false;
@@ -150,7 +169,7 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
   }, [device.ble_device_id, device.device_type, supported]);
 
   async function save(item: PendingReading, glucoseContext?: GlucoseContext) {
-    setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "saving" } : p)));
+    setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "saving", glucoseContext } : p)));
 
     const { reading } = item;
     const taken_at = reading.timestamp ?? new Date().toISOString();
@@ -184,9 +203,27 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
                 };
 
     const result = await postDeviceReading(payload);
+    if (result.success) {
+      setPending((prev) => prev.map((p) => (p.id === item.id ? { ...p, status: "saved" } : p)));
+      return;
+    }
+
+    // Upload failed — most likely offline, given api.ts already retries once
+    // for a request that never got a response at all. Queue it rather than
+    // report a plain error: the reading is not lost, just deferred, and this
+    // screen's next mount, the periodic background task, or the next health
+    // sync will retry it (see offline-queue.ts).
+    const queued = await enqueueDeviceReading(payload);
     setPending((prev) =>
       prev.map((p) =>
-        p.id === item.id ? { ...p, status: result.success ? "saved" : "error", error: result.error } : p
+        p.id === item.id
+          ? queued
+            ? { ...p, status: "queued" }
+            : // The one genuine failure case left: the reading could not be
+              // sent *and* could not be saved locally either (e.g. device
+              // storage is full) — nothing to do but be honest about it.
+              { ...p, status: "error", error: "Couldn't save this reading. Please try again." }
+          : p
       )
     );
   }
@@ -245,7 +282,18 @@ export function SyncScreen({ device, onBack }: SyncScreenProps) {
                 <Text style={{ color: colors.success, fontWeight: "600" }}>Saved</Text>
               </View>
             )}
-            {item.status === "error" && <ErrorText>{item.error}</ErrorText>}
+            {item.status === "queued" && (
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+                <Ionicons name="cloud-offline-outline" size={18} color={colors.muted} />
+                <MutedText>Saved. It will finish uploading once you&apos;re back online.</MutedText>
+              </View>
+            )}
+            {item.status === "error" && (
+              <View style={{ gap: 8 }}>
+                <ErrorText>{item.error}</ErrorText>
+                <SecondaryButton title="Try again" onPress={() => void save(item, item.glucoseContext)} />
+              </View>
+            )}
           </Card>
         )}
       />

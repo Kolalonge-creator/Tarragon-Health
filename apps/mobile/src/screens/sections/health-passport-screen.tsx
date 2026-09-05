@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, Share, Text, View } from "react-native";
 import { getHealthPassportSummary, type HealthPassportSummary } from "@/lib/health-passport";
 import { colors, spacing } from "@/ui/theme";
-import { Card, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
+import { Card, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
 
 interface HealthPassportScreenProps {
   patientId: string;
@@ -13,26 +13,79 @@ interface HealthPassportScreenProps {
   subjectName?: string;
 }
 
-const VITAL_LABELS: Record<string, { label: string; format: (v: Record<string, unknown>) => string }> = {
-  blood_pressure: { label: "Blood pressure", format: (v) => `${v.systolic}/${v.diastolic} mmHg` },
-  glucose: { label: "Glucose", format: (v) => `${v.glucose_mmol_l} mmol/L` },
-  weight: { label: "Weight", format: (v) => `${v.weight_kg} kg` },
+/** Formatters return null when the reading is missing the expected value —
+ * a wearable or partial row could otherwise render as "null mmol/L". The
+ * caller falls back to the "—" placeholder. */
+const VITAL_LABELS: Record<string, { label: string; format: (v: Record<string, unknown>) => string | null }> = {
+  blood_pressure: {
+    label: "Blood pressure",
+    format: (v) =>
+      typeof v.systolic === "number" && typeof v.diastolic === "number"
+        ? `${v.systolic}/${v.diastolic} mmHg`
+        : null,
+  },
+  glucose: {
+    label: "Glucose",
+    format: (v) => (typeof v.glucose_mmol_l === "number" ? `${v.glucose_mmol_l} mmol/L` : null),
+  },
+  weight: {
+    label: "Weight",
+    format: (v) => (typeof v.weight_kg === "number" ? `${v.weight_kg} kg` : null),
+  },
 };
+
+const MAX_LAB_READINGS = 8;
+
+/** Prefixes "Dr." only when the stored name doesn't already begin with a
+ * title — clinical_staff.full_name is free text, and "Dr. Dr. Adaeze" would
+ * read as sloppy exactly where trust matters most. */
+function protocolAuthorDisplay(name: string): string {
+  return /^(dr|prof|professor)\.?\s/i.test(name) ? name : `Dr. ${name}`;
+}
 
 export function HealthPassportScreen({ patientId, organisationId, subjectName }: HealthPassportScreenProps) {
   const [data, setData] = useState<HealthPassportSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
     getHealthPassportSummary(patientId, organisationId)
       .then(setData)
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, [patientId, organisationId]);
 
-  if (loading || !data) {
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: "center", backgroundColor: colors.background }}>
         <ActivityIndicator color={colors.brand} />
+      </View>
+    );
+  }
+
+  if (loadError || !data) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          justifyContent: "center",
+          alignItems: "center",
+          padding: spacing.screen,
+          gap: 12,
+          backgroundColor: colors.background,
+        }}
+      >
+        <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
+          We couldn&apos;t load this right now
+        </Text>
+        <MutedText>Your record is safe. Check your connection and try again.</MutedText>
+        <PrimaryButton title="Tap to retry" onPress={load} />
       </View>
     );
   }
@@ -45,17 +98,19 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
         </Text>
         <MutedText>
           {subjectName
-            ? `A summary of ${subjectName}'s record — to view, or share with another doctor.`
-            : "A summary of your record — for you, or to share with another doctor."}
+            ? `A summary of ${subjectName}'s record, to view or share with another doctor.`
+            : "A summary of your record, for you or to share with another doctor."}
         </MutedText>
       </View>
 
+      {/* Shares only counts, never the readings themselves — the copy says
+          so, rather than implying a full record export it doesn't do. */}
       <SecondaryButton
-        title="Share summary"
+        title="Share record counts"
         onPress={() =>
-          Share.share({
-            message: `TarragonHealth Health Passport — ${data.vitals.length} vital types, ${data.screenings.length} screenings, ${data.labReadings.length} lab readings over the last 12 months.`,
-          })
+          void Share.share({
+            message: `TarragonHealth record summary (counts only, not the readings themselves): ${data.vitals.length} vital types tracked, ${data.screenings.length} screenings, ${data.labReadings.length} lab readings over the last 12 months. The full record stays in the TarragonHealth app.`,
+          }).catch(() => {})
         }
       />
 
@@ -75,7 +130,7 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
                   title={def?.label ?? v.vitalType}
                   trailing={
                     <Text style={{ fontSize: 12.5, color: colors.muted, textAlign: "right", flexShrink: 1 }}>
-                      {def ? def.format(v.latest) : "—"} · {v.readingCount} reading{v.readingCount === 1 ? "" : "s"}
+                      {def?.format(v.latest) ?? "—"} · {v.readingCount} reading{v.readingCount === 1 ? "" : "s"}
                     </Text>
                   }
                 />
@@ -93,8 +148,8 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
           </Card>
         ) : (
           <GroupedList>
-            {data.screenings.map((s, i) => (
-              <GroupedListRow key={i} title={s.screenTypeName} trailing="none" subtitle={s.resultStatus ?? s.status} />
+            {data.screenings.map((s) => (
+              <GroupedListRow key={`${s.screenTypeName}:${s.dueDate}`} title={s.screenTypeName} trailing="none" subtitle={s.resultStatus ?? s.status} />
             ))}
           </GroupedList>
         )}
@@ -107,21 +162,29 @@ export function HealthPassportScreen({ patientId, organisationId, subjectName }:
             <MutedText>No lab results in the last 12 months.</MutedText>
           </Card>
         ) : (
-          <GroupedList>
-            {data.labReadings.slice(0, 8).map((r, i) => (
-              <GroupedListRow
-                key={i}
-                title={r.code}
-                trailing={<Text style={{ fontSize: 12.5, color: colors.muted }}>{r.value} {r.unit}</Text>}
-              />
-            ))}
-          </GroupedList>
+          <View style={{ gap: 6 }}>
+            <GroupedList>
+              {data.labReadings.slice(0, MAX_LAB_READINGS).map((r) => (
+                <GroupedListRow
+                  key={`${r.code}:${r.takenAt}`}
+                  title={r.code}
+                  trailing={<Text style={{ fontSize: 12.5, color: colors.muted }}>{r.value} {r.unit}</Text>}
+                />
+              ))}
+            </GroupedList>
+            {data.labReadings.length > MAX_LAB_READINGS ? (
+              <MutedText>
+                Showing {MAX_LAB_READINGS} of {data.labReadings.length} lab readings. The full list is in the
+                Labs section.
+              </MutedText>
+            ) : null}
+          </View>
         )}
       </View>
 
       {data.protocolAuthorName ? (
         <MutedText>
-          Protocols supervised by Dr. {data.protocolAuthorName}
+          Protocols supervised by {protocolAuthorDisplay(data.protocolAuthorName)}
           {data.protocolAuthorCredential ? ` · ${data.protocolAuthorCredential}` : ""}.
         </MutedText>
       ) : null}

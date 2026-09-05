@@ -42,7 +42,7 @@ export function ClassesSection({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.wellnessClass className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.wellnessClass className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Workout classes &amp; health workshops
         </CardTitle>
         <CardDescription>
@@ -50,9 +50,9 @@ export function ClassesSection({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {!isLoading && (!classes || classes.length === 0) && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             Nothing scheduled yet; we&apos;re working on bringing partner classes to your area.
           </p>
         )}
@@ -63,11 +63,11 @@ export function ClassesSection({
               return (
                 <li
                   key={cls.id}
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-charcoal-ink/10 p-3"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
                 >
                   <div>
-                    <p className="text-sm font-medium text-charcoal-ink">{cls.title}</p>
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{cls.title}</p>
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {classDateTime(cls.starts_at)} · {cls.duration_minutes} min ·{" "}
                       {cls.class_type === "virtual" ? "Virtual" : "In person"} · {cls.points_reward} pts
                     </p>

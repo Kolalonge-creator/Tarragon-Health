@@ -58,7 +58,7 @@ export function LegalDocumentPage({
             <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-charcoal-ink sm:text-4xl">
               {document.title}
             </h1>
-            <p className="mt-4 text-xs text-charcoal-ink/50">
+            <p className="mt-4 text-xs text-charcoal-ink/65">
               Version {document.version} · last published{" "}
               {new Date(document.publishedAt).toLocaleDateString("en-NG", {
                 year: "numeric",
@@ -90,13 +90,18 @@ export function LegalDocumentPage({
             </div>
           </>
         ) : (
-          <div className="mt-6 rounded-xl border border-charcoal-ink/10 bg-white p-6 text-sm text-charcoal-ink/70">
+          <>
+            <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-charcoal-ink sm:text-4xl">
+              {crumbLabel}
+            </h1>
+            <div className="mt-6 rounded-xl border border-charcoal-ink/10 bg-white p-6 text-sm text-charcoal-ink/70">
             This document is temporarily unavailable. Please try again shortly, or contact{" "}
             <a href="mailto:legal@tarragonhealth.ng" className="underline">
               legal@tarragonhealth.ng
             </a>
             .
-          </div>
+            </div>
+          </>
         )}
         <LegalCrossLinks current={documentKey} />
       </article>

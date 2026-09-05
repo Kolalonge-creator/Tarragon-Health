@@ -27,20 +27,20 @@ export function ConditionLanguageForm({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.messages className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <NAV_ICON.messages className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           How we talk about your weight
         </CardTitle>
         <CardDescription>
           We default to gentler wording (&ldquo;weight&rdquo;) across your dashboard. If
           you&apos;d rather see the direct clinical term (&ldquo;obesity&rdquo;) where it
-          applies, you can switch it here — this only changes wording on your own screen, never
+          applies, you can switch it here. This only changes wording on your own screen, never
           your medical record.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-3">
-          {state?.success && <p className="text-sm text-brand-green">Saved.</p>}
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved.</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
 
           <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
             <label className="flex items-center gap-2 text-sm">
