@@ -7,9 +7,7 @@ import {
   loadOpenFallsRisk,
   missingDomains,
 } from "@/lib/healthy-ageing/loaders";
-import { FALLS_RISK_LEVEL_LABEL } from "@/lib/healthy-ageing/types";
-
-const FALLS_BADGE_VARIANT = { low: "green", moderate: "amber", high: "red" } as const;
+import { fallsRiskDisplay } from "@/lib/healthy-ageing/falls-risk-display";
 
 /** The "YOUR HEALTH" snapshot from spec §50.2 — a scan-friendly stat grid,
  * not a new record: every number here is read from data that already lives
@@ -24,6 +22,9 @@ export async function HealthyAgeingSnapshotTile({ patientId }: { patientId: stri
 
   const missing = missingDomains(assessment);
   const checkInComplete = assessment?.status === "completed";
+  // An open falls-risk entry with no level graded yet is not "low" — see
+  // lib/healthy-ageing/falls-risk-display.ts.
+  const falls = fallsRiskDisplay(fallsRisk);
 
   return (
     <Card>
@@ -34,11 +35,7 @@ export async function HealthyAgeingSnapshotTile({ patientId }: { patientId: stri
           value={`${summary.activeMedicationCount} medicine${summary.activeMedicationCount === 1 ? "" : "s"}`}
           badge={summary.isPolypharmacy ? { text: "Polypharmacy", variant: "amber" } : undefined}
         />
-        <Stat
-          label="Falls risk"
-          value={fallsRisk ? FALLS_RISK_LEVEL_LABEL[fallsRisk.riskLevel ?? "low"] : "Not checked"}
-          badge={fallsRisk ? { text: FALLS_RISK_LEVEL_LABEL[fallsRisk.riskLevel ?? "low"], variant: FALLS_BADGE_VARIANT[fallsRisk.riskLevel ?? "low"] } : undefined}
-        />
+        <Stat label="Falls risk" value={falls.value} badge={falls.badge} />
         <Stat
           label="Check-in"
           value={checkInComplete ? "Up to date" : missing.length === 9 ? "Not started" : `${9 - missing.length}/9 sections`}

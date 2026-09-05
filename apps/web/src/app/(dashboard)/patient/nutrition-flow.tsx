@@ -143,7 +143,12 @@ function LogMealSection({
           <div className="grid gap-2">
             <Label>Meal</Label>
             <input type="hidden" name="meal_type" value={mealType} />
-            <div className="grid grid-cols-4 gap-2">
+            {/* Two-up on a phone. At 375px, four columns leave roughly 56px of
+                content per cell once the gaps and the buttons' own p-3 are
+                taken out, which is narrower than "Breakfast" renders at
+                text-xs, so the label wrapped or clipped on the most common
+                device in this market. */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {MEAL_TYPES.map((t) => {
                 const Icon = MEAL_TYPE_ICON[t];
                 const active = mealType === t;

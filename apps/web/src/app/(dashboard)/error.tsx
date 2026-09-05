@@ -14,6 +14,18 @@ import { Button } from "@/components/ui/button";
  * Next 16: `unstable_retry` re-fetches and re-renders the failed segment
  * (the right recovery for a server-component error); the legacy `reset` prop
  * only re-renders without re-fetching, so it is not used here.
+ *
+ * This boundary covers EVERY role's dashboard, so nothing here may be
+ * patient-specific. It used to link to /patient, which a clinician, admin,
+ * finance, pharmacist or coordinator account cannot use: proxy.ts bounces
+ * them straight back out, so the one offered recovery path looped. Being a
+ * Client Component it cannot read the caller's profile to resolve
+ * getRoleHomePath() itself, and fetching the role just to label a link would
+ * add a second thing to fail inside an error screen. "/" is the correct
+ * role-neutral destination instead: on the app host proxy.ts already
+ * resolves it to getRoleHomePath(profile.role) for whoever is signed in (and
+ * to /login for whoever is not), so one static href lands every role on its
+ * own dashboard with no client-side role lookup at all.
  */
 export default function DashboardError({
   error,
@@ -35,8 +47,8 @@ export default function DashboardError({
         Something didn&rsquo;t load properly
       </h1>
       <p className="mt-3 max-w-md text-sm text-charcoal-ink/70">
-        This part of the page hit a snag on our side. Your information is safe, and trying again
-        usually sorts it out.
+        This part of the page hit a snag on our side. Nothing has been changed or lost, and trying
+        again usually sorts it out.
       </p>
       {error.digest && (
         <p className="mt-2 text-xs text-charcoal-ink/40">Reference: {error.digest}</p>
@@ -46,7 +58,8 @@ export default function DashboardError({
           Try again
         </Button>
         <Button asChild variant="outline" size="lg">
-          <Link href="/patient">Back to your dashboard</Link>
+          {/* Deliberately "/" and not a role home — see the note above. */}
+          <Link href="/">Back to your dashboard</Link>
         </Button>
       </div>
     </div>

@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { LEVEL_BADGE } from "@/lib/worklist/level-badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { MatchResultToOrder, type CandidateOrder } from "./match-result-to-order";
 import type { Database, EscalationLevel } from "@tarragon/shared";
 
@@ -75,7 +76,7 @@ type OpenOrderRow = {
 export default async function ResultsInboxPage() {
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error: inboxError } = await supabase
     .from("lab_result_documents")
     .select(
       "id, patient_id, original_filename, note, created_at, acknowledgement_status, next_steps, patient_interpretation, supersedes_document_id, superseded_by_document_id, patient:profiles!lab_result_documents_patient_id_fkey(full_name), clinician_alert:clinician_alerts!lab_result_documents_clinician_alert_id_fkey(level)",
@@ -101,7 +102,7 @@ export default async function ResultsInboxPage() {
   // "Do not automatically attach it; send to a reconciliation queue" (57.13):
   // this section IS that queue — lab_order_id stays null until a clinician
   // picks the right order below, never guessed automatically.
-  const { data: unmatchedData } = await supabase
+  const { data: unmatchedData, error: unmatchedError } = await supabase
     .from("lab_result_documents")
     .select(
       "id, patient_id, original_filename, note, created_at, source, patient:profiles!lab_result_documents_patient_id_fkey(full_name)",
@@ -149,11 +150,18 @@ export default async function ResultsInboxPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Awaiting action ({rows.length})</CardTitle>
+          <CardTitle>Awaiting action{inboxError ? "" : ` (${rows.length})`}</CardTitle>
           <CardDescription>Across every patient in your organisation.</CardDescription>
         </CardHeader>
         <CardContent>
-          {rows.length === 0 ? (
+          {/* "The inbox is clear" off a failed read is a result nobody looks
+              at again. An unread query is not an empty inbox. */}
+          {inboxError ? (
+            <LoadFailure>
+              This inbox could not be loaded, so it must not be read as clear. Reload the page
+              before assuming no result is waiting on a clinician.
+            </LoadFailure>
+          ) : rows.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">Nothing waiting: the inbox is clear.</p>
           ) : (
             <div className="overflow-x-auto">
@@ -233,7 +241,7 @@ export default async function ResultsInboxPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Needs order matching ({unmatchedRows.length})</CardTitle>
+          <CardTitle>Needs order matching{unmatchedError ? "" : ` (${unmatchedRows.length})`}</CardTitle>
           <CardDescription>
             Result documents with no lab order on file: an emailed or uploaded result that arrived
             without (or ahead of) its request. Per module 57.13, nothing here is auto-attached; pick
@@ -241,7 +249,12 @@ export default async function ResultsInboxPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {unmatchedRows.length === 0 ? (
+          {unmatchedError ? (
+            <LoadFailure>
+              The reconciliation queue could not be loaded, so this is not a claim that every
+              document is linked to an order. Reload the page to check.
+            </LoadFailure>
+          ) : unmatchedRows.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">Every result document is linked to an order.</p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10">

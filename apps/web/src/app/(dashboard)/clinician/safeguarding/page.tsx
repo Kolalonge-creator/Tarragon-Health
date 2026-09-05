@@ -3,6 +3,7 @@ import { canReviewSafeguardingConcern } from "@/lib/clinical/doctor-tier";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { ResolveSafeguardingConcernForm } from "./resolve-form";
 
 const CONCERN_CATEGORY_LABEL: Record<string, string> = {
@@ -50,7 +51,7 @@ export default async function SafeguardingPage() {
   const canResolve = canReviewSafeguardingConcern(staff);
 
   const supabase = await createClient();
-  const { data: concerns } = await supabase
+  const { data: concerns, error: concernsError } = await supabase
     .from("safeguarding_concerns")
     .select(
       "id, concern_category, status, source, description, created_at, review_outcome, corrective_action, patient:profiles!safeguarding_concerns_patient_id_fkey(full_name)"
@@ -74,10 +75,20 @@ export default async function SafeguardingPage() {
           <CardDescription>Most recent first, including closed cases.</CardDescription>
         </CardHeader>
         <CardContent>
-          {(!concerns || concerns.length === 0) && (
+          {/* A swallowed error here used to render "No safeguarding concerns
+              on file." — a false all-clear on the child-safety and
+              vulnerable-adult queue, the highest-consequence one on the
+              platform. An unread query is never an empty queue. */}
+          {concernsError && (
+            <LoadFailure>
+              This queue could not be loaded. Do not treat it as empty. Reload the page, and if it
+              keeps failing, raise it with the platform team before assuming there is nothing open.
+            </LoadFailure>
+          )}
+          {!concernsError && (!concerns || concerns.length === 0) && (
             <p className="text-sm text-charcoal-ink/60">No safeguarding concerns on file.</p>
           )}
-          {concerns && concerns.length > 0 && (
+          {!concernsError && concerns && concerns.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
               {concerns.map((concern) => {
                 const statusBadge = STATUS_BADGE[concern.status] ?? { label: concern.status, variant: "grey" as const };

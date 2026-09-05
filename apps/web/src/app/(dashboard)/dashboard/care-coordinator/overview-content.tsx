@@ -12,6 +12,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 const CHANNEL_LABEL = { call: "Call", whatsapp: "WhatsApp" } as const;
 
@@ -25,10 +26,21 @@ function timeAgo(iso: string): string {
 }
 
 export function CareCoordinatorOverview() {
-  const { data: tasks, isLoading: tasksLoading } = useOutreachTasks();
-  const { data: contacts, isLoading: contactsLoading } = useRecentOutreachContacts(3);
-  const { data: resolvedThisWeek } = useResolvedOutreachCountThisWeek();
-  const { data: contactsThisWeek } = useOutreachContactCountThisWeek();
+  // Every hook below throws on a Postgrest error, so isError is the only
+  // thing separating "there is genuinely nothing to do" from "we never got an
+  // answer". Reading only `data` turned the second into the first: five zero
+  // tiles and "Nothing marked act-first. Nice and quiet." on a coordinator's
+  // one worklist. A count that failed to load is shown as unknown, not zero.
+  const { data: tasks, isLoading: tasksLoading, isError: tasksFailed } = useOutreachTasks();
+  const {
+    data: contacts,
+    isLoading: contactsLoading,
+    isError: contactsFailed,
+  } = useRecentOutreachContacts(3);
+  const { data: resolvedThisWeek, isError: resolvedFailed } = useResolvedOutreachCountThisWeek();
+  const { data: contactsThisWeek, isError: contactsCountFailed } = useOutreachContactCountThisWeek();
+
+  const UNKNOWN = { hint: "Could not be loaded" };
 
   const openTasks = tasks ?? [];
   const actFirst = openTasks.filter((t) => t.priority === 1).slice(0, 3);
@@ -36,38 +48,72 @@ export function CareCoordinatorOverview() {
 
   return (
     <div className="space-y-5">
+      {(tasksFailed || contactsFailed || resolvedFailed || contactsCountFailed) && (
+        <LoadFailure>
+          Part of this overview could not be loaded. Anything marked &ldquo;could not be
+          loaded&rdquo; is unknown, not zero, so do not read this page as a quiet day. Reload it, or
+          work from the worklist pages directly.
+        </LoadFailure>
+      )}
+
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <StatTile
-          icon={SEMANTIC_ICON.carePlan}
-          label="Open outreach tasks"
-          value={tasksLoading ? "…" : String(openTasks.length)}
-        />
-        <StatTile
-          icon={NAV_ICON.warning}
-          tintClassName="bg-red-100"
-          iconClassName="text-red-700"
-          label="Act-first"
-          value={tasksLoading ? "…" : String(openTasks.filter((t) => t.priority === 1).length)}
-        />
-        <StatTile
-          icon={SEMANTIC_ICON.labs}
-          label="Follow-ups pending"
-          value={
-            tasksLoading
-              ? "…"
-              : String(openTasks.filter((t) => t.trigger_type === "awaiting_result").length)
-          }
-        />
-        <StatTile
-          icon={NAV_ICON.messages}
-          label="Contacts logged (7d)"
-          value={contactsThisWeek === undefined ? "…" : String(contactsThisWeek)}
-        />
-        <StatTile
-          icon={NAV_ICON.approvals}
-          label="Resolved this week"
-          value={resolvedThisWeek === undefined ? "…" : String(resolvedThisWeek)}
-        />
+        {tasksFailed ? (
+          <StatTile icon={SEMANTIC_ICON.carePlan} label="Open outreach tasks" empty={UNKNOWN} />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.carePlan}
+            label="Open outreach tasks"
+            value={tasksLoading ? "…" : String(openTasks.length)}
+          />
+        )}
+        {tasksFailed ? (
+          <StatTile
+            icon={NAV_ICON.warning}
+            tintClassName="bg-red-100"
+            iconClassName="text-red-700"
+            label="Act-first"
+            empty={UNKNOWN}
+          />
+        ) : (
+          <StatTile
+            icon={NAV_ICON.warning}
+            tintClassName="bg-red-100"
+            iconClassName="text-red-700"
+            label="Act-first"
+            value={tasksLoading ? "…" : String(openTasks.filter((t) => t.priority === 1).length)}
+          />
+        )}
+        {tasksFailed ? (
+          <StatTile icon={SEMANTIC_ICON.labs} label="Follow-ups pending" empty={UNKNOWN} />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.labs}
+            label="Follow-ups pending"
+            value={
+              tasksLoading
+                ? "…"
+                : String(openTasks.filter((t) => t.trigger_type === "awaiting_result").length)
+            }
+          />
+        )}
+        {contactsCountFailed ? (
+          <StatTile icon={NAV_ICON.messages} label="Contacts logged (7d)" empty={UNKNOWN} />
+        ) : (
+          <StatTile
+            icon={NAV_ICON.messages}
+            label="Contacts logged (7d)"
+            value={contactsThisWeek === undefined ? "…" : String(contactsThisWeek)}
+          />
+        )}
+        {resolvedFailed ? (
+          <StatTile icon={NAV_ICON.approvals} label="Resolved this week" empty={UNKNOWN} />
+        ) : (
+          <StatTile
+            icon={NAV_ICON.approvals}
+            label="Resolved this week"
+            value={resolvedThisWeek === undefined ? "…" : String(resolvedThisWeek)}
+          />
+        )}
       </div>
 
       <Card>
@@ -81,7 +127,12 @@ export function CareCoordinatorOverview() {
           </Link>
         </CardHeader>
         <CardContent>
-          {actFirst.length === 0 ? (
+          {tasksFailed ? (
+            <LoadFailure>
+              Outreach tasks could not be loaded, so this is not a quiet board: it is an unread
+              one. Reload before assuming nothing is act-first.
+            </LoadFailure>
+          ) : actFirst.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
               {tasksLoading ? "Loading…" : "Nothing marked act-first. Nice and quiet."}
             </p>
@@ -120,7 +171,12 @@ export function CareCoordinatorOverview() {
             </Link>
           </CardHeader>
           <CardContent>
-            {followUps.length === 0 ? (
+            {tasksFailed ? (
+              <LoadFailure>
+                Follow-ups could not be loaded. Reload before assuming no self-arranged test is
+                overdue.
+              </LoadFailure>
+            ) : followUps.length === 0 ? (
               <p className="text-sm text-charcoal-ink/60">
                 {tasksLoading ? "Loading…" : "No self-arranged test is overdue right now."}
               </p>
@@ -157,7 +213,9 @@ export function CareCoordinatorOverview() {
             </Link>
           </CardHeader>
           <CardContent>
-            {!contacts || contacts.length === 0 ? (
+            {contactsFailed ? (
+              <LoadFailure>The contact log could not be loaded. Reload to see it.</LoadFailure>
+            ) : !contacts || contacts.length === 0 ? (
               <p className="text-sm text-charcoal-ink/60">
                 {contactsLoading ? "Loading…" : "No outreach contacts logged yet."}
               </p>

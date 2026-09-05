@@ -4,6 +4,7 @@ import { DOCTOR_TIER_LABEL, DOCTOR_TIER_AUTHORITY_BLURB } from "@/lib/clinical/d
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { ClinicalStaffSetupWarning } from "@/components/clinical/clinical-staff-setup-warning";
 import { WorklistCountStrip, type WorklistCountTile } from "@/components/clinical/worklist-count-strip";
 import { formatNumber } from "@/lib/analytics/format";
@@ -141,6 +142,17 @@ export default async function ClinicianPage() {
       .eq("status", "open"),
   ]);
 
+  // Every one of these four is read for `.error` before its number is shown.
+  // Without that check a failed query renders as "Escalations open 0 / Within
+  // target", "SLA breaches 0 / None right now" and "No open escalations right
+  // now" — three all-clears asserted from data nobody actually received. A
+  // count this dashboard could not load is shown as unknown, never as zero,
+  // and a tile with no trustworthy number carries no reassuring delta.
+  const patientCountFailed = patientCountRes.error !== null;
+  const escalationsFailed = escalationsRes.error !== null;
+  const reviewsFailed = medReviewsRes.error !== null || carePlanReviewsRes.error !== null;
+  const anythingFailed = patientCountFailed || escalationsFailed || reviewsFailed;
+
   const patientCount = patientCountRes.count ?? 0;
   const openEscalations = escalationsRes.data ?? [];
   const escalationCount = openEscalations.length;
@@ -191,38 +203,81 @@ export default async function ClinicianPage() {
       {staff && <RedFlagAttestation />}
       {attestationStaff && <AttestationCard expiresAt={attestationExpiresAt} />}
 
+      {anythingFailed && (
+        <LoadFailure>
+          Part of this overview could not be loaded, so any figure below marked &ldquo;could not be
+          loaded&rdquo; is unknown, not zero. Reload the page, and work from the worklist pages
+          themselves until it comes back.
+        </LoadFailure>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile
-          icon={SEMANTIC_ICON.parentCare}
-          label="Active patients"
-          value={formatNumber(patientCount)}
-        />
-        <StatTile
-          icon={SEMANTIC_ICON.escalation}
-          label="Escalations open"
-          value={String(escalationCount)}
-          delta={{
-            text: escalationCount > 0 ? "Awaiting review" : "Within target",
-            direction: escalationCount > 0 ? "down" : "up",
-          }}
-        />
-        <StatTile
-          icon={SEMANTIC_ICON.carePlan}
-          label="Reviews due"
-          value={String(reviewsDue)}
-          delta={{ text: "Across care plans & meds", direction: "flat" }}
-        />
-        <StatTile
-          icon={SEMANTIC_ICON.escalation}
-          tintClassName={slaBreaches > 0 ? "bg-red-100" : undefined}
-          iconClassName={slaBreaches > 0 ? "text-red-700" : undefined}
-          label="SLA breaches"
-          value={String(slaBreaches)}
-          delta={{
-            text: slaBreaches > 0 ? "Needs immediate attention" : "None right now",
-            direction: slaBreaches > 0 ? "down" : "up",
-          }}
-        />
+        {patientCountFailed ? (
+          <StatTile
+            icon={SEMANTIC_ICON.parentCare}
+            label="Active patients"
+            empty={{ hint: "Could not be loaded" }}
+          />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.parentCare}
+            label="Active patients"
+            value={formatNumber(patientCount)}
+          />
+        )}
+        {escalationsFailed ? (
+          <StatTile
+            icon={SEMANTIC_ICON.escalation}
+            label="Escalations open"
+            empty={{ hint: "Could not be loaded" }}
+          />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.escalation}
+            label="Escalations open"
+            value={String(escalationCount)}
+            delta={{
+              text: escalationCount > 0 ? "Awaiting review" : "Within target",
+              direction: escalationCount > 0 ? "down" : "up",
+            }}
+          />
+        )}
+        {reviewsFailed ? (
+          <StatTile
+            icon={SEMANTIC_ICON.carePlan}
+            label="Reviews due"
+            empty={{ hint: "Could not be loaded" }}
+          />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.carePlan}
+            label="Reviews due"
+            value={String(reviewsDue)}
+            delta={{ text: "Across care plans & meds", direction: "flat" }}
+          />
+        )}
+        {/* SLA breaches are derived from the same escalation fetch, so a
+            failure there makes this figure unknown too — "None right now" off
+            a failed read is the most dangerous sentence on this page. */}
+        {escalationsFailed ? (
+          <StatTile
+            icon={SEMANTIC_ICON.escalation}
+            label="SLA breaches"
+            empty={{ hint: "Could not be loaded" }}
+          />
+        ) : (
+          <StatTile
+            icon={SEMANTIC_ICON.escalation}
+            tintClassName={slaBreaches > 0 ? "bg-red-100" : undefined}
+            iconClassName={slaBreaches > 0 ? "text-red-700" : undefined}
+            label="SLA breaches"
+            value={String(slaBreaches)}
+            delta={{
+              text: slaBreaches > 0 ? "Needs immediate attention" : "None right now",
+              direction: slaBreaches > 0 ? "down" : "up",
+            }}
+          />
+        )}
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.6fr_1fr] lg:items-start">
@@ -240,7 +295,12 @@ export default async function ClinicianPage() {
             <CardDescription>Ranked by severity, then how close each is to its SLA.</CardDescription>
           </CardHeader>
           <CardContent>
-            {urgentEscalations.length === 0 ? (
+            {escalationsFailed ? (
+              <LoadFailure>
+                Open escalations could not be loaded. Do not read this as an empty list: open the
+                escalations worklist directly to check what is waiting.
+              </LoadFailure>
+            ) : urgentEscalations.length === 0 ? (
               <p className="text-sm text-charcoal-ink/60">No open escalations right now.</p>
             ) : (
               <ul className="divide-y divide-charcoal-ink/10">

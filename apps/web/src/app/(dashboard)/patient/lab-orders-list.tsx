@@ -8,6 +8,8 @@ import { PatientResultUpload } from "@/components/patient-result-upload";
 import { EcgReportUpload } from "@/components/ecg-report-upload";
 import { RequestPartnerLabVisit } from "@/app/(dashboard)/patient/request-partner-lab-visit";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
  * go when you can" and "the result is in". Payment states are retained in the
@@ -28,10 +30,12 @@ const AWAITING_RESULT: LabOrderStatus[] = ["payment_confirmed", "ordered", "proc
 
 export function LabOrdersList({ patientId }: { patientId: string }) {
   const { data: orders, isLoading, isError } = usePatientLabOrders(patientId);
+  const state = listQueryState({ isLoading, isError, count: orders?.length });
 
-  if (isLoading || isError || !orders || orders.length === 0) {
-    return null;
-  }
+  // A pending test request the patient still has to take to a lab is exactly
+  // the thing that must not silently vanish when the read fails.
+  if (state === "error") return <LoadErrorCard title="Your test requests" what="your test requests" />;
+  if (state !== "ready" || !orders) return null;
 
   return (
     <Card>

@@ -25,7 +25,12 @@ export default async function EmergencyCardPage() {
   if (!user) return null;
 
   const supabase = await createClient();
-  const { data: card } = await supabase
+  // Every read here is destructured with its error. A card whose read failed
+  // is not a card that isn't there, and a blood profile whose read failed is
+  // not a blank one — this page is the thing a patient carries into a hospital
+  // that has never seen them, so "we don't know" has to say so rather than
+  // quietly render as "nothing recorded".
+  const { data: card, error: cardError } = await supabase
     .from("emergency_cards")
     .select("id, token, is_active, created_at, expires_at, view_count, last_viewed_at")
     .eq("patient_id", user.id)
@@ -35,20 +40,20 @@ export default async function EmergencyCardPage() {
   const qrSvg = active ? await emergencyCardQrSvg(active.token) : null;
   const url = active ? emergencyCardUrl(active.token) : null;
 
-  const { data: blood } = await supabase
+  const { data: blood, error: bloodError } = await supabase
     .from("patient_blood_profile")
     .select("blood_group, genotype, genotype_note, provenance")
     .eq("patient_id", user.id)
     .maybeSingle();
 
-  const { data: lookups } = active
+  const { data: lookups, error: lookupsError } = active
     ? await supabase
         .from("emergency_card_lookups")
         .select("id, looked_up_at")
         .eq("card_id", active.id)
         .order("looked_up_at", { ascending: false })
         .limit(10)
-    : { data: null };
+    : { data: null, error: null };
 
   const expiresSoon = active ? isExpiringSoon(active.expires_at) : false;
 
@@ -69,18 +74,32 @@ export default async function EmergencyCardPage() {
 
       {/* Sits before either card option: both the print and live paths depend
           on this being filled in, and it is the field most likely to be blank. */}
-      <BloodAttestationForm
-        initial={
-          blood
-            ? {
-                bloodGroup: blood.blood_group,
-                genotype: blood.genotype,
-                genotypeNote: blood.genotype_note,
-                provenance: blood.provenance,
-              }
-            : null
-        }
-      />
+      {bloodError ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>Blood group and genotype</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+              We could not load your blood group and genotype just now. That is not the same as
+              us having none on file, so please refresh and try again before you add anything.
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <BloodAttestationForm
+          initial={
+            blood
+              ? {
+                  bloodGroup: blood.blood_group,
+                  genotype: blood.genotype,
+                  genotypeNote: blood.genotype_note,
+                  provenance: blood.provenance,
+                }
+              : null
+          }
+        />
+      )}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
         {/* THE DEFAULT: a printed card, no new exposure, nothing to consent to. */}
@@ -159,7 +178,18 @@ export default async function EmergencyCardPage() {
               </div>
             ) : null}
 
-            <EmergencyCardControls hasActiveCard={Boolean(active)} />
+            {/* With the read failed we don't know whether a live link already
+                exists, and offering to create one is the wrong thing to offer:
+                it would replace a working link the patient still has out
+                there. The controls come back on a successful refresh. */}
+            {cardError ? (
+              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                We could not check whether you have a live link just now. Please refresh and try
+                again. Your printed card is unaffected either way.
+              </p>
+            ) : (
+              <EmergencyCardControls hasActiveCard={Boolean(active)} />
+            )}
           </CardContent>
         </Card>
       </div>
@@ -174,7 +204,14 @@ export default async function EmergencyCardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {!lookups || lookups.length === 0 ? (
+            {lookupsError ? (
+              // "Nobody has opened it yet" is a claim about who has seen this
+              // patient's record. We only make it when we actually read the log.
+              <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                We could not load this just now, so we can&apos;t tell you either way. Please
+                refresh and try again.
+              </p>
+            ) : !lookups || lookups.length === 0 ? (
               <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Nobody has opened it yet.</p>
             ) : (
               <>

@@ -34,12 +34,36 @@ const ALL_PROVIDERS: CloudOAuthWearableProvider[] = [
 /** The four categories a patient can grant or deny independently (53.3/53.4
  * — "allow Tarragon to access activity data" rather than one blanket "give
  * Tarragon everything"). Order matches how they read on the panel. */
-const CONSENT_CATEGORIES: { key: WearableConsentCategory; label: string }[] = [
+const CONSENT_CATEGORIES: {
+  key: WearableConsentCategory;
+  label: string;
+  /** Set where turning the category off still leaves a narrow safety
+   * carve-out, so the checkbox never promises more than it delivers. */
+  safetyNote?: string;
+}[] = [
   { key: "activity", label: "Activity & steps" },
-  { key: "heart_rate", label: "Heart rate & HRV" },
+  {
+    key: "heart_rate",
+    label: "Heart rate & HRV",
+    safetyNote:
+      "Turning this off stops HRV and the trends. A single dangerously high or low heart rate is still checked, because that is a safety alert rather than a fitness stat.",
+  },
   { key: "sleep", label: "Sleep" },
-  { key: "weight", label: "Weight" },
+  {
+    key: "weight",
+    label: "Weight",
+    safetyNote:
+      "Turning this off stops the weight trend. A sudden jump is still checked, because rapid weight gain can be an early sign of fluid building up.",
+  },
 ];
+
+/** Shown under both consent lists. The checkboxes narrow what we keep for
+ * insights; they are deliberately not a switch that turns off a safety
+ * check. These three are the controls that genuinely stop everything, so
+ * a patient who wants that is told where it is rather than left assuming
+ * a checkbox did it. */
+const CONSENT_SAFETY_FOOTNOTE =
+  "If you would rather we held nothing at all from this device, pause or disconnect it, or delete everything it has synced. Those stop all of it.";
 
 type ConsentChoices = Record<WearableConsentCategory, boolean>;
 
@@ -221,18 +245,24 @@ function ConsentPanel({
         Choose what to share with {PROVIDER_LABEL[provider]}
       </p>
       <div className="mt-2 space-y-2">
-        {CONSENT_CATEGORIES.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
-              checked={choices[key]}
-              onChange={(e) => setChoices((prev) => ({ ...prev, [key]: e.target.checked }))}
-            />
-            {label}
-          </label>
+        {CONSENT_CATEGORIES.map(({ key, label, safetyNote }) => (
+          <div key={key}>
+            <label className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
+                checked={choices[key]}
+                onChange={(e) => setChoices((prev) => ({ ...prev, [key]: e.target.checked }))}
+              />
+              {label}
+            </label>
+            {safetyNote && !choices[key] && (
+              <p className="ml-6 mt-1 text-xs text-charcoal-ink/70 dark:text-night-ink/70">{safetyNote}</p>
+            )}
+          </div>
         ))}
       </div>
+      <p className="mt-3 text-xs text-charcoal-ink/70 dark:text-night-ink/70">{CONSENT_SAFETY_FOOTNOTE}</p>
       <div className="mt-3 flex gap-2">
         <Button size="sm" asChild>
           <a href={buildConnectHref(provider, choices)}>Continue to {PROVIDER_LABEL[provider]}</a>
@@ -276,20 +306,26 @@ function ConnectionControls({
         Manage what syncs
       </summary>
       <div className="mt-2 space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
-        {CONSENT_CATEGORIES.map(({ key, label }) => (
-          <label key={key} className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
-            <input
-              type="checkbox"
-              className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
-              checked={consentValue[key]}
-              disabled={updateConsent.isPending}
-              onChange={(e) =>
-                updateConsent.mutate({ connectionId: connection.id, category: key, granted: e.target.checked })
-              }
-            />
-            {label}
-          </label>
+        {CONSENT_CATEGORIES.map(({ key, label, safetyNote }) => (
+          <div key={key}>
+            <label className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-charcoal-ink/30 dark:border-night-ink/35"
+                checked={consentValue[key]}
+                disabled={updateConsent.isPending}
+                onChange={(e) =>
+                  updateConsent.mutate({ connectionId: connection.id, category: key, granted: e.target.checked })
+                }
+              />
+              {label}
+            </label>
+            {safetyNote && !consentValue[key] && (
+              <p className="ml-6 mt-1 text-xs text-charcoal-ink/70 dark:text-night-ink/70">{safetyNote}</p>
+            )}
+          </div>
         ))}
+        <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">{CONSENT_SAFETY_FOOTNOTE}</p>
 
         <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-2">
           {confirmingDelete ? (

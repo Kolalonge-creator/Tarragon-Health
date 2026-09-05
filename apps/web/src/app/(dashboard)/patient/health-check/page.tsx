@@ -12,6 +12,10 @@ import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { RiskSignalsCard } from "../risk-signals-card";
 import { HealthCheckVideoConsultCard } from "../health-check-video-consult-card";
+import {
+  screeningStageState,
+  type HealthCheckStageState,
+} from "@/lib/screening/health-check-stage-state";
 
 /**
  * Stage 3 ("Your measurements") requires a real spread of readings taken
@@ -109,27 +113,32 @@ export default async function HealthCheckPage() {
 
   const tierName = check?.lab_order?.panel_bundle?.name ?? null;
 
-  const stages = [
+  const hasRiskAssessment = (riskCount ?? 0) > 0;
+  const screenings = screeningStageState({ hasRiskAssessment, screeningsDue });
+
+  /** Every stage carries its own state and the one line that describes it, so
+   * a stage can be neutral ("we can't say yet") without being forced into the
+   * done/to-do pair. Stage 4 needs all three: see health-check-stage-state.ts. */
+  const stages: { title: string; state: HealthCheckStageState["kind"]; label: string; href: string | null }[] = [
     {
       title: "1. Your health profile",
-      done: (riskCount ?? 0) > 0,
-      doneLabel: "Completed",
-      toDoLabel: "Tell us your history and lifestyle",
+      state: hasRiskAssessment ? "done" : "todo",
+      label: hasRiskAssessment ? "Completed" : "Tell us your history and lifestyle",
       href: "/patient/prevention#risk-assessment",
     },
     {
       title: "2. Mental wellbeing",
-      done: (wellbeingCount ?? 0) > 0,
-      doneLabel: "Checked in this year",
-      toDoLabel: "A quick, private wellbeing check-in",
+      state: (wellbeingCount ?? 0) > 0 ? "done" : "todo",
+      label:
+        (wellbeingCount ?? 0) > 0 ? "Checked in this year" : "A quick, private wellbeing check-in",
       href: null,
     },
     {
       title: "3. Your measurements",
-      done: vitalsComplete,
-      doneLabel: "All readings logged for this check",
-      toDoLabel:
-        missingVitalKinds.length === 0
+      state: vitalsComplete ? "done" : "todo",
+      label: vitalsComplete
+        ? "All readings logged for this check"
+        : missingVitalKinds.length === 0
           ? "Log blood pressure (×2), weight, waist and pulse"
           : `Still need: ${missingVitalKinds
               .map((kind) =>
@@ -142,18 +151,15 @@ export default async function HealthCheckPage() {
     },
     {
       title: "4. Screenings",
-      done: (screeningsDue ?? 0) === 0,
-      doneLabel: "Up to date",
-      toDoLabel: `${screeningsDue ?? 0} screening${(screeningsDue ?? 0) === 1 ? "" : "s"} due, book now`,
+      state: screenings.kind,
+      label: screenings.label,
       href: "/patient/prevention#screenings",
     },
     {
       title: "5. Immunisations",
-      done: false,
-      doneLabel: "",
-      toDoLabel: "Review the vaccines you're due",
+      state: "neutral",
+      label: "Review the vaccines you're due",
       href: "/patient/prevention#vaccinations",
-      neutral: true as const,
     },
   ];
 
@@ -182,13 +188,13 @@ export default async function HealthCheckPage() {
             <div key={stage.title} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
               <div>
                 <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{stage.title}</p>
-                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                  {stage.done ? stage.doneLabel : stage.toDoLabel}
-                </p>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{stage.label}</p>
               </div>
               <div className="flex items-center gap-2">
-                {!("neutral" in stage) && (
-                  <Badge variant={stage.done ? "green" : "amber"}>{stage.done ? "Done" : "To do"}</Badge>
+                {stage.state !== "neutral" && (
+                  <Badge variant={stage.state === "done" ? "green" : "amber"}>
+                    {stage.state === "done" ? "Done" : "To do"}
+                  </Badge>
                 )}
                 {stage.href && (
                   <Link href={stage.href} className="text-sm text-brand-green dark:text-brand-green-bright hover:underline">

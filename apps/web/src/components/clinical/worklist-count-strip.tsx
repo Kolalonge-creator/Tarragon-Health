@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useWorklistCounts, type WorklistCountKey } from "@/lib/queries/worklist-counts";
 import { APP_ICON, type AppIconName } from "@/lib/icons";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { cn } from "@/lib/utils";
 
 export type WorklistCountTile = {
@@ -30,11 +31,15 @@ export function WorklistCountStrip({ tiles }: { tiles: WorklistCountTile[] }) {
   const { data: counts, isLoading, isError } = useWorklistCounts(tiles.map((t) => t.key));
 
   if (isError) {
+    // Deliberately loud, and deliberately instead of the tiles rather than
+    // above them: a grid of grey zeroes is indistinguishable from a genuinely
+    // clear board, and that is the one thing this strip must never claim on a
+    // failed read.
     return (
-      <p className="text-sm text-charcoal-ink/60">
-        Couldn&apos;t load today&apos;s worklist counts. The pages below still work, so try
-        reloading this dashboard.
-      </p>
+      <LoadFailure>
+        These worklist counts could not be loaded, so nothing here can be read as zero. Each
+        worklist page still opens from the sidebar; reload this dashboard to try again.
+      </LoadFailure>
     );
   }
 

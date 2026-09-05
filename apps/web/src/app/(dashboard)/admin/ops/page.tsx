@@ -195,7 +195,7 @@ export default async function OpsConsolePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ExceptionQueue initialRows={queue} />
+          <ExceptionQueue initialRows={queue} loadFailed={queueRes.error !== null} />
         </CardContent>
       </Card>
     </div>

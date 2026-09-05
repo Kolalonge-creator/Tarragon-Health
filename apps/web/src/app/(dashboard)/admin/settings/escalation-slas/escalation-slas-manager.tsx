@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { slaFieldName } from "./sla-field";
 import {
   createEscalationSlaDraftAction,
@@ -210,11 +211,34 @@ export function EscalationSlasManager({
   versions,
   activeVersion,
   nextVersion,
+  loadFailed,
 }: {
   versions: EscalationSlaVersionRow[];
   activeVersion: EscalationSlaVersionRow | null;
-  nextVersion: number;
+  /** Null when the version list could not be read — there is then no honest
+   * number to offer a draft against, and the draft control is withheld
+   * rather than guessed at. */
+  nextVersion: number | null;
+  loadFailed: boolean;
 }) {
+  // Withheld entirely rather than degraded: "No active configuration found"
+  // next to a "draft version 1" button is an invitation to overwrite the SLAs
+  // currently in force with a version numbered as though none existed.
+  if (loadFailed) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <LoadFailure>
+            The escalation SLA configuration could not be read, so this page cannot say what is in
+            force. Do not read this as no configuration existing: a live version is almost
+            certainly still driving sla_due_at on every alert. Editing and signing are withheld
+            until the configuration loads. Reload the page.
+          </LoadFailure>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {activeVersion ? (
@@ -241,10 +265,9 @@ export function EscalationSlasManager({
         </Card>
       )}
 
-      <CreateDraftForm
-        nextVersion={nextVersion}
-        activeConfig={activeVersion?.config ?? []}
-      />
+      {nextVersion !== null && (
+        <CreateDraftForm nextVersion={nextVersion} activeConfig={activeVersion?.config ?? []} />
+      )}
 
       {versions.length > 0 && (
         <div className="space-y-4">
