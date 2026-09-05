@@ -206,16 +206,32 @@ describe("vitalsReadingSchema — pulse", () => {
     expect(vitalsReadingSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("rejects pulse below 40", () => {
+  // The bands the live private.classify_pulse_level actually escalates on
+  // must all be enterable — emergency at <= 35 / >= 150, red at 36-39 /
+  // 121-149, amber at 40-49 / 101-120.
+  it.each(["20", "30", "35", "36", "39", "45", "150", "180", "220", "300"])(
+    "accepts the escalation-band pulse %s bpm",
+    (pulse_bpm) => {
+      expect(vitalsReadingSchema.safeParse({ ...valid, pulse_bpm }).success).toBe(true);
+    }
+  );
+
+  it("rejects pulse below 20", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, pulse_bpm: "39" }).success
+      vitalsReadingSchema.safeParse({ ...valid, pulse_bpm: "19" }).success
     ).toBe(false);
   });
 
-  it("rejects pulse above 200", () => {
+  it("rejects pulse above 300", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, pulse_bpm: "201" }).success
+      vitalsReadingSchema.safeParse({ ...valid, pulse_bpm: "301" }).success
     ).toBe(false);
+  });
+
+  it("still rejects impossible pulse values", () => {
+    for (const pulse_bpm of ["0", "-72", "9999"]) {
+      expect(vitalsReadingSchema.safeParse({ ...valid, pulse_bpm }).success).toBe(false);
+    }
   });
 });
 
@@ -226,16 +242,31 @@ describe("vitalsReadingSchema — temperature", () => {
     expect(vitalsReadingSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("rejects temperature below 35", () => {
+  // private.classify_temperature_level: emergency below 35.0 or at/above
+  // 40.0. Hypothermia was previously unenterable, so it could never escalate.
+  it.each(["30", "32.5", "34.9", "35", "40", "41.5", "45"])(
+    "accepts the escalation-band temperature %s°C",
+    (temperature_c) => {
+      expect(vitalsReadingSchema.safeParse({ ...valid, temperature_c }).success).toBe(true);
+    }
+  );
+
+  it("rejects temperature below 30", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, temperature_c: "34.9" }).success
+      vitalsReadingSchema.safeParse({ ...valid, temperature_c: "29.9" }).success
     ).toBe(false);
   });
 
-  it("rejects temperature above 42", () => {
+  it("rejects temperature above 45", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, temperature_c: "42.1" }).success
+      vitalsReadingSchema.safeParse({ ...valid, temperature_c: "45.1" }).success
     ).toBe(false);
+  });
+
+  it("still rejects impossible temperature values", () => {
+    for (const temperature_c of ["0", "-5", "98.6"]) {
+      expect(vitalsReadingSchema.safeParse({ ...valid, temperature_c }).success).toBe(false);
+    }
   });
 });
 

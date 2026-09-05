@@ -10,6 +10,17 @@ const takenAtField = z.string().refine((value) => !Number.isNaN(Date.parse(value
   message: "taken_at must be a valid ISO date-time",
 });
 
+/**
+ * Same full plausible bands as the manual-entry path (SBP 60-260, DBP 30-160,
+ * pulse 20-300 — see ./vitals.ts). The old 60-200 / 40-130 clamp here was left
+ * behind when the manual path was widened, so a BLE cuff reporting a true
+ * hypertensive crisis (210/125) was rejected at the ingestion boundary — the
+ * single most dangerous reading private.classify_bp_level exists to catch
+ * (emergency at SBP >= 200 or DBP >= 120). A measuring instrument's reading
+ * must be able to reach the escalation pipeline; only physically-implausible
+ * values are rejected. Pulse follows private.classify_pulse_level, whose
+ * emergency band is <= 35 / >= 150 bpm.
+ */
 export const deviceBloodPressureSchema = z.object({
   vital_type: z.literal("blood_pressure"),
   device_id: deviceIdField,
@@ -19,13 +30,13 @@ export const deviceBloodPressureSchema = z.object({
     .number()
     .int()
     .min(60, "Systolic must be at least 60 mmHg")
-    .max(200, "Systolic must be at most 200 mmHg"),
+    .max(260, "Systolic must be at most 260 mmHg"),
   diastolic: z
     .number()
     .int()
-    .min(40, "Diastolic must be at least 40 mmHg")
-    .max(130, "Diastolic must be at most 130 mmHg"),
-  pulse_bpm: z.number().int().min(40).max(200).optional(),
+    .min(30, "Diastolic must be at least 30 mmHg")
+    .max(160, "Diastolic must be at most 160 mmHg"),
+  pulse_bpm: z.number().int().min(20).max(300).optional(),
 });
 
 export const deviceGlucoseSchema = z.object({
@@ -72,7 +83,9 @@ export const deviceSpo2Schema = z.object({
   // severe hypoxaemia, which is exactly the reading that must reach the
   // escalation pipeline rather than bounce off validation.
   spo2_pct: z.number().int().min(50, "SpO2 must be at least 50%").max(100, "SpO2 must be at most 100%"),
-  pulse_bpm: z.number().int().min(30).max(250).optional(),
+  // Same 20-300 pulse band as the BP schema above and the manual path — an
+  // oximeter's pulse reading is the same fact from a different instrument.
+  pulse_bpm: z.number().int().min(20).max(300).optional(),
 });
 
 export const deviceReadingSchema = z

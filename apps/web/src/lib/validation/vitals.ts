@@ -107,23 +107,42 @@ export const weightSchema = z.object({
   taken_at: takenAtField,
 });
 
+/**
+ * Full plausible pulse range — deliberately WIDE, same reasoning as the BP
+ * band above. The old 40-200 clamp rejected every value the live pulse
+ * red-flag engine exists to catch: private.classify_pulse_level treats
+ * <=35 bpm and >=150 bpm as EMERGENCY and 36-39 bpm as RED, so a genuine
+ * bradycardic arrest-range reading (30 bpm) or a tachyarrhythmia (220 bpm)
+ * was physically unenterable — the form and POST /api/mobile/vitals both
+ * 400'd it, and the mobile offline queue then retried forever without ever
+ * surfacing the failure. 20-300 matches the bounds the mobile client
+ * already applies before it submits (vitals-screen.tsx OTHER_VITAL_BOUNDS);
+ * only values no live human could produce are rejected.
+ */
 export const pulseSchema = z.object({
   vital_type: z.literal("pulse"),
   pulse_bpm: z.coerce
     .number()
     .int()
-    .min(40, "Pulse must be at least 40 bpm")
-    .max(200, "Pulse must be at most 200 bpm"),
+    .min(20, "Pulse must be at least 20 bpm")
+    .max(300, "Please re-check — a pulse above 300 bpm is outside the measurable range"),
   note: noteField,
   taken_at: takenAtField,
 });
 
+/**
+ * Full plausible temperature range — same reasoning again. The old 35-42
+ * clamp rejected hypothermia outright: private.classify_temperature_level
+ * treats anything below 35.0°C as EMERGENCY, so the exact reading the
+ * engine must escalate could never be saved. 30-45 matches both the device
+ * ingestion band (./device-reading.ts) and the mobile client's own bounds.
+ */
 export const temperatureSchema = z.object({
   vital_type: z.literal("temperature"),
   temperature_c: z.coerce
     .number()
-    .min(35, "Temperature must be at least 35°C")
-    .max(42, "Temperature must be at most 42°C"),
+    .min(30, "Temperature must be at least 30°C")
+    .max(45, "Please re-check — a temperature above 45°C is outside the measurable range"),
   note: noteField,
   taken_at: takenAtField,
 });
