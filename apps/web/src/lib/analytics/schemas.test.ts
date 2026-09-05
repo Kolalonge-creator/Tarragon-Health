@@ -17,7 +17,8 @@ describe("analytics schemas", () => {
     expect(biz.roles).toEqual([]);
 
     const fin = financialSummarySchema.parse({});
-    expect(fin.mrr_by_currency).toEqual([]);
+    expect(fin.revenue_by_currency).toEqual([]);
+    expect(fin.revenue_total_kobo).toBe(0);
     expect(fin.commissions.total_kobo).toBe(0);
     expect(fin.commissions.by_status).toEqual([]);
   });
@@ -26,10 +27,11 @@ describe("analytics schemas", () => {
     const biz = businessSummarySchema.parse({
       total_orgs: 7,
       total_patients: 7,
-      active_subscriptions: 4,
+      paying_patients: 4,
       roles: [{ role: "patient", count: 7 }],
     });
     expect(biz.total_orgs).toBe(7);
+    expect(biz.paying_patients).toBe(4);
     expect(biz.roles[0]).toEqual({ role: "patient", count: 7 });
   });
 
@@ -39,11 +41,10 @@ describe("analytics schemas", () => {
         { currency: "NGN", total_minor: 9800000 },
         { currency: null, total_minor: 8000000 },
       ],
-      mrr_by_currency: [{ currency: null, mrr_minor: 5000 }],
-      active_subscriptions: 4,
+      paid_purchases: 4,
     });
     expect(fin.revenue_by_currency[1].currency).toBeNull();
-    expect(fin.active_subscriptions).toBe(4);
+    expect(fin.paid_purchases).toBe(4);
   });
 
   it("allows a null risk_level bucket in the population summary", () => {

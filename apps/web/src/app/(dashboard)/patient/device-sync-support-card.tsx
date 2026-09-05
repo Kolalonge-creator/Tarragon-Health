@@ -63,7 +63,7 @@ export function DeviceSyncSupportCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.warning className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <NAV_ICON.warning className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           My device isn&apos;t syncing
         </CardTitle>
         <CardDescription>

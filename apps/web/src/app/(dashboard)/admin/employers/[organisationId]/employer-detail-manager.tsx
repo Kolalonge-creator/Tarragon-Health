@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
-import type { Tables } from "@tarragon/shared";
+import { useActionState, useState } from "react";
+import { koboToNaira, type Tables } from "@tarragon/shared";
 import {
   updateEmployerProfileAction,
   setEmployerVerificationAction,
@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
 
 type EmployerAccount = Tables<"employer_accounts">;
 type CorporateContract = Tables<"corporate_contracts">;
@@ -61,6 +62,18 @@ export function EmployerDetailManager({
   );
 
   const isLive = !!account?.went_live_at;
+
+  /* Billing amounts are collected in naira and converted to kobo once, in the
+   * server action. Held in state only so the form can echo back what the rate
+   * actually comes to before it starts driving a recurring invoice. */
+  const [billingRateNaira, setBillingRateNaira] = useState(
+    contract?.billing_rate_kobo != null ? String(koboToNaira(contract.billing_rate_kobo)) : ""
+  );
+  const [billingFixedNaira, setBillingFixedNaira] = useState(
+    contract?.billing_fixed_amount_kobo != null ? String(koboToNaira(contract.billing_fixed_amount_kobo)) : ""
+  );
+  const billingRateKobo = nairaInputToKobo(billingRateNaira);
+  const billingFixedKobo = nairaInputToKobo(billingFixedNaira);
 
   return (
     <div className="space-y-6">
@@ -160,7 +173,7 @@ export function EmployerDetailManager({
       <Card>
         <CardHeader>
           <CardTitle>Contract & billing</CardTitle>
-          <CardDescription>Module 26 §26.15: five billing models, all money in kobo.</CardDescription>
+          <CardDescription>Module 26 §26.15: five billing models. Enter amounts in naira.</CardDescription>
         </CardHeader>
         <CardContent>
           <form action={contractAction} className="grid gap-3 sm:grid-cols-2">
@@ -183,24 +196,40 @@ export function EmployerDetailManager({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="billingRateKobo">Rate (kobo, per person)</Label>
+              <Label htmlFor="billingRateNaira">Rate (₦, per person)</Label>
               <Input
-                id="billingRateKobo"
-                name="billingRateKobo"
+                id="billingRateNaira"
+                name="billingRateNaira"
                 type="number"
                 min={0}
-                defaultValue={contract?.billing_rate_kobo ?? ""}
+                step="0.01"
+                inputMode="decimal"
+                value={billingRateNaira}
+                onChange={(e) => setBillingRateNaira(e.target.value)}
               />
+              <p className="text-xs text-charcoal-ink/60">
+                {billingRateKobo === null
+                  ? "Amount in naira, per person"
+                  : `${formatKobo(billingRateKobo)} per person${
+                      rosterCount > 0 ? `, ${formatKobo(billingRateKobo * rosterCount)} for the ${rosterCount} on the roster` : ""
+                    }`}
+              </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="billingFixedAmountKobo">Fixed amount (kobo)</Label>
+              <Label htmlFor="billingFixedAmountNaira">Fixed amount (₦)</Label>
               <Input
-                id="billingFixedAmountKobo"
-                name="billingFixedAmountKobo"
+                id="billingFixedAmountNaira"
+                name="billingFixedAmountNaira"
                 type="number"
                 min={0}
-                defaultValue={contract?.billing_fixed_amount_kobo ?? ""}
+                step="0.01"
+                inputMode="decimal"
+                value={billingFixedNaira}
+                onChange={(e) => setBillingFixedNaira(e.target.value)}
               />
+              <p className="text-xs text-charcoal-ink/60">
+                {billingFixedKobo === null ? "Amount in naira" : formatKobo(billingFixedKobo)}
+              </p>
             </div>
             <label className="flex items-center gap-2 text-sm text-charcoal-ink/70 sm:col-span-2">
               <input type="checkbox" name="signNow" defaultChecked={!!contract?.signed_at} />

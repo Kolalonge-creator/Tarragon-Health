@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON, type AppIconName, APP_ICON } from "@/lib/icons";
+import { EmptyHint } from "@/components/ui/empty-hint";
 
 type ScheduleItem = {
   icon: AppIconName;
@@ -177,15 +178,25 @@ async function resolveUpcomingSchedule(patientId: string): Promise<ScheduleItem[
   return items.sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, MAX_ITEMS);
 }
 
-export async function CareScheduleCard({ patientId }: { patientId: string }) {
+export async function CareScheduleCard({
+  patientId,
+  emptyHint,
+}: {
+  patientId: string;
+  /** A page that has already headed this section (Health summary) passes the
+   * line to show when there is nothing due, instead of leaving its heading
+   * standing over nothing. Omitted elsewhere, so this card still self-hides
+   * on the dashboard where it sits among other cards. */
+  emptyHint?: string;
+}) {
   const items = await resolveUpcomingSchedule(patientId);
-  if (items.length === 0) return null;
+  if (items.length === 0) return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           What&apos;s coming up
         </CardTitle>
       </CardHeader>

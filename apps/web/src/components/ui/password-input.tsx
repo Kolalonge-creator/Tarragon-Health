@@ -17,12 +17,14 @@ export function PasswordInput({
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
-        tabIndex={-1}
+        // No tabIndex={-1}: this was the only way to check a typed password
+        // and a keyboard user could not reach it at all. It is a real,
+        // labelled control, so it belongs in the tab order like any other.
         aria-label={visible ? "Hide password" : "Show password"}
         aria-pressed={visible}
         className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-charcoal-ink/40 hover:text-charcoal-ink/70 dark:text-night-ink/50 dark:hover:text-night-ink/70"
       >
-        {visible ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        {visible ? <EyeOff className="h-4 w-4" aria-hidden /> : <Eye className="h-4 w-4" aria-hidden />}
       </button>
     </div>
   );

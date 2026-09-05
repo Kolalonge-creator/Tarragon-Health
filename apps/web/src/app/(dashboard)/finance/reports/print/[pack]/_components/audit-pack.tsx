@@ -55,7 +55,7 @@ export function AuditPack({ from, to, currency }: { from: string; to: string; cu
       <PrintSection title="Significant accounting policies" description="Draft: for the reviewing auditor to confirm or amend, not asserted as final.">
         <ul className="list-disc space-y-1 pl-4 text-xs text-charcoal-ink/70">
           <li>Amounts are recorded in minor currency units (kobo/pence/cents) and presented above in major units.</li>
-          <li>Revenue from subscriptions and bundled services is deferred and recognised over the service period it covers, not at the point of cash receipt (Finance → Revenue recognition).</li>
+          <li>Revenue from a service bought up front is deferred and recognised over the period it covers, not at the point of cash receipt (Finance → Revenue recognition).</li>
           <li>The books are prepared on a going-concern basis.</li>
           <li>All journal entries post through a single balance-validated posting primitive; every entry must debit and credit equally in the same currency, enforced at the database level, not just in the UI.</li>
         </ul>

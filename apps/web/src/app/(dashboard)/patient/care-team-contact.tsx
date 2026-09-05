@@ -19,7 +19,7 @@ export function CareTeamContact({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.clinicianFollowUp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your care team
         </CardTitle>
       </CardHeader>

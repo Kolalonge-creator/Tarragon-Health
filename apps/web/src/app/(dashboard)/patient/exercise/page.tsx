@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -17,22 +16,19 @@ export default async function ExercisePage() {
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
   return (
-    <DashboardPlaceholder greeting="Exercise programmes" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.exerciseProgramme}>
-      <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-          ← Back to lifestyle coaching
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        Structured plans to build activity safely: a walking programme is open to anyone; anything
-        more intensive asks a few safety questions first.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Exercise programmes"
+        icon={SEMANTIC_ICON.exerciseProgramme}
+        backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
+        description="Structured plans to build activity safely: a walking programme is open to anyone; anything more intensive asks a few safety questions first."
+      />
       <RequiresEntitlement
         feature="lifestyle_coaching"
         fallback={<UpgradePrompt feature="lifestyle_coaching" />}
       >
         <ExerciseClient patientId={profile.id} />
       </RequiresEntitlement>
-    </DashboardPlaceholder>
+    </div>
   );
 }

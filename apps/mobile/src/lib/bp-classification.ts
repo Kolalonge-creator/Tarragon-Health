@@ -15,7 +15,20 @@ export const BP_THRESHOLDS = {
   amber: { systolic: 135, diastolic: 85 },
 } as const;
 
-export type BpThresholds = typeof BP_THRESHOLDS;
+/**
+ * Structural, not `typeof BP_THRESHOLDS`. The bundled constant is `as const`,
+ * so `typeof` it is a set of LITERAL types (systolic: 200, ...) — which made
+ * the `thresholds` parameter below nominally un-overridable: the only value
+ * the compiler would accept was the bundled constant itself. It only worked
+ * at runtime because threshold-sync.ts's cache is typed, not checked. The
+ * whole point of that parameter is to carry server-synced values, so the
+ * type says numbers.
+ */
+export interface BpThresholds {
+  emergency: { systolic: number; diastolic: number };
+  red: { systolic: number; diastolic: number };
+  amber: { systolic: number; diastolic: number };
+}
 
 export function classifyBpLevel(
   systolic: number | null | undefined,

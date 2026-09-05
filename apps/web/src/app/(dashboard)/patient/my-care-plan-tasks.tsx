@@ -37,8 +37,15 @@ function formatDue(dueAt: string | null): string | null {
 function ConditionsOverview({ plans }: { plans: CarePlan[] }) {
   if (plans.length === 0) {
     return (
+      // Two problems with the line this replaces ("Your doctor will assign
+      // one after reviewing your health data"): care here is delivered by a
+      // team, never one named doctor following a patient (CLAUDE.md's
+      // 2026-07-30 correction), and on the free tier no doctor time is
+      // included at all, so it promised a review that may never come.
       <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-        No care plan yet. Your doctor will assign one after reviewing your health data.
+        No care plan yet. A plan is written when your care team is actively managing a condition
+        with you. Keep logging your readings and adding results, and anything set up for you shows
+        up here.
       </p>
     );
   }
@@ -227,7 +234,7 @@ export function MyCarePlanTasks({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your care plan
         </CardTitle>
       </CardHeader>

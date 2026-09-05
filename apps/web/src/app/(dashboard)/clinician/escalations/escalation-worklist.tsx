@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useDoctorEscalations, useClaimEscalation } from "@/lib/queries/escalations";
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,17 +11,15 @@ import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge
 import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
 import { SEVERITY_TILE_TINT } from "@/lib/worklist/severity-tile-tint";
 import { effectiveAlertLevel, requiresEmergencyAuthority } from "@/lib/worklist/priority";
+import { slaBadgeVariant, slaLabel, timeAgo } from "@/lib/worklist/sla-label";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationStatus } from "@tarragon/shared";
 
-function timeAgo(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
+const STATUS_FILTERS: { value: EscalationStatus | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "open", label: "Unclaimed" },
+  { value: "under_review", label: "Under review" },
+];
 
 /**
  * `canHandleEmergency` mirrors private.can_handle_emergency_escalation --
@@ -44,6 +43,7 @@ export function EscalationWorklist({
 }) {
   const { data, isLoading, isError } = useDoctorEscalations();
   const claim = useClaimEscalation();
+  const [statusFilter, setStatusFilter] = useState<EscalationStatus | "all">("all");
 
   const countsByStatus = (data ?? []).reduce(
     (acc, escalation) => {
@@ -51,6 +51,13 @@ export function EscalationWorklist({
       return acc;
     },
     {} as Partial<Record<EscalationStatus, number>>
+  );
+
+  // The query already returns rows ranked by effective severity then SLA
+  // (fetchDoctorEscalations -> compareByAlert); filtering preserves that
+  // order, so the most urgent case stays first inside any filter.
+  const visible = (data ?? []).filter(
+    (escalation) => statusFilter === "all" || escalation.status === statusFilter
   );
 
   return (
@@ -82,6 +89,30 @@ export function EscalationWorklist({
           </CardDescription>
         </CardHeader>
         <CardContent>
+        {data && data.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {STATUS_FILTERS.map((filter) => {
+              const count =
+                filter.value === "all" ? data.length : (countsByStatus[filter.value] ?? 0);
+              const active = statusFilter === filter.value;
+              return (
+                <button
+                  key={filter.value}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setStatusFilter(filter.value)}
+                  className={
+                    active
+                      ? "rounded-full border border-brand-green bg-brand-green/10 px-3 py-1 text-xs font-medium text-deep-forest"
+                      : "rounded-full border border-charcoal-ink/20 px-3 py-1 text-xs text-charcoal-ink/70 hover:border-brand-green"
+                  }
+                >
+                  {filter.label} ({count})
+                </button>
+              );
+            })}
+          </div>
+        )}
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && (
           <p className="text-sm text-red-600">Could not load the escalation worklist.</p>
@@ -89,9 +120,14 @@ export function EscalationWorklist({
         {data && data.length === 0 && (
           <p className="text-sm text-charcoal-ink/60">No open escalations.</p>
         )}
-        {data && data.length > 0 && (
+        {data && data.length > 0 && visible.length === 0 && (
+          <p className="text-sm text-charcoal-ink/60">
+            No escalations in this view. Choose All to see the rest.
+          </p>
+        )}
+        {visible.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
-            {data.map((escalation) => {
+            {visible.map((escalation) => {
               const effectiveLevel = escalation.clinician_alert
                 ? effectiveAlertLevel(escalation.clinician_alert)
                 : null;
@@ -106,9 +142,10 @@ export function EscalationWorklist({
               // Tier 1's own claim.
               const isEmergencyLocked =
                 requiresEmergencyAuthority(escalation.clinician_alert) && !canHandleEmergency;
-              const isOverdue =
-                !!escalation.clinician_alert?.sla_due_at &&
-                new Date(escalation.clinician_alert.sla_due_at) < new Date();
+              // The countdown, not a binary "Overdue" chip: a case 10 minutes
+              // from breaching used to look identical to one raised 5 minutes
+              // ago. Same helper the operations queue uses.
+              const sla = slaLabel(escalation.clinician_alert?.sla_due_at ?? null);
               const resultBadge = escalation.clinician_alert?.screening_result
                 ? RESULT_STATUS_BADGE[escalation.clinician_alert.screening_result.result_status]
                 : null;
@@ -131,7 +168,7 @@ export function EscalationWorklist({
                       {isOverridden && (
                         <Badge variant="grey">Overridden</Badge>
                       )}
-                      {isOverdue && <Badge variant="red">Overdue</Badge>}
+                      {sla && <Badge variant={slaBadgeVariant(sla)}>{sla.text}</Badge>}
                       <Badge variant={statusBadge.variant}>{statusBadge.label}</Badge>
                     </div>
                     <p className="text-sm font-medium text-charcoal-ink">
@@ -144,7 +181,9 @@ export function EscalationWorklist({
                       {escalation.reason}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">
-                      Raised {timeAgo(escalation.created_at)} · Case owner: {caseOwnerName}
+                      Raised {timeAgo(escalation.created_at)} ·{" "}
+                      {sla ? `SLA ${sla.text}` : "No SLA on this case"} · Case owner:{" "}
+                      {caseOwnerName}
                     </p>
                   </div>
                   {escalation.assigned_doctor_id === null ? (

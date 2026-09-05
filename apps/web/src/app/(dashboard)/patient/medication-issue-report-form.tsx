@@ -79,7 +79,7 @@ export function MedicationIssueReportForm({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60"
+        className="min-h-11 px-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60"
         onClick={() => setOpen(true)}
       >
         Report a problem

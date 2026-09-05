@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Health Education",
   description:
-    "Learning built around your own conditions and risk, with clinically reviewed content clearly marked and short knowledge checks so you can see what's actually sticking.",
+    "Free learning built around your own conditions and risk, with clinically reviewed content clearly marked and short checks so you see what is sticking.",
   path: MARKETING_ROUTES.healthEducation,
 });
 

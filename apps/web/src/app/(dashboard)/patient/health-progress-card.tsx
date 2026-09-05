@@ -58,7 +58,7 @@ export async function HealthProgressCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.impact className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.impact className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your health progress
         </CardTitle>
         <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">

@@ -14,7 +14,7 @@ export function WellnessPointsSummary({ patientId }: { patientId: string }) {
     <Card>
       <CardContent className="flex items-center justify-between gap-3 py-4">
         <div className="flex items-center gap-3">
-          <SEMANTIC_ICON.points className="h-8 w-8 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.points className="h-8 w-8 text-sprout-gold" strokeWidth={2} aria-hidden />
           <div>
             <p className="font-heading text-xl font-bold text-charcoal-ink dark:text-night-ink">
               {(balance?.balance ?? 0).toLocaleString()} points

@@ -36,7 +36,7 @@ export function LifestyleProgressSummary({ patientId }: { patientId: string }) {
     <Card>
       <CardContent className="flex items-center justify-between gap-3 py-4">
         <div className="flex items-center gap-3">
-          <SEMANTIC_ICON.weight className="h-8 w-8 text-brand-green dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.weight className="h-8 w-8 text-brand-green dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           <div>
             <p className="font-heading text-xl font-bold text-charcoal-ink dark:text-night-ink">{headline}</p>
             <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">

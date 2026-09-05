@@ -9,7 +9,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Advanced Diagnostics",
   description:
-    "Whole-body and targeted imaging referrals for people who want to look further than routine screening goes, coordinated by Tarragon and read by your doctor. Coming soon.",
+    "Whole-body and targeted imaging referrals for people who want to look further than routine screening goes, coordinated by us and read by your doctor.",
   path: MARKETING_ROUTES.advancedDiagnostics,
 });
 

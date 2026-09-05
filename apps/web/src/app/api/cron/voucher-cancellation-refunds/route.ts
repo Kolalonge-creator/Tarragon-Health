@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { refundTransaction } from "@/lib/paystack/refunds";
+import { recordRefundLedgerEntry } from "@/lib/billing/refund-posting";
 
 /**
  * Sweep for `voucher_refund_queue` rows cancel_care_voucher() creates —
@@ -33,13 +34,22 @@ export async function GET(request: Request): Promise<Response> {
 
   const { data: due } = await supabase
     .from("voucher_refund_queue")
-    .select("id, provider, provider_reference, amount_minor, attempts")
+    .select("id, voucher_id, provider, provider_reference, amount_minor, currency, attempts, voucher:care_vouchers!inner(organisation_id)")
     .eq("status", "due")
     .lt("attempts", MAX_ATTEMPTS);
 
   let refunded = 0;
   let failed = 0;
   let skippedUnconfigured = 0;
+  // See video-visit-refunds: a refund that moved real money but no ledger is
+  // reported, never counted as a clean success.
+  let unpostedRefunds = 0;
+  // A refund whose ledger row was already there. Normally the Paystack
+  // webhook having posted the same reversal first, which is the whole point
+  // of the shared idempotency key — but counted rather than ignored, because
+  // it is also what a second refund of the same charge for the same amount
+  // would look like (see lib/billing/refund-idempotency.ts).
+  let alreadyPosted = 0;
 
   for (const row of due ?? []) {
     if (row.provider !== "paystack") {
@@ -61,6 +71,20 @@ export async function GET(request: Request): Promise<Response> {
         .from("voucher_refund_queue")
         .update({ status: "refunded", provider_refund_ref: String(result.data.refundId) })
         .eq("id", row.id);
+      // A cancelled voucher's prepayment was posted Dr 1020 Cash /
+      // Cr 2100 Deferred voucher liability. Refunding it moved cash back out
+      // and nothing said so on the ledger until this call existed.
+      const posting = await recordRefundLedgerEntry(supabase, {
+        refundId: String(result.data.refundId),
+        chargeReference: row.provider_reference,
+        amountMinor: row.amount_minor,
+        currency: row.currency,
+        organisationId: row.voucher?.organisation_id ?? null,
+        source: "care_voucher",
+        sourceId: row.voucher_id,
+      });
+      if (posting.error) unpostedRefunds += 1;
+      if (posting.alreadyPosted) alreadyPosted += 1;
       refunded += 1;
     } else {
       await supabase
@@ -79,5 +103,11 @@ export async function GET(request: Request): Promise<Response> {
     .eq("status", "due")
     .gte("attempts", MAX_ATTEMPTS);
 
-  return Response.json({ refunded, refund_failures: failed, skipped_unconfigured: skippedUnconfigured });
+  return Response.json({
+    refunded,
+    refund_failures: failed,
+    skipped_unconfigured: skippedUnconfigured,
+    unposted_refunds: unpostedRefunds,
+    already_posted_refunds: alreadyPosted,
+  });
 }

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { generateDraftReplyAction } from "@/lib/care-messages/actions";
+import { compareThreads } from "@/lib/worklist/message-triage";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type CareThread = Tables<"care_message_threads">;
@@ -57,7 +58,17 @@ export function useCareThreads(patientId: string) {
   });
 }
 
-/** All threads visible to the caller's org (staff worklist), newest activity first. */
+/**
+ * All threads visible to the caller's org (staff worklist), ranked so the
+ * patient waiting longest on a reply is first.
+ *
+ * `last_message_at desc` on its own surfaced the thread the care team had
+ * just answered and buried the one nobody had picked up — the ordering was
+ * pointing at finished work. compareThreads (lib/worklist/message-triage.ts)
+ * puts threads awaiting the care team first, oldest wait first, and only then
+ * falls back to recency. The fetch still asks Postgres for a deterministic
+ * order so the client-side sort is stable.
+ */
 export function useOrgCareThreads() {
   return useQuery({
     queryKey: ["org-care-threads"],
@@ -68,7 +79,7 @@ export function useOrgCareThreads() {
         .select(THREAD_PATIENT_SELECT)
         .order("last_message_at", { ascending: false });
       if (error) throw error;
-      return data as unknown as CareThreadWithPatient[];
+      return (data as unknown as CareThreadWithPatient[]).slice().sort(compareThreads);
     },
   });
 }

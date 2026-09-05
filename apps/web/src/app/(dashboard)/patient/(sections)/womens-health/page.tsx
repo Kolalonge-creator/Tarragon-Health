@@ -85,44 +85,75 @@ export default async function WomensHealthPage() {
 
   const supabase = await createClient();
 
-  const [{ data: reproProfile }, { data: pregnancy }, { data: activePlans }, { data: nextAppointment }] =
-    await Promise.all([
-      supabase
-        .from("reproductive_health_profiles")
-        .select("life_stage, last_period_date, average_cycle_length_days, current_contraception_method")
-        .eq("patient_id", subjectId)
-        .maybeSingle(),
-      supabase
-        .from("patient_pregnancy")
-        .select("is_pregnant, estimated_due_date, last_menstrual_period_date, high_risk")
-        .eq("patient_id", subjectId)
-        .maybeSingle(),
-      supabase.from("care_plans").select("condition").eq("patient_id", subjectId).eq("status", "active"),
-      supabase
-        .from("appointments")
-        .select("scheduled_for")
-        .eq("patient_id", subjectId)
-        .neq("status", "cancelled")
-        .gte("scheduled_for", new Date().toISOString())
-        .order("scheduled_for", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
-    ]);
+  const [
+    { data: reproProfile, error: reproError },
+    { data: pregnancy, error: pregnancyError },
+    { data: activePlans },
+    { data: nextAppointment },
+  ] = await Promise.all([
+    supabase
+      .from("reproductive_health_profiles")
+      .select("life_stage, last_period_date, average_cycle_length_days, current_contraception_method")
+      .eq("patient_id", subjectId)
+      .maybeSingle(),
+    supabase
+      .from("patient_pregnancy")
+      .select("is_pregnant, estimated_due_date, last_menstrual_period_date, high_risk")
+      .eq("patient_id", subjectId)
+      .maybeSingle(),
+    supabase.from("care_plans").select("condition").eq("patient_id", subjectId).eq("status", "active"),
+    supabase
+      .from("appointments")
+      .select("scheduled_for")
+      .eq("patient_id", subjectId)
+      .neq("status", "cancelled")
+      .gte("scheduled_for", new Date().toISOString())
+      .order("scheduled_for", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
-  const lifeStage = reproProfile?.life_stage ?? "not_applicable";
-  const isPregnant = pregnancy?.is_pregnant ?? false;
   const activeConditions = (activePlans ?? []).map((p) => p.condition as CarePlanCondition);
-  const gestationalEstimate = isPregnant
+
+  // A read that ERRORED is NOT "she isn't pregnant". Collapsing it that way is
+  // what hid the antenatal card and, with it, the red-flag symptom check that
+  // tells a pregnant patient which symptoms need seeing today. An errored read
+  // gets its own branch below and never falls through to the not-pregnant one.
+  // Narrowing to a row (rather than a boolean) also means high_risk is read
+  // off the record we actually have, never defaulted.
+  //
+  // What this deliberately does NOT claim to cover: a row withheld by RLS.
+  // Postgres row-level security filters rows rather than raising, so a
+  // .maybeSingle() the caller may not read returns { data: null, error: null }
+  // and is indistinguishable here from "no record exists". That is by design
+  // for reproductive_health, the one care_access_category with no caregiver or
+  // break-glass read-through: making a refusal look different from an absence
+  // would leak the existence of the record to exactly the people the category
+  // exists to keep out. So this page treats a withheld row as no row, on
+  // purpose, and only an actual error is reported as an error.
+  const pregnancyUnknown = Boolean(pregnancyError);
+  // Same treatment for the reproductive-health profile: without it, life_stage
+  // silently became "not_applicable", which is not a neutral default. It is
+  // the value that hides the postnatal, fertility and menopause cards outright
+  // and renders "Cycle: Not tracked" over a record we simply did not read.
+  const reproUnknown = Boolean(reproError);
+  const lifeStage = reproProfile?.life_stage ?? "not_applicable";
+  const activePregnancy = !pregnancyUnknown && pregnancy?.is_pregnant ? pregnancy : null;
+  const gestationalEstimate = activePregnancy
     ? computeGestationalEstimate({
-        lastMenstrualPeriodDate: pregnancy?.last_menstrual_period_date ?? null,
-        estimatedDueDate: pregnancy?.estimated_due_date ?? null,
+        lastMenstrualPeriodDate: activePregnancy.last_menstrual_period_date,
+        estimatedDueDate: activePregnancy.estimated_due_date,
       })
     : null;
 
-  const showContraception = !isPregnant && lifeStage !== "postpartum";
-  const showFertility = lifeStage === "trying_to_conceive";
-  const showMenopause = lifeStage === "perimenopausal" || lifeStage === "menopausal";
-  const showPostnatal = lifeStage === "postpartum";
+  // Every stage-driven card below is an assertion about the patient, so none
+  // of them render off a life stage we did not actually read.
+  const showContraception =
+    !pregnancyUnknown && !reproUnknown && !activePregnancy && lifeStage !== "postpartum";
+  const showFertility = !reproUnknown && lifeStage === "trying_to_conceive";
+  const showMenopause =
+    !reproUnknown && (lifeStage === "perimenopausal" || lifeStage === "menopausal");
+  const showPostnatal = !reproUnknown && lifeStage === "postpartum";
 
   return (
     <DashboardSection
@@ -134,9 +165,11 @@ export default async function WomensHealthPage() {
         <CardContent className="grid grid-cols-2 gap-4 py-4 sm:grid-cols-4">
           <SummaryStat
             label="Cycle"
-            value={reproProfile?.last_period_date ? "Tracked" : "Not tracked"}
+            value={
+              reproUnknown ? "Not available" : reproProfile?.last_period_date ? "Tracked" : "Not tracked"
+            }
           />
-          {isPregnant && gestationalEstimate && (
+          {gestationalEstimate && (
             <SummaryStat label="Antenatal" value={`Week ${gestationalEstimate.weeks}`} />
           )}
           <SummaryStat
@@ -156,13 +189,44 @@ export default async function WomensHealthPage() {
 
       {profile.organisation_id && <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />}
 
-      {isPregnant && (
+      {reproUnknown && (
+        <Card variant="soft">
+          <CardContent className="space-y-2 py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+            <p className="font-medium text-charcoal-ink dark:text-night-ink">
+              We couldn&apos;t load your reproductive health profile just now
+            </p>
+            <p>
+              Your cycle, contraception and life stage are stored, we simply couldn&apos;t read
+              them on this page load. Anything below that depends on them is hidden rather than
+              guessed at. Please refresh and try again.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {pregnancyUnknown && (
+        <Card variant="soft">
+          <CardContent className="space-y-2 py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+            <p className="font-medium text-charcoal-ink dark:text-night-ink">
+              We couldn&apos;t load your pregnancy record just now
+            </p>
+            <p>
+              That is not the same as there being nothing there, so nothing below assumes either
+              way. Please refresh and try again. If you are pregnant and something doesn&apos;t
+              feel right, message your care team or go to your nearest hospital rather than
+              waiting for this page.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      {activePregnancy && (
         <>
           <AntenatalCard
             patientId={subjectId}
-            lastMenstrualPeriodDate={pregnancy?.last_menstrual_period_date ?? null}
-            estimatedDueDate={pregnancy?.estimated_due_date ?? null}
-            highRisk={pregnancy?.high_risk ?? false}
+            lastMenstrualPeriodDate={activePregnancy.last_menstrual_period_date}
+            estimatedDueDate={activePregnancy.estimated_due_date}
+            highRisk={activePregnancy.high_risk}
           />
           <PregnancyRedFlagCheck patientId={subjectId} />
         </>

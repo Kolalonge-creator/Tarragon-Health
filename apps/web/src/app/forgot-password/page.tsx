@@ -19,9 +19,17 @@ export default async function ForgotPasswordPage({
             We&apos;ll send a reset link to your email, or a code to your phone.
           </p>
         </div>
-        {error === "invalid_or_expired_link" && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-center text-sm text-red-600">
-            That reset link is invalid or has expired. Request a new one below.
+        {/* Both spellings are accepted rather than only the canonical one:
+            reset-password-gate.tsx sent `expired_link` for long enough that a
+            bookmarked or in-flight URL can still carry it, and landing on a
+            page with no explanation is exactly the failure being fixed. */}
+        {(error === "invalid_or_expired_link" || error === "expired_link") && (
+          <p
+            role="alert"
+            className="rounded-md bg-red-50 px-3 py-2 text-center text-sm text-red-600"
+          >
+            That reset link is invalid or has expired. Links last a short time for security.
+            Request a new one below.
           </p>
         )}
         <ForgotPasswordForm />

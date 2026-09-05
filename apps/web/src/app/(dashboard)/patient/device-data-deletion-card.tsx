@@ -67,7 +67,7 @@ export function DeviceDataDeletionCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.security className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <NAV_ICON.security className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Manage my device data
         </CardTitle>
         <CardDescription>{DATA_DELETION_SAFETY_NOTE}</CardDescription>

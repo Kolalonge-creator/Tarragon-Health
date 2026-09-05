@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { cn } from "@/lib/utils";
 
 const FIELD_CLASS = "h-11 rounded-xl";
@@ -45,6 +47,13 @@ export function LoginForm({ redirectTo }: { redirectTo?: string }) {
 
 function EmailLoginForm({ redirectTo }: { redirectTo?: string }) {
   const [state, formAction, pending] = useActionState(signInWithEmail, undefined);
+  // A sign-in failure has no single guilty field (we deliberately never say
+  // which of the two was wrong), so both are marked invalid and both point at
+  // the one alert.
+  const errorId = fieldErrorId("login-email-form");
+  const failed = Boolean(state?.error);
+  const emailInvalid = failed && state?.field !== "password";
+  const passwordInvalid = failed && state?.field !== "email";
 
   return (
     <form action={formAction} className="space-y-5">
@@ -57,9 +66,11 @@ function EmailLoginForm({ redirectTo }: { redirectTo?: string }) {
           id="email"
           name="email"
           type="email"
+          inputMode="email"
           autoComplete="email"
           required
           className={FIELD_CLASS}
+          {...fieldErrorProps(errorId, emailInvalid)}
         />
       </div>
       <div className="space-y-1.5">
@@ -80,9 +91,10 @@ function EmailLoginForm({ redirectTo }: { redirectTo?: string }) {
           autoComplete="current-password"
           required
           className={FIELD_CLASS}
+          {...fieldErrorProps(errorId, passwordInvalid)}
         />
       </div>
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+      <FormError id={errorId} message={state?.error} />
       <Button type="submit" size="lg" className="w-full rounded-xl" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
       </Button>
@@ -102,6 +114,9 @@ function PhoneLoginForm({ redirectTo }: { redirectTo?: string }) {
 
   const phone = verifyState?.phone ?? requestState?.phone;
   const showVerify = requestState?.step === "verify" || verifyState?.step === "verify";
+
+  const verifyErrorId = fieldErrorId("login-token");
+  const requestErrorId = fieldErrorId("login-phone");
 
   if (showVerify && phone) {
     return (
@@ -123,9 +138,10 @@ function PhoneLoginForm({ redirectTo }: { redirectTo?: string }) {
             autoComplete="one-time-code"
             required
             className={FIELD_CLASS}
+            {...fieldErrorProps(verifyErrorId, Boolean(verifyState?.error))}
           />
         </div>
-        {verifyState?.error && <p className="text-sm text-red-600">{verifyState.error}</p>}
+        <FormError id={verifyErrorId} message={verifyState?.error} />
         <Button type="submit" size="lg" className="w-full rounded-xl" disabled={verifyPending}>
           {verifyPending ? "Verifying…" : "Verify & sign in"}
         </Button>
@@ -156,17 +172,14 @@ function PhoneLoginForm({ redirectTo }: { redirectTo?: string }) {
             ))}
           </Select>
           <Input
-            id="phone"
-            name="phone"
-            type="tel"
-            autoComplete="tel-national"
-            placeholder="XXXXXXXXXX"
-            required
+            {...phoneInputProps}
             className={FIELD_CLASS}
+            {...fieldErrorProps(requestErrorId, Boolean(requestState?.error), PHONE_HINT_ID)}
           />
         </div>
+        <PhoneNumberHint />
       </div>
-      {requestState?.error && <p className="text-sm text-red-600">{requestState.error}</p>}
+      <FormError id={requestErrorId} message={requestState?.error} />
       <Button type="submit" size="lg" className="w-full rounded-xl" disabled={requestPending}>
         {requestPending ? "Sending code…" : "Send code"}
       </Button>

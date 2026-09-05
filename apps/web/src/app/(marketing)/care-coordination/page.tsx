@@ -12,7 +12,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Care coordination",
   description:
-    "TarragonHealth works out which tests you need and when, writes you a request to take to any laboratory you like, reads every result that comes back, and follows up. You pay the lab directly and we take nothing on it.",
+    "Free app: we work out which tests you need, write a request for any lab you choose, read every result and follow up. You pay the lab, we take no cut.",
   path: MARKETING_ROUTES.careCoordination,
 });
 

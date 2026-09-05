@@ -16,29 +16,10 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
 import { SEVERITY_TILE_TINT } from "@/lib/worklist/severity-tile-tint";
 import { SEMANTIC_ICON } from "@/lib/icons";
-
-function timeAgo(iso: string): string {
-  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-function slaLabel(slaDueAt: string | null): { text: string; overdue: boolean } | null {
-  if (!slaDueAt) return null;
-  const diffMs = new Date(slaDueAt).getTime() - Date.now();
-  const overdue = diffMs < 0;
-  const mins = Math.round(Math.abs(diffMs) / 60_000);
-  const text =
-    mins < 60
-      ? `${mins}m`
-      : mins < 60 * 24
-        ? `${Math.round(mins / 60)}h`
-        : `${Math.round(mins / (60 * 24))}d`;
-  return { text: overdue ? `${text} overdue` : `${text} left`, overdue };
-}
+// These two helpers started life here. They now live in lib/worklist so the
+// escalation worklist ranks and counts down the same way instead of showing a
+// binary "Overdue" chip.
+import { slaBadgeVariant, slaLabel, timeAgo } from "@/lib/worklist/sla-label";
 
 const TIER_BADGE_VARIANT: Record<ReturnType<typeof severityBucket>, BadgeProps["variant"]> = {
   urgent: "red",
@@ -98,7 +79,7 @@ function AlertRow({ alert }: { alert: OperationsQueueAlert }) {
           <Badge variant={TIER_BADGE_VARIANT[tier]}>{TIER_LABEL[tier]}</Badge>
           {alert.type_code && <Badge variant="grey">{alert.type_code.replace(/_/g, " ")}</Badge>}
           <Badge variant={status.variant}>{status.label}</Badge>
-          {sla && <Badge variant={sla.overdue ? "red" : "grey"}>{sla.text}</Badge>}
+          {sla && <Badge variant={slaBadgeVariant(sla)}>{sla.text}</Badge>}
         </div>
         <p className="text-sm font-medium text-charcoal-ink">
           <Link href={`/clinician/patients/${alert.patient_id}`} className="hover:underline">

@@ -107,7 +107,7 @@ export const PRICING_PROMISES: string[] = [
   "The app is free. Tracking, reminders, your screening calendar, the whole education library, lifestyle and weight coaching, the AI Health Coach, and your quarterly report cost you nothing, with no time limit and no card required.",
   "Beyond the free app, we charge by the piece: a doctor's time, plus one optional AI Coach top-up. You see the exact price and confirm it before anything is taken. No surprise charges, ever.",
   "Nothing auto-renews. There is no subscription, no cancellation to remember, and nothing that charges your card a second time on its own. When something runs out, you buy it again if you want to.",
-  "You pay laboratories and pharmacies directly, at their price, for tests, medicines and vaccines. Tarragon takes no cut of what they charge you and has no contracted laboratory.",
+  "Tarragon takes no cut of what a laboratory or pharmacy charges you. For most tests you pay them directly, at their price. For a few screening bundles you can opt in to have us arrange it with our partner laboratory and bill you one price instead.",
   "Naira prices are reviewed once a year at most, and we will tell you at least 30 days before any change. Anything you have already paid for is honoured until it runs out.",
 ];
 
@@ -533,7 +533,7 @@ export function getPricingFaq(
   {
     question: "What do lab tests actually cost?",
     answer:
-      "We don't know, and we deliberately don't quote a figure: Tarragon has no contracted laboratory, so every lab sets its own price and you pay that laboratory directly. Tarragon never charges you for a test. It's worth asking two or three labs before you go, since prices vary by lab and city.",
+      "We deliberately don't quote a figure for the self-arranged route: every lab sets its own price, and you pay that laboratory directly with nothing added by us. It's worth asking two or three labs before you go, since prices vary by lab and city. The exception is a named screening bundle, where you can opt in to have us arrange it with our partner laboratory: there you see one Tarragon price up front and confirm it before anything is charged.",
   },
   {
     question: "What are wellness points, and are they real money?",

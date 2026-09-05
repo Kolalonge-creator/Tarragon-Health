@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { LEVEL_BADGE } from "@/lib/worklist/level-badge";
+import { compareResultRows, isHighSeverityResult } from "@/lib/worklist/results-inbox-rank";
+import { timeAgo } from "@/lib/worklist/sla-label";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { MatchResultToOrder, type CandidateOrder } from "./match-result-to-order";
 import type { Database, EscalationLevel } from "@tarragon/shared";
 
@@ -18,6 +21,21 @@ const ACK_STATUS_BADGE: Record<AckStatus, { label: string; variant: BadgeProps["
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+}
+
+/** Which slice of the inbox is on screen. Plain links rather than client
+ * state: this page is a Server Component and the filter belongs in the URL so
+ * a clinician can keep (or share) the view they are working. */
+const INBOX_FILTERS = [
+  { value: "all", label: "All" },
+  { value: "urgent", label: "Needs a doctor now" },
+  { value: "unreviewed", label: "Not yet reviewed" },
+] as const;
+
+type InboxFilter = (typeof INBOX_FILTERS)[number]["value"];
+
+function parseFilter(value: string | undefined): InboxFilter {
+  return INBOX_FILTERS.some((f) => f.value === value) ? (value as InboxFilter) : "all";
 }
 
 type InboxRow = {
@@ -72,10 +90,15 @@ type OpenOrderRow = {
  * "Previous" shows the patient's next-most-recent document, if any — not a
  * numeric trend, since most uploads carry no structured values to trend.
  */
-export default async function ResultsInboxPage() {
+export default async function ResultsInboxPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ view?: string }>;
+}) {
+  const view = parseFilter((await searchParams).view);
   const supabase = await createClient();
 
-  const { data } = await supabase
+  const { data, error: inboxError } = await supabase
     .from("lab_result_documents")
     .select(
       "id, patient_id, original_filename, note, created_at, acknowledgement_status, next_steps, patient_interpretation, supersedes_document_id, superseded_by_document_id, patient:profiles!lab_result_documents_patient_id_fkey(full_name), clinician_alert:clinician_alerts!lab_result_documents_clinician_alert_id_fkey(level)",
@@ -89,7 +112,10 @@ export default async function ResultsInboxPage() {
 
   // Previous document per patient — the row immediately before each in the
   // patient's own timeline, from the same fetch (cheap: this page is
-  // already capped at 200 rows org-wide).
+  // already capped at 200 rows org-wide). Built from the chronological fetch
+  // order, deliberately before the severity re-rank below, so "previous"
+  // stays the previous document in time rather than the previous row on
+  // screen.
   const byPatient = new Map<string, InboxRow[]>();
   for (const row of rows) {
     const list = byPatient.get(row.patient_id) ?? [];
@@ -97,11 +123,31 @@ export default async function ResultsInboxPage() {
     byPatient.set(row.patient_id, list);
   }
 
+  // The Severity column used to be decorative: the list was ordered purely by
+  // upload time, so an emergency-level result landed wherever it happened to
+  // arrive. Rank by severity first, oldest-first within a severity.
+  const ranked = rows.slice().sort(compareResultRows);
+  const urgentCount = ranked.filter(isHighSeverityResult).length;
+  const unreviewedCount = ranked.filter(
+    (row) => row.acknowledgement_status === "new" || row.acknowledgement_status === "opened"
+  ).length;
+  const visible = ranked.filter((row) => {
+    if (view === "urgent") return isHighSeverityResult(row);
+    if (view === "unreviewed")
+      return row.acknowledgement_status === "new" || row.acknowledgement_status === "opened";
+    return true;
+  });
+  const filterCount: Record<InboxFilter, number> = {
+    all: ranked.length,
+    urgent: urgentCount,
+    unreviewed: unreviewedCount,
+  };
+
   // Module 57.12/57.13 — documents that arrived with no lab_order link yet.
   // "Do not automatically attach it; send to a reconciliation queue" (57.13):
   // this section IS that queue — lab_order_id stays null until a clinician
   // picks the right order below, never guessed automatically.
-  const { data: unmatchedData } = await supabase
+  const { data: unmatchedData, error: unmatchedError } = await supabase
     .from("lab_result_documents")
     .select(
       "id, patient_id, original_filename, note, created_at, source, patient:profiles!lab_result_documents_patient_id_fkey(full_name)",
@@ -141,20 +187,49 @@ export default async function ResultsInboxPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Results inbox</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Every result document not yet fully actioned, oldest first. New and unreviewed items are
-          uploads a signed URL has never been generated for; Opened means someone has looked but not
-          yet recorded a finding.
+          Every result document not yet fully actioned, most severe first and oldest first within a
+          severity. New and unreviewed items are uploads a signed URL has never been generated for;
+          Opened means someone has looked but not yet recorded a finding.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Awaiting action ({rows.length})</CardTitle>
+          <CardTitle>Awaiting action{inboxError ? "" : ` (${ranked.length})`}</CardTitle>
           <CardDescription>Across every patient in your organisation.</CardDescription>
         </CardHeader>
         <CardContent>
-          {rows.length === 0 ? (
+          {!inboxError && ranked.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {INBOX_FILTERS.map((filter) => (
+                <Link
+                  key={filter.value}
+                  href={filter.value === "all" ? "/clinician/results-inbox" : `/clinician/results-inbox?view=${filter.value}`}
+                  aria-current={view === filter.value ? "page" : undefined}
+                  className={
+                    view === filter.value
+                      ? "rounded-full border border-brand-green bg-brand-green/10 px-3 py-1 text-xs font-medium text-deep-forest"
+                      : "rounded-full border border-charcoal-ink/20 px-3 py-1 text-xs text-charcoal-ink/70 hover:border-brand-green"
+                  }
+                >
+                  {filter.label} ({filterCount[filter.value]})
+                </Link>
+              ))}
+            </div>
+          )}
+          {/* "The inbox is clear" off a failed read is a result nobody looks
+              at again. An unread query is not an empty inbox. */}
+          {inboxError ? (
+            <LoadFailure>
+              This inbox could not be loaded, so it must not be read as clear. Reload the page
+              before assuming no result is waiting on a clinician.
+            </LoadFailure>
+          ) : ranked.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">Nothing waiting: the inbox is clear.</p>
+          ) : visible.length === 0 ? (
+            <p className="text-sm text-charcoal-ink/60">
+              Nothing in this view. Choose All to see the rest of the inbox.
+            </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
@@ -164,13 +239,14 @@ export default async function ResultsInboxPage() {
                     <th className="py-2 pr-3 font-medium">Test</th>
                     <th className="py-2 pr-3 font-medium">Status</th>
                     <th className="py-2 pr-3 font-medium">Severity</th>
+                    <th className="py-2 pr-3 font-medium">Waiting</th>
                     <th className="py-2 pr-3 font-medium">Previous</th>
                     <th className="py-2 pr-3 font-medium">Interpretation</th>
                     <th className="py-2 font-medium">Required action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-charcoal-ink/10">
-                  {rows.map((row) => {
+                  {visible.map((row) => {
                     const siblings = byPatient.get(row.patient_id) ?? [];
                     const idx = siblings.findIndex((r) => r.id === row.id);
                     const previous = idx > 0 ? siblings[idx - 1] : undefined;
@@ -212,6 +288,9 @@ export default async function ResultsInboxPage() {
                             <span className="text-xs text-charcoal-ink/40">—</span>
                           )}
                         </td>
+                        <td className="py-2.5 pr-3 text-xs text-charcoal-ink/70">
+                          {timeAgo(row.created_at)}
+                        </td>
                         <td className="py-2.5 pr-3 text-xs text-charcoal-ink/60">
                           {previous ? formatDate(previous.created_at) : "None on file"}
                         </td>
@@ -233,7 +312,7 @@ export default async function ResultsInboxPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Needs order matching ({unmatchedRows.length})</CardTitle>
+          <CardTitle>Needs order matching{unmatchedError ? "" : ` (${unmatchedRows.length})`}</CardTitle>
           <CardDescription>
             Result documents with no lab order on file: an emailed or uploaded result that arrived
             without (or ahead of) its request. Per module 57.13, nothing here is auto-attached; pick
@@ -241,7 +320,12 @@ export default async function ResultsInboxPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {unmatchedRows.length === 0 ? (
+          {unmatchedError ? (
+            <LoadFailure>
+              The reconciliation queue could not be loaded, so this is not a claim that every
+              document is linked to an order. Reload the page to check.
+            </LoadFailure>
+          ) : unmatchedRows.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">Every result document is linked to an order.</p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10">

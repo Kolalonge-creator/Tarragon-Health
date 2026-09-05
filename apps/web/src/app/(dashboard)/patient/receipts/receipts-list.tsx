@@ -49,7 +49,7 @@ function ReceiptRow({ receipt }: { receipt: PatientReceipt }) {
   return (
     <div className="flex items-center justify-between gap-4 border-b border-charcoal-ink/5 dark:border-night-ink/10 py-3 last:border-b-0">
       <div className="flex items-center gap-3">
-        <Icon className="h-5 w-5 shrink-0 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+        <Icon className="h-5 w-5 shrink-0 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
         <div>
           <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{receipt.service_label}</p>
           <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">

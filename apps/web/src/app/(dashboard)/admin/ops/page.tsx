@@ -23,7 +23,7 @@ type OpsTodaySummary = {
   generated_at: string;
   patients: number;
   active_care_programmes: number;
-  active_subscriptions: number;
+  active_paid_services: number;
   appointments_today: number;
   consults_today: number;
   pending_clinical_reviews: number;
@@ -156,7 +156,7 @@ export default async function OpsConsolePage() {
           <StatGroup
             title="Scale"
             stats={[
-              ["Active subscriptions", n(summary.active_subscriptions)],
+              ["Active paid services", n(summary.active_paid_services)],
               ["Video consults today", n(summary.consults_today)],
               ["Pending bookings", n(summary.pending_bookings)],
             ]}
@@ -195,7 +195,7 @@ export default async function OpsConsolePage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <ExceptionQueue initialRows={queue} />
+          <ExceptionQueue initialRows={queue} loadFailed={queueRes.error !== null} />
         </CardContent>
       </Card>
     </div>

@@ -13825,6 +13825,76 @@ export type Database = {
           },
         ]
       }
+      finance_posting_failures: {
+        Row: {
+          amount_minor: number | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"] | null
+          error_code: string | null
+          error_message: string
+          id: string
+          organisation_id: string | null
+          payment_transaction_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          status: string
+          trigger_name: string
+        }
+        Insert: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          error_code?: string | null
+          error_message: string
+          id?: string
+          organisation_id?: string | null
+          payment_transaction_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          status?: string
+          trigger_name: string
+        }
+        Update: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          error_code?: string | null
+          error_message?: string
+          id?: string
+          organisation_id?: string | null
+          payment_transaction_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          status?: string
+          trigger_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_posting_failures_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_posting_failures_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_posting_failures_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_settlement_matches: {
         Row: {
           amount_minor: number
@@ -21616,8 +21686,8 @@ export type Database = {
         Row: {
           channel_sequence_exhausted: Database["public"]["Enums"]["notification_channel"][]
           created_at: string
-          escalation_alert_tier: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway: string
+          escalation_alert_tier: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway: string | null
           id: string
           notification_id: string
           organisation_id: string | null
@@ -21627,8 +21697,8 @@ export type Database = {
         Insert: {
           channel_sequence_exhausted: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
-          escalation_alert_tier: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway: string
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway?: string | null
           id?: string
           notification_id: string
           organisation_id?: string | null
@@ -21638,8 +21708,8 @@ export type Database = {
         Update: {
           channel_sequence_exhausted?: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
-          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway?: string
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway?: string | null
           id?: string
           notification_id?: string
           organisation_id?: string | null
@@ -37827,7 +37897,7 @@ export type Database = {
       analytics_provider_capacity: { Args: never; Returns: Json }
       analytics_referral_turnaround: { Args: never; Returns: Json }
       analytics_retention_cohorts: { Args: never; Returns: Json }
-      analytics_revenue_by_plan: { Args: never; Returns: Json }
+      analytics_revenue_by_product: { Args: never; Returns: Json }
       analytics_revenue_timeseries: {
         Args: { p_period?: string }
         Returns: Json
@@ -39620,6 +39690,10 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      patient_has_feature_access: {
+        Args: { p_feature: string; p_patient_id: string }
+        Returns: boolean
+      }
       patient_health_reset_progress: {
         Args: never
         Returns: {
@@ -40426,6 +40500,37 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "lpe_goal_instances"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      request_care_access: {
+        Args: {
+          p_direction: string
+          p_expires_at?: string | null
+          p_permission_level: Database["public"]["Enums"]["profile_access_level"]
+          p_permissions?:
+            | Database["public"]["Enums"]["caregiver_permission"][]
+            | null
+          p_phone: string
+          p_relationship?: string | null
+        }
+        Returns: {
+          counterparty_user_id: string
+          created_at: string
+          id: string
+          initiated_by: string
+          permission_level: Database["public"]["Enums"]["profile_access_level"]
+          profile_id: string
+          relationship: string | null
+          responded_at: string | null
+          responded_by: string | null
+          status: Database["public"]["Enums"]["care_access_request_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "care_access_requests"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -42408,6 +42513,12 @@ export type Database = {
         | "customer.subscription.deleted"
         | "charge.dispute.create"
         | "charge.dispute.created"
+        | "refund.pending"
+        | "refund.processed"
+        | "refund.failed"
+        | "transfer.success"
+        | "transfer.failed"
+        | "transfer.reversed"
       pharmacy_fulfilment_method: "pickup" | "delivery"
       pharmacy_medication_stock_status: "in_stock" | "low_stock" | "unavailable"
       pharmacy_order_status:
@@ -44741,6 +44852,12 @@ export const Constants = {
         "customer.subscription.deleted",
         "charge.dispute.create",
         "charge.dispute.created",
+        "refund.pending",
+        "refund.processed",
+        "refund.failed",
+        "transfer.success",
+        "transfer.failed",
+        "transfer.reversed",
       ],
       pharmacy_fulfilment_method: ["pickup", "delivery"],
       pharmacy_medication_stock_status: [

@@ -14,16 +14,14 @@ import {
   financeKeys,
 } from "@/lib/finance/queries";
 import { upsertBudgetAction, deleteBudgetAction } from "@/lib/finance/actions";
+import { lagosToday, lagosMonth, lagosMonthStart } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
-const today = () => new Date().toISOString().slice(0, 10);
-const monthStart = () => `${new Date().toISOString().slice(0, 7)}-01`;
-const thisMonth = () => new Date().toISOString().slice(0, 7);
 
 export function Budgets() {
   const qc = useQueryClient();
-  const [from, setFrom] = useState(monthStart());
-  const [to, setTo] = useState(today());
+  const [from, setFrom] = useState(lagosMonthStart());
+  const [to, setTo] = useState(lagosToday());
   const [currency, setCurrency] = useState("NGN");
 
   const variance = useBudgetVariance(from, to, currency);
@@ -35,7 +33,7 @@ export function Budgets() {
   const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.all });
 
   const [showForm, setShowForm] = useState(false);
-  const [f, setF] = useState({ account_code: "", cost_center_code: "", period_month: thisMonth(), amount: "" });
+  const [f, setF] = useState({ account_code: "", cost_center_code: "", period_month: lagosMonth(), amount: "" });
   async function save() {
     setMsg(null);
     if (!f.account_code || !f.amount) return setMsg({ ok: false, text: "Account and amount are required." });
@@ -48,7 +46,7 @@ export function Budgets() {
     });
     if (!res.ok) return setMsg({ ok: false, text: res.error ?? "Could not save budget." });
     setMsg({ ok: true, text: "Budget saved." });
-    setF({ account_code: "", cost_center_code: "", period_month: thisMonth(), amount: "" });
+    setF({ account_code: "", cost_center_code: "", period_month: lagosMonth(), amount: "" });
     setShowForm(false);
     invalidate();
   }

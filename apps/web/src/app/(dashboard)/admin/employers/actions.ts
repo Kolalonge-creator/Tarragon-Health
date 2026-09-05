@@ -5,6 +5,7 @@ import { z } from "zod";
 import { hasAnyPermission } from "@/lib/auth/permissions";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { nairaInputToKobo } from "@/lib/format-money";
 
 export type EmployerActionState = { error?: string; message?: string } | undefined;
 
@@ -131,11 +132,13 @@ export async function setEmployerVerificationAction(
   return { message: `Verification set to ${parsed.data.status}.` };
 }
 
+/* The form collects naira (nobody types kobo), so the amounts arrive already
+ * converted by nairaInputToKobo — the schema still checks they are whole kobo. */
 const contractSchema = z.object({
   organisationId: z.string().uuid(),
   billingModel: z.enum(["per_employee", "per_active_member", "fixed_contract", "service_based", "hybrid"]),
-  billingRateKobo: z.coerce.number().int().nonnegative().optional(),
-  billingFixedAmountKobo: z.coerce.number().int().nonnegative().optional(),
+  billingRateKobo: z.number().int().nonnegative().optional(),
+  billingFixedAmountKobo: z.number().int().nonnegative().optional(),
   billingInterval: z.enum(["monthly", "yearly"]),
   signNow: z.coerce.boolean().optional(),
 });
@@ -155,8 +158,8 @@ export async function upsertEmployerContractAction(
   const parsed = contractSchema.safeParse({
     organisationId: formData.get("organisationId"),
     billingModel: formData.get("billingModel"),
-    billingRateKobo: formData.get("billingRateKobo") || undefined,
-    billingFixedAmountKobo: formData.get("billingFixedAmountKobo") || undefined,
+    billingRateKobo: nairaInputToKobo(formData.get("billingRateNaira")) ?? undefined,
+    billingFixedAmountKobo: nairaInputToKobo(formData.get("billingFixedAmountNaira")) ?? undefined,
     billingInterval: formData.get("billingInterval"),
     signNow: formData.get("signNow") === "on",
   });

@@ -18,7 +18,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "Chronic care",
   description:
-    "Ongoing monitoring for chronic conditions like hypertension, diabetes, and weight management: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
+    "Ongoing monitoring for hypertension, diabetes and weight: readings, medication, labs and doctor review on one record, escalated when care is needed.",
   path: MARKETING_ROUTES.chronicCare,
 });
 

@@ -13,6 +13,7 @@ import {
 import { validateCareMessageAttachment } from "@/lib/validation/care-messages";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { isClinicalTier } from "@/lib/clinical/doctor-tier";
 import { DraftReplyCard } from "@/components/draft-reply-card";
 import { NAV_ICON } from "@/lib/icons";
@@ -152,6 +153,8 @@ export function CareMessageThread({
   const [body, setBody] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const replyFieldId = `care-thread-reply-${threadId}`;
+  const replyErrorId = fieldErrorId(replyFieldId);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 77.13 — stamp this side's read clock whenever the thread is open, so an
@@ -172,12 +175,14 @@ export function CareMessageThread({
           if (pendingFile) {
             upload.mutate(
               { messageId, threadId, patientId, file: pendingFile },
-              { onError: (err) => setError(err instanceof Error ? err.message : "Message sent, but the file couldn't attach") },
+              // Was the raw Storage error string. The important half is that
+              // the message itself did go through.
+              { onError: () => setError("Your message was sent, but the file could not attach. Try attaching it again.") },
             );
             setPendingFile(null);
           }
         },
-        onError: (err) => setError(err instanceof Error ? err.message : "Couldn't send"),
+        onError: () => setError("We could not send that just then. Please try again."),
       },
     );
   };
@@ -244,12 +249,20 @@ export function CareMessageThread({
               your dashboard instead of waiting for a reply here.
             </p>
           )}
+          {/* No label at all before this: the only description was a
+              placeholder, which several screen readers never announce and
+              which disappears the moment typing starts. */}
+          <label htmlFor={replyFieldId} className="sr-only">
+            Your reply
+          </label>
           <Textarea
+            id={replyFieldId}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Write a reply…"
             rows={3}
             maxLength={4000}
+            {...fieldErrorProps(replyErrorId, Boolean(error))}
           />
           {pendingFile && (
             <div className="flex items-center gap-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
@@ -292,7 +305,7 @@ export function CareMessageThread({
                 </button>
               </>
             )}
-            {error && <span className="text-sm text-red-600 dark:text-red-300">{error}</span>}
+            <FormError id={replyErrorId} message={error} />
           </div>
         </div>
       )}

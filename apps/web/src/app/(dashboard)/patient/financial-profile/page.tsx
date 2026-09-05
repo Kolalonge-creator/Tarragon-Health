@@ -122,7 +122,7 @@ export default async function FinancialProfilePage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Your services</CardTitle>
+            <CardTitle as="h2">Your services</CardTitle>
           </CardHeader>
           <CardContent>
             {activeServices.length === 0 ? (
@@ -153,7 +153,7 @@ export default async function FinancialProfilePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent payment issues</CardTitle>
+            <CardTitle as="h2">Recent payment issues</CardTitle>
             <CardDescription>
               We never store your card. A failed charge means Paystack declined it, not that
               anything on our side went wrong.
@@ -178,7 +178,7 @@ export default async function FinancialProfilePage() {
       {pendingShares.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Your share of a split bill</CardTitle>
+            <CardTitle as="h2">Your share of a split bill</CardTitle>
             <CardDescription>
               Someone supporting you paid part of one of your bills. This is the reduced amount
               left for you to pay yourself.
@@ -205,7 +205,7 @@ export default async function FinancialProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Care vouchers</CardTitle>
+          <CardTitle as="h2">Care vouchers</CardTitle>
         </CardHeader>
         <CardContent>
           {vouchers.length === 0 ? (
@@ -236,7 +236,7 @@ export default async function FinancialProfilePage() {
       {refunds.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Refunds in progress</CardTitle>
+            <CardTitle as="h2">Refunds in progress</CardTitle>
             <CardDescription>Refunds go back to the original card and are processed daily.</CardDescription>
           </CardHeader>
           <CardContent>
@@ -259,7 +259,7 @@ export default async function FinancialProfilePage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Transaction history</CardTitle>
+          <CardTitle as="h2">Transaction history</CardTitle>
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (

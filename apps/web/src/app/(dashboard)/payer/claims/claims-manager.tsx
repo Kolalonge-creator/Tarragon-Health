@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
+import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
 import { adjudicateClaimAction } from "./actions";
 
 type Row = {
@@ -30,12 +32,18 @@ const STATUS_BADGE: Record<string, "amber" | "green" | "red" | "blue" | "grey"> 
   paid: "grey",
 };
 
-function naira(kobo: number) {
-  return `₦${(kobo / 100).toLocaleString()}`;
-}
+/** What the operator is about to approve, held until they confirm it. */
+type PendingApproval = {
+  claimId: string;
+  serviceCategory: string;
+  billedKobo: number;
+  coveredKobo: number;
+  claimReference: string;
+};
 
 export function ClaimsManager({ rows }: { rows: Row[] }) {
   const [feedback, setFeedback] = useState<{ error?: string; message?: string } | null>(null);
+  const [pendingApproval, setPendingApproval] = useState<PendingApproval | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -47,12 +55,82 @@ export function ClaimsManager({ rows }: { rows: Row[] }) {
     });
   }
 
+  /**
+   * Amounts are read in naira on this screen, so they are typed in naira too.
+   * The single conversion to kobo happens here, at the submit boundary, and
+   * the operator sees the converted amount against the billed amount before
+   * anything is sent.
+   */
+  function reviewApproval(row: Row, form: HTMLFormElement) {
+    const fd = new FormData(form);
+    const coveredKobo = nairaInputToKobo(fd.get("insurerCoveredNaira"));
+    if (coveredKobo === null) {
+      setFeedback({ error: "Enter the covered amount in naira." });
+      return;
+    }
+    setFeedback(null);
+    setPendingApproval({
+      claimId: row.id,
+      serviceCategory: row.service_category,
+      billedKobo: row.billed_amount_kobo,
+      coveredKobo,
+      claimReference: String(fd.get("claimReference") ?? "").trim(),
+    });
+  }
+
+  function confirmApproval() {
+    if (!pendingApproval) return;
+    const fd = new FormData();
+    fd.set("claimId", pendingApproval.claimId);
+    fd.set("status", "approved");
+    fd.set("insurerCoveredKobo", String(pendingApproval.coveredKobo));
+    if (pendingApproval.claimReference) fd.set("claimReference", pendingApproval.claimReference);
+    setPendingApproval(null);
+    submit(fd);
+  }
+
+  const overBilled = pendingApproval !== null && pendingApproval.coveredKobo > pendingApproval.billedKobo;
+
   return (
     <div className="space-y-4">
       {feedback?.error && <p className="rounded-md bg-red-50 px-4 py-2 text-sm text-red-700">{feedback.error}</p>}
       {feedback?.message && (
         <p className="rounded-md bg-green-50 px-4 py-2 text-sm text-green-700">{feedback.message}</p>
       )}
+
+      <ConfirmDialog
+        open={pendingApproval !== null}
+        title="Approve this claim?"
+        description={
+          pendingApproval
+            ? `Approving ${formatKobo(pendingApproval.coveredKobo)} of ${formatKobo(pendingApproval.billedKobo)} billed for ${pendingApproval.serviceCategory}.`
+            : undefined
+        }
+        confirmLabel="Approve claim"
+        onCancel={() => setPendingApproval(null)}
+        onConfirm={confirmApproval}
+      >
+        {pendingApproval && (
+          <>
+            <ConfirmDialogFacts
+              rows={[
+                { label: "Billed", value: formatKobo(pendingApproval.billedKobo) },
+                { label: "Insurer covers", value: formatKobo(pendingApproval.coveredKobo) },
+                {
+                  label: "Left for the patient",
+                  value: formatKobo(Math.max(0, pendingApproval.billedKobo - pendingApproval.coveredKobo)),
+                },
+                { label: "Claim reference", value: pendingApproval.claimReference || "None" },
+              ]}
+            />
+            {overBilled && (
+              <p className="text-sm text-red-600">
+                This is more than the amount billed. Check the figure before approving.
+              </p>
+            )}
+          </>
+        )}
+      </ConfirmDialog>
 
       {rows.length === 0 ? (
         <p className="text-sm text-charcoal-ink/60">No claims yet.</p>
@@ -62,7 +140,7 @@ export function ClaimsManager({ rows }: { rows: Row[] }) {
             <CardHeader>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <CardTitle className="text-base">
-                  {r.service_category} · Billed {naira(r.billed_amount_kobo)}
+                  {r.service_category} · Billed {formatKobo(r.billed_amount_kobo)}
                   {r.insurance_policies?.plan_name ? ` · ${r.insurance_policies.plan_name}` : ""}
                   {r.claim_reference ? ` · Ref ${r.claim_reference}` : ""}
                 </CardTitle>
@@ -71,8 +149,8 @@ export function ClaimsManager({ rows }: { rows: Row[] }) {
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-sm text-charcoal-ink/70">
-                Insurer covered {r.insurer_covered_kobo !== null ? naira(r.insurer_covered_kobo) : "—"} · Patient
-                copay {naira(r.patient_copay_kobo)}
+                Insurer covered {r.insurer_covered_kobo !== null ? formatKobo(r.insurer_covered_kobo) : "—"} · Patient
+                copay {formatKobo(r.patient_copay_kobo)}
               </p>
               {r.status === "submitted" || r.status === "adjudicating" ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -80,22 +158,23 @@ export function ClaimsManager({ rows }: { rows: Row[] }) {
                     className="flex flex-wrap items-center gap-2"
                     onSubmit={(e) => {
                       e.preventDefault();
-                      submit(new FormData(e.currentTarget));
+                      reviewApproval(r, e.currentTarget);
                     }}
                   >
-                    <input type="hidden" name="claimId" value={r.id} />
-                    <input type="hidden" name="status" value="approved" />
                     <Input
-                      name="insurerCoveredKobo"
+                      name="insurerCoveredNaira"
                       type="number"
                       min={0}
-                      placeholder="Covered (kobo)"
+                      step="0.01"
+                      inputMode="decimal"
+                      aria-label={`Amount covered in naira, of ${formatKobo(r.billed_amount_kobo)} billed`}
+                      placeholder="Covered (₦)"
                       required
                       className="h-9 w-40"
                     />
                     <Input name="claimReference" placeholder="Claim ref (optional)" className="h-9 w-40" />
                     <Button type="submit" size="sm" disabled={pending}>
-                      Approve
+                      Review and approve
                     </Button>
                   </form>
                   <form

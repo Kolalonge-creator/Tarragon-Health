@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatTile } from "@/components/ui/stat-tile";
+import { statTileValue } from "@/components/ui/stat-tile-value";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
@@ -222,15 +223,21 @@ function WeightGoalSection({
                 icon={SEMANTIC_ICON.weight}
                 iconTint="ivory"
                 label="Initial weight"
-                value={startingWeightKg != null ? startingWeightKg.toFixed(1) : "—"}
-                unit="kg"
+                {...statTileValue(
+                  startingWeightKg != null ? startingWeightKg.toFixed(1) : null,
+                  "No starting weight yet",
+                  "kg"
+                )}
               />
               <StatTile
                 icon={SEMANTIC_ICON.weightTrend}
                 iconTint="gold"
                 label={change != null && change < 0 ? "Change so far (up)" : "Total lost so far"}
-                value={change != null ? Math.abs(change).toFixed(1) : "—"}
-                unit="kg"
+                {...statTileValue(
+                  change != null ? Math.abs(change).toFixed(1) : null,
+                  "Log a weight to see this",
+                  "kg"
+                )}
                 delta={
                   change != null
                     ? {

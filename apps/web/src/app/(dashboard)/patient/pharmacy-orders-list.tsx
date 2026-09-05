@@ -18,6 +18,8 @@ import { PayForPharmacyOrderButton } from "@/components/pay-for-pharmacy-order-b
 import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
 import { DeliveryAvailability } from "@/components/delivery-availability";
 import { DeliveryAddressForm } from "@/components/delivery-address-form";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 
 import { formatPatientDate } from "@/lib/format-date";
 type DeliveryAddress = { street: string; area: string; state: string; phone: string };
@@ -57,7 +59,7 @@ function OrderDispenses({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+          className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
           onClick={() => setOpen(true)}
         >
           Record what you collected
@@ -153,10 +155,13 @@ function itemsSummary(items: PharmacyOrderItem[]): string {
 
 export function PharmacyOrdersList({ patientId }: { patientId: string }) {
   const { data: orders, isLoading, isError } = usePatientPharmacyOrders(patientId);
+  const state = listQueryState({ isLoading, isError, count: orders?.length });
 
-  if (isLoading || isError || !orders || orders.length === 0) {
-    return null;
-  }
+  // An order still awaiting payment, or a delivery on its way, must not read
+  // as "you have no orders" because one read failed.
+  if (state === "error")
+    return <LoadErrorCard title="Your pharmacy orders" what="your pharmacy orders" />;
+  if (state !== "ready" || !orders) return null;
 
   return (
     <Card>

@@ -1,5 +1,6 @@
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import type { StatTileValueProps } from "./stat-tile-value";
 
 const ICON_TINT = {
   sage: "bg-soft-sage dark:bg-brand-green/20",
@@ -45,12 +46,10 @@ interface StatTileBaseProps {
 
 /** A tile shows either a real display-scale value or a friendly muted hint —
  * never a bare display-scale "—". The union keeps a caller from passing
- * both (or a unit with no value to attach it to). */
-export type StatTileProps = StatTileBaseProps &
-  (
-    | { value: string; unit?: string; empty?: undefined }
-    | { empty: { hint: string }; value?: undefined; unit?: undefined }
-  );
+ * both (or a unit with no value to attach it to); `statTileValue` is the
+ * helper that builds either side of it from a possibly-absent reading, so a
+ * call site can't spell the empty case as a dash. */
+export type StatTileProps = StatTileBaseProps & StatTileValueProps;
 
 export function StatTile({
   icon: Icon,

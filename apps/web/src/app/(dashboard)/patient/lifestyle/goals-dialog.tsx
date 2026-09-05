@@ -170,7 +170,7 @@ export function GoalsDialog({
                 onClick={close}
                 className="rounded-full p-1 text-white/90 hover:bg-white/10 hover:text-white"
               >
-                <APP_ICON.close className="h-5 w-5" />
+                <APP_ICON.close className="h-5 w-5" aria-hidden />
               </button>
             </div>
 
@@ -221,7 +221,7 @@ export function GoalsDialog({
                             onClick={() => setSelectedTile(tile)}
                             className={`${tile.tint} flex flex-col gap-3 rounded-xl p-4 text-left transition hover:brightness-95`}
                           >
-                            <Icon className="h-6 w-6 text-charcoal-ink/70 dark:text-night-ink/70" />
+                            <Icon className="h-6 w-6 text-charcoal-ink/70 dark:text-night-ink/70" aria-hidden />
                             <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                               {tile.label}
                             </span>
@@ -279,7 +279,7 @@ function GoalForm({
         onClick={onBack}
         className="flex items-center gap-1 text-sm text-charcoal-ink/60 dark:text-night-ink/60 hover:text-charcoal-ink dark:hover:text-night-ink"
       >
-        <APP_ICON.chevronRight className="h-4 w-4 rotate-180" />
+        <APP_ICON.chevronRight className="h-4 w-4 rotate-180" aria-hidden />
         Back
       </button>
 
@@ -290,7 +290,7 @@ function GoalForm({
         <span className={`${tile.tint} rounded-lg p-2`}>
           {(() => {
             const Icon = APP_ICON[tile.icon];
-            return <Icon className="h-5 w-5 text-charcoal-ink/70 dark:text-night-ink/70" />;
+            return <Icon className="h-5 w-5 text-charcoal-ink/70 dark:text-night-ink/70" aria-hidden />;
           })()}
         </span>
         <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{tile.label}</span>

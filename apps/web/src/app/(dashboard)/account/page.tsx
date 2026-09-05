@@ -79,7 +79,7 @@ export default async function AccountPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Your details</CardTitle>
+          <CardTitle as="h2">Your details</CardTitle>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -100,7 +100,7 @@ export default async function AccountPage() {
       {isStaffTier && staff && (
         <Card>
           <CardHeader>
-            <CardTitle>Clinical record</CardTitle>
+            <CardTitle as="h2">Clinical record</CardTitle>
             <CardDescription>
               Set and verified by your organisation&apos;s admin; contact them to update any of
               this.

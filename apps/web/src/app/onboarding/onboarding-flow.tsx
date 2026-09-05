@@ -11,7 +11,22 @@ import { PlanPreview } from "./plan-preview";
 import { ReadyNotice } from "./ready-notice";
 import { ExistingPlanNotice } from "./existing-plan-notice";
 
-function DoneRow({ label }: { label: string }) {
+/**
+ * A finished step. Previously an inert row: once a step collapsed into one of
+ * these there was no way back into it, so a mistyped date of birth (which
+ * drives every risk score and screening date on the platform) could not be
+ * corrected without abandoning onboarding. `onReopen` makes it a real control.
+ */
+function DoneRow({
+  label,
+  detail,
+  onReopen,
+}: {
+  label: string;
+  /** What was actually saved, so the row is checkable at a glance. */
+  detail?: string | null;
+  onReopen?: () => void;
+}) {
   return (
     <div className="flex items-center gap-2 rounded-xl border border-brand-green/20 bg-brand-green/[0.04] px-4 py-3">
       <span
@@ -20,17 +35,76 @@ function DoneRow({ label }: { label: string }) {
       >
         ✓
       </span>
-      <span className="text-sm font-medium text-charcoal-ink">{label}</span>
-      <span className="ml-auto text-xs text-charcoal-ink/50">Done</span>
+      <span className="min-w-0 text-sm font-medium text-charcoal-ink">
+        {label}
+        {detail ? (
+          <span className="ml-2 font-normal text-charcoal-ink/60">{detail}</span>
+        ) : null}
+      </span>
+      {onReopen ? (
+        <button
+          type="button"
+          onClick={onReopen}
+          className="ml-auto rounded-lg px-2 py-1 text-xs font-medium text-brand-green underline underline-offset-2 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+        >
+          Change<span className="sr-only"> {label.toLowerCase()}</span>
+        </button>
+      ) : (
+        <span className="ml-auto text-xs text-charcoal-ink/50">Done</span>
+      )}
     </div>
   );
 }
 
+const STEP_LABELS = ["Your agreement", "About you", "Health profile", "Finish"] as const;
+
 /**
- * Client-side onboarding orchestrator. Steps reveal in order:
+ * "Step 2 of 4", plus the named steps. There was no progress indicator of any
+ * kind here: completed steps collapsed to a row and the remaining ones were
+ * simply not rendered yet, so a first-time visitor could not tell whether they
+ * were two steps from the end or ten.
+ */
+function OnboardingProgress({ current }: { current: number }) {
+  return (
+    <nav aria-label="Setup progress" className="space-y-2">
+      <p className="text-center text-xs font-medium text-charcoal-ink/60">
+        Step {current + 1} of {STEP_LABELS.length}: {STEP_LABELS[current]}
+      </p>
+      <ol className="flex items-center gap-1.5" role="list">
+        {STEP_LABELS.map((label, index) => (
+          <li
+            key={label}
+            className="flex-1"
+            {...(index === current ? { "aria-current": "step" as const } : {})}
+          >
+            <span
+              className={`block h-1.5 rounded-full ${
+                index < current
+                  ? "bg-brand-green"
+                  : index === current
+                    ? "bg-brand-green/60"
+                    : "bg-charcoal-ink/10"
+              }`}
+            />
+            <span className="sr-only">
+              {label}
+              {index < current ? " (done)" : index === current ? " (current)" : " (not started)"}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </nav>
+  );
+}
+
+/**
+ * Client-side onboarding orchestrator. Four counted steps (see STEP_LABELS,
+ * which is what OnboardingProgress shows the patient):
  *   1. Consent (required)   2. About you, DOB/sex (required)
- *   3. Where you are (finds labs near you)
- *   4. Health profile (skippable)   5. Confirmation (the app is free)
+ *   3. Health profile (skippable)   4. Confirmation (the app is free)
+ * "Where you are" renders alongside step 2 rather than as a counted step of
+ * its own: it is optional, it gates nothing, and the nearby-facility pickers
+ * it was collected for are suspended platform-wide.
  * Required steps gate the final step both here and structurally in the DB
  * (private.enforce_onboarding_prereqs), so this ordering can't be bypassed to
  * finish onboarding without consent + demographics.
@@ -81,8 +155,16 @@ export function OnboardingFlow({
   const [consentDone, setConsentDone] = useState(initial.consentDone);
   const [demographicsDone, setDemographicsDone] = useState(initial.demographicsDone);
   const [intakeCollapsed, setIntakeCollapsed] = useState(initial.intakeDone);
+  // What the demographics step actually saved this session. `initial` is the
+  // server value from page load, so without this a reopened "About you" step
+  // would come back blank for anyone who had just filled it in.
+  const [demographics, setDemographics] = useState({
+    dateOfBirth: initial.dateOfBirth,
+    sex: initial.sex,
+  });
 
   const readyForPlan = consentDone && demographicsDone;
+  const currentStep = !consentDone ? 0 : !demographicsDone ? 1 : !intakeCollapsed ? 2 : 3;
 
   if (!receivesCare) {
     return <SupporterOnboarding profile={profile} done={consentDone} onDone={setConsentDone} />;
@@ -97,6 +179,8 @@ export function OnboardingFlow({
         <p className="mt-1 text-sm text-charcoal-ink/60">Care that stays with you.</p>
       </div>
 
+      <OnboardingProgress current={currentStep} />
+
       <div className="space-y-4 rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
           How your care works here
@@ -110,31 +194,49 @@ export function OnboardingFlow({
           The thresholds and rules behind all of it are designed and supervised by our Clinical
           Director, so what counts as worth acting on is not decided case by case.
         </p>
+        {/* There are no plans to be on any more (they were retired in favour
+            of a free app plus per-piece-of-work doctor time), and the previous
+            wording here also contradicted the confirmation screen at the end
+            of this same flow. This says the same thing that screen and the
+            upgrade prompts say. */}
         <p className="text-sm text-charcoal-ink">
           If a result or symptom meets those criteria, it goes to a doctor for review, and
-          you&apos;ll see exactly who reviewed it and when. That escalation runs on every plan,
-          including the free one. Routine review of readings when nothing is flagged is part of
-          the paid plans.
+          you&apos;ll see exactly who reviewed it and when. An abnormal screening result always
+          reaches a doctor, and a dangerous reading always gets you the full safety net:
+          immediate guidance, your emergency contact told, and a check-in afterwards. None of
+          that depends on you paying for anything.
+        </p>
+        <p className="text-sm text-charcoal-ink">
+          The app itself is free. The only thing that costs money is a doctor&apos;s time when
+          you ask for it, and that is also what adds a Tarragon doctor being paged on a
+          dangerous reading and routine review of your readings when nothing is flagged.
         </p>
       </div>
 
       {careTeamSlot}
 
-      {/* Step 1 — Consent */}
+      {/* Step 1: Consent */}
       {consentDone ? (
-        <DoneRow label="Your agreement" />
+        <DoneRow label="Your agreement" onReopen={() => setConsentDone(false)} />
       ) : (
         <ConsentStep onComplete={() => setConsentDone(true)} />
       )}
 
-      {/* Step 2 — Demographics + location (revealed after consent) */}
+      {/* Step 2: Demographics + location (revealed after consent) */}
       {consentDone &&
         (demographicsDone ? (
-          <DoneRow label="About you" />
+          <DoneRow
+            label="About you"
+            detail={demographics.dateOfBirth ?? undefined}
+            onReopen={() => setDemographicsDone(false)}
+          />
         ) : (
           <DemographicsForm
-            initial={{ dateOfBirth: initial.dateOfBirth, sex: initial.sex }}
-            onComplete={() => setDemographicsDone(true)}
+            initial={demographics}
+            onComplete={(saved) => {
+              setDemographics(saved);
+              setDemographicsDone(true);
+            }}
           />
         ))}
 
@@ -147,12 +249,15 @@ export function OnboardingFlow({
         <PatientLocationForm initial={initial.location} />
       )}
 
-      {/* Step 3 — Health profile (skippable) */}
+      {/* Step 3: Health profile (skippable) */}
       {readyForPlan && !intakeCollapsed && (
         <IntakeStep patientId={profile.id} onSkip={() => setIntakeCollapsed(true)} />
       )}
+      {readyForPlan && intakeCollapsed && (
+        <DoneRow label="Health profile" onReopen={() => setIntakeCollapsed(false)} />
+      )}
 
-      {/* Step 4 — a patient who already has something active (a legacy pack
+      {/* Step 4: a patient who already has something active (a legacy pack
           still running, or a paid service bought before finishing onboarding)
           sees that instead; everyone else sees the honest intake-driven
           preview, then a plain confirmation that the app is free. There is no
@@ -215,7 +320,7 @@ function SupporterOnboarding({
         </p>
         <p className="text-sm text-charcoal-ink">
           What you cannot do is read their record by default. They keep their own account, and they
-          decide whether you can follow how they are doing — from their side, and they can stop at
+          decide from their side whether you can follow how they are doing, and they can stop at
           any time. If they have not linked you yet, ask them to add you under &ldquo;Your
           people&rdquo;.
         </p>

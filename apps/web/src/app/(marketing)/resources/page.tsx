@@ -8,7 +8,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
 export const metadata: Metadata = pageMetadata({
-  title: "Health resources: plain answers to real questions",
+  title: "Health resources in plain language",
   description:
     "Clear, honest articles on blood pressure, diabetes, weight, cholesterol and screening, written for Nigerians, in plain language.",
   path: MARKETING_ROUTES.resources,

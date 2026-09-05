@@ -194,6 +194,7 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                 ) : (
                   <MarkResultReviewed
                     documentId={doc.id}
+                    patientName={patient?.full_name ?? null}
                     extraction={extractionByDocument.get(doc.id) ?? null}
                     patientSex={patient?.sex ?? null}
                     patientAgeYears={patientAgeYears}

@@ -54,9 +54,23 @@ export function evaluateCondition(condition: RedFlagCondition, capture: SymptomC
   if (condition.anyHistory !== undefined) {
     if (!condition.anyHistory.some((h) => capture.relevantHistory.includes(h))) return false;
   }
+  // INCLUSIVE ("at or below"), i.e. read the field as "measurementAtMost";
+  // its doc comment on RedFlagCondition is the copy a rule author will
+  // actually see, and says the same thing. Not strict. The only measurementBelow rule that
+  // exists anywhere — in this package, in the DB seed migration, and in the
+  // db-seed-fixture parity copy — is breathlessness.spo2_low at spo2_pct 92,
+  // and the live classifier private.classify_spo2_level classes exactly 92 as
+  // RED (`p_spo2_pct <= 92`). Evaluated strictly, an SpO2 of 92 fired nothing
+  // at all here while the rest of the platform treated it as a red flag. The
+  // threshold VALUE is not changed instead, because it lives in the
+  // triage_protocols.config jsonb seeded by
+  // 20260829094847_symptom_triage_protocols_config.sql — moving it would need
+  // a migration and would break the DB/TS parity guard in
+  // protocols/config-schema.test.ts. The field keeps its serialized name
+  // because that name is part of the stored jsonb shape.
   if (condition.measurementBelow !== undefined) {
     const v = capture.measurements[condition.measurementBelow.key];
-    if (typeof v !== "number" || !(v < condition.measurementBelow.value)) return false;
+    if (typeof v !== "number" || !(v <= condition.measurementBelow.value)) return false;
   }
   if (condition.measurementAtLeast !== undefined) {
     const v = capture.measurements[condition.measurementAtLeast.key];

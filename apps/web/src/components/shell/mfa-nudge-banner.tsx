@@ -109,11 +109,11 @@ export function MfaNudgeBanner({ role }: { role: UserRole | null | undefined }) 
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 w-7 shrink-0 p-0 text-charcoal-ink/40 hover:text-charcoal-ink dark:text-night-ink/50 dark:hover:text-night-ink"
+        className="relative h-7 w-7 shrink-0 p-0 text-charcoal-ink/40 after:absolute after:-inset-2 after:content-[''] hover:text-charcoal-ink dark:text-night-ink/50 dark:hover:text-night-ink"
         aria-label="Dismiss"
         onClick={dismiss}
       >
-        <APP_ICON.close className="h-4 w-4" strokeWidth={2} />
+        <APP_ICON.close className="h-4 w-4" strokeWidth={2} aria-hidden />
       </Button>
     </div>
   );

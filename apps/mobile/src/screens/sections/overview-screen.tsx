@@ -383,7 +383,8 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Your care team</Text>
             <MutedText>
-              A team of MDCN-registered doctors follows your readings and checks in with you.
+              Your readings are followed by a team of doctors, and whoever reviews one is named
+              on that note rather than assigned to you ahead of time.
             </MutedText>
           </View>
           <Pressable

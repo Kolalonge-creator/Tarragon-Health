@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui/phone-field";
 import { cn } from "@/lib/utils";
 
 export function ForgotPasswordForm() {
@@ -37,12 +39,13 @@ export function ForgotPasswordForm() {
 
 function EmailResetForm() {
   const [state, formAction, pending] = useActionState(requestPasswordResetEmail, undefined);
+  const errorId = fieldErrorId("reset-email");
 
   if (state?.success) {
     return (
-      <p className="text-sm text-charcoal-ink/70">
+      <p role="status" className="text-sm text-charcoal-ink/70">
         If an account exists for that email, we&apos;ve sent a link to reset your password.
-        Check your inbox (and spam folder) — the link works for a limited time.
+        Check your inbox, and your spam folder. The link works for a limited time.
       </p>
     );
   }
@@ -51,9 +54,17 @@ function EmailResetForm() {
     <form action={formAction} className="space-y-4">
       <div className="space-y-1.5">
         <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Input
+          id="email"
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          required
+          {...fieldErrorProps(errorId, Boolean(state?.error))}
+        />
       </div>
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+      <FormError id={errorId} message={state?.error} />
       <Button type="submit" className="w-full" disabled={pending}>
         {pending ? "Sending…" : "Send reset link"}
       </Button>
@@ -70,6 +81,8 @@ function PhoneResetForm() {
 
   const phone = verifyState?.phone ?? requestState?.phone;
   const showVerify = requestState?.step === "verify" || verifyState?.step === "verify";
+  const verifyErrorId = fieldErrorId("reset-token");
+  const requestErrorId = fieldErrorId("reset-phone");
 
   if (showVerify && phone) {
     return (
@@ -87,9 +100,10 @@ function PhoneResetForm() {
             maxLength={6}
             autoComplete="one-time-code"
             required
+            {...fieldErrorProps(verifyErrorId, Boolean(verifyState?.error))}
           />
         </div>
-        {verifyState?.error && <p className="text-sm text-red-600">{verifyState.error}</p>}
+        <FormError id={verifyErrorId} message={verifyState?.error} />
         <Button type="submit" className="w-full" disabled={verifyPending}>
           {verifyPending ? "Verifying…" : "Verify code"}
         </Button>
@@ -118,16 +132,13 @@ function PhoneResetForm() {
             ))}
           </Select>
           <Input
-            id="phone"
-            name="phone"
-            type="tel"
-            autoComplete="tel-national"
-            placeholder="XXXXXXXXXX"
-            required
+            {...phoneInputProps}
+            {...fieldErrorProps(requestErrorId, Boolean(requestState?.error), PHONE_HINT_ID)}
           />
         </div>
+        <PhoneNumberHint />
       </div>
-      {requestState?.error && <p className="text-sm text-red-600">{requestState.error}</p>}
+      <FormError id={requestErrorId} message={requestState?.error} />
       <Button type="submit" className="w-full" disabled={requestPending}>
         {requestPending ? "Sending code…" : "Send code"}
       </Button>

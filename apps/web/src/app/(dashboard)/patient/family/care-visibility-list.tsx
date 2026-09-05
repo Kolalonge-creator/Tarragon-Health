@@ -23,6 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
@@ -74,7 +76,22 @@ export function CareVisibilityList() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  if (isLoading || isError || !followers || followers.length === 0) {
+  const state = listQueryState({ isLoading, isError, count: followers?.length });
+
+  // This card is the only place a patient can take access back. If the read
+  // fails and the card disappears, they cannot revoke access they cannot see,
+  // and the page reads as though nobody holds any.
+  if (state === "error") {
+    return (
+      <LoadErrorCard
+        title="Who can see your health information"
+        what="who can see your health information"
+        detail="Nobody has gained or lost access because of this. Refreshing brings the list back so you can change it."
+      />
+    );
+  }
+
+  if (state !== "ready" || !followers) {
     // Nothing to decide about until somebody actually holds a grant. The
     // next-of-kin and caregiver cards above are where that starts.
     return null;

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stepper } from "@/components/ui/stepper";
+import { EmptyHint } from "@/components/ui/empty-hint";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
 import { ReferralOutcomeDocumentUpload } from "@/components/referral-outcome-document-upload";
 import type { ReferralStatus } from "@tarragon/shared";
@@ -33,9 +34,17 @@ function formatDate(value: string): string {
  * Patient's own specialist referrals — closes the dangling end of the
  * abnormal-result pipeline (AbnormalResultHandler creates the row; until
  * this component, nothing ever showed it to the patient). Renders nothing
- * if the patient has no referrals on record.
+ * if the patient has no referrals on record, unless the caller passes
+ * `emptyHint` — Health summary heads this section itself and needs the
+ * heading answered rather than left bare.
  */
-export async function YourReferrals({ patientId }: { patientId: string }) {
+export async function YourReferrals({
+  patientId,
+  emptyHint,
+}: {
+  patientId: string;
+  emptyHint?: string;
+}) {
   const supabase = await createClient();
 
   const { data: referrals } = await supabase
@@ -48,7 +57,7 @@ export async function YourReferrals({ patientId }: { patientId: string }) {
     .order("created_at", { ascending: false });
 
   if (!referrals || referrals.length === 0) {
-    return null;
+    return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
   }
 
   return (

@@ -13,7 +13,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
-    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. We say what to get and why, you use any lab you like, and a doctor reads the result with you.",
+    "One day a year for your health: bloods, blood pressure, BMI and the screening that fits your age and sex. Use any lab you like, a doctor reads it.",
   path: MARKETING_ROUTES.annualHealthCheck,
 });
 
@@ -33,8 +33,12 @@ export const metadata: Metadata = pageMetadata({
  *  - Card details: checkout is hosted by Paystack; the platform never
  *    receives or stores a card number.
  *
- * NOTE: this block intentionally does NOT repeat the homepage TrustBand's
- * "MDCN-registered doctors" wording. Re-checked live 2026-08-05: of 7 active
+ * NOTE: this block intentionally does NOT repeat the "MDCN-registered
+ * doctors" wording. The homepage TrustBand carried exactly that claim until
+ * 2026-09-05, when it was corrected to describe the verification mechanism
+ * instead; do not reintroduce it in either place. Re-checked live 2026-09-05:
+ * clinical_staff holds 8 active rows whose credential numbers are QA-000001,
+ * TEST-0001 through TEST-0006, and one null. Prior check, 2026-08-05: of 7 active
  * clinical_staff records, 6 carry a credential_number and a distinct
  * verified_by (all still QA test values — TEST-0001 etc, not real MDCN
  * numbers), and 1 has both credential_number and verified_by null (an older
@@ -107,7 +111,7 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "A plan, if you need one",
-    body: "If something needs attention, your doctor follows up the same day and helps you decide what's next, on the same record, with no starting over.",
+    body: "If something needs attention, a doctor follows up within a day, and within 12 hours if it's critical, then helps you decide what's next, on the same record, with no starting over.",
   },
 ];
 
@@ -221,7 +225,7 @@ export default function AnnualHealthCheckPage() {
             {
               name: "Comprehensive Screen",
               price: "You pay the lab, once",
-              body: "Everything in Advanced Screen, plus imaging and a syphilis screen.",
+              body: "Everything in Advanced Screen, plus imaging.",
             },
           ].map((tier) => (
             <div

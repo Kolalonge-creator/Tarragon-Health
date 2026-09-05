@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import { MEAL_TYPE_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -143,7 +145,12 @@ function LogMealSection({
           <div className="grid gap-2">
             <Label>Meal</Label>
             <input type="hidden" name="meal_type" value={mealType} />
-            <div className="grid grid-cols-4 gap-2">
+            {/* Two-up on a phone. At 375px, four columns leave roughly 56px of
+                content per cell once the gaps and the buttons' own p-3 are
+                taken out, which is narrower than "Breakfast" renders at
+                text-xs, so the label wrapped or clipped on the most common
+                device in this market. */}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {MEAL_TYPES.map((t) => {
                 const Icon = MEAL_TYPE_ICON[t];
                 const active = mealType === t;
@@ -160,7 +167,7 @@ function LogMealSection({
                         : "border-charcoal-ink/10 dark:border-night-ink/15 text-charcoal-ink/70 dark:text-night-ink/70 hover:border-charcoal-ink/20 dark:hover:border-night-ink/25",
                     )}
                   >
-                    <Icon className="h-5 w-5" strokeWidth={2} />
+                    <Icon className="h-5 w-5" strokeWidth={2} aria-hidden />
                     {MEAL_TYPE_LABELS[t]}
                   </button>
                 );
@@ -463,8 +470,9 @@ function MealHistorySection({
   patientId: string;
   activeConditions: CarePlanCondition[];
 }) {
-  const { data: entries, isLoading } = useNutritionEntries(patientId);
+  const { data: entries, isLoading, isError } = useNutritionEntries(patientId);
   const { data: catalogue } = useFoodCatalogue();
+  const state = listQueryState({ isLoading, isError, count: entries?.length });
 
   const grouped = useMemo(() => {
     const rows = entries ?? [];
@@ -476,14 +484,18 @@ function MealHistorySection({
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [entries]);
 
+  // A failed read used to render as "No meals logged yet.", which tells a
+  // patient who has been logging every day that their record is empty.
+  if (state === "error") return <LoadErrorCard title="Recent meals" what="your meal log" />;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Recent meals</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
-        {!isLoading && (!entries || entries.length === 0) && (
+        {state === "loading" && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {state === "empty" && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No meals logged yet.</p>
         )}
         {grouped.length > 0 && (

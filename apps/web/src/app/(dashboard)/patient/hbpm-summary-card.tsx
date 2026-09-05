@@ -17,7 +17,7 @@ export function HbpmSummaryCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your 7-day home BP average
         </CardTitle>
       </CardHeader>

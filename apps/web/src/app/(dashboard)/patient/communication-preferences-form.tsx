@@ -42,7 +42,7 @@ export function CommunicationPreferencesForm({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.bell className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <NAV_ICON.bell className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Communication preferences
         </CardTitle>
         <CardDescription>

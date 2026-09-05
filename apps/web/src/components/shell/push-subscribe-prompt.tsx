@@ -121,12 +121,16 @@ export function PushSubscribePrompt() {
 
   return (
     <div className="flex items-center gap-1.5 rounded-full bg-brand-green/10 py-1 pl-3 pr-1">
-      <NAV_ICON.bell className="h-3.5 w-3.5 text-brand-green" strokeWidth={2} />
+      <NAV_ICON.bell className="h-3.5 w-3.5 text-brand-green" strokeWidth={2} aria-hidden />
       <button
         type="button"
         onClick={enable}
         disabled={busy}
-        className="text-xs font-medium text-deep-forest hover:underline disabled:opacity-60 dark:text-brand-green-bright"
+        // The visible chip stays exactly as designed (it lives in the
+        // topbar, where a 44px-tall control would grow the whole header);
+        // the ::after box extends the tap target to 44px without changing a
+        // pixel of what is drawn.
+        className="relative text-xs font-medium text-deep-forest after:absolute after:inset-x-0 after:-inset-y-3.5 after:content-[''] hover:underline disabled:opacity-60 dark:text-brand-green-bright"
       >
         Enable alerts
       </button>
@@ -134,11 +138,11 @@ export function PushSubscribePrompt() {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-6 w-6 p-0 text-charcoal-ink/40 hover:text-charcoal-ink dark:text-night-ink/50 dark:hover:text-night-ink"
+        className="relative h-6 w-6 p-0 text-charcoal-ink/40 after:absolute after:-inset-2.5 after:content-[''] hover:text-charcoal-ink dark:text-night-ink/50 dark:hover:text-night-ink"
         aria-label="Dismiss"
         onClick={dismiss}
       >
-        <NAV_ICON.close className="h-3.5 w-3.5" strokeWidth={2} />
+        <NAV_ICON.close className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
       </Button>
     </div>
   );

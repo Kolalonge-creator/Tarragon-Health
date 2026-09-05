@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { FindASpecialist } from "./find-a-specialist";
 
 export default async function FindASpecialistPage() {
@@ -14,17 +14,14 @@ export default async function FindASpecialistPage() {
   }
 
   return (
-    <DashboardPlaceholder greeting="Find a specialist" roleLabel="Patient" comingUp={[]}>
-      <div className="flex justify-end">
-        <Link href="/patient" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-          ← Back to dashboard
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        Browse Tarragon&apos;s specialist network by specialty, location, and language. Your care team still
-        arranges the actual referral and booking.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Find a specialist"
+        icon={NAV_ICON.referral}
+        backTo={{ href: "/patient", label: "Dashboard" }}
+        description="Browse Tarragon's specialist network by specialty, location, and language. Your care team still arranges the actual referral and booking."
+      />
       <FindASpecialist patientLocation={{ state: profile.state, city: profile.city, area: profile.area }} />
-    </DashboardPlaceholder>
+    </div>
   );
 }

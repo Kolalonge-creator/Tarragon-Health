@@ -24,14 +24,23 @@ export default async function EscalationSlasSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data: versions } = await supabase
+  const { data: versions, error: versionsError } = await supabase
     .from("escalation_slas")
     .select("id, version, config, notes, is_active, approved_at, created_at")
     .order("version", { ascending: false });
 
-  const versionRows = (versions as EscalationSlaVersionRow[] | null) ?? [];
+  // A swallowed error here was worse than a blank page. It produced an empty
+  // versions list, which made the page say "No active configuration found"
+  // while a live config was driving sla_due_at on every abnormal-result
+  // alert on the platform, and it made nextVersion compute to 1 — inviting a
+  // Clinical Director to draft and sign a "v1" over the SLAs actually in
+  // force. Both claims are only safe off a read we know succeeded, so the
+  // next version number is derived only when there is no error, and is null
+  // otherwise rather than falling back to a number.
+  const loadFailed = versionsError !== null;
+  const versionRows = loadFailed ? [] : ((versions as EscalationSlaVersionRow[] | null) ?? []);
   const activeVersion = versionRows.find((v) => v.is_active) ?? null;
-  const nextVersion = (versionRows[0]?.version ?? 0) + 1;
+  const nextVersion = loadFailed ? null : (versionRows[0]?.version ?? 0) + 1;
 
   return (
     <div className="space-y-6">
@@ -43,6 +52,7 @@ export default async function EscalationSlasSettingsPage() {
         versions={versionRows}
         activeVersion={activeVersion}
         nextVersion={nextVersion}
+        loadFailed={loadFailed}
       />
     </div>
   );

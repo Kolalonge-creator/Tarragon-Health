@@ -103,7 +103,7 @@ export function MedicationsList({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Medications
           {data && isPolypharmacy(data.length) && (
             <Badge variant="amber" title={`${data.length} active medicines. This is a lot to keep track of, worth a review`}>
@@ -542,7 +542,7 @@ function StopMedicationForm({
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        className="mt-1 min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen(true)}
       >
         Stop medication
@@ -635,7 +635,7 @@ function RepeatRequestControl({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         disabled={requestRepeat.isPending}
         onClick={() => requestRepeat.mutate({ medicationId: medication.id, patientId })}
       >
@@ -719,7 +719,7 @@ function RequestRenewalButton({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         disabled={requestRenewal.isPending || isBuying}
         onClick={onRequest}
       >
@@ -758,7 +758,7 @@ function ReportSideEffectButton({
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        className="mt-1 min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen(true)}
       >
         I&apos;m experiencing a side effect
@@ -773,7 +773,7 @@ function ReportSideEffectButton({
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs"
+        className="mt-1 min-h-11 px-2 text-xs"
         onClick={() => setOpen(false)}
       >
         Close
@@ -797,7 +797,7 @@ function AccessBarrierButton({ medicationId, drugName }: { medicationId: string;
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        className="mt-1 min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen(true)}
       >
         I can&apos;t get or afford this medicine
@@ -812,7 +812,7 @@ function AccessBarrierButton({ medicationId, drugName }: { medicationId: string;
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs"
+        className="mt-1 min-h-11 px-2 text-xs"
         onClick={() => setOpen(false)}
       >
         Close
@@ -834,7 +834,7 @@ function PastMedications({ patientId }: { patientId: string }) {
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >

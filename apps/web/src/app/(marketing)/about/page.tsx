@@ -35,9 +35,9 @@ const ABOUT_COMMITMENTS = [
   },
   {
     value: "Built to scale",
-    label: "how one doctor covers more ground",
+    label: "where a doctor's time goes",
     detail:
-      "We invest in protocols, automation, and triage so a doctor can safely support far more patients than a traditional clinic, without cutting corners on review.",
+      "We invest in protocols, automation, and triage so a doctor's time goes to the cases that actually need judgement, without cutting corners on review.",
   },
 ] as const;
 

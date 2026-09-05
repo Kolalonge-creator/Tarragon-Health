@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
+import { NAV_ICON } from "@/lib/icons";
 import { MessagesFlow } from "../messages-flow";
 
 export default async function MessagesPage() {
@@ -11,17 +11,14 @@ export default async function MessagesPage() {
   const { subjectId } = await getPatientDashboardContext();
 
   return (
-    <DashboardPlaceholder greeting="Messages" roleLabel="Patient" comingUp={[]}>
-      <div className="flex justify-end">
-        <Link href="/patient" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-          ← Back to dashboard
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        Message your care team in the app and they&apos;ll reply here. For anything urgent, use the
-        emergency options on your dashboard rather than a message.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Messages"
+        icon={NAV_ICON.messages}
+        backTo={{ href: "/patient", label: "Dashboard" }}
+        description="Message your care team in the app and they'll reply here. For anything urgent, use the emergency options on your dashboard rather than a message."
+      />
       <MessagesFlow patientId={subjectId} />
-    </DashboardPlaceholder>
+    </div>
   );
 }

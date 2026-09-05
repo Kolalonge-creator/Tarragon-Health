@@ -34,7 +34,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
     { href: MARKETING_ROUTES.gift, label: "Gift Tarragon" },
     { href: MARKETING_ROUTES.whoItsFor, label: "Who it's for" },
-    { href: MARKETING_ROUTES.forYou, label: "For you" },
+    { href: MARKETING_ROUTES.forYou, label: "For individuals" },
     { href: MARKETING_ROUTES.about, label: "About" },
     { href: MARKETING_ROUTES.careers, label: "Careers" },
     { href: MARKETING_ROUTES.resources, label: "Resources" },
@@ -138,9 +138,13 @@ function FooterGroup({
 }) {
   return (
     <div>
-      <h2 className="font-heading text-sm font-semibold uppercase tracking-wide text-white/90">
+      {/* h3, under the footer's own visually-hidden h2. These were five <h2>s
+          per page, so every page's heading outline ended with "Care",
+          "Programmes", "Conditions", "Company", "Business" at the same level
+          as its real section headings. */}
+      <h3 className="font-heading text-sm font-semibold uppercase tracking-wide text-white/90">
         {title}
-      </h2>
+      </h3>
       <ul className="mt-4 space-y-2.5">
         {links.map((link) => (
           <li key={link.label}>
@@ -155,6 +159,7 @@ function FooterGroup({
 export function MarketingFooter() {
   return (
     <footer className="border-t border-charcoal-ink/10 bg-clinical-navy text-white">
+      <h2 className="sr-only">Site footer</h2>
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1fr_1fr]">
         <div className="space-y-5">
           <BrandLockup tone="on-navy" markClassName="h-10 w-10" wordmarkClassName="text-xl" />

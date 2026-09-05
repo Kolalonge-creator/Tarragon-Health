@@ -79,7 +79,7 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Today&apos;s doses
         </CardTitle>
       </CardHeader>
@@ -88,7 +88,7 @@ export function TodaysDoses({ patientId }: { patientId: string }) {
         {!isLoading && checklist.length === 0 && (
           <div className="flex flex-col items-center gap-2 py-6 text-center">
             <span className="flex h-10 w-10 items-center justify-center rounded-full bg-soft-sage/60 dark:bg-brand-green/15">
-              <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest/60 dark:text-brand-green-bright/70" strokeWidth={2} />
+              <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest/60 dark:text-brand-green-bright/70" strokeWidth={2} aria-hidden />
             </span>
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No scheduled doses today.</p>
             <p className="text-xs text-charcoal-ink/45 dark:text-night-ink/55">

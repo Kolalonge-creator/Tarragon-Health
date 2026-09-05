@@ -11,6 +11,15 @@ const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
 };
 
 /**
+ * Rank of a single level, lowest number = most severe. Exposed so a queue
+ * that ranks rows carrying a level but no SLA (the results inbox) can reuse
+ * exactly this ladder instead of inventing a second, drifting one.
+ */
+export function levelRank(level: EscalationLevel): number {
+  return LEVEL_PRIORITY[level];
+}
+
+/**
  * The level a worklist should actually triage/rank by. A clinician's
  * recorded disagreement (clinician_alerts.override_level, see the
  * clinician_override migration) always wins over the system's own

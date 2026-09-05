@@ -107,6 +107,16 @@ const nextConfig: NextConfig = {
   // hydrating at all (a page can look loaded — server-rendered markup
   // shows — while every useEffect never runs).
   allowedDevOrigins: ["192.168.40.137"],
+  // The marketing site's hero photography is 150-710 KB of source JPEG per
+  // page, served to a market where mobile data is metered and often slow.
+  // next/image already resizes, but with no `formats` set it re-encodes to
+  // WebP only; adding AVIF ahead of it typically halves the transfer again
+  // for the same photo, and browsers that support neither still get the
+  // original via content negotiation. Ordered most-efficient-first, which is
+  // the order Next offers them in the Accept negotiation.
+  images: {
+    formats: ["image/avif", "image/webp"],
+  },
   // Apple Pay domain verification for Paystack. The file lives at
   // public/.well-known/apple-developer-merchantid-domain-association and has
   // no file extension, so Next's static handler sets no Content-Type at all

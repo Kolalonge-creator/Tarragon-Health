@@ -96,7 +96,7 @@ function ConfidentialMessageCta() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.privacy className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.privacy className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Message your care team confidentially
         </CardTitle>
         <CardDescription>
@@ -213,7 +213,7 @@ function LearnTab() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.learn className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+          <SEMANTIC_ICON.learn className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Learn
         </CardTitle>
         <CardDescription>

@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { refundTransaction } from "@/lib/paystack/refunds";
+import { recordRefundLedgerEntry } from "@/lib/billing/refund-posting";
 
 /**
  * Pharmacy order payment hygiene (Vercel Cron, see apps/web/vercel.json) —
@@ -46,12 +47,21 @@ export async function GET(request: Request): Promise<Response> {
 
   const { data: due } = await supabase
     .from("pharmacy_orders")
-    .select("id, payment_provider, payment_provider_ref, refund_amount_kobo, payable_kobo, total_kobo")
+    .select("id, organisation_id, payment_provider, payment_provider_ref, refund_amount_kobo, payable_kobo, total_kobo")
     .eq("refund_status", "due");
 
   let refunded = 0;
   let manual = 0;
   let failed = 0;
+  // See video-visit-refunds: a refund that moved real money but no ledger is
+  // reported, never counted as a clean success.
+  let unpostedRefunds = 0;
+  // A refund whose ledger row was already there. Normally the Paystack
+  // webhook having posted the same reversal first, which is the whole point
+  // of the shared idempotency key — but counted rather than ignored, because
+  // it is also what a second refund of the same charge for the same amount
+  // would look like (see lib/billing/refund-idempotency.ts).
+  let alreadyPosted = 0;
   for (const row of due ?? []) {
     if (row.payment_provider !== "paystack" || !row.payment_provider_ref) {
       manual += 1;
@@ -71,6 +81,20 @@ export async function GET(request: Request): Promise<Response> {
         .from("pharmacy_orders")
         .update({ refund_status: "refunded", refund_ref: String(result.data.refundId) })
         .eq("id", row.id);
+      // Paystack is NGN-only on this platform (Stripe was removed 2026-09-03
+      // and pharmacy_orders has no currency column of its own), and the
+      // guard above has already established payment_provider === 'paystack'.
+      const posting = await recordRefundLedgerEntry(supabase, {
+        refundId: String(result.data.refundId),
+        chargeReference: row.payment_provider_ref,
+        amountMinor: amountKobo ?? 0,
+        currency: "NGN",
+        organisationId: row.organisation_id,
+        source: "pharmacy_order",
+        sourceId: row.id,
+      });
+      if (posting.error) unpostedRefunds += 1;
+      if (posting.alreadyPosted) alreadyPosted += 1;
       refunded += 1;
     } else {
       failed += 1;
@@ -82,5 +106,7 @@ export async function GET(request: Request): Promise<Response> {
     refunded,
     refund_failures: failed,
     needs_manual_refund: manual,
+    unposted_refunds: unpostedRefunds,
+    already_posted_refunds: alreadyPosted,
   });
 }

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -17,21 +16,19 @@ export default async function SleepPage() {
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
   return (
-    <DashboardPlaceholder greeting="Sleep" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.sleep}>
-      <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-          ← Back to lifestyle coaching
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        Log how you&apos;re sleeping: duration, quality, and how alert you feel during the day.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Sleep"
+        icon={SEMANTIC_ICON.sleep}
+        backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
+        description="Log how you're sleeping: duration, quality, and how alert you feel during the day."
+      />
       <RequiresEntitlement
         feature="lifestyle_coaching"
         fallback={<UpgradePrompt feature="lifestyle_coaching" />}
       >
         <SleepClient patientId={profile.id} />
       </RequiresEntitlement>
-    </DashboardPlaceholder>
+    </div>
   );
 }

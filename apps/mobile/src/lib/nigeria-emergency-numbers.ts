@@ -18,8 +18,20 @@ const STATE_OVERRIDES: Record<string, EmergencyNumber[]> = {
   ],
 };
 
-/** Every state resolves to at least the national line — never empty. */
+/**
+ * Every state resolves to at least the national line — never empty.
+ *
+ * `Object.hasOwn`, not a plain truthy index: a bare `STATE_OVERRIDES[state]`
+ * also matches inherited Object.prototype members, so a state value of
+ * "constructor" or "toString" returned a FUNCTION from a screen whose whole
+ * contract is "never empty" — the emergency card would then render no number
+ * at all. Unreachable through the canonical state list today, but this is the
+ * one screen where a wrong or missing number is a real-harm outcome, so it
+ * is closed rather than argued about. The same shape exists in the web copy
+ * (apps/web/src/lib/nigeria-emergency-numbers.ts) and should be closed there
+ * too; the NUMBERS remain in lock-step either way.
+ */
 export function getEmergencyNumbers(state: string | null | undefined): EmergencyNumber[] {
-  if (state && STATE_OVERRIDES[state]) return STATE_OVERRIDES[state];
+  if (state && Object.hasOwn(STATE_OVERRIDES, state)) return STATE_OVERRIDES[state];
   return NATIONAL;
 }

@@ -82,7 +82,7 @@ export function SexualHealthPrivacyGate({ children }: { children: ReactNode }) {
 
   return (
     <div className="mx-auto max-w-sm space-y-4 py-16 text-center">
-      <SEMANTIC_ICON.privacy className="mx-auto h-8 w-8 text-clinical-navy dark:text-night-ink" strokeWidth={1.5} />
+      <SEMANTIC_ICON.privacy className="mx-auto h-8 w-8 text-clinical-navy dark:text-night-ink" strokeWidth={1.5} aria-hidden />
       <div>
         <p className="text-base font-semibold text-charcoal-ink dark:text-night-ink">Enter your privacy PIN</p>
         <p className="mt-1 text-sm text-charcoal-ink/60 dark:text-night-ink/60">

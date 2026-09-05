@@ -6,11 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useTrialBalance, useIncomeStatement, useBalanceSheet, useCashFlowStatement } from "@/lib/finance/queries";
+import { lagosToday, lagosYearStart } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
 
 const CURRENCIES = ["NGN", "GBP", "USD"];
-const today = () => new Date().toISOString().slice(0, 10);
-const yearStart = () => `${new Date().getFullYear()}-01-01`;
 
 const TYPE_LABEL: Record<string, string> = {
   asset: "Assets",
@@ -23,9 +22,9 @@ const TYPE_LABEL: Record<string, string> = {
 
 export function FinanceStatements() {
   const [currency, setCurrency] = useState("NGN");
-  const [asOf, setAsOf] = useState(today());
-  const [from, setFrom] = useState(yearStart());
-  const [to, setTo] = useState(today());
+  const [asOf, setAsOf] = useState(lagosToday());
+  const [from, setFrom] = useState(lagosYearStart());
+  const [to, setTo] = useState(lagosToday());
 
   const tb = useTrialBalance(asOf, currency);
   const pnl = useIncomeStatement(from, to, currency);

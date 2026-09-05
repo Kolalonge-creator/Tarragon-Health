@@ -18,6 +18,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { CoverageDecisionNote } from "@/components/coverage-decision-note";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import {
   koboToNaira,
   type InsuranceClaimStatus,
@@ -193,10 +195,15 @@ function BenefitsTable({ insurerId, planName }: { insurerId: string; planName: s
 }
 
 function PolicyCard({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const { data: policies, isLoading } = usePatientInsurancePolicies(patientId);
+  const { data: policies, isLoading, isError } = usePatientInsurancePolicies(patientId);
   const [adding, setAdding] = useState(false);
+  const state = listQueryState({ isLoading, isError, count: policies?.length });
 
-  if (isLoading) return null;
+  // "No insurance on file yet" next to an Add button is an instruction to
+  // enter a policy the patient has already entered. A failed read must not
+  // ask them to do that twice.
+  if (state === "error") return <LoadErrorCard title="Your policy" what="your insurance details" />;
+  if (state === "loading") return null;
 
   return (
     <Card>
@@ -245,7 +252,12 @@ function PolicyCard({ patientId, organisationId }: { patientId: string; organisa
 
 function PreauthorizationsList({ patientId }: { patientId: string }) {
   const { data: requests, isLoading, isError } = usePatientPreauthorizations(patientId);
-  if (isLoading || isError || !requests || requests.length === 0) return null;
+  const state = listQueryState({ isLoading, isError, count: requests?.length });
+  // A request sitting with the insurer is money and access to care. Losing it
+  // to a failed read leaves the patient thinking nothing was ever asked for.
+  if (state === "error")
+    return <LoadErrorCard title="Pre-authorisation requests" what="your pre-authorisation requests" />;
+  if (state !== "ready" || !requests) return null;
 
   return (
     <Card>
@@ -282,7 +294,9 @@ function PreauthorizationsList({ patientId }: { patientId: string }) {
 
 function ClaimsList({ patientId }: { patientId: string }) {
   const { data: claims, isLoading, isError } = usePatientInsuranceClaims(patientId);
-  if (isLoading || isError || !claims || claims.length === 0) return null;
+  const state = listQueryState({ isLoading, isError, count: claims?.length });
+  if (state === "error") return <LoadErrorCard title="Claims" what="your claims" />;
+  if (state !== "ready" || !claims) return null;
 
   return (
     <Card>

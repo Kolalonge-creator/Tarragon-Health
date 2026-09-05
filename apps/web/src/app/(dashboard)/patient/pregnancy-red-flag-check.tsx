@@ -54,15 +54,14 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
         className="flex w-full flex-col items-start gap-1.5 px-5 py-3.5 text-left sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-6"
       >
         <span className="flex items-center gap-2 text-sm font-semibold text-red-700 dark:text-red-300">
-          <TriangleAlert className="h-4.5 w-4.5 shrink-0" strokeWidth={2} />
+          <TriangleAlert className="h-4.5 w-4.5 shrink-0" strokeWidth={2} aria-hidden />
           Any pregnancy warning signs?
         </span>
         <span className="flex shrink-0 items-center gap-1 text-sm font-medium text-red-700 dark:text-red-300">
           {expanded ? "Hide" : "Check now"}
           <ChevronDown
             className={cn("h-4 w-4 transition-transform", expanded && "rotate-180")}
-            strokeWidth={2}
-          />
+            strokeWidth={2} aria-hidden />
         </span>
       </button>
 

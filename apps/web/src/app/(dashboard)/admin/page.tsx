@@ -5,7 +5,7 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { checkDependencies, type DependencyReport } from "@/lib/status/check-dependencies";
 import { businessSummarySchema, financialSummarySchema } from "@/lib/analytics/schemas";
-import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
+import { formatMinor, formatNumber } from "@/lib/analytics/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
@@ -113,11 +113,9 @@ export default async function AdminPage() {
   const openBookingsCount = openBookingsRes.count ?? 0;
   const pendingBookingsCount = pendingBookingsRes.count ?? 0;
 
-  const primaryMrr =
-    financial.mrr_by_currency.find((m) => m.currency === "NGN") ?? financial.mrr_by_currency[0];
-  const mrrDisplay = primaryMrr
-    ? formatMinor(primaryMrr.mrr_minor, primaryMrr.currency ?? "NGN")
-    : formatMinor(0, "NGN");
+  // Revenue, not MRR: the app is free and Tarragon charges per piece of doctor
+  // work, so there is nothing recurring to report (2026-09-02 cutover).
+  const revenue90dDisplay = formatMinor(financial.revenue_90d_kobo, "NGN");
 
   const attentionParts: string[] = [];
   if (pendingVerificationCount > 0) {
@@ -309,8 +307,8 @@ export default async function AdminPage() {
       tiles: [
         {
           href: "/admin/settings/subscriptions",
-          label: "Subscription plans & add-ons",
-          blurb: "Legacy plan/add-on editor, no longer sets live patient pricing",
+          label: "Retired subscription catalogue",
+          blurb: "Read-only history of the plans and add-ons retired in 2026",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },
@@ -472,9 +470,12 @@ export default async function AdminPage() {
         />
         <StatTile
           icon={SEMANTIC_ICON.billing}
-          label="MRR"
-          value={mrrDisplay}
-          delta={{ text: `${formatPercent(financial.churn_rate)} churn`, direction: "flat" }}
+          label="Revenue (90 days)"
+          value={revenue90dDisplay}
+          delta={{
+            text: `${formatNumber(financial.paid_purchases)} paid service${financial.paid_purchases === 1 ? "" : "s"}`,
+            direction: "flat",
+          }}
         />
         <StatTile
           icon={SEMANTIC_ICON.booking}

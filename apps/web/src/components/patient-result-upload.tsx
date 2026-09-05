@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 /** Thrown by the upload mutation specifically when the DB-enforced
@@ -181,6 +182,8 @@ export function PatientResultUpload({
   const uploadErrorInstance = upload.error as Error | null;
   const requiresPayment = uploadErrorInstance instanceof ConsultFeeRequiredError;
   const displayError = validationError ?? uploadErrorInstance?.message ?? null;
+  const errorId = fieldErrorId(`${fieldId}-file`);
+  const hintId = `${fieldId}-file-hint`;
 
   return (
     <div className="space-y-2">
@@ -199,8 +202,9 @@ export function PatientResultUpload({
               setValidationError(null);
               setSuccess(null);
             }}
+            {...fieldErrorProps(errorId, Boolean(displayError) && !requiresPayment, hintId)}
           />
-          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+          <p id={hintId} className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             A photo of the printout is fine. PDF or image, up to 10 MB.
           </p>
         </div>
@@ -215,10 +219,12 @@ export function PatientResultUpload({
           <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
             {upload.isPending ? "Sending…" : "Send to my care team"}
           </Button>
-          {success && <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">{success}</p>}
-          {displayError && !requiresPayment && (
-            <p className="text-xs text-red-600 dark:text-red-300">{displayError}</p>
-          )}
+          <FormSuccess message={success} className="text-xs font-medium" />
+          <FormError
+            id={errorId}
+            message={!requiresPayment && displayError}
+            className="text-xs"
+          />
         </div>
       </form>
 
@@ -238,7 +244,11 @@ export function PatientResultUpload({
               {payPending ? "Redirecting to payment…" : "Pay & continue"}
             </Button>
           </form>
-          {payState?.error && <p className="text-xs text-red-600 dark:text-red-300">{payState.error}</p>}
+          <FormError
+            id={fieldErrorId(`${fieldId}-pay`)}
+            message={payState?.error}
+            className="text-xs"
+          />
         </div>
       )}
 

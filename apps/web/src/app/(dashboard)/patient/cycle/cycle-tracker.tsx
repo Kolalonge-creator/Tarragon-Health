@@ -189,7 +189,7 @@ export function CycleTracker({
         <CardHeader>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
-              <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
+              <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
               Your cycle
             </CardTitle>
             <Badge variant={confidence.variant}>{confidence.label}</Badge>

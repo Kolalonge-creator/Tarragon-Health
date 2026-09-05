@@ -144,10 +144,10 @@ export default async function GiftPage() {
         eyebrow="Care that stays with them"
         title="Give the Gift of Health"
         description="Buy someone a real health check, already paid for, waiting on their account until they are ready. Not a balance to manage, not a gift card to lose. A specific appointment with their name on it."
-        primaryHref="/login"
+        primaryHref="/signup?intent=support"
         primaryLabel="Buy someone a health check"
-        secondaryHref="/signup?intent=support"
-        secondaryLabel="New here? Get started"
+        secondaryHref="/login"
+        secondaryLabel="Already a member? Sign in"
         imageSrc={MARKETING_MEDIA.gift.hero.imageSrc ?? ""}
         imageAlt={MARKETING_MEDIA.gift.hero.imageAlt ?? ""}
         imagePosition={MARKETING_MEDIA.gift.hero.imageFocus}
@@ -242,10 +242,10 @@ export default async function GiftPage() {
           variant="gradient"
           title="Give someone the gift of being looked after."
           description="Buy them a health check or a doctor's time, or send them your referral link. Either way it is care, not a card that expires."
-          primaryHref="/login"
+          primaryHref="/signup?intent=support"
           primaryLabel="Buy someone a health check"
-          secondaryHref="/signup?intent=support"
-          secondaryLabel="Get started"
+          secondaryHref="/login"
+          secondaryLabel="Already a member? Sign in"
         />
       </Section>
     </>

@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Terms of Service",
     subtitle:
-      "The terms that govern your use of TarragonHealth, including subscriptions, billing, and cancellation.",
+      "The terms that govern your use of TarragonHealth: what you pay for, how payments work, and what the platform is and is not.",
   });
 }

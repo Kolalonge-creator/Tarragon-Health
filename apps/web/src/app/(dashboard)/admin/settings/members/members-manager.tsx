@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { SearchableList } from "@/components/ui/searchable-list";
+import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
 import { USER_ROLES, USER_ROLE_LABELS, type UserRoleValue } from "@/lib/validation/members";
 import type { MemberRow, PermissionRow, CustomRoleRow, OrgRow } from "./page";
 import {
@@ -26,6 +27,22 @@ import {
 } from "./actions";
 
 type Feedback = { error?: string; message?: string } | null;
+
+/**
+ * Capabilities that hand over control of the platform itself rather than of
+ * one screen: the power to grant capabilities to anyone (including oneself),
+ * to permanently merge two patient records, and to redefine what every custom
+ * role can do. Granting one of these was a single click on a pill toggle;
+ * each now states in plain words what the person will be able to do.
+ */
+const HIGH_RISK_PERMISSIONS: Record<string, string> = {
+  "users.permissions.grant":
+    "They will be able to give themselves and anyone else any capability on this list, including this one.",
+  "patients.merge":
+    "They will be able to permanently merge two patient records into one. A merge moves every vitals reading, medication, result and note onto the surviving record and retires the other; it is not reversible from the app.",
+  "roles.manage":
+    "They will be able to create, redefine and delete custom roles, changing what every member holding those roles can do.",
+};
 
 function groupByCategory(permissions: PermissionRow[]): Map<string, PermissionRow[]> {
   const map = new Map<string, PermissionRow[]>();
@@ -135,6 +152,7 @@ export function MembersManager({
       {canManageRoles && (
         <CustomRolesCard
           customRoles={customRoles}
+          members={members}
           permissionsByCategory={grouped}
           pending={pending}
           run={run}
@@ -293,6 +311,10 @@ function MemberItem({
 }) {
   const grantedKeys = new Set(member.grants.map((g) => g.permission_key));
   const isSuperAdmin = member.role === "admin";
+  // Only a grant of a platform-control capability is confirmed. Revoking one,
+  // or toggling an ordinary capability, stays a single click: those are
+  // recoverable, and confirming everything trains people to click through.
+  const [pendingGrant, setPendingGrant] = useState<PermissionRow | null>(null);
 
   return (
     <details className="rounded-md border border-charcoal-ink/10 px-4 py-3">
@@ -400,6 +422,10 @@ function MemberItem({
                           disabled={pending}
                           title={p.description ?? undefined}
                           onClick={() => {
+                            if (!granted && HIGH_RISK_PERMISSIONS[p.key]) {
+                              setPendingGrant(p);
+                              return;
+                            }
                             const fd = new FormData();
                             fd.set("memberId", member.id);
                             if (granted && grant) {
@@ -428,21 +454,65 @@ function MemberItem({
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={pendingGrant !== null}
+        title="Grant a platform-control capability?"
+        description={pendingGrant ? HIGH_RISK_PERMISSIONS[pendingGrant.key] : undefined}
+        confirmLabel="Grant capability"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={() => {
+          const permission = pendingGrant;
+          setPendingGrant(null);
+          if (!permission) return;
+          const fd = new FormData();
+          fd.set("memberId", member.id);
+          fd.set("permissionKey", permission.key);
+          run((f) => grantPermissionAction(undefined, f), fd);
+        }}
+        onCancel={() => setPendingGrant(null)}
+      >
+        <ConfirmDialogFacts
+          rows={[
+            { label: "Capability", value: pendingGrant?.label ?? "" },
+            { label: "Granting to", value: member.full_name ?? member.email ?? "this account" },
+            {
+              label: "Their account role",
+              value: USER_ROLE_LABELS[member.role as UserRoleValue] ?? member.role,
+            },
+          ]}
+        />
+      </ConfirmDialog>
     </details>
   );
 }
 
 function CustomRolesCard({
   customRoles,
+  members,
   permissionsByCategory,
   pending,
   run,
 }: {
   customRoles: CustomRoleRow[];
+  members: MemberRow[];
   permissionsByCategory: Map<string, PermissionRow[]>;
   pending: boolean;
   run: (action: (fd: FormData) => Promise<MemberActionState>, fd: FormData) => void;
 }) {
+  // Deleting a role used to say nothing about who currently holds it. Count
+  // the holders so the operator sees whose access changes.
+  const holdersByRole = new Map<string, MemberRow[]>();
+  for (const member of members) {
+    if (!member.custom_role_id) continue;
+    const list = holdersByRole.get(member.custom_role_id) ?? [];
+    list.push(member);
+    holdersByRole.set(member.custom_role_id, list);
+  }
+  const [pendingDelete, setPendingDelete] = useState<CustomRoleRow | null>(null);
+  const pendingHolders = pendingDelete ? (holdersByRole.get(pendingDelete.id) ?? []) : [];
+
   return (
     <Card>
       <CardHeader>
@@ -511,6 +581,10 @@ function CustomRolesCard({
                 <span className="font-medium text-charcoal-ink">{role.name}</span>
                 <Badge variant="grey">{USER_ROLE_LABELS[role.base_role as UserRoleValue] ?? role.base_role}</Badge>
                 <span className="text-xs text-charcoal-ink/50">· {role.permission_keys.length} capabilities</span>
+                <span className="text-xs text-charcoal-ink/50">
+                  · held by {(holdersByRole.get(role.id) ?? []).length} member
+                  {(holdersByRole.get(role.id) ?? []).length === 1 ? "" : "s"}
+                </span>
               </summary>
               <form
                 className="mt-3 space-y-3"
@@ -547,11 +621,7 @@ function CustomRolesCard({
                     type="button"
                     variant="ghost"
                     disabled={pending}
-                    onClick={() => {
-                      const fd = new FormData();
-                      fd.set("roleId", role.id);
-                      run((f) => deleteCustomRoleAction(undefined, f), fd);
-                    }}
+                    onClick={() => setPendingDelete(role)}
                   >
                     Delete role
                   </Button>
@@ -561,6 +631,44 @@ function CustomRolesCard({
           ))
         )}
       </CardContent>
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete this custom role?"
+        description={
+          pendingHolders.length === 0
+            ? "Nobody currently holds this role, so no member's access changes."
+            : `${pendingHolders.length} member${pendingHolders.length === 1 ? "" : "s"} currently hold${pendingHolders.length === 1 ? "s" : ""} this role and will lose every capability it bundles. Their account role and any capability granted to them individually are unaffected.`
+        }
+        confirmLabel="Delete role"
+        cancelLabel="Cancel"
+        destructive
+        onConfirm={() => {
+          const role = pendingDelete;
+          setPendingDelete(null);
+          if (!role) return;
+          const fd = new FormData();
+          fd.set("roleId", role.id);
+          run((f) => deleteCustomRoleAction(undefined, f), fd);
+        }}
+        onCancel={() => setPendingDelete(null)}
+      >
+        <ConfirmDialogFacts
+          rows={[
+            { label: "Role", value: pendingDelete?.name ?? "" },
+            { label: "Capabilities bundled", value: pendingDelete?.permission_keys.length ?? 0 },
+            {
+              label: "Members affected",
+              value:
+                pendingHolders.length === 0
+                  ? "None"
+                  : pendingHolders
+                      .map((m) => m.full_name ?? m.email ?? "unnamed account")
+                      .join(", "),
+            },
+          ]}
+        />
+      </ConfirmDialog>
     </Card>
   );
 }

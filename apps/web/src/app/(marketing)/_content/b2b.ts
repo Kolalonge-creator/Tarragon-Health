@@ -99,7 +99,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       { label: "Members monitored", value: "4,820" },
       { label: "Care gaps closed (90d)", value: "", pill: { text: "+31%", tone: "green" } },
       { label: "Abnormal results caught early", value: "146" },
-      { label: "Claims impact", value: "Reporting live" },
+      { label: "Claims impact", value: "Included in your report" },
     ],
     howItWorks: [
       {

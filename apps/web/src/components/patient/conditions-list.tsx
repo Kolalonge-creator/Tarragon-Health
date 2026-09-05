@@ -4,6 +4,7 @@ import { useConditions } from "@/lib/queries/conditions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { ResultExplainer } from "@/components/result-explainer";
+import { EmptyHint } from "@/components/ui/empty-hint";
 import type { Enums } from "@tarragon/shared";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -40,15 +41,20 @@ const SEVERITY_LABEL: Record<Enums<"clinical_severity">, string> = {
  * Patient's problem list (spec §76.3) -- the first place `patient_conditions`
  * is ever shown to a patient. Read-only here: only org clinical staff can
  * add or change a condition (see patient_conditions RLS), so unlike
- * AllergiesList there is no add/edit affordance on this card. Self-hides
- * entirely once loaded with nothing on file -- a summary page composing many
- * sections shouldn't carry an empty-state card for every one of them.
+ * AllergiesList there is no add/edit affordance on this card.
+ *
+ * Self-hides once loaded with nothing on file, UNLESS the caller passes
+ * `emptyHint`. Health summary introduces this with its own "Conditions"
+ * heading, so hiding left the heading standing over nothing; a caller that
+ * has already labelled the section passes the line to show instead. Nothing
+ * renders while the query is still in flight either way, so the hint appears
+ * only once "nothing on file" is actually known.
  */
-export function ConditionsList({ patientId }: { patientId: string }) {
+export function ConditionsList({ patientId, emptyHint }: { patientId: string; emptyHint?: string }) {
   const { data, isLoading } = useConditions(patientId);
 
   if (isLoading) return null;
-  if (!data || data.length === 0) return null;
+  if (!data || data.length === 0) return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
 
   return (
     <Card>

@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { DashboardPlaceholder } from "@/components/dashboard-placeholder";
+import { PageHeader } from "@/components/ui/page-header";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -17,22 +16,19 @@ export default async function SmokingPage() {
   if (!profile.onboarding_completed_at) redirect("/onboarding");
 
   return (
-    <DashboardPlaceholder greeting="Smoking" roleLabel="Patient" comingUp={[]} icon={SEMANTIC_ICON.smoking}>
-      <div className="flex justify-end">
-        <Link href="/patient/lifestyle" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-          ← Back to lifestyle coaching
-        </Link>
-      </div>
-      <p className="max-w-2xl text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        Whether you&apos;re thinking about quitting, mid-quit, or just want to keep track: this is
-        yours to log, and your care team can support you along the way.
-      </p>
+    <div className="space-y-6">
+      <PageHeader
+        title="Smoking"
+        icon={SEMANTIC_ICON.smoking}
+        backTo={{ href: "/patient/lifestyle", label: "Lifestyle coaching" }}
+        description="Whether you're thinking about quitting, mid-quit, or just want to keep track: this is yours to log, and your care team can support you along the way."
+      />
       <RequiresEntitlement
         feature="lifestyle_coaching"
         fallback={<UpgradePrompt feature="lifestyle_coaching" />}
       >
         <SmokingClient patientId={profile.id} />
       </RequiresEntitlement>
-    </DashboardPlaceholder>
+    </div>
   );
 }
