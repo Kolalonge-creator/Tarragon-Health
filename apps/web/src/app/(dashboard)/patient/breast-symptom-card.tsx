@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -28,6 +29,8 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
   const reports = useBreastSymptomReports(patientId);
   const invalidate = useInvalidateWomensHealth(patientId);
   const [state, formAction, pending] = useActionState(reportBreastSymptoms, undefined);
+  const errorId = fieldErrorId("breast-symptom-report");
+  const errorProps = fieldErrorProps(errorId, Boolean(state?.error));
   const [symptomTypes, setSymptomTypes] = useState<Set<BreastSymptomType>>(new Set());
 
   useEffect(() => {
@@ -86,7 +89,7 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="laterality">Side</Label>
-              <Select id="laterality" name="laterality" defaultValue="">
+              <Select id="laterality" name="laterality" defaultValue="" {...errorProps}>
                 <option value="">Not sure</option>
                 <option value="left">Left</option>
                 <option value="right">Right</option>
@@ -95,16 +98,16 @@ export function BreastSymptomCard({ patientId }: { patientId: string }) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="duration_note">How long?</Label>
-              <Input id="duration_note" name="duration_note" placeholder="e.g. about a week" />
+              <Input id="duration_note" name="duration_note" placeholder="e.g. about a week" {...errorProps} />
             </div>
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Anything else?</Label>
-            <Input id="notes" name="notes" />
+            <Input id="notes" name="notes" {...errorProps} />
           </div>
 
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+          <FormError id={errorId} message={state?.error} />
           {state?.success && (
             <p className="text-sm text-brand-green dark:text-brand-green-bright">
               Reported. Your care team has been notified for clinical assessment.

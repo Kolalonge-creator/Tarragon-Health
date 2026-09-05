@@ -14,9 +14,54 @@
 # fixtures and passes against a clean `supabase db reset`. Do not add a file
 # here to silence a genuine failure.
 #
-# Reviewed 2026-09-05: none of the scripts below has ever been executed by
-# any workflow.
-acting_for_someone.sql
+# Reviewed 2026-09-05: none of the scripts below had ever been executed by any
+# workflow. Nineteen were moved up to ci.manifest in that pass; what remains is
+# still the same backlog, minus the three below, which are a different thing.
+#
+# ===========================================================================
+# NOT A FIXTURE PROBLEM: three scripts here now FAIL for real. They stay
+# excluded only because the behaviour they assert is genuinely absent, and
+# closing each gap needs a migration, which is not this file's to write.
+# Do not "fix" these by weakening the assertion.
+#
+#  1. broadcast_content_class_enforcement.sql -- public.admin_send_broadcast
+#     does not consult private.broadcast_content_flags at all, and
+#     notification_broadcasts carries no content CHECK (its only CHECK is
+#     channels_nonempty). The heuristic itself is live and correct: it flags
+#     "your diagnosis" and "your (test|lab|screening|biopsy) result". Nothing
+#     reads it. A broadcast whose body says "Your diagnosis is confirmed,
+#     please call the clinic" is accepted and sent to all_patients. The
+#     server-side block this file was written to prove is not wired up.
+#     Verified live 2026-09-05. Note this file previously aborted at 42501
+#     before reaching that case -- it called private.* after switching to role
+#     `authenticated`, which has no USAGE on schema private -- so it had never
+#     run far enough to say so. That structural bug is fixed here; the finding
+#     is what is left.
+#
+#  2. authenticated_table_grants.sql -- two RLS-enabled tables carry a policy
+#     for `authenticated` and no privilege for the action that policy names,
+#     so the policy governs nothing and PostgREST answers 42501, which the UI
+#     renders as a confident empty result:
+#       * public.sexual_health_privacy_settings has a SELECT policy for
+#         authenticated and NO grant to authenticated at all (relacl is
+#         postgres + service_role only), and no column-level grant either;
+#       * public.provider_complaint_investigation_notes has an ALL policy for
+#         authenticated but only INSERT/SELECT (relacl `ar`), so its UPDATE and
+#         DELETE halves are unreachable. If that append-only shape is the
+#         intent, the policy should say so rather than an ALL policy silently
+#         half-working.
+#     wearable_connections' UPDATE is NOT one of these: it is the deliberate
+#     column-level narrowing that keeps access_token/refresh_token unreadable,
+#     and the check accepts it. This file also used to abort with 22023 on the
+#     DELETE probe (has_column_privilege has no DELETE privilege type), which
+#     is why it had never reported any of this; that is fixed here.
+#
+#  3. actor_column_fk_documentation.sql -- public.finance_posting_failures
+#     .resolved_by carries no column comment naming which table its FK points
+#     at, the rule PR #485 established for exactly the 21 column names shared
+#     between profiles and clinical_staff, where the wrong join returns NULL
+#     silently. One column, and the fix is a COMMENT ON in a migration.
+# ===========================================================================
 actor_column_fk_documentation.sql
 adherence_escalation_not_available.sql
 ai_assistant_turns_rls.sql
@@ -63,18 +108,15 @@ emergency_card_hardening.sql
 emergency_cards.sql
 emergency_escalation_tier_gate.sql
 employer_platform_i9_and_invariants.sql
-english_only_no_voice.sql
 escalation_slas_config.sql
 exposure_reopens_serology.sql
 family_and_social_history.sql
 feature_access_reconciliation.sql
-fertility_assessment_requests_staff_gate.sql
 finance_unified_ledger.sql
 finance_vat_engine.sql
 fix_activate_sponsored_subscription_trigger_timing.sql
 fraud_sweep_helper_and_chargeback_signal.sql
 gate_second_condition_review_to_complete_care.sql
-glucose_emergency_backstop.sql
 health_check_video_consult_confirm.sql
 health_education_content_platform_79_gap_closure.sql
 health_reset_90_day.sql
@@ -84,7 +126,6 @@ i1_notifications_content_class.sql
 i5_emergency_escalation_synchronous_contact.sql
 imaging_platform_rls_and_pathway.sql
 individual_enrolment_and_next_of_kin.sql
-integration_gateway.sql
 lab_partner_readiness.sql
 lab_partner_rls.sql
 lab_result_consult_accept.sql
@@ -100,9 +141,6 @@ medication_access_barriers.sql
 medication_dose_time_reminders.sql
 medication_issues_rls.sql
 medication_lab_monitoring_reminders.sql
-medication_logs_acting_for.sql
-medication_logs_append_only.sql
-medication_missed_reason_routing.sql
 medication_receipt_confirmations.sql
 medication_reconciliation.sql
 medication_repeat_requests.sql
@@ -115,7 +153,6 @@ partner_settlement_ui_integration.sql
 patient_conditions_problem_list.sql
 patient_engagement_scoring.sql
 patient_health_record_round3.sql
-patient_reminder_groups_rls.sql
 patient_serology_status_extraction.sql
 patient_stopped_medication_raises_review.sql
 patient_timeline_gap_closure.sql
@@ -123,7 +160,6 @@ payer_provider_org_platform.sql
 pharmacy_engine_end_to_end.sql
 polypharmacy_review_signal.sql
 predictive_risk_engine.sql
-pregnancy_antenatal_postnatal_rls.sql
 prescription_fields_confirm_only.sql
 prescription_lifecycle_confirm_only.sql
 prevention_campaign_templates.sql
@@ -135,14 +171,10 @@ provenance_fk_hardening.sql
 public_impact_metrics.sql
 pulse_red_flag_engine_and_plan_gate.sql
 record_corrections_platform_wide.sql
-red_flag_handlers_notify_phoneless_clinicians.sql
 referral_management_engine.sql
 referral_requested_alert_and_specialist_referrals_gate.sql
 refill_confirmation_attribution.sql
-reminder_time_window.sql
 report_medication_safety_finding_rpc.sql
-reproductive_health_profiles_rls_regression_fix.sql
-reproductive_health_profiles_write_side_category_scoping.sql
 result_acknowledgement_status.sql
 scoped_access_roles_rls.sql
 screening_decline.sql
@@ -154,7 +186,6 @@ self_arranged_fulfilment.sql
 self_arranged_referrals.sql
 specialist_referral_engine.sql
 specialist_referral_partner_booking.sql
-spo2_red_flag_engine.sql
 sponsor_acting_and_report.sql
 sponsor_care_status_and_funding.sql
 sponsor_clinical_consent_and_three_way_chat.sql
@@ -167,15 +198,11 @@ supporter_reporting.sql
 symptom_triage_assessment_engine.sql
 symptoms_medication_link.sql
 telemedicine_consultation_screen.sql
-temperature_red_flag_engine.sql
-tier_authority_monotonicity.sql
 vaccination_card_extraction_rls.sql
 vaccination_cardiovascular_quarterly_reports_clinical_access_rls.sql
 vaccination_declined_contraindicated_and_adverse_events.sql
 vaccination_schedule_signoff.sql
 verify_prescription_pharmacist_gate.sql
-vitals_red_flag_notification_wiring.sql
-vitals_red_flag_plan_gate.sql
 vitals_symptoms_timestamp_hardening.sql
 voucher_refund_queue_beneficiary_select.sql
 wearable_granular_consent_and_patient_control.sql

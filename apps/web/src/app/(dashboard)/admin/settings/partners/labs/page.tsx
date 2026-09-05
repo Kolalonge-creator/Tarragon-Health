@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { LabsManager } from "./labs-manager";
 import type { LabPartnerLoginRow } from "@/lib/queries/partner-catalogues";
 
@@ -16,7 +17,7 @@ export default async function LabsPartnersPage() {
   // specific lab_providers row — the piece that was previously "set
   // lab_provider_id via direct SQL, no admin UI yet".
   const svc = createServiceRoleClient();
-  const { data: labPartnerProfiles } = await svc
+  const { data: labPartnerProfiles, error: labPartnerProfilesError } = await svc
     .from("profiles")
     .select("id, full_name, lab_provider_id, is_partner_admin")
     .eq("role", "lab_partner")
@@ -47,7 +48,17 @@ export default async function LabsPartnersPage() {
         title="Labs"
         description="Add and manage the lab providers patients can book with, keep contact details current, link a partner login, and track turnaround performance."
       />
-      <LabsManager labPartnerLogins={labPartnerLogins} />
+      {/* The partner-login list feeding this Manager is what an admin checks
+          before provisioning a new one. Read as empty on failure, it invites a
+          duplicate login for a partner who already has one. */}
+      {labPartnerProfilesError ? (
+        <LoadFailure>
+          The laboratory partner logins could not be loaded. This is not a report that none exist.
+          Reload before creating or linking a login here.
+        </LoadFailure>
+      ) : (
+        <LabsManager labPartnerLogins={labPartnerLogins} />
+      )}
     </div>
   );
 }

@@ -119,6 +119,36 @@ whether a refund should cancel or prorate the recognition schedule, is your call
 idempotency key embeds the original charge reference, so the branch can now correlate back
 to what it is reversing once you decide.
 
+### B1a. A phantom revenue schedule will post on 1 October, unless you stop it
+**This one has a date on it.**
+
+`revenue_recognition_schedules` holds exactly one active row:
+
+| field | value |
+|---|---|
+| id | `c890ef77-ea9c-4f90-9650-ba702a963289` |
+| source | `service_purchase`, `source_id` pointing at a row that **no longer exists** |
+| `payment_transaction_id` | null (the FK nulled itself on delete) |
+| amount | 1,000,000 kobo (₦10,000), `recognized_minor` still 0 |
+| posting | Dr 2000 deferred revenue → Cr 4020 |
+| window | 2026-09-02 to 2026-10-02 |
+
+A test purchase and its payment were deleted on 2026-09-02. The FK from the
+schedule nulled itself, the plain-text `source_ref` on the journal entry was left
+dangling, and **the schedule survived**. Its matching journal entry
+(`b9b38f43…`, "Service purchase — Essential Care Pack") posted Dr 1020 cash /
+Cr 2000 deferred, so the money was never recognised as revenue. Yet.
+
+`finance-revenue-recognition-monthly` runs `0 3 1 * *` and recognises every
+elapsed month of any `status='active'` schedule where `recognized_minor <
+total_minor`. **On 1 October it will recognise ₦10,000 of revenue for a purchase
+that does not exist.**
+
+Cancelling a schedule and reversing a posted entry is a financial record change,
+so it was not touched. The narrow action is to set that one schedule to a
+non-active status before 1 October; the fuller one is to decide whether the
+journal entry should be reversed too.
+
 ### B2. Four screening products are priced but unsellable
 `cancer_screen_cervical_under30` ₦62,000, `cancer_screen_cervical_30plus` ₦222,500,
 `cancer_screen_men_45plus` ₦310,500, `cancer_screen_women_45plus` **₦432,500**. All active,

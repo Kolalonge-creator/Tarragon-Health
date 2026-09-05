@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 /**
  * Contraception (§44.5): enquiry -> education -> clinical consultation where
@@ -26,6 +27,7 @@ export function ContraceptionCard({
   cautionNote?: string | null;
 }) {
   const [state, formAction, pending] = useActionState(saveContraceptionMethod, undefined);
+  const errorId = fieldErrorId("current_contraception_method");
 
   return (
     <Card>
@@ -51,14 +53,14 @@ export function ContraceptionCard({
               id="current_contraception_method"
               name="current_contraception_method"
               placeholder="e.g. combined pill, implant, condoms, none"
-              defaultValue={initialMethod ?? ""}
+              defaultValue={initialMethod ?? ""} {...fieldErrorProps(errorId, Boolean(state?.error))}
             />
           </div>
           <Button type="submit" size="sm" variant="outline" disabled={pending}>
             {pending ? "Saving…" : "Save"}
           </Button>
         </form>
-        {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+        <FormError id={errorId} message={state?.error} />
         {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved.</p>}
 
         <div className="flex flex-wrap gap-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">

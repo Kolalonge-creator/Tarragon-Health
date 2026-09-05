@@ -20,7 +20,7 @@ export default async function DataBreachIncidentsPage() {
   }
 
   const supabase = await createClient();
-  const { data: incidents } = await supabase
+  const { data: incidents, error: incidentsError } = await supabase
     .from("data_breach_incidents")
     .select("*")
     .order("discovered_at", { ascending: false });
@@ -38,7 +38,15 @@ export default async function DataBreachIncidentsPage() {
           </>
         }
       />
-      <DataBreachIncidentsManager initialIncidents={(incidents ?? []) as DataBreachIncidentRow[]} />
+      {/* The NDPA 72-hour clock is tracked here and nowhere else. "No
+          incidents logged." from a failed read is the one sentence on this
+          page that could let a live notification deadline pass unnoticed. The
+          logging form deliberately stays available either way: being unable to
+          read the register must never block recording a new breach. */}
+      <DataBreachIncidentsManager
+        initialIncidents={(incidents ?? []) as DataBreachIncidentRow[]}
+        loadFailed={incidentsError !== null}
+      />
     </div>
   );
 }

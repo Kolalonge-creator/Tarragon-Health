@@ -19,3 +19,35 @@ symptom_red_flag_handler_pages_a_clinician.sql
 critical_notification_dead_letter_without_pathway.sql
 finance_posting_failures_queue.sql
 payment_activation_amount_and_reference.sql
+
+# --- Added 2026-09-05 -------------------------------------------------------
+# Nineteen more, each confirmed to build every fixture it needs. Where a script
+# borrowed something the live project happens to hold -- a @tarragon.test QA
+# account, a hardcoded patient uuid, "the first patient in public.profiles",
+# "the first spare profile with no clinical_staff row" -- that party is now
+# minted here instead. The organisation is resolved from public.organisations
+# (migration 20260706084837 seeds the direct-consumer org) rather than from an
+# existing patient, and any entitlement is resolved by FEATURE
+# (`'vitals_red_flag_doctor_escalation' = any(features)`) rather than by a
+# product code, since the packs that used to carry it are is_active = false
+# after the pay-per-service pivot and a by-code fixture would entitle nobody
+# and pass vacuously.
+acting_for_someone.sql
+english_only_no_voice.sql
+fertility_assessment_requests_staff_gate.sql
+glucose_emergency_backstop.sql
+integration_gateway.sql
+medication_logs_acting_for.sql
+medication_logs_append_only.sql
+medication_missed_reason_routing.sql
+patient_reminder_groups_rls.sql
+pregnancy_antenatal_postnatal_rls.sql
+red_flag_handlers_notify_phoneless_clinicians.sql
+reminder_time_window.sql
+reproductive_health_profiles_rls_regression_fix.sql
+reproductive_health_profiles_write_side_category_scoping.sql
+spo2_red_flag_engine.sql
+temperature_red_flag_engine.sql
+tier_authority_monotonicity.sql
+vitals_red_flag_notification_wiring.sql
+vitals_red_flag_plan_gate.sql

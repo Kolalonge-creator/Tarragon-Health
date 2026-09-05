@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { submitAgeingAssessmentDomains } from "./healthy-ageing-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { FormError, FormSuccess, fieldErrorId } from "@/components/ui/form-error";
 import { DOMAIN_LABEL, type AgeingAssessmentDomain, type AgeingAssessmentOutcome } from "@/lib/healthy-ageing/types";
 
 const OUTCOME_OPTIONS: { value: AgeingAssessmentOutcome; label: string }[] = [
@@ -16,6 +17,7 @@ type Answers = Record<AgeingAssessmentDomain, { outcome: AgeingAssessmentOutcome
 
 export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDomain[] }) {
   const [state, formAction, pending] = useActionState(submitAgeingAssessmentDomains, undefined);
+  const errorId = fieldErrorId("ageing-assessment");
   const [answers, setAnswers] = useState<Answers>(
     () =>
       Object.fromEntries(domains.map((d) => [d, { outcome: null, note: "" }])) as Answers,
@@ -54,6 +56,7 @@ export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDom
           </div>
           {answers[domain]?.outcome && answers[domain]?.outcome !== "no_concern" && (
             <Textarea
+              aria-label={`Anything you'd like your care team to know about ${DOMAIN_LABEL[domain]} (optional)`}
               placeholder="Anything you'd like your care team to know (optional)"
               maxLength={500}
               value={answers[domain]?.note ?? ""}
@@ -65,8 +68,8 @@ export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDom
         </fieldset>
       ))}
 
-      {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved. Thank you.</p>}
+      <FormError id={errorId} message={state?.error} />
+      <FormSuccess message={state?.success && "Saved. Thank you."} />
 
       <Button type="submit" disabled={pending || answeredCount === 0}>
         {pending ? "Saving…" : `Save ${answeredCount || ""} answer${answeredCount === 1 ? "" : "s"}`}

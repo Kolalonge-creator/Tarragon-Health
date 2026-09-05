@@ -35,6 +35,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
 
@@ -729,7 +730,7 @@ function RequestRenewalButton({
             ? "Request renewal (credit ready)"
             : "Request renewal"}
       </Button>
-      {error && <p className="text-xs text-red-600 dark:text-red-300">{error}</p>}
+      <FormError id={fieldErrorId(`medication-renewal-${medication.id}`)} message={error} />
     </div>
   );
 }

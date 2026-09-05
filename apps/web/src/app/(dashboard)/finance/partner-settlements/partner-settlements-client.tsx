@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { koboToNaira } from "@tarragon/shared";
 import {
   createPartnerStatement,
@@ -173,9 +174,21 @@ function StatementActions({ statement }: { statement: StatementRow }) {
 export function PartnerSettlementsClient({
   providers,
   statements,
+  loadFailed = false,
+  accessNotice = null,
 }: {
   providers: PartnerOption[];
   statements: StatementRow[];
+  /** A read genuinely errored, as opposed to being filtered to nothing. */
+  loadFailed?: boolean;
+  /**
+   * Set when RLS will silently hide every statement from this reader. This is
+   * NOT a failure and deliberately does not use the red LoadFailure styling:
+   * nothing is broken, the account simply cannot see the table, and dressing
+   * a permissions boundary as an incident sends the reader chasing an outage
+   * that does not exist.
+   */
+  accessNotice?: string | null;
 }) {
   return (
     <div className="space-y-6">
@@ -185,7 +198,19 @@ export function PartnerSettlementsClient({
         title="Statements"
         description="Amounts payable to the laboratory. From Tarragon's side, this is what we owe them, not the reverse."
       >
-        {statements.length === 0 ? (
+        {loadFailed ? (
+          <LoadFailure>
+            Laboratory statements could not be loaded. This is not a report that none exist, and
+            nothing here should be read as an amount owed. Reload the page to try again.
+          </LoadFailure>
+        ) : accessNotice ? (
+          <p
+            role="status"
+            className="rounded-lg border border-charcoal-ink/15 bg-warm-ivory p-3 text-sm text-charcoal-ink/80"
+          >
+            {accessNotice}
+          </p>
+        ) : statements.length === 0 ? (
           <CenterNote>No laboratory statements recorded yet.</CenterNote>
         ) : (
           <TableShell>

@@ -26,7 +26,7 @@ export default async function TriageProtocolsSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data: versions } = await supabase
+  const { data: versions, error: versionsError } = await supabase
     .from("triage_protocols")
     .select("id, version, config, notes, is_active, approved_at, approved_by, created_at")
     .order("version", { ascending: false });
@@ -41,7 +41,18 @@ export default async function TriageProtocolsSettingsPage() {
         title="Symptom Triage Protocols"
         description="The red-flag screening rules and dynamic question trees behind the patient-facing symptom checker (platform brief §37): what counts as an emergency, what needs a prompt clinical look, and what's safe to self-manage, for each presenting complaint. Content changes only through a reviewed, tested migration; this page is where a Clinical Director puts a signed record on file and turns the patient-facing checker on."
       />
-      <TriageProtocolsManager versions={versionRows} activeVersion={activeVersion} nextVersion={nextVersion} />
+      {/* Worst case on this page is not a missing table: a failed read left
+          activeVersion null, and the manager then stated, in a badge, that the
+          patient-facing symptom checker is OFF. That is a claim about live
+          patient behaviour derived from a query that never ran. nextVersion
+          also collapsed to 1, offering to draft a version number that may
+          already exist. */}
+      <TriageProtocolsManager
+        versions={versionRows}
+        activeVersion={activeVersion}
+        nextVersion={nextVersion}
+        loadFailed={versionsError !== null}
+      />
     </div>
   );
 }

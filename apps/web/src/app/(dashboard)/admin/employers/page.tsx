@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { CreateEmployerForm } from "./create-employer-form";
 
 const VERIFICATION_BADGE: Record<string, { variant: "green" | "grey" | "amber" | "red"; label: string }> = {
@@ -30,7 +31,7 @@ export default async function AdminEmployersPage() {
   if (!allowed) redirect("/admin");
 
   const svc = createServiceRoleClient();
-  const { data: orgs } = await svc
+  const { data: orgs, error: orgsError } = await svc
     .from("organisations")
     .select("id, name, is_active, employer_accounts(verification_status, onboarding_step, went_live_at)")
     .eq("type", "corporate")
@@ -48,10 +49,18 @@ export default async function AdminEmployersPage() {
       <Card>
         <CardHeader>
           <CardTitle>All employers</CardTitle>
-          <CardDescription>{(orgs ?? []).length} registered.</CardDescription>
+          <CardDescription>
+            {orgsError ? "The employer list could not be read." : `${(orgs ?? []).length} registered.`}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          {(orgs ?? []).length === 0 ? (
+          {orgsError ? (
+            <LoadFailure>
+              The employer list could not be loaded. This is not a report that none are
+              registered, so do not register one from here that may already exist. Reload to try
+              again.
+            </LoadFailure>
+          ) : (orgs ?? []).length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No employers registered yet.</p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10">

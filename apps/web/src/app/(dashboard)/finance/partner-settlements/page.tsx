@@ -1,4 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { partnerStatementAccessNotice } from "@/lib/finance/partner-statement-access";
+import { anyQueryFailed } from "@/lib/queries/server-query-state";
 import { PartnerSettlementsClient } from "./partner-settlements-client";
 
 /**
@@ -14,9 +17,17 @@ import { PartnerSettlementsClient } from "./partner-settlements-client";
  * platform, and it has never reached payment_confirmed — so this page will
  * show nothing to reconcile until a real partner-billed order completes.
  * That is expected, not a bug.
+ *
+ * The empty state is nonetheless not trustworthy on its own, for a reason
+ * that has nothing to do with there being no data: partner_statements' RLS
+ * runs on private.is_org_staff, which excludes the `finance` role, and an RLS
+ * SELECT filters rather than raising. A finance officer therefore gets
+ * `{ data: [], error: null }` every time and used to be told "No laboratory
+ * statements recorded yet." See lib/finance/partner-statement-access.ts.
  */
 export default async function PartnerSettlementsPage() {
   const supabase = await createClient();
+  const profile = await getCurrentProfile();
 
   const [providersResult, statementsResult] = await Promise.all([
     supabase.from("lab_providers").select("id, name").eq("is_active", true).order("name"),
@@ -53,7 +64,12 @@ export default async function PartnerSettlementsPage() {
           actually agree to pay them.
         </p>
       </div>
-      <PartnerSettlementsClient providers={providers} statements={statements} />
+      <PartnerSettlementsClient
+        providers={providers}
+        statements={statements}
+        loadFailed={anyQueryFailed([providersResult, statementsResult])}
+        accessNotice={partnerStatementAccessNotice(profile?.role)}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import {
   RiskQuestionnaireConfigManager,
   type RiskQuestionnaireConfigRow,
@@ -25,7 +26,7 @@ export default async function RiskQuestionnaireConfigSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data: configs } = await supabase
+  const { data: configs, error: configsError } = await supabase
     .from("risk_questionnaire_configs")
     .select("id, version, config, notes, is_active, approved_at, created_at")
     .eq("organisation_id", profile.organisation_id ?? "")
@@ -51,11 +52,25 @@ export default async function RiskQuestionnaireConfigSettingsPage() {
           </>
         }
       />
-      <RiskQuestionnaireConfigEditor
-        key={rows[0]?.id ?? "seed"}
-        defaultConfigJson={JSON.stringify(prefillConfig, null, 2)}
-      />
-      <RiskQuestionnaireConfigManager configs={rows} />
+      {/* Same hazard as cv-risk-config: on a failed read prefillConfig falls
+          back to an EMPTY question bank, so the editor would have opened on
+          "no questions, no conditions" and saving it would have wiped the
+          live risk assessment. */}
+      {configsError ? (
+        <LoadFailure>
+          The risk questionnaire configuration could not be loaded. It is not empty, and this page
+          cannot say which version is signed and in force. Do not save a new version from here
+          until it loads: it would be written on top of an empty question bank.
+        </LoadFailure>
+      ) : (
+        <>
+          <RiskQuestionnaireConfigEditor
+            key={rows[0]?.id ?? "seed"}
+            defaultConfigJson={JSON.stringify(prefillConfig, null, 2)}
+          />
+          <RiskQuestionnaireConfigManager configs={rows} />
+        </>
+      )}
     </div>
   );
 }

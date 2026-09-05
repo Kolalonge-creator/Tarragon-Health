@@ -4,6 +4,7 @@ import { canViewOpsConsole } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatTile } from "@/components/ui/stat-tile";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
 import { formatNumber } from "@/lib/analytics/format";
@@ -75,6 +76,13 @@ export default async function OpsConsolePage() {
   const healthData = healthRes.data as { components?: SystemHealthComponent[] } | null;
   const health = healthData?.components ?? [];
 
+  // ops_today_summary is one RPC behind about twenty tiles. A failure left it
+  // as `{}`, so every tile below rendered 0: no critical alerts, no pending
+  // clinical reviews, no incidents past SLA, nothing failing. That is the
+  // single most reassuring screen the platform can draw, produced entirely by
+  // a broken read.
+  const summaryFailed = summaryRes.error !== null;
+
   const n = (v: number | undefined) => formatNumber(v ?? 0);
 
   return (
@@ -92,6 +100,16 @@ export default async function OpsConsolePage() {
         }
       />
 
+      {summaryFailed && (
+        <LoadFailure>
+          Today&apos;s counts could not be loaded, so nothing below can be read as zero: not the
+          critical alerts, not the pending clinical reviews, not the open incidents. Every queue
+          still opens from the sidebar and the exception queue further down loads separately.
+          Reload this page to try again.
+        </LoadFailure>
+      )}
+
+      {!summaryFailed && (
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <StatTile icon={NAV_ICON.users} label="Active patients" value={n(summary.patients)} />
         <StatTile
@@ -142,9 +160,11 @@ export default async function OpsConsolePage() {
           value={n(summary.open_incidents)}
         />
       </div>
+      )}
 
-      <SystemHealthPanel components={health} />
+      <SystemHealthPanel components={health} loadFailed={healthRes.error !== null} />
 
+      {!summaryFailed && (
       <Card>
         <CardHeader>
           <CardTitle>Full snapshot</CardTitle>
@@ -184,6 +204,7 @@ export default async function OpsConsolePage() {
           />
         </CardContent>
       </Card>
+      )}
 
       <Card>
         <CardHeader>

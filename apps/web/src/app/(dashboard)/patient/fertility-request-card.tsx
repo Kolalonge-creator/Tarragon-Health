@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 import { formatPatientDate } from "@/lib/format-date";
 const STATUS_LABEL: Record<string, string> = {
@@ -30,6 +31,8 @@ export function FertilityRequestCard({ patientId }: { patientId: string }) {
   const requests = useFertilityAssessmentRequests(patientId);
   const invalidate = useInvalidateWomensHealth(patientId);
   const [state, formAction, pending] = useActionState(requestFertilityAssessment, undefined);
+  const errorId = fieldErrorId("fertility-assessment-request");
+  const errorProps = fieldErrorProps(errorId, Boolean(state?.error));
 
   useEffect(() => {
     if (state?.success) invalidate();
@@ -68,13 +71,13 @@ export function FertilityRequestCard({ patientId }: { patientId: string }) {
               <Label htmlFor="trying_duration_months">
                 How many months have you been trying to conceive? (optional)
               </Label>
-              <Input id="trying_duration_months" name="trying_duration_months" type="number" min={0} className="max-w-32" />
+              <Input id="trying_duration_months" name="trying_duration_months" type="number" min={0} className="max-w-32" {...errorProps} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="concern_notes">What would you like your care team to know? (optional)</Label>
-              <Input id="concern_notes" name="concern_notes" />
+              <Input id="concern_notes" name="concern_notes" {...errorProps} />
             </div>
-            {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+            <FormError id={errorId} message={state?.error} />
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Sending…" : "Request a fertility assessment"}
             </Button>

@@ -6,6 +6,7 @@ import { TriangleAlert, Phone, Hospital } from "lucide-react";
 import { useActiveEmergency, activeEmergencyKey } from "@/lib/queries/emergency";
 import { acknowledgeEmergency, alertEmergencyContactNow } from "./actions";
 import { Button } from "@/components/ui/button";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { getEmergencyNumbers } from "@/lib/nigeria-emergency-numbers";
 import { emergencyHospitalGuidance } from "./emergency-guidance";
 
@@ -172,7 +173,7 @@ export function EmergencyAlert({
             </p>
           )}
 
-          {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
+          <FormError id={fieldErrorId("emergency-alert")} message={error} />
 
           <div className="space-y-3">
             {hasEmergencyContact ? (

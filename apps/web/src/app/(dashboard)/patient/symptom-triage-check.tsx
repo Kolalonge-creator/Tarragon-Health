@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 
 type Stage =
   | { step: "pick_complaint" }
@@ -183,7 +184,10 @@ export function SymptomTriageCheck({
           </p>
         )}
 
-        {stage.step === "error" && <p className="text-sm text-red-700 dark:text-red-300">{stage.message}</p>}
+        <FormError
+          id={fieldErrorId("symptom-triage")}
+          message={stage.step === "error" && stage.message}
+        />
       </CardContent>
     </Card>
   );

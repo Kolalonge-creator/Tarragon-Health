@@ -5,6 +5,7 @@ import { submitAdolescentPsychosocialScreen } from "../adolescent-health-actions
 import { YES_NO_OPTIONS } from "@/lib/validation/adolescent-psychosocial-screen";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 
 function YesNoQuestion({ name, prompt }: { name: string; prompt: string }) {
   return (
@@ -174,6 +175,7 @@ export function AdolescentHealthForm() {
               <legend className="text-sm text-charcoal-ink dark:text-night-ink">Anything else you want us to know? (optional)</legend>
               <textarea
                 name="notes"
+                aria-label="Anything else you want us to know (optional)"
                 maxLength={1000}
                 rows={2}
                 className="w-full rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 p-2 text-sm"
@@ -181,7 +183,7 @@ export function AdolescentHealthForm() {
             </fieldset>
           </div>
 
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>}
+          <FormError id={fieldErrorId("adolescent-psychosocial-screen")} message={state?.error} />
 
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save check-in"}

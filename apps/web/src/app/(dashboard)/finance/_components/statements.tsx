@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
+import { refreshQueryState, type RefreshQueryState } from "@/lib/queries/list-query-state";
 import { useTrialBalance, useIncomeStatement, useBalanceSheet, useCashFlowStatement } from "@/lib/finance/queries";
 import { lagosToday, lagosYearStart } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor } from "./primitives";
@@ -30,6 +32,17 @@ export function FinanceStatements() {
   const pnl = useIncomeStatement(from, to, currency);
   const bs = useBalanceSheet(asOf, currency);
   const cf = useCashFlowStatement(from, to, currency);
+
+  // Each statement is its own RPC and fails independently, so they are judged
+  // independently: a broken cash-flow read is no reason to withhold a P&L
+  // that came back fine. Every `?? 0` below was previously reached on failure,
+  // which rendered a complete, balanced-looking set of accounts made entirely
+  // of zeroes. A trial balance of nothing footing to nothing is the most
+  // convincing wrong answer this console can give.
+  const pnlState = statementState(pnl);
+  const cfState = statementState(cf);
+  const bsState = statementState(bs);
+  const tbState = statementState(tb);
 
   return (
     <div className="space-y-6">
@@ -57,10 +70,16 @@ export function FinanceStatements() {
       </div>
 
       <SectionCard title="Income statement (P&L)" description={`${from} to ${to} · ${currency}`}>
-        {pnl.isLoading ? (
+        {pnlState === "failed" ? (
+          <LoadFailure>
+            The income statement could not be loaded. Net revenue, expenses and net income are
+            unknown for this period, not zero.
+          </LoadFailure>
+        ) : pnl.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (
           <>
+            {pnlState === "stale" && <StaleDataNotice />}
             <TableShell>
               <tbody>
                 {(pnl.data?.lines ?? []).map((l) => (
@@ -85,10 +104,16 @@ export function FinanceStatements() {
       </SectionCard>
 
       <SectionCard title="Cash flow statement (indirect method)" description={`${from} to ${to} · ${currency}`}>
-        {cf.isLoading ? (
+        {cfState === "failed" ? (
+          <LoadFailure>
+            The cash flow statement could not be loaded. &ldquo;No activity in this period&rdquo;
+            below would be a claim about the period, and this is a claim about the read.
+          </LoadFailure>
+        ) : cf.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (
           <div className="space-y-4">
+            {cfState === "stale" && <StaleDataNotice />}
             <CashFlowSection title="Operating activities" section={cf.data?.operating} netLabel="Net cash from operating" currency={currency} />
             <CashFlowSection title="Investing activities" section={cf.data?.investing} netLabel="Net cash from investing" currency={currency} />
             <CashFlowSection title="Financing activities" section={cf.data?.financing} netLabel="Net cash from financing" currency={currency} />
@@ -107,10 +132,16 @@ export function FinanceStatements() {
           description={`As of ${asOf} · ${currency}`}
           actions={bs.data ? (bs.data.balances ? <Badge variant="green">Balanced</Badge> : <Badge variant="amber">Unbalanced</Badge>) : undefined}
         >
-          {bs.isLoading ? (
+          {bsState === "failed" ? (
+            <LoadFailure>
+              The balance sheet could not be loaded. Assets, liabilities and equity are unknown,
+              not zero, and nothing here should be read as balanced.
+            </LoadFailure>
+          ) : bs.isLoading ? (
             <CenterNote>Loading…</CenterNote>
           ) : (
             <>
+              {bsState === "stale" && <StaleDataNotice />}
               <StatementByType accounts={bs.data?.accounts ?? []} currency={currency} types={["asset", "liability", "equity"]} />
               <dl className="mt-4 space-y-1.5 border-t border-charcoal-ink/10 pt-3 text-sm">
                 <Row label="Total assets" value={formatMinor(bs.data?.assets_minor ?? 0, currency)} />
@@ -123,7 +154,12 @@ export function FinanceStatements() {
         </SectionCard>
 
         <SectionCard title="Trial balance" description={`As of ${asOf} · ${currency}`}>
-          {tb.isLoading ? (
+          {tbState === "failed" ? (
+            <LoadFailure>
+              The trial balance could not be loaded. This is not a report of no ledger activity,
+              and the totals it would have footed are unknown.
+            </LoadFailure>
+          ) : tb.isLoading ? (
             <CenterNote>Loading…</CenterNote>
           ) : (tb.data ?? []).length === 0 ? (
             <CenterNote>No ledger activity.</CenterNote>
@@ -154,6 +190,24 @@ export function FinanceStatements() {
       </div>
     </div>
   );
+}
+
+/**
+ * One statement's read, classified. Kept as a named helper rather than four
+ * inline refreshQueryState calls so every statement on this page is judged by
+ * the same rule, and so the "stale" case (a failed refetch over data that did
+ * load) is not quietly dropped for some of them.
+ */
+function statementState(query: {
+  isLoading: boolean;
+  isError: boolean;
+  data: unknown;
+}): RefreshQueryState {
+  return refreshQueryState({
+    isLoading: query.isLoading,
+    isError: query.isError,
+    hasData: query.data !== undefined,
+  });
 }
 
 interface CashFlowSectionData {
