@@ -56,6 +56,8 @@ declare
   v_product uuid;
   v_price   bigint;
   v_child   uuid := gen_random_uuid();
+  v_doc_a  uuid := gen_random_uuid();
+  v_doc_b  uuid := gen_random_uuid();
   v_adult   uuid := gen_random_uuid();
   v_free    uuid := gen_random_uuid();
   v_n0      integer;
@@ -105,16 +107,43 @@ begin
   end if;
 
   ------------------------------------------------------------------ fixtures
-  select organisation_id into v_org
-    from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+  -- Build the whole world rather than borrowing it. The first version of this
+  -- script resolved the organisation from an existing patient profile and then
+  -- required pre-existing clinicians, which is fine against the live project
+  -- and aborts on a fresh `supabase db reset` with "no clinician profiles in
+  -- this organisation" — a missing fixture, not a regression, and exactly the
+  -- failure mode packages/db/tests/ci.excluded exists to describe. Since this
+  -- script is in ci.manifest it has to stand on its own, so it now takes the
+  -- organisation the migrations create and mints its own clinicians.
+  select id into v_org from public.organisations order by created_at limit 1;
   if v_org is null then
-    raise exception 'no organisation has patient profiles — cannot run this test';
+    raise exception 'no organisation exists at all — the core migrations did not run';
   end if;
 
+  -- Two of them, so "one notification per clinician" is a real count rather
+  -- than something a single row could satisfy by accident.
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values
+    (v_doc_a, 'srf-doc-a@example.invalid', 'x', now(), '{}', '{}'),
+    (v_doc_b, 'srf-doc-b@example.invalid', 'x', now(), '{}', '{}')
+  on conflict (id) do nothing;
+
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values
+    (v_doc_a, v_org, 'clinician', 'SRF Test Clinician A'),
+    (v_doc_b, v_org, 'clinician', 'SRF Test Clinician B')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id,
+        role = excluded.role,
+        full_name = excluded.full_name;
+
+  -- Counted AFTER minting, so the expected notification count matches whatever
+  -- this organisation actually holds: 2 on a fresh database, 2 + whoever
+  -- already existed when run against a populated one.
   select count(*) into v_docs
     from public.profiles where organisation_id = v_org and role = 'clinician';
   if v_docs = 0 then
-    raise exception 'no clinician profiles in this organisation — cannot run this test';
+    raise exception 'clinician fixtures were not created — cannot run this test';
   end if;
 
   -- Resolved by FEATURE rather than by a hardcoded product code. Note there is
