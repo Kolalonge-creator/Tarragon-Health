@@ -178,15 +178,20 @@ describe("connectAndSubscribe", () => {
    * plausible-shaped fabricated reading (1/0 mmHg here) instead of throwing.
    * ble.ts then hands that to onReading exactly as it would a real one.
    *
-   * What currently stops it reaching a patient's record is the server:
-   * apps/web/src/lib/validation/device-reading.ts rejects a systolic below
-   * 60, so the upload 400s. That makes this a poison queue entry rather than
-   * a bad clinical number — see offline-queue.test.ts's head-of-line finding
-   * for why that is its own problem. The right fix is a length check in the
-   * shared parsers (every profile has the same exposure), which is outside
-   * apps/mobile.
+   * FIXED on this branch: readUint16LE in packages/shared now bounds-checks
+   * and throws, so every profile refuses a short frame instead of inventing a
+   * number. This test was written to document the defect and now asserts the
+   * fix, which is the shape it should keep: the contract that matters is that
+   * a truncated frame surfaces as an error and produces no reading at all.
+   *
+   * Relying on the server to catch it was never a fix. Server-side validation
+   * rejected a systolic below 60, which made it a poison queue entry rather
+   * than a bad clinical number (see offline-queue.test.ts's head-of-line
+   * finding), and this branch deliberately widened those bands so that the
+   * genuinely dangerous readings can get through. The backstop got looser at
+   * exactly the moment it would have mattered.
    */
-  it("FINDING: a truncated payload decodes to a fabricated reading instead of an error", async () => {
+  it("refuses a truncated payload instead of fabricating a reading", async () => {
     const errors: Error[] = [];
     const readings: unknown[] = [];
     await connectAndSubscribe(
@@ -197,10 +202,9 @@ describe("connectAndSubscribe", () => {
     );
     ble.__emitNotification(toBase64([0, 1])); // 2 bytes; a BP measurement needs at least 7
 
-    expect(errors).toEqual([]);
-    expect(readings).toEqual([
-      { deviceType: "bp_cuff", systolic: 1, diastolic: 0, meanArterialPressure: 0, unit: "mmHg" },
-    ]);
+    expect(readings).toEqual([]);
+    expect(errors).toHaveLength(1);
+    expect(errors[0].message).toMatch(/too short/i);
   });
 
   it("bounds the connection with the native timeout rather than waiting forever", async () => {
