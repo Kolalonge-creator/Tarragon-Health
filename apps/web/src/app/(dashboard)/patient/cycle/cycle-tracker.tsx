@@ -20,6 +20,7 @@ import {
   type CyclePrediction,
   type ReproductiveLifeStage,
 } from "@/lib/rules/cycle-prediction";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { suggestCycleReading } from "@/lib/rules/cycle-reading";
 import { CycleCalendar } from "./cycle-calendar";
 import { CycleInsightsCard } from "./cycle-insights-card";
@@ -266,11 +267,10 @@ export function CycleTracker({
               It started on {shortDate(selectedDate)}
             </Button>
           </div>
-          {logPeriod.isError && (
-            <p className="text-sm text-red-600 dark:text-red-400">
-              {(logPeriod.error as Error)?.message ?? "Could not save that."}
-            </p>
-          )}
+          <FormError
+            id={fieldErrorId("cycle-log-period")}
+            message={logPeriod.isError && "Could not save that just now. Please try again."}
+          />
         </CardContent>
       </Card>
 

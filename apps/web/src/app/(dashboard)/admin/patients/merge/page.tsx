@@ -5,6 +5,7 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { MergeTool, type MergeCandidate, type RecordWeight } from "./merge-tool";
 
 /**
@@ -62,11 +63,17 @@ export default async function AdminPatientMergePage({
   const supabase = await createClient();
   let candidateA: MergeCandidate | null = null;
   let candidateB: MergeCandidate | null = null;
+  // A failed profiles read left both candidates null, and the page then told
+  // the reviewer to go back to the duplicates queue and pick a pair, which is
+  // exactly what they had just done. Failing closed is the right direction for
+  // a merge tool; saying why is the part that was missing.
+  let candidatesFailed = false;
   if (a && b) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, patient_number, date_of_birth, phone, created_at, role")
       .in("id", [a, b]);
+    candidatesFailed = error !== null;
     const rowA = (data ?? []).find((p) => p.id === a && p.role === "patient") ?? null;
     const rowB = (data ?? []).find((p) => p.id === b && p.role === "patient") ?? null;
     if (rowA && rowB) {
@@ -86,7 +93,13 @@ export default async function AdminPatientMergePage({
         description="Repoints every table that references the losing record onto the kept record, then retires the losing record. All-or-nothing: a preview always runs first, and a genuine conflict rolls the whole merge back rather than merging half of it."
       />
 
-      {candidateA && candidateB ? (
+      {candidatesFailed ? (
+        <LoadFailure>
+          Those two patient records could not be loaded, so there is nothing to compare and no
+          merge can be previewed. Nothing has been changed. Reload the page and try the pair
+          again from the duplicates queue.
+        </LoadFailure>
+      ) : candidateA && candidateB ? (
         <Card>
           <CardHeader>
             <CardTitle>Choose which record survives</CardTitle>

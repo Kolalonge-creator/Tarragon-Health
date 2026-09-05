@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { USER_ROLE_LABELS, type UserRoleValue } from "@/lib/validation/members";
 
 type ActivityCount = { action: string; count: number };
@@ -79,7 +80,7 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
 
   // Activity via the self-gating RPC (runs under the caller's session).
   const supabase = await createClient();
-  const { data: activityRaw } = await supabase.rpc("admin_member_activity", { p_member: id });
+  const { data: activityRaw, error: activityError } = await supabase.rpc("admin_member_activity", { p_member: id });
   const activity = (activityRaw as MemberActivity | null) ?? {
     total_actions: 0,
     last_active: null,
@@ -201,7 +202,14 @@ export default async function MemberDetailPage({ params }: { params: Promise<{ i
               ))}
             </div>
           )}
-          {activity.recent.length === 0 ? (
+          {/* An audit trail is the one list where "nothing here" is itself a
+              finding, so it must never be produced by a failed read. */}
+          {activityError ? (
+            <LoadFailure>
+              This member&apos;s activity could not be loaded. It is not a record that they have
+              done nothing. Reload to try again.
+            </LoadFailure>
+          ) : activity.recent.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No recorded activity yet.</p>
           ) : (
             <ul className="divide-y divide-charcoal-ink/10">

@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
 
 import { formatPatientDate } from "@/lib/format-date";
@@ -30,6 +31,8 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
   const logs = useMenopauseSymptomLogs(patientId);
   const invalidate = useInvalidateWomensHealth(patientId);
   const [state, formAction, pending] = useActionState(logMenopauseSymptoms, undefined);
+  const errorId = fieldErrorId("menopause-symptom-log");
+  const errorProps = fieldErrorProps(errorId, Boolean(state?.error));
   const [symptomTypes, setSymptomTypes] = useState<Set<MenopauseSymptomType>>(new Set());
   const [bleeding, setBleeding] = useState(false);
 
@@ -85,7 +88,7 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
 
           <div className="space-y-1.5">
             <Label htmlFor="severity">Overall severity (0–10)</Label>
-            <Input id="severity" name="severity" type="number" min={0} max={10} className="max-w-24" />
+            <Input id="severity" name="severity" type="number" min={0} max={10} className="max-w-24" {...errorProps} />
           </div>
 
           <label className="flex items-center gap-2 text-sm">
@@ -107,10 +110,10 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notes (optional)</Label>
-            <Input id="notes" name="notes" />
+            <Input id="notes" name="notes" {...errorProps} />
           </div>
 
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+          <FormError id={errorId} message={state?.error} />
           {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Logged.</p>}
 
           <Button type="submit" size="sm" disabled={pending || (symptomTypes.size === 0 && !bleeding)}>

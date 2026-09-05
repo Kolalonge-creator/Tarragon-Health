@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -312,8 +313,12 @@ function IncidentRow({
 
 export function DataBreachIncidentsManager({
   initialIncidents,
+  loadFailed = false,
 }: {
   initialIncidents: DataBreachIncidentRow[];
+  /** The register read failed. The new-incident form stays usable regardless:
+   * a broken read must never stop somebody starting the 72-hour clock. */
+  loadFailed?: boolean;
 }) {
   const [incidents, setIncidents] = useState(initialIncidents);
 
@@ -324,11 +329,20 @@ export function DataBreachIncidentsManager({
         <CardHeader>
           <CardTitle>Incidents</CardTitle>
           <CardDescription>
-            {incidents.filter((i) => i.status !== "closed").length} open or in progress.
+            {loadFailed
+              ? "The register could not be read."
+              : `${incidents.filter((i) => i.status !== "closed").length} open or in progress.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {incidents.length === 0 ? (
+          {loadFailed ? (
+            <LoadFailure>
+              The breach register could not be loaded. This is not a report that no breach is open,
+              and any 72-hour NDPC notification deadline already running is not visible here.
+              Reload before concluding nothing is outstanding. You can still log a new incident
+              above.
+            </LoadFailure>
+          ) : incidents.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No incidents logged.</p>
           ) : (
             incidents.map((incident) => (

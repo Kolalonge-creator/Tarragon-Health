@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 const SEVERITY_STYLE: Record<DrugSafetySeverity, string> = {
   contraindicated: "text-red-700 dark:text-red-300",
@@ -172,8 +173,17 @@ export function AddMedicationForm({
     submitMedication(pendingData);
   }
 
-  const mutationError = (addMedication.error as Error | null)?.message ?? null;
+  // The mutation throws Supabase's own PostgrestError, so printing its
+  // `.message` put strings like "new row violates row-level security policy
+  // for table \"medications\"" in front of a patient. The validation message
+  // above is ours and is worth showing; a failed insert gets one human
+  // sentence instead.
+  const mutationError = addMedication.isError
+    ? "We could not save this medication just then. Please try again."
+    : null;
   const displayError = validationError ?? mutationError;
+  const errorId = fieldErrorId("add-medication");
+  const errorProps = fieldErrorProps(errorId, Boolean(displayError));
 
   // Clinician-facing prescribe-time drug-safety cautions (§13.5). Advisory only
   // — the platform never blocks a prescription; the doctor decides. Shown for
@@ -255,7 +265,7 @@ export function AddMedicationForm({
             patient, and confirm this prescription is correct.
           </label>
 
-          {displayError && <p className="text-sm text-red-600 dark:text-red-300">{displayError}</p>}
+          <FormError id={errorId} message={displayError} />
 
           <div className="flex flex-wrap gap-2">
             <Button
@@ -293,6 +303,7 @@ export function AddMedicationForm({
               value={drugName}
               onChange={(event) => setDrugName(event.target.value)}
               required
+              {...errorProps}
             />
             {safetyNotes.length > 0 && (
               <div className="mt-1 space-y-1 rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 p-2.5">
@@ -318,6 +329,7 @@ export function AddMedicationForm({
                 placeholder="e.g. 10mg"
                 value={dose}
                 onChange={(event) => setDose(event.target.value)}
+                {...errorProps}
               />
             </div>
             <div className="space-y-1.5">
@@ -327,6 +339,7 @@ export function AddMedicationForm({
                 placeholder="e.g. Twice daily"
                 value={frequency}
                 onChange={(event) => setFrequency(event.target.value)}
+                {...errorProps}
               />
             </div>
           </div>
@@ -491,8 +504,8 @@ export function AddMedicationForm({
               )}
             </div>
           )}
-          {displayError && <p className="text-sm text-red-600 dark:text-red-300">{displayError}</p>}
-          {success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Medication added.</p>}
+          <FormError id={errorId} message={displayError} />
+          <FormSuccess message={success && "Medication added."} />
           <Button type="submit" disabled={addMedication.isPending}>
             {source === "clinician"
               ? "Continue to review"

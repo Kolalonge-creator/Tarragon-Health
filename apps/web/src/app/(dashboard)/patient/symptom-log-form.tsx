@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 const SYMPTOM_LABEL: Record<SymptomLogInput["symptom_type"], string> = {
   pain: "Pain",
@@ -64,6 +65,10 @@ export function SymptomLogForm({
   const [severity, setSeverity] = useState(5);
   const [state, formAction, pending] = useActionState(logSymptom, undefined);
   const queryClient = useQueryClient();
+  // The action returns one message for the whole log rather than a per-field
+  // one, so every control on the form points at the same alert.
+  const errorId = fieldErrorId("symptom-log");
+  const invalid = Boolean(state?.error);
   const visibleTypes = shouldOfferPaediatricSymptomTypes(ageYears)
     ? [...ADULT_SYMPTOM_TYPES.filter((t) => t !== "other"), ...PAEDIATRIC_SYMPTOM_TYPES, "other" as const]
     : ADULT_SYMPTOM_TYPES;
@@ -95,7 +100,13 @@ export function SymptomLogForm({
           )}
           <div className="space-y-1.5">
             <Label htmlFor="symptom_type">Symptom</Label>
-            <Select id="symptom_type" name="symptom_type" defaultValue="other" required>
+            <Select
+              id="symptom_type"
+              name="symptom_type"
+              defaultValue="other"
+              required
+              {...fieldErrorProps(errorId, invalid)}
+            >
               {visibleTypes.map((value) => (
                 <option key={value} value={value}>
                   {SYMPTOM_LABEL[value]}
@@ -118,21 +129,29 @@ export function SymptomLogForm({
               value={severity}
               onChange={(event) => setSeverity(Number(event.target.value))}
               className={`w-full ${severityTrackColor(severity)}`}
+              {...fieldErrorProps(errorId, invalid, "symptom-severity-hint")}
             />
-            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            <p
+              id="symptom-severity-hint"
+              className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
+            >
               1 = barely noticeable, 10 = worst you&apos;ve ever felt.
             </p>
           </div>
 
           <div className="space-y-1.5">
             <Label htmlFor="description">Note (optional)</Label>
-            <Input id="description" name="description" type="text" maxLength={500} />
+            <Input
+              id="description"
+              name="description"
+              type="text"
+              maxLength={500}
+              {...fieldErrorProps(errorId, invalid)}
+            />
           </div>
 
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
-          {state?.success && (
-            <p className="text-sm text-brand-green dark:text-brand-green-bright">Symptom logged.</p>
-          )}
+          <FormError id={errorId} message={state?.error} />
+          <FormSuccess message={state?.success && "Symptom logged."} />
 
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save symptom"}

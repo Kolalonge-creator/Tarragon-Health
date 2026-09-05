@@ -66,19 +66,26 @@ declare
   v_allowed    boolean;
   v_gate_count int;
 begin
-  -- A profile with no existing clinical_staff row, so the probe insert cannot
-  -- collide with the founder's real Clinical Director record.
-  select p.id into v_profile
-  from public.profiles p
-  where p.organisation_id = v_org
-    and not exists (
-      select 1 from public.clinical_staff cs where cs.profile_id = p.id
-    )
-  limit 1;
-
-  if v_profile is null then
-    raise exception 'No spare profile in org % to use as a probe', v_org;
+  -- The org is seeded by 20260706084837; if that ever stops being true, mint
+  -- one rather than fail for a missing fixture.
+  if not exists (select 1 from public.organisations where id = v_org) then
+    insert into public.organisations (id, name, type)
+    values (v_org, 'Tier Monotonicity Test Org', 'clinic');
   end if;
+
+  -- The probe profile is MINTED, not borrowed. Hunting for "a profile with no
+  -- clinical_staff row" needed a populated project, and on a bare
+  -- `supabase db reset` there is none -- while on a populated one it silently
+  -- picked a stranger's account. A fresh id cannot collide with the founder's
+  -- real Clinical Director record either, which is what that hunt was for.
+  v_profile := gen_random_uuid();
+  insert into auth.users (id, email)
+  values (v_profile, 'tiermono-probe@example.invalid');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_profile, v_org, 'clinician', 'Tier Monotonicity Probe')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name;
 
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
@@ -206,6 +213,24 @@ select
   )
 from tier_authority_matrix
 where tier = 'care_coordinator';
+
+-- The verdicts are printed below in a single `line` column, which the CI
+-- runner's trailing-FAIL scan cannot see -- so this file has to raise for
+-- itself. Without this block a real monotonicity breach would print
+-- "CASE 3 [FAIL] ..." and still exit 0.
+do $$
+declare
+  v_bad text;
+begin
+  select string_agg('case ' || case_num || ' (' || label || '): ' || detail, '; ' order by case_num)
+    into v_bad
+  from test_result
+  where outcome not like 'PASS%';
+
+  if v_bad is not null then
+    raise exception 'TIER AUTHORITY MONOTONICITY BROKEN: %', v_bad;
+  end if;
+end $$;
 
 -- One combined result set: the CLI prints only the final select, so the
 -- verdicts and the supporting matrix are unioned rather than emitted

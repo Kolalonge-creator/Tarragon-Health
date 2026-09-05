@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { ProtocolApiManager } from "./protocol-api-manager";
 
 /**
@@ -21,7 +22,7 @@ export default async function ProtocolApiSettingsPage() {
   if (!(await hasPermission("integrations.manage"))) redirect("/admin");
 
   const supabase = await createClient();
-  const { data: partners } = await supabase.rpc("admin_list_protocol_partners");
+  const { data: partners, error: partnersError } = await supabase.rpc("admin_list_protocol_partners");
 
   return (
     <div className="space-y-6">
@@ -40,7 +41,15 @@ export default async function ProtocolApiSettingsPage() {
           </>
         }
       />
-      <ProtocolApiManager partners={partners ?? []} />
+      {partnersError ? (
+        <LoadFailure>
+          The protocol API partners could not be loaded. This is not a report that none are
+          licensed, and no issued key is visible here. Reload before adding a partner that may
+          already exist.
+        </LoadFailure>
+      ) : (
+        <ProtocolApiManager partners={partners ?? []} />
+      )}
     </div>
   );
 }

@@ -14,6 +14,7 @@ import { shouldOfferPaediatricSymptomTypes } from "@/lib/rules/pediatric-symptom
 import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
 
 /**
@@ -49,6 +50,7 @@ export function DangerSymptomCheck({ patientId, ageYears = null }: { patientId: 
   const activeState = isPaediatric ? paediatricState : state;
   const activePending = isPaediatric ? paediatricPending : pending;
   const queryClient = useQueryClient();
+  const errorId = fieldErrorId("danger-symptom-check");
 
   useEffect(() => {
     if (activeState?.success) {
@@ -108,7 +110,12 @@ export function DangerSymptomCheck({ patientId, ageYears = null }: { patientId: 
             your nearest hospital.
           </p>
           <form action={isPaediatric ? paediatricFormAction : formAction} className="space-y-4">
-            <div className="flex flex-wrap gap-2">
+            <div
+              role="group"
+              aria-label="Danger signs you are experiencing"
+              aria-describedby={activeState?.error ? errorId : undefined}
+              className="flex flex-wrap gap-2"
+            >
               {isPaediatric
                 ? PAEDIATRIC_DANGER_SIGNS.map((sign) => {
                     const isOn = paediatricSelected.has(sign);
@@ -154,7 +161,7 @@ export function DangerSymptomCheck({ patientId, ageYears = null }: { patientId: 
               ? [...paediatricSelected].map((sign) => <input key={sign} type="hidden" name="signs" value={sign} />)
               : [...selected].map((sign) => <input key={sign} type="hidden" name="signs" value={sign} />)}
 
-            {activeState?.error && <p className="text-sm text-red-600 dark:text-red-300">{activeState.error}</p>}
+            <FormError id={errorId} message={activeState?.error} />
 
             <Button
               type="submit"

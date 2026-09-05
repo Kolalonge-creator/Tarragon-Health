@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 function pct(n: number | null, d: number | null): string {
   if (!d || d === 0) return "—";
@@ -13,7 +14,7 @@ function pct(n: number | null, d: number | null): string {
  */
 export default async function ObesityQualityPage() {
   const supabase = await createClient();
-  const { data } = await supabase.from("obesity_quality_metrics").select("*").maybeSingle();
+  const { data, error } = await supabase.from("obesity_quality_metrics").select("*").maybeSingle();
 
   const total = data?.obesity_patients ?? 0;
 
@@ -51,12 +52,28 @@ export default async function ObesityQualityPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Obesity quality metrics</h1>
         <p className="text-charcoal-ink/60">
-          Complication-prevention KPIs across {total} patient{total === 1 ? "" : "s"} on an active
-          obesity care plan or lifestyle-programme enrolment in your organisation.
+          {error ? (
+            "Complication-prevention KPIs for patients on an active obesity care plan or lifestyle-programme enrolment in your organisation."
+          ) : (
+            <>
+              Complication-prevention KPIs across {total} patient{total === 1 ? "" : "s"} on an
+              active obesity care plan or lifestyle-programme enrolment in your organisation.
+            </>
+          )}
         </p>
       </div>
 
-      {total === 0 ? (
+      {/* Same failure as the diabetes and hypertension boards. The eating
+          disorder / mental-health screen percentage is the one that matters
+          most here: a failed read used to render it as zero patients enrolled
+          rather than as an unread figure. */}
+      {error ? (
+        <LoadFailure>
+          These quality metrics could not be loaded. Nothing on this page can be read as a score,
+          and the missing figures are not zero. Reload the page, and if it keeps failing, raise it
+          with the platform team before drawing any conclusion about programme safety.
+        </LoadFailure>
+      ) : total === 0 ? (
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-charcoal-ink/60">

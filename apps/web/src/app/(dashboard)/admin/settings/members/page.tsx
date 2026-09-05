@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { anyQueryFailed } from "@/lib/queries/server-query-state";
 import { MembersManager } from "./members-manager";
 
 export type MemberRow = {
@@ -44,7 +46,7 @@ export default async function MembersPage() {
 
   const svc = createServiceRoleClient();
 
-  const [{ data: profiles }, { data: permissions }, { data: customRoles }, { data: grants }, { data: orgs }] =
+  const [profilesRes, permissionsRes, customRolesRes, grantsRes, orgsRes] =
     await Promise.all([
       svc
         .from("profiles")
@@ -64,6 +66,25 @@ export default async function MembersPage() {
       svc.from("user_permission_grants").select("id, profile_id, permission_key").is("revoked_at", null),
       svc.from("organisations").select("id, name, type").order("name"),
     ]);
+
+  const { data: profiles } = profilesRes;
+  const { data: permissions } = permissionsRes;
+  const { data: customRoles } = customRolesRes;
+  const { data: grants } = grantsRes;
+  const { data: orgs } = orgsRes;
+
+  // This is the access-control screen. A swallowed error here understated who
+  // exists, what roles are defined, and which capabilities are delegated, and
+  // an administrator reading a short list concludes a capability is held by
+  // nobody. Provisioning from a half-read page is worse still: it invites a
+  // duplicate login for somebody who already has one.
+  const accessReadFailed = anyQueryFailed([
+    profilesRes,
+    permissionsRes,
+    customRolesRes,
+    grantsRes,
+    orgsRes,
+  ]);
 
   // Map auth emails onto profiles (auth.users isn't reachable via PostgREST).
   const emailById = new Map<string, string | null>();
@@ -117,6 +138,13 @@ export default async function MembersPage() {
         title="Members & access"
         description="Create logins for employees and partners, assign roles, build custom roles, and delegate specific capabilities (e.g. adding a pharmacy, lab, or hospital) to individual members. The super admin holds every capability."
       />
+      {accessReadFailed ? (
+        <LoadFailure>
+          The members and access list could not be fully loaded. It is not a complete picture of
+          who has a login or which capabilities are delegated, so nothing here should be read as
+          &ldquo;nobody has this&rdquo;. Reload before provisioning or revoking anything.
+        </LoadFailure>
+      ) : (
       <MembersManager
         members={members}
         permissions={(permissions ?? []) as PermissionRow[]}
@@ -135,6 +163,7 @@ export default async function MembersPage() {
         canManageRoles={isSuperAdmin || keys.has("roles.manage")}
         canViewActivity={isSuperAdmin || keys.has("members.activity.view")}
       />
+      )}
     </div>
   );
 }

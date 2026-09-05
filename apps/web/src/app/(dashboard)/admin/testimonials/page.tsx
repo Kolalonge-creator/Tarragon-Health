@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { TestimonialModerationButtons } from "./moderation-buttons";
 
 export default async function AdminTestimonialsPage() {
@@ -12,7 +13,7 @@ export default async function AdminTestimonialsPage() {
   if (profile?.role !== "admin") redirect("/admin");
 
   const supabase = await createClient();
-  const { data: testimonials } = await supabase
+  const { data: testimonials, error: testimonialsError } = await supabase
     .from("patient_testimonials")
     .select("*")
     .order("created_at", { ascending: false });
@@ -29,10 +30,16 @@ export default async function AdminTestimonialsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Awaiting review ({submitted.length})</CardTitle>
+          <CardTitle>Awaiting review{testimonialsError ? "" : ` (${submitted.length})`}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {submitted.length === 0 && (
+          {testimonialsError && (
+            <LoadFailure>
+              The testimonial queue could not be loaded. This is not a report that nothing is
+              waiting for review. Reload to try again.
+            </LoadFailure>
+          )}
+          {!testimonialsError && submitted.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">Nothing waiting.</p>
           )}
           {submitted.map((t) => (
@@ -62,7 +69,7 @@ export default async function AdminTestimonialsPage() {
           <CardTitle>Reviewed</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {reviewed.length === 0 && (
+          {!testimonialsError && reviewed.length === 0 && (
             <p className="text-sm text-charcoal-ink/60">Nothing reviewed yet.</p>
           )}
           {reviewed.map((t) => (

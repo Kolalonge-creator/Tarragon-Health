@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 function pct(n: number | null, d: number | null): string {
   if (!d || d === 0) return "—";
@@ -13,7 +14,7 @@ function pct(n: number | null, d: number | null): string {
  */
 export default async function HypertensionQualityPage() {
   const supabase = await createClient();
-  const { data } = await supabase.from("hypertension_quality_metrics").select("*").maybeSingle();
+  const { data, error } = await supabase.from("hypertension_quality_metrics").select("*").maybeSingle();
 
   const total = data?.hypertensive_patients ?? 0;
 
@@ -47,12 +48,29 @@ export default async function HypertensionQualityPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Hypertension quality metrics</h1>
         <p className="text-charcoal-ink/60">
-          Complication-prevention KPIs across {total} patient{total === 1 ? "" : "s"} on an active
-          hypertension care plan in your organisation.
+          {error ? (
+            "Complication-prevention KPIs for patients on an active hypertension care plan in your organisation."
+          ) : (
+            <>
+              Complication-prevention KPIs across {total} patient{total === 1 ? "" : "s"} on an
+              active hypertension care plan in your organisation.
+            </>
+          )}
         </p>
       </div>
 
-      {total === 0 ? (
+      {/* Same failure as the diabetes board: a failed view read left `total`
+          at 0 and printed "No patients on an active hypertension care plan
+          yet", which is a clinical audit surface claiming a clean denominator
+          it never read. Percent-at-target and flag-to-contact time would both
+          have rendered as zero. */}
+      {error ? (
+        <LoadFailure>
+          These quality metrics could not be loaded. Nothing on this page can be read as a score,
+          and the missing figures are not zero. Reload the page, and if it keeps failing, raise it
+          with the platform team before drawing any conclusion about BP control.
+        </LoadFailure>
+      ) : total === 0 ? (
         <Card>
           <CardContent className="pt-6">
             <p className="text-sm text-charcoal-ink/60">

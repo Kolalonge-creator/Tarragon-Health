@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 const SCALE = [1, 2, 3, 4, 5] as const;
 
@@ -49,6 +50,8 @@ export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
   const queryClient = useQueryClient();
   const { data: preference } = useWellbeingCheckinPreference(patientId);
   const [freqState, freqAction, freqPending] = useActionState(updateWellbeingCheckinFrequency, undefined);
+  const checkinErrorId = fieldErrorId("wellbeing-checkin");
+  const frequencyErrorId = fieldErrorId("reminder_frequency_days");
 
   useEffect(() => {
     if (state?.success) {
@@ -73,8 +76,8 @@ export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
             <ScaleQuestion key={q.name} name={q.name} prompt={q.prompt} low={q.low} high={q.high} />
           ))}
 
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
-          {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Check-in saved.</p>}
+          <FormError id={checkinErrorId} message={state?.error} />
+          <FormSuccess message={state?.success && "Check-in saved."} />
 
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save check-in"}
@@ -89,6 +92,7 @@ export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
               name="reminder_frequency_days"
               defaultValue={String(preference?.reminder_frequency_days ?? 7)}
               className="w-40"
+              {...fieldErrorProps(frequencyErrorId, Boolean(freqState?.error))}
             >
               <option value="1">Day</option>
               <option value="3">3 days</option>
@@ -101,6 +105,12 @@ export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
             {freqPending ? "Saving…" : "Save"}
           </Button>
         </form>
+
+        {/* This second form had no error rendering at all: a failed
+            reminder-frequency save looked exactly like a successful one. It
+            sits outside the single-row form rather than inside it so the
+            existing layout is untouched. */}
+        <FormError id={frequencyErrorId} message={freqState?.error} />
       </CardContent>
     </Card>
   );

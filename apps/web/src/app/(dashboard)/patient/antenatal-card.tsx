@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 import { formatPatientDate } from "@/lib/format-date";
 /**
@@ -32,6 +33,7 @@ export function AntenatalCard({
 }) {
   const visits = useAntenatalVisits(patientId);
   const [state, formAction, pending] = useActionState(setLastMenstrualPeriod, undefined);
+  const lmpErrorId = fieldErrorId("last_menstrual_period_date");
 
   const estimate = useMemo(
     () => computeGestationalEstimate({ lastMenstrualPeriodDate, estimatedDueDate }),
@@ -73,13 +75,14 @@ export function AntenatalCard({
               name="last_menstrual_period_date"
               type="date"
               defaultValue={lastMenstrualPeriodDate ?? ""}
+              {...fieldErrorProps(lmpErrorId, Boolean(state?.error))}
             />
           </div>
           <Button type="submit" size="sm" variant="outline" disabled={pending}>
             {pending ? "Saving…" : "Save"}
           </Button>
         </form>
-        {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+        <FormError id={lmpErrorId} message={state?.error} />
 
         {visits.data && visits.data.length > 0 && (
           <div className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">

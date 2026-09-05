@@ -12,6 +12,7 @@ import {
   type MenstrualSymptom,
 } from "@/lib/queries/menstrual-cycle";
 import { Input } from "@/components/ui/input";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 import { formatPatientDate } from "@/lib/format-date";
 /**
@@ -111,6 +112,9 @@ export function CycleDayLog({
   existing: MenstrualDailyLog | null;
 }) {
   const save = useSaveDailyLog();
+  // One message for the day as a whole: the mutation fails or it does not,
+  // and nothing here is per-field validated.
+  const errorId = fieldErrorId("cycle-day-log");
   // Seeded once per mount. The parent remounts this component with
   // key={date}, so moving around the calendar shows that day's log rather
   // than the last one edited — which is what a reset-on-prop-change effect
@@ -224,8 +228,10 @@ export function CycleDayLog({
             />
           </div>
           <div className="space-y-1.5">
-            <span className="block text-xs text-charcoal-ink/60 dark:text-night-ink/60">Ovulation test</span>
-            <div className="flex flex-wrap gap-2">
+            <span id="cycle-ovulation-test-label" className="block text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Ovulation test
+            </span>
+            <div role="group" aria-labelledby="cycle-ovulation-test-label" className="flex flex-wrap gap-2">
               {OVULATION_TEST_OPTIONS.map((option) => (
                 <Chip
                   key={option.value}
@@ -255,14 +261,14 @@ export function CycleDayLog({
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
           placeholder="Only you and your care team can see this."
+          {...fieldErrorProps(errorId, save.isError)}
         />
       </div>
 
-      {save.isError && (
-        <p className="text-sm text-red-600 dark:text-red-400">
-          {(save.error as Error)?.message ?? "Could not save that. Please try again."}
-        </p>
-      )}
+      {/* The raw mutation error used to be printed here, which put a
+          PostgREST string in front of a patient. Nothing about a failed save
+          is per-field, so one human sentence is the whole message. */}
+      <FormError id={errorId} message={save.isError && "Could not save that just now. Please try again."} />
 
       <div className="flex items-center gap-3">
         <Button type="submit" size="sm" disabled={save.isPending}>

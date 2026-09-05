@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useWaitlistedReferrals } from "@/lib/queries/specialist-referrals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import { Badge } from "@/components/ui/badge";
 
 function formatDate(value: string): string {
@@ -20,6 +22,7 @@ function formatDate(value: string): string {
  */
 export default function WaitlistedReferralsPage() {
   const { data, isLoading, isError } = useWaitlistedReferrals();
+  const state = listQueryState({ isLoading, isError, count: data?.length });
 
   return (
     <Card>
@@ -30,12 +33,17 @@ export default function WaitlistedReferralsPage() {
         </Link>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load waitlisted referrals.</p>}
-        {data && data.length === 0 && (
+        {state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {state === "error" && (
+          <LoadFailure>
+            Waitlisted referrals could not be loaded. This is not a report that nobody is waiting.
+            Reload to try again.
+          </LoadFailure>
+        )}
+        {state === "empty" && (
           <p className="text-sm text-charcoal-ink/60">No referrals are currently waitlisted.</p>
         )}
-        {data && data.length > 0 && (
+        {state === "ready" && data && (
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((referral) => (
               <li key={referral.id} className="space-y-2 py-3">

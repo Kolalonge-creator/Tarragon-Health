@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 const REASON_LABEL: Record<(typeof MEDICATION_ACCESS_BARRIER_REASONS)[number], string> = {
   unavailable: "Not available at any pharmacy I tried",
@@ -36,6 +37,10 @@ export function MedicationAccessBarrierForm({
   const [reason, setReason] = useState<(typeof MEDICATION_ACCESS_BARRIER_REASONS)[number]>(
     "expensive"
   );
+  // One of these renders per medication, so the id has to carry the
+  // medication with it or every open form would share one error element.
+  const errorId = fieldErrorId(`barrier_reason_${medicationId}`);
+  const errorProps = fieldErrorProps(errorId, Boolean(state?.error));
 
   return (
     <form action={formAction} className="space-y-3 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3">
@@ -56,6 +61,7 @@ export function MedicationAccessBarrierForm({
             setReason(event.target.value as (typeof MEDICATION_ACCESS_BARRIER_REASONS)[number])
           }
           className="h-9 text-sm"
+          {...errorProps}
         >
           {MEDICATION_ACCESS_BARRIER_REASONS.map((value) => (
             <option key={value} value={value}>
@@ -68,14 +74,19 @@ export function MedicationAccessBarrierForm({
         <Label htmlFor={`barrier_note_${medicationId}`} className="text-xs">
           Anything else? (optional)
         </Label>
-        <Input id={`barrier_note_${medicationId}`} name="note" maxLength={500} className="h-9 text-sm" />
+        <Input
+          id={`barrier_note_${medicationId}`}
+          name="note"
+          maxLength={500}
+          className="h-9 text-sm"
+          {...errorProps}
+        />
       </div>
-      {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
-      {state?.success && (
-        <p className="text-xs text-brand-green dark:text-brand-green-bright">
-          Thanks. Your care team has been told and will follow up.
-        </p>
-      )}
+      <FormError id={errorId} message={state?.error} className="text-xs" />
+      <FormSuccess
+        message={state?.success && "Thanks. Your care team has been told and will follow up."}
+        className="text-xs"
+      />
       <Button type="submit" size="sm" variant="outline" disabled={pending}>
         {pending ? "Sending…" : "Send to my care team"}
       </Button>
