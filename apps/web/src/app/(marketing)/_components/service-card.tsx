@@ -31,7 +31,7 @@ export function ServiceCardLink({ service }: { service: ServiceCard }) {
         {service.built ? (
           <span className="text-sm font-medium text-brand-green">Learn more <span aria-hidden>→</span></span>
         ) : (
-          <span className="text-sm text-charcoal-ink/40">Coming soon</span>
+          <span className="text-sm text-charcoal-ink/65">Coming soon</span>
         )}
       </CardContent>
     </Card>

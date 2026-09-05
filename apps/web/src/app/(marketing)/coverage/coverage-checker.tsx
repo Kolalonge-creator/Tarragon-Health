@@ -55,7 +55,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
                   key={zone.id}
                   className="rounded-xl border border-charcoal-ink/10 bg-white p-3"
                 >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/65">
                     {zone.label}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-1.5">
@@ -91,7 +91,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
                 </div>
               ))}
           </div>
-          <p className="mt-3 text-xs text-charcoal-ink/50">
+          <p className="mt-3 text-xs text-charcoal-ink/65">
             The dot tracks home sample collection and medication delivery (which still wait on a
             contracted logistics partner everywhere) plus the optional &ldquo;let us bill a lab
             directly&rdquo; path, where we have a contracted lab. Everything else on this page,

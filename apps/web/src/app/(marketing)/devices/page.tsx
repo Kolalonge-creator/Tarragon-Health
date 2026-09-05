@@ -38,7 +38,7 @@ export default function DevicesPage() {
               <h3 className="mt-2 font-heading text-lg font-semibold text-charcoal-ink">
                 {device.deviceName}
               </h3>
-              <p className="text-sm text-charcoal-ink/50">{device.vendorName}</p>
+              <p className="text-sm text-charcoal-ink/65">{device.vendorName}</p>
               <span className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full border border-brand-green/30 bg-soft-sage px-3 py-1 text-xs font-medium text-deep-forest">
                 <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" aria-hidden>
                   <path

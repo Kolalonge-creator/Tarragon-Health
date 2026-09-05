@@ -92,7 +92,7 @@ No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
         <SectionHeading
           eyebrow="What costs money"
           title="A doctor's time, priced per piece of work"
-          description="This is the whole paid list. Nothing here is ever added on your behalf: you choose it, you see the price, you confirm, and it does not renew."
+          description="Nothing here is ever added on your behalf: you choose it, you see the price, you confirm, and it does not renew. Screening bundles arranged with our partner laboratory are priced separately, and you see that price before you confirm those too."
         />
         <PricingServices priceOverrides={priceOverrides} />
       </Section>

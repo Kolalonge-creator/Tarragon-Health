@@ -99,7 +99,16 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
             </h2>
             <p className="mt-4 text-charcoal-ink/70">{content.exampleNote}</p>
           </div>
+          {/* The numbers below are illustrative, not client data. The
+              "Illustrative example" note sits in the copy column beside this
+              card, which a visitor scanning the figures can easily miss, so
+              the card labels itself too. Do not remove this badge while the
+              figures are samples. */}
           <Card className="p-6 hover:shadow-sm">
+            <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-sprout-gold/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-charcoal-ink">
+              <span aria-hidden>◆</span>
+              Sample report
+            </p>
             {content.exampleStats.map((stat, index) => (
               <div
                 key={stat.label}

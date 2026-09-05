@@ -71,7 +71,7 @@ export function GiftPersonalizer() {
           A named check or a doctor&apos;s time, doctor-reviewed and already paid for. Theirs to book
           whenever they are ready.
         </p>
-        <p className="mt-4 text-xs text-charcoal-ink/50">From you, waiting on their account</p>
+        <p className="mt-4 text-xs text-charcoal-ink/65">From you, waiting on their account</p>
       </div>
 
       <div>

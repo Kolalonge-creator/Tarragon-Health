@@ -220,12 +220,6 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
         frequency: "Once",
         tier: "Core",
       },
-      {
-        name: "Syphilis: VDRL with TPHA confirmation",
-        explanation: "A two-step confirmatory test for a treatable infection that causes serious harm if missed.",
-        frequency: "Every year",
-        tier: "Comprehensive",
-      },
     ],
   },
   {
@@ -300,7 +294,7 @@ export function WhatWeMeasure() {
                   <p className="mt-1 text-sm leading-relaxed text-charcoal-ink/65">
                     {item.explanation}
                   </p>
-                  <p className="mt-1 text-xs font-medium uppercase tracking-wide text-charcoal-ink/45">
+                  <p className="mt-1 text-xs font-medium uppercase tracking-wide text-charcoal-ink/65">
                     {item.frequency}
                   </p>
                 </li>

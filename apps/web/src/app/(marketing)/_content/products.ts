@@ -151,13 +151,13 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     headline: "Healthy today? Let's keep it that way.",
     campaignLine: "The best emergency is the one you prevent.",
     intro:
-      "You don't need a diagnosis to use Tarragon: prevention is one of our four priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up the same day, years earlier than it would otherwise have been caught.",
+      "You don't need a diagnosis to use Tarragon: prevention is one of our four priority programmes, built for people who feel fine and want to stay that way. A screening and vaccination calendar matched to your age, sex, and history; a yearly Health Check; and education that makes sense of your numbers. Most years, you'll simply get confirmation that all is well. If a check ever finds something, a doctor follows up within a day, and within 12 hours if it's critical, years earlier than it would otherwise have been caught.",
     included: [
       "Personal screening calendar: cancer, metabolic, infectious, and reproductive checks matched to you",
       "Vaccination schedule, booking, and doctor-verified certificates",
       "The Annual Health Check, up to a full Comprehensive Screen: we say what to get, you use any lab, a doctor reads it",
       "Personalised health education with short knowledge checks",
-      "Doctor follow-up the same day on any result that needs attention",
+      "Doctor follow-up within a day on any result that needs attention",
       "A seamless path into chronic care monitoring in the rare case follow-up is needed: same record, no starting over",
     ],
     howItWorks: [
@@ -177,7 +177,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
     metadata: {
       title: "Preventive Health",
       description:
-        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and education, with doctor follow-up the same day if a result needs attention.",
+        "Prevention for healthy people: a personal screening and vaccination calendar, yearly health checks, and education, with doctor follow-up within a day if a result needs attention.",
     },
   },
   medication: {

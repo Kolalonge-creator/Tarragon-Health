@@ -73,7 +73,7 @@ export function StepsExplorer({
               <span
                 className={cn(
                   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold transition-colors duration-300",
-                  isActive ? cn(activeCircle, "text-white") : "border border-charcoal-ink/15 bg-white text-charcoal-ink/50"
+                  isActive ? cn(activeCircle, "text-white") : "border border-charcoal-ink/15 bg-white text-charcoal-ink/65"
                 )}
                 aria-hidden
               >
@@ -91,7 +91,7 @@ export function StepsExplorer({
                 <p
                   className={cn(
                     "mt-1 text-sm leading-relaxed transition-colors duration-300",
-                    isActive ? "text-charcoal-ink/70" : "text-charcoal-ink/50"
+                    isActive ? "text-charcoal-ink/70" : "text-charcoal-ink/65"
                   )}
                 >
                   {item.body}

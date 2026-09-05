@@ -24,12 +24,26 @@ import { PILLARS, PILLARS_SECTION_COPY } from "./_content/pillars";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
-export const metadata: Metadata = pageMetadata({
-  title: "TarragonHealth | Care that stays with you",
-  description:
-    "Health monitoring for chronic disease, preventive health, and care coordination. Track vitals, medication, labs, and preventive checks in one secure platform.",
-  path: "/",
-});
+const HOME_TITLE = "TarragonHealth | Care that stays with you";
+
+/**
+ * The marketing layout sets `title.template = "%s | TarragonHealth"`, which
+ * would render this page's already-branded title as
+ * "TarragonHealth | Care that stays with you | TarragonHealth" (76 chars,
+ * truncated in search results). `title.absolute` opts this one page out of
+ * the template; every other page keeps it, because their titles are the bare
+ * page name. openGraph/twitter titles are unaffected by the template, so they
+ * stay as pageMetadata built them.
+ */
+export const metadata: Metadata = {
+  ...pageMetadata({
+    title: HOME_TITLE,
+    description:
+      "Health monitoring for chronic disease, preventive health, and care coordination. Track vitals, medication, labs, and preventive checks in one secure platform.",
+    path: "/",
+  }),
+  title: { absolute: HOME_TITLE },
+};
 
 export default async function MarketingHomePage({
   searchParams,
@@ -281,10 +295,21 @@ export default async function MarketingHomePage({
             <h2 className="mt-2 font-heading text-2xl font-semibold text-charcoal-ink sm:text-3xl">
               Take Tarragon with you
             </h2>
+            {/* Corrected 2026-09-05: this used to say "download the app for
+                iPhone and Android" and "search TarragonHealth in the App
+                Store or Google Play". Neither store listing exists — there is
+                no apps.apple.com or play.google.com URL anywhere in the repo,
+                apps/mobile/eas.json has an empty production submit config,
+                and distribution today is an internal preview build. A visitor
+                who searched would find nothing. What IS true is the PWA: see
+                apps/web/src/app/manifest.ts (standalone display, installable
+                from the browser). Restore store wording only once a listing is
+                actually live. */}
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
-              Download the TarragonHealth app for iPhone and Android and check in wherever you are.
-              The same secure record you already use on the web, with your care team in your
-              pocket whenever you need them.
+              Tarragon works in any phone browser today, and you can add it to your home screen so
+              it opens like an app. The same secure record you already use on the web, with your
+              care team in your pocket whenever you need them. Native apps for iPhone and Android
+              are coming.
             </p>
             <ul className="mt-6 grid gap-3 sm:grid-cols-2">
               {[
@@ -305,9 +330,9 @@ export default async function MarketingHomePage({
                 <Link href="/signup">Get started</Link>
               </Button>
             </div>
-            <p className="mt-3 text-sm text-charcoal-ink/55">
-              Already have an account? Search &quot;TarragonHealth&quot; in the App Store or Google
-              Play to sign in on your phone.
+            <p className="mt-3 text-sm text-charcoal-ink/65">
+              Already have an account? Sign in on your phone browser, then use your browser&apos;s
+              &quot;Add to Home Screen&quot; option to keep Tarragon one tap away.
             </p>
           </div>
         </div>

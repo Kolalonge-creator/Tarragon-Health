@@ -230,7 +230,7 @@ export function BmiCalorieCalculator() {
         </div>
       ) : null}
 
-      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/50">
+      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
         A general estimate, not a diagnosis or personalised medical advice. BMI doesn&apos;t
         account for muscle mass, pregnancy, or every body type, and calorie needs vary by
         individual. For a plan built around your real health picture, a doctor on Tarragon can

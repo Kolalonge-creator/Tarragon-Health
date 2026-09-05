@@ -44,7 +44,7 @@ export default async function ContactPage({
             </a>
             .
           </p>
-          <p className="mt-2 text-center text-xs text-charcoal-ink/45">
+          <p className="mt-2 text-center text-xs text-charcoal-ink/65">
             TarragonHealth · RC 9702108
           </p>
         </div>

@@ -30,7 +30,7 @@ const GENERAL_STEPS = [
   },
   {
     title: "A doctor reads every result",
-    body: "Nothing is left to a printout. A doctor reviews every result against your history. An abnormal result triggers an immediate alert and same-day follow-up; it's never just filed away.",
+    body: "Nothing is left to a printout. A doctor reviews every result against your history. An abnormal result triggers an immediate alert and follow-up within a day, or within 12 hours if it's critical; it's never just filed away.",
   },
 ];
 
