@@ -147,12 +147,25 @@ export const temperatureSchema = z.object({
   taken_at: takenAtField,
 });
 
+/**
+ * Full plausible SpO2 range — same reasoning as the BP, pulse and
+ * temperature bands above, and the last of the four manual bands still
+ * clamped tighter than the engine that reads it. private.classify_spo2_level
+ * treats anything below 90% as EMERGENCY, so the old 70 floor rejected the
+ * whole emergency band below it: a patient reading 65 off their oximeter was
+ * told the number was invalid rather than being routed to emergency_events.
+ * 50 matches the device ingestion band (./device-reading.ts), for the reason
+ * written there — oximeters legitimately report severe hypoxaemia, which is
+ * exactly the reading that must reach the escalation pipeline rather than
+ * bounce off validation. A person typing what their meter shows is reporting
+ * the same fact as the meter uploading it.
+ */
 export const spo2Schema = z.object({
   vital_type: z.literal("spo2"),
   spo2_pct: z.coerce
     .number()
     .int()
-    .min(70, "SpO2 must be at least 70%")
+    .min(50, "SpO2 must be at least 50%")
     .max(100, "SpO2 must be at most 100%"),
   note: noteField,
   taken_at: takenAtField,

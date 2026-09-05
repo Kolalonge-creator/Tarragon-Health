@@ -304,10 +304,21 @@ export async function revokeCareAccessAction(
 
 /**
  * Withdraws a request the caller sent before the other party has responded.
- * care_access_requests_update_cancel (the RLS policy) only admits
- * initiated_by = auth.uid() AND status = 'pending' going to 'cancelled' —
- * nothing else about the row is reachable through this path, so there is no
- * plain-client route from here to accepting your own request.
+ *
+ * The old comment here claimed "nothing else about the row is reachable
+ * through this path". That was false for a direct PostgREST PATCH, and was
+ * proven so: WITH CHECK sees only the NEW row, never the OLD one, so a policy
+ * structurally cannot express "unchanged". The cancel policy pinned only
+ * initiated_by and status, which left profile_id and counterparty_user_id
+ * rewritable while cancelling. Re-pointing the counterparty was the worse of
+ * the two, because it fires the responded-notification at a stranger and
+ * corrupts the audit_row_change record.
+ *
+ * What actually holds both parties, the permission level and the expiry still
+ * is private.guard_care_access_request_update (migration 20260905010446), a
+ * BEFORE UPDATE trigger. The tightened policy is defence in depth on top of
+ * it, not the control. Only status/responded_by/responded_at/updated_at may
+ * move, which is what respond_to_care_access_request needs.
  */
 export async function cancelCareAccessRequestAction(
   requestId: string

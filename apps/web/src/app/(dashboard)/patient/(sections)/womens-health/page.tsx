@@ -86,7 +86,7 @@ export default async function WomensHealthPage() {
   const supabase = await createClient();
 
   const [
-    { data: reproProfile },
+    { data: reproProfile, error: reproError },
     { data: pregnancy, error: pregnancyError },
     { data: activePlans },
     { data: nextAppointment },
@@ -113,16 +113,31 @@ export default async function WomensHealthPage() {
       .maybeSingle(),
   ]);
 
-  const lifeStage = reproProfile?.life_stage ?? "not_applicable";
   const activeConditions = (activePlans ?? []).map((p) => p.condition as CarePlanCondition);
 
-  // A failed or refused read is NOT "she isn't pregnant". Collapsing it that
-  // way is what hid the antenatal card and, with it, the red-flag symptom
-  // check that tells a pregnant patient which symptoms need seeing today.
-  // Unknown gets its own branch below and never falls through to the
-  // not-pregnant one. Narrowing to a row (rather than a boolean) also means
-  // high_risk is read off the record we actually have, never defaulted.
+  // A read that ERRORED is NOT "she isn't pregnant". Collapsing it that way is
+  // what hid the antenatal card and, with it, the red-flag symptom check that
+  // tells a pregnant patient which symptoms need seeing today. An errored read
+  // gets its own branch below and never falls through to the not-pregnant one.
+  // Narrowing to a row (rather than a boolean) also means high_risk is read
+  // off the record we actually have, never defaulted.
+  //
+  // What this deliberately does NOT claim to cover: a row withheld by RLS.
+  // Postgres row-level security filters rows rather than raising, so a
+  // .maybeSingle() the caller may not read returns { data: null, error: null }
+  // and is indistinguishable here from "no record exists". That is by design
+  // for reproductive_health, the one care_access_category with no caregiver or
+  // break-glass read-through: making a refusal look different from an absence
+  // would leak the existence of the record to exactly the people the category
+  // exists to keep out. So this page treats a withheld row as no row, on
+  // purpose, and only an actual error is reported as an error.
   const pregnancyUnknown = Boolean(pregnancyError);
+  // Same treatment for the reproductive-health profile: without it, life_stage
+  // silently became "not_applicable", which is not a neutral default. It is
+  // the value that hides the postnatal, fertility and menopause cards outright
+  // and renders "Cycle: Not tracked" over a record we simply did not read.
+  const reproUnknown = Boolean(reproError);
+  const lifeStage = reproProfile?.life_stage ?? "not_applicable";
   const activePregnancy = !pregnancyUnknown && pregnancy?.is_pregnant ? pregnancy : null;
   const gestationalEstimate = activePregnancy
     ? computeGestationalEstimate({
@@ -131,10 +146,14 @@ export default async function WomensHealthPage() {
       })
     : null;
 
-  const showContraception = !pregnancyUnknown && !activePregnancy && lifeStage !== "postpartum";
-  const showFertility = lifeStage === "trying_to_conceive";
-  const showMenopause = lifeStage === "perimenopausal" || lifeStage === "menopausal";
-  const showPostnatal = lifeStage === "postpartum";
+  // Every stage-driven card below is an assertion about the patient, so none
+  // of them render off a life stage we did not actually read.
+  const showContraception =
+    !pregnancyUnknown && !reproUnknown && !activePregnancy && lifeStage !== "postpartum";
+  const showFertility = !reproUnknown && lifeStage === "trying_to_conceive";
+  const showMenopause =
+    !reproUnknown && (lifeStage === "perimenopausal" || lifeStage === "menopausal");
+  const showPostnatal = !reproUnknown && lifeStage === "postpartum";
 
   return (
     <DashboardSection
@@ -146,7 +165,9 @@ export default async function WomensHealthPage() {
         <CardContent className="grid grid-cols-2 gap-4 py-4 sm:grid-cols-4">
           <SummaryStat
             label="Cycle"
-            value={reproProfile?.last_period_date ? "Tracked" : "Not tracked"}
+            value={
+              reproUnknown ? "Not available" : reproProfile?.last_period_date ? "Tracked" : "Not tracked"
+            }
           />
           {gestationalEstimate && (
             <SummaryStat label="Antenatal" value={`Week ${gestationalEstimate.weeks}`} />
@@ -167,6 +188,21 @@ export default async function WomensHealthPage() {
       </Card>
 
       {profile.organisation_id && <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />}
+
+      {reproUnknown && (
+        <Card variant="soft">
+          <CardContent className="space-y-2 py-4 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+            <p className="font-medium text-charcoal-ink dark:text-night-ink">
+              We couldn&apos;t load your reproductive health profile just now
+            </p>
+            <p>
+              Your cycle, contraception and life stage are stored, we simply couldn&apos;t read
+              them on this page load. Anything below that depends on them is hidden rather than
+              guessed at. Please refresh and try again.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {pregnancyUnknown && (
         <Card variant="soft">

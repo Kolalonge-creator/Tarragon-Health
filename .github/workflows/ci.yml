@@ -101,3 +101,14 @@ jobs:
 
       - name: Replay all migrations + seed
         run: supabase db reset
+
+      # The SQL proof scripts in packages/db/tests were referenced by no
+      # workflow at all until 2026-09-05: several thousand lines of RLS and
+      # ledger verification, complete with sabotage checks, that looked like a
+      # gate and ran only by hand. This runs the ones that hold on a freshly
+      # reset stack (packages/db/tests/ci.manifest) and fails the job on a
+      # raised assertion or a FAIL verdict. It also fails if a new proof file
+      # is in neither ci.manifest nor ci.excluded, so the next one cannot
+      # quietly join the pile that never runs.
+      - name: Run database proof scripts
+        run: ./scripts/run-db-proofs.sh

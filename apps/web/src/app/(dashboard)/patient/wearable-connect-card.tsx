@@ -46,22 +46,27 @@ const CONSENT_CATEGORIES: {
     key: "heart_rate",
     label: "Heart rate & HRV",
     safetyNote:
-      "Turning this off stops HRV and the trends. A single dangerously high or low heart rate is still checked, because that is a safety alert rather than a fitness stat.",
+      "Turning this off stops us storing HRV and breathing rate. A single dangerously high or low heart rate is still recorded and still checked, and it still shows in your pulse history, because that is a safety alert rather than a fitness stat.",
   },
   { key: "sleep", label: "Sleep" },
   {
     key: "weight",
     label: "Weight",
     safetyNote:
-      "Turning this off stops the weight trend. A sudden jump is still checked, because rapid weight gain can be an early sign of fluid building up.",
+      "Turning this off stops us using your weight for coaching. A sudden jump is still recorded and still checked, and it still shows in your weight history, because rapid weight gain can be an early sign of fluid building up.",
   },
 ];
 
 /** Shown under both consent lists. The checkboxes narrow what we keep for
  * insights; they are deliberately not a switch that turns off a safety
- * check. These three are the controls that genuinely stop everything, so
- * a patient who wants that is told where it is rather than left assuming
- * a checkbox did it. */
+ * check. Be careful writing these notes: a safety-retained reading lands in
+ * `vitals_readings`, and the patient-facing trend charts (useVitalsTrend,
+ * useVitalsReadings) select from that table with NO source filter, so the
+ * reading is still visible in the patient's own history. An earlier draft of
+ * this copy claimed unchecking a box "stops the trend", which was false for
+ * exactly that reason. These three controls are the ones that genuinely stop
+ * everything, so a patient who wants that is told where they are rather than
+ * left assuming a checkbox did it. */
 const CONSENT_SAFETY_FOOTNOTE =
   "If you would rather we held nothing at all from this device, pause or disconnect it, or delete everything it has synced. Those stop all of it.";
 

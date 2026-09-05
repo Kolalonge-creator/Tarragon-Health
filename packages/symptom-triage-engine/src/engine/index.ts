@@ -54,7 +54,9 @@ export function evaluateCondition(condition: RedFlagCondition, capture: SymptomC
   if (condition.anyHistory !== undefined) {
     if (!condition.anyHistory.some((h) => capture.relevantHistory.includes(h))) return false;
   }
-  // INCLUSIVE ("at or below"), not strict. The only measurementBelow rule that
+  // INCLUSIVE ("at or below"), i.e. read the field as "measurementAtMost";
+  // its doc comment on RedFlagCondition is the copy a rule author will
+  // actually see, and says the same thing. Not strict. The only measurementBelow rule that
   // exists anywhere — in this package, in the DB seed migration, and in the
   // db-seed-fixture parity copy — is breathlessness.spo2_low at spo2_pct 92,
   // and the live classifier private.classify_spo2_level classes exactly 92 as

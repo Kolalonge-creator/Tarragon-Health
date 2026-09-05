@@ -3,7 +3,9 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import { LIPID_ANALYTE_META, type LipidAnalyteCode } from "@/lib/lipids/analytes";
 
 interface AnalyteReading {
@@ -73,9 +75,12 @@ function useAnalyteTrends(patientId: string) {
  */
 export function ResultsTrendsCard({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = useAnalyteTrends(patientId);
+  const state = listQueryState({ isLoading, isError, count: data?.length });
 
-  if (isLoading || isError) return null;
-  if (!data || data.length === 0) return null;
+  // Silently dropping the card on a failed read tells a patient with years of
+  // results that there is nothing to compare.
+  if (state === "error") return <LoadErrorCard title="Your results over time" what="your lab results" />;
+  if (state !== "ready" || !data) return null;
 
   return (
     <Card>

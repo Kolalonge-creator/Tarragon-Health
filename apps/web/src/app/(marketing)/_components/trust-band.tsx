@@ -24,7 +24,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 const TRUST_ITEMS = [
   {
     title: "A real care team, always accountable",
-    body: "Every review is made by a doctor and carries that doctor's real name, never an anonymous system. We verify every clinician's licence before they can review anything, and nobody can verify their own.",
+    body: "Every review is made by a doctor and carries that doctor's real name on the note itself, never an anonymous system, and never a doctor named before they have actually reviewed something.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />

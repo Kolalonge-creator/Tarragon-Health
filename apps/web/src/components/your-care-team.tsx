@@ -88,8 +88,8 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
         <p className="text-sm text-charcoal-ink dark:text-night-ink">
           Your readings are followed by a team of doctors. Whoever reviews a reading or handles
           a check-in is named on that specific note, rather than being assigned to you as a
-          single doctor ahead of time. We verify every clinician&rsquo;s licence before they can
-          review anything, and nobody can verify their own.
+          single doctor ahead of time, and never named before they have actually reviewed
+          something.
         </p>
         {coordinatorName && (
           <>

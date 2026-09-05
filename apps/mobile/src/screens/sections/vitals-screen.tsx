@@ -100,21 +100,33 @@ function parseStrictNumber(raw: string): number | null {
 
 /**
  * Entry-time plausibility bounds — typo gating only, NOT clinical logic.
- * Deliberately far wider than any classification threshold (bp-classification
- * .ts, glucose-red-flags.ts), so a genuinely dangerous reading always
- * submits and still triggers the existing emergency guidance; only values no
- * live human could produce are stopped. Each carries its own warm inline
- * message so the fix is obvious without fear-based wording.
+ * Still deliberately far wider than any classification threshold
+ * (bp-classification.ts, glucose-red-flags.ts), so a genuinely dangerous
+ * reading always submits and still triggers the existing emergency guidance;
+ * only values no live human could produce are stopped. Each carries its own
+ * warm inline message so the fix is obvious without fear-based wording.
+ *
+ * These MUST NOT be wider than the server's own bands
+ * (apps/web/src/lib/validation/vitals.ts, which POST /api/mobile/vitals
+ * validates against). A client bound wider than the server's turns a typo
+ * into a poison queue entry: the screen accepts the value, offline-vitals-
+ * queue.ts stores it, the API answers 400, and the queue re-sends a reading
+ * the server will never accept. That is what SpO2 40, systolic 40,
+ * diastolic 20, weight 2-500 and glucose 0.5-55 mmol/L (10-1000 mg/dL) each
+ * did, against server floors of 50, 60, 30, 20-300 and 1-40 (18-720). The
+ * numbers below are the server's own bands verbatim; the direction to fix a
+ * future mismatch is to widen the server first and follow it here, never the
+ * reverse.
  */
 const BP_BOUNDS = {
-  systolic: { min: 40, max: 300 },
-  diastolic: { min: 20, max: 200 },
+  systolic: { min: 60, max: 260 },
+  diastolic: { min: 30, max: 160 },
 } as const;
 
 const OTHER_VITAL_BOUNDS: Record<Exclude<OtherVitalType, "glucose">, { min: number; max: number; message: string }> = {
   weight: {
-    min: 2,
-    max: 500,
+    min: 20,
+    max: 300,
     message: "That doesn't look like a usual weight in kg. Check the number and try again?",
   },
   temperature: {
@@ -123,9 +135,9 @@ const OTHER_VITAL_BOUNDS: Record<Exclude<OtherVitalType, "glucose">, { min: numb
     message: "That doesn't look like a usual body temperature in °C. Check the number and try again?",
   },
   spo2: {
-    min: 40,
+    min: 50,
     max: 100,
-    message: "SpO2 is a percentage, up to 100. Check the number and try again?",
+    message: "SpO2 is a percentage between 50 and 100. Check the number and try again?",
   },
   pulse: {
     min: 20,
@@ -140,13 +152,13 @@ const OTHER_VITAL_BOUNDS: Record<Exclude<OtherVitalType, "glucose">, { min: numb
  * mmol/L would otherwise fire the emergency modal on a plain typo. */
 const GLUCOSE_BOUNDS: Record<"mmol_l" | "mg_dl", { min: number; max: number; message: string }> = {
   mmol_l: {
-    min: 0.5,
-    max: 55,
+    min: 1,
+    max: 40,
     message: "That looks unusual for mmol/L. If your meter shows mg/dL, switch the unit and try again?",
   },
   mg_dl: {
-    min: 10,
-    max: 1000,
+    min: 18,
+    max: 720,
     message: "That looks unusual for mg/dL. If your meter shows mmol/L, switch the unit and try again?",
   },
 };

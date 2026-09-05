@@ -195,10 +195,15 @@ function BenefitsTable({ insurerId, planName }: { insurerId: string; planName: s
 }
 
 function PolicyCard({ patientId, organisationId }: { patientId: string; organisationId: string }) {
-  const { data: policies, isLoading } = usePatientInsurancePolicies(patientId);
+  const { data: policies, isLoading, isError } = usePatientInsurancePolicies(patientId);
   const [adding, setAdding] = useState(false);
+  const state = listQueryState({ isLoading, isError, count: policies?.length });
 
-  if (isLoading) return null;
+  // "No insurance on file yet" next to an Add button is an instruction to
+  // enter a policy the patient has already entered. A failed read must not
+  // ask them to do that twice.
+  if (state === "error") return <LoadErrorCard title="Your policy" what="your insurance details" />;
+  if (state === "loading") return null;
 
   return (
     <Card>

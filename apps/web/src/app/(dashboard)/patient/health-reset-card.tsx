@@ -2,6 +2,7 @@
 
 import { usePatientHealthResetProgress } from "@/lib/queries/health-reset";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 function Milestone({ done, label }: { done: boolean; label: string }) {
@@ -31,7 +32,11 @@ export function HealthResetCard({ patientId }: { patientId: string }) {
   const { data: progress, isLoading, isError } = usePatientHealthResetProgress(patientId);
   const Icon = SEMANTIC_ICON.preventive;
 
-  if (isLoading || isError || !progress) return null;
+  // A patient part-way through the Reset should not be told their progress is
+  // gone because one read failed. No progress row at all is still a genuine
+  // "nothing to show yet", so only the failure gets a card.
+  if (isError) return <LoadErrorCard title="90-Day Health Reset" what="your Health Reset progress" />;
+  if (isLoading || !progress) return null;
 
   const isComplete = !!progress.completed_at;
   const dayLabel = Math.min(progress.day_number, 90);

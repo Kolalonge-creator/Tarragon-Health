@@ -21,13 +21,20 @@ import type { Database } from "@tarragon/shared";
  * added by 20260904235834_doctor_time_features_grantable_by_the_purchasable_
  * programme.sql — so the six doctor-time gates and this one resolve through the
  * SAME code path. The RPC authorises the caller (the patient themselves, staff
- * of their organisation, or service_role) and raises rather than returning a
- * quiet false, so a permissions mistake here surfaces as an error instead of
- * silently withholding a doctor from a paying patient.
+ * of their organisation, or service_role) and RAISES 42501 rather than
+ * returning a quiet false, so an unauthorised caller can never be mistaken for
+ * an unentitled patient inside the database.
  *
- * Fails CLOSED on an RPC error, matching the previous behaviour: the patient
- * still gets the deterministic self-care guidance below and the full,
- * plan-independent emergency safety net, which never depended on this call.
+ * This function nevertheless converts that raise — and any other RPC error —
+ * into `false`, and that is deliberate: it is a gate, and a gate whose answer
+ * is unknown must withhold rather than grant. Returning false here does NOT
+ * silence the reading. The patient still gets the deterministic self-care
+ * guidance below, and the full, plan-independent emergency safety net
+ * (emergency_events, the acknowledge-gated hospital guidance, emergency-contact
+ * notify) never depended on this call at all. What the raise buys us over a
+ * DB-side quiet false is diagnosability, so the error is logged here rather
+ * than dropped: a permissions mistake shows up in the server log as itself
+ * instead of looking like a patient who simply has not paid.
  */
 const VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE = "vitals_red_flag_doctor_escalation";
 
@@ -39,7 +46,16 @@ export async function patientHasVitalsEscalationAccess(
     p_patient_id: patientId,
     p_feature: VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE,
   });
-  if (error) return false;
+  if (error) {
+    // Fail closed, loudly. See the header: the RPC raises so that "not
+    // allowed to ask" is distinguishable from "asked, answer is no" — that
+    // distinction is worth nothing if it is discarded here without a trace.
+    console.error(
+      "vitals-escalation-access: patient_has_feature_access failed; withholding doctor escalation for this reading",
+      { patientId, feature: VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE, error },
+    );
+    return false;
+  }
   return data === true;
 }
 

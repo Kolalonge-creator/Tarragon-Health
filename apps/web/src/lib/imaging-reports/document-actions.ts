@@ -89,7 +89,19 @@ export async function uploadImagingReportForPatient(
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
-  if (!patient || !patient.organisation_id || patient.organisation_id !== me?.organisation_id) {
+  //
+  // The one documented exception is the `admin` superadmin, who traverses
+  // every role area (and, per CLAUDE.md's I9 rule, is the ONLY account that
+  // may drill into an individual patient outside their own organisation).
+  // Locking admin inside a single org here would have blocked a legitimate
+  // oversight action, not closed a hole — private.is_admin() already grants
+  // exactly this read in the profiles SELECT policy.
+  const isSuperadmin = me?.role === "admin";
+  if (
+    !patient ||
+    !patient.organisation_id ||
+    (!isSuperadmin && patient.organisation_id !== me?.organisation_id)
+  ) {
     return { error: "That patient isn't in your organisation." };
   }
 

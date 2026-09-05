@@ -21,6 +21,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import { MEAL_TYPE_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
 
@@ -468,8 +470,9 @@ function MealHistorySection({
   patientId: string;
   activeConditions: CarePlanCondition[];
 }) {
-  const { data: entries, isLoading } = useNutritionEntries(patientId);
+  const { data: entries, isLoading, isError } = useNutritionEntries(patientId);
   const { data: catalogue } = useFoodCatalogue();
+  const state = listQueryState({ isLoading, isError, count: entries?.length });
 
   const grouped = useMemo(() => {
     const rows = entries ?? [];
@@ -481,14 +484,18 @@ function MealHistorySection({
     return Array.from(map.entries()).sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [entries]);
 
+  // A failed read used to render as "No meals logged yet.", which tells a
+  // patient who has been logging every day that their record is empty.
+  if (state === "error") return <LoadErrorCard title="Recent meals" what="your meal log" />;
+
   return (
     <Card>
       <CardHeader>
         <CardTitle>Recent meals</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
-        {!isLoading && (!entries || entries.length === 0) && (
+        {state === "loading" && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {state === "empty" && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No meals logged yet.</p>
         )}
         {grouped.length > 0 && (

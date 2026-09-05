@@ -93,6 +93,11 @@ interface PaystackEvent {
     // Only present on charge.dispute.create — the original charge, if
     // Paystack's payload nests it here (see the dispute case below).
     transaction?: { reference?: string } | null;
+    // The refund.* payload's own name for the ORIGINAL charge's reference.
+    // This is the field that identifies a refund; `id` is not present on
+    // these events, which is what made the old `refund:${data.id}` key fall
+    // through to a body length. See refundIdempotencyKeyFromWebhook.
+    transaction_reference?: string;
   };
 }
 
@@ -170,6 +175,96 @@ function toEventType(event: string | undefined): string {
   return event && PAYMENT_TRANSACTION_TYPES.has(event) ? event : "other";
 }
 
+/**
+ * The refund idempotency key, MIRRORED VERBATIM from
+ * apps/web/src/lib/billing/refund-idempotency.ts, which is the canonical
+ * copy and carries the full reasoning. It is duplicated rather than imported
+ * because this edge function is deployed by the Supabase CLI and cannot
+ * import from apps/web; the two copies are held identical by a drift-guard
+ * test (apps/web/src/lib/billing/refund-idempotency.test.ts) that reads this
+ * file and compares the text between the markers byte for byte. Edit the
+ * canonical file and copy the block across — never edit only one side.
+ */
+// >>> BEGIN SHARED REFUND IDEMPOTENCY (mirrored verbatim in supabase/functions/paystack-webhook/index.ts)
+export interface RefundWebhookData {
+  transaction_reference?: string | null;
+  transaction?: { reference?: string | null } | null;
+  reference?: string | null;
+  amount?: number | string | null;
+}
+
+/**
+ * A refunded amount in the currency's minor unit, or null when the payload
+ * does not carry one we can post against. Paystack sends `amount` as a JSON
+ * number on some events and as a decimal string on others.
+ */
+export function refundAmountMinor(raw: number | string | null | undefined): number | null {
+  const amount = typeof raw === "string" ? Number(raw.trim()) : raw;
+  if (typeof amount !== "number" || !Number.isInteger(amount) || amount <= 0) return null;
+  return amount;
+}
+
+/**
+ * `refund:<original charge reference>:<amount in minor units>`, or null when
+ * the refund cannot be identified. Never guess a key: null means "do not
+ * post."
+ */
+export function refundIdempotencyKey(identity: {
+  chargeReference: string | null | undefined;
+  amountMinor: number | string | null | undefined;
+}): string | null {
+  const reference =
+    typeof identity.chargeReference === "string" ? identity.chargeReference.trim() : "";
+  if (reference === "") return null;
+  const amount = refundAmountMinor(identity.amountMinor);
+  if (amount === null) return null;
+  return `refund:${reference}:${amount}`;
+}
+
+/**
+ * The webhook's half. Candidates for the original charge's reference, in
+ * order: `transaction_reference` (the field the refund.* payload actually
+ * carries), then a nested `transaction.reference` (the shape the dispute
+ * events use), then a flat `reference`. On a refund event all three mean the
+ * ORIGINAL charge, never the refund itself.
+ */
+export function refundIdempotencyKeyFromWebhook(
+  data: RefundWebhookData | null | undefined,
+): string | null {
+  return refundIdempotencyKey({
+    chargeReference:
+      data?.transaction_reference ?? data?.transaction?.reference ?? data?.reference ?? null,
+    amountMinor: data?.amount ?? null,
+  });
+}
+
+/**
+ * The provider_event_id an individual refund.* EVENT is recorded under.
+ *
+ * Only `refund.processed` may carry the bare key, because only a completed
+ * refund posts the reversal and only it must collide with what the cron
+ * writes. `refund.pending` and `refund.failed` describe the same refund and
+ * would otherwise derive the same string: the pending row would win the
+ * unique index, the processed event that followed would be dismissed as a
+ * replay, and the reversal would never post at all. They are namespaced by
+ * event name so all three are recorded and only one of them can post.
+ */
+export function refundProviderEventId(eventName: string, key: string): string {
+  return eventName === "refund.processed" ? key : `${eventName}:${key}`;
+}
+// <<< END SHARED REFUND IDEMPOTENCY
+
+/**
+ * Content hash of the raw body, used as a last-resort provider_event_id when
+ * an event carries no identifier of its own. Deduplicates a genuine Paystack
+ * retry of the identical body and nothing else — unlike the body LENGTH this
+ * replaced, which collided across unrelated events.
+ */
+async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(input));
+  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 Deno.serve(async (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -196,20 +291,54 @@ Deno.serve(async (req) => {
 
   const isRefundEvent = typeof event.event === "string" && event.event.startsWith("refund.");
 
-  // A refund is keyed on the REFUND's own id, deliberately in the same
-  // `refund:<id>` shape the refund crons use when they post their own ledger
-  // reversal (apps/web/src/lib/billing/refund-posting.ts). Both routes reach
-  // the same row, so the unique (provider, provider_event_id) index makes
-  // whichever arrives second an idempotent no-op instead of a second,
-  // duplicate Dr 4900 / Cr 1020 posting. Without this a refund payload would
-  // fall through to `data.reference` — which on Paystack's refund event is
-  // the ORIGINAL charge's reference — and collide with the charge itself.
-  const providerEventId = isRefundEvent
-    ? `refund:${event.data?.id ?? event.data?.reference ?? rawBody.length}`
-    : (event.data?.reference ??
+  // A refund is keyed by the shared derivation the refund crons use when they
+  // post their own ledger reversal (apps/web/src/lib/billing/refund-posting.ts
+  // -> refund-idempotency.ts, mirrored verbatim above). Both routes therefore
+  // reach the SAME row, and the unique (provider, provider_event_id) index
+  // makes whichever arrives second an idempotent no-op instead of a second,
+  // duplicate Dr 4900 / Cr 1020 posting.
+  const refundKey = isRefundEvent ? refundIdempotencyKeyFromWebhook(event.data) : null;
+
+  if (isRefundEvent && refundKey === null) {
+    // A refund payload carrying neither a usable original-charge reference
+    // nor a positive integer amount. There is no key here, and inventing one
+    // (this used to fall back to the body's BYTE LENGTH) is worse than having
+    // none: it does not match what the cron writes, so the same refund posts
+    // twice, and two unrelated refunds of equal length dedupe each other.
+    //
+    // So: record it for audit, exactly as this file's header promises, under
+    // a content hash that cannot collide with a real refund key — and return
+    // before the processing block below, so processed_at is never set and
+    // finance_post_from_payment can never take its refund branch. A reversal
+    // we cannot identify is a human's problem, loudly, not a guess.
+    console.error(
+      "paystack-webhook: refund event with no usable charge reference or amount — recorded for audit, NOT posted",
+      { event: event.event, keys: Object.keys(event.data ?? {}) },
+    );
+    const { error: auditError } = await supabase.from("payment_transactions").insert({
+      provider: "paystack",
+      provider_event_id: `refund:unidentifiable:sha256:${await sha256Hex(rawBody)}`,
+      event_type: toEventType(event.event),
+      amount_minor: refundAmountMinor(event.data?.amount),
+      currency: (event.data?.currency as "NGN" | "GBP" | "USD" | undefined) ?? null,
+      raw_payload: event as unknown as Record<string, unknown>,
+    });
+    if (auditError && auditError.code !== "23505") {
+      console.error("paystack-webhook: failed to record unidentifiable refund", auditError);
+    }
+    return Response.json({ ok: false, error: "refund_unidentifiable" }, { status: 200 });
+  }
+
+  const providerEventId = (refundKey !== null ? refundProviderEventId(event.event, refundKey) : null) ??
+    (event.data?.reference ??
       (event.data?.id !== undefined ? String(event.data.id) : null) ??
       event.data?.subscription_code ??
-      `${event.event}:${rawBody.length}`);
+      // Same reasoning as the refund key above, for every other event type: a
+      // body length is a collision key, so two unrelated identifier-less
+      // events of equal length would silently dedupe each other. A content
+      // hash still collapses a genuine Paystack retry of the same body, which
+      // is the only deduplication this fallback is meant to provide.
+      `${event.event}:sha256:${await sha256Hex(rawBody)}`);
 
   // Idempotency: a replayed webhook (Paystack retries, or a manual resend
   // from their dashboard) is a guaranteed no-op — the unique constraint on
@@ -221,7 +350,9 @@ Deno.serve(async (req) => {
       provider: "paystack",
       provider_event_id: providerEventId,
       event_type: toEventType(event.event),
-      amount_minor: event.data?.amount ?? null,
+      amount_minor: isRefundEvent
+        ? refundAmountMinor(event.data?.amount)
+        : (event.data?.amount ?? null),
       currency: (event.data?.currency as "NGN" | "GBP" | "USD" | undefined) ?? null,
       raw_payload: event as unknown as Record<string, unknown>,
     })
@@ -611,7 +742,10 @@ Deno.serve(async (req) => {
         // posted the reversal; the unique (provider, provider_event_id)
         // index means this event replayed harmlessly above and never
         // reaches here. Either route posts exactly once.
-        const chargeRef = event.data.transaction?.reference ?? event.data.reference ?? null;
+        const chargeRef = event.data.transaction_reference ??
+          event.data.transaction?.reference ??
+          event.data.reference ??
+          null;
         let organisationId: string | null = null;
         if (chargeRef) {
           const { data: original } = await supabase

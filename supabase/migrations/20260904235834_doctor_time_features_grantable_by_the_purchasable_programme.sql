@@ -17,16 +17,37 @@
 -- product was seeded in 20260831140512_service_products_and_purchases_core.sql
 -- with features = array['chronic_doctor_supported_track'] and never amended.
 --
--- So every doctor-time feature has been ungrantable to every real patient since
--- 2026-09-02. The consequence is not commercial-only: the seven live red-flag
--- handlers (handle_bp_reading_red_flag, handle_spo2_reading_red_flag,
+-- So NO PRODUCT A PATIENT CAN BUY TODAY grants any doctor-time feature. That is
+-- the precise claim, and an earlier draft of this header overstated it twice; the
+-- corrected version, verified against the live project on 2026-09-05:
+--
+--   * "ungrantable to every real patient" was wrong. Four patients hold
+--     service_purchases rows with status = 'active' and expires_at in 2027
+--     against the RETIRED packs (complete_pack x2, essential_pack, prevent_pack).
+--     Those products are is_active = false, but the gate reads the PURCHASE's
+--     status and expiry and never the product's is_active flag, and their
+--     features[] still contain 'vitals_red_flag_doctor_escalation'. Checked
+--     directly: private.patient_has_feature_access(<each of the four>,
+--     'vitals_red_flag_doctor_escalation') returns true. So the entitlement is
+--     alive for four legacy holders and unreachable for everyone who arrives
+--     after 2026-09-02 — a cohort cliff, not a platform-wide zero.
+--   * "a dangerous BP reading paged nobody, for anybody, platform-wide" was
+--     right about the outcome and wrong about the cause. For those four it is
+--     not this gate at all: their reading DOES raise a clinician_alerts row, and
+--     then pages nobody because all five red-flag handlers selected their
+--     clinician recipients with `... and phone is not null` while 0 of the 7
+--     live clinician profiles carry a phone. That is a separate defect with its
+--     own fix; this migration does not touch it and never did.
+--
+-- What is true either way: the seven live red-flag handlers
+-- (handle_bp_reading_red_flag, handle_spo2_reading_red_flag,
 -- handle_temperature_reading_red_flag, handle_pulse_reading_red_flag,
 -- handle_symptom_red_flag, handle_symptom_triage_assessment,
 -- handle_emergency_event) all consult
 -- private.patient_has_feature_access(patient, 'vitals_red_flag_doctor_escalation')
--- before raising a clinician_alerts row. A patient who paid ₦50,000 for the
--- doctor-supported programme evaluated to false, so a dangerous BP reading paged
--- nobody, for anybody, platform-wide.
+-- before raising a clinician_alerts row, and a patient who pays ₦50,000 for the
+-- doctor-supported programme today evaluates to false — no alert row is created
+-- for them at all. That is what this migration fixes.
 --
 -- The patient-facing emergency safety net is untouched by this and always was:
 -- emergency_events (acknowledge-gated hospital guidance, emergency-contact
@@ -183,6 +204,45 @@ $function$;
 --    the patient themselves, staff of the patient's organisation, or a
 --    service_role caller. Anyone else gets an ERROR, never a quiet false — a
 --    silent false is exactly the failure mode this migration exists to fix.
+--
+--    TWO THINGS THE FIRST DRAFT OF THIS GUARD GOT WRONG, both fixed below and
+--    both proven in packages/db/tests/doctor_time_entitlement_grantable_by_
+--    purchasable_product.sql section 5:
+--
+--    (a) IT FAILED OPEN FOR A SESSION-LESS CALLER. The guard was
+--        `if not (auth.uid() = p_patient_id or ... ) then raise`. With no
+--        session, auth.uid() is NULL, so the first disjunct is NULL, the whole
+--        disjunction is NULL (NULL or false or false = NULL), `not NULL` is
+--        NULL, and an IF on NULL does not fire — so the function fell through
+--        and RETURNED THE ENTITLEMENT to a caller it had just failed to
+--        recognise. Fixed by resolving auth.uid() into a variable and testing
+--        `v_caller is not null and v_caller = p_patient_id`, and by coalescing
+--        every other term, so the condition is total.
+--
+--    (b) IT COULD NOT SEE A SERVICE-ROLE CALLER RELIABLY.
+--        `auth.jwt() ->> 'role'` appeared exactly once in this repo, here. The
+--        idiom everywhere else is `current_user = 'service_role'`
+--        (20260829094404_mdm_duplicate_detection_service_role_cron.sql) —
+--        but that idiom is WRONG INSIDE A SECURITY DEFINER FUNCTION, which
+--        this one is. current_user is rewritten to the function's OWNER for
+--        the duration of a SECURITY DEFINER call; probed on the live project
+--        with a definer function called under `set role service_role`, it
+--        reports 'postgres', never 'service_role'. session_user is no better
+--        (it is PostgREST's 'authenticator' login role, shared by every
+--        caller). What DOES survive into a SECURITY DEFINER body is the `role`
+--        GUC that PostgREST sets per request, and the request's JWT claims —
+--        both reported 'service_role' correctly in the same probe. Both are
+--        accepted here: current_setting('role') is independent of the API-key
+--        format, and the JWT claim covers a caller that reached us some other
+--        way. Neither is forgeable by an end user, who is always dispatched
+--        as `authenticated`.
+--
+--        (Noted while proving this, NOT fixed here because it is a different
+--        feature: public.run_patient_duplicate_detection() is also SECURITY
+--        DEFINER and owned by postgres, so its own
+--        `current_user <> 'service_role'` test can never pass and its
+--        service-role cron caller is still locked out — exactly the failure
+--        its migration was written to prevent.)
 create or replace function public.patient_has_feature_access(p_patient_id uuid, p_feature text)
 returns boolean
 language plpgsql
@@ -191,7 +251,9 @@ security definer
 set search_path to ''
 as $function$
 declare
-  v_org uuid;
+  v_org             uuid;
+  v_caller          uuid;
+  v_is_service_role boolean;
 begin
   if p_patient_id is null or p_feature is null then
     return false;
@@ -199,10 +261,18 @@ begin
 
   select organisation_id into v_org from public.profiles where id = p_patient_id;
 
+  v_caller := (select auth.uid());
+
+  v_is_service_role :=
+       coalesce(current_setting('role', true), '') = 'service_role'
+    or coalesce((select auth.jwt() ->> 'role'), '') = 'service_role';
+
+  -- Every term is total: no NULL can reach the IF and turn a refusal into a
+  -- fall-through. See (a) above.
   if not (
-    (select auth.uid()) = p_patient_id
-    or coalesce((select auth.jwt() ->> 'role'), '') = 'service_role'
-    or (v_org is not null and private.is_org_staff(v_org))
+    (v_caller is not null and v_caller = p_patient_id)
+    or v_is_service_role
+    or (v_org is not null and coalesce(private.is_org_staff(v_org), false))
   ) then
     raise exception 'not authorised to read entitlements for this patient'
       using errcode = '42501';

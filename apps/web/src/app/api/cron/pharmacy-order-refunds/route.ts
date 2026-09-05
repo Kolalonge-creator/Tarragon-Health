@@ -56,6 +56,12 @@ export async function GET(request: Request): Promise<Response> {
   // See video-visit-refunds: a refund that moved real money but no ledger is
   // reported, never counted as a clean success.
   let unpostedRefunds = 0;
+  // A refund whose ledger row was already there. Normally the Paystack
+  // webhook having posted the same reversal first, which is the whole point
+  // of the shared idempotency key — but counted rather than ignored, because
+  // it is also what a second refund of the same charge for the same amount
+  // would look like (see lib/billing/refund-idempotency.ts).
+  let alreadyPosted = 0;
   for (const row of due ?? []) {
     if (row.payment_provider !== "paystack" || !row.payment_provider_ref) {
       manual += 1;
@@ -88,6 +94,7 @@ export async function GET(request: Request): Promise<Response> {
         sourceId: row.id,
       });
       if (posting.error) unpostedRefunds += 1;
+      if (posting.alreadyPosted) alreadyPosted += 1;
       refunded += 1;
     } else {
       failed += 1;
@@ -100,5 +107,6 @@ export async function GET(request: Request): Promise<Response> {
     refund_failures: failed,
     needs_manual_refund: manual,
     unposted_refunds: unpostedRefunds,
+    already_posted_refunds: alreadyPosted,
   });
 }

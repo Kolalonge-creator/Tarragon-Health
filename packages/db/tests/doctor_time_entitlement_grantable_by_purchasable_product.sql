@@ -38,8 +38,11 @@
 --   5. public.patient_has_feature_access(uuid, text) — the RPC that replaces the
 --      hand-rolled TypeScript copy in
 --      apps/web/src/lib/clinical/vitals-escalation-access.ts — answers for the
---      patient themselves and REFUSES (42501) for an unrelated patient, rather
---      than returning a quiet false.
+--      patient themselves, REFUSES (42501) for an unrelated patient rather than
+--      returning a quiet false, REFUSES a caller with no session at all (the
+--      guard used to fail OPEN there, on a NULL auth.uid()), and ANSWERS a
+--      service-role caller identified either by the `role` GUC or by its JWT
+--      claim — the shape the real production caller actually has.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -188,29 +191,108 @@ begin
       'FAIL 4: the unentitled patient got neither an alert nor the free-tier self-care suggestion — the reading vanished silently';
   end if;
 
-  ------------------------------------------------------------------ 5. the public RPC: answers for self, refuses for a stranger
+  ------------------------------------------------------------------ 5. the public RPC guard, all four caller shapes
+  --
+  -- The first version of this section covered exactly one: role=authenticated
+  -- WITH a sub. That left both halves of the guard untested, and both were
+  -- broken. See the migration header for the mechanism; the cases below are
+  -- the regression net.
+
+  -- 5a. the patient themselves -> answers
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_paid, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
 
   select public.patient_has_feature_access(v_paid, 'vitals_red_flag_doctor_escalation') into v_rpc;
   if not v_rpc then
-    raise exception 'FAIL 5: the RPC denies the entitled patient their own entitlement';
+    raise exception 'FAIL 5a: the RPC denies the entitled patient their own entitlement';
   end if;
 
+  -- 5b. an unrelated patient -> refuses, rather than answering about someone else
   begin
     perform public.patient_has_feature_access(v_other, 'vitals_red_flag_doctor_escalation');
   exception when insufficient_privilege then
     v_refused := true;
   end;
   if not v_refused then
-    raise exception 'FAIL 5: the RPC answered for an unrelated patient instead of refusing';
+    raise exception 'FAIL 5b: the RPC answered for an unrelated patient instead of refusing';
   end if;
 
+  -- 5c. NO SESSION AT ALL -> must refuse.
+  --
+  -- This is the case the guard used to FAIL OPEN on. auth.uid() is NULL, so
+  -- `auth.uid() = p_patient_id` was NULL, `NULL or false or false` was NULL,
+  -- `not NULL` was NULL, and an IF on NULL does not fire — the function fell
+  -- through the guard and returned the entitlement. Proven against the live
+  -- project before the fix: a caller with role=authenticated and no sub, and a
+  -- caller with no claims at all, both received `true`.
+  v_refused := false;
+  perform set_config('request.jwt.claims', '{"role":"authenticated"}', true);
+  begin
+    perform public.patient_has_feature_access(v_paid, 'vitals_red_flag_doctor_escalation');
+  exception when insufficient_privilege then
+    v_refused := true;
+  end;
+  if not v_refused then
+    raise exception 'FAIL 5c: the RPC answered a caller with an authenticated JWT carrying no sub — the guard is failing OPEN on a NULL auth.uid()';
+  end if;
+
+  v_refused := false;
+  perform set_config('request.jwt.claims', '', true);
+  begin
+    perform public.patient_has_feature_access(v_paid, 'vitals_red_flag_doctor_escalation');
+  exception when insufficient_privilege then
+    v_refused := true;
+  end;
+  if not v_refused then
+    raise exception 'FAIL 5c: the RPC answered a caller with no JWT claims at all — the guard is failing OPEN';
+  end if;
+
+  -- 5d. THE REAL PRODUCTION CALLER: a service-role client.
+  --
+  -- apps/web/src/lib/clinical/vitals-escalation-access.ts calls this RPC
+  -- through createServiceRoleClient(). Until now nothing exercised that path,
+  -- and it was only reaching the answer through the NULL hole above — closing
+  -- that hole without a working service-role branch would have silently shut
+  -- the glucose doctor-escalation gate for every paying patient.
+  --
+  -- Both mechanisms are tested because they are not interchangeable:
+  --   * the `role` GUC is what PostgREST sets per request regardless of API-key
+  --     format, and it is what survives into a SECURITY DEFINER body;
+  --   * the JWT `role` claim is present for a legacy JWT service key.
+  -- NOT tested, because it cannot work: `current_user`, the idiom used by
+  -- 20260829094404_mdm_duplicate_detection_service_role_cron.sql. Inside a
+  -- SECURITY DEFINER function current_user is the function's OWNER, and this
+  -- function is SECURITY DEFINER owned by postgres — probed live, it reports
+  -- 'postgres', never 'service_role'.
+
+  -- 5d-i. service_role identified only by the role GUC (no JWT claims)
+  perform set_config('request.jwt.claims', '', true);
+  perform set_config('role', 'service_role', true);
+  select public.patient_has_feature_access(v_paid, 'vitals_red_flag_doctor_escalation') into v_rpc;
+  if not v_rpc then
+    raise exception 'FAIL 5d: a service-role caller was denied the entitled patient''s entitlement — the production glucose escalation gate would shut for every paying patient';
+  end if;
+
+  -- and it must still ANSWER, not blanket-grant: the unentitled patient is false
+  select public.patient_has_feature_access(v_free, 'vitals_red_flag_doctor_escalation') into v_rpc;
+  if v_rpc then
+    raise exception 'FAIL 5d: the service-role branch returned true for a patient with no purchase — it is granting, not answering';
+  end if;
+
+  -- 5d-ii. service_role identified only by the JWT claim (legacy JWT key)
+  perform set_config('role', 'none', true);
+  perform set_config('request.jwt.claims', '{"role":"service_role"}', true);
+  select public.patient_has_feature_access(v_paid, 'vitals_red_flag_doctor_escalation') into v_rpc;
+  if not v_rpc then
+    raise exception 'FAIL 5d: a service-role caller identified by its JWT claim was denied';
+  end if;
+
+  perform set_config('request.jwt.claims', '', true);
   perform set_config('role', 'postgres', true);
 
   raise notice
-    'PASS: the product a patient can actually buy grants every doctor-time feature (OPEN), a patient with no purchase gets none of them (CLOSED), the same RED BP reading pages a doctor for the first and only self-care guidance for the second, and the entitlement RPC refuses rather than quietly denying';
+    'PASS: the product a patient can actually buy grants every doctor-time feature (OPEN), a patient with no purchase gets none of them (CLOSED), the same RED BP reading pages a doctor for the first and only self-care guidance for the second, and the entitlement RPC answers self / org staff / service_role, refuses a stranger, and refuses a caller with no session instead of falling through a NULL guard';
 end $$;
 
 rollback;

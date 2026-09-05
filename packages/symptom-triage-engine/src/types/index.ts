@@ -116,7 +116,26 @@ export interface RedFlagCondition {
   allAssociatedSymptoms?: string[];
   anyTrigger?: string[];
   anyHistory?: string[];
+  /**
+   * Fires when the measurement is AT OR BELOW `value` — inclusive, despite
+   * the name. Read it as "measurementAtMost": `{ key: "spo2_pct", value: 92 }`
+   * fires on 92, matching private.classify_spo2_level, which classes exactly
+   * 92 as RED. If you want strictly below N, write N - 1 (or the next
+   * representable step for a non-integer measurement); there is no strict
+   * operator in this vocabulary.
+   *
+   * The name is not fixed for want of a better one. It is the literal key
+   * inside `triage_protocols.config`, and the only row in that table is a
+   * Clinical-Director-approved version 1 (confirmed live 2026-09-05, one
+   * measurementBelow rule: spo2_pct 92). Renaming it would mean rewriting an
+   * approved clinical protocol's stored jsonb in a migration and re-running
+   * the DB/TS parity guard in protocols/config-schema.test.ts, to change a
+   * label rather than a behaviour. So the meaning is documented here instead,
+   * where a rule author reads it, and the engine's own comment
+   * (engine/index.ts) records why the comparison is inclusive.
+   */
   measurementBelow?: { key: string; value: number };
+  /** Fires when the measurement is at or above `value`. Inclusive, and named for it. */
   measurementAtLeast?: { key: string; value: number };
 }
 
@@ -224,6 +243,7 @@ const redFlagConditionSchema = z
     allAssociatedSymptoms: z.array(z.string()).optional(),
     anyTrigger: z.array(z.string()).optional(),
     anyHistory: z.array(z.string()).optional(),
+    /** "At most", not "strictly below" — see RedFlagCondition.measurementBelow. */
     measurementBelow: z.object({ key: z.string(), value: z.number() }).optional(),
     measurementAtLeast: z.object({ key: z.string(), value: z.number() }).optional(),
   })

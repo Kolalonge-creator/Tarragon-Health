@@ -65,9 +65,13 @@ export const deviceTemperatureSchema = z.object({
   device_id: deviceIdField,
   external_reading_id: externalReadingIdField,
   taken_at: takenAtField,
-  // Wider than the manual-entry 35-42 band: a thermometer is a measuring
-  // instrument and clinically meaningful hypothermia/hyperpyrexia readings
-  // must not be rejected at the ingestion boundary.
+  // Identical to the manual-entry band (./vitals.ts, 30-45): the manual path
+  // was widened to match this one, so the two are deliberately the same now.
+  // Kept explicit rather than imported because the reason each side holds
+  // this band differs — a thermometer is a measuring instrument whose
+  // clinically meaningful hypothermia/hyperpyrexia readings must not be
+  // rejected at the ingestion boundary, and private.classify_temperature_
+  // level calls anything below 35.0°C an emergency either way.
   temperature_c: z
     .number()
     .min(30, "Temperature must be at least 30°C")
@@ -79,9 +83,11 @@ export const deviceSpo2Schema = z.object({
   device_id: deviceIdField,
   external_reading_id: externalReadingIdField,
   taken_at: takenAtField,
-  // Wider floor than the manual form's 70: oximeters legitimately report
-  // severe hypoxaemia, which is exactly the reading that must reach the
-  // escalation pipeline rather than bounce off validation.
+  // Oximeters legitimately report severe hypoxaemia, which is exactly the
+  // reading that must reach the escalation pipeline rather than bounce off
+  // validation. The manual form was left on a 70 floor when this was widened
+  // and has since been brought to the same 50 (./vitals.ts), so the two
+  // paths now agree.
   spo2_pct: z.number().int().min(50, "SpO2 must be at least 50%").max(100, "SpO2 must be at most 100%"),
   // Same 20-300 pulse band as the BP schema above and the manual path — an
   // oximeter's pulse reading is the same fact from a different instrument.

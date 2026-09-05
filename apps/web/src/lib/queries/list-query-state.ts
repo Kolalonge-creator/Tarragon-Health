@@ -29,3 +29,33 @@ export function listQueryState({
   if (count === null || count === undefined || count === 0) return "empty";
   return "ready";
 }
+
+/**
+ * The same idea again, for a query that keeps refetching in the background.
+ *
+ * React Query retains the last successful `data` when a refetch fails and
+ * flips `status` to "error", so a component branching on `isError` alone
+ * throws away a screen's worth of known-good figures because one 60-second
+ * poll timed out. That is its own kind of dishonesty: the numbers were true a
+ * minute ago, and replacing them with a red block tells the reader less than
+ * keeping them and saying when they were last confirmed.
+ *
+ * "failed" is the first-load failure and must stay loud. "stale" is the
+ * softer, third state: show the data, mark it as possibly out of date.
+ */
+export type RefreshQueryState = "loading" | "failed" | "stale" | "ready";
+
+export function refreshQueryState({
+  isLoading,
+  isError,
+  hasData,
+}: {
+  isLoading: boolean;
+  isError: boolean;
+  /** `data !== undefined`. A successful read that returned nothing still counts. */
+  hasData: boolean;
+}): RefreshQueryState {
+  if (isError) return hasData ? "stale" : "failed";
+  if (isLoading) return "loading";
+  return "ready";
+}

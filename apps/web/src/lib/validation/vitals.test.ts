@@ -277,9 +277,18 @@ describe("vitalsReadingSchema — spo2", () => {
     expect(vitalsReadingSchema.safeParse(valid).success).toBe(true);
   });
 
-  it("rejects spo2 below 70", () => {
+  // The floor is 50, not 70. It was lowered deliberately (see spo2Schema's
+  // own note): an oximeter reading 65 is severe hypoxaemia, and bouncing it
+  // off validation kept the whole emergency band out of the escalation
+  // pipeline. This test still asserted the old floor, so it failed on a
+  // reading the platform is now meant to accept and act on.
+  it("accepts a severely hypoxaemic reading rather than rejecting it as invalid", () => {
+    expect(vitalsReadingSchema.safeParse({ ...valid, spo2_pct: "65" }).success).toBe(true);
+  });
+
+  it("rejects spo2 below 50", () => {
     expect(
-      vitalsReadingSchema.safeParse({ ...valid, spo2_pct: "69" }).success
+      vitalsReadingSchema.safeParse({ ...valid, spo2_pct: "49" }).success
     ).toBe(false);
   });
 

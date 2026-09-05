@@ -9,6 +9,7 @@ import {
 } from "@/lib/finance/queries";
 import { ReportLetterhead } from "./letterhead";
 import { PrintToolbar } from "./print-toolbar";
+import { refreshQueryState } from "@/lib/queries/list-query-state";
 import {
   PrintSection,
   PrintTable,
@@ -52,15 +53,28 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
   // company. A failed RPC used to fall through every `?? 0` below and print
   // "Cash on hand ₦0.00" and "Revenue, month to date ₦0.00" under the RC and
   // TIN on the letterhead: not a gap in the pack, a false financial statement
-  // in it. So the pack refuses to render at all if any of its five sources
-  // errored, and says on the page why it must not leave the building.
-  const failedSources = [
-    kpi.isError && "key metrics",
-    pnl.isError && "income statement",
-    bs.isError && "balance sheet",
-    cf.isError && "cash flow statement",
-    tb.isError && "trial balance",
-  ].filter((label): label is string => typeof label === "string");
+  // in it. So a source that never arrived still stops the pack rendering at
+  // all, and says on the page why it must not leave the building.
+  //
+  // A source that DID arrive and then failed to refresh is a different fact.
+  // React Query keeps the last good response and only flips status, so
+  // treating that as a missing source threw away a complete, correct pack
+  // because a window-focus refetch timed out. Those figures are real; they
+  // are simply as of the last successful read, which the printed banner below
+  // says on the page and therefore on the paper.
+  const sources: { label: string; isError: boolean; hasData: boolean }[] = [
+    { label: "key metrics", isError: kpi.isError, hasData: kpi.data !== undefined },
+    { label: "income statement", isError: pnl.isError, hasData: pnl.data !== undefined },
+    { label: "balance sheet", isError: bs.isError, hasData: bs.data !== undefined },
+    { label: "cash flow statement", isError: cf.isError, hasData: cf.data !== undefined },
+    { label: "trial balance", isError: tb.isError, hasData: tb.data !== undefined },
+  ];
+  const failedSources = sources
+    .filter((s) => refreshQueryState({ isLoading: false, isError: s.isError, hasData: s.hasData }) === "failed")
+    .map((s) => s.label);
+  const staleSources = sources
+    .filter((s) => refreshQueryState({ isLoading: false, isError: s.isError, hasData: s.hasData }) === "stale")
+    .map((s) => s.label);
 
   if (failedSources.length > 0) {
     return (
@@ -91,6 +105,15 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
         title="Fundraising / investor pack"
         subtitle={`${from} to ${to} · ${currency} · balance sheet as of ${to}`}
       />
+
+      {/* Printed, not just shown: whoever holds the paper needs to know the
+          figures on it were not confirmed on the last attempt. */}
+      {staleSources.length > 0 && (
+        <p className="mb-4 rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-amber-800">
+          May be out of date: {staleSources.join(", ")} could not be refreshed. Figures shown are the
+          last read from the general ledger. Reload before distributing.
+        </p>
+      )}
 
       <Disclaimer>
         Built from the same live general ledger the rest of Finance uses, not audited or reviewed by

@@ -6,7 +6,10 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isSpecificEnough, toSearchTerm } from "./eligibility-search-term";
 
 const checkSchema = z.object({
-  company: z.string().trim().min(4, "Enter your company or HMO name").max(120),
+  // Two, not four: GTB / UBA / AXA are real three-letter partners, and the
+  // specificity check that matters runs on the SANITISED term below
+  // (isSpecificEnough), not on the raw field length.
+  company: z.string().trim().min(2, "Enter your company or HMO name").max(120),
   phone: z
     .string()
     .trim()

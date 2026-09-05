@@ -1,3 +1,4 @@
+import { refundIdempotencyKeyFromWebhook } from "./refund-idempotency";
 import { recordRefundLedgerEntry } from "./refund-posting";
 
 type Insert = Record<string, unknown>;
@@ -47,13 +48,42 @@ describe("recordRefundLedgerEntry", () => {
     expect(row.organisation_id).toBe(base.organisationId);
   });
 
-  it("keys idempotency on the refund id, matching what the webhook derives", async () => {
+  it("keys idempotency exactly as the webhook does for the same refund", async () => {
     const inserts: Insert[] = [];
     await recordRefundLedgerEntry(clientRecording(inserts), base);
-    // supabase/functions/paystack-webhook/index.ts builds `refund:${data.id}`
-    // for a refund.* event. If these two ever diverge, a refund issued by a
-    // cron and confirmed by the webhook posts the reversal TWICE.
-    expect(inserts[0].provider_event_id).toBe("refund:998877");
+    // The webhook derives its key from the refund.* payload through the
+    // mirrored refundIdempotencyKeyFromWebhook. If these two ever diverge, a
+    // refund issued by a cron and confirmed by the webhook posts the reversal
+    // TWICE — which is exactly what the old `refund:${data.id}` key did, since
+    // a refund.* payload carries no `id` and the webhook fell through to the
+    // request body's byte length.
+    expect(inserts[0].provider_event_id).toBe(
+      refundIdempotencyKeyFromWebhook({
+        transaction_reference: base.chargeReference,
+        amount: String(base.amountMinor),
+      }),
+    );
+    expect(inserts[0].provider_event_id).toBe("refund:ref_original_charge:500000");
+  });
+
+  it("still records Paystack's refund id, just not as the key", async () => {
+    const inserts: Insert[] = [];
+    await recordRefundLedgerEntry(clientRecording(inserts), base);
+    const payload = inserts[0].raw_payload as { data: { id: string } };
+    expect(payload.data.id).toBe("998877");
+  });
+
+  it("refuses to post a refund with no original charge reference", async () => {
+    const inserts: Insert[] = [];
+    const result = await recordRefundLedgerEntry(clientRecording(inserts), {
+      ...base,
+      chargeReference: "",
+    });
+    // No reference means no key the webhook could ever agree with. Inventing
+    // one would double-post the reversal the moment the webhook arrived.
+    expect(result.posted).toBe(false);
+    expect(result.error).toMatch(/identified/);
+    expect(inserts).toHaveLength(0);
   });
 
   it("treats a duplicate-key conflict as already-posted, not as a failure", async () => {
@@ -61,7 +91,7 @@ describe("recordRefundLedgerEntry", () => {
       clientRecording([], { code: "23505", message: "duplicate key" }),
       base,
     );
-    expect(result).toEqual({ posted: false });
+    expect(result).toEqual({ posted: false, alreadyPosted: true });
     expect(result.error).toBeUndefined();
   });
 

@@ -12,7 +12,8 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
-import { LoadFailure } from "@/components/ui/load-failure";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
+import { refreshQueryState } from "@/lib/queries/list-query-state";
 
 const CHANNEL_LABEL = { call: "Call", whatsapp: "WhatsApp" } as const;
 
@@ -26,19 +27,56 @@ function timeAgo(iso: string): string {
 }
 
 export function CareCoordinatorOverview() {
-  // Every hook below throws on a Postgrest error, so isError is the only
-  // thing separating "there is genuinely nothing to do" from "we never got an
-  // answer". Reading only `data` turned the second into the first: five zero
-  // tiles and "Nothing marked act-first. Nice and quiet." on a coordinator's
-  // one worklist. A count that failed to load is shown as unknown, not zero.
-  const { data: tasks, isLoading: tasksLoading, isError: tasksFailed } = useOutreachTasks();
-  const {
-    data: contacts,
-    isLoading: contactsLoading,
-    isError: contactsFailed,
-  } = useRecentOutreachContacts(3);
-  const { data: resolvedThisWeek, isError: resolvedFailed } = useResolvedOutreachCountThisWeek();
-  const { data: contactsThisWeek, isError: contactsCountFailed } = useOutreachContactCountThisWeek();
+  // Every hook below throws on a Postgrest error, which is what separates
+  // "there is genuinely nothing to do" from "we never got an answer".
+  // Reading only `data` turned the second into the first: five zero tiles and
+  // "Nothing marked act-first. Nice and quiet." on a coordinator's one
+  // worklist. A count that failed to load is shown as unknown, not zero.
+  const tasksQuery = useOutreachTasks();
+  const contactsQuery = useRecentOutreachContacts(3);
+  const resolvedQuery = useResolvedOutreachCountThisWeek();
+  const contactsCountQuery = useOutreachContactCountThisWeek();
+
+  const { data: tasks } = tasksQuery;
+  const { data: contacts } = contactsQuery;
+  const { data: resolvedThisWeek } = resolvedQuery;
+  const { data: contactsThisWeek } = contactsCountQuery;
+
+  // Three states, not two. These hooks poll every 60 seconds, and React Query
+  // keeps the last good `data` when a refetch fails, so branching on isError
+  // alone threw away a coordinator's whole board because one poll timed out.
+  // "failed" (nothing ever arrived) stays loud and still refuses to show a
+  // zero; "stale" keeps the numbers and says they may have moved on.
+  const states = {
+    tasks: refreshQueryState({
+      isLoading: tasksQuery.isLoading,
+      isError: tasksQuery.isError,
+      hasData: tasks !== undefined,
+    }),
+    contacts: refreshQueryState({
+      isLoading: contactsQuery.isLoading,
+      isError: contactsQuery.isError,
+      hasData: contacts !== undefined,
+    }),
+    resolved: refreshQueryState({
+      isLoading: resolvedQuery.isLoading,
+      isError: resolvedQuery.isError,
+      hasData: resolvedThisWeek !== undefined,
+    }),
+    contactsCount: refreshQueryState({
+      isLoading: contactsCountQuery.isLoading,
+      isError: contactsCountQuery.isError,
+      hasData: contactsThisWeek !== undefined,
+    }),
+  } as const;
+  const allStates = Object.values(states);
+
+  const tasksLoading = states.tasks === "loading";
+  const contactsLoading = states.contacts === "loading";
+  const tasksFailed = states.tasks === "failed";
+  const contactsFailed = states.contacts === "failed";
+  const resolvedFailed = states.resolved === "failed";
+  const contactsCountFailed = states.contactsCount === "failed";
 
   const UNKNOWN = { hint: "Could not be loaded" };
 
@@ -48,12 +86,19 @@ export function CareCoordinatorOverview() {
 
   return (
     <div className="space-y-5">
-      {(tasksFailed || contactsFailed || resolvedFailed || contactsCountFailed) && (
+      {allStates.includes("failed") && (
         <LoadFailure>
           Part of this overview could not be loaded. Anything marked &ldquo;could not be
           loaded&rdquo; is unknown, not zero, so do not read this page as a quiet day. Reload it, or
           work from the worklist pages directly.
         </LoadFailure>
+      )}
+
+      {!allStates.includes("failed") && allStates.includes("stale") && (
+        <StaleDataNotice>
+          Part of this overview could not be refreshed just now. What you can see is the last we
+          read successfully, so treat it as a few minutes old rather than a live board.
+        </StaleDataNotice>
       )}
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

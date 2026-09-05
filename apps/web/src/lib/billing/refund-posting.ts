@@ -3,6 +3,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
+import { refundIdempotencyKey } from "./refund-idempotency";
+
 type ServiceRoleClient = SupabaseClient<Database>;
 
 /**
@@ -29,22 +31,32 @@ type ServiceRoleClient = SupabaseClient<Database>;
  * refund row is inert to all of them — it activates nothing.
  *
  * Idempotency is the database's, not ours: (provider, provider_event_id) is
- * unique, and `refund:<refundId>` is exactly the key the webhook derives for
- * the same refund. Whichever of the two arrives second conflicts and posts
- * nothing, so a refund can never be double-reversed — and a cron re-run over
- * a row whose status update failed cannot double-post either.
+ * unique, and the key is derived by the shared refundIdempotencyKey, which
+ * the webhook mirrors verbatim — so both routes reach the SAME row for the
+ * same refund. Whichever arrives second conflicts and posts nothing, so a
+ * refund can never be double-reversed, and a cron re-run over a row whose
+ * status update failed cannot double-post either. (It used to key on
+ * Paystack's refund id, which the refund.* webhook payload does not carry;
+ * see refund-idempotency.ts for why that let one refund post twice.)
  *
  * Never throws, and never reports failure to the caller as success: a
  * refund whose ledger entry could not be written is returned as
  * `{ posted: false, error }` so the cron can count it, rather than being
- * swallowed the way the missing posting was.
+ * swallowed the way the missing posting was. A conflict is reported
+ * separately as `{ posted: false, alreadyPosted: true }` — normally the
+ * webhook having got there first, and the only signal a caller would have
+ * that two same-amount refunds of one charge collapsed onto one key.
  */
 export async function recordRefundLedgerEntry(
   supabase: ServiceRoleClient,
   args: {
-    /** Paystack's own refund id — the idempotency key. */
+    /**
+     * Paystack's own refund id. Recorded in raw_payload for reconciliation;
+     * deliberately NOT the idempotency key, because the refund webhook that
+     * confirms this same refund never carries it.
+     */
     refundId: string;
-    /** The reference of the ORIGINAL charge, for the audit trail. */
+    /** The reference of the ORIGINAL charge. Half of the idempotency key. */
     chargeReference: string;
     /** Amount actually refunded, in the currency's minor unit. */
     amountMinor: number;
@@ -55,16 +67,30 @@ export async function recordRefundLedgerEntry(
     source: string;
     sourceId: string;
   },
-): Promise<{ posted: boolean; error?: string }> {
+): Promise<{ posted: boolean; alreadyPosted?: boolean; error?: string }> {
   if (!Number.isFinite(args.amountMinor) || args.amountMinor <= 0) {
     // finance_post_from_payment returns early on a non-positive amount, so a
     // row here would be an audit record that silently posts nothing. Say so.
     return { posted: false, error: "refund amount is missing or not positive" };
   }
 
+  const providerEventId = refundIdempotencyKey({
+    chargeReference: args.chargeReference,
+    amountMinor: args.amountMinor,
+  });
+  if (providerEventId === null) {
+    // No charge reference means no key the webhook could ever agree with, and
+    // a made-up one would post this reversal a second time when the webhook
+    // arrives. Refuse, visibly.
+    return {
+      posted: false,
+      error: "refund cannot be identified (no original charge reference) — not posted",
+    };
+  }
+
   const { error } = await supabase.from("payment_transactions").insert({
     provider: "paystack",
-    provider_event_id: `refund:${args.refundId}`,
+    provider_event_id: providerEventId,
     event_type: "refund.processed",
     amount_minor: args.amountMinor,
     currency: args.currency,
@@ -86,8 +112,9 @@ export async function recordRefundLedgerEntry(
   if (error) {
     // 23505 means the Paystack webhook already recorded this exact refund and
     // the reversal is already posted. That is the intended outcome, not a
-    // failure.
-    if (error.code === "23505") return { posted: false };
+    // failure — but it is reported, not swallowed, because it is also what a
+    // second identical-amount refund of the same charge would look like.
+    if (error.code === "23505") return { posted: false, alreadyPosted: true };
     return { posted: false, error: error.message };
   }
   return { posted: true };

@@ -13,6 +13,7 @@ import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { RiskSignalsCard } from "../risk-signals-card";
 import { HealthCheckVideoConsultCard } from "../health-check-video-consult-card";
 import {
+  countStageState,
   screeningStageState,
   type HealthCheckStageState,
 } from "@/lib/screening/health-check-stage-state";
@@ -66,7 +67,7 @@ export default async function HealthCheckPage() {
   const [
     { count: riskCount },
     { count: wellbeingCount },
-    { data: vitalsRows },
+    { data: vitalsRows, error: vitalsError },
     { count: screeningsDue },
   ] = await Promise.all([
     supabase
@@ -113,30 +114,46 @@ export default async function HealthCheckPage() {
 
   const tierName = check?.lab_order?.panel_bundle?.name ?? null;
 
-  const hasRiskAssessment = (riskCount ?? 0) > 0;
-  const screenings = screeningStageState({ hasRiskAssessment, screeningsDue });
+  // Each stage's evidence can fail to arrive, and a stage that cannot be
+  // proved is neutral rather than a to-do: a failed count must not send a
+  // patient back to redo a questionnaire they have already finished.
+  const profileStage = countStageState({
+    count: riskCount,
+    doneLabel: "Completed",
+    todoLabel: "Tell us your history and lifestyle",
+    unknownLabel: "We could not check your health profile just now. Please refresh and try again.",
+  });
+  const wellbeingStage = countStageState({
+    count: wellbeingCount,
+    doneLabel: "Checked in this year",
+    todoLabel: "A quick, private wellbeing check-in",
+    unknownLabel: "We could not check this just now. Please refresh and try again.",
+  });
+  const screenings = screeningStageState({ riskCount, screeningsDue });
 
   /** Every stage carries its own state and the one line that describes it, so
    * a stage can be neutral ("we can't say yet") without being forced into the
-   * done/to-do pair. Stage 4 needs all three: see health-check-stage-state.ts. */
+   * done/to-do pair. Every stage whose evidence is a read can land there when
+   * that read fails: see health-check-stage-state.ts. */
   const stages: { title: string; state: HealthCheckStageState["kind"]; label: string; href: string | null }[] = [
     {
       title: "1. Your health profile",
-      state: hasRiskAssessment ? "done" : "todo",
-      label: hasRiskAssessment ? "Completed" : "Tell us your history and lifestyle",
+      state: profileStage.kind,
+      label: profileStage.label,
       href: "/patient/prevention#risk-assessment",
     },
     {
       title: "2. Mental wellbeing",
-      state: (wellbeingCount ?? 0) > 0 ? "done" : "todo",
-      label:
-        (wellbeingCount ?? 0) > 0 ? "Checked in this year" : "A quick, private wellbeing check-in",
+      state: wellbeingStage.kind,
+      label: wellbeingStage.label,
       href: null,
     },
     {
       title: "3. Your measurements",
-      state: vitalsComplete ? "done" : "todo",
-      label: vitalsComplete
+      state: vitalsError ? "neutral" : vitalsComplete ? "done" : "todo",
+      label: vitalsError
+        ? "We could not check your readings just now. Please refresh and try again."
+        : vitalsComplete
         ? "All readings logged for this check"
         : missingVitalKinds.length === 0
           ? "Log blood pressure (×2), weight, waist and pulse"

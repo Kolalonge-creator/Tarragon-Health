@@ -7,6 +7,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * it instead of disappearing off the page: seeing "Your test requests" with an
  * honest line under it is the difference between "something went wrong" and
  * "I apparently have no tests booked". Calm and specific, no alarm styling.
+ *
+ * `role="alert"` sits on the card, not on the sentence, so the title comes
+ * with it: "Your test requests. We could not load your test requests just
+ * now." is the whole message, and which list failed is the half a screen
+ * reader user cannot get from the layout. Assertive rather than polite
+ * because this replaced a list that was on the page a moment ago; the visual
+ * styling stays calm either way.
  */
 export function LoadErrorCard({
   title,
@@ -20,7 +27,7 @@ export function LoadErrorCard({
   detail?: string;
 }) {
   return (
-    <Card>
+    <Card role="alert">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
       </CardHeader>

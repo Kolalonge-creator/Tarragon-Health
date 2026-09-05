@@ -5,6 +5,8 @@ import { useSupportedPersonHealth } from "@/lib/queries/sponsorship";
 import { useVaccinationSchedules } from "@/lib/queries/vaccination";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "High blood pressure",
@@ -36,9 +38,19 @@ function humanCondition(condition: string): string {
  */
 export function HouseholdOverview() {
   const { data: members, isLoading, isError } = useHouseholdCareCircle();
+  const state = listQueryState({ isLoading, isError, count: members?.length });
 
-  if (isLoading) return null;
-  if (isError || !members || members.length === 0) return null;
+  // The whole card used to vanish on a failed read, so a patient who follows
+  // a parent's care would see no sign that the section exists at all.
+  if (state === "error")
+    return (
+      <LoadErrorCard
+        title="Family health"
+        what="the people whose care you follow"
+        detail="Nobody has been removed from your circle. This is only what we could show just now."
+      />
+    );
+  if (state !== "ready" || !members) return null;
 
   return (
     <Card>

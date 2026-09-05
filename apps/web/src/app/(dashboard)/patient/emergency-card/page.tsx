@@ -140,9 +140,15 @@ export default async function EmergencyCardPage() {
           <CardHeader>
             <CardTitle>Also want a live link?</CardTitle>
             <CardDescription>
-              {active
-                ? `Active. Anyone with this card or link can see it, without signing in. Valid until ${new Date(active.expires_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })}.`
-                : "Optional, and separate from your printed card. Useful if someone abroad wants to check your details are current, but unlike the printed card, this stays reachable by anyone who has the link, for as long as it's active."}
+              {/* Three states, not two: the body below already refuses to
+                  claim anything when the read failed, and this line has to
+                  agree with it rather than pitch a link the patient may
+                  already have out there. */}
+              {cardError
+                ? "We could not check whether you already have a live link just now, so nothing here assumes either way."
+                : active
+                  ? `Active. Anyone with this card or link can see it, without signing in. Valid until ${new Date(active.expires_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })}.`
+                  : "Optional, and separate from your printed card. Useful if someone abroad wants to check your details are current, but unlike the printed card, this stays reachable by anyone who has the link, for as long as it's active."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
