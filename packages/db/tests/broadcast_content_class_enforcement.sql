@@ -4,9 +4,10 @@
 -- (this platform markets confidential HIV/Hep B/cervical screening as a
 -- general service, e.g. /annual-health-check).
 --
--- Run inside a transaction, roll back at the end. Assumes an admin profile
--- exists in org 0000000000000000000000000000zzz seed data — adjust the
--- admin lookup below if run against a different fixture set.
+-- Run inside a transaction, roll back at the end. The admin is minted here:
+-- the old shape looked one up and, finding none, printed
+-- "skipping (fixture-dependent test)" and returned -- which on a fresh
+-- `supabase db reset` meant every case below silently did not run.
 
 begin;
 
@@ -18,18 +19,29 @@ declare
   v_broadcast_id uuid;
   v_caught boolean;
 begin
-  select id, organisation_id into v_admin_id, v_org_id
-  from public.profiles where role = 'admin' limit 1;
-
-  if v_admin_id is null then
-    raise notice 'No admin profile found — skipping (fixture-dependent test)';
-    return;
+  select id into v_org_id from public.organisations limit 1;
+  if v_org_id is null then
+    insert into public.organisations (name, type)
+    values ('Broadcast Content Test Org', 'clinic')
+    returning id into v_org_id;
   end if;
 
-  perform set_config('request.jwt.claims',
-    json_build_object('sub', v_admin_id, 'role', 'authenticated')::text, true);
-  set local role authenticated;
+  v_admin_id := gen_random_uuid();
+  insert into auth.users (id, email)
+  values (v_admin_id, 'broadcast-content-admin@example.invalid');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_admin_id, v_org_id, 'admin', 'Broadcast Content Test Admin')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name;
 
+  -- Cases 1-3 call private.broadcast_content_flags directly and therefore must
+  -- run as the session role. They used to sit AFTER `set local role
+  -- authenticated`, which has no USAGE on schema private, so the file aborted
+  -- with 42501 before reaching any assertion at all -- it never once ran to
+  -- completion. The role switch now happens where it belongs: immediately
+  -- before case 4, which is the case that is actually about what an admin
+  -- ACCOUNT may do.
   -- Case 1: clean general campaign copy passes the preview check.
   select private.broadcast_content_flags(
     'Free BP checks this weekend — book your confidential HIV or Hep B screening today.'
@@ -52,6 +64,10 @@ begin
     raise exception 'FAIL case3: "tested positive" phrasing was NOT flagged';
   end if;
   raise notice 'PASS case3: "tested positive" phrasing flagged (%)', v_flags;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_admin_id, 'role', 'authenticated')::text, true);
+  set local role authenticated;
 
   -- Case 4: admin_send_broadcast itself refuses to enqueue a flagged message —
   -- proves the block is server-side, not just a UI-level check.
@@ -86,6 +102,8 @@ begin
     raise exception 'FAIL case5: clean broadcast did not send';
   end if;
   raise notice 'PASS case5: clean broadcast still sends';
+
+  reset role;
 
   raise notice 'ALL CASES PASSED';
 end $$;

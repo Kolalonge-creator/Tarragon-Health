@@ -13,6 +13,7 @@ import {
 } from "@/lib/validation/mental-health-screen";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 
 function FrequencyQuestion({ name, prompt }: { name: string; prompt: string }) {
   return (
@@ -179,7 +180,7 @@ export function MentalHealthScreenForm({ patientId }: { patientId: string }) {
             )}
           </div>
 
-          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+          <FormError id={fieldErrorId("mental-health-checkin")} message={state?.error} />
 
           <Button type="submit" disabled={pending}>
             {pending ? "Saving…" : "Save check-in"}

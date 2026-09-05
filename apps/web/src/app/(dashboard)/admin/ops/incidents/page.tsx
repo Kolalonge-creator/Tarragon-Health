@@ -24,7 +24,7 @@ export default async function OpsIncidentsPage() {
     profile?.role === "admin" || (await hasAnyPermission("incidents.manage"));
 
   const supabase = await createClient();
-  const { data: incidents } = await supabase
+  const { data: incidents, error: incidentsError } = await supabase
     .from("ops_incidents")
     .select(
       "id, reference, category, severity, status, title, summary, detected_at, ack_due_at, resolve_due_at, acknowledged_at, resolved_at, closed_at, owner_id, requires_regulatory_notification"
@@ -46,7 +46,14 @@ export default async function OpsIncidentsPage() {
           </>
         }
       />
-      <IncidentsManager initialIncidents={(incidents ?? []) as OpsIncidentRow[]} canManage={canManage} />
+      {/* "No incidents logged. That's the goal." is a congratulation, and a
+          failed read used to earn it. Every incident here is tracked against a
+          severity-based SLA, so an unread register is also an unread clock. */}
+      <IncidentsManager
+        initialIncidents={(incidents ?? []) as OpsIncidentRow[]}
+        canManage={canManage}
+        loadFailed={incidentsError !== null}
+      />
     </div>
   );
 }

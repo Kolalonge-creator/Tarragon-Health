@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 type ReportKind = "cost" | "concern";
 
@@ -38,6 +39,8 @@ export function MedicationIssueReportForm({
   const reportConcern = useReportMedicationConcern();
   const isPending = reportAffordability.isPending || reportConcern.isPending;
   const isError = reportAffordability.isError || reportConcern.isError;
+  const errorId = fieldErrorId(`medication-issue-${medication.id}`);
+  const errorProps = fieldErrorProps(errorId, isError);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -98,6 +101,7 @@ export function MedicationIssueReportForm({
           className="h-8 text-xs"
           value={kind}
           onChange={(event) => setKind(event.target.value as ReportKind)}
+          {...errorProps}
         >
           <option value="cost">I couldn&apos;t afford it</option>
           <option value="concern">Something else (a concern about this medication)</option>
@@ -114,6 +118,7 @@ export function MedicationIssueReportForm({
           value={note}
           onChange={(event) => setNote(event.target.value)}
           required={kind === "concern"}
+          {...errorProps}
         />
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -127,9 +132,11 @@ export function MedicationIssueReportForm({
         <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        {isError && (
-          <p className="text-xs text-red-600 dark:text-red-300">Could not send that. Please try again.</p>
-        )}
+        <FormError
+          id={errorId}
+          message={isError && "Could not send that. Please try again."}
+          className="text-xs"
+        />
       </div>
     </form>
   );

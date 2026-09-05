@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import {
   createTriageProtocolDraftAction,
   signTriageProtocolsAction,
@@ -124,11 +125,27 @@ export function TriageProtocolsManager({
   versions,
   activeVersion,
   nextVersion,
+  loadFailed = false,
 }: {
   versions: TriageProtocolVersionRow[];
   activeVersion: TriageProtocolVersionRow | null;
   nextVersion: number;
+  /** The triage_protocols read failed, so neither the signed/unsigned state
+   * nor the next version number is known. Both are governance facts and
+   * neither may be asserted from an unread table. */
+  loadFailed?: boolean;
 }) {
+  if (loadFailed) {
+    return (
+      <LoadFailure>
+        The triage protocol versions could not be loaded. This page cannot say whether a version is
+        signed, whether the patient-facing symptom checker is on or off, or what the next version
+        number should be. Do not draft a new version from here until it loads, and check
+        docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md if you need the current position.
+      </LoadFailure>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {activeVersion ? (

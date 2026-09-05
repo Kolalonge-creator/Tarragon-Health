@@ -1,5 +1,6 @@
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { LoadFailure } from "@/components/ui/load-failure";
 import {
   VaccinationVerificationList,
   type PendingVerificationItem,
@@ -18,7 +19,7 @@ export default async function ClinicianVaccinationsPage() {
   const supabase = await createClient();
   const user = await getCurrentUser();
 
-  const { data: records } = user
+  const { data: records, error: recordsError } = user
     ? await supabase
         .from("vaccination_records")
         .select(
@@ -26,7 +27,7 @@ export default async function ClinicianVaccinationsPage() {
         )
         .eq("verification_status", "pending_verification")
         .order("created_at", { ascending: true })
-    : { data: null };
+    : { data: null, error: null };
 
   const service = createServiceRoleClient();
   const items: PendingVerificationItem[] = await Promise.all(
@@ -66,7 +67,18 @@ export default async function ClinicianVaccinationsPage() {
           dose.
         </p>
       </div>
-      <VaccinationVerificationList items={items} />
+      {/* An empty verification queue reads as "every uploaded certificate has
+          been checked". A patient whose dose is unverified gets no Tarragon
+          certificate and no next dose scheduled, so silence here has a real
+          downstream cost. */}
+      {recordsError ? (
+        <LoadFailure>
+          The certificate queue could not be loaded. This is not a report that nothing is waiting
+          to be verified. Reload to try again.
+        </LoadFailure>
+      ) : (
+        <VaccinationVerificationList items={items} />
+      )}
     </div>
   );
 }

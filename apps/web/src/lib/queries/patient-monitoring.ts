@@ -62,6 +62,24 @@ export interface LoadPatientMonitoringRosterOptions {
 }
 
 /**
+ * What the monitoring page needs to know beyond the rows themselves.
+ *
+ * The two failures here are not the same event and must not render the same
+ * way. `rosterFailed` means we do not know who the patients are, and used to
+ * come out as "No patients match these filters" on a full roster.
+ * `readingsFailed` is subtler and worse: the roster loads, so every patient
+ * is listed, but the batched vitals RPC returned nothing and every card
+ * renders as a patient who has logged no BP, no glucose, no SpO2 and has no
+ * open alert. A screen of patients who all look quiet is the most reassuring
+ * thing this page can draw, and a broken RPC drew it.
+ */
+export interface PatientMonitoringRoster {
+  rows: PatientMonitoringRow[];
+  rosterFailed: boolean;
+  readingsFailed: boolean;
+}
+
+/**
  * Loads the org patient roster (RLS-scoped via private.is_org_staff, same as
  * clinician/patients/page.tsx) joined with each patient's latest vitals,
  * latest wearable-only metrics, and open clinician_alerts summary — batched
@@ -72,16 +90,21 @@ export interface LoadPatientMonitoringRosterOptions {
 export async function loadPatientMonitoringRoster(
   supabase: SupabaseClient<Database>,
   options: LoadPatientMonitoringRosterOptions
-): Promise<PatientMonitoringRow[]> {
+): Promise<PatientMonitoringRoster> {
   const { q, mineOnly, callerId, limit = 200 } = options;
 
   let assignedPatientIds: string[] | null = null;
   if (mineOnly) {
-    const { data: assignments } = callerId
+    const { data: assignments, error: assignmentsError } = callerId
       ? await supabase.from("care_team_assignment").select("patient_id").eq("clinician_id", callerId)
-      : { data: [] as { patient_id: string }[] };
+      : { data: [] as { patient_id: string }[], error: null };
+    if (assignmentsError) {
+      return { rows: [], rosterFailed: true, readingsFailed: false };
+    }
     assignedPatientIds = (assignments ?? []).map((a) => a.patient_id);
-    if (assignedPatientIds.length === 0) return [];
+    if (assignedPatientIds.length === 0) {
+      return { rows: [], rosterFailed: false, readingsFailed: false };
+    }
   }
 
   let query = supabase
@@ -97,16 +120,20 @@ export async function loadPatientMonitoringRoster(
     query = query.in("id", assignedPatientIds);
   }
 
-  const { data: patients } = await query;
-  if (!patients || patients.length === 0) return [];
+  const { data: patients, error: patientsError } = await query;
+  if (patientsError) return { rows: [], rosterFailed: true, readingsFailed: false };
+  if (!patients || patients.length === 0) {
+    return { rows: [], rosterFailed: false, readingsFailed: false };
+  }
 
   const patientIds = patients.map((p) => p.id);
-  const { data: readings } = await supabase.rpc("patient_monitoring_latest_readings", {
-    p_patient_ids: patientIds,
-  });
+  const { data: readings, error: readingsError } = await supabase.rpc(
+    "patient_monitoring_latest_readings",
+    { p_patient_ids: patientIds }
+  );
   const readingsByPatient = new Map((readings ?? []).map((r) => [r.patient_id, r]));
 
-  return patients.map((p) => {
+  const rows = patients.map((p) => {
     const r = readingsByPatient.get(p.id);
     const bpLevel = classifyBpLevel(r?.systolic, r?.diastolic);
     const spo2Level = classifySpo2Level(r?.spo2_pct);
@@ -156,4 +183,6 @@ export async function loadPatientMonitoringRoster(
       openAlertCount: r?.open_alert_count ?? 0,
     };
   });
+
+  return { rows, rosterFailed: false, readingsFailed: readingsError !== null };
 }

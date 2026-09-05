@@ -12,6 +12,7 @@ import {
 import { activeEmergencyKey } from "@/lib/queries/emergency";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
 
 /**
@@ -28,6 +29,7 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
   const [selected, setSelected] = useState<Set<PregnancyDangerSign>>(new Set());
   const [expanded, setExpanded] = useState(false);
   const [state, formAction, pending] = useActionState(reportPregnancyDangerSymptoms, undefined);
+  const errorId = fieldErrorId("pregnancy-red-flag-check");
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -73,7 +75,12 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
             should go to your nearest hospital.
           </p>
           <form action={formAction} className="space-y-4">
-            <div className="flex flex-wrap gap-2">
+            <div
+              role="group"
+              aria-label="Pregnancy warning signs you are experiencing"
+              aria-describedby={state?.error ? errorId : undefined}
+              className="flex flex-wrap gap-2"
+            >
               {PREGNANCY_DANGER_SIGNS.map((sign) => {
                 const isOn = selected.has(sign);
                 return (
@@ -99,7 +106,7 @@ export function PregnancyRedFlagCheck({ patientId }: { patientId: string }) {
               <input key={sign} type="hidden" name="signs" value={sign} />
             ))}
 
-            {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+            <FormError id={errorId} message={state?.error} />
 
             <Button
               type="submit"

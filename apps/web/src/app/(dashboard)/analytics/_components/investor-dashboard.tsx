@@ -12,9 +12,23 @@ import {
   useUpsertFinanceInput,
 } from "@/lib/analytics/queries";
 import { formatMinor, formatNumber } from "@/lib/analytics/format";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
+import { refreshQueryState } from "@/lib/queries/list-query-state";
+import { statTileValue, type StatTileValueProps } from "@/components/ui/stat-tile-value";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
 
+/**
+ * These three already answered "not known" with a dash. Every call site then
+ * wrote `ngn(data?.revenue_12m_minor ?? 0)`, which reaches the helper with a
+ * real zero and prints ₦0.00 — so the one piece of honesty built into the
+ * page was defeated everywhere it was used, and a board view rendered a
+ * business with no revenue, no paying patients and no growth rather than a
+ * page that could not read them. The `?? 0`s are gone; the failure of the
+ * whole summary is handled separately below, because a dash per tile is the
+ * right answer for a genuinely absent figure and the wrong one for a read
+ * that never happened.
+ */
 function pct(v: number | null | undefined): string {
   return v === null || v === undefined ? "—" : `${v}%`;
 }
@@ -23,6 +37,15 @@ function ngn(v: number | null | undefined): string {
 }
 function months(v: number | null | undefined): string {
   return v === null || v === undefined ? "—" : `${v} mo`;
+}
+
+/** StatTile forbids a bare display-scale dash, so an absent figure becomes
+ * its muted `empty` hint instead. See components/ui/stat-tile-value.ts. */
+function tile(
+  v: number | null | undefined,
+  format: (n: number) => string
+): StatTileValueProps {
+  return statTileValue(v === null || v === undefined ? null : format(v), "Not available yet");
 }
 
 const BLANK = {
@@ -35,8 +58,19 @@ const BLANK = {
 };
 
 export function InvestorDashboard() {
-  const { data } = useInvestorSummary();
+  const summary = useInvestorSummary();
+  const data = summary.data;
   const inputs = useFinanceInputs();
+  const summaryState = refreshQueryState({
+    isLoading: summary.isLoading,
+    isError: summary.isError,
+    hasData: summary.data !== undefined,
+  });
+  const inputsState = refreshQueryState({
+    isLoading: inputs.isLoading,
+    isError: inputs.isError,
+    hasData: inputs.data !== undefined,
+  });
   const upsert = useUpsertFinanceInput();
   const [form, setForm] = useState(BLANK);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -93,11 +127,26 @@ export function InvestorDashboard() {
         below and are modeled figures, not audited.
       </p>
 
+      {summaryState === "stale" && (
+        <StaleDataNotice>
+          These board figures could not be refreshed just now. They are the last ones we read
+          successfully, not a current position. Reload before quoting any of them.
+        </StaleDataNotice>
+      )}
+
+      {summaryState === "failed" ? (
+        <LoadFailure>
+          The board figures could not be loaded. Revenue, paying patients, repeat rate and Rule of
+          40 are unknown rather than zero, and nothing on this page should be quoted or exported
+          until it loads. Reload to try again.
+        </LoadFailure>
+      ) : (
+        <>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={TrendingUp} label="Revenue (last 12 months)" value={ngn(data?.revenue_12m_minor ?? 0)} />
-        <StatTile icon={Receipt} label="Paying patients" value={formatNumber(data?.paying_patients ?? 0)} />
-        <StatTile icon={Repeat} label="Bought again" value={pct(data?.repeat_rate_pct)} />
-        <StatTile icon={Gauge} label="Rule of 40" value={ue?.rule_of_40 == null ? "—" : formatNumber(ue.rule_of_40)} />
+        <StatTile icon={TrendingUp} label="Revenue (last 12 months)" {...tile(data?.revenue_12m_minor, (n) => formatMinor(n, "NGN"))} />
+        <StatTile icon={Receipt} label="Paying patients" {...tile(data?.paying_patients, formatNumber)} />
+        <StatTile icon={Repeat} label="Bought again" {...tile(data?.repeat_rate_pct, (n) => `${n}%`)} />
+        <StatTile icon={Gauge} label="Rule of 40" {...tile(ue?.rule_of_40, formatNumber)} />
       </div>
 
       <SectionCard
@@ -106,11 +155,11 @@ export function InvestorDashboard() {
       >
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {[
-            ["Revenue (30d)", ngn(data?.revenue_30d_minor ?? 0)],
-            ["Revenue (90d)", ngn(data?.revenue_90d_minor ?? 0)],
-            ["Revenue per paying patient", ngn(data?.arppu_minor ?? 0)],
-            ["MoM growth", pct(data?.mom_growth_pct ?? 0)],
-            ["Gross margin", pct(ue?.gross_margin_pct ?? 0)],
+            ["Revenue (30d)", ngn(data?.revenue_30d_minor)],
+            ["Revenue (90d)", ngn(data?.revenue_90d_minor)],
+            ["Revenue per paying patient", ngn(data?.arppu_minor)],
+            ["MoM growth", pct(data?.mom_growth_pct)],
+            ["Gross margin", pct(ue?.gross_margin_pct)],
             ["CAC", ngn(ue?.cac_minor)],
             ["Net burn / mo", ngn(ue?.net_burn_minor)],
             ["Runway", months(ue?.runway_months)],
@@ -172,6 +221,8 @@ export function InvestorDashboard() {
           />
         </SectionCard>
       </div>
+        </>
+      )}
 
       <SectionCard
         title="Finance inputs"
@@ -228,7 +279,14 @@ export function InvestorDashboard() {
           </div>
         </div>
 
-        {(inputs.data ?? []).length === 0 ? (
+        {/* "No finance inputs yet." from a failed read invites somebody to
+            re-enter a month that is already saved, silently overwriting it. */}
+        {inputsState === "failed" ? (
+          <LoadFailure>
+            The saved finance inputs could not be loaded. This is not a report that none exist, so
+            do not re-enter a month from here until it loads.
+          </LoadFailure>
+        ) : (inputs.data ?? []).length === 0 ? (
           <CenterNote>No finance inputs yet.</CenterNote>
         ) : (
           <div className="overflow-x-auto">

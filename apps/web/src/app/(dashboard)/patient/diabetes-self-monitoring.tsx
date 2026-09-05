@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 const INSULIN_OPTIONS = [
   { value: "soluble", label: "Soluble / regular (short-acting)" },
@@ -26,10 +27,24 @@ const FINDING_LABEL: Record<(typeof FOOT_FINDINGS)[number], string> = {
   pain: "Pain",
 };
 
-function Feedback({ state }: { state: { error?: string; success?: boolean } | undefined }) {
-  if (state?.error) return <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>;
-  if (state?.success) return <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved. Thank you for logging this.</p>;
-  return null;
+/**
+ * Three independent forms share this, so each passes its own `id` — one
+ * shared error id would have pointed all three forms' fields at whichever
+ * alert happened to be rendered.
+ */
+function Feedback({
+  id,
+  state,
+}: {
+  id: string;
+  state: { error?: string; success?: boolean } | undefined;
+}) {
+  return (
+    <>
+      <FormError id={id} message={state?.error} />
+      <FormSuccess message={state?.success && "Saved. Thank you for logging this."} />
+    </>
+  );
 }
 
 /**
@@ -43,6 +58,9 @@ export function DiabetesSelfMonitoring() {
   const [footState, footAction, footPending] = useActionState(logFootSelfCheck, undefined);
   const [sickState, sickAction, sickPending] = useActionState(logSickDay, undefined);
   const [footProblem, setFootProblem] = useState(false);
+  const insulinErrorId = fieldErrorId("insulin-log");
+  const footErrorId = fieldErrorId("foot-check");
+  const sickErrorId = fieldErrorId("sick-day-log");
 
   return (
     <Card>
@@ -56,7 +74,7 @@ export function DiabetesSelfMonitoring() {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="insulin_type">Type</Label>
-              <Select id="insulin_type" name="insulin_type" required defaultValue="">
+              <Select id="insulin_type" name="insulin_type" required defaultValue="" {...fieldErrorProps(insulinErrorId, Boolean(insulinState?.error))}>
                 <option value="" disabled>
                   Select insulin
                 </option>
@@ -69,10 +87,10 @@ export function DiabetesSelfMonitoring() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="units">Units</Label>
-              <Input id="units" name="units" type="number" step="0.5" min="0" required />
+              <Input id="units" name="units" type="number" step="0.5" min="0" required {...fieldErrorProps(insulinErrorId, Boolean(insulinState?.error))} />
             </div>
           </div>
-          <Feedback state={insulinState} />
+          <Feedback id={insulinErrorId} state={insulinState} />
           <Button type="submit" disabled={insulinPending}>
             {insulinPending ? "Saving…" : "Log insulin"}
           </Button>
@@ -85,7 +103,12 @@ export function DiabetesSelfMonitoring() {
             Look at both feet (a mirror or family member helps). Tick anything new.
           </p>
           <input type="hidden" name="any_problem" value={footProblem ? "true" : "false"} />
-          <div className="grid grid-cols-2 gap-2">
+          <div
+            role="group"
+            aria-label="Anything new on either foot"
+            aria-describedby={footState?.error ? footErrorId : undefined}
+            className="grid grid-cols-2 gap-2"
+          >
             {FOOT_FINDINGS.map((f) => (
               <label key={f} className="flex items-center gap-2 text-sm">
                 <input
@@ -108,7 +131,7 @@ export function DiabetesSelfMonitoring() {
             />
             My feet don&apos;t look normal today
           </label>
-          <Feedback state={footState} />
+          <Feedback id={footErrorId} state={footState} />
           <Button type="submit" disabled={footPending} variant={footProblem ? "default" : "outline"}>
             {footPending ? "Saving…" : footProblem ? "Report foot problem" : "Feet look fine today"}
           </Button>
@@ -124,11 +147,11 @@ export function DiabetesSelfMonitoring() {
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="illness">What&apos;s wrong?</Label>
-              <Input id="illness" name="illness" type="text" maxLength={300} placeholder="e.g. fever, vomiting" />
+              <Input id="illness" name="illness" type="text" maxLength={300} placeholder="e.g. fever, vomiting" {...fieldErrorProps(sickErrorId, Boolean(sickState?.error))} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="appetite">Appetite</Label>
-              <Select id="appetite" name="appetite" defaultValue="normal">
+              <Select id="appetite" name="appetite" defaultValue="normal" {...fieldErrorProps(sickErrorId, Boolean(sickState?.error))}>
                 <option value="normal">Normal</option>
                 <option value="reduced">Reduced</option>
                 <option value="none">Not eating</option>
@@ -139,7 +162,7 @@ export function DiabetesSelfMonitoring() {
             <input type="checkbox" name="vomiting" value="true" />
             I&apos;ve been vomiting
           </label>
-          <Feedback state={sickState} />
+          <Feedback id={sickErrorId} state={sickState} />
           <Button type="submit" disabled={sickPending}>
             {sickPending ? "Saving…" : "Log sick day"}
           </Button>

@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
+import { LoadFailure, StaleDataNotice } from "@/components/ui/load-failure";
+import { refreshQueryState } from "@/lib/queries/list-query-state";
 import { Receipt, Landmark, Scale } from "lucide-react";
 import { useTaxSummary, useTaxRates, financeKeys } from "@/lib/finance/queries";
 import { upsertTaxRateAction } from "@/lib/finance/actions";
@@ -25,6 +27,22 @@ export function TaxConsole() {
   const rates = useTaxRates();
 
   const netVat = (summary.data?.output_vat_minor ?? 0) - (summary.data?.input_vat_minor ?? 0);
+
+  // "Net VAT payable ₦0.00" is a statutory figure, and the `?? 0` above is
+  // what turned a failed RPC into one. Filing on a zero this page invented is
+  // a different class of mistake from misreading a dashboard, so the tiles are
+  // replaced outright rather than softened; a stale-but-real reading is still
+  // worth showing, which is what the amber notice covers.
+  const summaryState = refreshQueryState({
+    isLoading: summary.isLoading,
+    isError: summary.isError,
+    hasData: summary.data !== undefined,
+  });
+  const ratesState = refreshQueryState({
+    isLoading: rates.isLoading,
+    isError: rates.isError,
+    hasData: rates.data !== undefined,
+  });
 
   const [nr, setNr] = useState({ tax_type: "vat", name: "", rate_pct: "", applies_to: "", notes: "" });
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
@@ -69,15 +87,36 @@ export function TaxConsole() {
         <div><Label>To</Label><Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" /></div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={Receipt} label="Output VAT" value={formatMinor(summary.data?.output_vat_minor ?? 0, currency)} />
-        <StatTile icon={Scale} label="Input VAT recoverable" value={formatMinor(summary.data?.input_vat_minor ?? 0, currency)} />
-        <StatTile icon={Receipt} label="Net VAT payable" value={formatMinor(netVat, currency)} />
-        <StatTile icon={Landmark} label="WHT payable" value={formatMinor(summary.data?.wht_payable_minor ?? 0, currency)} />
-      </div>
+      {summaryState === "stale" && (
+        <StaleDataNotice>
+          These tax figures could not be refreshed just now. They are the last ones we read
+          successfully for this period and currency, not a current position. Reload before filing
+          anything from them.
+        </StaleDataNotice>
+      )}
+
+      {summaryState === "failed" ? (
+        <LoadFailure>
+          The tax summary could not be loaded, so output VAT, input VAT, net VAT payable and WHT
+          payable are all unknown rather than zero. Do not file or pay from this screen until it
+          loads. Reload to try again.
+        </LoadFailure>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatTile icon={Receipt} label="Output VAT" value={formatMinor(summary.data?.output_vat_minor ?? 0, currency)} />
+          <StatTile icon={Scale} label="Input VAT recoverable" value={formatMinor(summary.data?.input_vat_minor ?? 0, currency)} />
+          <StatTile icon={Receipt} label="Net VAT payable" value={formatMinor(netVat, currency)} />
+          <StatTile icon={Landmark} label="WHT payable" value={formatMinor(summary.data?.wht_payable_minor ?? 0, currency)} />
+        </div>
+      )}
 
       <SectionCard title="Revenue by VAT treatment" description={`${from} to ${to} · ${currency}`}>
-        {summary.isLoading ? (
+        {summaryState === "failed" ? (
+          <LoadFailure>
+            Revenue by VAT treatment could not be loaded. This is not a report that there was no
+            revenue in this range.
+          </LoadFailure>
+        ) : summary.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (summary.data?.revenue_by_vat_treatment ?? []).length === 0 ? (
           <CenterNote>No revenue in this range.</CenterNote>
@@ -96,7 +135,15 @@ export function TaxConsole() {
       </SectionCard>
 
       <SectionCard title="Tax rates" description="Editable configuration, never hard-coded. Effective-dated.">
-        {rates.isLoading ? (
+        {/* An empty rate table reads as "no VAT or WHT rate is configured",
+            which invites someone to add a duplicate of one that already
+            exists and is merely unread. */}
+        {ratesState === "failed" ? (
+          <LoadFailure>
+            The configured tax rates could not be loaded. Do not add a rate from this screen until
+            it does: an existing rate may already be in place and simply unread.
+          </LoadFailure>
+        ) : rates.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (
           <TableShell>

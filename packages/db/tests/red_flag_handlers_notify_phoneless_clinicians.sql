@@ -42,6 +42,8 @@ declare
   v_price   bigint;
   v_bp      uuid := gen_random_uuid();
   v_pulse   uuid := gen_random_uuid();
+  v_doc_a   uuid := gen_random_uuid();
+  v_doc_b   uuid := gen_random_uuid();
   v_n0      integer;
   v_n1      integer;
   v_alerts  integer;
@@ -70,16 +72,40 @@ begin
   end loop;
 
   ------------------------------------------------------------------ fixtures
-  select organisation_id into v_org
-    from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+  -- Org resolved from public.organisations rather than from an existing
+  -- patient: a migration (20260706084837) seeds the direct-consumer org, so
+  -- this holds on a bare `supabase db reset`, where there is no patient yet.
+  select id into v_org from public.organisations limit 1;
   if v_org is null then
-    raise exception 'no organisation has patient profiles — cannot run this test';
+    insert into public.organisations (name, type)
+    values ('RFN Test Org', 'clinic')
+    returning id into v_org;
   end if;
 
+  -- Two clinicians are MINTED, both deliberately with NO phone number, which
+  -- is exactly the recipient this file exists to prove is not dropped. The
+  -- old shape refused to run when the organisation had no clinician of its
+  -- own -- true of every fresh `supabase db reset` -- so the whole proof
+  -- depended on a populated project happening to contain the right staff.
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values
+    (v_doc_a, 'rfn-doc-a@example.invalid', 'x', now(), '{}', '{}'),
+    (v_doc_b, 'rfn-doc-b@example.invalid', 'x', now(), '{}', '{}');
+
+  insert into public.profiles (id, organisation_id, role, full_name, phone)
+  values
+    (v_doc_a, v_org, 'clinician', 'RFN Clinician A (no phone)', null),
+    (v_doc_b, v_org, 'clinician', 'RFN Clinician B (no phone)', null)
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name, phone = excluded.phone;
+
+  -- Counted AFTER minting, so the per-clinician assertions below cover the
+  -- two minted phone-less doctors plus any the project already had.
   select count(*) into v_docs
     from public.profiles where organisation_id = v_org and role = 'clinician';
   if v_docs = 0 then
-    raise exception 'no clinician profiles in this organisation — cannot run this test';
+    raise exception 'VACUOUS: no clinician profiles in the organisation even after minting two';
   end if;
 
   -- Resolved by FEATURE, never by a hardcoded product code: the same

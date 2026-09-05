@@ -5,6 +5,7 @@ import { setPregnancyStatus } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 export function PregnancyForm({
   initialIsPregnant,
@@ -15,6 +16,7 @@ export function PregnancyForm({
 }) {
   const [state, action, pending] = useActionState(setPregnancyStatus, undefined);
   const [isPregnant, setIsPregnant] = useState(initialIsPregnant);
+  const errorId = fieldErrorId("pregnancy-status");
 
   return (
     <form action={action} className="space-y-3">
@@ -35,11 +37,12 @@ export function PregnancyForm({
             name="estimated_due_date"
             type="date"
             defaultValue={initialEdd ?? ""}
+            {...fieldErrorProps(errorId, Boolean(state?.error))}
           />
         </div>
       )}
-      {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Saved.</p>}
+      <FormError id={errorId} message={state?.error} />
+      <FormSuccess message={state?.success && "Saved."} />
       <Button type="submit" disabled={pending} variant="outline" size="sm">
         {pending ? "Saving…" : "Update"}
       </Button>

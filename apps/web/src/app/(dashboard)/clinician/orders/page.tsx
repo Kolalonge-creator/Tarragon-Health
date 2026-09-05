@@ -12,6 +12,8 @@ import {
   useConfirmPharmacyDelivery,
 } from "@/lib/queries/logistics-partners";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -114,6 +116,7 @@ function AssignHomeVisitForm({ order }: { order: LabOrderWithDetails }) {
 
 function LabOrdersWorklist() {
   const { data, isLoading, isError } = useOrgLabOrders();
+  const state = listQueryState({ isLoading, isError, count: data?.length });
 
   return (
     <Card>
@@ -121,10 +124,15 @@ function LabOrdersWorklist() {
         <CardTitle>Lab orders</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load lab orders.</p>}
-        {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">No lab orders yet.</p>}
-        {data && data.length > 0 && (
+        {state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {state === "error" && (
+          <LoadFailure>
+            Lab orders could not be loaded. This is not a report that none are outstanding, and a
+            result waiting on a patient is not visible here. Reload to try again.
+          </LoadFailure>
+        )}
+        {state === "empty" && <p className="text-sm text-charcoal-ink/60">No lab orders yet.</p>}
+        {state === "ready" && data && (
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((order) => {
               const badge = LAB_ORDER_STATUS_BADGE[order.status];
@@ -244,6 +252,7 @@ function AssignLogisticsForm({ order }: { order: PharmacyOrderWithLogistics }) {
 function PharmacyOrdersWorklist() {
   const { data, isLoading, isError } = useOrgPharmacyOrders();
   const confirmDelivery = useConfirmPharmacyDelivery();
+  const state = listQueryState({ isLoading, isError, count: data?.length });
 
   return (
     <Card>
@@ -251,10 +260,15 @@ function PharmacyOrdersWorklist() {
         <CardTitle>Pharmacy orders</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load pharmacy orders.</p>}
-        {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">No pharmacy orders yet.</p>}
-        {data && data.length > 0 && (
+        {state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {state === "error" && (
+          <LoadFailure>
+            Pharmacy orders could not be loaded. This is not a report that none are outstanding, and
+            a medicine waiting on a patient is not visible here. Reload to try again.
+          </LoadFailure>
+        )}
+        {state === "empty" && <p className="text-sm text-charcoal-ink/60">No pharmacy orders yet.</p>}
+        {state === "ready" && data && (
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((order) => {
               const badge = PHARMACY_ORDER_STATUS_BADGE[order.status];

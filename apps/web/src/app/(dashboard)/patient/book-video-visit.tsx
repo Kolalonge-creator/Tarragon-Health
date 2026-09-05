@@ -23,6 +23,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 import { formatPatientDateTime } from "@/lib/format-date";
@@ -116,7 +117,12 @@ function VideoVisitFeedbackPrompt({ consultationId }: { consultationId: string }
         <form action={formAction} className="space-y-3">
           <input type="hidden" name="consultation_id" value={consultationId} />
           <input type="hidden" name="overall_rating" value={overall || ""} />
-          <div className="flex gap-1">
+          <div
+            role="group"
+            aria-label="Overall rating"
+            aria-describedby={state?.error ? fieldErrorId(`video-visit-feedback-${consultationId}`) : undefined}
+            className="flex gap-1"
+          >
             {RATING_LABELS.map((n) => (
               <button
                 key={n}
@@ -134,7 +140,11 @@ function VideoVisitFeedbackPrompt({ consultationId }: { consultationId: string }
           <Button type="submit" size="sm" disabled={overall === 0 || isPending}>
             {isPending ? "Sending…" : "Send feedback"}
           </Button>
-          {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
+          <FormError
+            id={fieldErrorId(`video-visit-feedback-${consultationId}`)}
+            message={state?.error}
+            className="text-xs"
+          />
         </form>
       </CardContent>
     </Card>
@@ -176,7 +186,11 @@ function AlternateSlotPicker({
           </Button>
         ))}
       </div>
-      {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
+      <FormError
+        id={fieldErrorId(`video-visit-alternate-slot-${requestId}`)}
+        message={state?.error}
+        className="text-xs"
+      />
     </form>
   );
 }
@@ -282,7 +296,12 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               Request a time: {formatPrice(price!.amount_minor, price!.currency)} per visit
             </p>
-            <div className="flex flex-wrap gap-2">
+            <div
+              role="group"
+              aria-label="Available times"
+              aria-describedby={state?.error ? fieldErrorId("book-video-visit") : undefined}
+              className="flex flex-wrap gap-2"
+            >
               {(slots ?? []).map((slot) => (
                 <Button
                   key={slot.id}
@@ -302,7 +321,7 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
                 ? "Redirecting…"
                 : `Request & pay ${price ? formatPrice(price.amount_minor, price.currency) : ""}`}
             </Button>
-            {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
+            <FormError id={fieldErrorId("book-video-visit")} message={state?.error} />
           </form>
         )}
 
