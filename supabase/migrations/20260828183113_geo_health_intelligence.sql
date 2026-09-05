@@ -32,6 +32,10 @@
 -- nulls out, not just the risk counts, so even its patient count can't be
 -- read off.
 
+-- Tarragon Health — Risk & Prevention Engine enhancement, 5/7. Committed to
+-- git but never actually applied to production. Content byte-identical to
+-- the committed 20260827202439_geo_health_intelligence.sql.
+
 create or replace function public.get_geo_health_aggregates()
 returns table (
   state text,

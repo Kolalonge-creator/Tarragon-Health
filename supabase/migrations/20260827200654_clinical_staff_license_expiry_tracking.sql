@@ -61,11 +61,6 @@ create policy clinical_staff_license_lapse_notifications_select
 
 grant select on public.clinical_staff_license_lapse_notifications to authenticated;
 
--- alter-default-privileges (20260731232749) grants authenticated
--- select/insert/update/delete on every new table by default -- explicitly
--- revoked here up front rather than as a later hardening follow-up (see
--- 20260826225650, which had to do this retroactively for the two sibling
--- notification tables from the same audit pass).
 revoke insert, update, delete on public.clinical_staff_license_lapse_notifications from authenticated;
 
 create or replace function private.notify_clinical_staff_license_lapses()

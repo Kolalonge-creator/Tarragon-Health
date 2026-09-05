@@ -1,20 +1,3 @@
--- Tarragon Health — Care Management Engine, step 9
---
--- care_management_kpis: spec §3.20 — "Measure: programme enrolment,
--- adherence, completion, clinical outcomes, dropout, escalation, time to
--- intervention, time to control." Same RPC shape as the existing
--- htn_quality_metrics() (jsonb return, private.is_org_staff(p_org) enforced
--- inside the function body so it's safe to call from any admin/staff
--- surface) — this is the cross-programme equivalent, not a replacement for
--- that condition-specific audit.
---
--- "Time to intervention" / "time to control" are deliberately left out of
--- v1: control state (at-target vs above-target) is currently only modelled
--- for diabetes (chronic_control_state, 2026-08-21) with no equivalent for
--- hypertension or the other five programmes yet, and a cross-programme
--- number computed from an incomplete input would be misleading rather than
--- useful. The metrics below are the ones every programme can answer today.
-
 create or replace function public.care_management_kpis(p_org uuid)
 returns jsonb
 language plpgsql
@@ -96,8 +79,6 @@ end;
 $$;
 
 revoke all on function public.care_management_kpis(uuid) from public;
-revoke all on function public.care_management_kpis(uuid) from anon;
-revoke all on function public.care_management_kpis(uuid) from public, anon;
 grant execute on function public.care_management_kpis(uuid) to authenticated;
 
 do $$

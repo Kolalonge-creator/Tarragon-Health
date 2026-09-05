@@ -75,9 +75,6 @@ begin
       ) z
     ),
 
-    -- Turnaround for referrals that actually got booked in the last 90 days --
-    -- a proxy for "average waiting time" (§4.17) distinct from the current
-    -- waitlist snapshot above, which only reflects cases still waiting today.
     'recent_booking_turnaround', (
       select jsonb_build_object(
         'window_days', 90,
@@ -89,10 +86,6 @@ begin
         and created_at >= now() - interval '90 days'
     ),
 
-    -- Tarragon's own doctor video-consult capacity, not the external
-    -- specialist network -- the two are different capacity pools (employed
-    -- care team vs. referral-network partners) and this keeps them visibly
-    -- separate rather than folding one into the other's numbers.
     'video_slot_utilisation_next_7_days', (
       select jsonb_build_object(
         'total_slots', count(*),

@@ -33,6 +33,12 @@
 -- happened. This adds that audit trail plus an explicit, note-carrying
 -- handover action.
 
+-- Tarragon Health — care team handover (Care Team / Provider Workspace
+-- §5.15). Committed to git but never actually applied to production —
+-- found and fixed alongside the other four same-day Care Team / Provider
+-- Workspace migrations. Content below is byte-identical to the committed
+-- 20260827210136_care_team_handover_audit.sql.
+
 create table if not exists public.care_team_handovers (
   id              uuid primary key default gen_random_uuid(),
   organisation_id uuid not null references public.organisations (id) on delete restrict,
@@ -56,16 +62,8 @@ create policy care_team_handovers_select on public.care_team_handovers
   for select to authenticated
   using (private.is_org_staff(organisation_id));
 
--- Insert only via hand_over_care below (SECURITY DEFINER) or the automatic
--- trigger on care_team_assignment — no direct client insert path, so a
--- handover record can't be fabricated after the fact with an invented note.
 grant select on public.care_team_handovers to authenticated;
 
--- ---------------------------------------------------------------------------
--- Explicit handover with a reason — the one path that gets a real note
--- attached, atomically with the reassignment. Defined before the trigger
--- below since the trigger reads the session-local GUC this sets.
--- ---------------------------------------------------------------------------
 create or replace function public.hand_over_care(
   p_patient_id uuid,
   p_role text,
@@ -90,8 +88,6 @@ begin
     raise exception 'not authorised';
   end if;
 
-  -- Session-local so the trigger above records this call's own note rather
-  -- than leaving it null the way an ordinary CareTeamForm upsert would.
   perform set_config('app.care_team_handover_note', coalesce(p_note, ''), true);
 
   if p_role = 'clinician' then
@@ -106,15 +102,6 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------------------
--- Automatic trail: ANY change to who holds clinician_id/care_coordinator_id
--- (via the plain CareTeamForm upsert, hand_over_care, or anything else) gets
--- logged. Picks up the session-local note when hand_over_care set one
--- (immediately above), then clears it so it never bleeds into an unrelated
--- later update in the same session — otherwise a plain CareTeamForm
--- reassignment made right after a hand_over_care call in the same session
--- would wrongly inherit that call's note.
--- ---------------------------------------------------------------------------
 create or replace function private.log_care_team_handover()
 returns trigger
 language plpgsql
@@ -155,9 +142,6 @@ revoke all on function public.hand_over_care(uuid, text, uuid, text) from public
 grant execute on function public.hand_over_care(uuid, text, uuid, text) to authenticated;
 revoke execute on function public.hand_over_care(uuid, text, uuid, text) from anon;
 
--- ---------------------------------------------------------------------------
--- Proof, not hope.
--- ---------------------------------------------------------------------------
 do $$
 begin
   if not exists (

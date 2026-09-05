@@ -63,7 +63,7 @@ $$;
 comment on function private.provider_quality_metric_entry(public.provider_quality_metric, numeric, integer) is
   'Builds one scorecard entry from the active policy. Returns null for a metric that is not reportable (unconfigured, or an ungoverned clinical_quality metric — §29.1). Omits the value key entirely below min_denominator so a small sample cannot be rendered as a rate (§29.10).';
 
-revoke all on function private.provider_quality_metric_entry(public.provider_quality_metric, numeric, integer) from public, anon;
+revoke all on function private.provider_quality_metric_entry(public.provider_quality_metric, numeric, integer) from public;
 
 create or replace function public.provider_scorecard(
   p_clinical_staff_id uuid default null,

@@ -40,6 +40,10 @@
 -- ladder is the patient-facing half of that same picture, not a competing
 -- mechanism.
 
+-- Tarragon Health — Risk & Prevention Engine enhancement, 7/7. Committed to
+-- git but never actually applied to production. Content byte-identical to
+-- the committed 20260827205740_escalating_preventive_reminders.sql.
+
 create type public.reminder_stage as enum ('upcoming', 'due', 'overdue', 'escalated');
 
 alter table public.screening_schedules
@@ -55,17 +59,12 @@ comment on column public.screening_schedules.reminder_stage is
 comment on column public.vaccination_schedules.reminder_stage is
   'Same ladder as screening_schedules.reminder_stage — see private.queue_vaccination_reminders().';
 
--- ---------------------------------------------------------------------------
--- Screening reminders
--- ---------------------------------------------------------------------------
-
 create or replace function private.queue_screening_reminders()
 returns void
 language sql
 security definer
 set search_path = ''
 as $$
-  -- Stage 1: upcoming — due within the next 7 days, nothing sent yet.
   with due as (
     select s.*, st.name as screen_type_name
     from public.screening_schedules s
@@ -94,9 +93,6 @@ as $$
   from due
   where s.id = due.id;
 
-  -- Stage 2: due — due today, or up to 6 days late, nothing beyond
-  -- 'upcoming' sent yet (covers a row that skipped stage 1 entirely, e.g.
-  -- created already due, as well as one that already got its nudge).
   with due as (
     select s.*, st.name as screen_type_name
     from public.screening_schedules s
@@ -125,7 +121,6 @@ as $$
   from due
   where s.id = due.id;
 
-  -- Stage 3: overdue — 7+ days past due_date.
   with due as (
     select s.*, st.name as screen_type_name
     from public.screening_schedules s
@@ -153,10 +148,6 @@ as $$
   from due
   where s.id = due.id;
 
-  -- Stage 4: escalated — 21+ days past due_date (14+ days after crossing
-  -- the overdue threshold) and the overdue nudge already went out. One
-  -- extra channel (push) on top of the usual pair, then no further
-  -- automated nudges for this schedule ever.
   with due as (
     select s.*, st.name as screen_type_name
     from public.screening_schedules s
@@ -191,10 +182,6 @@ as $$
   from due
   where s.id = due.id;
 $$;
-
--- ---------------------------------------------------------------------------
--- Vaccination reminders — identical ladder, mirrored over vaccination_schedules.
--- ---------------------------------------------------------------------------
 
 create or replace function private.queue_vaccination_reminders()
 returns void
@@ -319,10 +306,6 @@ as $$
   from due
   where s.id = due.id;
 $$;
-
--- ---------------------------------------------------------------------------
--- Assertions
--- ---------------------------------------------------------------------------
 
 do $$
 begin

@@ -1,29 +1,5 @@
 -- Tarragon Health — Health Data Architecture & MDM (spec §34.16)
--- Data retention: "Different categories of information may require
--- different retention periods. Retention policies should be configurable
--- and governed by applicable Nigerian legal and regulatory requirements."
---
--- WHY THIS SHIPS AS A GOVERNANCE TABLE, NOT A DELETION JOB
--- CLAUDE.md's own standing follow-ups list NDPC (Nigeria Data Protection
--- Commission) registration and a DPO appointment as still-open founder
--- items — there is no confirmed Nigerian legal retention period for any
--- category on this platform yet, clinical records least of all. Writing a
--- specific number of months into this migration would be inventing a
--- regulatory fact this build has no authority to assert, and a scheduled
--- job that actually DELETES clinical history based on a guessed number
--- would risk destroying data this platform's own record_corrections/
--- audit_log machinery exists specifically to never lose (§34.10: "Do not
--- casually delete clinical history"). So: retention_period_months is
--- nullable and seeded null for every category below except the two where
--- a period is a pure internal/technical decision, not a legal one. This
--- satisfies §34.16's actual requirement — retention policy is now
--- CONFIGURABLE DATA an admin/DPO can fill in once real guidance exists —
--- without fabricating the guidance itself or building an auto-delete path
--- ahead of that guidance existing.
---
--- CATEGORIES are the platform's own real data groupings (grepped from the
--- actual table list, not invented) — see governing_tables on each seeded
--- row.
+-- Data retention: configurable governance table, no auto-deletion.
 
 create table public.data_retention_policies (
   id                        uuid primary key default gen_random_uuid(),
@@ -41,7 +17,7 @@ create table public.data_retention_policies (
 );
 
 comment on table public.data_retention_policies is
-  '§34.16 retention governance — configurable per data category. retention_period_months is deliberately null wherever no confirmed Nigerian legal/regulatory basis exists yet (see this migration''s header); an admin/DPO fills in a real number once one does, which is exactly what "configurable" means here.';
+  '§34.16 retention governance — configurable per data category. retention_period_months is deliberately null wherever no confirmed Nigerian legal/regulatory basis exists yet; an admin/DPO fills in a real number once one does.';
 
 create trigger data_retention_policies_set_updated_at
   before update on public.data_retention_policies
@@ -78,7 +54,7 @@ insert into public.data_retention_policies (category, description, governing_tab
   ),
   (
     'communications',
-    'In-app care-team messaging and platform notifications (§ Non-Negotiable Business Rules: in-app is the working two-way channel).',
+    'In-app care-team messaging and platform notifications.',
     array['care_messages','care_message_threads','notifications','support_messages'],
     null,
     'No confirmed period yet; treated as part of the clinical record trail where a message concerns clinical care.'
@@ -91,13 +67,6 @@ insert into public.data_retention_policies (category, description, governing_tab
     'Internal product/ops decision (not a clinical or statutory requirement) — a lead or analytics event with no activity in 3 years has no ongoing business purpose. Revisit if NDPC guidance sets a shorter mandatory ceiling.'
   )
 on conflict (category) do nothing;
-
--- ---------------------------------------------------------------------------
--- Read-side helper: what's configured, and (once a real period exists)
--- what actually exceeds it. Built now so the moment retention_period_
--- months is filled in for real, this has something to check against —
--- not gated behind a future migration.
--- ---------------------------------------------------------------------------
 
 create or replace function public.data_retention_policy_summary()
 returns table (
@@ -123,13 +92,7 @@ as $$
 $$;
 
 comment on function public.data_retention_policy_summary is
-  '§34.16 read-side summary of configured retention policy per category. Does not identify or delete any expired record — see this migration''s header for why no deletion job exists yet.';
-
--- ---------------------------------------------------------------------------
--- RLS — same shape as reference_concepts/screen_types: readable by every
--- authenticated user (retention policy is not itself PHI and staff across
--- the platform benefit from being able to see it), admin-only write.
--- ---------------------------------------------------------------------------
+  '§34.16 read-side summary of configured retention policy per category. Does not identify or delete any expired record.';
 
 alter table public.data_retention_policies enable row level security;
 
@@ -144,12 +107,8 @@ create policy data_retention_policies_delete on public.data_retention_policies
 
 grant select, insert, update, delete on public.data_retention_policies to authenticated;
 revoke all on public.data_retention_policies from anon;
-revoke execute on function public.data_retention_policy_summary() from public, anon;
+revoke execute on function public.data_retention_policy_summary() from public;
 grant execute on function public.data_retention_policy_summary() to authenticated, service_role;
-
--- ---------------------------------------------------------------------------
--- Verification
--- ---------------------------------------------------------------------------
 
 do $$
 declare
@@ -160,9 +119,6 @@ begin
     raise exception 'FAIL: expected at least 6 seeded retention categories, found %', v_count;
   end if;
 
-  -- The core §34.16 promise: every clinical/financial/consent category is
-  -- explicitly UNRESOLVED (null period) rather than carrying an invented
-  -- number, so nothing downstream can mistake a placeholder for policy.
   if exists (
     select 1 from public.data_retention_policies
     where category in ('clinical_records', 'financial_records', 'consent_and_legal_records')

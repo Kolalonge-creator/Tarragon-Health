@@ -55,10 +55,6 @@ comment on function private.raise_clinician_alert(uuid, uuid, public.alert_level
 
 revoke all on function private.raise_clinician_alert(uuid, uuid, public.alert_level, text, text, public.alert_category, public.alert_type_code) from public, anon;
 
--- ---------------------------------------------------------------------------
--- missed_appointment
--- ---------------------------------------------------------------------------
-
 create or replace function private.raise_missed_appointment_alert()
 returns trigger
 language plpgsql
@@ -87,10 +83,6 @@ create trigger appointments_raise_missed_appointment_alert
   after update of status on public.appointments
   for each row execute function private.raise_missed_appointment_alert();
 
--- ---------------------------------------------------------------------------
--- failed_referral
--- ---------------------------------------------------------------------------
-
 create or replace function private.raise_failed_referral_alert()
 returns trigger
 language plpgsql
@@ -117,10 +109,6 @@ $$;
 create trigger specialist_referrals_raise_failed_referral_alert
   after update of status on public.specialist_referrals
   for each row execute function private.raise_failed_referral_alert();
-
--- ---------------------------------------------------------------------------
--- adherence_problem (bridge, not a replacement -- see header)
--- ---------------------------------------------------------------------------
 
 create or replace function private.bridge_doctor_adherence_alert_to_clinician_alerts()
 returns trigger
@@ -154,14 +142,6 @@ $$;
 create trigger medication_adherence_alerts_bridge_to_clinician_alerts
   after insert or update on public.medication_adherence_alerts
   for each row execute function private.bridge_doctor_adherence_alert_to_clinician_alerts();
-
--- ---------------------------------------------------------------------------
--- overdue_task, laboratory_failure, pharmacy_problem -- staleness sweeps.
--- Each carries its own not-exists guard as a second, belt-and-suspenders
--- dedup layer on top of classify_and_assign's own 24h dedup_key detection
--- (part 2b) -- a daily sweep re-running while the underlying condition is
--- still true should not regenerate a fresh alert every single run.
--- ---------------------------------------------------------------------------
 
 create or replace function private.raise_overdue_task_alerts()
 returns void

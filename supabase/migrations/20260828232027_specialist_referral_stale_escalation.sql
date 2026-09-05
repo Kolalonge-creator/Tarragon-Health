@@ -1,30 +1,3 @@
--- Tarragon Health — Specialist Referral Engine, escalation ladder for a
--- referral nobody has followed up on (task spec §11.12).
---
--- Confirmed before writing this: a specialist_referrals row that sits at
--- 'pending'/'waitlisted' (or any pre-outcome status) generates zero
--- escalation of any kind today, however long it sits there — there is no
--- equivalent of the staleness sweeps 20260828015618 already built for
--- care_outreach_tasks/lab_orders/pharmacy_orders. §11.12 describes exactly
--- this ladder: "If patient does not book: Reminder. If still not booked:
--- Care coordinator task. If referral is clinically important: Escalation to
--- appropriate clinical team." Self-arranged fulfilment (2026-08-03) means
--- Tarragon no longer tracks a specific booked appointment for most
--- referrals, so "did not book" is adapted here to its real equivalent in
--- the current model: a referral that has sat with no specialist outcome
--- recorded (neither treatment_plan_received_at nor the new
--- outcome_document_path) for an extended period. Reuses this codebase's own
--- established primitives throughout rather than inventing new ones:
--- private.raise_clinician_alert (added 20260828015618), the existing
--- care_outreach_tasks worklist + its live-dedup unique index, and the
--- existing failed_referral alert_type_code (already governed in
--- alert_rules — reused rather than adding a new type_code and its own
--- governance config row, since "referral stalled" and "referral declined"
--- are both, at heart, a referral failing to progress).
-
--- ---------------------------------------------------------------------------
--- 1. 14 days, no outcome yet -> patient reminder (in-app)
--- ---------------------------------------------------------------------------
 create or replace function private.remind_patients_stale_referrals()
 returns void
 language plpgsql
@@ -58,9 +31,6 @@ revoke all on function private.remind_patients_stale_referrals() from public, an
 
 select cron.schedule('remind-patients-stale-referrals', '00 4 * * *', $$select private.remind_patients_stale_referrals()$$);
 
--- ---------------------------------------------------------------------------
--- 2. 30 days, still no outcome -> care coordinator task
--- ---------------------------------------------------------------------------
 create or replace function private.raise_stale_referral_outreach_tasks()
 returns void
 language plpgsql
@@ -94,9 +64,6 @@ revoke all on function private.raise_stale_referral_outreach_tasks() from public
 
 select cron.schedule('raise-stale-referral-outreach-tasks', '15 4 * * *', $$select private.raise_stale_referral_outreach_tasks()$$);
 
--- ---------------------------------------------------------------------------
--- 3. Urgent/priority, 7 days, still no outcome -> clinical escalation
--- ---------------------------------------------------------------------------
 create or replace function private.raise_stale_urgent_referral_alerts()
 returns void
 language plpgsql

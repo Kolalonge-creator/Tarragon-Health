@@ -22,6 +22,14 @@
 --    auth.uid() is not reliable inside this trigger (GoTrue's own internal write
 --    to auth.users has no end-user JWT claims set), so the actor is NEW.id
 --    directly, not a session lookup.
+--
+-- RECONCILIATION NOTE (applied late): this migration's content was committed to
+-- git under version 20260827202722 but a live-state check found it was never
+-- actually applied — audit_row_change_trg was missing from specialist_referrals
+-- and on_auth_user_login did not exist, though log_result_document_viewed had
+-- separately been created (byte-identical) by 20260828002130's own copy of it.
+-- Applying now to close the gap; content is otherwise unchanged from what was
+-- committed.
 
 do $$
 begin

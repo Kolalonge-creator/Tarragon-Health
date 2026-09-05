@@ -151,7 +151,7 @@ $$;
 comment on function private.provider_quality_policy_config() is
   'The live policy document, or null when no version is active. Callers must treat null as "do not compute" rather than falling back to a hardcoded default — an unconfigured platform must not silently invent quality thresholds.';
 
-revoke all on function private.provider_quality_policy_config() from public, anon;
+revoke all on function private.provider_quality_policy_config() from public;
 
 create or replace function private.provider_quality_metric_policy(p_metric public.provider_quality_metric)
 returns jsonb
@@ -171,7 +171,7 @@ $$;
 comment on function private.provider_quality_metric_policy(public.provider_quality_metric) is
   'One metric''s policy entry from the active document, or null if the metric is not configured. Null means "not measured here" — never "measured with defaults".';
 
-revoke all on function private.provider_quality_metric_policy(public.provider_quality_metric) from public, anon;
+revoke all on function private.provider_quality_metric_policy(public.provider_quality_metric) from public;
 
 create or replace function private.provider_quality_metric_is_reportable(p_metric public.provider_quality_metric)
 returns boolean
@@ -198,7 +198,7 @@ $$;
 comment on function private.provider_quality_metric_is_reportable(public.provider_quality_metric) is
   '§29.1 clinical-governance gate. False for an unconfigured metric and for any clinical_quality metric whose clinically_governed flag is not explicitly true — part 6 omits such a metric from the scorecard entirely rather than reporting an ungoverned clinical number.';
 
-revoke all on function private.provider_quality_metric_is_reportable(public.provider_quality_metric) from public, anon;
+revoke all on function private.provider_quality_metric_is_reportable(public.provider_quality_metric) from public;
 
 -- ---------------------------------------------------------------------------
 -- Signing (Clinical Director only, same gate shape as sign_alert_rules)

@@ -250,15 +250,15 @@ begin
 end;
 $$;
 
-revoke execute on function public.admin_verify_pharmacy_partner_location(uuid) from public, anon;
+revoke execute on function public.admin_verify_pharmacy_partner_location(uuid) from public;
 revoke execute on function public.admin_verify_pharmacy_partner_location(uuid) from anon;
 grant execute on function public.admin_verify_pharmacy_partner_location(uuid) to authenticated;
 
-revoke execute on function public.admin_advance_pharmacy_partner_onboarding(uuid) from public, anon;
+revoke execute on function public.admin_advance_pharmacy_partner_onboarding(uuid) from public;
 revoke execute on function public.admin_advance_pharmacy_partner_onboarding(uuid) from anon;
 grant execute on function public.admin_advance_pharmacy_partner_onboarding(uuid) to authenticated;
 
-revoke execute on function public.admin_reject_pharmacy_partner_onboarding(uuid, text) from public, anon;
+revoke execute on function public.admin_reject_pharmacy_partner_onboarding(uuid, text) from public;
 revoke execute on function public.admin_reject_pharmacy_partner_onboarding(uuid, text) from anon;
 grant execute on function public.admin_reject_pharmacy_partner_onboarding(uuid, text) to authenticated;
 

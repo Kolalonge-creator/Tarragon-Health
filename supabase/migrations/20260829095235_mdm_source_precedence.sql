@@ -1,37 +1,5 @@
 -- Tarragon Health — Health Data Architecture & MDM (spec §34.9)
--- Source precedence for conflicting data: "Laboratory final result >
--- Patient self-reported result. But the original patient-reported value
--- should not simply disappear."
---
--- GENERIC ARCHITECTURE
--- source_precedence_rules is DATA, not code — same idiom as escalation_
--- slas (v3 port, "the escalation SLA as data not code"): a (domain,
--- source) pair maps to a rank, lower rank wins. resolve_source_precedence()
--- is the one place that reads it. A new domain/source pair is a row
--- insert, never a new function.
---
--- WHY BLOOD_PROFILE IS THE ONLY DOMAIN WIRED UP HERE
--- Most "source" columns on this platform (vital_source, medication_source,
--- allergy_source, ...) describe a TIME SERIES — every reading is kept,
--- there is no single current value competing for one row, so "precedence"
--- doesn't apply (the most recent reading is simply the most recent
--- reading, regardless of source). patient_diabetes_profile already solves
--- its own version of this with dedicated patient_reported_type/
--- confirmed_type columns. patient_blood_profile
--- (20260803151426_blood_profile_provenance.sql) is the one place on the
--- platform that is BOTH single-current-value (patient_id is its primary
--- key — one row per patient) AND writable by two competing sources
--- (patient_attested vs lab_document) with NO existing precedence
--- protection: its trigger lets whichever write lands last silently
--- overwrite the other, so a patient re-attesting after a lab has already
--- confirmed their blood group could silently downgrade a lab-confirmed,
--- transfusion-safety-relevant value with no protection at all. That is
--- exactly the failure mode §34.9 describes, on exactly the kind of field
--- (blood group / sickle-cell genotype) where getting it wrong is
--- dangerous — so it is wired up as the reference implementation here.
--- Extend the precedence rule seed data and repeat the same trigger
--- pattern for the next single-current-value/multi-source field, rather
--- than inventing a new mechanism.
+-- Source precedence for conflicting data.
 
 create table public.source_precedence_rules (
   id            uuid primary key default gen_random_uuid(),
@@ -75,13 +43,6 @@ insert into public.source_precedence_rules (domain, source_value, rank, note) va
   ('blood_profile', 'lab_document', 1, 'A lab report is a direct, verifiable test result.'),
   ('blood_profile', 'patient_attested', 2, 'Self-reported; may be memory, an old card, or a guess.');
 
--- ---------------------------------------------------------------------------
--- superseded_source_values — where a losing conflicting claim goes instead
--- of disappearing. Append-only (no update/delete grant to anyone but the
--- owning migration role), same "never lose the fact someone claimed this"
--- spirit as record_corrections.
--- ---------------------------------------------------------------------------
-
 create table public.superseded_source_values (
   id               uuid primary key default gen_random_uuid(),
   domain           text not null,
@@ -115,10 +76,6 @@ create policy source_precedence_rules_update on public.source_precedence_rules
 create policy source_precedence_rules_delete on public.source_precedence_rules
   for delete to authenticated using (private.is_admin());
 
--- Read-only to the patient it concerns and org staff — mirrors
--- record_corrections' visibility bar. No insert/update/delete policy for
--- authenticated: only the security-definer trigger below writes this
--- table (running as the table owner, unaffected by the missing grant).
 create policy superseded_source_values_select on public.superseded_source_values
   for select to authenticated
   using (patient_id = (select auth.uid()) or private.is_org_staff(organisation_id));
@@ -128,16 +85,7 @@ grant select on public.superseded_source_values to authenticated;
 revoke all on public.source_precedence_rules from anon;
 revoke all on public.superseded_source_values from anon;
 revoke execute on function public.resolve_source_precedence(text, text, text) from public;
-revoke execute on function public.resolve_source_precedence(text, text, text) from anon;
-revoke execute on function public.resolve_source_precedence(text, text, text) from public, anon;
 grant execute on function public.resolve_source_precedence(text, text, text) to authenticated, service_role;
-
--- ---------------------------------------------------------------------------
--- Reference wiring: patient_blood_profile. Redefines the existing
--- private.enforce_blood_profile_provenance() (CREATE OR REPLACE — same
--- function, same trigger already attached to the table) to add the
--- precedence check ahead of its existing return.
--- ---------------------------------------------------------------------------
 
 create or replace function private.enforce_blood_profile_provenance()
 returns trigger
@@ -182,13 +130,6 @@ begin
     new.attestation_version := null;
   end if;
 
-  -- §34.9 precedence guard: on an UPDATE where the actual clinical value
-  -- is changing and the new write's source is LOWER precedence than what
-  -- is already recorded, preserve the losing claim in
-  -- superseded_source_values and coerce the protected fields back to the
-  -- existing higher-precedence value rather than silently overwriting it
-  -- (e.g. a lab-confirmed genotype) — see the comment at the insert below
-  -- for why this does not raise an exception.
   if TG_OP = 'UPDATE'
      and OLD.provenance is distinct from new.provenance
      and (OLD.blood_group is distinct from new.blood_group or OLD.genotype is distinct from new.genotype)
@@ -196,17 +137,6 @@ begin
     v_winner := public.resolve_source_precedence('blood_profile', OLD.provenance, new.provenance);
 
     if v_winner = OLD.provenance then
-      -- Record the losing claim FIRST, and do not raise an exception for
-      -- it: an exception aborts the whole statement, including this very
-      -- INSERT, which would defeat the entire point (the losing claim
-      -- would disappear along with the rejected write — proven the hard
-      -- way against this project's own fixture data while writing this
-      -- migration: a raise-exception version left superseded_source_
-      -- values at zero rows every time). Instead the statement is allowed
-      -- to SUCCEED, but the protected fields are coerced back to the
-      -- existing higher-precedence values, so the caller's write "lands"
-      -- without silently changing the governing value, and RAISE WARNING
-      -- (which does not roll back) surfaces it for anyone watching logs.
       insert into public.superseded_source_values (
         domain, entity_table, entity_id, patient_id, organisation_id,
         attempted_source, attempted_value, existing_source, existing_value, attempted_by
@@ -232,8 +162,6 @@ begin
     end if;
   end if;
 
-  -- A note only makes sense against 'other'; clearing the genotype clears it,
-  -- so a stale variant description can never outlive the fact it described.
   if new.genotype is distinct from 'other'::public.haemoglobin_genotype then
     new.genotype_note := null;
   end if;
@@ -242,10 +170,6 @@ begin
   return new;
 end;
 $$;
-
--- ---------------------------------------------------------------------------
--- Verification
--- ---------------------------------------------------------------------------
 
 do $$
 begin
@@ -264,14 +188,6 @@ begin
 end;
 $$;
 
--- End-to-end trigger test against this project's own fixture patient/org
--- (same IDs packages/db/tests/blood_profile_provenance.sql already uses),
--- rather than trusting the DDL alone: a staff-recorded lab_document
--- genotype must survive a subsequent patient self-attestation attempt at
--- a DIFFERENT genotype, and the rejected attempt must land in
--- superseded_source_values. Skips silently if the fixture org has no
--- clinician account (e.g. a fresh environment without seed data) rather
--- than failing the whole migration over missing test fixtures.
 do $$
 declare
   v_patient uuid := '8487376b-7844-428a-bcb8-8795e89eb0f5';
@@ -313,13 +229,5 @@ begin
   if not exists (select 1 from public.patient_blood_profile where patient_id = v_patient and genotype = 'AA' and provenance = 'lab_document') then
     raise exception 'FAIL: lab-confirmed genotype was overwritten by a lower-precedence patient attestation';
   end if;
-
-  -- Clean up this test's own fixture writes — this migration is not run
-  -- inside a rolled-back transaction (unlike packages/db/tests/*.sql), so
-  -- anything left here would otherwise persist as residue on the shared
-  -- fixture patient on every replay (e.g. a future `supabase db reset`).
-  delete from public.superseded_source_values where patient_id = v_patient;
-  delete from public.patient_blood_profile where patient_id = v_patient;
-  delete from public.lab_result_documents where id = v_doc;
 end;
 $$;

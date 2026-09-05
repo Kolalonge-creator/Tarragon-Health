@@ -1,44 +1,3 @@
--- Tarragon Health — Specialist Referral Engine, part 5/7: structured
--- outcome capture + enforced closure (task spec §11.13, §11.15).
---
--- Complementary to the existing treatment_plan_note/treatment_plan_
--- received_at/shared_care_handback_at fields (20260716100000) — those are
--- UNCHANGED and stay the primary place a clinician transcribes what a
--- specialist sent back, since specialists have no platform login and
--- nothing they write arrives through the app directly (the same reason
--- lab_result_documents exists as a raw-upload companion to structured lab
--- interpretations, not a replacement for them). This migration adds two
--- things that are genuinely missing:
---
---   1. A place for the raw document the specialist actually gave the
---      patient. The referral letter (referral-letter-document.tsx) already
---      tells the patient to "upload it in the app" — no such path exists
---      anywhere in the codebase today. outcome_document_path/_uploaded_at/
---      _uploaded_by fill that promise, same shape as
---      lab_result_documents.file_path/uploaded_by (source-derived, never
---      client-trusted).
---
---   2. An enforced closure gate. Today a referral can sit at 'completed'
---      forever with treatment_plan_note filled in and nobody having
---      confirmed the care plan was actually updated. The 'closed' status
---      added earlier in this series becomes reachable ONLY when an outcome
---      exists (transcribed plan OR uploaded document) AND a clinician has
---      recorded what changed in the care plan AND that clinician is
---      attributable — directly implementing 3 of §11.15's 4 requirements
---      (specialist outcome received / care plan updated / an attributable
---      clinician acted); the 4th, notifying the referring clinician, is the
---      next migration in this series. "Patient informed" and "follow-up
---      action created" are satisfied by the closure notification (next
---      migration) and by shared_care_handback_at, which the existing UI
---      already requires a clinician to explicitly set before closing in
---      practice (not DB-enforced here, to avoid over-constraining a
---      genuinely optional step — not every referral needs shared-care
---      handback, e.g. a one-off procedural referral).
---
--- Closing is a clinical act, not a logistics one — gated to clinical tier
--- (private.is_clinical_tier), same posture as clinical_encounter_notes and
--- the Care Coordinator non-clinical write guardrail (CLAUDE.md).
-
 alter table public.specialist_referrals
   add column if not exists outcome_document_path text,
   add column if not exists outcome_document_uploaded_at timestamptz,
@@ -67,9 +26,6 @@ alter table public.specialist_referrals
     )
   );
 
--- ---------------------------------------------------------------------------
--- Attribution + closure enforcement trigger
--- ---------------------------------------------------------------------------
 create or replace function private.enforce_specialist_referral_outcome_and_closure()
 returns trigger
 language plpgsql
@@ -79,10 +35,6 @@ as $$
 declare
   v_staff_id uuid;
 begin
-  -- A closed referral is terminal — same "no re-deciding a signed record"
-  -- discipline as clinical_encounter_notes/protocol_versions. A genuine
-  -- correction needs a fresh referral (parent_referral_id links it back),
-  -- not editing history.
   if old.status = 'closed' and new.status <> 'closed' then
     raise exception 'This referral is closed and cannot be reopened. Create a new referral (linked via parent_referral_id) if further specialist input is needed.'
       using errcode = '42501';
@@ -92,9 +44,6 @@ begin
     new.closed_by := old.closed_by;
   end if;
 
-  -- Server-derive the document uploader from the session, same pattern as
-  -- private.handle_lab_result_document — never trust a client-supplied id.
-  -- Only stamps when the document path is actually (re)set on this update.
   if new.outcome_document_path is distinct from old.outcome_document_path
      and new.outcome_document_path is not null then
     new.outcome_document_uploaded_at := coalesce(new.outcome_document_uploaded_at, now());
@@ -103,10 +52,6 @@ begin
     end if;
   end if;
 
-  -- The completed -> closed transition: require the acting session to be a
-  -- real, active clinical-tier member of this referral's org, and stamp
-  -- closed_by/closed_at from it — never client-supplied, mirroring
-  -- private.enforce_clinical_encounter_note_attribution.
   if new.status = 'closed' and old.status is distinct from 'closed' then
     if not private.is_clinical_tier(new.organisation_id) then
       raise exception 'Only a clinical-tier member of the care team can close a referral.'

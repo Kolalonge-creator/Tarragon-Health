@@ -123,8 +123,6 @@ end;
 $function$;
 
 revoke all on function public.confirm_ecg_report_extraction(uuid, jsonb, date) from public;
-revoke all on function public.confirm_ecg_report_extraction(uuid, jsonb, date) from anon;
-revoke all on function public.confirm_ecg_report_extraction(uuid, jsonb, date) from public, anon;
 grant execute on function public.confirm_ecg_report_extraction(uuid, jsonb, date) to authenticated;
 
 -- ---------------------------------------------------------------------------

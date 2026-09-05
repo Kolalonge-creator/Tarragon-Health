@@ -25,6 +25,14 @@
 -- machinery (useClinicianAlerts, 60s poll) — that is the correct "results to
 -- review / urgent" surface and duplicating it into `notifications` would
 -- give the same event two independently-driftable read states.
+--
+-- RECONCILIATION NOTE (applied late): committed to git under version
+-- 20260827203614, but a live-state check found none of its objects existed
+-- — never actually applied. Live's after_care_message_insert() was confirmed
+-- to still be exactly the "before" version this migration's own comment
+-- describes (no clinician_new_care_message branch), so this CREATE OR
+-- REPLACE is a clean, non-clobbering addition. Content unchanged from what
+-- was committed.
 
 -- ---------------------------------------------------------------------------
 -- 1. New referral -> assigned clinician

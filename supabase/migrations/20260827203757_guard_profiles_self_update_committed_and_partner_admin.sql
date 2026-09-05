@@ -37,11 +37,6 @@ as $function$
 declare
   v_is_self_direct_edit boolean;
 begin
-  -- pg_trigger_depth() is 1 for a statement issued directly against
-  -- profiles (this trigger is the only one firing); >1 means this UPDATE
-  -- was itself issued from inside another trigger (a system-internal
-  -- cascade, e.g. advance_serology_status) — those are trusted and skip
-  -- the guard entirely.
   if pg_trigger_depth() > 1 then
     return new;
   end if;

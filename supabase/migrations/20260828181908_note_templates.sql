@@ -1,21 +1,8 @@
 -- Tarragon Health — clinical note templates / smart phrases (Care Team /
--- Provider Workspace §5.8).
---
--- Confirmed by a whole-repo grep before writing this: zero existing
--- templating/snippet/canned-text infrastructure anywhere in apps/web/src —
--- not in clinical notes, not in message composition, nowhere. This is new
--- schema, not an extension.
---
--- Deliberately simple: one flat, org-shared, clinician-authored table of
--- reusable text snippets ("templates" and "smart phrases" collapsed into one
--- mechanism — the spec draws a line between a longer template and a short
--- phrase, but both are just "reusable named text a clinician inserts",
--- so a second table/type distinction would be a difference in body length,
--- not in kind). No approval workflow, no per-user private templates: any
--- org staff can create one and every org staff can use it, same trust model
--- as the rest of the clinical-core content this org already shares (unlike
--- protocol_versions, which genuinely needs Clinical Director sign-off —
--- a note template is convenience text, not a clinical instruction).
+-- Provider Workspace §5.8). Committed to git but never actually applied to
+-- production — found and fixed alongside my_provider_performance_rpc.
+-- Content below is byte-identical to the committed
+-- 20260827205008_note_templates.sql.
 
 create table if not exists public.note_templates (
   id              uuid primary key default gen_random_uuid(),
@@ -54,10 +41,6 @@ create policy note_templates_update on public.note_templates
   using (private.is_org_staff(organisation_id))
   with check (private.is_org_staff(organisation_id));
 
--- Any org staff may delete a shared template, same "team-owned, not
--- author-owned" model as the select/update policies above — a stale
--- template left by someone who moved on shouldn't need that specific
--- person to come back and remove it.
 drop policy if exists note_templates_delete on public.note_templates;
 create policy note_templates_delete on public.note_templates
   for delete to authenticated

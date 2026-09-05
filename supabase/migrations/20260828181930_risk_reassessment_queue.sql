@@ -30,6 +30,11 @@
 -- it's cheap and gives a complete audit trail of what tried to trigger a
 -- recalculation, even before the patient's first assessment).
 
+-- Tarragon Health — Risk & Prevention Engine enhancement, 6/7. Committed to
+-- git but never actually applied to production — found and fixed alongside
+-- my_provider_performance_rpc/note_templates. Content below is
+-- byte-identical to the committed 20260827205131_risk_reassessment_queue.sql.
+
 create type public.reassessment_reason as enum (
   'new_diagnosis', 'abnormal_result', 'hospital_discharge', 'pregnancy_life_stage', 'major_weight_change'
 );
@@ -52,11 +57,6 @@ create index risk_reassessment_queue_org_idx on public.risk_reassessment_queue (
 
 alter table public.risk_reassessment_queue enable row level security;
 
--- Patient reads their own queue rows (transparency: "why did my risk
--- profile just update"); staff read/manage org rows. No direct patient/
--- staff INSERT policy — every row is written by a SECURITY DEFINER trigger
--- function below (or the service-role cron consumer marking processed_at),
--- never directly from the app layer.
 create policy risk_reassessment_queue_select on public.risk_reassessment_queue
   for select to authenticated
   using (patient_id = (select auth.uid()) or private.is_org_staff(organisation_id));
@@ -69,13 +69,6 @@ create policy risk_reassessment_queue_delete on public.risk_reassessment_queue
   using (private.is_org_staff(organisation_id));
 
 grant select, update, delete on public.risk_reassessment_queue to authenticated;
-
--- ---------------------------------------------------------------------------
--- 1. New diagnosis — a care_plans row transitions into status='active'.
--- Third AFTER INSERT OR UPDATE OF status trigger on this table (alongside
--- care_plans_ensure_review, care_plans_ensure_lipid_schedule) — same event
--- class already coexisting twice with no ordering dependency between them.
--- ---------------------------------------------------------------------------
 
 create or replace function private.queue_reassessment_on_new_diagnosis()
 returns trigger
@@ -102,11 +95,6 @@ create trigger care_plans_queue_reassessment
   after insert or update of status on public.care_plans
   for each row execute function private.queue_reassessment_on_new_diagnosis();
 
--- ---------------------------------------------------------------------------
--- 2. Abnormal result — independent of, and never touching,
--- private.handle_abnormal_screening_result() / screening_results_abnormal_handler.
--- ---------------------------------------------------------------------------
-
 create or replace function private.queue_reassessment_on_abnormal_result()
 returns trigger
 language plpgsql
@@ -131,15 +119,6 @@ drop trigger if exists screening_results_queue_reassessment on public.screening_
 create trigger screening_results_queue_reassessment
   after insert on public.screening_results
   for each row execute function private.queue_reassessment_on_abnormal_result();
-
--- ---------------------------------------------------------------------------
--- 3. Hospital discharge — mirrors the existing two-trigger UPDATE/INSERT
--- split used by patient_hospital_admissions_discharge_review(_on_insert),
--- but does NOT write back to patient_hospital_admissions (no nested
--- self-UPDATE, so no need to touch the private.hospital_discharge_stamping
--- GUC that guards discharge_review_alert_id) — this function only inserts
--- into the queue table.
--- ---------------------------------------------------------------------------
 
 create or replace function private.queue_reassessment_on_hospital_discharge()
 returns trigger
@@ -175,11 +154,6 @@ create trigger patient_hospital_admissions_queue_reassessment_on_insert
   when (new.discharged_on is not null)
   execute function private.queue_reassessment_on_hospital_discharge();
 
--- ---------------------------------------------------------------------------
--- 4. Major life event — pregnancy / postpartum. Greenfield: no existing
--- trigger reacts to a reproductive_health_profiles.life_stage transition.
--- ---------------------------------------------------------------------------
-
 create or replace function private.queue_reassessment_on_life_stage_change()
 returns trigger
 language plpgsql
@@ -207,13 +181,6 @@ drop trigger if exists reproductive_health_profiles_queue_reassessment on public
 create trigger reproductive_health_profiles_queue_reassessment
   after insert or update of life_stage on public.reproductive_health_profiles
   for each row execute function private.queue_reassessment_on_life_stage_change();
-
--- ---------------------------------------------------------------------------
--- 5. Major weight change — a new weight_kg reading at least 5% away from
--- the patient's immediately preceding weight reading. First-ever weight log
--- is not a "change" (nothing to compare against) so it never queues.
--- Greenfield: no existing trigger is gated on vital_type = 'weight'.
--- ---------------------------------------------------------------------------
 
 create or replace function private.queue_reassessment_on_major_weight_change()
 returns trigger
@@ -262,10 +229,6 @@ create trigger vitals_readings_queue_reassessment
   for each row
   when (new.vital_type = 'weight')
   execute function private.queue_reassessment_on_major_weight_change();
-
--- ---------------------------------------------------------------------------
--- Assertions
--- ---------------------------------------------------------------------------
 
 do $$
 begin

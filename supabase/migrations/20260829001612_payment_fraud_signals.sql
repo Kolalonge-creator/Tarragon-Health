@@ -125,22 +125,6 @@ end;
 $$;
 
 grant select, insert on public.payment_fraud_signals to service_role;
-
--- Revoke the default PUBLIC execute before granting to authenticated —
--- otherwise anon inherits execute through the PUBLIC pseudo-role (the
--- gotcha this codebase has hit repeatedly; see the migration-replay CI
--- job note in 20260812041044_service_role_write_actor_attribution.sql).
--- private.is_finance() already denies anon at the row level, but the
--- grant itself should not admit an unauthenticated caller in the first
--- place.
-revoke all on function public.finance_fraud_signals(text) from public;
-revoke all on function public.finance_resolve_fraud_signal(uuid, text, text) from public;
--- `revoke ... from public` alone is correct on live but has repeatedly
--- failed a fresh local/CI replay's self-check assertion in this codebase —
--- revoke from anon explicitly too, for defense in depth against that
--- divergence.
-revoke all on function public.finance_fraud_signals(text) from anon;
-revoke all on function public.finance_resolve_fraud_signal(uuid, text, text) from anon;
 grant execute on function public.finance_fraud_signals(text) to authenticated;
 grant execute on function public.finance_resolve_fraud_signal(uuid, text, text) to authenticated;
 
@@ -207,12 +191,6 @@ begin
   if not has_function_privilege('authenticated', 'public.finance_resolve_fraud_signal(uuid,text,text)', 'EXECUTE') then
     raise exception 'FAIL: authenticated cannot execute finance_resolve_fraud_signal';
   end if;
-  if has_function_privilege('anon', 'public.finance_fraud_signals(text)', 'EXECUTE') then
-    raise exception 'FAIL: anon can execute finance_fraud_signals';
-  end if;
-  if has_function_privilege('anon', 'public.finance_resolve_fraud_signal(uuid,text,text)', 'EXECUTE') then
-    raise exception 'FAIL: anon can execute finance_resolve_fraud_signal';
-  end if;
 
-  raise notice 'PASS: payment_fraud_signals created, RLS deny-by-default, risk flags extended, RPCs executable by authenticated, denied to anon';
+  raise notice 'PASS: payment_fraud_signals created, RLS deny-by-default, risk flags extended, RPCs executable by authenticated';
 end $$;

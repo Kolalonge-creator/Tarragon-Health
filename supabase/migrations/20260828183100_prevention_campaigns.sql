@@ -21,6 +21,10 @@
 -- annual health check, code HEART10") for the UI to display; wiring an
 -- actual redeemable code into checkout is a follow-up, not invented here.
 
+-- Tarragon Health — Risk & Prevention Engine enhancement, 4/7. Committed to
+-- git but never actually applied to production. Content byte-identical to
+-- the committed 20260827202346_prevention_campaigns.sql.
+
 create type public.prevention_campaign_status as enum ('draft', 'active', 'ended');
 create type public.prevention_campaign_action_type as enum (
   'education', 'screening_invite', 'assessment', 'discount', 'challenge'
@@ -37,11 +41,7 @@ create table public.prevention_campaigns (
   description       text,
   starts_on         date not null,
   ends_on           date,
-  -- Predicate DSL (see file header) evaluated against a merged context of
-  -- the patient's profile (sex, ageYears) + their own prevention_risk_scores
-  -- tiers keyed by condition, e.g. {"op":"eq","field":"hypertension_tier","value":"high"}.
   eligibility_rule  jsonb not null default '{"op":"true"}'::jsonb,
-  -- [{ "type": "education"|"screening_invite"|"assessment"|"discount"|"challenge", "detail": "..." }]
   actions           jsonb not null default '[]'::jsonb,
   status            public.prevention_campaign_status not null default 'draft',
   created_by        uuid references public.profiles (id) on delete set null,
@@ -81,11 +81,6 @@ create trigger prevention_campaign_enrolments_set_updated_at
 alter table public.prevention_campaigns enable row level security;
 alter table public.prevention_campaign_enrolments enable row level security;
 
--- prevention_campaigns: campaign definitions are marketing/education
--- content, not PHI (same class as screen_types/preventive_programmes'
--- global-catalogue read pattern) — any authenticated org member reads
--- active/ended ones; a draft is staff-only (not yet ready to show a
--- patient). Only staff author.
 create policy prevention_campaigns_select on public.prevention_campaigns
   for select to authenticated
   using (
@@ -110,9 +105,6 @@ create policy prevention_campaigns_delete on public.prevention_campaigns
   for delete to authenticated
   using (private.is_org_staff(organisation_id));
 
--- prevention_campaign_enrolments: patient owns their own opt-in/out; staff
--- manage/read org rows (to see engagement, never used to gate anything
--- clinical).
 create policy prevention_campaign_enrolments_select on public.prevention_campaign_enrolments
   for select to authenticated
   using (patient_id = (select auth.uid()) or private.is_org_staff(organisation_id));

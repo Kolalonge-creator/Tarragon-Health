@@ -230,7 +230,7 @@ begin
 end;
 $$;
 
-revoke all on function private.enforce_support_ticket_write() from public, anon;
+revoke all on function private.enforce_support_ticket_write() from public;
 
 create trigger support_tickets_enforce_write
   before insert or update on public.support_tickets

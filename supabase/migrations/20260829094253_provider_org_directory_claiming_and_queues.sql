@@ -19,13 +19,6 @@
 -- / Booked: 7 / Reports pending: 2"), not a request to re-plumb fulfilment
 -- through a second account type. A hospital that also wants to fulfil directly
 -- still provisions a lab_partner/pharmacist login for that, same as today.
---
--- organisation_id write access on the four claimed directories is already
--- admin/permission-gated by each table's existing update policy
--- (facilities_update/lab_providers_update/pharmacy_partners_update/
--- specialist_providers_update all require is_admin() or a named
--- partners.*.manage permission) — this migration adds no new write path,
--- only the column, its guard, and read-only queue RPCs.
 
 alter table public.facilities            add column if not exists organisation_id uuid references public.organisations (id) on delete set null;
 alter table public.lab_providers         add column if not exists organisation_id uuid references public.organisations (id) on delete set null;

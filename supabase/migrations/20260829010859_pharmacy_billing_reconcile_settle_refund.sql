@@ -282,9 +282,6 @@ begin
 
   select name into v_partner_name from public.pharmacy_partners where id = v_stmt.pharmacy_partner_id;
 
-  -- wht_applicable left false for the same reason as the laboratory branch:
-  -- the rate that applies to a pharmacy contract is a question for the
-  -- founder's tax adviser, not something to guess here.
   select id into v_vendor from public.finance_vendors where name = v_partner_name;
   if v_vendor is null then
     insert into public.finance_vendors (name, vendor_type, is_active, wht_applicable)
@@ -448,8 +445,6 @@ begin
 
   select * into v_policy from public.pharmacy_refund_policies where reason = p_reason;
 
-  -- What the patient actually paid by card/transfer — voucher-covered value
-  -- was never collected as cash, so it is never part of a cash refund.
   v_paid   := coalesce(v_order.payable_kobo, coalesce(v_order.total_kobo, 0) - coalesce(v_order.voucher_covered_kobo, 0));
   v_amount := case when v_policy.refunds_in_full then v_paid else coalesce(p_amount_kobo, 0) end;
 
@@ -535,9 +530,6 @@ begin
          approved_at = now(), journal_entry_id = v_entry
    where id = p_refund_id;
 
-  -- Aligns the bare flag pharmacist_decline_order already sets with the now-
-  -- formal refund record, so a patient's receipt/status view and this
-  -- ledger-backed record never disagree about whether a refund is on its way.
   update public.pharmacy_orders
      set refund_status = 'due', refund_amount_kobo = coalesce(refund_amount_kobo, v_r.refund_total_kobo)
    where id = v_r.pharmacy_order_id and refund_status is distinct from 'refunded';

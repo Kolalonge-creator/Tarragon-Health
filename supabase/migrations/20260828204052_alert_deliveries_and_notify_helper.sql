@@ -73,11 +73,6 @@ begin
     raise exception 'clinician_alerts row % not found', p_alert_id;
   end if;
 
-  -- The in_app delivery always happens first and always carries the real
-  -- clinical content -- content_class='clinical' is only ever permitted on
-  -- in_app (notifications_no_clinical_on_open_rail, 20260730094515), and
-  -- in_app is never email, so this one insert alone already satisfies
-  -- "not solely email" for every severity.
   insert into public.notifications
     (organisation_id, recipient_id, channel, template, payload, content_class,
      priority, source_table, source_id)
@@ -90,10 +85,6 @@ begin
   insert into public.alert_deliveries (clinician_alert_id, notification_id, channel, recipient_id)
   values (p_alert_id, v_notif_id, 'in_app', p_recipient_id);
 
-  -- Urgent/emergency alerts additionally fan out over whatever extra
-  -- channels governance configured for this type (8.6's "depending on
-  -- urgency"), each carrying a generic non-PHI nudge only -- clinical
-  -- detail never leaves the in_app rail.
   if v_alert.severity >= 3 then
     v_rule := private.alert_rule_config(v_alert.type_code);
     v_extra_channels := array(

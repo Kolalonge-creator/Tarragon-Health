@@ -61,9 +61,6 @@ create trigger family_history_set_updated_at
 
 alter table public.family_history enable row level security;
 
--- Same shape as patient_allergies: patient-reported by default, clinician
--- can also record/correct — family history is explicitly patient-sourced
--- data in the spec, not a restricted diagnosis.
 create policy family_history_select on public.family_history
   for select to authenticated
   using (patient_id = (select auth.uid()) or private.is_org_staff(organisation_id));
@@ -81,8 +78,6 @@ create policy family_history_delete on public.family_history
 grant select, insert, update, delete on public.family_history to authenticated;
 revoke all on public.family_history from anon;
 
--- Platform-wide audit + correction trail, same as every other clinical-core
--- table (see 20260812030853 and 20260827195333).
 create trigger audit_row_change_trg
   after insert or update or delete on public.family_history
   for each row execute function private.audit_row_change();

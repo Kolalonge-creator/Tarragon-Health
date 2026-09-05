@@ -37,7 +37,7 @@ $$;
 comment on function private.provider_complaint_stage_ordinal(public.provider_complaint_stage) is
   'Position of a stage in the §29.5 pipeline. ''withdrawn'' is 99 (off-pipeline terminal) so ordinal comparison never treats it as "further along" than closed by accident.';
 
-revoke all on function private.provider_complaint_stage_ordinal(public.provider_complaint_stage) from public, anon;
+revoke all on function private.provider_complaint_stage_ordinal(public.provider_complaint_stage) from public;
 
 create table public.provider_complaints (
   id                     uuid primary key default gen_random_uuid(),
@@ -165,7 +165,7 @@ begin
 end;
 $$;
 
-revoke all on function private.set_provider_complaint_reference() from public, anon;
+revoke all on function private.set_provider_complaint_reference() from public;
 
 create trigger provider_complaints_set_reference
   before insert on public.provider_complaints
@@ -253,7 +253,7 @@ $$;
 comment on function private.enforce_provider_complaint_stage() is
   '§29.5 pipeline as an enforced state machine: forward-only, one stage at a time, each stage gated on its own evidence, clinical complaints closable only through a Clinical-Director-signed governance review. The one permitted skip (resolution -> closed for a non-clinical complaint) is explicit rather than implied.';
 
-revoke all on function private.enforce_provider_complaint_stage() from public, anon;
+revoke all on function private.enforce_provider_complaint_stage() from public;
 
 create trigger provider_complaints_enforce_stage
   before update on public.provider_complaints
@@ -294,7 +294,7 @@ begin
 end;
 $$;
 
-revoke all on function private.log_provider_complaint_event() from public, anon;
+revoke all on function private.log_provider_complaint_event() from public;
 
 create trigger provider_complaints_log_event
   after insert or update on public.provider_complaints
@@ -317,8 +317,6 @@ comment on function private.is_complaints_handler() is
   'Who may run the §29.5 complaints process: platform admin, or an active Clinical Director. Deliberately NOT private.is_org_staff() — a complaint about a colleague is not care-team-wide reading.';
 
 revoke all on function private.is_complaints_handler() from public;
-revoke all on function private.is_complaints_handler() from anon;
-revoke all on function private.is_complaints_handler() from public, anon;
 
 alter table public.provider_complaints enable row level security;
 alter table public.provider_complaint_investigation_notes enable row level security;
@@ -413,7 +411,7 @@ $$;
 comment on function private.guard_provider_complaint_subject_update() is
   'Column-level guard for the one non-handler writer the UPDATE policy admits: the subject provider adding their own response. Everything else on the row must be unchanged, and a submitted response is immutable.';
 
-revoke all on function private.guard_provider_complaint_subject_update() from public, anon;
+revoke all on function private.guard_provider_complaint_subject_update() from public;
 
 create trigger a_provider_complaints_guard_subject_update
   before update on public.provider_complaints

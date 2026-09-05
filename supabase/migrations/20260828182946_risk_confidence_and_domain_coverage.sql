@@ -12,6 +12,10 @@
 -- the same fact, and collapsing them into one field would hide that.
 -- ---------------------------------------------------------------------------
 
+-- Tarragon Health — Risk & Prevention Engine enhancement, 2/7. Committed to
+-- git but never actually applied to production. Content byte-identical to
+-- the committed 20260827200100_risk_confidence_and_domain_coverage.sql.
+
 create type public.risk_confidence as enum ('low', 'moderate', 'high');
 
 comment on type public.risk_confidence is
@@ -21,20 +25,6 @@ comment on type public.risk_confidence is
   'always carry confidence=low; nothing enforces that pairing structurally '
   'because a forced-high tier from a confirmed diagnosis is legitimately '
   'high-confidence despite the rest of the questionnaire being incomplete.';
-
--- ---------------------------------------------------------------------------
--- 2. prevention_risk_scores: confidence + model provenance.
---
--- computed_at already serves as "calculation date"; model_name/model_version
--- are new. Historical rows predate versioned scoring config (this migration
--- ships alongside the risk_questionnaire_configs table, see migration 3/7) —
--- backfilled to the engine that actually produced them
--- (lib/rules/risk-scoring.ts's hardcoded CONDITION_RULES) rather than left
--- null, since we know exactly what computed every existing row. confidence
--- is left null on backfill: we cannot honestly reconstruct how complete the
--- input data was for a historical computation, and a fabricated 'high'
--- would defeat the point of the field.
--- ---------------------------------------------------------------------------
 
 alter table public.prevention_risk_scores
   add column if not exists confidence   public.risk_confidence,
@@ -56,32 +46,9 @@ comment on column public.prevention_risk_scores.model_version is
   '"<config version>" of the active risk_questionnaire_configs row used; '
   'for the legacy hardcoded engine it is a fixed literal.';
 
--- ---------------------------------------------------------------------------
--- 3. Risk domain coverage (spec §2.3) — CKD, respiratory, mental wellbeing
--- had no representation at all in prevention_risk_scores.condition. Additive
--- enum values only; no existing row's condition value changes. New values
--- ship UNSIGNED (see risk_questionnaire_configs draft v2 in migration 3/7) —
--- adding the enum member is a schema change, not a clinical decision, but
--- actually SCORING these domains for a patient is, and requires Clinical
--- Director sign-off before it goes active (same split as
--- 20260810033858_preventive_programmes_protocol_governance.sql: cataloguing
--- is free, activating is gated).
--- ---------------------------------------------------------------------------
-
 alter type public.prevention_condition add value 'ckd';
 alter type public.prevention_condition add value 'asthma_copd';
 alter type public.prevention_condition add value 'mental_wellbeing';
-
--- ---------------------------------------------------------------------------
--- 4. screen_types.category — a category grouping for the new preventive-care
--- completion view (spec §2.9/§2.12: "My Preventive Care", a checklist by
--- category rather than the existing single Health Score — see migration
--- 4/7). Nullable free grouping, not a hard requirement: an uncategorised
--- screen_type still schedules/reminds/escalates exactly as it does today,
--- it just surfaces under an "Other preventive care" bucket in the new view
--- instead of a named one. Best-effort backfill by name; anything not
--- confidently matched is left null rather than guessed.
--- ---------------------------------------------------------------------------
 
 alter table public.screen_types
   add column if not exists category text

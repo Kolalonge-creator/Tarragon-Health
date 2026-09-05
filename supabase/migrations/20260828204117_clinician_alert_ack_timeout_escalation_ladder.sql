@@ -82,7 +82,6 @@ begin
       r.title, r.severity, round(v_minutes_open), v_timeout
     );
 
-    -- Hop 1: the alert's own backup clinician.
     if v_minutes_open >= v_timeout and r.backup_clinician_id is not null
        and not exists (select 1 from public.clinician_alert_ack_escalations where clinician_alert_id = r.id and hop = 1)
     then
@@ -97,7 +96,6 @@ begin
       end if;
     end if;
 
-    -- Hop 2: senior tier / Clinical Director in the org.
     if v_minutes_open >= v_timeout * 2
        and not exists (select 1 from public.clinician_alert_ack_escalations where clinician_alert_id = r.id and hop = 2)
     then
@@ -123,8 +121,6 @@ begin
       end if;
     end if;
 
-    -- Hop 3: every platform admin -- same platform-wide-admin precedent as
-    -- private.escalate_overdue_clinician_alerts.
     if v_minutes_open >= v_timeout * 3
        and not exists (select 1 from public.clinician_alert_ack_escalations where clinician_alert_id = r.id and hop = 3)
     then

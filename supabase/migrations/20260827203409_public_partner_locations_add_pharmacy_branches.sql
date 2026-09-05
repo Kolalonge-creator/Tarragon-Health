@@ -66,9 +66,6 @@ as $$
   order by name;
 $$;
 
--- Grants already applied to this function (public_partner_locations.sql) —
--- create or replace preserves them, but re-assert to be certain, per the
--- standing anon-execute-gotcha rule.
 do $$
 begin
   if not has_function_privilege('anon', 'public.public_partner_locations()', 'EXECUTE') then

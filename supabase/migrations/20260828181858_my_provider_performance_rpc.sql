@@ -1,35 +1,9 @@
 -- Tarragon Health — self-scoped provider performance (Care Team / Provider
--- Workspace §5.21). Nothing like this existed for an individual clinician to
--- see their own dashboard: analytics_doctor_performance (20260718205129) is
--- gated to private.is_analyst() and de-identifies every patient down to
--- patient_number for a cross-org console — the right shape for an analyst,
--- wrong for a doctor looking at their own real caseload.
---
--- Reuses that RPC's exact metric formulas (escalations_reviewed,
--- alerts_acknowledged, meds_confirmed, reviews_completed, avg_ack_minutes,
--- avg_resolution_hours, sla_met_pct) so the two views can never silently
--- diverge on what "an escalation reviewed" means, just re-scoped to
--- auth.uid() instead of iterating every doctor, and free to return real
--- names/detail since RLS-equivalent scoping here is "your own data only."
---
--- Deliberately excluded rather than half-built:
---   * Revenue — Tarragon employs its doctors on salary/per-caseload terms
---     (CLAUDE.md's Clinical Tier Ladder staffing table), not fee-per-service;
---     there is no per-consultation revenue figure for an individual doctor
---     anywhere in this schema. Returning revenue_applicable=false rather
---     than a fabricated ₦0 or an invented number.
---   * Patient feedback — confirmed by a full-repo grep (feedback/rating/nps/
---     csat) that no patient-satisfaction data exists anywhere in this
---     platform. Returning patient_feedback_available=false rather than a
---     tile with nothing behind it.
---   * "Outstanding documentation" — no first-class flag exists for this
---     (checked: no escalation status means "notes owed"). Not returned; the
---     open-alerts count already covers the closest real thing ("pending
---     results").
--- referrals_made undercounts by design — specialist_referrals.set_by is
--- nullable and unset on system/abnormal-result-triggered referrals, so
--- referrals_partial_attribution=true is returned alongside the count as an
--- honest flag, not a footnote the UI can silently drop.
+-- Workspace §5.21). Committed to git but never actually applied to
+-- production — found and fixed while investigating a broader typecheck
+-- failure caused by several same-day migrations never having been applied.
+-- Content below is byte-identical to the committed
+-- 20260827203759_my_provider_performance_rpc.sql.
 
 create or replace function public.my_provider_performance(
   p_from timestamptz default null, p_to timestamptz default null)

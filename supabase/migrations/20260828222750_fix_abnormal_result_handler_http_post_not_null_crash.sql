@@ -1,34 +1,3 @@
--- Fixes a real bug in private.handle_abnormal_screening_result() (current
--- live body from 20260730105131_v3_port_escalation_sla_config.sql), found by
--- packages/db/tests/public_impact_metrics.sql and
--- screening_ladder_order_completeness.sql once packages/db/tests could
--- finally run against a genuinely fresh database for the first time this
--- sprint.
---
--- Every migration that has ever touched this net.http_post call
--- (20260711211535, 20260706091332, 20260719140000) documents the same
--- intent in its own header comment: "if the 'project_url' or
--- 'edge_function_publishable_key' Vault secrets aren't set yet in this
--- environment, the call fails closed (null URL/header)". That was never
--- actually true. pg_net's net.http_post inserts the row into
--- net.http_request_queue *before* making the request, and that table's
--- `url` column is NOT NULL -- so a null project_url secret doesn't fail
--- closed at all, it raises a hard not-null-violation that aborts the whole
--- triggering statement, taking the screening_upgrades/clinician_alerts
--- audit-trail rows down with it. That is the exact failure this migration's
--- own ancestor was written to prevent (see 20260711211535's header: "a
--- slow/unavailable Edge Function never blocks or fails the INSERT that
--- created the audit trail").
---
--- private.enqueue_critical_notification() and
--- private.escalate_unconfirmed_critical_notifications()
--- (20260730153300_critical_notification_engine.sql) already wrap their own
--- net.http_post calls in `begin ... exception when others then null; end;`
--- for exactly this reason -- this migration brings
--- handle_abnormal_screening_result() in line with that established,
--- already-proven pattern. No other behavior changes: when both secrets are
--- set (the expected live/production state), the call proceeds exactly as
--- before.
 create or replace function private.handle_abnormal_screening_result()
 returns trigger
 language plpgsql
@@ -55,9 +24,6 @@ begin
     v_condition := 'cancer_referral';
   end if;
 
-  -- Sensitive = the screened type is flagged sensitive in the catalogue
-  -- (authoritative — works even when abnormal_flags is empty, as for a
-  -- positive HIV/hep test), OR a cancer-family flag is present (fallback).
   if new.screen_type_code is not null then
     select coalesce(bool_or(st.sensitive), false)
       into v_sensitive
@@ -121,10 +87,6 @@ begin
       timeout_milliseconds := 8000
     );
   exception when others then
-    -- Best-effort Edge Function nudge only, same defensive pattern as
-    -- private.enqueue_critical_notification() below it in the notification
-    -- stack — the screening_upgrades/clinician_alerts rows above are the
-    -- real, guaranteed safety net; this call is additive.
     null;
   end;
 
@@ -134,11 +96,6 @@ $$;
 
 do $$
 begin
-  -- Prove a missing project_url secret no longer crashes the trigger: with
-  -- no vault secrets configured (true in every fresh CI/local database),
-  -- inserting an abnormal screening_results row must still succeed and
-  -- still create its screening_upgrades/clinician_alerts audit trail.
-  -- Rolled back inside this migration's own transaction either way.
   declare
     v_org uuid;
     v_patient uuid;
@@ -163,11 +120,6 @@ begin
       raise exception 'handle_abnormal_screening_result() did not create the screening_upgrades audit row';
     end if;
 
-    -- clinician_alerts_guard_deletion (Alert System, applied earlier today)
-    -- now blocks deleting an unresolved severity>=2 alert outright -- this
-    -- fixture alert is severity 3 (urgent_escalation). Resolve it first,
-    -- matching the same documentation-required-for-severity>=2 constraint,
-    -- before cleaning it up.
     update public.clinician_alerts
       set status = 'resolved', resolution_action = 'test fixture cleanup', resolution_outcome = 'no_action_needed'
       where screening_result_id = v_result_id;

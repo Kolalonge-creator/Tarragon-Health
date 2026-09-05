@@ -36,9 +36,6 @@ alter table public.profiles
 comment on column public.profiles.is_partner_admin is
   'True only for a lab_partner/pharmacist login authorised to invite further staff logins for its own provider (see the partner self-service staff-invite server action). Never itself a broader privilege -- an is_partner_admin lab_partner is still scoped to its own lab_provider_id like any other lab_partner login.';
 
--- ---------------------------------------------------------------------------
--- lab_provider_locations: let a lab_partner manage their own branches
--- ---------------------------------------------------------------------------
 create policy lab_provider_locations_insert_partner
   on public.lab_provider_locations
   for insert to authenticated
@@ -55,10 +52,6 @@ create policy lab_provider_locations_delete_partner
   for delete to authenticated
   using (lab_provider_id = private.lab_partner_provider());
 
--- ---------------------------------------------------------------------------
--- pharmacy_partner_locations: the branch table pharmacists never had.
--- Deliberately the same shape as lab_provider_locations.
--- ---------------------------------------------------------------------------
 create table public.pharmacy_partner_locations (
   id                  uuid primary key default gen_random_uuid(),
   pharmacy_partner_id uuid not null references public.pharmacy_partners (id) on delete cascade,
@@ -111,12 +104,6 @@ create policy pharmacy_partner_locations_delete_partner on public.pharmacy_partn
 
 grant select, insert, update, delete on public.pharmacy_partner_locations to authenticated;
 
--- ---------------------------------------------------------------------------
--- lab_tests / pharmacy_medications: a plain partner may toggle is_active on
--- their own catalogue rows, nothing else. RLS opens the door on the
--- partner's own rows; the trigger below is what actually narrows it to
--- is_active only for a non-admin writer.
--- ---------------------------------------------------------------------------
 create policy lab_tests_update_partner
   on public.lab_tests
   for update to authenticated
@@ -139,7 +126,6 @@ begin
   if private.is_admin() or private.has_permission('partners.labs.manage') then
     return new;
   end if;
-  -- A plain lab_partner writer: only is_active may change.
   new.provider_id := old.provider_id;
   new.code := old.code;
   new.name := old.name;

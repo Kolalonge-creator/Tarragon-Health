@@ -54,8 +54,6 @@ create index medication_receipt_confirmations_org_idx
 
 alter table public.medication_receipt_confirmations enable row level security;
 
--- Same shape as pharmacy_order_dispenses: patient records their own receipt;
--- org staff manage org rows (e.g. a pharmacist confirming handover).
 create policy medication_receipt_confirmations_select on public.medication_receipt_confirmations
   for select to authenticated
   using (patient_id = (select auth.uid()) or private.is_org_staff(organisation_id));
@@ -73,9 +71,6 @@ create policy medication_receipt_confirmations_delete on public.medication_recei
 grant select, insert, update, delete on public.medication_receipt_confirmations to authenticated;
 revoke all on public.medication_receipt_confirmations from anon;
 
--- Timeline: medication_received, enum value added alone in
--- 20260827195559_timeline_condition_event_types.sql (Postgres forbids using
--- a freshly-added enum value in the same migration that adds it).
 create or replace function private.timeline_from_medication_receipt()
 returns trigger
 language plpgsql
@@ -100,7 +95,6 @@ create trigger medication_receipt_confirmations_timeline_insert
   after insert on public.medication_receipt_confirmations
   for each row execute function private.timeline_from_medication_receipt();
 
--- Platform-wide audit + correction trail.
 create trigger audit_row_change_trg
   after insert or update or delete on public.medication_receipt_confirmations
   for each row execute function private.audit_row_change();

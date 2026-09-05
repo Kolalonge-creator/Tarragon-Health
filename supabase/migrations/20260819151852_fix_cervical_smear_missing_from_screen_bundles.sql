@@ -11,16 +11,16 @@
 -- test_codes arrays only ever added 'psa', never 'cervical_smear', to
 -- either screen_advanced or screen_comprehensive. cervical_smear has only
 -- ever been reachable as its own standalone booking (single_cervical_smear,
--- ₦18,000, self_bookable) — never as part of a paid tier, despite the
+-- 18,000 naira, self_bookable) — never as part of a paid tier, despite the
 -- tier copy saying otherwise since the ladder shipped.
 --
 -- This corrects the oversight to match the page's existing, already-shipped
 -- promise, not a new product decision: cervical_smear joins psa in both
 -- bundles' test_codes, same tier (Advanced) psa already sits at, same
 -- pattern used for every other age/sex-triggered test in this table. Bundle
--- prices (screen_advanced ₦95,000, screen_comprehensive ₦149,000) are left
--- unchanged — the marketing copy already priced this test in, it just
--- never actually landed in the array driving fulfilment/tracking.
+-- prices (screen_advanced 95,000 naira, screen_comprehensive 149,000 naira)
+-- are left unchanged — the marketing copy already priced this test in, it
+-- just never actually landed in the array driving fulfilment/tracking.
 
 update public.panel_bundles
 set test_codes = array_append(test_codes, 'cervical_smear')

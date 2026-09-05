@@ -1,24 +1,3 @@
--- Fixes a real bug in private.enforce_psa_sdm_gate() (20260802212152), found
--- by packages/db/tests/public_impact_metrics.sql once it could finally run
--- against a fresh database for the first time (supabase db reset never
--- completed successfully before this sprint's CI fix-forward work).
---
--- The guard `if new.screen_type_code <> 'psa' then return new; end if;`
--- assumes screen_type_code is always non-null, but the column is nullable
--- with no default (20260719140000_sensitive_result_gating.sql) and several
--- call sites -- including this project's own test suite -- insert
--- screening_results rows without setting it (e.g. a generic result import
--- before the code is known). `<> 'psa'` on a null input evaluates to null,
--- and PL/pgSQL's `if null then ... end if` takes the false branch, so the
--- early return is silently skipped and every screening_results row with no
--- screen_type_code at all -- not just PSA rows -- falls into the male-only
--- gate below it and gets incorrectly rejected for any non-male patient.
---
--- Fix: `is distinct from` instead of `<>`, so a null screen_type_code is
--- treated the same as "not PSA" (the gate has nothing to enforce) rather
--- than the same as "is PSA" by accident. No other behavior changes: a real
--- 'psa' value still fails the check as `distinct from` there is false, same
--- as `<>` was for any non-null value.
 create or replace function private.enforce_psa_sdm_gate()
 returns trigger
 language plpgsql
@@ -55,11 +34,6 @@ $$;
 
 do $$
 begin
-  -- Prove the null-screen_type_code path no longer falls through to the
-  -- PSA gate: insert a non-PSA, no-screen_type_code screening_results row
-  -- for a female patient (would previously raise "PSA screening_results
-  -- are male-only" incorrectly). Rolled back inside this migration's own
-  -- transaction, so nothing is left behind either way.
   declare
     v_org uuid;
     v_patient uuid;

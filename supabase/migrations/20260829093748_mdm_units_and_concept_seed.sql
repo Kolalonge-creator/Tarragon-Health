@@ -1,26 +1,5 @@
 -- Tarragon Health — Health Data Architecture & MDM: units of measure (§34.7)
 -- + curated seed data for the terminology core (§34.5/§34.6).
---
--- UNITS (§34.7: "Store units explicitly... The system must understand
--- conversions where applicable.")
---
--- units_of_measure is a REGISTRY, not a general-purpose unit converter.
--- unit_conversions deliberately covers only PHYSICAL-QUANTITY conversions
--- that are substance-independent — mass (kg<->lb), length (cm<->in),
--- temperature (degC<->degF). A concentration conversion (mg/dL<->mmol/L)
--- is NOT substance-independent: the factor is the analyte's molar mass, so
--- glucose's mg/dL->mmol/L factor (0.0555) is different from cholesterol's
--- (0.0259) and urea's again. That per-analyte conversion table already
--- exists and is the single source of truth — see the header of
--- apps/web/src/lib/lab-reports/analyte-catalogue.ts, which says exactly
--- this about itself ("NOT IN THIS FILE: clinical thresholds..."; its
--- `unitConversions` field is the analyte-specific factor). Building a
--- second, generic mg/dL->mmol/L row here would silently contradict that
--- file the day someone adds an analyte whose factor differs — so
--- concentration units are REGISTERED here (their string is now a real,
--- governed row instead of an ungoverned free-text unit) but their
--- conversions stay in the TS catalogue, deliberately, with a pointer
--- comment below rather than a duplicate/competing implementation.
 create table public.units_of_measure (
   id          uuid primary key default gen_random_uuid(),
   code        text not null unique,
@@ -37,8 +16,6 @@ create table public.unit_conversions (
   id             uuid primary key default gen_random_uuid(),
   from_unit_id   uuid not null references public.units_of_measure (id) on delete cascade,
   to_unit_id     uuid not null references public.units_of_measure (id) on delete cascade,
-  -- to_value = from_value * factor + offset. offset covers degC<->degF;
-  -- every other conversion here is offset = 0.
   factor         numeric not null,
   offset_amount  numeric not null default 0,
   created_at     timestamptz not null default now(),
@@ -86,13 +63,8 @@ grant select, insert, update, delete on public.units_of_measure to authenticated
 grant select, insert, update, delete on public.unit_conversions to authenticated;
 revoke all on public.units_of_measure from anon;
 revoke all on public.unit_conversions from anon;
-revoke execute on function public.convert_unit(numeric, text, text) from public, anon;
+revoke execute on function public.convert_unit(numeric, text, text) from public;
 grant execute on function public.convert_unit(numeric, text, text) to authenticated, service_role;
-
--- ---------------------------------------------------------------------------
--- Seed: units actually used across vitals_readings, lab_analyte_readings and
--- the analyte catalogue today (grepped, not invented).
--- ---------------------------------------------------------------------------
 
 insert into public.units_of_measure (code, name, dimension) values
   ('mmHg',      'millimetres of mercury',        'pressure'),
@@ -123,7 +95,6 @@ insert into public.units_of_measure (code, name, dimension) values
   ('mmol_mol',  'millimoles per mole (IFCC HbA1c)', 'ratio')
 on conflict (code) do nothing;
 
--- Physical-quantity conversions only, per the table comment above.
 insert into public.unit_conversions (from_unit_id, to_unit_id, factor, offset_amount)
 select f.id, t.id, v.factor, v.offset_amount
 from (values
@@ -138,10 +109,6 @@ join public.units_of_measure f on f.code = v.from_code
 join public.units_of_measure t on t.code = v.to_code
 on conflict (from_unit_id, to_unit_id) do nothing;
 
--- ---------------------------------------------------------------------------
--- Seed: code systems
--- ---------------------------------------------------------------------------
-
 insert into public.reference_code_systems (code, name, uri, version, is_licensed, licence_note) values
   ('ICD10',  'ICD-10 (WHO)', 'http://hl7.org/fhir/sid/icd-10', '2019', false, null),
   ('ATC',    'Anatomical Therapeutic Chemical Classification (WHOCC)', 'http://www.whocc.no/atc', '2024', false, null),
@@ -154,16 +121,6 @@ insert into public.reference_code_systems (code, name, uri, version, is_licensed
   ('RxNorm', 'RxNorm (US NLM)', 'http://www.nlm.nih.gov/research/umls/rxnorm', null, true,
    'Registered with zero concepts — RxNorm is US-formulary-specific and not licensed/validated for the Nigerian formulary this platform actually dispenses against; ATC is used instead for the seeded medication concepts. Kept registered so a future validated RxNorm cross-map is an INSERT, not a schema change.')
 on conflict (code) do nothing;
-
--- ---------------------------------------------------------------------------
--- Seed: condition concepts (ICD-10) — exactly the 7 chronic_condition_
--- programmes.code values (20260716223231_chronic_condition_programmes.sql)
--- plus the handful of other conditions the platform already tracks by
--- dedicated status columns (profiles.hiv_status/hbv_status/hcv_status) or
--- references in patient_conditions-adjacent code, so a real "type diagnosis
--- text -> get a suggested code" lookup has something to resolve against
--- from day one rather than an empty table.
--- ---------------------------------------------------------------------------
 
 insert into public.reference_concepts (code_system_id, domain, code, display, definition)
 select cs.id, 'condition', v.code, v.display, v.definition
@@ -185,9 +142,6 @@ from public.reference_code_systems cs, (values
 where cs.code = 'ICD10'
 on conflict (code_system_id, code) do nothing;
 
--- Synonyms — the actual free-text spellings this platform's own condition
--- protocol/chronic-programme names use, so §34.6's own worked example
--- ("high blood pressure") round-trips for real.
 insert into public.reference_concept_synonyms (concept_id, term)
 select c.id, v.term
 from public.reference_concepts c
@@ -220,15 +174,6 @@ join (values
 ) as v(code, term) on v.code = c.code
 on conflict do nothing;
 
--- ---------------------------------------------------------------------------
--- Seed: medication concepts (ATC) — every drug_name this platform's own
--- drug_monitoring_rules and bp_ladder_steps migrations already reference
--- (20260716173000_drug_class_lab_monitoring.sql, 20260720020742_bp_drug_
--- ladder_and_safety.sql, 20260720121001_statin_lipid_monitoring.sql), so
--- the concept table is grounded in this platform's real formulary usage
--- rather than an arbitrary drug list.
--- ---------------------------------------------------------------------------
-
 insert into public.reference_concepts (code_system_id, domain, code, display, definition)
 select cs.id, 'medication', v.code, v.display, v.definition
 from public.reference_code_systems cs, (values
@@ -258,15 +203,6 @@ from public.reference_code_systems cs, (values
 ) as v(code, display, definition)
 where cs.code = 'ATC'
 on conflict (code_system_id, code) do nothing;
-
--- ---------------------------------------------------------------------------
--- Seed: lab_analyte concepts (LOINC) — mapped 1:1 onto the code strings
--- already written to lab_analyte_readings.code today
--- (apps/web/src/lib/lab-reports/analyte-catalogue.ts), so a concept_id
--- link added to that table later resolves to a real, correct LOINC code
--- rather than a guess. LOINC codes below are the standard, widely-cited
--- codes for each analyte.
--- ---------------------------------------------------------------------------
 
 insert into public.reference_concepts (code_system_id, domain, code, display, attributes)
 select cs.id, 'lab_analyte', v.code, v.display, jsonb_build_object('tarragon_analyte_code', v.tarragon_code)
@@ -326,15 +262,6 @@ from public.reference_code_systems cs, (values
 where cs.code = 'LOINC'
 on conflict (code_system_id, code) do nothing;
 
--- ---------------------------------------------------------------------------
--- Seed: allergen concepts (TARRAGON internal — no free-to-use allergen
--- vocabulary was licensed, see the TARRAGON code system's own note above).
--- The list is the drug/allergen classes this platform's own BP-safety
--- trigger and drug-interaction reasoning already treat as classes (ACE
--- inhibitor, ARB, thiazide, statin, sulfa) plus the common non-drug
--- allergens a Nigerian intake form realistically asks about.
--- ---------------------------------------------------------------------------
-
 insert into public.reference_concepts (code_system_id, domain, code, display)
 select cs.id, 'allergen', v.code, v.display
 from public.reference_code_systems cs, (values
@@ -354,12 +281,6 @@ from public.reference_code_systems cs, (values
 where cs.code = 'TARRAGON'
 on conflict (code_system_id, code) do nothing;
 
--- ---------------------------------------------------------------------------
--- Seed: country and language concepts (small, deliberately not exhaustive
--- ISO tables — Nigeria plus the diaspora markets this platform actually
--- prices for per CLAUDE.md's diaspora billing rule, GBP/USD).
--- ---------------------------------------------------------------------------
-
 insert into public.reference_concepts (code_system_id, domain, code, display)
 select cs.id, 'country', v.code, v.display
 from public.reference_code_systems cs, (values
@@ -377,10 +298,6 @@ from public.reference_code_systems cs, (values
 ) as v(code, display)
 where cs.code = 'ISO639-1'
 on conflict (code_system_id, code) do nothing;
-
--- ---------------------------------------------------------------------------
--- Verification (mirrors this codebase's do $$ ... raise exception pattern).
--- ---------------------------------------------------------------------------
 
 do $$
 declare
@@ -401,9 +318,6 @@ begin
     raise exception 'FAIL: expected at least 30 seeded lab_analyte concepts, found %', v_count;
   end if;
 
-  -- SNOMED-CT and RxNorm must stay at zero concepts per the licence posture
-  -- documented above — a future accidental seed against an unlicensed
-  -- system is exactly the compliance mistake this guard exists to catch.
   select count(*) into v_count
   from public.reference_concepts c
   join public.reference_code_systems cs on cs.id = c.code_system_id

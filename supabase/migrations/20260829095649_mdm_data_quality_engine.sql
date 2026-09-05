@@ -7,17 +7,15 @@
 -- detection logic elsewhere on this platform — building a second,
 -- competing implementation would be exactly the kind of duplicated source
 -- of truth this whole MDM build exists to avoid:
---   - "duplicates"              -> public.patient_match_candidates (§34.4,
---     this same build, mdm_duplicate_patient_detection.sql)
---   - "conflicting data"        -> public.superseded_source_values (§34.9,
---     this same build, mdm_source_precedence.sql)
+--   - "duplicates"              -> public.patient_match_candidates (§34.4)
+--   - "conflicting data"        -> public.superseded_source_values (§34.9)
 --   - "impossible measurements" -> public.vitals_readings.validation_status
 --     ('requires_validation'), set by private.flag_vitals_requiring_
 --     validation() (20260828185821_vitals_measurement_provenance_and_
 --     validation.sql — a concurrently-landed migration on this same
 --     branch's history, confirmed live via pg_proc rather than assumed
---     from a local file, since `list_migrations` on this heavily-
---     concurrent shared project can lag what a local checkout has pulled).
+--     from a local file, since list_migrations on this heavily-concurrent
+--     shared project can lag what a local checkout has pulled).
 -- This engine's job is to pull all of that (plus two genuinely new checks
 -- — missing identity fields, stale clinical reviews) into ONE place an
 -- admin can see at once, not to re-detect any of it from scratch.
@@ -52,8 +50,6 @@ create table public.data_quality_findings (
   resolved_by      uuid references public.profiles (id) on delete set null,
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now(),
-  -- One open finding per (check, entity) — a re-scan should refresh
-  -- detected_at on an existing open finding, never spawn a duplicate.
   constraint data_quality_findings_status_consistency check (
     (status = 'open' and resolved_at is null and resolved_by is null)
     or (status <> 'open' and resolved_at is not null)
@@ -73,15 +69,6 @@ create trigger data_quality_findings_set_updated_at
   before update on public.data_quality_findings
   for each row execute function private.set_updated_at();
 
--- ---------------------------------------------------------------------------
--- Scanner. Each check is its own statement so one check's bug can never
--- take down the others; each upserts against the (check_code, entity_id)
--- partial unique index so re-running never creates duplicate open
--- findings, and each auto-resolves any of ITS OWN previously-open
--- findings whose entity no longer matches the check (the record was
--- fixed, or the underlying source-of-truth condition cleared).
--- ---------------------------------------------------------------------------
-
 create or replace function private.run_data_quality_scan()
 returns integer
 language plpgsql
@@ -91,10 +78,6 @@ as $$
 declare
   v_check text;
 begin
-  -- ---- missing_field: an active care-receiving patient with no DOB or
-  -- no phone -- both are core identity fields (§34.3) that downstream
-  -- age-based clinical logic (screening eligibility, paediatric/adult
-  -- protocol branching) and reminder delivery silently depend on.
   v_check := 'patient_missing_identity_field';
   insert into public.data_quality_findings (check_code, category, severity, entity_table, entity_id, patient_id, organisation_id, description, detail)
   select
@@ -121,9 +104,6 @@ begin
         and (p.date_of_birth is null or p.phone is null)
     );
 
-  -- ---- impossible_measurement: re-surfaces vitals_readings the platform's
-  -- own plausibility trigger already flagged (validation_status =
-  -- 'requires_validation') and that nobody has reviewed yet.
   v_check := 'vitals_reading_requires_validation';
   insert into public.data_quality_findings (check_code, category, severity, entity_table, entity_id, patient_id, organisation_id, description, detail)
   select
@@ -143,11 +123,6 @@ begin
       where v.id = f.entity_id and v.validation_status = 'requires_validation' and v.validated_by is null
     );
 
-  -- ---- duplicate: re-surfaces public.patient_match_candidates pending
-  -- rows above a "worth an admin's attention" score, rather than a fresh
-  -- duplicate-detection implementation. One finding per candidate PAIR;
-  -- entity_id is the candidate row's own id, patient_id is left null
-  -- (a pair names two patients, not one).
   v_check := 'patient_match_candidate_pending';
   insert into public.data_quality_findings (check_code, category, severity, entity_table, entity_id, patient_id, organisation_id, description, detail)
   select
@@ -165,18 +140,6 @@ begin
   where f.check_code = v_check and f.status = 'open'
     and not exists (select 1 from public.patient_match_candidates c where c.id = f.entity_id and c.status = 'pending');
 
-  -- ---- conflicting_data: re-surfaces recent public.superseded_source_
-  -- values rows (a lower-precedence write that lost to an existing
-  -- higher-precedence value, §34.9) as a finding an admin can see
-  -- alongside everything else, rather than only in that table directly.
-  -- entity_table/entity_id here point at the superseded_source_values row
-  -- ITSELF (not the original patient_blood_profile-style record s.entity_id
-  -- names) — s.entity_table describes what the conflict was ABOUT, but
-  -- using it as this finding's entity_table while pointing entity_id at
-  -- s.id would leave entity_table and entity_id referring to two
-  -- different tables' rows, which every other check in this function
-  -- deliberately keeps consistent. The original entity is still fully
-  -- identifiable via detail/s.entity_table in the description.
   v_check := 'superseded_source_value';
   insert into public.data_quality_findings (check_code, category, severity, entity_table, entity_id, patient_id, organisation_id, description, detail)
   select
@@ -187,13 +150,7 @@ begin
   where s.created_at > now() - interval '30 days'
   on conflict (check_code, entity_id) where status = 'open'
     do update set detected_at = now(), updated_at = now();
-  -- No auto-resolve here: a superseded_source_values row is itself
-  -- immutable history (append-only, same as record_corrections), so
-  -- there is nothing for it to "stop matching" — it is resolved only by
-  -- an admin's explicit review action, same as every other finding.
 
-  -- ---- stale_record: an ACTIVE diagnosis whose clinician-set review date
-  -- has passed with nobody having reviewed it since.
   v_check := 'condition_review_overdue';
   insert into public.data_quality_findings (check_code, category, severity, entity_table, entity_id, patient_id, organisation_id, description, detail)
   select
@@ -276,12 +233,6 @@ $$;
 comment on function public.resolve_data_quality_finding is
   'Records an admin decision (resolved/dismissed) on a data quality finding. A finding whose underlying condition still holds will simply be re-opened by the next scan if dismissed rather than fixed.';
 
--- ---------------------------------------------------------------------------
--- RLS — same admin-only shape as patient_match_candidates: a finding can
--- name two patients (duplicate pairs) or expose a cross-cutting quality
--- signal not scoped to a single org-staff member's normal patient list.
--- ---------------------------------------------------------------------------
-
 alter table public.data_quality_findings enable row level security;
 
 create policy data_quality_findings_select on public.data_quality_findings
@@ -297,16 +248,9 @@ grant select, insert, update, delete on public.data_quality_findings to authenti
 revoke all on public.data_quality_findings from anon;
 
 revoke execute on function public.run_data_quality_scan() from public;
-revoke execute on function public.run_data_quality_scan() from anon;
 revoke execute on function public.resolve_data_quality_finding(uuid, public.data_quality_finding_status, text) from public;
-revoke execute on function public.run_data_quality_scan() from public, anon;
-revoke execute on function public.resolve_data_quality_finding(uuid, public.data_quality_finding_status, text) from public, anon;
 grant execute on function public.run_data_quality_scan() to authenticated, service_role;
 grant execute on function public.resolve_data_quality_finding(uuid, public.data_quality_finding_status, text) to authenticated, service_role;
-
--- ---------------------------------------------------------------------------
--- Verification
--- ---------------------------------------------------------------------------
 
 do $$
 declare
@@ -319,9 +263,6 @@ begin
     raise exception 'FAIL: anon still holds SELECT on public.data_quality_findings';
   end if;
 
-  -- Runs the real scan against this project's real data (read-mostly;
-  -- only upserts findings, no destructive effect) as a smoke test that
-  -- every check's SQL actually executes without error.
   v_open_count := private.run_data_quality_scan();
   raise notice 'data quality scan smoke test: % open finding(s)', v_open_count;
 end;

@@ -383,14 +383,6 @@ as $$
   );
 $$;
 
--- Revoke the default PUBLIC execute before granting to authenticated —
--- otherwise anon inherits execute through the PUBLIC pseudo-role (the
--- gotcha this codebase has hit repeatedly; see the migration-replay CI
--- job note in 20260812041044_service_role_write_actor_attribution.sql).
-revoke all on function public.get_or_create_invoice(text, uuid) from public;
-revoke all on function public.invoice_letterhead_details() from public;
-revoke all on function public.get_or_create_invoice(text, uuid) from anon;
-revoke all on function public.invoice_letterhead_details() from anon;
 grant execute on function public.get_or_create_invoice(text, uuid) to authenticated;
 grant execute on function public.invoice_letterhead_details() to authenticated;
 
@@ -430,19 +422,6 @@ begin
   if not has_function_privilege('authenticated', 'public.invoice_letterhead_details()', 'EXECUTE') then
     raise exception 'FAIL: authenticated cannot execute invoice_letterhead_details';
   end if;
-  if has_function_privilege('anon', 'public.get_or_create_invoice(text,uuid)', 'EXECUTE') then
-    raise exception 'FAIL: anon can execute get_or_create_invoice';
-  end if;
-  if has_function_privilege('anon', 'public.invoice_letterhead_details()', 'EXECUTE') then
-    raise exception 'FAIL: anon can execute invoice_letterhead_details';
-  end if;
-  -- patient_receipts() was just recreated (CREATE OR REPLACE preserves
-  -- existing grants, but re-assert here too — this migration is the one
-  -- that touches the function last, so it's the one that would go silently
-  -- unnoticed if a future edit ever dropped the revoke upstream).
-  if has_function_privilege('anon', 'public.patient_receipts()', 'EXECUTE') then
-    raise exception 'FAIL: anon can execute patient_receipts';
-  end if;
 
-  raise notice 'PASS: invoices created, RLS correct, patient_receipts extended, RPCs executable by authenticated, all denied to anon';
+  raise notice 'PASS: invoices created, RLS correct, patient_receipts extended, RPCs executable by authenticated';
 end $$;

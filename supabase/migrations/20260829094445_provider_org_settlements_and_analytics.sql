@@ -117,13 +117,6 @@ revoke all on public.provider_org_settlement_lines from anon;
 -- honestly, with quality metrics (28.12) limited to what the referral
 -- queue can actually measure (response time from referral creation to the
 -- organisation booking it).
---
--- NOTE: the referral-status aggregation subquery below shipped with a real
--- bug (referenced a nonexistent column `n`) and was corrected in
--- 20260829094538_fix_provider_org_analytics_referral_aggregation_bug.sql —
--- see that file's header for the full story. The CREATE OR REPLACE there
--- supersedes the body defined here; kept as originally written for the
--- historical record rather than silently rewritten in place.
 -- ---------------------------------------------------------------------------
 create or replace function public.provider_org_analytics(p_organisation_id uuid)
 returns jsonb

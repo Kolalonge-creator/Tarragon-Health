@@ -1,5 +1,5 @@
 -- A patient's own answer to a short, one-time "how does your routine work"
--- question (currently just a rough morning/evening preference) — stored on
+-- question (currently just a rough morning/evening preference) -- stored on
 -- the enrolment itself (not the AI coach's ai_conversations blob, which is
 -- an unstructured chat-turn array, a poor fit for durable, queryable
 -- profile data). No new table: still the same "no dual source of truth"

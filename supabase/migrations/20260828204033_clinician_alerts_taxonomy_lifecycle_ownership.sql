@@ -55,20 +55,6 @@ comment on column public.clinician_alerts.responsible_clinician_id is
 comment on column public.clinician_alerts.dedup_key is
   'type_code:patient_id. Used by the classify/assign trigger to find a recent (24h) open/acknowledged alert of the same type for the same patient -- see duplicate_of. A duplicate is always still inserted and visible; it is only ever hidden from active counts when alert_rules has explicitly turned on protocol-based suppression for that type (8.7) -- never a silent, ungoverned drop.';
 
--- Live-checked before writing this fix: 2 pre-existing clinician_alerts
--- rows (status='resolved', level='clinician_review' -> severity 2, both
--- QA fixture rows from 2026-08-10 -- title 'A lab result document was
--- uploaded (patient) -- QA fixture for ...') predate resolution_action/
--- resolution_outcome entirely and would fail the documentation-required
--- constraint below, including on the later backfill UPDATE further down in
--- this file (a CHECK constraint is re-validated on every UPDATE that
--- touches the row, NOT VALID or not -- it only skips the one-time bulk
--- scan at ADD CONSTRAINT time, so NOT VALID alone does not help here).
--- These are synthetic test fixtures, not real patient care records, so an
--- honest "this predates the requirement" placeholder is not fabricating
--- clinical documentation -- it is accurately describing why the field is
--- empty. Condition-based (not a hardcoded row id) so it also covers any
--- other legacy resolved/closed severity>=2 row this live check missed.
 update public.clinician_alerts
 set
   resolution_action = coalesce(resolution_action,
@@ -92,11 +78,6 @@ alter table public.clinician_alerts
     check (status <> 'snoozed' or snoozed_until is not null),
   add constraint clinician_alerts_closed_requires_resolved
     check (status <> 'closed' or resolved_at is not null),
-  -- 8.12: "resolution without action documentation should be restricted for
-  -- important alerts." Important := severity >= 2 (Clinical attention or
-  -- higher). A resolved/closed severity-2+ alert must record both what was
-  -- done (resolution_action) and how it''s classified for analytics
-  -- (resolution_outcome, feeding false-positive/duplicate rate -- 8.13).
   add constraint clinician_alerts_resolution_requires_documentation
     check (
       status not in ('resolved', 'closed')
@@ -112,10 +93,6 @@ create index clinician_alerts_dedup_key_idx
   on public.clinician_alerts (dedup_key, created_at desc);
 create index clinician_alerts_duplicate_of_idx
   on public.clinician_alerts (duplicate_of) where duplicate_of is not null;
-
--- ---------------------------------------------------------------------------
--- Classification + auto-assignment (BEFORE INSERT)
--- ---------------------------------------------------------------------------
 
 create or replace function private.classify_and_assign_clinician_alert()
 returns trigger
@@ -209,13 +186,6 @@ begin
 
   new.dedup_key := new.type_code::text || ':' || new.patient_id::text;
 
-  -- Detection window is a stable 24h regardless of governance config (so
-  -- duplicate_of grouping/analytics stays meaningful even for types with no
-  -- signed suppression policy yet); actual SUPPRESSION only ever applies
-  -- within the governed, narrower suppress_window_minutes -- so a type
-  -- configured for e.g. a 4h suppression window can still show duplicate_of
-  -- linkage out to 24h without over-suppressing a genuinely new event that
-  -- arrives at hour 5.
   select id, created_at into v_dupe_id, v_dupe_created_at
   from public.clinician_alerts
   where dedup_key = new.dedup_key
@@ -246,12 +216,6 @@ create trigger clinician_alerts_classify_and_assign
   before insert on public.clinician_alerts
   for each row execute function private.classify_and_assign_clinician_alert();
 
--- ---------------------------------------------------------------------------
--- Lifecycle stamping (BEFORE UPDATE) -- forge-proof, same "RLS admits
--- broadly, a trigger narrows + overwrites" shape as
--- enforce_alert_override_clinical_only.
--- ---------------------------------------------------------------------------
-
 create or replace function private.stamp_clinician_alert_lifecycle()
 returns trigger
 language plpgsql
@@ -267,16 +231,12 @@ begin
     and organisation_id = new.organisation_id
     and active;
 
-  -- 8.4: guarantee an owner exists by the time a human has engaged, even
-  -- when auto-assignment at creation found nobody at the governed tier.
   if new.status = 'acknowledged' and old.status <> 'acknowledged'
      and new.responsible_clinician_id is null and v_staff_id is not null then
     new.responsible_clinician_id := v_staff_id;
     new.assigned_at := coalesce(new.assigned_at, now());
   end if;
 
-  -- 8.3/8.12: stamp resolution once, on the transition in; a later
-  -- unrelated edit (e.g. a note) must never re-stamp or clear it.
   if new.status in ('resolved', 'closed') and old.status not in ('resolved', 'closed') then
     new.resolved_by := v_staff_id;
     new.resolved_at := coalesce(new.resolved_at, now());
@@ -285,7 +245,6 @@ begin
     new.resolved_at := old.resolved_at;
   end if;
 
-  -- 8.3: closure is a distinct, later accountability step from resolution.
   if new.status = 'closed' and old.status <> 'closed' then
     new.closed_by := v_staff_id;
     new.closed_at := coalesce(new.closed_at, now());
@@ -294,7 +253,6 @@ begin
     new.closed_at := old.closed_at;
   end if;
 
-  -- 8.10: snooze. A resolved/closed alert is done; it cannot be deferred.
   if new.snoozed_until is distinct from old.snoozed_until then
     if new.snoozed_until is not null and old.status in ('resolved', 'closed') then
       raise exception 'Cannot snooze a resolved or closed alert' using errcode = '23514';
@@ -325,15 +283,6 @@ create trigger clinician_alerts_stamp_lifecycle
   before update on public.clinician_alerts
   for each row execute function private.stamp_clinician_alert_lifecycle();
 
--- ---------------------------------------------------------------------------
--- 8.15 acceptance criterion: "No important alert can disappear without
--- accountability." audit_row_change_trg (20260812030853) already logs every
--- clinician_alerts delete to audit_log with a full row hash -- this adds
--- actual PREVENTION on top of that existing logging: an unresolved
--- clinical-attention-or-higher alert cannot be deleted at all, only
--- resolved/closed first.
--- ---------------------------------------------------------------------------
-
 create or replace function private.guard_clinician_alert_deletion()
 returns trigger
 language plpgsql
@@ -355,10 +304,6 @@ comment on function private.guard_clinician_alert_deletion() is
 create trigger clinician_alerts_guard_deletion
   before delete on public.clinician_alerts
   for each row execute function private.guard_clinician_alert_deletion();
-
--- ---------------------------------------------------------------------------
--- Backfill existing rows, then require classification going forward.
--- ---------------------------------------------------------------------------
 
 update public.clinician_alerts
 set severity = case coalesce(override_level, level)

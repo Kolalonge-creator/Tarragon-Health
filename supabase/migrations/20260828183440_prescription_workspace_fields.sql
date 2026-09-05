@@ -1,37 +1,6 @@
 -- Tarragon Health — prescription workspace: order-entry fields (5.10).
---
--- Care Team / Provider Workspace spec §5.10 ("Prescription workspace") asks
--- for route / duration / quantity / repeats / indication / instructions
--- alongside the existing drug/dose/frequency fields. All additive + nullable
--- (repeats_allowed defaults to 0), so every existing insert/update path and
--- every existing row is untouched.
---
--- Deliberately NOT building §5.11's literal "Draft -> Signed -> Sent to
--- patient -> Sent to pharmacy -> Dispensed" as a new status enum: Tarragon
--- dropped pharmacy routing entirely on 2026-08-03
--- (20260803132008_medication_collected_anywhere.sql — "keep the record, drop
--- the routing"; pharmacy_partners are all is_active = false). A "sent to
--- pharmacy" step would misrepresent a fulfilment path that no longer exists.
--- The app layer instead composes a status trail from data that already
--- exists, no new schema required for it:
---   Signed          -> medications.created_at / added_by (medications_insert
---                       already requires prescribing authority — see
---                       20260715181500_pharmacy_authority_by_tier.sql — so
---                       the row IS the signed order the moment it exists)
---   Patient notified -> automatic: medications_enqueue_prescribed_notifications
---                       (20260720120004_prescription_lab_order_patient_emails.sql)
---   Collected        -> pharmacy_order_dispenses.medication_id, added by the
---                       self-arranged-fulfilment migration referenced above
---
--- The new columns must be added to enforce_medication_confirm_only's
--- protected-column list. Without this, a Tier 1 doctor's refill-confirm-only
--- path (which legitimately reaches medications_update via
--- can_confirm_medication_refill) could silently rewrite prescribing detail
--- under the guise of "confirming a refill" — the exact class of gap
--- CLAUDE.md's standing lessons call out for any change touching clinical
--- authority. The function body below is otherwise byte-for-byte the live
--- definition from 20260715190000_medications_confirm_refill.sql; only the
--- new-column comparisons are added.
+-- Committed to git but never actually applied to production. Content
+-- byte-identical to the committed 20260827200208_prescription_workspace_fields.sql.
 
 alter table public.medications
   add column if not exists route             text,
@@ -49,20 +18,6 @@ alter table public.medications
   add constraint medications_indication_length check (char_length(indication) <= 300),
   add constraint medications_instructions_length check (char_length(instructions) <= 1000);
 
--- The prescription status trail's "Signed by" step needs added_by populated,
--- but the normal prescribe path (useAddMedication) never set it — only the
--- FHIR-import review path did (20260807084925_fhir_interop_import_review.sql,
--- explicitly `added_by = (select auth.uid())`), so every ordinary
--- clinician-prescribed row has always carried a null added_by.
---
--- Unconditionally overwritten, not merely defaulted when null: a "Signed by
--- Dr. X" UI element is exactly the class of trust claim
--- docs/CLINICAL_TRUST_MODEL_SPEC.md requires be "structurally impossible" to
--- falsify, matching how last_confirmed_by is never client-supplied
--- elsewhere in this schema. If added_by were only filled-when-null, nothing
--- would stop a client from posting an arbitrary added_by and having it
--- displayed as if that person had prescribed it. Harmless for the FHIR-import
--- path, which already only ever sets it to the caller's own id.
 create or replace function private.stamp_medication_added_by()
 returns trigger
 language plpgsql
@@ -89,21 +44,14 @@ as $$
 declare
   v_caller_staff_id uuid;
 begin
-  -- Patient editing their own row: unrestricted, unchanged from prior behavior.
   if new.patient_id = (select auth.uid()) then
     return new;
   end if;
 
-  -- Full prescribing authority (Tier 2+/Director): unrestricted, unchanged from prior behavior.
   if private.has_prescribing_authority(new.organisation_id) then
     return new;
   end if;
 
-  -- Anyone else reaching this trigger passed medications_update's USING
-  -- clause only via can_confirm_medication_refill — an active Tier 1
-  -- doctor confirming/continuing an existing prescription. Restrict to
-  -- refill confirmation: no drug, dose, frequency, schedule, active-status,
-  -- prescription order-entry detail, or ownership changes.
   if old.source is distinct from 'clinician' then
     raise exception 'Only an existing clinician-prescribed medication can be confirmed and continued' using errcode = '42501';
   end if;
@@ -141,9 +89,6 @@ begin
 end;
 $$;
 
--- ---------------------------------------------------------------------------
--- The migration is the test.
--- ---------------------------------------------------------------------------
 do $$
 declare
   v_def text;
@@ -175,7 +120,6 @@ begin
      or v_def not like '%old.instructions is distinct from new.instructions%' then
     raise exception 'enforce_medication_confirm_only is missing the new-column guard';
   end if;
-  -- Every pre-existing branch must survive the rewrite.
   if v_def not like '%Confirming a prescription can only update the refill date%'
      or v_def not like '%Only an existing clinician-prescribed medication can be confirmed and continued%'
      or v_def not like '%private.has_prescribing_authority(new.organisation_id)%' then

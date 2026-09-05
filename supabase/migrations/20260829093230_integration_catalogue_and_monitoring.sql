@@ -1,31 +1,7 @@
 -- Tarragon Health — Interoperability & API Platform, part 3 of 3:
 -- the integration catalogue (§33.8) and monitoring surface (§33.9).
---
--- WHY THIS EXISTS. Parts 1-2 built the plumbing (request log, idempotency,
--- external ids, outbound queue, webhooks). Nothing yet answers the actual
--- question an admin opens the integrations page to ask: "which partners are
--- connected right now, and which one is broken?" (§33.8's own mockup —
--- "Synlab / Connected / Last sync 14:32", "Insurer Y / Connection error") —
--- or the operational one §33.9 lists by name (uptime, latency, failed
--- requests, authentication failures, data mismatches, delayed messages).
---
--- BOTH FUNCTIONS ARE SECURITY INVOKER (the plpgsql/sql default — no
--- `security definer` keyword below), DELIBERATELY, unlike the cross-org
--- protocol_api admin RPCs. A protocol_partner has no Tarragon login, so
--- Tarragon's own admin has to reach across the org boundary with a narrowly-
--- scoped SECURITY DEFINER RPC. Every table these two functions read
--- (partner_integrations, api_keys, partner_webhook_endpoints, api_requests,
--- integration_outbound_events) is the CALLING org's own data, already
--- protected by the integrations.manage-gated SELECT policies from parts 1-2
--- — running as the invoker means Postgres enforces that RLS for free, and a
--- staff member without integrations.manage gets zero rows back from the
--- function for the same reason they would from the raw tables, rather than
--- this surface needing its own duplicated authorisation check that could
--- drift out of sync with the table policies over time.
+-- (Full rationale in the committed migration file.)
 
--- ---------------------------------------------------------------------------
--- §33.8 — integration catalogue.
--- ---------------------------------------------------------------------------
 create or replace function public.integration_catalogue()
 returns table (
   partner_integration_id       uuid,
@@ -104,13 +80,10 @@ $$;
 comment on function public.integration_catalogue() is
   'Admin integrations page catalogue (§33.8): one row per partner covering both the inbound key it may hold and the outbound reachability/webhook state it may have. SECURITY INVOKER — relies entirely on the caller''s own RLS on the underlying tables, see the migration header.';
 
-revoke all on function public.integration_catalogue() from public, anon;
+revoke all on function public.integration_catalogue() from public;
 grant execute on function public.integration_catalogue() to authenticated;
 revoke execute on function public.integration_catalogue() from anon;
 
--- ---------------------------------------------------------------------------
--- §33.9 — integration monitoring.
--- ---------------------------------------------------------------------------
 create or replace function public.integration_health_metrics(p_window_hours integer default 24)
 returns table (
   window_hours              integer,
@@ -164,28 +137,21 @@ as $$
     (select count(*) from outbound where status = 'pending'),
     (select count(*) from outbound where status = 'failed'),
     (select count(*) from outbound where status = 'dead_letter'),
-    -- Overdue right now, regardless of when it was created — the queue-depth
-    -- signal an operator actually wants ("is anything stuck at this instant").
     (select count(*) from public.integration_outbound_events e
        where e.organisation_id = private.current_org_id()
          and e.status in ('pending', 'failed')
          and e.next_attempt_at < now()
          and (private.is_admin() or private.has_permission('integrations.manage'))),
-    -- §33.9's "delayed messages": delivered, but only after more than one
-    -- attempt — i.e. it reached the partner, just not on the first try.
     (select count(*) from outbound where status = 'delivered' and attempt_count > 1);
 $$;
 
 comment on function public.integration_health_metrics(integer) is
   'Admin monitoring dashboard (§33.9: uptime/latency/failed requests/auth failures/data mismatches/delayed messages) over a trailing window. SECURITY INVOKER, same posture as integration_catalogue() — see the migration header. Uptime itself is represented by ok_requests/total_requests together with each partner''s own outbound_last_check_ok from the catalogue, rather than a separate synthetic percentage that would need its own definition of "up".';
 
-revoke all on function public.integration_health_metrics(integer) from public, anon;
+revoke all on function public.integration_health_metrics(integer) from public;
 grant execute on function public.integration_health_metrics(integer) to authenticated;
 revoke execute on function public.integration_health_metrics(integer) from anon;
 
--- ---------------------------------------------------------------------------
--- Assertions.
--- ---------------------------------------------------------------------------
 do $$
 begin
   if has_function_privilege('anon', 'public.integration_catalogue()', 'EXECUTE')
@@ -194,14 +160,6 @@ begin
   end if;
 end $$;
 
--- Prove the RLS-via-invoker claim in the header actually holds: a caller
--- with no integrations.manage permission and no admin flag must get back
--- zero rows from BOTH functions, not an error and not someone else's data.
--- This runs as the migration role, which typically bypasses RLS entirely
--- (table owner) — so this test targets what is independently verifiable
--- from here: that the functions carry no SECURITY DEFINER and no bypassing
--- grant, which is what makes RLS-via-invoker apply in the first place at
--- normal (non-superuser) runtime.
 do $$
 declare
   v_secdef boolean;

@@ -37,6 +37,10 @@
 -- risk_questionnaire_configs
 -- ---------------------------------------------------------------------------
 
+-- Tarragon Health — Risk & Prevention Engine enhancement, 3/7. Committed to
+-- git but never actually applied to production. Content byte-identical to
+-- the committed 20260827200508_risk_questionnaire_configs.sql.
+
 create table public.risk_questionnaire_configs (
   id                uuid primary key default gen_random_uuid(),
   organisation_id   uuid not null references public.organisations (id) on delete restrict,
@@ -65,10 +69,6 @@ comment on table public.risk_questionnaire_configs is
 
 alter table public.risk_questionnaire_configs enable row level security;
 
--- Any authenticated user may read (the intake form + risk engine need it,
--- same as cv_risk_config). Only org staff may INSERT, and only as an
--- unsigned/inactive draft — signing is exclusively via the RPC below, so a
--- direct insert can never forge a signature or self-activate.
 create policy risk_questionnaire_configs_select on public.risk_questionnaire_configs
   for select to authenticated
   using (true);
@@ -81,15 +81,8 @@ create policy risk_questionnaire_configs_insert on public.risk_questionnaire_con
     and approved_at is null
     and is_active = false
   );
--- No update/delete policy: a row is immutable once written; a change means
--- a new version. Activation/signing flips is_active via the RPC only.
 
 grant select, insert on public.risk_questionnaire_configs to authenticated;
-
--- ---------------------------------------------------------------------------
--- sign_risk_questionnaire_config — the Medical/Clinical Director's
--- forge-proof sign-off, identical shape to sign_cv_risk_config().
--- ---------------------------------------------------------------------------
 
 create or replace function public.sign_risk_questionnaire_config(p_config_id uuid)
 returns uuid
@@ -139,11 +132,6 @@ end $$;
 revoke all on function public.sign_risk_questionnaire_config(uuid) from public;
 revoke all on function public.sign_risk_questionnaire_config(uuid) from anon;
 grant execute on function public.sign_risk_questionnaire_config(uuid) to authenticated;
-
--- ---------------------------------------------------------------------------
--- Seed: one UNSIGNED v1 draft per organisation, code 'prevention_intake' —
--- a verbatim port of the live hardcoded engine. See file header.
--- ---------------------------------------------------------------------------
 
 insert into public.risk_questionnaire_configs (organisation_id, code, version, notes, config)
 select
@@ -337,10 +325,6 @@ select
 $config$::jsonb
 from public.organisations o
 on conflict (organisation_id, code, version) do nothing;
-
--- ---------------------------------------------------------------------------
--- Assertions
--- ---------------------------------------------------------------------------
 
 do $$
 declare

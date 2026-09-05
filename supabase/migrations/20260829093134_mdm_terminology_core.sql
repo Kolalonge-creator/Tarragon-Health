@@ -60,15 +60,6 @@ create extension if not exists pg_trgm with schema extensions;
 -- Types
 -- ---------------------------------------------------------------------------
 
--- The domains a concept can belong to. Deliberately clinical/closed-
--- vocabulary only. Providers, organisations, locations and services (also
--- named in §34.5) are NOT here: they are already first-class operational
--- master tables on this platform (lab_providers, pharmacy_partners,
--- specialist_providers, organisations, facilities, service_regions,
--- subscription_plans/add_ons) with their own RLS, pricing and lifecycle.
--- Mirroring them into a concept table would create exactly the second
--- source of truth §34.2 exists to prevent. public.master_data_registry
--- (below) enumerates all of them in one place instead.
 create type public.reference_concept_domain as enum (
   'condition',
   'medication',
@@ -82,13 +73,8 @@ create type public.reference_concept_domain as enum (
   'language'
 );
 
--- §34.10's lifecycle, applied to reference data: a concept is never
--- deleted once anything has pointed at it, it is deprecated (still valid
--- to read, do not use for new records) and eventually retired.
 create type public.reference_concept_status as enum ('active', 'deprecated', 'retired');
 
--- FHIR ConceptMap equivalence, transcribed rather than invented, so an
--- export can emit it directly.
 create type public.concept_map_equivalence as enum (
   'equivalent',
   'wider',
@@ -105,9 +91,6 @@ create table public.reference_code_systems (
   id            uuid primary key default gen_random_uuid(),
   code          text not null unique,
   name          text not null,
-  -- Canonical FHIR system URI. This is the interoperability half of
-  -- §34.19: an export that emits {system, code} with a real URI is
-  -- consumable by any FHIR client; one that emits a bare string is not.
   uri           text not null unique,
   version       text,
   is_licensed   boolean not null default false,
@@ -138,10 +121,6 @@ create table public.reference_concepts (
   display         text not null,
   definition      text,
   status          public.reference_concept_status not null default 'active',
-  -- Self-referencing hierarchy (ICD-10 E11.9 under E11, ATC C09CA01 under
-  -- C09CA). Nullable and unenforced beyond the FK: a curated subset is
-  -- inherently sparse, so requiring a parent chain up to a root would
-  -- force inventing filler concepts.
   parent_id       uuid references public.reference_concepts (id) on delete set null,
   attributes      jsonb not null default '{}'::jsonb,
   valid_from      date,
@@ -164,12 +143,6 @@ create trigger reference_concepts_set_updated_at
 
 -- ---------------------------------------------------------------------------
 -- reference_concept_synonyms — how humans actually write it
---
--- §34.6's own example ("High blood pressure" -> a standardised concept) is
--- a SYNONYM lookup, not a display-name lookup: nobody types "Essential
--- (primary) hypertension". Without this table the terminology service can
--- only match text that already looks like a code book entry, which is the
--- text least likely to be typed.
 -- ---------------------------------------------------------------------------
 
 create table public.reference_concept_synonyms (
@@ -206,9 +179,6 @@ create index reference_concept_maps_target_idx on public.reference_concept_maps 
 -- The terminology service
 -- ---------------------------------------------------------------------------
 
--- Shared text normaliser: lower-case, punctuation stripped, whitespace
--- collapsed. IMMUTABLE so it can back an expression index (it is used as
--- one by the duplicate-detection migration later in this build, on names).
 create or replace function private.normalise_term(p_text text)
 returns text
 language sql
@@ -221,12 +191,6 @@ $$;
 comment on function private.normalise_term(text) is
   'Lower-cases, strips punctuation and collapses whitespace. IMMUTABLE — safe in an expression index. Returns null for text with no alphanumerics.';
 
--- §34.6's terminology service, read side. Exact match on code, display or
--- synonym scores 1.0; anything else falls back to trigram similarity and
--- is returned with its real score so the CALLER decides whether it is good
--- enough. It deliberately does not pick a winner for the caller: silently
--- resolving "high blood pressure" to a 0.31-similarity concept is how a
--- coded record ends up saying something the clinician never wrote.
 create or replace function public.lookup_concept(
   p_domain public.reference_concept_domain,
   p_text text,
@@ -258,9 +222,6 @@ as $$
       cs.code as system_code,
       cs.uri  as system_uri,
       c.status,
-      -- Exact beats fuzzy, always, and the three exact kinds are ranked
-      -- code > display > synonym so a caller passing a real code back in
-      -- round-trips to itself rather than to a same-named neighbour.
       case
         when upper(c.code) = upper((select raw from needle)) then 1.00
         when private.normalise_term(c.display) = (select n from needle) then 0.99
@@ -304,11 +265,6 @@ $$;
 comment on function public.lookup_concept is
   'Terminology lookup (§34.6). Returns ranked candidates with their real match score; never auto-selects. matched_on is one of code/display/synonym/fuzzy.';
 
--- Cross-system translation (§34.19 interoperability). Follows
--- reference_concept_maps in both directions: a map recorded as
--- TARRAGON->LOINC also answers "what is the TARRAGON code for this LOINC
--- code", with the equivalence inverted where direction changes its
--- meaning (wider <-> narrower).
 create or replace function public.translate_concept(
   p_concept_id uuid,
   p_target_system text
@@ -352,15 +308,6 @@ comment on function public.translate_concept is
 
 -- ---------------------------------------------------------------------------
 -- master_data_registry — one place that names every master dictionary
---
--- §34.5 lists ten dictionaries. Six of them (providers, organisations,
--- locations, services, plus the platform's screening and vaccination
--- catalogues) already exist as real operational tables with their own
--- pricing, RLS and lifecycle; four (medications, diagnoses, laboratory
--- tests, countries/languages) become concept domains above. Without a
--- registry, "where is the controlled list of X" is answered by grepping.
--- This view is that answer, and it is queryable rather than a doc that
--- goes stale.
 -- ---------------------------------------------------------------------------
 
 create view public.master_data_registry as
@@ -386,8 +333,7 @@ comment on view public.master_data_registry is
 
 -- ---------------------------------------------------------------------------
 -- RLS — global reference data: readable by every authenticated user,
--- writable by admins only. Exactly the shape screen_types and
--- specialist_providers already use for global catalogues.
+-- writable by admins only.
 -- ---------------------------------------------------------------------------
 
 alter table public.reference_code_systems enable row level security;
@@ -431,36 +377,22 @@ create policy reference_concept_maps_update on public.reference_concept_maps
 create policy reference_concept_maps_delete on public.reference_concept_maps
   for delete to authenticated using (private.is_admin());
 
--- Table-level grants. The `alter default privileges` migration
--- (20260731232749) now covers new tables created by role postgres, but
--- these are stated explicitly anyway — this project has silently lost
--- access to a new table at least three times by assuming RLS implied a
--- grant, and an explicit grant costs nothing.
 grant select, insert, update, delete on public.reference_code_systems to authenticated;
 grant select, insert, update, delete on public.reference_concepts to authenticated;
 grant select, insert, update, delete on public.reference_concept_synonyms to authenticated;
 grant select, insert, update, delete on public.reference_concept_maps to authenticated;
 grant select on public.master_data_registry to authenticated;
 
--- anon must not reach any of this. EXECUTE on a function is inherited
--- through the PUBLIC pseudo-role, so it is revoked FROM PUBLIC, not FROM
--- anon — the single most re-learned gotcha in this codebase.
 revoke all on public.reference_code_systems from anon;
 revoke all on public.reference_concepts from anon;
 revoke all on public.reference_concept_synonyms from anon;
 revoke all on public.reference_concept_maps from anon;
 revoke all on public.master_data_registry from anon;
 revoke execute on function public.lookup_concept(public.reference_concept_domain, text, numeric, integer) from public;
-revoke execute on function public.lookup_concept(public.reference_concept_domain, text, numeric, integer) from anon;
 revoke execute on function public.translate_concept(uuid, text) from public;
-revoke execute on function public.translate_concept(uuid, text) from anon;
-revoke execute on function public.lookup_concept(public.reference_concept_domain, text, numeric, integer) from public, anon;
-revoke execute on function public.translate_concept(uuid, text) from public, anon;
 grant execute on function public.lookup_concept(public.reference_concept_domain, text, numeric, integer) to authenticated, service_role;
 grant execute on function public.translate_concept(uuid, text) to authenticated, service_role;
 
--- Prove the anon revoke actually took, rather than trusting this comment
--- the way several earlier migrations' comments were trusted and were wrong.
 do $$
 begin
   if has_function_privilege('anon', 'public.lookup_concept(public.reference_concept_domain, text, numeric, integer)', 'EXECUTE') then

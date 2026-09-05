@@ -98,10 +98,6 @@ create index clinical_encounter_notes_escalation_idx
 
 alter table public.clinical_encounter_notes enable row level security;
 
--- Staff-only for now (matches case_briefs' "assistive/internal" posture) --
--- a curated patient-facing visit-summary layer is a deliberate, separate
--- product/clinical-review decision, not attempted here; see
--- patient_result_explanations for the equivalent pattern on lab results.
 create policy clinical_encounter_notes_select on public.clinical_encounter_notes
   for select to authenticated
   using (private.is_org_staff(organisation_id));
@@ -110,15 +106,10 @@ create policy clinical_encounter_notes_insert on public.clinical_encounter_notes
   for insert to authenticated
   with check (private.is_clinical_tier(organisation_id));
 
--- Broad here, narrowed by the attribution trigger below (same "RLS admits,
--- trigger narrows" shape as case_review_actions/clinical_incident_reports).
 create policy clinical_encounter_notes_update on public.clinical_encounter_notes
   for update to authenticated
   using (private.is_clinical_tier(organisation_id))
   with check (private.is_clinical_tier(organisation_id));
-
--- No DELETE policy: a clinical note, once written, is retained -- same
--- discipline as data_breach_incidents/clinical_incident_reports.
 
 grant select, insert, update on public.clinical_encounter_notes to authenticated;
 revoke delete on public.clinical_encounter_notes from authenticated;
@@ -153,7 +144,6 @@ begin
   end if;
 
   if tg_op = 'INSERT' then
-    -- Never trust who the client claims authored it, or what state it starts in.
     new.authored_by_staff := v_staff_id;
     new.authored_by_profile := (select auth.uid());
     new.status := 'draft';
@@ -162,13 +152,11 @@ begin
     return new;
   end if;
 
-  -- No re-deciding a finalized (signed) note -- it is the permanent record.
   if old.status = 'finalized' then
     raise exception 'This encounter note is finalized and cannot be edited. Write a new note if something new needs recording.'
       using errcode = '42501';
   end if;
 
-  -- Authorship of an existing note is never retroactively rewritable.
   new.authored_by_staff := old.authored_by_staff;
   new.authored_by_profile := old.authored_by_profile;
 

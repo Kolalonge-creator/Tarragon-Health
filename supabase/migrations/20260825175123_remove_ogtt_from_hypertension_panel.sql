@@ -5,11 +5,11 @@
 -- redundant, not more thorough. An earlier draft of this restructure (the
 -- version the sibling session read before this correction was given) added
 -- OGTT to Hypertension Panel for comorbid diabetes case-finding; this
--- reverses that specific addition. Diabetes Panel was never affected — it
+-- reverses that specific addition. Diabetes Panel was never affected -- it
 -- never carried ogtt_fpg.
 --
--- price_kobo is recomputed the same way 20260821181701 computed it — summed
--- from screen_types.price_kobo over the surviving test_codes — rather than
+-- price_kobo is recomputed the same way 20260821181701 computed it -- summed
+-- from screen_types.price_kobo over the surviving test_codes -- rather than
 -- hand-typed, so it can't drift from what the panel actually contains.
 
 update public.panel_bundles

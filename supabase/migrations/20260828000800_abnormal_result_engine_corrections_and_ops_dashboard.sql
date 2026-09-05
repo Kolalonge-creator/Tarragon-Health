@@ -342,7 +342,7 @@ $$;
 comment on function public.record_result_correction(uuid, public.result_status, text, text[], text) is
   'Files a lab/clinical result correction — §7.15. Inserts a new screening_results row linked via corrects_result_id (original retained, never mutated); every existing AFTER INSERT trigger on screening_results reacts to it exactly like a fresh result. When the correction walks a previously abnormal/critical result back to normal/borderline (the one direction handle_abnormal_screening_result does not itself cover), also raises an explicit stand-down review alert on the same SLA tiers as a fresh abnormal result. Caller must hold an active clinical_staff row — filing a correction is a clinical judgement call, same gate as setScreeningResultFollowUpAction.';
 
-revoke all on function public.record_result_correction(uuid, public.result_status, text, text[], text) from public, anon;
+revoke all on function public.record_result_correction(uuid, public.result_status, text, text[], text) from public;
 grant execute on function public.record_result_correction(uuid, public.result_status, text, text[], text) to authenticated;
 revoke execute on function public.record_result_correction(uuid, public.result_status, text, text[], text) from anon;
 
@@ -388,7 +388,7 @@ $$;
 comment on function public.abnormal_result_dashboard_counts(uuid) is
   'The Critical/Urgent/High/Routine + Unacknowledged/Overdue summary from §7.17, scoped to one org for the clinical-ops-facing worklist page (distinct from the cross-org exec analytics_escalation_quality/analytics_operations_summary RPCs). unclaimed = open with no acknowledged_by yet, i.e. still owned by the org clinical pool rather than a named clinician — see the "Result ownership" §7.9 acceptance criterion.';
 
-revoke all on function public.abnormal_result_dashboard_counts(uuid) from public, anon;
+revoke all on function public.abnormal_result_dashboard_counts(uuid) from public;
 grant execute on function public.abnormal_result_dashboard_counts(uuid) to authenticated;
 revoke execute on function public.abnormal_result_dashboard_counts(uuid) from anon;
 

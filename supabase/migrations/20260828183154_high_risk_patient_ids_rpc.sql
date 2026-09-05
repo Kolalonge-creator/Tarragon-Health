@@ -14,6 +14,11 @@
 -- patients in an org they actually have staff access to (naturally correct
 -- even for a caller with staff rows in more than one org).
 
+-- Tarragon Health — high-risk patient roster filter (Care Team / Provider
+-- Workspace §5.4). Committed to git but never actually applied to
+-- production. Content byte-identical to the committed
+-- 20260827203219_high_risk_patient_ids_rpc.sql.
+
 create or replace function public.high_risk_patient_ids()
 returns table (patient_id uuid)
 language sql

@@ -1,25 +1,3 @@
--- Tarragon Health — Care Management Engine, step 4
---
--- chronic_condition_programmes already IS the platform's "care programme"
--- (spec §3.2's "structured framework... defines what care should generally
--- look like") — it just has no machine-usable content for the goals/tasks a
--- newly-enrolled patient's plan should start with. condition_protocols
--- carries the equivalent clinical facts already (monitoring.targets,
--- follow_up, escalation.red_flags) but as WHO-sourced *prose* for a
--- clinician to read, not something safe to parse into rows at enrolment
--- time. These two new columns are the structured, admin-editable equivalent
--- — config, not code, same discipline as escalation_slas/
--- medication_review_cadences — read by private.seed_care_plan_actions() in
--- the next migration to build a patient's first goals/tasks automatically
--- (spec §3.5's "automatically generated from an approved protocol").
---
--- A clinician who reviews the generated goals/tasks and edits or deletes
--- them afterward is exactly spec §3.5's "hybrid" model — the system
--- proposes, the clinician validates/modifies. Deliberately kept editable
--- (private.is_admin() write) so the founder/Clinical Director can revise
--- these defaults the same way they revise any other config table, with no
--- redeploy.
-
 alter table public.chronic_condition_programmes
   add column if not exists default_goals jsonb not null default '[]'::jsonb,
   add column if not exists default_tasks jsonb not null default '[]'::jsonb;

@@ -660,13 +660,8 @@ $$;
 -- ---------------------------------------------------------------------------
 revoke execute on function public.ops_today_summary() from public;
 revoke execute on function public.ops_exception_queue(text, integer) from public;
-revoke execute on function public.ops_exception_queue(text, integer) from anon;
 revoke execute on function public.ops_exception_counts() from public;
 revoke execute on function public.ops_system_health() from public;
-revoke execute on function public.ops_today_summary() from public, anon;
-revoke execute on function public.ops_exception_queue(text, integer) from public, anon;
-revoke execute on function public.ops_exception_counts() from public, anon;
-revoke execute on function public.ops_system_health() from public, anon;
 
 grant execute on function public.ops_today_summary() to authenticated;
 grant execute on function public.ops_exception_queue(text, integer) to authenticated;

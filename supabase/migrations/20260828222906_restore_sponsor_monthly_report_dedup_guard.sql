@@ -1,29 +1,3 @@
--- Fixes a real regression in private.queue_sponsor_monthly_reports(),
--- flagged during this sprint's packages/db/tests fix-forward work
--- (see packages/db/tests/sponsor_acting_and_report.sql's header) rather
--- than silently patched: the original, wallet-era version of this function
--- (20260731023543_sponsor_monthly_report.sql) skipped a sponsor already
--- sent a 'sponsor_monthly_report' notification in the last 20 days --
--- a safety net against a duplicate email/in-app notification if the
--- monthly cron job (0 7 1 * *) is ever re-run, retried, or triggered
--- manually more than once close together.
---
--- 20260731215735_retire_health_wallet.sql rewrote this function to
--- summarise public.care_vouchers instead of wallet_ledger rows, and its
--- own header comment claims the rewrite works "exactly as before" -- but
--- the rewrite dropped the anti-duplicate check entirely, with no comment
--- explaining the removal. That looks like an oversight from switching the
--- loop from "one iteration per sponsor" to "one iteration per (sponsor,
--- beneficiary) pair", not a deliberate product change: nothing about
--- moving from a wallet balance to a voucher count makes re-running the job
--- safe to duplicate.
---
--- Fix: restore the same 20-day skip window, adapted to the new per-pair
--- loop shape. The "already notified recently" set is computed ONCE before
--- the loop starts (not re-checked per iteration), so a sponsor with
--- several beneficiaries still gets a notification for each of them in the
--- same run -- the guard only prevents a second RUN from re-notifying a
--- sponsor within the window, exactly the property the original guard had.
 create or replace function private.queue_sponsor_monthly_reports()
 returns void
 language plpgsql
@@ -56,9 +30,6 @@ begin
       and v.purchaser_profile_id <> v.beneficiary_profile_id
     group by v.purchaser_profile_id, v.beneficiary_profile_id
   loop
-    -- One report per sponsor per month. A second run inside the window
-    -- (a re-triggered cron, a manual re-run) must not duplicate the
-    -- notification -- same property the wallet-era function enforced.
     if v_row.sponsor_id = any(v_recently_notified) then
       continue;
     end if;
@@ -79,15 +50,6 @@ $$;
 
 do $$
 begin
-  -- Prove the guard is real: a sponsor already notified in the window must
-  -- not be renotified even when they have a fresh, real (sponsor,
-  -- beneficiary) voucher pair to report. Unlike packages/db/tests (each
-  -- wrapped in its own begin/rollback), this runs directly against
-  -- whatever database applies this migration, so the fixture rows it
-  -- inserts are explicitly deleted again at the end -- a failed assertion
-  -- raises and rolls back the whole migration (including the function
-  -- replace above), same as this session's other self-verifying
-  -- migrations; a passed one must leave nothing behind.
   declare
     v_org uuid;
     v_sponsor uuid := gen_random_uuid();
@@ -119,7 +81,6 @@ begin
       (v_org, 'DEDUP-GUARD-TEST-1', 'prepaid_service', v_beneficiary, v_sponsor,
        v_plan, 'test', 'Test plan', 100000, 'reserved', now() + interval '1 year');
 
-    -- Simulate "already notified 5 days ago".
     insert into public.notifications
       (organisation_id, recipient_id, channel, template, payload, created_at)
     values
@@ -137,15 +98,6 @@ begin
       raise exception 'dedup guard did not hold: had % sponsor_monthly_report row(s), now %', v_before, v_after;
     end if;
 
-    -- Clean up: this migration is not itself rolled back, unlike a
-    -- packages/db/tests file. The fixture auth.users/profiles row is
-    -- deliberately left in place rather than deleted -- record_corrections
-    -- (platform-wide, applied since this test was written) is append-only
-    -- and rejects the ON DELETE SET NULL cascade a full auth.users delete
-    -- would trigger against it. Same tradeoff this codebase's other CI
-    -- fixture-seeding migrations already make (e.g.
-    -- seed_ci_fixture_patient_profile.sql): a clearly-marked
-    -- .example.invalid fixture profile left behind is harmless.
     delete from public.notifications where recipient_id = v_sponsor and template = 'sponsor_monthly_report';
     delete from public.care_vouchers where voucher_number = 'DEDUP-GUARD-TEST-1';
   end;
