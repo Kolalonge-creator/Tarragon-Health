@@ -73,3 +73,35 @@ Commit the `app.json` changes `eas init` makes.
   `apps/mobile/.env.local` (see the root `.env.example` catalogue).
 - Store identity is already set: `com.tarragonhealth.mobile` (iOS bundle id
   and Android package), Guard Leaf icon/adaptive-icon/splash in `assets/`.
+
+## Tests
+
+```bash
+pnpm --filter @tarragon/mobile test        # or `pnpm test` at the repo root, via turbo
+```
+
+`jest-expo` (the preset Expo SDK 54 pins in its own `bundledNativeModules.json`)
+plus a small set of in-memory stand-ins for the native modules —
+`src/test/mocks/`, wired up in `jest.setup.ts`. Scope is **pure logic only**:
+the clinical classifiers, the two offline queues, the BLE service/parser
+wiring, and `api.ts`'s auth and retry policy. Screens are not rendered here;
+device paths are verified on real hardware (see CLAUDE.md's Device & Wearable
+Integration section).
+
+Note the preset for SDK 54 is built against the Jest 29 line, so this package
+runs Jest 29 while `apps/web` and `packages/shared` run 30. Turbo invokes each
+package's own `test` script, so the two runners never meet.
+
+Two kinds of test here are load-bearing and should not be "simplified" away:
+
+- `bp-classification.test.ts` / `glucose-red-flags.test.ts` / `threshold-sync.test.ts`
+  import the **web** copies of the same rules directly and compare them
+  value-for-value across the whole plausible input range. These files exist
+  because the mobile classifiers are hand-maintained duplicates of the web
+  ones (which are themselves duplicates of the DB triggers) — the imports are
+  what makes a drift fail a test instead of shipping.
+- Tests whose name starts with `FINDING:` pin behaviour that is currently
+  **wrong but deliberately unchanged**, because fixing it is a product
+  decision rather than a bug fix. Each one carries the reasoning in a comment
+  above it. If you fix the behaviour, delete the test — do not adjust it to
+  keep passing.

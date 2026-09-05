@@ -42,7 +42,13 @@ const STATE_OVERRIDES: Record<string, EmergencyNumber[]> = {
 
 /** All 37 canonical state values resolve to at least the national line — never undefined/blank. */
 export function getEmergencyNumbers(state: string | null | undefined): EmergencyNumber[] {
-  if (state && STATE_OVERRIDES[state]) return STATE_OVERRIDES[state];
+  // Object.hasOwn, not a bare truthy index: a bare lookup also matches
+  // Object.prototype members, so a state value of "toString" or "constructor"
+  // returned a Function from a routine contractually guaranteed to return a
+  // non-empty list of numbers. This is the emergency screen, where returning
+  // something that is not a phone number is a real-harm outcome. The mobile
+  // twin was fixed the same way; keep the two in step.
+  if (state && Object.hasOwn(STATE_OVERRIDES, state)) return STATE_OVERRIDES[state];
   return NATIONAL;
 }
 
