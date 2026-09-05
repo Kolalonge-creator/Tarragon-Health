@@ -4,15 +4,21 @@ import { useActionState, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Select } from "@/components/ui/select";
 import {
   promoteToShadowAction,
   signClinicalRuleAction,
   rollbackClinicalRuleAction,
   retireClinicalRuleAction,
   fetchShadowReportAction,
+  draftNextClinicalRuleVersionAction,
   type ClinicalRuleActionState,
   type ShadowReportState,
+  type DraftNextVersionState,
 } from "./actions";
+
+export type ClinicalStaffOption = { id: string; full_name: string; doctor_tier: string | null };
+export type SignedProtocolOption = { id: string; protocol_id: string; title: string; version_number: number };
 
 export type ClinicalRuleVersionRow = {
   id: string;
@@ -201,6 +207,102 @@ function ShadowReportPanel({ ruleKey }: { ruleKey: string }) {
   );
 }
 
+/**
+ * The fix for "no way to sign this" on a rule already past `draft`: since
+ * private.guard_clinical_rule_immutable refuses to let owner_clinical_staff_id
+ * or protocol_version_id change once a row leaves draft, the only path to a
+ * signable version is a fresh draft that copies the latest version's
+ * clinical content and carries the two governance fields the original
+ * seed rows shipped without. Deliberately admin-gated at the RLS layer
+ * (clinical_rules_insert), same as every other draft creation on this
+ * page — the Director-only gate is signClinicalRuleAction, not this one.
+ */
+function DraftNextVersionForm({
+  sourceId,
+  nextVersion,
+  clinicalStaff,
+  signedProtocols,
+}: {
+  sourceId: string;
+  nextVersion: number;
+  clinicalStaff: ClinicalStaffOption[];
+  signedProtocols: SignedProtocolOption[];
+}) {
+  const [state, action, pending] = useActionState<DraftNextVersionState, FormData>(
+    draftNextClinicalRuleVersionAction,
+    undefined
+  );
+  return (
+    <Card className="border-dashed">
+      <CardHeader>
+        <CardTitle className="text-sm">Draft v{nextVersion}: assign owner &amp; link protocol</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form action={action} className="space-y-3">
+          <input type="hidden" name="source_id" value={sourceId} />
+          <p className="text-xs text-charcoal-ink/60">
+            Duplicates this rule&apos;s clinical content into a new draft, unchanged, with the owner
+            and protocol you pick here. Nothing about the conditions or actions can be edited from
+            this form — that stays a migration-only change.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1">
+              <label htmlFor={`owner-${sourceId}`} className="text-xs font-medium text-charcoal-ink">
+                Accountable owner
+              </label>
+              <Select id={`owner-${sourceId}`} name="owner_clinical_staff_id" defaultValue="">
+                <option value="">Select a clinical staff owner…</option>
+                {clinicalStaff.map((cs) => (
+                  <option key={cs.id} value={cs.id}>
+                    {cs.full_name}
+                    {cs.doctor_tier ? ` (${cs.doctor_tier})` : ""}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor={`protocol-${sourceId}`} className="text-xs font-medium text-charcoal-ink">
+                Signed protocol this rule implements
+              </label>
+              <Select id={`protocol-${sourceId}`} name="protocol_version_id" defaultValue="">
+                <option value="">Select a signed protocol version…</option>
+                {signedProtocols.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.title} (v{p.version_number}, {p.protocol_id})
+                  </option>
+                ))}
+              </Select>
+            </div>
+          </div>
+          {signedProtocols.length === 0 && (
+            <p className="text-xs text-amber-700">
+              No signed protocol exists yet to link. Sign one at /admin/settings/protocols first, or
+              leave this unset and the new draft still won&apos;t be signable until it is.
+            </p>
+          )}
+          <div className="space-y-1">
+            <label htmlFor={`notes-${sourceId}`} className="text-xs font-medium text-charcoal-ink">
+              Notes (optional)
+            </label>
+            <textarea
+              id={`notes-${sourceId}`}
+              name="notes"
+              rows={2}
+              className="w-full rounded-md border border-mist-grey/60 p-2 text-xs"
+              placeholder="Why this owner and protocol, if not obvious from the rule."
+            />
+          </div>
+          <Button type="submit" size="sm" variant="outline" disabled={pending}>
+            {pending ? "Drafting…" : `Create draft v${nextVersion}`}
+          </Button>
+          {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+          {state?.success && <p className="text-xs text-brand-green">{state.success}</p>}
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 function RuleVersionCard({ rule, signedVersions }: { rule: ClinicalRuleVersionRow; signedVersions: number[] }) {
   const canPromoteToShadow = rule.status === "draft";
   const canSign = rule.status === "draft" || rule.status === "shadow";
@@ -264,7 +366,15 @@ function RuleVersionCard({ rule, signedVersions }: { rule: ClinicalRuleVersionRo
   );
 }
 
-export function ClinicalRulesManager({ rules }: { rules: ClinicalRuleVersionRow[] }) {
+export function ClinicalRulesManager({
+  rules,
+  clinicalStaff,
+  signedProtocols,
+}: {
+  rules: ClinicalRuleVersionRow[];
+  clinicalStaff: ClinicalStaffOption[];
+  signedProtocols: SignedProtocolOption[];
+}) {
   const byKey = new Map<string, ClinicalRuleVersionRow[]>();
   for (const rule of rules) {
     const bucket = byKey.get(rule.rule_key) ?? [];
@@ -282,12 +392,24 @@ export function ClinicalRulesManager({ rules }: { rules: ClinicalRuleVersionRow[
     <div className="space-y-8">
       {groups.map(([ruleKey, versions]) => {
         const signedVersions = versions.filter((v) => v.approved_by).map((v) => v.version);
+        // versions is already ordered version desc (page.tsx's query order).
+        const latest = versions[0];
+        const latestNeedsGovernance =
+          !latest.owner_clinical_staff_id || !latest.protocol_version_id;
         return (
           <div key={ruleKey} className="space-y-3">
             <h2 className="font-mono text-sm text-charcoal-ink/50">{ruleKey}</h2>
             {versions.map((rule) => (
               <RuleVersionCard key={rule.id} rule={rule} signedVersions={signedVersions} />
             ))}
+            {latestNeedsGovernance && latest.status !== "retired" && latest.status !== "rolled_back" && (
+              <DraftNextVersionForm
+                sourceId={latest.id}
+                nextVersion={latest.version + 1}
+                clinicalStaff={clinicalStaff}
+                signedProtocols={signedProtocols}
+              />
+            )}
           </div>
         );
       })}

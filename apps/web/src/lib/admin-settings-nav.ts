@@ -184,6 +184,27 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         icon: NAV_ICON.governance,
         visible: adminOnly,
       },
+      {
+        href: "/admin/settings/alert-rules",
+        label: "Alert rules",
+        blurb: "Severity, owner tier, and ack timeout for every clinician alert type on the platform.",
+        icon: NAV_ICON.siren,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/mental-health-screening",
+        label: "Mental health screening cadences",
+        blurb: "How often PHQ-9/GAD-7/AUDIT-C re-screen, and the follow-up interval after a concern band.",
+        icon: SEMANTIC_ICON.preventive,
+        visible: adminOnly,
+      },
+      {
+        href: "/admin/settings/provider-quality-policy",
+        label: "Provider quality policy",
+        blurb: "Metric targets, the credential expiry ladder, and intervention triggers behind provider quality.",
+        icon: NAV_ICON.review,
+        visible: adminOnly,
+      },
     ],
   },
   {
