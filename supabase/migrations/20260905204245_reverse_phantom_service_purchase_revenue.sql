@@ -200,6 +200,7 @@ declare
   v_txn   uuid := '628c1ea3-5aff-41e6-b41f-f95b26f01bc5';
   v_sched uuid := 'c890ef77-ea9c-4f90-9650-ba702a963289';
   v_reversal uuid;
+  v_orphan record;
 begin
   if exists (
         select 1 from public.finance_journal_entries
@@ -229,6 +230,32 @@ begin
    where id = v_sched
      and status = 'active'
      and not exists (select 1 from public.service_purchases where id = source_id);
+
+  -- Any OTHER active schedule whose source is already gone gets the same
+  -- treatment now, rather than waiting for the guard above to catch it on the
+  -- next cron run. In production there are none -- the phantom was the only row
+  -- in the entire table -- but a fresh replay of the migration history leaves at
+  -- least one behind from an earlier migration's self-test cleanup, which is the
+  -- same defect in miniature: three of the finance migrations delete the
+  -- schedule before deleting the purchase that created it, and at least one does
+  -- not. Each is named in the output rather than silently swept up.
+  for v_orphan in
+    select s.id, s.source_kind, s.source_id, s.total_minor, s.recognized_minor
+      from public.revenue_recognition_schedules s
+     where s.status = 'active'
+       and not private.revrec_source_exists(s.source_kind, s.source_id)
+  loop
+    update public.revenue_recognition_schedules
+       set status = 'cancelled',
+           cancelled_reason =
+             'Cancelled 2026-09-05 by the migration that introduced the orphan guard: source ' ||
+             v_orphan.source_kind || ' ' || coalesce(v_orphan.source_id::text, '<null>') ||
+             ' no longer exists, so there is nothing to recognise revenue against.'
+     where id = v_orphan.id;
+    raise notice 'cancelled orphaned schedule % (source % %, % of % minor units recognised)',
+      v_orphan.id, v_orphan.source_kind, v_orphan.source_id,
+      v_orphan.recognized_minor, v_orphan.total_minor;
+  end loop;
 end
 $do$;
 
