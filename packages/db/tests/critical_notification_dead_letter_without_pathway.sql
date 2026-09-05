@@ -35,16 +35,38 @@ begin;
 create temporary table p1(check_name text, observed text, expected text, verdict text) on commit drop;
 create temporary table p1f(k text primary key, v uuid) on commit drop;
 
+-- Builds its own recipient and admin rather than borrowing whatever the
+-- project happens to hold. The first version selected an existing clinician
+-- and required an admin to already exist, which is true of the live project
+-- and false of a fresh `supabase db reset`, where it aborted with "no admin
+-- profile". A proof that only runs against populated data is the problem
+-- ci.excluded exists to describe, and this script is in ci.manifest.
+--
+-- The admin matters specifically: the exhaustion alarm fans out to every
+-- admin, so with none present the "every admin is alerted" assertion would
+-- pass vacuously at 0 = 0 while proving nothing.
 do $$
-declare v_org uuid; v_rec uuid; v_admins int;
+declare
+  v_org uuid;
+  v_rec uuid := gen_random_uuid();
+  v_admin uuid := gen_random_uuid();
 begin
-  select id into v_org from public.organisations limit 1;
-  if v_org is null then raise exception 'no organisation available -- cannot run this test'; end if;
-  select id into v_rec from public.profiles where role = 'clinician' limit 1;
-  if v_rec is null then select id into v_rec from public.profiles limit 1; end if;
-  if v_rec is null then raise exception 'no profile available -- cannot run this test'; end if;
-  select count(*) into v_admins from public.profiles where role = 'admin';
-  if v_admins = 0 then raise exception 'no admin profile -- the exhaustion alarm has nobody to reach'; end if;
+  select id into v_org from public.organisations order by created_at limit 1;
+  if v_org is null then raise exception 'no organisation exists at all -- the core migrations did not run'; end if;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_rec,   'dlq-recipient@example.invalid', 'x', now(), '{}', '{}'),
+         (v_admin, 'dlq-admin@example.invalid',     'x', now(), '{}', '{}')
+  on conflict (id) do nothing;
+
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_rec,   v_org, 'clinician', 'DLQ Test Clinician'),
+         (v_admin, v_org, 'admin',     'DLQ Test Admin')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id,
+        role = excluded.role,
+        full_name = excluded.full_name;
+
   insert into p1f values ('org', v_org), ('rec', v_rec);
 end $$;
 

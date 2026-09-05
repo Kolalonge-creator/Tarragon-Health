@@ -35,20 +35,57 @@ begin;
 create temporary table p3(check_name text, observed text, expected text, verdict text) on commit drop;
 create temporary table p3f(k text primary key, v text) on commit drop;
 
+-- Builds its own patients and its own pending purchase rather than borrowing
+-- whatever the project happens to hold. The first version selected a live
+-- pending_payment row and two existing patient profiles, which is true of the
+-- live project and false of a fresh `supabase db reset`, where it aborted with
+-- "no pending_payment service_purchases row to test against". A proof that
+-- only runs against populated data is exactly what ci.excluded is for, and
+-- this script is in ci.manifest.
+--
+-- The product is still resolved rather than named: any active, priced,
+-- time-bounded service_product will do, so retiring or renaming one cannot
+-- silently turn this proof into a no-op.
 do $$
-declare v_org uuid; v_pur uuid; v_prod uuid; v_ben uuid; v_spon uuid; v_owed bigint;
+declare
+  v_org uuid; v_prod uuid; v_owed bigint;
+  v_pur uuid := gen_random_uuid();
+  v_ben uuid := gen_random_uuid();
+  v_spon uuid := gen_random_uuid();
 begin
-  select id into v_org from public.organisations limit 1;
-  if v_org is null then raise exception 'no organisation available -- cannot run this test'; end if;
-  select id into v_prod from public.service_products
+  select id into v_org from public.organisations order by created_at limit 1;
+  if v_org is null then raise exception 'no organisation exists at all -- the core migrations did not run'; end if;
+
+  select id, price_kobo into v_prod, v_owed from public.service_products
     where access_duration_days is not null and price_kobo > 0 and is_active order by code limit 1;
   if v_prod is null then raise exception 'no priced, time-bounded service_product to test against'; end if;
-  select id into v_pur from public.service_purchases where status = 'pending_payment' order by created_at limit 1;
-  if v_pur is null then raise exception 'no pending_payment service_purchases row to test against'; end if;
-  select id into v_ben from public.profiles where role = 'patient' order by created_at limit 1;
-  select id into v_spon from public.profiles where role = 'patient' and id <> v_ben order by created_at limit 1;
-  if v_ben is null or v_spon is null then raise exception 'need two patient profiles for the sponsor case'; end if;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_ben,  'pay-beneficiary@example.invalid', 'x', now(), '{}', '{}'),
+         (v_spon, 'pay-sponsor@example.invalid',     'x', now(), '{}', '{}')
+  on conflict (id) do nothing;
+
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_ben,  v_org, 'patient', 'Payment Test Beneficiary'),
+         (v_spon, v_org, 'patient', 'Payment Test Sponsor')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id,
+        role = excluded.role,
+        full_name = excluded.full_name;
+
+  -- payable_kobo is a GENERATED column (amount_kobo minus voucher cover), so
+  -- it must not be inserted. With no voucher it generates equal to
+  -- amount_kobo, which is what the assertions below compare against.
+  insert into public.service_purchases
+    (id, organisation_id, patient_id, purchaser_profile_id, service_product_id,
+     status, amount_kobo, currency)
+  values
+    (v_pur, v_org, v_ben, v_ben, v_prod,
+     'pending_payment', v_owed, 'NGN');
+
   select payable_kobo into v_owed from public.service_purchases where id = v_pur;
+  if v_owed is null then raise exception 'payable_kobo did not generate'; end if;
+
   insert into p3f values ('org', v_org::text), ('prod', v_prod::text), ('pur', v_pur::text),
                          ('ben', v_ben::text), ('spon', v_spon::text), ('owed', v_owed::text);
 end $$;
