@@ -99,8 +99,26 @@ export async function proxy(request: NextRequest) {
     .eq("id", user.id)
     .single();
 
+  // Fail CLOSED. An unreadable profile row is not a licence to continue: the
+  // whole block below (supporter default-deny, role-area matching, the
+  // delegated-permission checks) derives entirely from this row, so letting
+  // the request through with `profile` null silently skips every one of
+  // them. The row can be unreadable for boring reasons (a Supabase blip, an
+  // account provisioned in auth but not yet in `profiles`) and for
+  // interesting ones — none of which are reasons to hand out an unfiltered
+  // response. Same disposition as the signed-in-but-no-profile branch on the
+  // app-host "/" entry above, which already redirects to /login.
+  //
+  // Public paths are exempt for the obvious reason: bouncing /login itself to
+  // /login is an infinite redirect, and marketing/auth-callback pages need no
+  // role at all.
   if (!profile) {
-    return response;
+    if (isPublicPath(pathname)) {
+      return response;
+    }
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(loginUrl);
   }
 
   // Somebody who signed up only to fund a relative's care is refused the
@@ -240,12 +258,31 @@ export const config = {
       // being reachable — a proxy error there turns a plain static file into
       // a 500 and fails verification for a reason that has nothing to do
       // with the file.
-      // `missing` skips proxy entirely for Next's own Link-hover/viewport
-      // prefetch requests — every prefetched dashboard link independently
-      // ran this function's getUser() Supabase call, and a page with N
-      // links produced N concurrent Auth API calls per render. Real
-      // navigations never carry these headers, so page-level auth checks
-      // (layout.tsx, RLS) remain the enforcement boundary either way.
+      // There is deliberately NO `missing:` clause here, and none may be
+      // added. It used to carry `missing: [{header next-router-prefetch},
+      // {header purpose=prefetch}]` to spare Next's own Link-hover/viewport
+      // prefetches the getUser() round-trip this function makes. Per the
+      // Next 16 proxy reference (matcher → `missing`: "conditions where
+      // certain request elements are absent"), that means the proxy runs
+      // ONLY when those headers are absent — and both are ordinary request
+      // headers any client can send. `curl -H 'purpose: prefetch'` with a
+      // stolen session cookie therefore skipped this whole function: the MFA
+      // step-up gate above (the platform's only MFA enforcement point), the
+      // supporter default-deny gate, and every role redirect. RLS still
+      // stood behind it, but an authentication-strength control that a
+      // header switches off is not a control.
+      //
+      // The prefetch cost it was buying is real but small and must be paid
+      // elsewhere: a prefetch is a separate HTTP request, so React.cache
+      // (which dedupes getCurrentUser within one render pass — see
+      // lib/supabase/server.ts) cannot help across them, and nothing here may
+      // cache an authorization decision — a proxy-level cache is keyed by
+      // path, not by caller, so a hit would answer one user's request with
+      // another user's verdict. Next's own authentication guide describes
+      // exactly this shape (proxy runs on every route including prefetched
+      // ones; keep the check cheap and cookie-shaped) rather than skipping
+      // the proxy. If prefetch fan-out ever becomes a measured problem, cut
+      // the fan-out (prefetch={false} on the offending nav) — never the gate.
       //
       // `api/status` is excluded for a different reason: it exists to
       // report whether Supabase Auth itself is degraded (see
@@ -255,10 +292,6 @@ export const config = {
       // letting it report the outage, defeating the one check meant to
       // catch exactly that.
       source: "/((?!_next/static|_next/image|favicon.ico|api/status|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
-      missing: [
-        { type: "header", key: "next-router-prefetch" },
-        { type: "header", key: "purpose", value: "prefetch" },
-      ],
     },
   ],
 };

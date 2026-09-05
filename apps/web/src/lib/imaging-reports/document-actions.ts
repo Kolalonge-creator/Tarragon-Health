@@ -50,7 +50,11 @@ export async function uploadImagingReportForPatient(
   if (!user) return { error: "Not signed in" };
 
   const supabase = await createClient();
-  const { data: me } = await supabase.from("profiles").select("role").eq("id", user.id).single();
+  const { data: me } = await supabase
+    .from("profiles")
+    .select("role, organisation_id")
+    .eq("id", user.id)
+    .single();
 
   const source = me ? UPLOADER_SOURCE[me.role] : undefined;
   if (!source) {
@@ -74,13 +78,18 @@ export async function uploadImagingReportForPatient(
   }
   const { patient_id: patientId, imaging_order_id: imagingOrderId, note } = parsed.data;
 
+  // The org is compared explicitly, not inferred from "the caller could read
+  // the row": profiles carries several permissive SELECT policies that OR
+  // together, and everything below this line runs on the service-role client,
+  // which has no RLS of its own. Defence in depth for the 20260905000206
+  // care_access_requests disclosure, which reached exactly this seam.
   const { data: patient } = await supabase
     .from("profiles")
     .select("id, organisation_id")
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
-  if (!patient || !patient.organisation_id) {
+  if (!patient || !patient.organisation_id || patient.organisation_id !== me?.organisation_id) {
     return { error: "That patient isn't in your organisation." };
   }
 

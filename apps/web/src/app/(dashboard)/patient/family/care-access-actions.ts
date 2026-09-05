@@ -41,14 +41,19 @@ import {
  * who has no login of their own is a different, unconditional path — see
  * addChildDependentAction.
  *
- * Runs on the caller's own RLS-scoped client, never service role: the
- * care_access_requests INSERT policy requires initiated_by = auth.uid() AND
- * the caller be one of the two named parties, so the database itself
- * guarantees a person can only ever propose giving away access to their own
- * record (or accepting responsibility for someone else's, in the eldercare
- * case), never take it over someone else's without that person's own accept.
- * That check is not duplicated here because it must not be duplicated — one
- * place to be wrong is better than two.
+ * Runs on the caller's own RLS-scoped client, never service role, and creates
+ * the request through public.request_care_access — which takes the other
+ * person's PHONE NUMBER, never their profile id, and resolves it itself
+ * through find_profile_by_phone (exact phone, same organisation, role
+ * 'patient'). Naming a profile UUID directly is refused by
+ * private.guard_care_access_request_insert, and `authenticated` holds no
+ * INSERT on care_access_requests at all any more: before that
+ * (20260905000206) the INSERT policy asked only that the caller be one of the
+ * two named parties, so anyone could name a stranger as profile_id, and the
+ * resulting pending row unlocked that stranger's whole profiles row through
+ * profiles_select_pending_care_access. That check is not duplicated here
+ * because it must not be duplicated — one place to be wrong is better than
+ * two.
  */
 export async function nominateNextOfKinAction(
   input: unknown
@@ -111,12 +116,13 @@ export async function nominateNextOfKinAction(
     };
   }
 
-  const { error: requestError } = await supabase.from("care_access_requests").insert({
-    profile_id: profile.id,
-    counterparty_user_id: found.id,
-    initiated_by: profile.id,
-    permission_level: "view",
-    relationship,
+  const { error: requestError } = await supabase.rpc("request_care_access", {
+    p_phone: phone,
+    p_permission_level: "view",
+    p_direction: "offer_my_record",
+    p_relationship: relationship,
+    p_permissions: null,
+    p_expires_at: null,
   });
   // A duplicate proposal is not a failure — the nomination still stands.
   if (requestError && requestError.code !== "23505") {
@@ -192,8 +198,6 @@ export async function createEldercareAccessRequestAction(
   // still asked "their [found/owner's] relationship to you [the caller]",
   // which is backwards from canonical — invert it before storing (see
   // inverseRelationship's doc comment).
-  const profileId = direction === "i_will_manage" ? profile.id : found.id;
-  const counterpartyUserId = direction === "i_will_manage" ? found.id : profile.id;
   const canonicalRelationship =
     direction === "i_will_manage" ? relationship : inverseRelationship(relationship);
 
@@ -210,14 +214,17 @@ export async function createEldercareAccessRequestAction(
       ? null
       : new Date(Date.now() + Number(duration) * 24 * 60 * 60 * 1000).toISOString();
 
-  const { error: insertError } = await supabase.from("care_access_requests").insert({
-    profile_id: profileId,
-    counterparty_user_id: counterpartyUserId,
-    initiated_by: profile.id,
-    permission_level: "manage",
-    relationship: canonicalRelationship,
-    permissions: permissionsToStore,
-    expires_at: expiresAtToStore,
+  // Same phone-resolved path as the next-of-kin case above: the direction
+  // only decides which side of the resulting row the caller ends up on, and
+  // the database resolves the other party from the phone number itself. See
+  // 20260905000206.
+  const { error: insertError } = await supabase.rpc("request_care_access", {
+    p_phone: phone,
+    p_permission_level: "manage",
+    p_direction: direction === "i_will_manage" ? "offer_my_record" : "request_their_record",
+    p_relationship: canonicalRelationship,
+    p_permissions: permissionsToStore,
+    p_expires_at: expiresAtToStore,
   });
   if (insertError) {
     if (insertError.code === "23505") {
