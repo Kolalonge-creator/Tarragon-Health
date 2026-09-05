@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { refundTransaction } from "@/lib/paystack/refunds";
+import { recordRefundLedgerEntry } from "@/lib/billing/refund-posting";
 
 /**
  * Sweep for the video-visit held-payment model (Vercel Cron, see
@@ -102,13 +103,18 @@ export async function GET(request: Request): Promise<Response> {
   // deserves the same automatic refund as a declined/expired one.
   const { data: due } = await supabase
     .from("video_visit_requests")
-    .select("id, payment_provider, payment_provider_ref")
+    .select("id, organisation_id, amount_minor, currency, payment_provider, payment_provider_ref")
     .eq("refund_status", "due")
     .in("status", ["declined", "expired", "cancelled"]);
 
   let refunded = 0;
   let manual = 0;
   let failed = 0;
+  // A refund whose Paystack call succeeded but whose ledger reversal did not
+  // land is the one outcome that must never be reported as a clean success —
+  // it is exactly the silent book/bank divergence this posting exists to
+  // prevent, so it is counted and returned.
+  let unpostedRefunds = 0;
   for (const row of due ?? []) {
     if (row.payment_provider !== "paystack" || !row.payment_provider_ref) {
       manual += 1;
@@ -124,6 +130,20 @@ export async function GET(request: Request): Promise<Response> {
         .from("video_visit_requests")
         .update({ status: "refunded", refund_status: "refunded", refund_ref: String(result.data.refundId) })
         .eq("id", row.id);
+      // Reverse the money on the ledger too. Until this existed the refund
+      // only ever flipped a status column, leaving the original charge's
+      // Dr 1020 Cash / Cr 4100 Revenue standing against cash that had gone
+      // back to the patient — undetectably.
+      const posting = await recordRefundLedgerEntry(supabase, {
+        refundId: String(result.data.refundId),
+        chargeReference: row.payment_provider_ref,
+        amountMinor: row.amount_minor,
+        currency: row.currency as "NGN" | "GBP" | "USD",
+        organisationId: row.organisation_id,
+        source: "video_visit_request",
+        sourceId: row.id,
+      });
+      if (posting.error) unpostedRefunds += 1;
       refunded += 1;
     } else {
       failed += 1;
@@ -135,5 +155,6 @@ export async function GET(request: Request): Promise<Response> {
     refunded,
     refund_failures: failed,
     needs_manual_refund: manual,
+    unposted_refunds: unpostedRefunds,
   });
 }

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
 import { createSettlementAction, setSettlementStatusAction } from "./actions";
 
 type Settlement = {
@@ -29,8 +30,13 @@ const STATUS_BADGE: Record<string, "grey" | "amber" | "red" | "blue" | "green"> 
 
 export function SettlementsManager({ organisationId, settlements }: { organisationId: string; settlements: Settlement[] }) {
   const [feedback, setFeedback] = useState<{ error?: string; message?: string } | null>(null);
+  const [invoicedNaira, setInvoicedNaira] = useState("");
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+
+  // Echoed back under the field so the operator sees the amount they are
+  // actually issuing, not the digits they typed.
+  const invoicedKobo = nairaInputToKobo(invoicedNaira);
 
   function run(action: (fd: FormData) => Promise<{ error?: string; message?: string } | undefined>, fd: FormData) {
     startTransition(async () => {
@@ -58,9 +64,18 @@ export function SettlementsManager({ organisationId, settlements }: { organisati
             onSubmit={(e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
+              // Naira in, kobo out: the single conversion for this form.
+              const kobo = nairaInputToKobo(fd.get("invoicedTotalNaira"));
+              if (kobo === null) {
+                setFeedback({ error: "Enter the invoiced total in naira." });
+                return;
+              }
+              fd.delete("invoicedTotalNaira");
+              fd.set("invoicedTotalKobo", String(kobo));
               fd.set("organisationId", organisationId);
               run((f) => createSettlementAction(undefined, f), fd);
               e.currentTarget.reset();
+              setInvoicedNaira("");
             }}
           >
             <div className="space-y-1.5">
@@ -72,8 +87,21 @@ export function SettlementsManager({ organisationId, settlements }: { organisati
               <Input id="periodEnd" name="periodEnd" type="date" required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="invoicedTotalKobo">Invoiced (kobo)</Label>
-              <Input id="invoicedTotalKobo" name="invoicedTotalKobo" type="number" min={0} required />
+              <Label htmlFor="invoicedTotalNaira">Invoiced (₦)</Label>
+              <Input
+                id="invoicedTotalNaira"
+                name="invoicedTotalNaira"
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                required
+                value={invoicedNaira}
+                onChange={(e) => setInvoicedNaira(e.target.value)}
+              />
+              <p className="text-xs text-charcoal-ink/60">
+                {invoicedKobo === null ? "Amount in naira" : `Issuing ${formatKobo(invoicedKobo)}`}
+              </p>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="reference">Reference</Label>
@@ -112,7 +140,7 @@ export function SettlementsManager({ organisationId, settlements }: { organisati
                         {s.period_start} → {s.period_end}
                       </td>
                       <td className="py-2 pr-4">{s.reference ?? "—"}</td>
-                      <td className="py-2 pr-4">₦{(s.invoiced_total_kobo / 100).toLocaleString()}</td>
+                      <td className="py-2 pr-4 tabular-nums">{formatKobo(s.invoiced_total_kobo)}</td>
                       <td className="py-2 pr-4">
                         <Badge variant={STATUS_BADGE[s.status] ?? "grey"}>{s.status}</Badge>
                       </td>

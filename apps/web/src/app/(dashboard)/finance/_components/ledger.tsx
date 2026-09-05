@@ -13,12 +13,11 @@ import {
   reverseJournalAction,
   type JournalLineInput,
 } from "@/lib/finance/actions";
+import { lagosToday, lagosDaysAgo } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
 const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "voucher", "manual", "adjustment"];
 const CURRENCIES = ["NGN", "GBP", "USD"];
-const today = () => new Date().toISOString().slice(0, 10);
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
 interface DraftLine {
   account_code: string;
@@ -31,8 +30,8 @@ const emptyLine = (): DraftLine => ({ account_code: "", debit: "", credit: "", m
 
 export function LedgerBrowser() {
   const qc = useQueryClient();
-  const [from, setFrom] = useState(daysAgo(90));
-  const [to, setTo] = useState(today());
+  const [from, setFrom] = useState(lagosDaysAgo(90));
+  const [to, setTo] = useState(lagosToday());
   const [source, setSource] = useState("");
   const [showForm, setShowForm] = useState(false);
 
@@ -41,7 +40,7 @@ export function LedgerBrowser() {
   const costCenters = useCostCenters();
 
   // manual-entry draft
-  const [entryDate, setEntryDate] = useState(today());
+  const [entryDate, setEntryDate] = useState(lagosToday());
   const [currency, setCurrency] = useState("NGN");
   const [memo, setMemo] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);

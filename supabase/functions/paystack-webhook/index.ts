@@ -123,6 +123,53 @@ function intervalToMs(interval: string | null): number {
   return interval === "yearly" ? 365 * 24 * 60 * 60 * 1000 : 30 * 24 * 60 * 60 * 1000;
 }
 
+/**
+ * Every label public.payment_transaction_type actually carries. The insert
+ * below used to write `event.event` verbatim, which meant any event name
+ * Postgres did not recognise made the whole INSERT fail with 22P02 — and the
+ * handler only tolerates 23505 (its idempotency conflict), so it returned
+ * `record_failed` and recorded NOTHING. That is exactly how every refund
+ * event was lost: the enum had no 'refund.*' label at all until migration
+ * 20260905000134, so `private.finance_post_from_payment`'s refund branch
+ * (Dr 4900 Refunds / Cr 1020 Cash) could never fire, and refunded money sat
+ * on the ledger as cash and revenue that was not in the bank.
+ *
+ * Adding the labels fixes today's gap; coercing an unrecognised name to
+ * 'other' fixes the next one — a payload Paystack adds tomorrow now lands in
+ * payment_transactions with its true name preserved in raw_payload.event,
+ * instead of being dropped on the floor. This restores the promise this
+ * file's own header already makes: "every event is recorded to
+ * payment_transactions, including ones it fails to process."
+ */
+const PAYMENT_TRANSACTION_TYPES = new Set([
+  "charge.success",
+  "charge.failed",
+  "subscription.create",
+  "subscription.disable",
+  "subscription.not_renew",
+  "invoice.create",
+  "invoice.update",
+  "invoice.payment_failed",
+  "invoice.payment_succeeded",
+  "checkout.session.completed",
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "charge.dispute.create",
+  "charge.dispute.created",
+  "refund.pending",
+  "refund.processed",
+  "refund.failed",
+  "transfer.success",
+  "transfer.failed",
+  "transfer.reversed",
+  "other",
+]);
+
+function toEventType(event: string | undefined): string {
+  return event && PAYMENT_TRANSACTION_TYPES.has(event) ? event : "other";
+}
+
 Deno.serve(async (req) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -147,11 +194,22 @@ Deno.serve(async (req) => {
     return Response.json({ ok: false, error: "invalid_json" }, { status: 200 });
   }
 
-  const providerEventId =
-    event.data?.reference ??
-    (event.data?.id !== undefined ? String(event.data.id) : null) ??
-    event.data?.subscription_code ??
-    `${event.event}:${rawBody.length}`;
+  const isRefundEvent = typeof event.event === "string" && event.event.startsWith("refund.");
+
+  // A refund is keyed on the REFUND's own id, deliberately in the same
+  // `refund:<id>` shape the refund crons use when they post their own ledger
+  // reversal (apps/web/src/lib/billing/refund-posting.ts). Both routes reach
+  // the same row, so the unique (provider, provider_event_id) index makes
+  // whichever arrives second an idempotent no-op instead of a second,
+  // duplicate Dr 4900 / Cr 1020 posting. Without this a refund payload would
+  // fall through to `data.reference` — which on Paystack's refund event is
+  // the ORIGINAL charge's reference — and collide with the charge itself.
+  const providerEventId = isRefundEvent
+    ? `refund:${event.data?.id ?? event.data?.reference ?? rawBody.length}`
+    : (event.data?.reference ??
+      (event.data?.id !== undefined ? String(event.data.id) : null) ??
+      event.data?.subscription_code ??
+      `${event.event}:${rawBody.length}`);
 
   // Idempotency: a replayed webhook (Paystack retries, or a manual resend
   // from their dashboard) is a guaranteed no-op — the unique constraint on
@@ -162,7 +220,7 @@ Deno.serve(async (req) => {
     .insert({
       provider: "paystack",
       provider_event_id: providerEventId,
-      event_type: (event.event as string) ?? "other",
+      event_type: toEventType(event.event),
       amount_minor: event.data?.amount ?? null,
       currency: (event.data?.currency as "NGN" | "GBP" | "USD" | undefined) ?? null,
       raw_payload: event as unknown as Record<string, unknown>,
@@ -525,6 +583,46 @@ Deno.serve(async (req) => {
           detail: { provider: "paystack", provider_event_id: providerEventId, transaction_reference: disputeRef },
         });
         await markProcessed();
+        break;
+      }
+
+      case "refund.pending":
+      case "refund.failed": {
+        // Recorded for audit, deliberately NOT marked processed.
+        // private.finance_post_from_payment posts a Dr 4900 / Cr 1020
+        // reversal for any event_type matching '%refund%' the moment
+        // processed_at is set, and only a refund that actually completed has
+        // left the bank account. A pending or failed one must not move the
+        // ledger. `refund.processed` follows for the ones that do complete.
+        break;
+      }
+
+      case "refund.processed": {
+        // The money really has gone back to the patient. Correlate to the
+        // original charge only to carry its organisation_id onto the
+        // reversal (the journal lines are scoped by it), then mark processed
+        // — which is what fires finance_post_payment_processed and, through
+        // it, the Dr 4900 Refunds / Cr 1020 Cash entry that had been
+        // unreachable for the whole life of this platform.
+        //
+        // If the refund was issued by one of the refund crons
+        // (api/cron/{video-visit,pharmacy-order,voucher-cancellation}-refunds)
+        // that cron has already recorded the same `refund:<id>` row and
+        // posted the reversal; the unique (provider, provider_event_id)
+        // index means this event replayed harmlessly above and never
+        // reaches here. Either route posts exactly once.
+        const chargeRef = event.data.transaction?.reference ?? event.data.reference ?? null;
+        let organisationId: string | null = null;
+        if (chargeRef) {
+          const { data: original } = await supabase
+            .from("payment_transactions")
+            .select("organisation_id")
+            .eq("provider", "paystack")
+            .eq("provider_event_id", chargeRef)
+            .maybeSingle();
+          organisationId = original?.organisation_id ?? null;
+        }
+        await markProcessed(organisationId ? { organisation_id: organisationId } : {});
         break;
       }
 

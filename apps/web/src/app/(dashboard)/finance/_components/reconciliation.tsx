@@ -15,6 +15,7 @@ import {
   postSettlementAction,
   resolveReconciliationFlagAction,
 } from "@/lib/finance/actions";
+import { lagosToday } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
 const PROVIDERS = ["paystack", "stripe"];
@@ -23,7 +24,6 @@ const BANKS = [
   { code: "1000", label: "Bank: Paystack (NGN)" },
   { code: "1010", label: "Bank: Stripe (diaspora)" },
 ];
-const today = () => new Date().toISOString().slice(0, 10);
 
 export function Reconciliation() {
   const qc = useQueryClient();
@@ -46,7 +46,7 @@ export function Reconciliation() {
   const [f, setF] = useState({
     provider: "paystack",
     external_ref: "",
-    settlement_date: today(),
+    settlement_date: lagosToday(),
     currency: "NGN",
     gross: "",
     fees: "",

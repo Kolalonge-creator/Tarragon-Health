@@ -11,17 +11,16 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { Receipt, Landmark, Scale } from "lucide-react";
 import { useTaxSummary, useTaxRates, financeKeys } from "@/lib/finance/queries";
 import { upsertTaxRateAction } from "@/lib/finance/actions";
+import { lagosToday, lagosYearStart } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, formatPercent } from "./primitives";
 
 const CURRENCIES = ["NGN", "GBP", "USD"];
-const today = () => new Date().toISOString().slice(0, 10);
-const yearStart = () => `${new Date().getFullYear()}-01-01`;
 
 export function TaxConsole() {
   const qc = useQueryClient();
   const [currency, setCurrency] = useState("NGN");
-  const [from, setFrom] = useState(yearStart());
-  const [to, setTo] = useState(today());
+  const [from, setFrom] = useState(lagosYearStart());
+  const [to, setTo] = useState(lagosToday());
   const summary = useTaxSummary(from, to, currency);
   const rates = useTaxRates();
 
@@ -41,7 +40,7 @@ export function TaxConsole() {
       name: nr.name,
       rate_pct: rate,
       applies_to: nr.applies_to,
-      effective_from: today(),
+      effective_from: lagosToday(),
       is_active: true,
       notes: nr.notes,
     });
