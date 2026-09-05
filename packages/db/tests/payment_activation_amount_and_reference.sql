@@ -50,6 +50,14 @@ do $$
 declare
   v_org uuid; v_prod uuid; v_owed bigint;
   v_pur uuid := gen_random_uuid();
+  -- The direct-purchase payer must be a DIFFERENT patient from the sponsored
+  -- beneficiary. Section 3 counts active purchases by patient_id, so if the
+  -- pending purchase belonged to the beneficiary its activation in sections
+  -- 1 and 2 would be miscounted there as a sponsored grant, and the
+  -- "granted nothing without a reference" assertion would fail for a reason
+  -- that has nothing to do with the code under test. The original borrowed an
+  -- unrelated live purchase, which had this separation by accident.
+  v_payer uuid := gen_random_uuid();
   v_ben uuid := gen_random_uuid();
   v_spon uuid := gen_random_uuid();
 begin
@@ -61,13 +69,15 @@ begin
   if v_prod is null then raise exception 'no priced, time-bounded service_product to test against'; end if;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
-  values (v_ben,  'pay-beneficiary@example.invalid', 'x', now(), '{}', '{}'),
-         (v_spon, 'pay-sponsor@example.invalid',     'x', now(), '{}', '{}')
+  values (v_payer, 'pay-payer@example.invalid',       'x', now(), '{}', '{}'),
+         (v_ben,   'pay-beneficiary@example.invalid', 'x', now(), '{}', '{}'),
+         (v_spon,  'pay-sponsor@example.invalid',     'x', now(), '{}', '{}')
   on conflict (id) do nothing;
 
   insert into public.profiles (id, organisation_id, role, full_name)
-  values (v_ben,  v_org, 'patient', 'Payment Test Beneficiary'),
-         (v_spon, v_org, 'patient', 'Payment Test Sponsor')
+  values (v_payer, v_org, 'patient', 'Payment Test Payer'),
+         (v_ben,   v_org, 'patient', 'Payment Test Beneficiary'),
+         (v_spon,  v_org, 'patient', 'Payment Test Sponsor')
   on conflict (id) do update
     set organisation_id = excluded.organisation_id,
         role = excluded.role,
@@ -80,7 +90,7 @@ begin
     (id, organisation_id, patient_id, purchaser_profile_id, service_product_id,
      status, amount_kobo, currency)
   values
-    (v_pur, v_org, v_ben, v_ben, v_prod,
+    (v_pur, v_org, v_payer, v_payer, v_prod,
      'pending_payment', v_owed, 'NGN');
 
   select payable_kobo into v_owed from public.service_purchases where id = v_pur;
