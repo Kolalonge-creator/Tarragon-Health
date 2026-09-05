@@ -30969,6 +30969,7 @@ export type Database = {
       }
       revenue_recognition_schedules: {
         Row: {
+          cancelled_reason: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
           deferred_account_code: string
@@ -30986,6 +30987,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancelled_reason?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
           deferred_account_code?: string
@@ -31003,6 +31005,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancelled_reason?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
           deferred_account_code?: string

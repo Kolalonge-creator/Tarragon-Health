@@ -51,3 +51,4 @@ temperature_red_flag_engine.sql
 tier_authority_monotonicity.sql
 vitals_red_flag_notification_wiring.sql
 vitals_red_flag_plan_gate.sql
+revenue_recognition_orphan_source_guard.sql

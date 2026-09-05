@@ -119,8 +119,36 @@ whether a refund should cancel or prorate the recognition schedule, is your call
 idempotency key embeds the original charge reference, so the branch can now correlate back
 to what it is reversing once you decide.
 
-### B1a. A phantom revenue schedule will post on 1 October, unless you stop it
-**This one has a date on it.**
+### B1a. A phantom revenue schedule would have posted on 1 October — RESOLVED 2026-09-05
+**Resolved on your instruction. Nothing is outstanding here; this section is kept
+as the record of what was wrong and what was done about it.**
+
+Migration `20260905204245_reverse_phantom_service_purchase_revenue.sql`, applied
+to production 2026-09-05:
+
+- **Journal entry #171 was reversed, not deleted.** `private.finance_reverse_entry`
+  posted a balanced contra entry (#243, Dr 2000 / Cr 1020 ₦10,000), linked the two
+  by `reversal_of`, and marked the original `is_reversed`. Both entries stay on the
+  ledger; the net effect is nil. Deleting would have made the ledger correct and the
+  record dishonest.
+- **Schedule `c890ef77…` was cancelled with a written reason.** A new
+  `revenue_recognition_schedules.cancelled_reason` column exists so that a
+  cancellation is never just a status flipped by nobody for no stated reason.
+- **The mechanism was closed, not just the row.** `private.finance_recognize_revenue`
+  now checks its source row still exists (`private.revrec_source_exists`) before
+  posting, and cancels an orphaned schedule with a reason rather than silently
+  skipping it on every future run.
+- **Proven.** Simulating the 1 October cron run before the fix booked ₦10,000 to
+  revenue account 4020; after the fix it posts nothing. Accounts 1020, 2000 and 4020
+  all now net to zero — which, as below, means the books correctly show no money.
+  `packages/db/tests/revenue_recognition_orphan_source_guard.sql` proves the guard
+  against the real function, with a sabotage run confirming the guard is what stops it.
+
+The original finding follows.
+
+---
+
+**This one had a date on it.**
 
 `revenue_recognition_schedules` holds exactly one active row:
 
@@ -145,9 +173,13 @@ total_minor`. **On 1 October it will recognise ₦10,000 of revenue for a purcha
 that does not exist.**
 
 Cancelling a schedule and reversing a posted entry is a financial record change,
-so it was not touched. The narrow action is to set that one schedule to a
-non-active status before 1 October; the fuller one is to decide whether the
-journal entry should be reversed too.
+so it was not touched at the time of writing. Both were done on 2026-09-05, on
+your instruction — see the resolution note at the top of this section.
+
+One thing worth knowing that only surfaced during the fix: accounts 1020 and 2000
+carried **no other activity at all**, so this single phantom was the entire
+payment-processor clearing balance and the entire deferred-revenue balance on the
+books. Reversing it did not dent a real balance; it removed the only thing in it.
 
 ### B2. Four screening products are priced but unsellable
 `cancer_screen_cervical_under30` ₦62,000, `cancer_screen_cervical_30plus` ₦222,500,
