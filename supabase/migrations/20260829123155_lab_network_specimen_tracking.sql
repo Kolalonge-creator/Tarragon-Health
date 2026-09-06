@@ -71,7 +71,7 @@ create policy lab_specimens_select on public.lab_specimens
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id, 'labs_results'::public.care_access_category)
+    or private.can_read_clinical(patient_id)
     or (provider_id is not null and provider_id = private.lab_partner_provider())
   );
 
