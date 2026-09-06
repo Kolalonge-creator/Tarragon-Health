@@ -25,6 +25,8 @@ const SYMPTOM_LABEL: Record<SymptomLogInput["symptom_type"], string> = {
   severe_headache: "Severe headache",
   visual_disturbance: "Vision changes (blurred, dimmed, or lost)",
   confusion: "Confusion or drowsiness",
+  testicular_pain: "Testicular pain",
+  testicular_lump: "Testicular lump or swelling",
   poor_feeding: "Feeding much less than usual, or refusing to feed",
   lethargy: "Unusually sleepy, floppy, or hard to wake",
   grunting_or_retractions: "Grunting, or the chest pulling in with each breath",

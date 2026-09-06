@@ -107,6 +107,23 @@
 #     otherwise) -- exactly the class of fixture this file's own header
 #     describes, at the more demanding end of it.
 # ===========================================================================
+#
+# Found 2026-09-06 (result-recall-reconciliation), same fixture-backlog
+# category as #4-6 above -- selects an existing fixture rather than building
+# its own, so it cannot run against a fresh `supabase db reset`:
+#
+#  7. result_release_policies.sql -- the live proof for the
+#     result_release_policies RLS gate (20260829135012_result_release_policies.sql).
+#     Its DO block starts `select id, organisation_id into v_patient, v_org
+#     from public.profiles where role = 'patient' limit 1` and raises
+#     immediately if none is found; a fresh reset seeds only catalogue rows,
+#     no tenant/patient data (same seed.sql note as #4-6), so this always
+#     raises rather than running. Unlike #4, it DOES carry a real per-case
+#     PASS/FAIL verdict (five cases, each a `case when ... then 'PASS' else
+#     'FAIL' end`) -- it just has no fixture of its own yet. Building one
+#     (insert its own org + patient + clinician profile, the way
+#     payer_board_outcomes_report.sql does) would let it move up.
+# ===========================================================================
 abnormal_screening_result_upgrade.sql
 actor_column_fk_documentation.sql
 adherence_escalation_not_available.sql
@@ -144,6 +161,18 @@ communication_preferences_and_marketing_consent.sql
 computed_review_price.sql
 consultation_system.sql
 data_governance_rls.sql
+#
+# device_registry_lifecycle.sql (PR #355, Connected Medical Device Platform):
+# same fixture backlog as items 4-6 above. Its header says
+# "Run: npx supabase db query --linked", and it resolves its fixture with
+# `select organisation_id from public.profiles where role = 'patient' ... limit 1`,
+# raising "no organisation has patient profiles" otherwise -- a row that only
+# exists on the live project, not after a fresh `supabase db reset` (seed.sql
+# seeds catalogues only). The author's own 22/22-checks-pass run was against a
+# hand-built local Postgres harness with its own fixture, not this CI stack.
+# Move to ci.manifest once it builds its own patient/org fixture the way the
+# RLS-probe files elsewhere in this directory do.
+device_registry_lifecycle.sql
 dependent_majority_review_sweep.sql
 diabetes_recheck_cadence.sql
 diagnostic_ordering_investigation_management.sql
@@ -223,6 +252,7 @@ referral_requested_alert_and_specialist_referrals_gate.sql
 refill_confirmation_attribution.sql
 report_medication_safety_finding_rpc.sql
 result_acknowledgement_status.sql
+result_release_policies.sql
 scoped_access_roles_rls.sql
 screening_decline.sql
 screening_ladder_order_completeness.sql

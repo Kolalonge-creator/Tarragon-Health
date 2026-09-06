@@ -31,6 +31,8 @@ export const PATIENT_DEVICE_TYPE_LABEL: Record<Enums<"patient_device_type">, str
   thermometer: "Thermometer",
   pulse_oximeter: "Pulse oximeter",
   smart_band: "Smart band",
+  ecg: "ECG monitor",
+  peak_flow_meter: "Peak flow meter",
 };
 
 export interface DiagnosisItem {

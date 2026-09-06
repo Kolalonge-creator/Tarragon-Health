@@ -12,6 +12,8 @@ export const SYMPTOM_TYPES = [
   "severe_headache",
   "visual_disturbance",
   "confusion",
+  "testicular_pain",
+  "testicular_lump",
   // Paediatric danger signs with no honest adult-symptom equivalent — see
   // lib/rules/pediatric-symptom-triage.ts, which only offers these when
   // logging for a dependent under 5 (shouldOfferPaediatricSymptomTypes) and
