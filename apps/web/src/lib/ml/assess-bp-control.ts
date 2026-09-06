@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
-import { createMlClientFromEnv, type Database, type Json } from "@tarragon/shared";
+import { type Database, type Json } from "@tarragon/shared";
+import { createGovernedMlClient } from "./governed-ml-client";
 import { bpControlRiskLevel } from "@/lib/rules/bp-control-risk";
 import { queueRiskSignalAttentionBestEffort } from "@/lib/notifications/queue-risk-signal-attention";
 
@@ -38,7 +39,10 @@ export async function assessBpControlBestEffort(
   patientId: string,
   organisationId: string
 ): Promise<void> {
-  const mlClient = createMlClientFromEnv();
+  const mlClient = createGovernedMlClient(supabase, {
+    subjectProfileId: patientId,
+    inputCategory: "bp_control_assessment",
+  });
   if (!mlClient) return;
 
   const since = new Date(

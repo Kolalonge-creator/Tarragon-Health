@@ -4,6 +4,14 @@
 -- grant that blocks everything would pass a negatives-only test. The consented
 -- sponsor must SEE something at each point the unconsented one sees nothing.
 --
+-- Updated 2026-08-31 for the pay-per-service migration: section 5's "sponsor
+-- pays the plan" now activates a public.service_purchases row (a
+-- service_products.code, not a subscription_plans.code) via
+-- private.activate_sponsored_service_purchase — the metadata.kind stays
+-- 'sponsored_subscription' (the trigger match key was left unchanged;
+-- only the target catalogue/table moved), see
+-- 20260831150844_repoint_vouchers_and_sponsor_to_service_products.sql.
+--
 --   npx supabase db query --linked -f packages/db/tests/sponsor_care_status_and_funding.sql
 
 begin;
@@ -151,9 +159,16 @@ begin
   --------------------------------------------------------------------------
   -- 4. gone quiet
   --------------------------------------------------------------------------
+  -- source = 'device', not 'manual': 20260831001537_vitals_symptoms_
+  -- timestamp_hardening.sql forces manual-source taken_at to the real
+  -- insert time (closing a spoofing gap that has no legitimate manual-entry
+  -- use case), so a manual row can no longer be backdated to simulate lapsed
+  -- engagement. private.queue_sponsor_quiet_nudges() reads max(taken_at)
+  -- with no source filter, so this is equivalent for what this check
+  -- actually exercises.
   insert into public.vitals_readings
     (organisation_id, patient_id, vital_type, systolic, diastolic, source, taken_at)
-  values (v_org, v_mum, 'blood_pressure', 156, 96, 'manual', now() - interval '40 days');
+  values (v_org, v_mum, 'blood_pressure', 156, 96, 'device', now() - interval '40 days');
 
   perform private.queue_sponsor_quiet_nudges();
   insert into results
@@ -172,8 +187,9 @@ begin
   -- 5. the sponsor pays the plan
   --------------------------------------------------------------------------
   select id, code into v_plan, v_plan_code
-    from public.subscription_plans
-   where is_active and currency = 'NGN' and price_minor > 0 limit 1;
+    from public.service_products
+   where is_active and currency = 'NGN' and price_kobo > 0
+   limit 1;
 
   insert into public.payment_transactions
     (organisation_id, provider, provider_event_id, event_type, amount_minor, currency,
@@ -188,15 +204,15 @@ begin
 
   insert into results
   select 'the plan is now active and billed to the sponsor', 'true',
-         (count(*) > 0)::text from public.subscriptions
-   where subscriber_id = v_mum and paid_by_profile_id = v_sponsor and status = 'active';
+         (count(*) > 0)::text from public.service_purchases
+   where patient_id = v_mum and purchaser_profile_id = v_sponsor and status = 'active';
 
   insert into results
   select 'both people are told about the sponsored plan', '4',
          count(*)::text from public.notifications where template = 'sponsored_plan_started';
 
   -- A grant revoked between checkout and webhook must buy nothing.
-  delete from public.subscriptions where subscriber_id = v_mum;
+  delete from public.service_purchases where patient_id = v_mum;
   delete from public.profile_access where profile_id = v_mum and grantee_user_id = v_sponsor;
   insert into public.payment_transactions
     (organisation_id, provider, provider_event_id, event_type, amount_minor, currency,
@@ -211,7 +227,7 @@ begin
 
   insert into results
   select 'a revoked sponsor cannot buy a plan', '0',
-         count(*)::text from public.subscriptions where subscriber_id = v_mum;
+         count(*)::text from public.service_purchases where patient_id = v_mum;
 end $$;
 
 select check_name, expected, actual,

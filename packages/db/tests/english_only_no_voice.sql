@@ -10,13 +10,33 @@ begin;
 
 do $$
 declare
-  v_patient uuid := '8487376b-7844-428a-bcb8-8795e89eb0f5';
+  -- Minted rather than a hardcoded live patient id: that id exists only on the
+  -- populated project, so on a fresh `supabase db reset` the UPDATE below
+  -- touched zero rows and the notifications INSERT died on its foreign key.
+  -- A fresh patient is also the right fixture for check 1, which depends on
+  -- there being NO push subscription yet.
+  v_patient uuid := gen_random_uuid();
   v_org     uuid := '00000000-0000-0000-0000-000000000001';
   v_channel text;
   v_sub     uuid;
 begin
+  if not exists (select 1 from public.organisations where id = v_org) then
+    insert into public.organisations (id, name, type)
+    values (v_org, 'English Only Test Org', 'clinic');
+  end if;
+  insert into auth.users (id, email)
+  values (v_patient, 'englishonly-test-patient@example.invalid');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, v_org, 'patient', 'English Only Test Patient')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name;
+
   -- 1. A stale voice preference must NOT produce a voice notification.
   update public.profiles set preferred_reminder_channel = 'voice' where id = v_patient;
+  if not found then
+    raise exception 'VACUOUS: the voice preference was not applied to the fixture patient';
+  end if;
 
   insert into public.notifications (organisation_id, recipient_id, channel, template, payload)
   values (v_org, v_patient, 'whatsapp', 'vitals_reminder', '{}'::jsonb)

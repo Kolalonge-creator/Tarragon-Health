@@ -190,7 +190,7 @@ export async function submitConsultationPrep(
     p_notes: notes.data,
   });
   if (error) return { error: error.message };
-  return { message: "Saved — your care team will see this before the visit." };
+  return { message: "Saved. Your care team will see this before the visit." };
 }
 
 export type SubmitFeedbackState = { error?: string; message?: string } | undefined;
@@ -201,6 +201,10 @@ const feedbackSchema = z.object({
   technicalExperienceRating: z.coerce.number().int().min(1).max(5).optional(),
   punctualityRating: z.coerce.number().int().min(1).max(5).optional(),
   communicationRating: z.coerce.number().int().min(1).max(5).optional(),
+  // §29.4's fourth structured dimension (punctuality/communication/
+  // professionalism/overall), added alongside clinician_id attribution in
+  // 20260829093626 — optional like the other sub-ratings.
+  professionalismRating: z.coerce.number().int().min(1).max(5).optional(),
   comment: z.string().trim().max(1000).optional(),
 });
 
@@ -228,6 +232,9 @@ export async function submitConsultationFeedback(
       : undefined,
     communicationRating: formData.get("communication_rating")
       ? String(formData.get("communication_rating"))
+      : undefined,
+    professionalismRating: formData.get("professionalism_rating")
+      ? String(formData.get("professionalism_rating"))
       : undefined,
     comment: String(formData.get("comment") ?? "") || undefined,
   });
@@ -258,6 +265,7 @@ export async function submitConsultationFeedback(
     technical_experience_rating: parsed.data.technicalExperienceRating ?? null,
     punctuality_rating: parsed.data.punctualityRating ?? null,
     communication_rating: parsed.data.communicationRating ?? null,
+    professionalism_rating: parsed.data.professionalismRating ?? null,
     comment: parsed.data.comment ?? null,
   });
   if (error) {

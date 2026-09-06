@@ -2,14 +2,18 @@ import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { BP_LEVEL_COLORS, BP_LEVEL_LABEL } from "@/lib/bp-classification";
 import {
+  classifyVitalOffline,
   computeSevenDayAverage,
+  loadPatientState,
   loadRecentBpReadings,
   logBpReading,
   logOtherVital,
   type BpReading,
 } from "@/lib/vitals";
 import type { VitalReadingPayload } from "@/lib/api";
-import { colors, radius, spacing } from "@/ui/theme";
+import { getPendingCount } from "@/lib/offline-vitals-queue";
+import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
+import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import {
   CalloutCard,
   Card,
@@ -22,6 +26,27 @@ import {
   SectionLabel,
 } from "@/ui/components";
 import { WebViewScreen } from "@/screens/webview-screen";
+import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+
+interface GuidanceState {
+  detail: string;
+  synced: boolean;
+}
+
+function UrgentBanner({ detail }: { detail: string }) {
+  return (
+    <View
+      style={{
+        backgroundColor: colors.status.warnBg,
+        borderRadius: radius.control,
+        paddingVertical: 10,
+        paddingHorizontal: 12,
+      }}
+    >
+      <Text style={{ fontSize: 12.5, color: colors.status.warn, lineHeight: 18 }}>{detail}</Text>
+    </View>
+  );
+}
 
 interface VitalsScreenProps {
   patientId: string;
@@ -63,6 +88,81 @@ const GLUCOSE_CONTEXTS: { id: GlucoseContext; label: string }[] = [
   { id: "night", label: "Night" },
 ];
 
+/** Strict Number() parse: trims, accepts a comma decimal separator (some
+ * Android decimal-pads emit one), rejects empty input and trailing garbage
+ * ("12abc" is null here, not 12 as with parseInt), rejects NaN/Infinity. */
+function parseStrictNumber(raw: string): number | null {
+  const normalized = raw.trim().replace(",", ".");
+  if (normalized === "") return null;
+  const n = Number(normalized);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Entry-time plausibility bounds — typo gating only, NOT clinical logic.
+ * Still deliberately far wider than any classification threshold
+ * (bp-classification.ts, glucose-red-flags.ts), so a genuinely dangerous
+ * reading always submits and still triggers the existing emergency guidance;
+ * only values no live human could produce are stopped. Each carries its own
+ * warm inline message so the fix is obvious without fear-based wording.
+ *
+ * These MUST NOT be wider than the server's own bands
+ * (apps/web/src/lib/validation/vitals.ts, which POST /api/mobile/vitals
+ * validates against). A client bound wider than the server's turns a typo
+ * into a poison queue entry: the screen accepts the value, offline-vitals-
+ * queue.ts stores it, the API answers 400, and the queue re-sends a reading
+ * the server will never accept. That is what SpO2 40, systolic 40,
+ * diastolic 20, weight 2-500 and glucose 0.5-55 mmol/L (10-1000 mg/dL) each
+ * did, against server floors of 50, 60, 30, 20-300 and 1-40 (18-720). The
+ * numbers below are the server's own bands verbatim; the direction to fix a
+ * future mismatch is to widen the server first and follow it here, never the
+ * reverse.
+ */
+const BP_BOUNDS = {
+  systolic: { min: 60, max: 260 },
+  diastolic: { min: 30, max: 160 },
+} as const;
+
+const OTHER_VITAL_BOUNDS: Record<Exclude<OtherVitalType, "glucose">, { min: number; max: number; message: string }> = {
+  weight: {
+    min: 20,
+    max: 300,
+    message: "That doesn't look like a usual weight in kg. Check the number and try again?",
+  },
+  temperature: {
+    min: 30,
+    max: 45,
+    message: "That doesn't look like a usual body temperature in °C. Check the number and try again?",
+  },
+  spo2: {
+    min: 50,
+    max: 100,
+    message: "SpO2 is a percentage between 50 and 100. Check the number and try again?",
+  },
+  pulse: {
+    min: 20,
+    max: 300,
+    message: "That doesn't look like a usual pulse. Check the number and try again?",
+  },
+};
+
+/** A glucose value out of range for one unit is very often a correct value
+ * in the other (mg/dL is 18x mmol/L), so the message points at the unit
+ * toggle rather than just saying "too high" — a mg/dL number submitted as
+ * mmol/L would otherwise fire the emergency modal on a plain typo. */
+const GLUCOSE_BOUNDS: Record<"mmol_l" | "mg_dl", { min: number; max: number; message: string }> = {
+  mmol_l: {
+    min: 1,
+    max: 40,
+    message: "That looks unusual for mmol/L. If your meter shows mg/dL, switch the unit and try again?",
+  },
+  mg_dl: {
+    min: 18,
+    max: 720,
+    message: "That looks unusual for mg/dL. If your meter shows mmol/L, switch the unit and try again?",
+  },
+};
+
 export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenProps) {
   const [readings, setReadings] = useState<BpReading[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,30 +171,74 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [symptomOpen, setSymptomOpen] = useState(false);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [guidance, setGuidance] = useState<GuidanceState | null>(null);
+  const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
+  const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
+  const [patientState, setPatientState] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setReadings(await loadRecentBpReadings(patientId));
   }, [patientId]);
 
+  const refreshPending = useCallback(async () => {
+    setPendingCount(await getPendingCount());
+  }, []);
+
   useEffect(() => {
-    load().finally(() => setLoading(false));
-  }, [load]);
+    load()
+      .catch(() => {})
+      .finally(() => setLoading(false));
+    refreshPending().catch(() => {});
+    loadCachedEmergencyFacts()
+      .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
+      .catch(() => {});
+    // Best-effort — already null on failure/offline, which resolves to the
+    // national emergency line in EmergencyGuidanceModal either way.
+    loadPatientState(patientId).then(setPatientState);
+  }, [load, refreshPending, patientId]);
 
   async function handleSave() {
-    const systolic = parseInt(sys, 10);
-    const diastolic = parseInt(dia, 10);
-    if (!systolic || !diastolic) {
-      setError("Enter both numbers.");
+    const systolic = parseStrictNumber(sys);
+    const diastolic = parseStrictNumber(dia);
+    if (systolic === null || diastolic === null) {
+      setError("Enter both numbers, using digits only.");
+      return;
+    }
+    if (
+      systolic < BP_BOUNDS.systolic.min ||
+      systolic > BP_BOUNDS.systolic.max ||
+      diastolic < BP_BOUNDS.diastolic.min ||
+      diastolic > BP_BOUNDS.diastolic.max
+    ) {
+      setError("That doesn't look like a usual blood pressure reading. Check the numbers and try again?");
+      return;
+    }
+    if (systolic <= diastolic) {
+      setError("The first (systolic) number is usually the higher one. Check which number is which and try again?");
       return;
     }
     setSaving(true);
     setError(null);
+    setUrgentBanner(null);
+
+    const payload: VitalReadingPayload = { vital_type: "blood_pressure", systolic, diastolic };
+    const flag = await classifyVitalOffline(payload);
+    if (flag?.severity === "emergency") setGuidance({ detail: flag.detail, synced: false });
+    if (flag?.severity === "urgent") setUrgentBanner(flag.detail);
+
     const result = await logBpReading(systolic, diastolic, beneficiaryProfileId);
     setSaving(false);
+    await refreshPending();
     if (result.error) {
       setError(result.error);
+      // Deliberately NOT clearing the emergency guidance here: a crisis-range
+      // reading is dangerous whether or not it saved, and the modal's
+      // synced:false copy already tells the patient honestly that the care
+      // team hasn't been notified yet.
       return;
     }
+    if (flag?.severity === "emergency") setGuidance({ detail: flag.detail, synced: !!result.synced });
     setSys("");
     setDia("");
     await load();
@@ -108,6 +252,25 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Vitals &amp; symptoms</Text>
         <MutedText>Log readings and see how they trend over time.</MutedText>
       </View>
+
+      {pendingCount > 0 ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            backgroundColor: colors.groupBg,
+            borderRadius: radius.control,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+          }}
+        >
+          <ActivityIndicator size="small" color={colors.muted} />
+          <Text style={{ fontSize: 12.5, color: colors.muted }}>
+            {pendingCount} reading{pendingCount === 1 ? "" : "s"} saved on this device, waiting to sync.
+          </Text>
+        </View>
+      ) : null}
 
       <Card style={{ gap: 10 }}>
         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Log a blood pressure reading</Text>
@@ -130,6 +293,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           />
         </View>
         {error ? <ErrorText>{error}</ErrorText> : null}
+        {urgentBanner ? <UrgentBanner detail={urgentBanner} /> : null}
         <PrimaryButton title="Save reading" onPress={handleSave} loading={saving} />
       </Card>
 
@@ -172,7 +336,13 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         )}
       </View>
 
-      <OtherVitalCard beneficiaryProfileId={beneficiaryProfileId} />
+      <OtherVitalCard
+        beneficiaryProfileId={beneficiaryProfileId}
+        onLogged={async () => {
+          await refreshPending();
+        }}
+        onEmergency={(detail, synced) => setGuidance({ detail, synced })}
+      />
 
       <CalloutCard
         icon="clipboard-outline"
@@ -190,6 +360,15 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           <WebViewScreen path="/patient/vitals" />
         </View>
       </Modal>
+
+      <EmergencyGuidanceModal
+        visible={guidance !== null}
+        detail={guidance?.detail ?? ""}
+        synced={guidance?.synced ?? false}
+        emergencyContact={emergencyContact}
+        state={patientState}
+        onDismiss={() => setGuidance(null)}
+      />
     </ScrollView>
   );
 }
@@ -197,7 +376,15 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
 /** Glucose, weight, temperature, SpO2, pulse — the rest of MOBILE_APP_SPEC.md
  * §2.2's native quick-log list, alongside the always-visible BP card above
  * (BP stays its own card since it's the highest-frequency write). */
-function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: string }) {
+function OtherVitalCard({
+  beneficiaryProfileId,
+  onLogged,
+  onEmergency,
+}: {
+  beneficiaryProfileId?: string;
+  onLogged: () => void;
+  onEmergency: (detail: string, synced: boolean) => void;
+}) {
   const [type, setType] = useState<OtherVitalType>("glucose");
   const [value, setValue] = useState("");
   const [glucoseUnit, setGlucoseUnit] = useState<"mmol_l" | "mg_dl">("mmol_l");
@@ -205,6 +392,7 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
+  const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
 
   const selected = OTHER_VITAL_TYPES.find((t) => t.id === type)!;
 
@@ -213,17 +401,24 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
     setValue("");
     setError(null);
     setSavedLabel(null);
+    setUrgentBanner(null);
   }
 
   async function handleSave() {
-    const numeric = parseFloat(value);
-    if (!numeric || numeric <= 0) {
-      setError("Enter a value.");
+    const numeric = parseStrictNumber(value);
+    if (numeric === null) {
+      setError("Enter a value, using digits only.");
+      return;
+    }
+    const bounds = type === "glucose" ? GLUCOSE_BOUNDS[glucoseUnit] : OTHER_VITAL_BOUNDS[type];
+    if (numeric < bounds.min || numeric > bounds.max) {
+      setError(bounds.message);
       return;
     }
     setSaving(true);
     setError(null);
     setSavedLabel(null);
+    setUrgentBanner(null);
 
     let payload: Exclude<VitalReadingPayload, { vital_type: "blood_pressure" }>;
     switch (type) {
@@ -244,12 +439,21 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
         break;
     }
 
+    // Only glucose has an offline red-flag path today (see
+    // classifyVitalOffline) — weight/temperature/spo2/pulse still get the
+    // offline write queue below, just no on-device guidance/banner.
+    const flag = type === "glucose" ? await classifyVitalOffline(payload) : null;
+    if (flag?.severity === "emergency") onEmergency(flag.detail, false);
+    if (flag?.severity === "urgent") setUrgentBanner(flag.detail);
+
     const result = await logOtherVital(payload, beneficiaryProfileId);
     setSaving(false);
+    onLogged();
     if (result.error) {
       setError(result.error);
       return;
     }
+    if (flag?.severity === "emergency") onEmergency(flag.detail, !!result.synced);
     setSavedLabel(`Saved: ${value} ${selected.unit}`);
     setValue("");
   }
@@ -262,12 +466,16 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
         {OTHER_VITAL_TYPES.map((t) => (
           <Pressable
             key={t.id}
+            accessibilityRole="radio"
+            accessibilityLabel={t.label}
+            accessibilityState={{ selected: type === t.id, checked: type === t.id }}
+            hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }}
             onPress={() => resetForNewType(t.id)}
             style={{
               paddingVertical: 6,
               paddingHorizontal: 12,
               borderRadius: 999,
-              backgroundColor: type === t.id ? colors.brand : "rgba(23,23,23,0.05)",
+              backgroundColor: type === t.id ? colors.brand : inkAlpha(0.05),
             }}
           >
             <Text style={{ fontSize: 12.5, fontWeight: "600", color: type === t.id ? "#FFFFFF" : colors.muted }}>
@@ -288,6 +496,9 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
         />
         {type === "glucose" ? (
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`Glucose unit: ${glucoseUnit === "mmol_l" ? "millimoles per litre" : "milligrams per decilitre"}. Switches to ${glucoseUnit === "mmol_l" ? "milligrams per decilitre" : "millimoles per litre"}.`}
+            hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
             onPress={() => setGlucoseUnit((u) => (u === "mmol_l" ? "mg_dl" : "mmol_l"))}
             style={{
               height: 38,
@@ -310,6 +521,10 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
           {GLUCOSE_CONTEXTS.map((c) => (
             <Pressable
               key={c.id}
+              accessibilityRole="radio"
+              accessibilityLabel={`${c.label} glucose reading`}
+              accessibilityState={{ selected: glucoseContext === c.id, checked: glucoseContext === c.id }}
+              hitSlop={{ top: 9, bottom: 9, left: 2, right: 2 }}
               onPress={() => setGlucoseContext(c.id)}
               style={{
                 paddingVertical: 5,
@@ -335,6 +550,7 @@ function OtherVitalCard({ beneficiaryProfileId }: { beneficiaryProfileId?: strin
 
       {error ? <ErrorText>{error}</ErrorText> : null}
       {savedLabel ? <MutedText>{savedLabel}</MutedText> : null}
+      {urgentBanner ? <UrgentBanner detail={urgentBanner} /> : null}
       <PrimaryButton title="Save reading" onPress={handleSave} loading={saving} />
     </Card>
   );

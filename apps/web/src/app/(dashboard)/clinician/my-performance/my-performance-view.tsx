@@ -5,6 +5,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { formatNumber } from "@/lib/analytics/format";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { ProviderScorecardView } from "./provider-scorecard-view";
 
 export function MyPerformanceView() {
   const { data, isLoading, isError } = useMyProviderPerformance();
@@ -22,7 +23,7 @@ export function MyPerformanceView() {
     return (
       <Card>
         <CardContent className="py-6 text-sm text-charcoal-ink/60">
-          Nothing to show yet — this fills in as you review cases, confirm medications, and see
+          Nothing to show yet. This fills in as you review cases, confirm medications, and see
           patients.
         </CardContent>
       </Card>
@@ -128,9 +129,16 @@ export function MyPerformanceView() {
             per-caseload terms, not fee-per-service, so there is no per-consultation revenue
             figure that would mean anything here.
           </p>
-          <p>Patient feedback isn&apos;t shown: no patient-satisfaction data exists on the platform yet.</p>
+          {!data.patient_feedback_available ? (
+            <p>
+              Patient feedback isn&apos;t shown yet: none of your visits have an attributed rating
+              on file this period.
+            </p>
+          ) : null}
         </CardContent>
       </Card>
+
+      <ProviderScorecardView />
     </div>
   );
 }

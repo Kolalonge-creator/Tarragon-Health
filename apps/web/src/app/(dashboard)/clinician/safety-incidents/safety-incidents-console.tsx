@@ -90,7 +90,7 @@ function FileIncidentForm({ organisationId }: { organisationId: string }) {
       <CardHeader>
         <CardTitle>File a safety incident or near-miss</CardTitle>
         <CardDescription>
-          Anyone on the care team can file one — a near-miss you caught before it reached the
+          Anyone on the care team can file one. A near-miss you caught before it reached the
           patient is exactly what this log is for.
         </CardDescription>
       </CardHeader>
@@ -109,7 +109,7 @@ function FileIncidentForm({ organisationId }: { organisationId: string }) {
           <div>
             <Label>Severity</Label>
             <Select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
-              <option value="near_miss">Near miss — no harm reached the patient</option>
+              <option value="near_miss">Near miss (no harm reached the patient)</option>
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
@@ -228,7 +228,7 @@ function ReviewControls({ incident }: { incident: SafetyIncident }) {
           <Button
             size="sm"
             disabled={reviewOutcome.trim().length === 0 || review.isPending}
-            title="Locks this report permanently — no further edits after closing"
+            title="Locks this report permanently, no further edits after closing"
             onClick={() =>
               review.mutate({
                 incidentId: incident.id,

@@ -81,7 +81,7 @@ export function PartnerLocationEditor({
       const first = results[0];
       if (!first) {
         setGeocodeError(
-          "No match found for that address — check it and try again, or enter coordinates directly.",
+          "No match found for that address. Check it and try again, or enter coordinates directly.",
         );
         return;
       }
@@ -90,8 +90,8 @@ export function PartnerLocationEditor({
     } catch (e) {
       setGeocodeError(
         e instanceof Error
-          ? `Could not geocode that address (${e.message}) — enter coordinates directly instead.`
-          : "Could not geocode that address right now — enter coordinates directly instead.",
+          ? `Could not geocode that address (${e.message}). Enter coordinates directly instead.`
+          : "Could not geocode that address right now. Enter coordinates directly instead.",
       );
     } finally {
       setGeocoding(false);
@@ -120,7 +120,7 @@ export function PartnerLocationEditor({
         </div>
         {!geocodingLibrary && (
           <p className="text-xs text-charcoal-ink/50">
-            Geocoding needs NEXT_PUBLIC_GOOGLE_MAPS_API_KEY set — enter
+            Geocoding needs NEXT_PUBLIC_GOOGLE_MAPS_API_KEY set. Enter
             coordinates directly below in the meantime.
           </p>
         )}

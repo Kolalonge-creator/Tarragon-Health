@@ -1,9 +1,15 @@
 -- Tarragon Health — verification for
 -- 20260810120000_gate_vitals_red_flag_escalation_to_paid_plans.sql
 --
--- Proves, for a genuinely fresh Free-tier patient (no subscriptions row at
--- all) vs. a genuinely fresh paid-tier patient (an active 'complete'
--- subscription): a RED-range BP reading and an EMERGENCY-range SpO2 reading
+-- Updated 2026-08-31 for the pay-per-service migration: "paid" is now an
+-- active service_purchases row (complete_pack) rather than a subscriptions
+-- row — private.patient_has_feature_access itself was repointed at
+-- service_purchases (20260831141943_rewire_feature_access_to_service_purchases.sql),
+-- so this fixture just needs to match.
+--
+-- Proves, for a genuinely fresh Free-tier patient (no service_purchases row
+-- at all) vs. a genuinely fresh paid-tier patient (an active complete_pack
+-- purchase): a RED-range BP reading and an EMERGENCY-range SpO2 reading
 -- raise a clinician_alerts row for the paid patient, exactly as before, and
 -- raise NO clinician_alerts row plus an in_app self-care suggestion
 -- notification for the free patient. Also proves the free patient still gets
@@ -27,16 +33,29 @@ declare
   v_paid_patient  uuid := gen_random_uuid();
   v_complete_plan uuid;
 begin
-  select organisation_id into v_org
-  from public.profiles where role = 'patient' and organisation_id is not null limit 1;
-
+  -- Resolved from public.organisations, not from an existing patient: a
+  -- migration (20260706084837) seeds the direct-consumer org, so this holds on
+  -- a bare `supabase db reset`, where no patient profile exists yet.
+  select id into v_org from public.organisations limit 1;
   if v_org is null then
-    raise exception 'no organisation has patient profiles — cannot run this test';
+    insert into public.organisations (name, type)
+    values ('VRFPG Test Org', 'clinic')
+    returning id into v_org;
   end if;
 
-  select id into v_complete_plan from public.subscription_plans where code = 'complete' limit 1;
+  -- Resolved by FEATURE, not by the product code this file used to name.
+  -- complete_pack is is_active = false since the 2026-09-02 pay-per-service
+  -- pivot retired the packs: a by-code lookup still finds the row, still
+  -- inserts a purchase, and the paid patient then holds no entitlement at all,
+  -- so case 1 would report the paid patient behaving exactly like the free one
+  -- and read as a broken gate. Whatever product carries the feature today is
+  -- the right fixture.
+  select id into v_complete_plan
+  from public.service_products
+  where is_active and 'vitals_red_flag_doctor_escalation' = any(features)
+  order by code limit 1;
   if v_complete_plan is null then
-    raise exception 'no complete subscription_plans row found — cannot run this test';
+    raise exception 'VACUOUS: no active service_product grants vitals_red_flag_doctor_escalation — the paid half of this gate could not be exercised by anybody';
   end if;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
@@ -51,10 +70,11 @@ begin
   on conflict (id) do update
     set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
-  -- v_free_patient deliberately gets NO subscriptions row at all — the same
-  -- state a real Tarragon Free patient is in.
-  insert into public.subscriptions (organisation_id, subscriber_id, plan_id, status)
-  values (v_org, v_paid_patient, v_complete_plan, 'active');
+  -- v_free_patient deliberately gets NO service_purchases row at all — the
+  -- same state a real Tarragon Free patient is in.
+  insert into public.service_purchases
+    (organisation_id, patient_id, purchaser_profile_id, service_product_id, status, amount_kobo, currency, purchased_at, expires_at)
+  values (v_org, v_paid_patient, v_paid_patient, v_complete_plan, 'active', 2000000, 'NGN', now(), now() + interval '30 days');
 
   insert into vrfpg_fixture(k, v) values
     ('org', v_org), ('free_patient', v_free_patient), ('paid_patient', v_paid_patient);

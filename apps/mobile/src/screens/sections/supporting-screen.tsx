@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerson } from "@/lib/acting";
 import { colors, spacing } from "@/ui/theme";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/components";
@@ -29,9 +29,15 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
   const [switching, setSwitching] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
-    setPeople(await loadPeopleISupport(userId));
+    setLoadError(false);
+    try {
+      setPeople(await loadPeopleISupport(userId));
+    } catch {
+      setLoadError(true);
+    }
   }, [userId]);
 
   useEffect(() => {
@@ -61,6 +67,24 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
 
       {loading ? (
         <ActivityIndicator color={colors.brand} />
+      ) : loadError ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading the people you support"
+          onPress={() => {
+            setLoading(true);
+            load()
+              .catch(() => {})
+              .finally(() => setLoading(false));
+          }}
+        >
+          <Card style={{ gap: 6 }}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
+              We couldn&apos;t load this right now
+            </Text>
+            <MutedText>Check your connection and tap to try again.</MutedText>
+          </Card>
+        </Pressable>
       ) : people.length === 0 ? (
         <Card style={{ gap: 6 }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
@@ -86,7 +110,7 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
               {person.permissionLevel === "manage" ? (
                 isOpen ? (
                   <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand }}>
-                    Currently open — see the banner above to switch back.
+                    Currently open. See the banner above to switch back.
                   </Text>
                 ) : (
                   <SecondaryButton
@@ -111,7 +135,7 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
       <CalloutCard
         icon="wallet-outline"
         title="What you've funded"
-        subtitle="Vouchers, subscriptions and statements for everyone you support open in the full patient app."
+        subtitle="Vouchers and statements for everyone you support open in the full patient app."
         ctaLabel="Manage what you fund"
         onPress={() => setManageOpen(true)}
       />

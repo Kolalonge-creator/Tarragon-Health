@@ -159,8 +159,84 @@ export function PopulationDashboard() {
       </SectionCard>
 
       <SectionCard
+        title="Programme funnel"
+        description="Enrolled → actively monitored → controlled/uncontrolled → lost to follow-up, per chronic condition. Controlled/uncontrolled only exists today for hypertension (BP) and diabetes (glucose), shown as “—” elsewhere."
+        actions={<ExportButton filename="programme-funnel" rows={funnel ?? []} />}
+      >
+        {funnelLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : !funnel || funnel.length === 0 ? (
+          <CenterNote>No active care plans yet.</CenterNote>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
+                  <th className="py-2 pr-4 font-medium">Condition</th>
+                  <th className="py-2 pr-4 font-medium">Enrolled</th>
+                  <th className="py-2 pr-4 font-medium">Monitoring</th>
+                  <th className="py-2 pr-4 font-medium">Controlled</th>
+                  <th className="py-2 pr-4 font-medium">Uncontrolled</th>
+                  <th className="py-2 pr-4 font-medium">Lost to follow-up</th>
+                </tr>
+              </thead>
+              <tbody>
+                {funnel.map((row) => (
+                  <tr key={row.condition} className="border-b border-charcoal-ink/5">
+                    <td className="py-2 pr-4 capitalize text-charcoal-ink">
+                      {row.condition.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2 pr-4 tabular-nums">{row.enrolled}</td>
+                    <td className="py-2 pr-4 tabular-nums">{row.monitoring}</td>
+                    <td className="py-2 pr-4 tabular-nums">{row.controlled ?? "—"}</td>
+                    <td className="py-2 pr-4 tabular-nums">{row.uncontrolled ?? "—"}</td>
+                    <td className="py-2 pr-4 tabular-nums">{row.lost_to_follow_up}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
+        title="Disease surveillance"
+        description="New enrollments, risk-score computations, and screening results by month. Reports inflow, not a historical prevalence snapshot. Care plans only store current status, not a status-as-of-past-date history."
+        actions={<ExportButton filename="disease-surveillance" rows={surveillance?.new_enrollment_trend ?? []} />}
+      >
+        {surveillanceLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : !surveillance || surveillance.new_enrollment_trend.length === 0 ? (
+          <CenterNote>No care-plan enrollments recorded yet.</CenterNote>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-charcoal-ink/10 text-left text-xs uppercase tracking-wide text-charcoal-ink/50">
+                  <th className="py-2 pr-4 font-medium">Month</th>
+                  <th className="py-2 pr-4 font-medium">Condition</th>
+                  <th className="py-2 pr-4 font-medium">New enrollments</th>
+                </tr>
+              </thead>
+              <tbody>
+                {surveillance.new_enrollment_trend.map((row) => (
+                  <tr key={`${row.bucket}-${row.condition}`} className="border-b border-charcoal-ink/5">
+                    <td className="py-2 pr-4 text-charcoal-ink">{row.bucket.slice(0, 7)}</td>
+                    <td className="py-2 pr-4 capitalize text-charcoal-ink/80">
+                      {row.condition.replace(/_/g, " ")}
+                    </td>
+                    <td className="py-2 pr-4 tabular-nums">{row.count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </SectionCard>
+
+      <SectionCard
         title="Geographic distribution"
-        description="State-level risk concentration and overdue-screening load — never anyone's own location. A state with fewer than 10 patients shows as insufficient data, not a number."
+        description="State-level risk concentration and overdue-screening load, never anyone's own location. A state with fewer than 10 patients shows as insufficient data, not a number."
         actions={<ExportButton filename="geographic-health" rows={geo ?? []} />}
       >
         {geoLoading ? (

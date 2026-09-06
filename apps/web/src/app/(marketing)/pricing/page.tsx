@@ -1,65 +1,89 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Section, SectionHeading } from "../_components/section";
-import { PricingTable } from "../_components/pricing-table";
-import { fetchTierPriceOverrides } from "@/lib/marketing/plan-prices";
-import { PricingAddOns } from "../_components/pricing-addons";
+import { PricingFreeFeatures } from "../_components/pricing-free-features";
+import { PricingServices } from "../_components/pricing-services";
+import { fetchPlanPrices, servicePriceOverridesFrom } from "@/lib/marketing/plan-prices";
 import { PricingLabelBadge } from "../_components/pricing-label";
-import { PlanFinder } from "../_components/plan-finder";
 import { CtaBand } from "../_components/cta-band";
 import { Button } from "@/components/ui/button";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
-import { pageMetadata } from "@/lib/marketing/site";
+import { SITE, SITE_URL, absoluteUrl, pageMetadata } from "@/lib/marketing/site";
+import { paidServicesJsonLd } from "@/lib/marketing/structured-data";
 import {
   ALWAYS_FREE,
   ALWAYS_FREE_NOTE,
   EMPLOYER_HMO_NOTE,
-  PRICING_FAQ,
+  getPricingFaq,
+  PAID_SERVICES,
 } from "../_content/pricing";
 
 export const metadata: Metadata = pageMetadata({
   title: "Pricing",
   description:
-    "Transparent pricing for TarragonHealth plans in Nigeria (₦) and diaspora ($). No hidden costs: every line item is clearly labelled.",
+    "The app is free. You pay only for a doctor's time, priced per piece of work, in naira, with the exact price shown before you confirm. Nothing recurs.",
   path: MARKETING_ROUTES.pricing,
 });
 
 export const revalidate = 3600;
 
-/** FAQPage structured data for the pricing questions; eligible for rich results. */
-const pricingFaqJsonLd = {
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: PRICING_FAQ.map((faq) => ({
-    "@type": "Question",
-    name: faq.question,
-    acceptedAnswer: { "@type": "Answer", text: faq.answer },
-  })),
-};
-
 export default async function PricingPage() {
-  const priceOverrides = await fetchTierPriceOverrides();
+  const priceOverrides = servicePriceOverridesFrom(await fetchPlanPrices());
+  // Resolved once and used for both the rendered FAQ and its JSON-LD, so the
+  // structured data always quotes the same (live) prices as the visible page.
+  const pricingFaq = getPricingFaq(priceOverrides);
+  /** FAQPage structured data for the pricing questions; eligible for rich results. */
+  const pricingFaqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: pricingFaq.map((faq) => ({
+      "@type": "Question",
+      name: faq.question,
+      acceptedAnswer: { "@type": "Answer", text: faq.answer },
+    })),
+  };
+  /**
+   * Offer markup for the nine-item paid menu, built from the SAME resolved
+   * prices the page renders, so the structured data can never advertise a
+   * number the visible card contradicts. NGN only: Paystack is the one live
+   * provider and there is no other currency to quote.
+   */
+  const paidServicesStructuredData = paidServicesJsonLd({
+    services: PAID_SERVICES.map((service) => ({
+      id: service.id,
+      name: service.name,
+      description: service.description,
+      price: priceOverrides[service.code] ?? service.price,
+    })),
+    pageUrl: absoluteUrl(MARKETING_ROUTES.pricing),
+    providerName: SITE.name,
+    providerUrl: SITE_URL,
+  });
+
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(pricingFaqJsonLd) }}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(paidServicesStructuredData) }}
+      />
       <Section className="pt-20">
         <SectionHeading
           as="h1"
           eyebrow="Pricing"
-          title="Simple, transparent plans"
-          description="Every line item carries exactly one label: included, you pay the lab, free elsewhere, or add-on. No hidden costs."
+          title="The app is free. You pay for a doctor's time."
+          description="Everything you can do yourself costs nothing, with no time limit and no card required. We charge only when a doctor does a specific piece of work for you, and you always see that price first."
         />
-        {/* The early exit for somebody who did not come here to shop for a
-            subscription at all. A healthy visitor who wants one blood test has
-            very little patience for a plan comparison, and the Health Check is
-            genuinely pay-once on any plan, so sending them straight out of
-            this page is the honest thing to do rather than a leak. */}
+        {/* The early exit for somebody who came here for one blood test, not to
+            read a pricing page. The Health Check is genuinely pay-once and the
+            lab sets its own price, so sending them straight out of this page is
+            the honest thing to do rather than a leak. */}
         <div className="mx-auto mb-10 max-w-2xl rounded-xl border border-clinical-navy/15 bg-clinical-navy/[0.04] px-5 py-4 text-center">
           <p className="text-sm font-semibold text-clinical-navy">
-            Not looking for a plan? You do not need one.
+Just want one blood test? You do not need an account for that.
           </p>
           <p className="mt-1.5 text-sm text-charcoal-ink/75">
             You pay laboratories and pharmacies directly, at their price, for every test, including a
@@ -70,8 +94,7 @@ export default async function PricingPage() {
             <Link href={MARKETING_ROUTES.annualHealthCheck}>Book a one-off check instead</Link>
           </Button>
         </div>
-        <PlanFinder />
-        <PricingTable priceOverrides={priceOverrides} />
+        <PricingFreeFeatures />
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Button asChild size="lg">
             <Link href="/signup">Get started</Link>
@@ -83,7 +106,7 @@ export default async function PricingPage() {
         <p className="mt-6 text-center text-sm text-charcoal-ink/70">
           Want the full picture first? Read our{" "}
           <Link href={MARKETING_ROUTES.howPricingWorks} className="font-semibold text-brand-green underline underline-offset-2">
-            No-Hidden-Cost Promise, free trials, care vouchers, and how we compare to your HMO
+No-Hidden-Cost Promise, care vouchers, and how we compare to your HMO
           </Link>
           .
         </p>
@@ -91,15 +114,15 @@ export default async function PricingPage() {
 
       <Section variant="sage">
         <SectionHeading
-          eyebrow="Add-ons"
-          title="Optional extras, fully explained"
-          description="Nothing here is automatically added to your plan. You choose them, you see the price, you confirm."
+          eyebrow="What costs money"
+          title="A doctor's time, priced per piece of work"
+          description="Nothing here is ever added on your behalf: you choose it, you see the price, you confirm, and it does not renew. Screening bundles arranged with our partner laboratory are priced separately, and you see that price before you confirm those too."
         />
-        <PricingAddOns />
+        <PricingServices priceOverrides={priceOverrides} />
       </Section>
 
       <Section>
-        <SectionHeading eyebrow="What's always free" title="On any plan, including Free" />
+        <SectionHeading eyebrow="What's always free" title="Free, and not from us" />
         <div className="mx-auto max-w-2xl">
           <div className="rounded-xl border border-charcoal-ink/10 bg-white p-6">
             <div className="flex items-start justify-between gap-3">
@@ -122,7 +145,7 @@ export default async function PricingPage() {
           title="Frequently asked questions"
         />
         <div className="mx-auto grid max-w-4xl gap-4">
-          {PRICING_FAQ.map((faq) => (
+          {pricingFaq.map((faq) => (
             <details
               key={faq.question}
               className="group rounded-xl border border-charcoal-ink/10 bg-white p-5"

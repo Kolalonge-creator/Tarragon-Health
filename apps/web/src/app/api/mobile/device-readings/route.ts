@@ -103,16 +103,35 @@ export async function POST(request: Request): Promise<NextResponse> {
     // 23505 = unique_violation on vitals_readings_device_dedupe_idx — this
     // exact reading was already synced (retry/resync), so it's an
     // idempotent success, not an error; the pipeline already ran the first
-    // time this row was inserted.
+    // time this row was inserted. Still counted (55.10 "duplicate data").
     if (insertError.code === "23505") {
+      await supabase.rpc("bump_patient_device_ingestion_counters", {
+        p_device_id: device_id,
+        p_duplicates: 1,
+      });
       return NextResponse.json({ success: true, deduped: true });
     }
+    // 55.12 patient tech-support auto-diagnosis reads this column — a real
+    // insert failure must be visible there, not just in this response.
+    await supabase.rpc("bump_patient_device_ingestion_counters", {
+      p_device_id: device_id,
+      p_last_error: insertError.message,
+    });
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
+  // A real reading arriving is the signal that clears a prior "no data"
+  // flag from the device-connectivity cron (see
+  // /api/cron/device-connectivity-check) — the device is transmitting
+  // again, so there is no longer anything to notify the patient about.
   await supabase
     .from("patient_devices")
-    .update({ last_synced_at: new Date().toISOString() })
+    .update({
+      last_synced_at: new Date().toISOString(),
+      last_sync_error: null,
+      connectivity_status: "ok",
+      connectivity_notified_at: null,
+    })
     .eq("id", device_id);
 
   if (vital_type === "blood_pressure") {

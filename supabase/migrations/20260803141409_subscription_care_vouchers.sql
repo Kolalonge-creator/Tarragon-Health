@@ -204,10 +204,10 @@ begin
 end;
 $function$;
 
-revoke all on function public.purchase_subscription_voucher(uuid, uuid, text) from public;
+revoke all on function public.purchase_subscription_voucher(uuid, uuid, text) from public, anon;
 revoke all on function public.purchase_subscription_voucher(uuid, uuid, text) from anon;
 grant execute on function public.purchase_subscription_voucher(uuid, uuid, text) to authenticated;
-revoke all on function public.redeem_subscription_voucher(uuid) from public;
+revoke all on function public.redeem_subscription_voucher(uuid) from public, anon;
 revoke all on function public.redeem_subscription_voucher(uuid) from anon;
 grant execute on function public.redeem_subscription_voucher(uuid) to authenticated;
 

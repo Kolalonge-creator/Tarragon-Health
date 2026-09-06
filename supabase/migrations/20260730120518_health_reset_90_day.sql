@@ -117,7 +117,7 @@ as $$
   where r.patient_id = (select auth.uid());
 $$;
 
-revoke execute on function public.patient_health_reset_progress() from public;
+revoke execute on function public.patient_health_reset_progress() from public, anon;
 revoke execute on function public.patient_health_reset_progress() from anon;
 grant execute on function public.patient_health_reset_progress() to authenticated;
 
@@ -163,9 +163,9 @@ as $$
   from newly_completed;
 $$;
 
-revoke execute on function private.run_health_reset_completion() from public;
+revoke execute on function private.run_health_reset_completion() from public, anon;
 revoke execute on function private.run_health_reset_completion() from anon;
-revoke execute on function private.run_health_reset_completion() from authenticated;
+revoke execute on function private.run_health_reset_completion() from authenticated, anon;
 
 select cron.schedule(
   'health-reset-completion-daily',
@@ -254,7 +254,7 @@ begin
 end;
 $$;
 
-revoke execute on function public.claim_health_reset_trial() from public;
+revoke execute on function public.claim_health_reset_trial() from public, anon;
 revoke execute on function public.claim_health_reset_trial() from anon;
 grant execute on function public.claim_health_reset_trial() to authenticated;
 

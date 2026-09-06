@@ -17,6 +17,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { protocolContentText } from "./protocol-content-text";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
 
 const STATUS_BADGE: Record<string, { variant: BadgeProps["variant"]; label: string }> = {
   draft: { variant: "grey", label: "Draft" },
@@ -104,6 +106,23 @@ function DraftCard({ draft }: { draft: ProtocolDraft }) {
           <p className="text-sm text-red-700">Rejected: {draft.rejected_reason}</p>
         )}
 
+        {/* Same defect as the signed-version list had before this file's
+            sibling fix: content was written by the create-draft form and
+            never rendered anywhere, so "Promote & sign" was a blind click.
+            Open by default here, unlike the signed list's disclosure --
+            reading the draft before approving it is the whole point of a
+            review step, not an optional extra. */}
+        {protocolContentText(draft.content) && (
+          <details className="mt-1" open>
+            <summary className="cursor-pointer text-xs font-medium text-brand-green">
+              Read this draft
+            </summary>
+            <pre className="mt-2 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg bg-warm-ivory p-3 font-sans text-sm leading-relaxed text-charcoal-ink/90">
+              {protocolContentText(draft.content)}
+            </pre>
+          </details>
+        )}
+
         {open && (
           <div className="flex flex-wrap gap-2">
             {draft.status === "draft" && (
@@ -119,7 +138,7 @@ function DraftCard({ draft }: { draft: ProtocolDraft }) {
             <Button
               size="sm"
               disabled={promote.isPending}
-              title="Signs this as a new protocol_versions row — Director only"
+              title="Signs this as a new protocol_versions row (Director only)"
               onClick={() => promote.mutate(draft.id)}
             >
               {promote.isPending ? "Promoting…" : "Promote & sign"}
@@ -269,9 +288,11 @@ export function ProtocolDraftsManager() {
       {closed.length > 0 && (
         <div className="space-y-3">
           <h3 className="font-heading text-base font-semibold text-charcoal-ink">Promoted / rejected</h3>
-          {closed.map((d) => (
-            <DraftCard key={d.id} draft={d} />
-          ))}
+          <VersionHistoryList itemNoun="draft" defaultVisibleCount={5}>
+            {closed.map((d) => (
+              <DraftCard key={d.id} draft={d} />
+            ))}
+          </VersionHistoryList>
         </div>
       )}
     </div>

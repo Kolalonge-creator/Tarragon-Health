@@ -3,10 +3,14 @@ import type { LucideIcon } from "lucide-react";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { checkDependencies, type DependencyReport } from "@/lib/status/check-dependencies";
 import { businessSummarySchema, financialSummarySchema } from "@/lib/analytics/schemas";
-import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
+import { formatMinor, formatNumber } from "@/lib/analytics/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/server-query-state";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 
 type AdminTile = {
@@ -25,6 +29,23 @@ type AdminTileGroup = {
 function sectionId(label: string) {
   return label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 }
+
+/** "up"/"configured" reads as healthy, "down" as a real problem, "unconfigured"
+ * as neutral — a provider nobody's set up yet isn't a fault. */
+function statusBadgeVariant(status: string): "green" | "red" | "grey" {
+  if (status === "down") return "red";
+  if (status === "unconfigured") return "grey";
+  return "green";
+}
+
+const DEPENDENCY_LABELS: Record<keyof Omit<DependencyReport, "checked_at">, string> = {
+  supabase: "Supabase",
+  ml_service: "ML service",
+  whatsapp: "WhatsApp",
+  termii: "Termii SMS",
+  paystack: "Paystack",
+  resend: "Resend (email)",
+};
 
 export default async function AdminPage() {
   const profile = await getCurrentProfile();
@@ -45,6 +66,11 @@ export default async function AdminPage() {
   // A member only sees an operational tile if they can actually use that surface.
   // Tiles with no dedicated capability key stay super-admin-only.
   const can = (key: string) => isSuperAdmin || keys.has(key);
+  // Mirrors private.can_view_ops_console(): private.is_analyst() (role in
+  // ('analyst', 'admin')) OR the ops.console.view grant.
+  const canViewOps =
+    isSuperAdmin || profile?.role === "analyst" || keys.has("ops.console.view");
+  const canViewIncidents = isSuperAdmin || keys.has("incidents.view") || keys.has("incidents.manage");
 
   // Live platform KPIs for the welcome banner + stat row. The RPCs return
   // '{}' (parsed to all-zero defaults) for a caller who isn't analyst/admin,
@@ -59,6 +85,7 @@ export default async function AdminPage() {
     pendingVerificationRes,
     openBookingsRes,
     pendingBookingsRes,
+    dependencyReport,
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
@@ -75,6 +102,10 @@ export default async function AdminPage() {
       .from("booking_requests")
       .select("*", { count: "exact", head: true })
       .eq("status", "requested"),
+    // Same checks the unauthenticated /api/status route exposes — called
+    // directly here rather than fetched, since this page already renders
+    // server-side. See docs/BUSINESS_CONTINUITY_DR_SPEC.md.
+    checkDependencies(),
   ]);
 
   const business = businessSummarySchema.parse(businessRes.data ?? {});
@@ -84,11 +115,26 @@ export default async function AdminPage() {
   const openBookingsCount = openBookingsRes.count ?? 0;
   const pendingBookingsCount = pendingBookingsRes.count ?? 0;
 
-  const primaryMrr =
-    financial.mrr_by_currency.find((m) => m.currency === "NGN") ?? financial.mrr_by_currency[0];
-  const mrrDisplay = primaryMrr
-    ? formatMinor(primaryMrr.mrr_minor, primaryMrr.currency ?? "NGN")
-    : formatMinor(0, "NGN");
+  // Six reads, four tiles and one welcome sentence, all of which used to
+  // render a confident zero on failure. The `?? 0` and `?? {}` above are what
+  // made that invisible: they are fine as defaults for a successful read that
+  // genuinely returned nothing, and a lie for a read that never happened.
+  // Tracked per tile rather than per page so a single broken RPC does not
+  // blank three tiles that loaded perfectly well.
+  const patientsFailed = businessRes.error !== null;
+  const revenueFailed = financialRes.error !== null;
+  const cliniciansFailed = anyQueryFailed([activeClinicianRes, pendingVerificationRes]);
+  const bookingsFailed = anyQueryFailed([openBookingsRes, pendingBookingsRes]);
+  const failedTiles = failedQueryLabels([
+    { label: "patient numbers", error: businessRes.error },
+    { label: "revenue", error: financialRes.error },
+    { label: "clinician counts", error: cliniciansFailed ? true : null },
+    { label: "booking counts", error: bookingsFailed ? true : null },
+  ]);
+
+  // Revenue, not MRR: the app is free and Tarragon charges per piece of doctor
+  // work, so there is nothing recurring to report (2026-09-02 cutover).
+  const revenue90dDisplay = formatMinor(financial.revenue_90d_kobo, "NGN");
 
   const attentionParts: string[] = [];
   if (pendingVerificationCount > 0) {
@@ -101,10 +147,16 @@ export default async function AdminPage() {
       `${formatNumber(pendingBookingsCount)} pending booking request${pendingBookingsCount === 1 ? "" : "s"}`
     );
   }
+  // "You're caught up" is the one sentence on this page that must never be
+  // produced by a failed query. Both halves of it came from counts that
+  // defaulted to zero, so a broken read greeted an administrator with an
+  // explicit all-clear.
   const attentionCopy =
-    attentionParts.length > 0
-      ? `${attentionParts.join(" and ")} need attention today.`
-      : "Nothing needs attention right now — you're caught up.";
+    cliniciansFailed || bookingsFailed
+      ? "Today's counts could not be loaded, so this is not an all-clear. Check the verification and booking queues directly."
+      : attentionParts.length > 0
+        ? `${attentionParts.join(" and ")} need attention today.`
+        : "Nothing needs attention right now. You're caught up.";
 
   const groups: AdminTileGroup[] = [
     {
@@ -125,11 +177,25 @@ export default async function AdminPage() {
           visible: can("clinical_staff.manage"),
         },
         {
+          href: "/admin/settings/provider-restrictions",
+          label: "Provider restrictions",
+          blurb: "Staged, reason-coded suspension workflow for clinical staff",
+          icon: SEMANTIC_ICON.clinicianFollowUp,
+          visible: isSuperAdmin,
+        },
+        {
           href: "/admin/leads",
           label: "Leads",
           blurb: "Contact form and plan-finder submissions, including B2B",
           icon: NAV_ICON.inbox,
           visible: can("leads.manage"),
+        },
+        {
+          href: "/admin/patients/duplicates",
+          label: "Duplicate patients",
+          blurb: "Review flagged possible-duplicate patient records",
+          icon: NAV_ICON.review,
+          visible: can("patients.duplicates.review") || can("patients.merge"),
         },
       ],
     },
@@ -164,6 +230,13 @@ export default async function AdminPage() {
           icon: SEMANTIC_ICON.commission,
           visible: can("commissions.view"),
         },
+        {
+          href: "/admin/settings/outcomes-contracts",
+          label: "Fee-at-risk contracts",
+          blurb: "Review HMO/corporate-proposed fee-at-risk terms before they go live",
+          icon: SEMANTIC_ICON.commission,
+          visible: can("commissions.view"),
+        },
       ],
     },
     {
@@ -195,6 +268,26 @@ export default async function AdminPage() {
           label: "Prevention campaigns",
           blurb: "Time-boxed population health initiatives, e.g. Heart Health Month",
           icon: SEMANTIC_ICON.preventive,
+          visible: can("protocols.manage"),
+        },
+        {
+          // The §37 Symptom Assessment & Triage Engine's admin page
+          // (packages/symptom-triage-engine, PR #345) shipped with no nav
+          // entry anywhere -- this points here rather than to a second,
+          // parallel triage-protocol admin surface (see the 2026-09-02
+          // PR #376 reconciliation note in the ai-coach merge history for
+          // why only one symptom-triage implementation was kept).
+          href: "/admin/settings/triage-protocols",
+          label: "Symptom triage protocol",
+          blurb: "The decision tree behind the patient symptom checker",
+          icon: SEMANTIC_ICON.preventive,
+          visible: can("protocols.manage"),
+        },
+        {
+          href: "/admin/settings/lpe-content-library",
+          label: "Lifestyle coaching content",
+          blurb: "The AI Coach's reference material, draft until a Clinical Director signs it off",
+          icon: SEMANTIC_ICON.learn,
           visible: can("protocols.manage"),
         },
         {
@@ -239,15 +332,8 @@ export default async function AdminPage() {
       tiles: [
         {
           href: "/admin/settings/subscriptions",
-          label: "Subscription plans & add-ons",
-          blurb: "Create, price, and activate plans, synced to Paystack",
-          icon: SEMANTIC_ICON.billing,
-          visible: can("subscriptions.manage"),
-        },
-        {
-          href: "/admin/settings/diaspora-pricing",
-          label: "Diaspora pricing (USD)",
-          blurb: "USD pricing at the admin-set exchange rate",
+          label: "Retired subscription catalogue",
+          blurb: "Read-only history of the plans and add-ons retired in 2026",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },
@@ -306,11 +392,25 @@ export default async function AdminPage() {
           visible: can("broadcasts.send"),
         },
         {
+          href: "/admin/settings/notification-templates",
+          label: "Notification templates",
+          blurb: "The catalogue of every notification the platform sends",
+          icon: NAV_ICON.messages,
+          visible: can("notification_templates.manage"),
+        },
+        {
           href: "/admin/settings/integrations",
           label: "API keys & integrations",
           blurb: "Inbound partner keys and outbound partner APIs",
           icon: SEMANTIC_ICON.family,
           visible: can("integrations.manage"),
+        },
+        {
+          href: "/admin/settings/feature-flags",
+          label: "Feature flags",
+          blurb: "Roll a feature out to staff, a percentage, or a named cohort",
+          icon: NAV_ICON.settings,
+          visible: can("feature_flags.manage"),
         },
         {
           href: "/admin/settings/protocol-api",
@@ -320,11 +420,51 @@ export default async function AdminPage() {
           visible: can("integrations.manage"),
         },
         {
+          href: "/admin/settings/ai-governance",
+          label: "AI governance",
+          blurb: "Every AI system's incidents and kill switch",
+          icon: SEMANTIC_ICON.aiCoach,
+          visible: can("ai_governance.manage"),
+        },
+        {
           href: "/admin/testimonials",
           label: "Testimonials",
           blurb: "Review consented patient quotes before they go live",
           icon: NAV_ICON.review,
           visible: isSuperAdmin,
+        },
+        {
+          href: "/admin/settings/platform-modules",
+          label: "Platform modules",
+          blurb: "Activate the payer or provider-organisation platform",
+          icon: NAV_ICON.settings,
+          visible: isSuperAdmin,
+        },
+      ],
+    },
+    {
+      label: "Operations & governance",
+      tiles: [
+        {
+          href: "/admin/ops",
+          label: "Operations console",
+          blurb: "Tarragon Today, one exception queue across every domain, system health",
+          icon: NAV_ICON.operations,
+          visible: canViewOps,
+        },
+        {
+          href: "/admin/ops/incidents",
+          label: "Incident register",
+          blurb: "Clinical, technical, privacy, security, financial and operational incidents",
+          icon: NAV_ICON.siren,
+          visible: canViewIncidents,
+        },
+        {
+          href: "/admin/settings/feature-flags",
+          label: "Feature flags",
+          blurb: "Roll a feature out by state, role, org or percentage, no deploy",
+          icon: NAV_ICON.flag,
+          visible: can("feature_flags.manage"),
         },
       ],
     },
@@ -351,36 +491,73 @@ export default async function AdminPage() {
         )}
       </div>
 
+      {/* Unlike the clinician worklist strip, this one degrades per tile
+          rather than replacing the whole row: these four figures come from
+          four independent reads, and blanking three that loaded correctly to
+          report one that didn't would throw away more truth than it saves.
+          A failed tile shows StatTile's muted `empty` hint and drops its
+          delta line, so no number and no comparison is invented; the notice
+          below names which ones are missing. */}
+      {failedTiles.length > 0 && (
+        <LoadFailure>
+          The {joinLabels(failedTiles)} on this page could not be loaded. Those tiles show no
+          figure rather than a zero, and nothing here should be read as a platform total. Reload
+          to try again.
+        </LoadFailure>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={SEMANTIC_ICON.parentCare}
           label="Total patients"
-          value={formatNumber(business.total_patients)}
-          delta={{ text: `${formatNumber(business.active_patients)} active`, direction: "flat" }}
+          {...(patientsFailed
+            ? { empty: { hint: "Could not be loaded" } }
+            : {
+                value: formatNumber(business.total_patients),
+                delta: {
+                  text: `${formatNumber(business.active_patients)} active`,
+                  direction: "flat" as const,
+                },
+              })}
         />
         <StatTile
           icon={SEMANTIC_ICON.clinicianFollowUp}
           label="Active clinicians"
-          value={formatNumber(activeClinicianCount)}
-          delta={{
-            text: `${formatNumber(pendingVerificationCount)} pending verification`,
-            direction: "flat",
-          }}
+          {...(cliniciansFailed
+            ? { empty: { hint: "Could not be loaded" } }
+            : {
+                value: formatNumber(activeClinicianCount),
+                delta: {
+                  text: `${formatNumber(pendingVerificationCount)} pending verification`,
+                  direction: "flat" as const,
+                },
+              })}
         />
         <StatTile
           icon={SEMANTIC_ICON.billing}
-          label="MRR"
-          value={mrrDisplay}
-          delta={{ text: `${formatPercent(financial.churn_rate)} churn`, direction: "flat" }}
+          label="Revenue (90 days)"
+          {...(revenueFailed
+            ? { empty: { hint: "Could not be loaded" } }
+            : {
+                value: revenue90dDisplay,
+                delta: {
+                  text: `${formatNumber(financial.paid_purchases)} paid service${financial.paid_purchases === 1 ? "" : "s"}`,
+                  direction: "flat" as const,
+                },
+              })}
         />
         <StatTile
           icon={SEMANTIC_ICON.booking}
           label="Open bookings"
-          value={formatNumber(openBookingsCount)}
-          delta={{
-            text: `${formatNumber(pendingBookingsCount)} awaiting review`,
-            direction: "flat",
-          }}
+          {...(bookingsFailed
+            ? { empty: { hint: "Could not be loaded" } }
+            : {
+                value: formatNumber(openBookingsCount),
+                delta: {
+                  text: `${formatNumber(pendingBookingsCount)} awaiting review`,
+                  direction: "flat" as const,
+                },
+              })}
         />
       </div>
 
@@ -414,12 +591,36 @@ export default async function AdminPage() {
 
       <Card variant="soft">
         <CardHeader>
+          <CardTitle>System status</CardTitle>
+          <CardDescription>
+            Live dependency checks, also reachable unauthenticated at{" "}
+            <code className="text-xs">/api/status</code>, see{" "}
+            <code className="text-xs">docs/BUSINESS_CONTINUITY_DR_SPEC.md</code>.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <ul className="grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-3">
+            {(Object.keys(DEPENDENCY_LABELS) as Array<keyof typeof DEPENDENCY_LABELS>).map(
+              (key) => (
+                <li key={key} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="text-charcoal-ink/80">{DEPENDENCY_LABELS[key]}</span>
+                  <Badge variant={statusBadgeVariant(dependencyReport[key].status)}>
+                    {dependencyReport[key].status}
+                  </Badge>
+                </li>
+              )
+            )}
+          </ul>
+        </CardContent>
+      </Card>
+
+      <Card variant="soft">
+        <CardHeader>
           <CardTitle>On the roadmap</CardTitle>
           <CardDescription>Planned for an upcoming release.</CardDescription>
         </CardHeader>
         <CardContent>
           <ul className="list-inside list-disc space-y-1.5 text-sm text-charcoal-ink/80">
-            <li>System health: API latency, WhatsApp delivery, ML status</li>
             <li>ML model versioning + batch re-scoring trigger</li>
             <li>Audit trail + NDPR export/erasure tools</li>
           </ul>
