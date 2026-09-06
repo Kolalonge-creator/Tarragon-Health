@@ -1,24 +1,32 @@
--- lab_specimens_select: move onto the 2-arg, category-scoped can_read_clinical.
+-- lab_specimens_select: add the delegated-clinical-access branch, via the
+-- 2-arg, category-scoped can_read_clinical.
 --
 -- WHY THIS IS A SEPARATE MIGRATION rather than an edit to
 -- 20260829123155_lab_network_specimen_tracking.sql, where the policy is
 -- created. public.care_access_category and the 2-arg can_read_clinical
 -- overload are created by 20260830103251_category_scoped_clinical_access_and_
--- emergency_access.sql, which sorts AFTER that file. Writing the 2-arg call
--- into the 2026-08-29 migration is a forward reference: it is fine against a
--- database that is already fully migrated, and fails a replay from scratch
--- with `type "public.care_access_category" does not exist` (SQLSTATE 42704),
--- which is exactly what the migration-replay CI job caught. The original
--- migration therefore keeps the 1-arg call that was correct on its own date,
--- and this migration applies the category scoping once the type exists.
+-- emergency_access.sql, which sorts AFTER that file and drops the 1-arg
+-- can_read_clinical(uuid) overload with no CASCADE. Two ways this can break
+-- a replay from scratch, both hit in practice: writing the 2-arg call
+-- straight into the 2026-08-29 migration is a forward reference that fails
+-- with `type "public.care_access_category" does not exist` (SQLSTATE 42704)
+-- before 20260830103251 ever runs; and leaving the 1-arg call in that same
+-- migration instead makes 20260830103251's own `drop function
+-- private.can_read_clinical(uuid)` fail with "cannot drop function ...
+-- because other objects depend on it" (SQLSTATE 2BP01), since
+-- lab_specimens_select would still be depending on it at that exact point
+-- in the sequence. The original migration therefore omits the delegated-
+-- access branch entirely (self/staff/lab-partner only in the interim), and
+-- this migration adds it back in once the 2-arg form actually exists.
 --
 -- WHY IT MATTERS. lab_specimens is a table created after the category-scoped
 -- access model landed, so it is not covered by
 -- 20260902232555_fix_six_policies_still_on_legacy_can_read_clinical_overload.
--- Left on the 1-arg overload it would grant a consent-graph reader access to
--- specimen rows without the labs_results category actually being granted,
--- i.e. reads looser than the model intends -- the same class of drift
--- CLAUDE.md records for the reproductive-health tables.
+-- Without this migration, a consent-graph reader granted access to a
+-- different category would incorrectly have NO delegated read path onto
+-- specimen rows at all in the interim window -- the same class of drift
+-- CLAUDE.md records for the reproductive-health tables, just missing-access
+-- rather than over-broad-access this time.
 
 drop policy if exists lab_specimens_select on public.lab_specimens;
 

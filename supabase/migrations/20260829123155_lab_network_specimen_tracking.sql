@@ -61,17 +61,23 @@ create trigger lab_specimens_set_updated_at
 alter table public.lab_specimens enable row level security;
 
 -- Same visibility shape as lab_orders_select (20260731181143) plus the lab
--- partner branch lab_partner_orders already relies on. can_read_clinical is
--- the 2-arg, category-scoped form (20260830103251_category_scoped_clinical_
--- access_and_emergency_access.sql) -- this branch was written before that
--- migration existed on main-dev, so it still had the old 1-arg call; a
--- specimen's contents are lab results, hence 'labs_results'.
+-- partner branch lab_partner_orders already relies on -- minus the
+-- delegated-clinical-access branch, deliberately, for now. This migration
+-- predates 20260830103251_category_scoped_clinical_access_and_emergency_
+-- access.sql, which both introduces the 2-arg can_read_clinical(uuid,
+-- care_access_category) this branch needs AND does `drop function
+-- private.can_read_clinical(uuid)` with no CASCADE. A policy created here
+-- that referenced the old 1-arg form would still be depending on it at the
+-- exact moment that DROP runs later in a full replay, which fails the drop
+-- outright (SQLSTATE 2BP01) -- confirmed live by the migration-replay CI
+-- job, not a hypothetical. 20260906145717_lab_specimens_select_category_
+-- scoped.sql adds the can_read_clinical('labs_results') branch back in,
+-- once the 2-arg form actually exists to call.
 create policy lab_specimens_select on public.lab_specimens
   for select to authenticated
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id)
     or (provider_id is not null and provider_id = private.lab_partner_provider())
   );
 
