@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { CAREGIVER_PERMISSIONS, type CaregiverPermission } from "@/lib/validation/care-access";
 
 export type DependentKind = "minor_child" | "elder_proxy";
 
@@ -184,6 +185,10 @@ export interface CareFollower {
   /** Which categories of health information they can currently see — empty if none. */
   categories: CareAccessCategory[];
   since: string;
+  /** null = unrestricted (every capability a manage/view grant already implies). */
+  permissions: CaregiverPermission[] | null;
+  /** null = permanent. */
+  expiresAt: string | null;
 }
 
 /**
@@ -208,6 +213,7 @@ export function useMyCareFollowers() {
         .from("profile_access")
         .select(
           `id, permission_level, created_at,
+           permissions, expires_at,
            grantee:profiles!profile_access_grantee_user_id_fkey(id, full_name),
            categories:profile_access_categories(category)`
         )
@@ -225,6 +231,8 @@ export function useMyCareFollowers() {
             permissionLevel: row.permission_level as "view" | "manage",
             categories: (row.categories ?? []).map((c) => c.category as CareAccessCategory),
             since: row.created_at,
+            permissions: row.permissions as CaregiverPermission[] | null,
+            expiresAt: row.expires_at,
           },
         ];
       });
@@ -252,6 +260,66 @@ export function useSetCareAccessCategories() {
         p_grant_id: input.grantId,
         p_categories: input.categories,
       });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
+    },
+  });
+}
+
+/**
+ * Narrow (or widen back to unrestricted) what a 'manage' grantee can
+ * actually do. Same plain-update shape as useSetClinicalAccess — the
+ * profile_access_update policy already restricts this to the record owner,
+ * so there is nothing here for a server action to guard that the database
+ * does not already guard.
+ *
+ * Pass null for "everything" (today's default, and every grant made before
+ * this feature existed); pass an array to restrict to exactly those
+ * capabilities. An empty array is refused client-side before this ever
+ * runs — a manage grant with no capability at all is not a narrower grant,
+ * it is a confusing way to write "no access."
+ */
+export function useSetGranularPermissions() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { grantId: string; permissions: CaregiverPermission[] | null }) => {
+      if (input.permissions !== null && input.permissions.length === 0) {
+        throw new Error("Choose at least one thing they can do, or leave it unrestricted.");
+      }
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("profile_access")
+        .update({
+          permissions:
+            input.permissions !== null && input.permissions.length >= CAREGIVER_PERMISSIONS.length
+              ? null
+              : input.permissions,
+        })
+        .eq("id", input.grantId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-care-followers"] });
+    },
+  });
+}
+
+/**
+ * Make a grant temporary, extend it, or make it permanent again. Deleting it
+ * outright is revokeCareAccessAction (family/care-access-actions.ts); this
+ * only ever changes when it ends on its own, never whether it exists now.
+ */
+export function useSetExpiry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { grantId: string; expiresAt: string | null }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("profile_access")
+        .update({ expires_at: input.expiresAt })
+        .eq("id", input.grantId);
       if (error) throw error;
     },
     onSuccess: () => {

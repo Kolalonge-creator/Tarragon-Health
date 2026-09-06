@@ -32,7 +32,9 @@
 
 drop function if exists public.health_education_feed();
 
-create or replace function public.health_education_feed()
+drop function if exists public.health_education_feed();
+
+create function public.health_education_feed()
 returns table (
   content_id        uuid,
   code              text,

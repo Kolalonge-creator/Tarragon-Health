@@ -9,6 +9,8 @@ as $$
 $$;
 
 grant execute on function public.pharmacist_own_partner_id() to authenticated;
+revoke execute on function public.pharmacist_own_partner_id() from public;
+revoke execute on function public.pharmacist_own_partner_id() from anon;
 revoke execute on function public.pharmacist_own_partner_id() from public, anon;
 
 do $$

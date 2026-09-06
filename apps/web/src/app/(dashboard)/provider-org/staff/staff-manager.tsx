@@ -43,7 +43,7 @@ export function StaffManager({ organisationId, seats }: { organisationId: string
         <CardHeader>
           <CardTitle>Add a staff member</CardTitle>
           <CardDescription>
-            28.4 — one account role for every seat; authority is carried by the role picked here.
+            28.4: one account role for every seat; authority is carried by the role picked here.
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -148,6 +148,8 @@ $$;
 comment on function private.can_review_complaint_governance(uuid) is
   'Gate for the terminal §24.14 "Governance review" step: an admin, or the org''s Clinical Director. Deliberately narrower than private.can_handle_support_escalation (any clinical tier) — governance sign-off is a senior/administrative act, not a clinical-judgment one.';
 
+revoke all on function private.can_review_complaint_governance(uuid) from public;
+revoke all on function private.can_review_complaint_governance(uuid) from anon;
 revoke all on function private.can_review_complaint_governance(uuid) from public, anon;
 
 create or replace function private.enforce_complaint_write()

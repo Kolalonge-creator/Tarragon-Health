@@ -171,6 +171,12 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   lifestyle_review_due: "education_wellness",
   wellness_challenge_ending: "education_wellness",
   region_now_available: "education_wellness",
+  // Patient Engagement Engine (see private.queue_engagement_interventions) —
+  // same bucket as the other keep-up-with-your-care nudges above, rather than
+  // a dedicated engagement preferences table.
+  engagement_reminder_personalized: "education_wellness",
+  engagement_support_offer: "education_wellness",
+  engagement_alternative_channel_checkin: "education_wellness",
 
   sponsor_spend_receipt: "billing",
   sponsor_monthly_report: "billing",
@@ -680,6 +686,76 @@ const TEMPLATE_MAP: Record<
         "Tarragon Health app to see what's due; booking takes a minute. Tarragon Health",
     };
   },
+  // Patient Engagement Engine (§16.6/§16.13) — personalized reminder on a
+  // patient's first low-engagement reading (see
+  // private.queue_engagement_interventions). `lowest_dimension` names
+  // whichever area is dragging the composite down, so the copy points at
+  // something specific and actionable — the spec's own example ("Your blood
+  // pressure reading is due today. It takes about one minute.") rather than a
+  // vague "review your care obligations."
+  engagement_reminder_personalized: (payload) => {
+    const dimension = typeof payload.lowest_dimension === "string" ? payload.lowest_dimension : null;
+    const DIMENSION_COPY: Record<string, string> = {
+      monitoring: "It looks like a monitoring reading is overdue — logging one takes about a minute.",
+      appointments: "You've got an appointment that could use a bit of attention.",
+      medication: "A medication check-in is waiting — a quick answer helps your care team keep track.",
+      lifestyle: "It's been a little quiet on your lifestyle log — even a small update helps.",
+      prevention: "A screening or vaccination on your schedule is coming up.",
+      app_usage: "We haven't seen you in a little while — everything OK?",
+      messages: "There's a message from your care team waiting on a reply.",
+      care_plan: "There's a step on your care plan that's still open.",
+    };
+    const message =
+      (dimension && DIMENSION_COPY[dimension]) ||
+      "A quick check-in on your health record would help keep things on track.";
+    return {
+      metaTemplateName: "engagement_reminder_personalized",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app. Tarragon Health`,
+      pushUrl: "/patient",
+    };
+  },
+  // Sent once a patient's low engagement has repeated across 3+ nightly
+  // checks — a softer, help-offering tone rather than the same reminder
+  // again (spec §16.6's Patient B example: "You've missed several BP
+  // readings. Would you like help setting up a simpler routine?").
+  engagement_support_offer: (payload) => {
+    const dimension = typeof payload.lowest_dimension === "string" ? payload.lowest_dimension : null;
+    const DIMENSION_COPY: Record<string, string> = {
+      monitoring: "your monitoring readings",
+      appointments: "your appointments",
+      medication: "your medication check-ins",
+      lifestyle: "your lifestyle log",
+      prevention: "your screenings and vaccinations",
+      app_usage: "checking in on the app",
+      messages: "replying to your care team",
+      care_plan: "your care plan",
+    };
+    const area = (dimension && DIMENSION_COPY[dimension]) || "keeping up with your care plan";
+    const message = `We've noticed it's been a bit of a stretch with ${area}. Would a simpler routine help? Your care team is happy to talk it through.`;
+    return {
+      metaTemplateName: "engagement_support_offer",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app, or message your care team. Tarragon Health`,
+      pushUrl: "/patient",
+    };
+  },
+  // Sent when a patient has gone quiet AND recent notification attempts on
+  // their preferred channel haven't landed (compute_care_engagement_scores'
+  // 'unreachable' level) — tried on a different channel than usual, on the
+  // theory the usual one may simply not be working for them right now.
+  engagement_alternative_channel_checkin: () => {
+    const message =
+      "We've been trying to reach you and wanted to check in a different way — is everything OK?";
+    return {
+      metaTemplateName: "engagement_alternative_channel_checkin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app, or reply here. Tarragon Health`,
+    };
+  },
   // Sent when a doctor answers the patient's ask-a-doctor consult (see
   // answerAsyncConsult). Notification only — the answer itself lives in-app.
   async_consult_answered: () => {
@@ -1011,31 +1087,38 @@ const TEMPLATE_MAP: Record<
   // No clinical content, for the same reason as the spend receipt above:
   // "nothing logged in 20 days" is a statement about activity, not health.
   sponsor_monthly_report: (payload) => {
-    const people = Array.isArray(payload.people)
-      ? (payload.people as Record<string, unknown>[])
-      : [];
-    const money = (kobo: unknown) => (Number(kobo ?? 0) / 100).toLocaleString("en-NG");
-    const totalSpent = people.reduce((sum, p) => sum + Number(p?.spent_kobo ?? 0), 0);
-    const headline = `₦${money(totalSpent)} became care last month`;
+    // CORRECTED 2026-09-05. This builder read `people[]`, `spent_kobo` and
+    // `balance_kobo` — a Health-Wallet-era payload shape retired by
+    // 20260731215735_retire_health_wallet.sql. The live producer,
+    // private.queue_sponsor_monthly_reports(), emits FLAT keys for ONE
+    // person: beneficiary_name, ready_count, saving_count, used_this_month
+    // and spent_naira. So every sponsor report that has ever been sent said
+    // "₦0 became care last month" over an empty table.
+    //
+    // spent_naira is ALREADY IN NAIRA (the producer divides by 100). The old
+    // money() helper divided by 100 again, so simply reconnecting the new key
+    // to it would have rendered ₦500 as ₦5. There is no kobo value in this
+    // payload at all, and nothing here divides.
+    //
+    // The in-app copy of this same notification (notification-bell.tsx) was
+    // migrated to the flat shape when the producer changed; only this edge
+    // function was left behind.
+    const naira = (value: unknown) => {
+      const amount = Number(value ?? 0);
+      return Number.isFinite(amount) ? amount.toLocaleString("en-NG") : "0";
+    };
+    const name = String(payload.beneficiary_name ?? "someone you support");
+    const spent = naira(payload.spent_naira);
+    const used = Number(payload.used_this_month ?? 0);
+    const ready = Number(payload.ready_count ?? 0);
+    const saving = Number(payload.saving_count ?? 0);
 
-    const rows = people
-      .map((person) => {
-        const name = String(person?.name ?? "someone you support");
-        const bills = Number(person?.awaiting_payment ?? 0);
-        const quiet = person?.quiet_days === null ? null : Number(person?.quiet_days ?? 0);
-        const notes: string[] = [];
-        if (bills > 0) {
-          notes.push(`${bills} ${bills === 1 ? "bill is" : "bills are"} waiting to be paid for`);
-        }
-        if (quiet !== null && quiet >= 21) notes.push(`nothing logged in ${quiet} days`);
-        return (
-          `<tr><td style="padding:6px 12px 6px 0"><strong>${name}</strong></td>` +
-          `<td style="padding:6px 12px 6px 0">&#8358;${money(person?.spent_kobo)} spent</td>` +
-          `<td style="padding:6px 12px 6px 0">&#8358;${money(person?.balance_kobo)} left</td>` +
-          `<td style="padding:6px 0;color:#5b6b78">${notes.join("; ") || "nothing outstanding"}</td></tr>`
-        );
-      })
-      .join("");
+    const headline = `₦${spent} became care for ${name} last month`;
+    const usedLine =
+      used === 1 ? "1 thing you bought was used" : `${used} things you bought were used`;
+    const readyLine =
+      ready === 1 ? "1 is ready and waiting to be used" : `${ready} are ready and waiting to be used`;
+    const savingLine = saving > 0 ? `${saving} more is being saved towards.` : "";
 
     return {
       metaTemplateName: "sponsor_monthly_report",
@@ -1047,8 +1130,13 @@ const TEMPLATE_MAP: Record<
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Here is what happened last month with the care you are paying for.</p>` +
-          `<table style="border-collapse:collapse;margin:16px 0">${rows}</table>` +
-          `<p style="color:#5b6b78;font-size:13px">Anything marked as waiting to be paid for can be settled from their Health Wallet under People you support.</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:6px 12px 6px 0">Person</td><td style="padding:6px 0"><strong>${name}</strong></td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Paid last month</td><td style="padding:6px 0"><strong>&#8358;${spent}</strong></td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Used</td><td style="padding:6px 0">${usedLine}</td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Ready</td><td style="padding:6px 0">${readyLine}${savingLine ? ` ${savingLine}` : ""}</td></tr>` +
+          `</table>` +
+          `<p style="color:#5b6b78;font-size:13px">You can see everything you have funded, and what it paid for, under People you support in your dashboard.</p>` +
           `<p style="color:#5b6b78;font-size:13px">This summary covers money and activity only. Their readings, results and notes stay between them and their care team.</p>` +
           `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
           `</div>`,

@@ -207,7 +207,7 @@ function InvestigationStage({ complaintId }: { complaintId: string }) {
       <CardHeader>
         <CardTitle className="text-base">Investigation file</CardTitle>
         <CardDescription>
-          Visible to handlers only — never to the subject provider, even once they can see the
+          Visible to handlers only, never to the subject provider, even once they can see the
           complaint itself.
         </CardDescription>
       </CardHeader>
@@ -278,7 +278,7 @@ function ProviderResponseStage({
         <CardTitle className="text-base">Provider&apos;s response</CardTitle>
         <CardDescription>
           Requested {responseRequestedAt ? new Date(responseRequestedAt).toLocaleDateString() : "—"}.
-          The provider submits this themselves from their own account — it can&apos;t be entered
+          The provider submits this themselves from their own account. It can&apos;t be entered
           here on their behalf.
         </CardDescription>
       </CardHeader>
@@ -359,14 +359,14 @@ function GovernanceReviewStage({
         <CardTitle className="text-base">Governance review</CardTitle>
         <CardDescription>
           {requiresGovernance
-            ? "A clinical complaint may only close through a signed governance review — the database refuses any other path."
-            : "Optional for a non-clinical complaint — you can close directly."}
+            ? "A clinical complaint may only close through a signed governance review. The database refuses any other path."
+            : "Optional for a non-clinical complaint. You can close directly."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         {!callerIsClinicalDirector ? (
           <p className="text-sm text-amber-700">
-            Only an active Clinical Director can sign this review — the database will reject the
+            Only an active Clinical Director can sign this review. The database will reject the
             write otherwise.
           </p>
         ) : null}

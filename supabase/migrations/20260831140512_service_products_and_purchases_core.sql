@@ -143,9 +143,9 @@ create policy service_purchases_delete on public.service_purchases
 
 grant select, insert, update, delete on public.service_products to authenticated;
 grant select, insert, update, delete on public.service_purchases to authenticated;
+revoke all on public.service_products from anon;
 -- A from-scratch environment's base Supabase template grants table DML to
 -- anon by default at CREATE TABLE time too -- revoke explicitly on both.
-revoke all on public.service_products from anon;
 revoke all on public.service_purchases from anon;
 
 -- ---------------------------------------------------------------------------

@@ -59,7 +59,9 @@ begin
 
   insert into public.profiles (id, organisation_id, role, full_name, is_dependent_account)
   values (v_dependent, v_org, 'patient', 'Gov Test Dependent', true)
-  on conflict (id) do update set organisation_id = excluded.organisation_id, is_dependent_account = true;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name, is_dependent_account = true;
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values
@@ -68,7 +70,8 @@ begin
     (v_dependent_manager, v_org, 'patient', 'Gov Test Dependent Manager'),
     (v_adult_manager, v_org, 'patient', 'Gov Test Adult Manager'),
     (v_medical_history_grantee, v_org, 'patient', 'Gov Test MedHist Grantee')
-  on conflict (id) do update set organisation_id = excluded.organisation_id;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   -- === 1. patient_timeline per-row category ===
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)

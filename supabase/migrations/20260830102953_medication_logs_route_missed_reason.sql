@@ -94,6 +94,8 @@ begin
 end;
 $$;
 
+revoke execute on function private.route_missed_dose_reason() from public;
+revoke execute on function private.route_missed_dose_reason() from anon;
 revoke execute on function private.route_missed_dose_reason() from public, anon;
 
 drop trigger if exists medication_logs_route_missed_reason on public.medication_logs;

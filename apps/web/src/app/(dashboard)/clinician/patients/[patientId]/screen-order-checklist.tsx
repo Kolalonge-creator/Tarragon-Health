@@ -189,7 +189,7 @@ export function ScreenOrderChecklist({
         </ul>
         {done.length === item.codes.length && (
           <p className="text-xs text-charcoal-ink/60">
-            Every applicable code for this order has a result — it should show as resulted shortly.
+            Every applicable code for this order has a result, so it should show as resulted shortly.
           </p>
         )}
       </CardContent>

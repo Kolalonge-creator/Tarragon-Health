@@ -93,18 +93,11 @@ export interface SpecialistProviderMatchFilters {
  * keeps the query itself simple.
  *
  * Powers the patient-initiated find-a-specialist entry point
- * (find-a-specialist.tsx), which is read-only/informational — assigning a
- * specialist_provider to a live referral is a clinician action via the
- * reactivated set_referral_specialist_provider() RPC
- * (20260828233653_activate_partner_specialist_booking.sql), not this hook.
- * The prior clinician-side picker (choose-referral-specialist.tsx) and its
- * useAssignSpecialistProvider mutation were removed as dead code by the
- * Referral Management Engine build (#338) — that mutation wrote
- * specialist_provider_id/referral_fee_kobo directly without ever setting
- * fulfilment='partner', so the self-arranged-fulfilment trigger rejected
- * every call. A future clinician-side assignment UI should call
- * set_referral_specialist_provider() (which sets fulfilment correctly)
- * rather than resurrecting that raw-update pattern.
+ * (find-a-specialist.tsx), which is read-only/informational, and the
+ * clinician-side AssignSpecialistProviderForm on the referral detail page
+ * (assigning a specialist_provider to a live referral is a clinician action
+ * via the reactivated set_referral_specialist_provider() RPC — see
+ * useAssignSpecialistProvider below).
  */
 export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFilters) {
   const { specialistType, state, city, requireTelemedicine, hmo, maxFeeKobo, language } = filters;
@@ -155,6 +148,43 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
 }
 
 export type SpecialistProvider = Tables<"specialist_providers">;
+
+/**
+ * Assigns a real, active, specialty-matched specialist_providers row to a
+ * pending/waitlisted referral — the partner-booking path (as opposed to the
+ * self-arranged default every referral otherwise stays on). Routed through
+ * public.set_referral_specialist_provider (RPC), not a raw `.update()` — a
+ * plain update would violate specialist_referrals_enforce_fulfilment's
+ * self_arranged guard, since every referral defaults to self_arranged and
+ * only this RPC flips fulfilment to 'partner' as part of assigning. The RPC
+ * re-validates the provider is genuinely active and specialty-matched
+ * server-side and locks in the fee from the provider's own row — never a
+ * client-supplied value. No scoring/ranking here or in the RPC — org staff
+ * still pick manually from useMatchedSpecialistProviders' plain filtered
+ * list, per the CLINICAL_NETWORK_SPEC.md §3 guardrail.
+ */
+export function useAssignSpecialistProvider() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      referralId,
+      specialistProviderId,
+    }: {
+      referralId: string;
+      specialistProviderId: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("set_referral_specialist_provider", {
+        p_referral_id: referralId,
+        p_specialist_provider_id: specialistProviderId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["specialist-referrals"] });
+    },
+  });
+}
 
 /**
  * Creates a specialist referral (67.2/67.3/67.4). Self-arranged, like every
@@ -418,3 +448,4 @@ export function useCloseReferral() {
     },
   });
 }
+

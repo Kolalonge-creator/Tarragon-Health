@@ -17,7 +17,7 @@ export function CreateEmployerForm() {
     <Card>
       <CardHeader>
         <CardTitle>Register a new employer</CardTitle>
-        <CardDescription>Module 26 §26.3, step one — creates the organisation and its account record.</CardDescription>
+        <CardDescription>Module 26 §26.3, step one: creates the organisation and its account record.</CardDescription>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="flex flex-wrap items-end gap-3">

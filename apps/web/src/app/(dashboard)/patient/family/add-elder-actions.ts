@@ -59,7 +59,7 @@ export async function addElderProxyDependentAction(
       error:
         found.id === proxy.id
           ? "That's your own number."
-          : `${found.full_name ?? "Someone"} already has a Tarragon account on that number. Ask them to accept an eldercare request from Your people instead — they keep control of their own record that way.`,
+          : `${found.full_name ?? "Someone"} already has a Tarragon account on that number. Ask them to accept an eldercare request from Your people instead. They keep control of their own record that way.`,
     };
   }
 

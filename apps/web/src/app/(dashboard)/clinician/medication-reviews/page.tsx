@@ -16,8 +16,8 @@ import { Select } from "@/components/ui/select";
 
 /** Medication safety pathway 64.14: what the reviewing doctor decided. */
 const OUTCOME_LABEL: Record<MedicationReviewOutcome, string> = {
-  continue: "Continue — regimen unchanged",
-  change: "Change — dose or drug",
+  continue: "Continue (regimen unchanged)",
+  change: "Change (dose or drug)",
   stop: "Stop",
   escalate: "Escalate to a senior tier",
 };

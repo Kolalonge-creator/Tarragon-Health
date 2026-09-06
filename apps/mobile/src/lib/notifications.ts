@@ -32,17 +32,14 @@ export async function loadNotifications(userId: string): Promise<InAppNotificati
   }));
 }
 
-export async function markNotificationRead(id: string): Promise<void> {
-  await supabase.from("notifications").update({ status: "read" }).eq("id", id);
-}
-
 export async function markAllNotificationsRead(userId: string): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("notifications")
     .update({ status: "read" })
     .eq("recipient_id", userId)
     .eq("channel", "in_app")
     .neq("status", "read");
+  if (error) throw error;
 }
 
 /** Short line for the notification dropdown — covers the templates most

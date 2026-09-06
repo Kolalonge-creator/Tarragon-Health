@@ -78,6 +78,8 @@ import {
   Thermometer,
   Wind,
   Heart,
+  Cigarette,
+  Wine,
   ReceiptText,
   Briefcase,
   Workflow,
@@ -88,6 +90,7 @@ import {
   HeartHandshake,
   Flag,
   Siren,
+  LifeBuoy,
   type LucideIcon,
 } from "lucide-react";
 
@@ -138,6 +141,10 @@ export const SEMANTIC_ICON = {
   spo2: Wind,
   pulse: Heart,
   hrv: Activity,
+  smoking: Cigarette,
+  alcohol: Wine,
+  exerciseProgramme: Dumbbell,
+  barrier: AlertTriangle,
 } as const satisfies Record<string, LucideIcon>;
 
 /** Meal-type tab icons for the "Log a meal" picker — a page-local visual set,
@@ -191,6 +198,10 @@ export const NAV_ICON = {
   chevronRight: ChevronRight,
   security: KeyRound,
   devices: Bluetooth,
+  // Patient Support & Service Centre (spec §24) — the patient-facing
+  // technical-support ticket entry point and the staff support-ticket
+  // queue/complaints pages.
+  helpCenter: LifeBuoy,
   attachment: Paperclip,
   download: Download,
   healthyAgeing: HeartHandshake,

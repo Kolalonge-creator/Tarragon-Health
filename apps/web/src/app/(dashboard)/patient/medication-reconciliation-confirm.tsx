@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 /**
  * Medication safety pathway 64.3, step 1 of 2 — "Patient confirms". Shown
@@ -21,6 +22,7 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
   const { data: open } = useOpenMedicationReconciliation(patientId);
   const confirm = useConfirmMedicationList(patientId);
   const [note, setNote] = useState("");
+  const errorId = fieldErrorId("reconciliation_note");
 
   if (open?.patient_confirmed_at) {
     // Already confirmed, waiting on the clinician side — nothing more for
@@ -34,8 +36,8 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
         <CardTitle>Confirm your medication list</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-charcoal-ink/70">
-          Is the medication list above still accurate — nothing missing, nothing you&apos;ve
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+          Is the medication list above still accurate, nothing missing, nothing you&apos;ve
           stopped taking? Confirming lets your care team reconcile it at your next visit.
         </p>
         <div className="space-y-1.5">
@@ -46,16 +48,13 @@ export function MedicationReconciliationConfirm({ patientId }: { patientId: stri
             onChange={(event) => setNote(event.target.value)}
             maxLength={500}
             placeholder="e.g. I stopped taking ibuprofen a month ago"
+            {...fieldErrorProps(errorId, confirm.isError)}
           />
         </div>
-        {confirm.isError && (
-          <p className="text-sm text-red-600">
-            {(confirm.error as Error).message || "Could not confirm your medication list."}
-          </p>
-        )}
-        {confirm.isSuccess && (
-          <p className="text-sm text-brand-green">Thanks — your care team can now reconcile it.</p>
-        )}
+        {/* The raw mutation message used to be printed first, which meant a
+            Supabase error string was the patient's headline. */}
+        <FormError id={errorId} message={confirm.isError && "Could not confirm your medication list."} />
+        <FormSuccess message={confirm.isSuccess && "Thanks. Your care team can now reconcile it."} />
         <Button
           size="sm"
           variant="outline"

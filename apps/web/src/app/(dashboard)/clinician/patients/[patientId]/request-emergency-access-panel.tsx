@@ -76,7 +76,7 @@ export function RequestEmergencyAccessPanel({
         <CardDescription>
           You can request time-boxed emergency access if you&apos;re treating them now. This is
           logged, expires in 8 hours, and their home-organisation clinical director reviews it
-          afterward — use it for a genuine emergency, not routine care.
+          afterward. Use it for a genuine emergency, not routine care.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

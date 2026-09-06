@@ -118,14 +118,14 @@ export function NextOfKinForm({ current }: { current: NextOfKinState }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        {success && <p className="text-sm text-brand-green">{success}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+        {success && <p className="text-sm text-brand-green dark:text-brand-green-bright">{success}</p>}
 
         {current.name && (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-charcoal-ink/10 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <div>
-              <p className="text-sm font-medium text-charcoal-ink">{current.name}</p>
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{current.name}</p>
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 {RELATIONSHIP_LABEL[current.relationship ?? "other"] ?? current.relationship} ·{" "}
                 {current.phone}
                 {current.grantId
@@ -183,7 +183,7 @@ export function NextOfKinForm({ current }: { current: NextOfKinState }) {
               onChange={(event) => setPhone(event.target.value)}
               required
             />
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               If this number belongs to a Tarragon account, they&apos;ll be able to follow your
               care straight away.
             </p>

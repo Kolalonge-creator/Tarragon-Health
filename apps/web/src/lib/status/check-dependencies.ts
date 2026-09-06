@@ -30,7 +30,6 @@ export interface DependencyReport {
   whatsapp: ConfiguredCheck;
   termii: ConfiguredCheck;
   paystack: ConfiguredCheck;
-  stripe: ConfiguredCheck;
   resend: ConfiguredCheck;
 }
 
@@ -97,7 +96,6 @@ export async function checkDependencies(): Promise<DependencyReport> {
     whatsapp: checkConfigured(process.env.WHATSAPP_TOKEN),
     termii: checkConfigured(process.env.TERMII_API_KEY),
     paystack: checkConfigured(process.env.PAYSTACK_SECRET_KEY),
-    stripe: checkConfigured(process.env.STRIPE_SECRET_KEY),
     resend: checkConfigured(process.env.RESEND_API_KEY),
   };
 }

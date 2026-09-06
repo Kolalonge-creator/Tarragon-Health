@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 const SENIOR_CASE_REVIEW_CREDIT_CODE = "senior_case_review_credit";
 
 function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
@@ -26,7 +27,7 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
   return (
     <li className="space-y-1 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">{review.situation_summary}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{review.situation_summary}</p>
         {completed ? (
           <Badge variant="green">Plan ready</Badge>
         ) : review.status === "declined" ? (
@@ -36,21 +37,21 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
         )}
       </div>
       {!completed && review.status !== "declined" && (
-        <p className="text-xs text-charcoal-ink/60">
-          Expect a response by {new Date(review.sla_due_at).toLocaleString()}.
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+          Expect a response by {formatPatientDateTime(review.sla_due_at)}.
         </p>
       )}
       {review.status === "declined" && review.declined_reason && (
-        <p className="text-xs text-red-600">{review.declined_reason}</p>
+        <p className="text-xs text-red-600 dark:text-red-300">{review.declined_reason}</p>
       )}
       {completed && review.written_plan && (
-        <div className="rounded-lg border border-brand-green/20 bg-brand-green/[0.04] p-3">
-          <p className="whitespace-pre-wrap text-sm text-charcoal-ink">{review.written_plan}</p>
+        <div className="rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 bg-brand-green/[0.04] dark:bg-brand-green/15 p-3">
+          <p className="whitespace-pre-wrap text-sm text-charcoal-ink dark:text-night-ink">{review.written_plan}</p>
           {review.reviewer && review.reviewed_at && (
-            <p className="mt-1 text-xs text-charcoal-ink/60">
+            <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Dr. {review.reviewer.full_name}
               {credential ? ` (${credential})` : ""} ·{" "}
-              {new Date(review.reviewed_at).toLocaleDateString()}
+              {formatPatientDate(review.reviewed_at)}
             </p>
           )}
         </div>
@@ -128,15 +129,15 @@ export function SeniorCaseReviewCard({
         <CardTitle>Senior case review</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           Managing more than one condition, or feel your plan isn&apos;t quite right? A senior doctor
           reviews your whole record and sends you a written plan, coordinated across everything
           you&apos;re managing.
         </p>
 
         {!isCheckingCredit && !hasCredit && (
-          <div className="space-y-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
-            <p className="text-sm text-charcoal-ink">Buy a credit to request a review.</p>
+          <div className="space-y-2 rounded-md border border-brand-green/30 dark:border-brand-green-bright/30 bg-brand-green/5 dark:bg-brand-green/15 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">Buy a credit to request a review.</p>
             <Button size="sm" disabled={isBuying} onClick={buyCredit}>
               {isBuying ? "Redirecting to payment…" : "Buy a credit"}
             </Button>
@@ -154,9 +155,9 @@ export function SeniorCaseReviewCard({
             disabled={!hasCredit}
           />
         </div>
-        {formError && <p className="text-sm text-red-600">{formError}</p>}
+        {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
         {request.isSuccess && (
-          <p className="text-sm text-brand-green">
+          <p className="text-sm text-brand-green dark:text-brand-green-bright">
             Sent to a senior doctor. Expect a written plan within 5 days.
           </p>
         )}
@@ -165,7 +166,7 @@ export function SeniorCaseReviewCard({
         </Button>
 
         {reviews && reviews.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10 border-t border-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 border-t border-charcoal-ink/10 dark:border-night-ink/15">
             {reviews.map((r) => (
               <ReviewRow key={r.id} review={r} />
             ))}

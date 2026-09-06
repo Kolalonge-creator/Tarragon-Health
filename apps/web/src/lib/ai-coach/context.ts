@@ -74,6 +74,23 @@ export interface PatientContext {
    * (not generic) reply — e.g. so the coach can say "since your diabetes
    * risk is elevated" rather than nothing. */
   elevatedConditions: string[];
+  /** Subset of elevatedConditions tiered 'high' or 'very_high' specifically
+   * (not just "above low") — §78.17 high-risk-condition safety-layer
+   * signal, kept separate from elevatedConditions so graph.ts can react
+   * with extra caution rather than lumping moderate/high/very_high/unknown
+   * together the way the plain "above low" list does. */
+  highRiskConditions: string[];
+  /** From patient_pregnancy.is_pregnant — §78.17 pregnancy safety-layer
+   * signal. False when no row exists (never assumed true from absence). */
+  isPregnant: boolean;
+  /** profiles.date_of_birth-derived, best-effort — §78.17 paediatric
+   * safety-layer signal. This platform is individual-enrolment-only (no
+   * ParentCare/family plans, no dependent-minor profiles by design — see
+   * CLAUDE.md), so a genuinely paediatric patient shouldn't normally occur
+   * here; this is a defensive check for the case a self-registered account
+   * turns out to belong to a minor, not a claim that paediatric care is a
+   * supported product surface. Null when date_of_birth isn't on file. */
+  possibleMinor: boolean | null;
   /** The patient's active/paused/etc lifestyle programme enrolments, so a
    * reply can be grounded in their real condition/phase/goals rather than
    * generic health chat — see graph.ts's contextLine composition. */
@@ -123,6 +140,22 @@ function formatVitalValue(row: {
   if (row.temperature_c !== null) return { value: String(row.temperature_c), unit: "°C" };
   if (row.pulse_bpm !== null) return { value: String(row.pulse_bpm), unit: "bpm" };
   return { value: "unknown", unit: null };
+}
+
+const MINOR_AGE_CUTOFF = 18;
+
+/** `now` is injectable (same convention as ai-coach/lagos-day.ts's
+ * startOfLagosDayUtc) so age-boundary behaviour is testable without the
+ * result depending on whatever day the test happens to run. */
+export function isPossiblyMinor(dateOfBirth: string | null, now: Date = new Date()): boolean | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  let age = now.getFullYear() - dob.getFullYear();
+  const hasHadBirthdayThisYear =
+    now.getMonth() > dob.getMonth() ||
+    (now.getMonth() === dob.getMonth() && now.getDate() >= dob.getDate());
+  if (!hasHadBirthdayThisYear) age -= 1;
+  return age < MINOR_AGE_CUTOFF;
 }
 
 /** Patient-wide (not per-enrollment) — matches the same scoping
@@ -186,6 +219,7 @@ export async function loadPatientContext(
     labsResult,
     appointmentsResult,
     lifestyleResult,
+    pregnancyResult,
   ] = await Promise.allSettled([
     supabase.from("prevention_risk_scores").select("condition, tier").eq("profile_id", profileId).neq("tier", "low"),
     supabase.from("profiles").select("date_of_birth, sex").eq("id", profileId).maybeSingle(),
@@ -234,16 +268,31 @@ export async function loadPatientContext(
         hasOpenRedFlag,
       }));
     })(),
+    // §78.17 pregnancy safety-layer signal.
+    supabase.from("patient_pregnancy").select("is_pregnant").eq("patient_id", profileId).maybeSingle(),
   ]);
 
-  const elevatedConditions =
-    riskScoresResult.status === "fulfilled" ? (riskScoresResult.value.data ?? []).map((row) => row.condition) : [];
+  const riskScoreRows = riskScoresResult.status === "fulfilled" ? (riskScoresResult.value.data ?? []) : [];
+  const elevatedConditions = riskScoreRows.map((row) => row.condition);
+  // §78.17 high-risk-condition safety-layer signal -- subset of
+  // elevatedConditions tiered 'high'/'very_high' specifically, kept
+  // separate so graph.ts can react with extra caution.
+  const highRiskConditions = riskScoreRows
+    .filter((row) => row.tier === "high" || row.tier === "very_high")
+    .map((row) => row.condition);
 
   const profileRow = profileResult.status === "fulfilled" ? profileResult.value.data : null;
   const demographics: PatientDemographics = {
     ageYears: computeAgeYears(profileRow?.date_of_birth ?? null),
     sex: profileRow?.sex ?? null,
   };
+  // §78.17 paediatric safety-layer signal -- see isPossiblyMinor's own doc
+  // comment for why this is a defensive check, not a supported scenario.
+  const possibleMinor = isPossiblyMinor(profileRow?.date_of_birth ?? null);
+  // §78.17 pregnancy safety-layer signal -- false when no row exists
+  // (never assumed true from absence).
+  const isPregnant =
+    pregnancyResult.status === "fulfilled" ? (pregnancyResult.value.data?.is_pregnant ?? false) : false;
 
   const activeConditions: ActiveConditionSummary[] =
     conditionsResult.status === "fulfilled"
@@ -295,6 +344,9 @@ export async function loadPatientContext(
   return {
     demographics,
     elevatedConditions,
+    highRiskConditions,
+    isPregnant,
+    possibleMinor,
     lifestyleProgrammes,
     activeConditions,
     activeMedications,

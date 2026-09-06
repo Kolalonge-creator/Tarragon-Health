@@ -3,6 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums, Tables } from "@tarragon/shared";
 import { lagosDateString } from "@/lib/ai-coach/lagos-day";
+import { computeCycleInsights, type CycleInsight } from "@/lib/rules/cycle-insights";
+import {
+  detectThermalShift,
+  type ThermalShiftResult,
+} from "@/lib/rules/cycle-thermal-shift";
 import {
   predictCycle,
   type CyclePrediction,
@@ -15,6 +20,7 @@ export type MenstrualDailyLog = Tables<"menstrual_daily_logs">;
 export type MenstrualFlowLevel = Enums<"menstrual_flow_level">;
 export type MenstrualSymptom = Enums<"menstrual_symptom">;
 export type MenstrualMood = Enums<"menstrual_mood">;
+export type MenstrualOvulationTestResult = Enums<"menstrual_ovulation_test_result">;
 
 /**
  * How far back the tracker reads. Two years comfortably covers the six
@@ -174,6 +180,9 @@ export interface SaveDailyLogInput {
   symptoms: MenstrualSymptom[];
   moods: MenstrualMood[];
   notes?: string | null;
+  /** Celsius, taken at rest before rising. */
+  basalBodyTemperatureC?: number | null;
+  ovulationTestResult?: MenstrualOvulationTestResult | null;
 }
 
 export function useSaveDailyLog() {
@@ -190,6 +199,8 @@ export function useSaveDailyLog() {
           symptoms: input.symptoms,
           moods: input.moods,
           notes: input.notes ?? null,
+          basal_body_temperature_c: input.basalBodyTemperatureC ?? null,
+          ovulation_test_result: input.ovulationTestResult ?? null,
         },
         { onConflict: "patient_id,log_date" }
       );
@@ -209,6 +220,9 @@ export interface UseCycleTrackerResult {
   cycles: MenstrualCycle[];
   dailyLogs: MenstrualDailyLog[];
   prediction: CyclePrediction;
+  insights: CycleInsight[];
+  /** Thermal shift for the CURRENT cycle only. */
+  thermalShift: ThermalShiftResult;
   /** The open period, if the patient is currently bleeding and has not ended it. */
   openCycle: MenstrualCycle | null;
   today: string;
@@ -266,10 +280,50 @@ export function useCycleTracker(
     return daysSinceStart >= 0 && daysSinceStart <= 14 ? latest : null;
   }, [cycles, today]);
 
+  const insights = useMemo(
+    () =>
+      computeCycleInsights({
+        periods: cycles.map((c) => ({
+          startDate: c.period_start_date,
+          endDate: c.period_end_date,
+        })),
+        dailyLogs: dailyLogs.map((log) => ({
+          date: log.log_date,
+          symptoms: log.symptoms ?? [],
+          moods: log.moods ?? [],
+        })),
+        today,
+        expectedCycleLengthDays: prediction.expectedCycleLengthDays,
+        averagePeriodDurationDays: prediction.stats.averagePeriodDurationDays,
+      }),
+    [cycles, dailyLogs, today, prediction]
+  );
+
+  // Scoped to the current cycle on purpose: the previous cycle's luteal
+  // temperatures would otherwise sit in the baseline window and mask this
+  // cycle's rise entirely.
+  const thermalShift = useMemo(() => {
+    const cycleStart = prediction.lastPeriodStartDate;
+    return detectThermalShift(
+      dailyLogs
+        .filter(
+          (log) =>
+            log.basal_body_temperature_c != null &&
+            (!cycleStart || log.log_date >= cycleStart)
+        )
+        .map((log) => ({
+          date: log.log_date,
+          temperature: Number(log.basal_body_temperature_c),
+        }))
+    );
+  }, [dailyLogs, prediction.lastPeriodStartDate]);
+
   return {
     cycles,
     dailyLogs,
     prediction,
+    insights,
+    thermalShift,
     openCycle,
     today,
     isLoading: cyclesQuery.isLoading || logsQuery.isLoading,

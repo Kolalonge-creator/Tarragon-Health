@@ -19,7 +19,7 @@ export function RetryPaymentButton({ serviceProductCode }: { serviceProductCode:
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Redirecting…" : "Retry payment"}
       </Button>
-      {state?.error && <p className="pt-1 text-xs text-red-600">{state.error}</p>}
+      {state?.error && <p className="pt-1 text-xs text-red-600 dark:text-red-300">{state.error}</p>}
     </form>
   );
 }

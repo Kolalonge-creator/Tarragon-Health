@@ -100,7 +100,12 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
 
   const refreshActing = useCallback(() => {
-    getActingFor().then(setActing);
+    // Best-effort: a failed read (e.g. SecureStore hiccup) falls back to the
+    // device owner's own account rather than crashing with an unhandled
+    // rejection — the safe default for whose record gets written.
+    getActingFor()
+      .then(setActing)
+      .catch(() => setActing(null));
   }, []);
 
   useEffect(() => {
@@ -185,9 +190,12 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {webviewPath && <WebViewScreen key={webviewPath} path={webviewPath} />}
       </View>
 
+      {/* handleSelect, not setSection: switching tabs must also close the
+          drawer and clear any open device detail, same as every other
+          navigation entry point. */}
       <BottomTabBar
         activeSection={section}
-        onSelect={setSection}
+        onSelect={handleSelect}
         onMore={() => setDrawerOpen(true)}
       />
 

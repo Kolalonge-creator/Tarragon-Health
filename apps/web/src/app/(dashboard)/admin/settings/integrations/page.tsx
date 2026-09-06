@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import { IntegrationsManager } from "./integrations-manager";
 import { IntegrationMonitoringPanel } from "./monitoring-panel";
 
@@ -45,16 +46,10 @@ export default async function IntegrationsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Integrations</h1>
-        <p className="text-charcoal-ink/60">
-          Inbound API keys let device clouds and partner platforms push data into
-          TarragonHealth (see docs/INTEGRATIONS_API.md for the partner-facing spec).
-          Outbound connections register partner APIs this platform calls, and webhook
-          endpoints receive events (a result becoming available, an appointment being
-          cancelled) as they happen.
-        </p>
-      </div>
+      <PageHeader
+        title="Integrations"
+        description="Inbound API keys let device clouds and partner platforms push data into TarragonHealth (see docs/INTEGRATIONS_API.md for the partner-facing spec). Outbound connections register partner APIs this platform calls, and webhook endpoints receive events (a result becoming available, an appointment being cancelled) as they happen."
+      />
       <IntegrationMonitoringPanel
         catalogue={catalogue ?? []}
         health={health?.[0] ?? null}

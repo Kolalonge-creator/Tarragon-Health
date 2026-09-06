@@ -11,6 +11,7 @@ import { StepsExplorer } from "./steps-explorer";
 import { MARKETING_MEDIA, PRODUCT_VIDEOS } from "../_content/media";
 import type { ProductPageContent } from "../_content/products";
 import { PRICING_HREF } from "../_content/products";
+import { cn } from "@/lib/utils";
 
 export function ProductPageTemplate({
   content,
@@ -89,8 +90,19 @@ export function ProductPageTemplate({
       <Section>
         <SectionHeading title="What's included" />
         <ul className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2">
-          {content.included.map((item) => (
-            <Card key={item} asChild className="hover:shadow-sm">
+          {content.included.map((item, index) => (
+            <Card
+              key={item}
+              asChild
+              className={cn(
+                "hover:shadow-sm",
+                // An odd count would leave the last card orphaned in the left
+                // column; span it instead so the grid always closes cleanly.
+                index === content.included.length - 1 &&
+                  content.included.length % 2 === 1 &&
+                  "sm:col-span-2"
+              )}
+            >
               <li className="p-4 text-charcoal-ink/75">
                 <span className="mr-2 font-semibold text-brand-green">Included:</span>
                 {item}

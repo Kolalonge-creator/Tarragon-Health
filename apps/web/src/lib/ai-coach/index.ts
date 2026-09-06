@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { CoachChatMessage, CoachTier, Database } from "@tarragon/shared";
+import type { CoachChatMessage, CoachSuggestedAction, CoachTier, Database } from "@tarragon/shared";
 import { buildCoachGraph, type CoachGraphDeps } from "./graph";
 import { COACH_ACCESS_DENIED_REPLY, hasCoachAccess } from "./entitlement";
 import { COACH_LIMIT_REACHED_REPLY, countMessagesToday, getCoachDailyLimit } from "./rate-limit";
@@ -47,6 +47,14 @@ interface CoachTurnOutcome {
    * outcome. */
   readonly modelId?: string | null;
   readonly retrievedSourceIds?: string[];
+  /** §78.18 auditability -- human-readable titles of any retrieved content
+   * that fed this reply, for the persisted assistant message. See
+   * graph.ts's CoachState doc comment for why this is separate from
+   * retrievedSourceIds. */
+  readonly knowledgeSourceUsed?: string[];
+  /** §78.2 in-chat suggestion the model classified for this reply, or
+   * "none"/absent on the kill-switch fallback path. */
+  readonly suggestedAction?: CoachSuggestedAction;
   readonly clinicianAlertId?: string | null;
   readonly referralRequestClinicianAlertId?: string | null;
   readonly careMessageThreadId?: string | null;
@@ -184,6 +192,8 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
           escalationId: result.escalationId ?? null,
           modelId: result.modelId,
           retrievedSourceIds: result.retrievedSourceIds,
+          knowledgeSourceUsed: result.knowledgeSourceUsed,
+          suggestedAction: result.suggestedAction,
           clinicianAlertId: result.clinicianAlertId,
           referralRequestClinicianAlertId: result.referralRequestClinicianAlertId,
           careMessageThreadId: result.careMessageThreadId,
@@ -234,6 +244,12 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
           patientId: profileId,
           conversationId: threadId,
           triggerMessage: message,
+          // The graph never ran on this path (AI-001 is switched off), so
+          // there's no turn history to draw a handoff summary from -- an
+          // empty array short-circuits buildCoachHandoffSummary to its
+          // template fallback (see handoff-summary.ts).
+          recentMessages: [],
+          aiAction: "Escalated immediately via deterministic safety-keyword match while the AI Coach was switched off",
         });
         escalationId = escalation.escalationId;
       } catch (error) {
@@ -254,6 +270,18 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     role: "assistant",
     content: reply,
     tier,
+    suggestedAction:
+      governed.value.suggestedAction && governed.value.suggestedAction !== "none"
+        ? governed.value.suggestedAction
+        : undefined,
+    // Absent (not a real model call) for a keyword-guardrail-only emergency
+    // reply, or for the kill-switch fallback path — see CoachState's
+    // modelId doc comment. §78.18 auditability.
+    model: governed.value.modelId ?? undefined,
+    knowledgeSourceUsed:
+      governed.value.knowledgeSourceUsed && governed.value.knowledgeSourceUsed.length > 0
+        ? governed.value.knowledgeSourceUsed
+        : undefined,
     created_at: now,
   };
   await appendMessages(supabase, conversationId, fullMessages, [userMessage, assistantMessage]);

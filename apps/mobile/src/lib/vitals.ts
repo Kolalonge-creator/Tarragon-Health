@@ -105,6 +105,21 @@ async function enqueueAndSync(
   return { clientReadingId: queued.clientReadingId, synced: !stillPending };
 }
 
+/** Best-effort read of the patient's Nigerian state of residence
+ * (profiles.state) so EmergencyGuidanceModal can show a state-specific
+ * emergency line where one exists (see nigeria-emergency-numbers.ts's
+ * STATE_OVERRIDES) — mirrors the web dashboard's subjectState
+ * (apps/web/src/app/(dashboard)/patient/dashboard-context.ts). Returns null
+ * offline or when unset, which resolves to the national line either way. */
+export async function loadPatientState(patientId: string): Promise<string | null> {
+  try {
+    const { data } = await supabase.from("profiles").select("state").eq("id", patientId).maybeSingle();
+    return data?.state ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export interface OfflineVitalFlag {
   /** "emergency" takes over the screen with EmergencyGuidanceModal;
    * "urgent" is a same-day concern that only gets a lightweight inline
@@ -125,13 +140,13 @@ export async function classifyVitalOffline(payload: VitalReadingPayload): Promis
     if (level === "emergency") {
       return {
         severity: "emergency",
-        detail: `Blood pressure ${payload.systolic}/${payload.diastolic} mmHg — crisis range.`,
+        detail: `Blood pressure ${payload.systolic}/${payload.diastolic} mmHg is in the crisis range.`,
       };
     }
     if (level === "red") {
       return {
         severity: "urgent",
-        detail: `Blood pressure ${payload.systolic}/${payload.diastolic} mmHg is high — your care team will review today.`,
+        detail: `Blood pressure ${payload.systolic}/${payload.diastolic} mmHg is high. Your care team will review it today.`,
       };
     }
     return null;

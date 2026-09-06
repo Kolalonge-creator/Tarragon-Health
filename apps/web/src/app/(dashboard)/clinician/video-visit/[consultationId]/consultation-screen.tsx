@@ -79,7 +79,7 @@ function PublishSummarySection({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Patient summary</CardTitle>
-          <CardDescription>Published — the patient can see this on their dashboard.</CardDescription>
+          <CardDescription>Published. The patient can see this on their dashboard.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-1 text-sm text-charcoal-ink/80">
           <p>
@@ -116,9 +116,9 @@ function PublishSummarySection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">68.17 — Publish a summary for the patient</CardTitle>
+        <CardTitle className="text-base">68.17: Publish a summary for the patient</CardTitle>
         <CardDescription>
-          A short, plain-language recap — not the clinical note itself. The patient will see exactly
+          A short, plain-language recap, not the clinical note itself. The patient will see exactly
           what you write here.
         </CardDescription>
       </CardHeader>
@@ -255,7 +255,7 @@ export function ConsultationScreen({
           )}
           {isJoinable && !consult.host_start_url && (
             <p className="text-sm text-charcoal-ink/60">
-              Setting up the video link — refresh in a moment, or check that Zoom is configured.
+              Setting up the video link. Refresh in a moment, or check that Zoom is configured.
             </p>
           )}
 
@@ -307,7 +307,7 @@ export function ConsultationScreen({
             <div className="space-y-1 rounded-md border border-charcoal-ink/10 p-2.5">
               <p className="text-xs font-medium text-charcoal-ink/70">Poor connection?</p>
               <p className="text-xs text-charcoal-ink/60">
-                Ask the patient to turn their camera off and continue on audio only — Zoom keeps
+                Ask the patient to turn their camera off and continue on audio only. Zoom keeps
                 the call running on a much lower-bandwidth connection that way. If audio also keeps
                 dropping, end the call and use &ldquo;Technical failure&rdquo; below rather than
                 leaving the appointment in progress with no outcome recorded.
@@ -328,7 +328,7 @@ export function ConsultationScreen({
                   )
                 }
               >
-                Technical failure — end &amp; reschedule
+                Technical failure: end &amp; reschedule
               </Button>
               <Button
                 size="sm"

@@ -56,7 +56,7 @@ export function ReportAiAnswer({
   if (state.status === "sent") {
     return (
       <p className="text-xs text-brand-green">
-        Thank you — your care team has this. Someone will look at it.
+        Thank you. Your care team has this. Someone will look at it.
       </p>
     );
   }

@@ -42,8 +42,8 @@ begin
   values (v_staff, v_org, 'clinician', 'MRO Test Staff')
   on conflict (id) do update
     set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, doctor_tier)
-  values (v_org, v_staff, 'MRO Test Staff', true, 'tier_2');
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, doctor_tier, license_verified_at, verified_by)
+  values (v_org, v_staff, 'MRO Test Staff', true, 'tier_2', now(), v_patient);
 
   -- Two separate care plans, each 'draft' (not 'active'), so
   -- care_plans_ensure_review never auto-schedules a review of its own —

@@ -21,19 +21,19 @@ export async function CoordinatedCareSummaryCard({ patientId }: { patientId: str
         <CardTitle>Coordinated care</CardTitle>
         <CardDescription>
           {summary.activeConditionCount > 1
-            ? `${summary.activeConditionCount} conditions being managed together — one view, not ${summary.activeConditionCount} separate ones.`
+            ? `${summary.activeConditionCount} conditions being managed together: one view, not ${summary.activeConditionCount} separate ones.`
             : "What's active across your care right now."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {summary.actions.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">Nothing needs attention right now.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing needs attention right now.</p>
         ) : (
           <ul className="space-y-2">
             {summary.actions.map((action) => (
-              <li key={action.key} className="rounded-lg border border-charcoal-ink/10 p-3">
-                <p className="text-sm font-medium text-charcoal-ink">{action.label}</p>
-                <p className="mt-0.5 text-xs text-charcoal-ink/60">{action.detail}</p>
+              <li key={action.key} className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{action.label}</p>
+                <p className="mt-0.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">{action.detail}</p>
               </li>
             ))}
           </ul>

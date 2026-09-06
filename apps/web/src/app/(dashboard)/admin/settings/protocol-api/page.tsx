@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { ProtocolApiManager } from "./protocol-api-manager";
 
 /**
@@ -20,24 +22,34 @@ export default async function ProtocolApiSettingsPage() {
   if (!(await hasPermission("integrations.manage"))) redirect("/admin");
 
   const supabase = await createClient();
-  const { data: partners } = await supabase.rpc("admin_list_protocol_partners");
+  const { data: partners, error: partnersError } = await supabase.rpc("admin_list_protocol_partners");
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Protocol API</h1>
-        <p className="max-w-2xl text-charcoal-ink/60">
-          License Tarragon&apos;s validated, stateless classifiers (BP triage, FINDRISC diabetes
-          screening, cardiovascular-risk stratification) to a partner clinic, state PHC, or NGO --
-          without giving them a patient-serving tenant on this platform. Every call is stateless:
-          no patient record is created or touched, only the call itself is logged. See{" "}
-          <code className="rounded bg-mist-grey/60 px-1 py-0.5 text-xs">
-            docs/INTEGRATIONS_API.md
-          </code>{" "}
-          for the partner-facing spec.
-        </p>
-      </div>
-      <ProtocolApiManager partners={partners ?? []} />
+      <PageHeader
+        title="Protocol API"
+        description={
+          <>
+            License Tarragon&apos;s validated, stateless classifiers (BP triage, FINDRISC diabetes
+            screening, cardiovascular-risk stratification) to a partner clinic, state PHC, or NGO --
+            without giving them a patient-serving tenant on this platform. Every call is stateless:
+            no patient record is created or touched, only the call itself is logged. See{" "}
+            <code className="rounded bg-mist-grey/60 px-1 py-0.5 text-xs">
+              docs/INTEGRATIONS_API.md
+            </code>{" "}
+            for the partner-facing spec.
+          </>
+        }
+      />
+      {partnersError ? (
+        <LoadFailure>
+          The protocol API partners could not be loaded. This is not a report that none are
+          licensed, and no issued key is visible here. Reload before adding a partner that may
+          already exist.
+        </LoadFailure>
+      ) : (
+        <ProtocolApiManager partners={partners ?? []} />
+      )}
     </div>
   );
 }

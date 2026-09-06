@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
-import { createClient } from "@/lib/supabase/server";
+import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSection } from "@/components/ui/dashboard-section";
@@ -46,17 +46,13 @@ import { DevelopmentalScreeningCard } from "@/app/(dashboard)/patient/developmen
  * anchorIds so those deep links keep landing on the right tab.
  */
 export default async function PreventionHubPage() {
-  const { profile, subjectId, subjectDateOfBirth } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectSex, subjectDateOfBirth } = await getPatientDashboardContext();
 
-  const supabase = await createClient();
-  const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "lab_coordination",
-  });
-  const { data: preventionCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "prevention_coordination",
-  });
-  const screeningBookingEnabled =
-    (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
+  // The screening calendar and lab-request coordination are free to every
+  // patient since the pay-per-service rework — neither costs clinician time.
+  // Kept as a named constant rather than deleted so the downstream layout
+  // reads the same, and so re-gating it later is a one-line change.
+  const screeningBookingEnabled = true;
 
   const location = { state: profile.state, city: profile.city, area: profile.area };
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);
@@ -162,7 +158,11 @@ export default async function PreventionHubPage() {
         <div className="space-y-6">
           <PreventionCampaignsCard patientId={subjectId} />
           <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
-          {profile.sex === "female" && profile.organisation_id && (
+          {/* Permissive on an unrecorded sex, deliberately: see
+              shouldOfferCycleTracking. The strict `=== "female"` test this
+              replaces left the cycle tracker with no entry point at all for
+              the majority of accounts, which carry no recorded sex. */}
+          {shouldOfferCycleTracking(subjectSex) && profile.organisation_id && (
             <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
           )}
         </div>
@@ -179,14 +179,14 @@ export default async function PreventionHubPage() {
     >
       <Card className="border-brand-green/25">
         <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-soft-sage">
-            <SEMANTIC_ICON.preventive className="h-6 w-6 text-deep-forest" strokeWidth={2} />
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-soft-sage dark:bg-brand-green/20">
+            <SEMANTIC_ICON.preventive className="h-6 w-6 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           </span>
           <div className="flex-1">
-            <p className="font-heading text-base font-semibold text-charcoal-ink">
+            <p className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">
               Your yearly Health Check
             </p>
-            <p className="mt-1 text-sm text-charcoal-ink/70">
+            <p className="mt-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               A guided, whole-body check-in: your health profile, wellbeing, measurements,
               screenings, and immunisations, reviewed by a doctor at the end.
             </p>

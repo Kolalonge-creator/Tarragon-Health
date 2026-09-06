@@ -46,17 +46,25 @@ create trigger breast_symptom_reports_set_updated_at
 
 alter table public.breast_symptom_reports enable row level security;
 
+-- Access-control correction (2026-09-02, pre-launch security review): removed
+-- the caregiver EXISTS branches (SELECT and INSERT) that originally sat here
+-- -- ANY profile_access grantee could read, and any 'manage'-level grantee
+-- could write, a patient's breast symptom report regardless of category.
+-- This table was never applied live, so the fix is made directly rather than
+-- shipped-then-patched. Matches PR #330's precedent for this kind of
+-- sensitive, point-in-time clinical report (sti_risk_checks/sti_case_
+-- episodes/sexual_health_screens: "patient + org staff only -- no
+-- profile_access/sponsor visibility") rather than reproductive_health_
+-- profiles' category-grant model: a breast lump/discharge report has no
+-- plausible caregiver-support use case the way ongoing period tracking does,
+-- and it always already raises a clinician_review alert, so the care team
+-- sees it regardless.
 drop policy if exists breast_symptom_reports_select on public.breast_symptom_reports;
 create policy breast_symptom_reports_select on public.breast_symptom_reports
   for select to authenticated
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = breast_symptom_reports.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-    )
   );
 
 drop policy if exists breast_symptom_reports_insert on public.breast_symptom_reports;
@@ -65,12 +73,6 @@ create policy breast_symptom_reports_insert on public.breast_symptom_reports
   with check (
     (patient_id = (select auth.uid()) and organisation_id = private.current_org_id())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = breast_symptom_reports.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-        and pa.permission_level = 'manage'
-    )
   );
 
 -- No patient update policy — like emergency_events, this is a triggered
@@ -127,6 +129,14 @@ begin
   end if;
   if has_table_privilege('anon', 'public.breast_symptom_reports', 'SELECT') then
     raise exception 'anon must not have access to breast_symptom_reports';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'breast_symptom_reports'
+      and policyname in ('breast_symptom_reports_select', 'breast_symptom_reports_insert')
+      and (coalesce(qual,'') || coalesce(with_check,'')) ilike '%profile_access%'
+  ) then
+    raise exception 'breast_symptom_reports select/insert must not reference profile_access -- patient + org staff only';
   end if;
   raise notice 'PASS: breast_symptom_reports installed';
 end $$;

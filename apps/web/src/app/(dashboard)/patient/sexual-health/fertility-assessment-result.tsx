@@ -11,7 +11,7 @@ const RESULT_COPY: Record<FertilityRecommendedAction, { title: string; descripti
   preconception_advice: {
     title: "You're in a normal range",
     description:
-      "Trying for 6-11 months is still well within the normal window. Your care team has some preconception advice — timing, nutrition, and habits that help — to make the most of this stretch.",
+      "Trying for 6-11 months is still well within the normal window. Your care team has some preconception advice (timing, nutrition, and habits that help) to make the most of this stretch.",
   },
   baseline_labs: {
     title: "Worth a closer look",
@@ -21,7 +21,7 @@ const RESULT_COPY: Record<FertilityRecommendedAction, { title: string; descripti
   specialist_referral: {
     title: "Time to bring in a specialist",
     description:
-      "Based on what you've told us, it's worth seeing a specialist — we've started that referral and your care team will be in touch.",
+      "Based on what you've told us, it's worth seeing a specialist. We've started that referral and your care team will be in touch.",
   },
 };
 
@@ -40,12 +40,12 @@ export function FertilityAssessmentResult({
     <Card variant="soft">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.family className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           {copy.title}
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="text-sm text-charcoal-ink/80">{copy.description}</p>
+        <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">{copy.description}</p>
       </CardContent>
     </Card>
   );

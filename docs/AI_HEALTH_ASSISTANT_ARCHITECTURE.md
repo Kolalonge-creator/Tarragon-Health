@@ -415,6 +415,33 @@ before this session). 36.10 moved out of guardrailed on an explicit founder ask 
 session — see §3 for exactly what was and wasn't built under that ask, and the status callout at the
 top of this document for the full session summary.
 
+**Second status callout, added 2026-09-03 — PR #376 closed a separate, overlapping "§78" spec
+against this same `apps/web/src/lib/ai-coach/` code roughly 5 hours after the 2026-08-29 session
+above merged (PR #312 merged 2026-09-02T17:59, PR #376 merged 2026-09-02T23:38).** Not reflected
+anywhere in the table above — none of these changes carry a §36-numbered row:
+- **`suggestedAction` classification** added to the model-turn schema (`graph.ts`) — a new stage in
+  the §6 pipeline diagram below, not shown there yet.
+- **A structured handoff summary** (`handoff-summary.ts`, new file — "Patient concern / Symptoms /
+  Medication / Relevant history / AI action") now used by both automatic escalation and a **new
+  patient-initiated path**, `requestCareTeamHandoffAction()` (§78.12) — a patient can tap "I want to
+  speak to someone" to open a `care_messages` thread directly. This is directly relevant to §36.14's
+  "the `clinician_review` tier is still unlinked" finding below (doesn't fully close it, but is a
+  real adjacent capability this document didn't have when §36.14 was written).
+- **A standalone structured symptom checker** (`triage_protocols`/`symptom_triage_assessments`
+  schema + `packages/symptom-triage-engine` + `symptom-triage-check.tsx`) was also added, mounted at
+  `patient/(sections)/vitals/page.tsx` — **outside** the AI Coach chat, not inside it. Live query:
+  1 `triage_protocols` row exists, 0 approved — so §36.12's "❌ absent" verdict (scoped specifically
+  to "from within a conversation") isn't technically contradicted, but this document gives no
+  indication a structured symptom-capture feature now exists on the platform adjacent to it.
+- **`health_education_content` review count moved**, confirmed live: **6 of 235 rows** now
+  `clinician_reviewed = true` (0 of the 28 `medicines`-category rows §36.7/E18 specifically discuss —
+  that narrower claim, "every drafted row ships `clinician_reviewed = false`," is still accurate).
+  §36.15/§7's "content review hasn't started" framing should read as narrowed-but-not-zero, not blanket.
+- **Unresolved, flagged not guessed at:** whether `VOYAGE_API_KEY` is now configured in Vercel — PR
+  #376's own body claims it was, per the founder, which would flip §7/§8 item 3's "inert pending a
+  key" framing for at least some topics — this environment has no way to confirm Vercel env vars.
+  Verify directly before editing that claim.
+
 ## 6. Target architecture
 
 The §36.2 pipeline, with the missing stages named and each stage's governance level marked:

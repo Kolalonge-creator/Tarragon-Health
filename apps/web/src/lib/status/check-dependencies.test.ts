@@ -111,7 +111,6 @@ describe("checkDependencies", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     delete process.env.ML_SERVICE_URL;
     process.env.WHATSAPP_TOKEN = "set";
-    delete process.env.STRIPE_SECRET_KEY;
     stubFetch({ "/auth/v1/health": { ok: true } });
 
     const report = await checkDependencies();
@@ -119,7 +118,6 @@ describe("checkDependencies", () => {
     expect(report.supabase.status).toBe("up");
     expect(report.ml_service.status).toBe("down");
     expect(report.whatsapp).toEqual({ status: "configured" });
-    expect(report.stripe).toEqual({ status: "unconfigured" });
     expect(typeof report.checked_at).toBe("string");
   });
 });

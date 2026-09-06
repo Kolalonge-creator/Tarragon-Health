@@ -304,6 +304,12 @@ const BREATHLESSNESS: PresentingComplaintProtocol = {
       key: "breathlessness.spo2_low",
       label: "Low oxygen saturation",
       category: "emergency",
+      // 92 is INCLUSIVE — measurementBelow is evaluated as "at or below" (see
+      // evaluateCondition in ../engine/index.ts), matching the live
+      // private.classify_spo2_level, which classes exactly 92 as RED. Keep
+      // this value in step with the DB seed jsonb
+      // (20260829094847_symptom_triage_protocols_config.sql); the
+      // config-schema parity test fails if they drift.
       rule: { measurementBelow: { key: "spo2_pct", value: 92 } },
     },
     {

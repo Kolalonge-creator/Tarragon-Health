@@ -10,7 +10,9 @@ import {
   auditLogSchema,
   auditSummarySchema,
   businessSummarySchema,
+  careEngagementSummarySchema,
   clinicalOutcomesSchema,
+  complaintsSummarySchema,
   deliverabilitySchema,
   diseaseSurveillanceSchema,
   doctorPerformanceSchema,
@@ -40,8 +42,9 @@ import {
   serviceCoverageSchema,
   staffActivitySchema,
   supportResponseTimeSchema,
+  supportTicketSummarySchema,
   userSegmentsSchema,
-  revenueByPlanSchema,
+  revenueByProductSchema,
   revenueTimeseriesSchema,
   trafficSummarySchema,
   trafficTimeseriesSchema,
@@ -105,13 +108,13 @@ export function useRevenueTimeseries(period: GrowthPeriod = "month") {
   });
 }
 
-export function useRevenueByPlan() {
+export function useRevenueByProduct() {
   return useQuery({
-    queryKey: ["analytics", "revenue-by-plan"],
+    queryKey: ["analytics", "revenue-by-product"],
     queryFn: async () => {
-      const { data, error } = await createClient().rpc("analytics_revenue_by_plan");
+      const { data, error } = await createClient().rpc("analytics_revenue_by_product");
       if (error) throw error;
-      return revenueByPlanSchema.parse(data);
+      return revenueByProductSchema.parse(data);
     },
   });
 }
@@ -256,6 +259,17 @@ export function useEngagementSummary() {
   });
 }
 
+export function useCareEngagementSummary() {
+  return useQuery({
+    queryKey: ["analytics", "care-engagement-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_care_engagement_summary");
+      if (error) throw error;
+      return careEngagementSummarySchema.parse(data);
+    },
+  });
+}
+
 export function useActiveUsersTimeseries(period: GrowthPeriod = "day") {
   return useQuery({
     queryKey: ["analytics", "active-users", period],
@@ -344,6 +358,29 @@ export function useDeliverability() {
       const { data, error } = await createClient().rpc("analytics_deliverability", {});
       if (error) throw error;
       return deliverabilitySchema.parse(data);
+    },
+  });
+}
+
+// ---- Patient Support & Service Centre (spec §24, technical support only) --
+export function useSupportTicketSummary() {
+  return useQuery({
+    queryKey: ["analytics", "support-ticket-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_support_ticket_summary", {});
+      if (error) throw error;
+      return supportTicketSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useComplaintsSummary() {
+  return useQuery({
+    queryKey: ["analytics", "complaints-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_complaints_summary", {});
+      if (error) throw error;
+      return complaintsSummarySchema.parse(data);
     },
   });
 }

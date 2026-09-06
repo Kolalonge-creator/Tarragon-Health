@@ -31,6 +31,7 @@ import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
 import { HandOverCareSection } from "./hand-over-care-section";
+import { CareManagementPanel } from "./care-management-panel";
 import { OrderLabTestForm } from "./order-lab-test-form";
 import { BpLadderPanel } from "./bp-ladder-panel";
 import { CardiovascularRiskPanel } from "./cardiovascular-risk-panel";
@@ -234,6 +235,7 @@ export default async function ClinicianPatientPage({
                   <CareTeamForm patientId={patient.id} organisationId={patient.organisation_id} />
                 )}
                 <HandOverCareSection patientId={patient.id} />
+                <CareManagementPanel patientId={patient.id} organisationId={patient.organisation_id} />
               </>
             ),
           },

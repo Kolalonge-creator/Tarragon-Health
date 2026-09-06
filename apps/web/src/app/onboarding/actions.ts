@@ -2,7 +2,6 @@
 
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import {
   demographicsSchema,
@@ -10,8 +9,11 @@ import {
   identityVerificationSchema,
 } from "@/lib/validation/onboarding";
 import { verifyIdentity } from "@/lib/identity/provider";
+import { firstIssue } from "@/lib/validation/first-issue";
 
-export type SaveDemographicsState = { error?: string; success?: boolean } | undefined;
+export type SaveDemographicsState =
+  | { error?: string; field?: string; success?: boolean }
+  | undefined;
 
 /**
  * Saves the patient's own date of birth + sex on their profiles row
@@ -29,7 +31,7 @@ export async function saveDemographics(
     sex: formData.get("sex"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return firstIssue(parsed.error, "Check the details above and try again.");
   }
 
   const supabase = await createClient();
@@ -45,12 +47,16 @@ export async function saveDemographics(
     .update({ date_of_birth: parsed.data.dateOfBirth, sex: parsed.data.sex })
     .eq("id", user.id);
   if (error) {
-    return { error: error.message };
+    // Never the raw PostgREST string: it names tables, columns and
+    // constraints, and says nothing a patient can act on.
+    return { error: "We could not save that just then. Please try again." };
   }
   return { success: true };
 }
 
-export type AcceptConsentsState = { error?: string; success?: boolean } | undefined;
+export type AcceptConsentsState =
+  | { error?: string; field?: string; success?: boolean }
+  | undefined;
 
 /**
  * Records the caller's acceptance of every current consent version as an
@@ -64,7 +70,7 @@ export async function acceptConsents(
 ): Promise<AcceptConsentsState> {
   const parsed = consentSchema.safeParse({ accept: formData.get("accept") === "on" });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Please accept to continue" };
+    return { error: "Tick the box to agree before continuing.", field: "accept" };
   }
 
   const supabase = await createClient();
@@ -81,7 +87,7 @@ export async function acceptConsents(
     .eq("id", user.id)
     .single();
   if (!profile?.organisation_id) {
-    return { error: "This account has no organisation on file" };
+    return { error: "Your account is not set up yet. Please contact support." };
   }
 
   const { data: versions, error: versionsError } = await supabase
@@ -89,10 +95,10 @@ export async function acceptConsents(
     .select("id, consent_type, version")
     .eq("is_current", true);
   if (versionsError) {
-    return { error: versionsError.message };
+    return { error: "We could not load the agreement just then. Please refresh and try again." };
   }
   if (!versions || versions.length === 0) {
-    return { error: "No consents are configured — contact support." };
+    return { error: "The agreement is not available right now. Please contact support." };
   }
 
   const { error } = await supabase.from("patient_consents").insert(
@@ -105,7 +111,7 @@ export async function acceptConsents(
     })),
   );
   if (error) {
-    return { error: error.message };
+    return { error: "We could not record your agreement just then. Please try again." };
   }
   return { success: true };
 }
@@ -152,7 +158,7 @@ export async function completeOnboarding() {
 }
 
 export type IdentityVerificationState =
-  | { error?: string; status?: "verified" | "failed" | "pending" | "unavailable" }
+  | { error?: string; field?: string; status?: "verified" | "failed" | "pending" | "unavailable" }
   | undefined;
 
 /**
@@ -172,7 +178,7 @@ export async function submitIdentityVerification(
     documentType: formData.get("documentType") || undefined,
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return firstIssue(parsed.error, "Check the number and try again.");
   }
 
   const supabase = await createClient();
@@ -189,7 +195,7 @@ export async function submitIdentityVerification(
     .eq("id", user.id)
     .single();
   if (!profile?.organisation_id) {
-    return { error: "This account has no organisation on file" };
+    return { error: "Your account is not set up yet. Please contact support." };
   }
 
   const idLast4 = parsed.data.idNumber.slice(-4);
@@ -207,7 +213,7 @@ export async function submitIdentityVerification(
     .select("id")
     .single();
   if (insertError || !request) {
-    return { error: insertError?.message ?? "Could not record your request" };
+    return { error: "We could not record that just then. Please try again." };
   }
 
   // No provider does document verification (OCR/authenticity checks) — a document submission
@@ -255,68 +261,4 @@ export async function submitIdentityVerification(
   // Provider unavailable (unconfigured) or unreachable (transient error):
   // leave the request pending for a retry / ops resolution.
   return { status: result.reason === "unavailable" ? "unavailable" : "pending" };
-}
-
-export type StartCheckoutState = { error?: string } | undefined;
-
-/**
- * A free service_product activates immediately — no charge to run, see
- * record_service_purchase_intent's price_kobo<=0 branch — then finishes
- * onboarding the same way the old "Continue to my dashboard" button did. A
- * paid one starts a real one-off charge via purchaseServiceProduct and
- * redirects the browser to the provider's hosted checkout — activation
- * itself only happens later, when private.apply_service_purchase_payment
- * confirms the charge. Onboarding is only marked complete for the paid path
- * once the patient lands back on /onboarding/checkout-callback.
- */
-export async function startCheckout(
-  _prevState: StartCheckoutState,
-  formData: FormData,
-): Promise<StartCheckoutState> {
-  const serviceProductCode = formData.get("planCode");
-  if (typeof serviceProductCode !== "string" || !serviceProductCode) {
-    return { error: "Choose a plan first" };
-  }
-
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    redirect("/login");
-  }
-
-  // Hard safeguard, independent of whatever the UI shows: never start a
-  // second purchase for an account that already has an active grant. This is
-  // the actual money-charging code path, so it has to be safe on its own
-  // even if onboarding's reconciliation screen (existing-plan-notice.tsx) is
-  // ever reached in a state where a plan somehow got resubmitted anyway.
-  const { data: existing } = await supabase
-    .from("service_purchases")
-    .select("id")
-    .eq("patient_id", user.id)
-    .eq("status", "active")
-    .limit(1)
-    .maybeSingle();
-  if (existing) {
-    await completeOnboarding();
-    return;
-  }
-
-  const result = await purchaseServiceProduct({
-    serviceProductCode,
-    callbackPath: "/onboarding/checkout-callback",
-  });
-
-  if (result?.error) {
-    return { error: result.error };
-  }
-  if (result?.activated) {
-    await completeOnboarding();
-    return;
-  }
-  if (result?.checkoutUrl) {
-    redirect(result.checkoutUrl);
-  }
-  return { error: "Could not start checkout" };
 }

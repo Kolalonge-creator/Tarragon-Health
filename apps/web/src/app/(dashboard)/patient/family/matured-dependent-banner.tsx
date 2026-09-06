@@ -66,26 +66,26 @@ function ClaimCard({ dependentId, name }: { dependentId: string; name: string | 
 
   if (success) {
     return (
-      <Card className="border-brand-green/40 bg-brand-green/5">
+      <Card className="border-brand-green/40 bg-brand-green/5 dark:bg-brand-green/10">
         <CardContent className="pt-6">
-          <p className="text-sm text-charcoal-ink">{success}</p>
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">{success}</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="border-amber-400/50 bg-amber-50/60">
+    <Card className="border-amber-400/50 bg-amber-50/60 dark:bg-amber-500/10">
       <CardHeader>
         <CardTitle className="text-lg">{name ?? "They"} turned 18</CardTitle>
         <CardDescription>
           Give them their own Tarragon login with their real phone number, or keep helping as-is for
-          now — you can do this whenever you&apos;re ready.
+          now. You can do this whenever you&apos;re ready.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-          {error && <p className="w-full text-sm text-red-600">{error}</p>}
+          {error && <p className="w-full text-sm text-red-600 dark:text-red-400">{error}</p>}
           <div className="space-y-1.5">
             <Label htmlFor={`claim_phone_${dependentId}`}>Their phone number</Label>
             <Input

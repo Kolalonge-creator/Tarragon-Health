@@ -3,6 +3,7 @@
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { testCodeLabels } from "@/lib/labs/test-code-labels";
+import { testPreparationForCodes } from "@/lib/labs/test-preparation";
 
 /**
  * Read-only per the clinician-originated-orders guardrail (see
@@ -30,27 +31,39 @@ export function LabCatalogue() {
         <CardTitle>Lab tests</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load the lab catalogue.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load the lab catalogue.</p>}
         {bundles && bundles.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No lab tests available yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No lab tests available yet.</p>
         )}
         {bundles && bundles.length > 0 && (
           <>
-            <ul className="divide-y divide-charcoal-ink/10">
-              {bundles.map((bundle) => (
-                <li key={bundle.id} className="py-3">
-                  <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
-                  {bundle.description && (
-                    <p className="text-xs text-charcoal-ink/60">{bundle.description}</p>
-                  )}
-                  <p className="text-xs text-charcoal-ink/60">
-                    Includes: {testCodeLabels(bundle.test_codes).join(", ")}
-                  </p>
-                </li>
-              ))}
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
+              {bundles.map((bundle) => {
+                const preparation = testPreparationForCodes(bundle.test_codes);
+                return (
+                  <li key={bundle.id} className="py-3">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{bundle.name}</p>
+                    {bundle.description && (
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{bundle.description}</p>
+                    )}
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                      Includes: {testCodeLabels(bundle.test_codes).join(", ")}
+                    </p>
+                    {preparation.length > 0 && (
+                      <ul className="mt-1.5 space-y-0.5">
+                        {preparation.map((prep) => (
+                          <li key={prep.specimenType + prep.instructions} className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
+                            <span className="font-medium">{prep.specimenType}.</span> {prep.instructions}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
-            <p className="text-sm text-charcoal-ink/70">
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Due screenings can be booked directly from your screening calendar below. For
               anything else here, message your care team in the app and they&apos;ll write you a
               request to take to a laboratory of your choice. You pay the lab directly, at

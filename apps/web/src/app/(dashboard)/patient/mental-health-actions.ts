@@ -10,6 +10,7 @@ import {
   scoreEpds,
   EPDS_ITEM_COUNT,
 } from "@/lib/rules/mental-health-screening";
+import { flagHazardousAlcoholUse } from "@/lib/alcohol/escalate";
 import type { Json, TablesInsert } from "@tarragon/shared";
 
 export type SubmitMentalHealthState =
@@ -80,6 +81,15 @@ export async function submitMentalHealthScreen(
   const epds = epdsAnswered ? scoreEpds(epdsItems as number[]) : null;
 
   // System-computed rows — service role, same reasoning as prevention_risk_scores.
+  //
+  // Accepted tension with the service-role helper's "never for a patient's own
+  // raw input" contract: item_responses IS the patient's raw input, but it
+  // rides in the same row as the server-computed score, and the table
+  // deliberately has no patient INSERT policy (20260719144000) precisely so a
+  // client can never post a spoofed total. Identity is still the
+  // authenticated session's user.id, never anything client-supplied, and
+  // splitting the raw answers into a second RLS-scoped insert would break the
+  // row's atomicity (a score row with no answers, or answers with no score).
   const service = createServiceRoleClient();
   const rows: TablesInsert<"mental_health_screens">[] = [
     {
@@ -136,6 +146,12 @@ export async function submitMentalHealthScreen(
       trigger_detail: `Wellbeing check-in: reported thoughts of self-harm (${crisisSource})`,
       status: "active",
     });
+  }
+
+  // Alcohol referral pathway (spec §18.10) — best-effort, never blocks the
+  // screen itself from saving.
+  if (auditc.hazardous) {
+    await flagHazardousAlcoholUse(user.id, profile.organisation_id, auditc.total).catch(() => undefined);
   }
 
   return { success: true, crisis };

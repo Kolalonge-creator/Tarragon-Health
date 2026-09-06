@@ -5,7 +5,7 @@ import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
-import { CarePlanDisplay } from "@/app/(dashboard)/patient/care-plan-display";
+import { MyCarePlanTasks } from "@/app/(dashboard)/patient/my-care-plan-tasks";
 import { ChronicProgrammeTimeline } from "@/app/(dashboard)/patient/chronic-programme-timeline";
 import { PregnancyStatus } from "@/app/(dashboard)/patient/pregnancy-status";
 import { ObesitySummary } from "@/app/(dashboard)/patient/obesity-summary";
@@ -20,9 +20,11 @@ import { LifestyleProgressSummary } from "@/app/(dashboard)/patient/lifestyle-pr
 import { YourReferrals } from "@/components/your-referrals";
 import { NavigationRequests } from "@/app/(dashboard)/patient/navigation-requests";
 import { AiCoachChat } from "@/app/(dashboard)/patient/ai-coach-chat";
+import { ServiceNavigationAssistant } from "@/app/(dashboard)/patient/service-navigation-assistant";
 import { CareCircleCard } from "@/app/(dashboard)/patient/care-circle-card";
 import { CareVouchersCard } from "@/components/care-vouchers-card";
 import { WellnessPointsSummary } from "@/app/(dashboard)/patient/wellness-points-summary";
+import { GoalsAndMilestonesCard } from "@/app/(dashboard)/patient/goals-and-milestones-card";
 import { TestimonialForm } from "@/components/testimonial-form";
 
 export default async function PatientCarePage() {
@@ -49,7 +51,7 @@ export default async function PatientCarePage() {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="space-y-4">
           <RequiresEntitlement feature="clinician_review" fallback={<UpgradePrompt feature="clinician_review" />}>
-            <CarePlanDisplay patientId={subjectId} />
+            <MyCarePlanTasks patientId={subjectId} organisationId={profile.organisation_id} />
             <ObesitySummary
               patientId={subjectId}
               conditionLanguagePreference={profile.condition_language_preference}
@@ -69,9 +71,9 @@ export default async function PatientCarePage() {
           <PregnancyStatus patientId={subjectId} />
           <PatientEscalations patientId={subjectId} />
           <HospitalAdmissionsCard patientId={subjectId} />
-          <RequiresEntitlement feature="lifestyle_coaching" fallback={<UpgradePrompt feature="lifestyle_coaching" />}>
-            <LifestyleProgressSummary patientId={subjectId} />
-          </RequiresEntitlement>
+          {/* Not entitlement-gated: lifestyle coaching is free to every
+              patient since the pay-per-service rework. */}
+          <LifestyleProgressSummary patientId={subjectId} />
         </div>
 
         <div className="space-y-4">
@@ -92,6 +94,7 @@ export default async function PatientCarePage() {
           <VerifiedDocumentsCard patientId={subjectId} organisationId={profile.organisation_id} />
           <SeniorCaseReviewCard patientId={subjectId} organisationId={profile.organisation_id} />
           {coachAccess && <AiCoachChat patientId={subjectId} />}
+          <ServiceNavigationAssistant />
           <CareCircleCard />
           <YourReferrals patientId={subjectId} />
           <NavigationRequests patientId={subjectId} />
@@ -102,6 +105,7 @@ export default async function PatientCarePage() {
           lower priority than anything above. */}
       <CareVouchersCard patientId={subjectId} />
       <WellnessPointsSummary patientId={subjectId} />
+      <GoalsAndMilestonesCard patientId={subjectId} />
       <TestimonialForm />
     </DashboardSection>
   );

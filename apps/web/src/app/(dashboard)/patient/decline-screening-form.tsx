@@ -45,7 +45,7 @@ export function DeclineScreeningForm({
 
   if (declined) {
     return (
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Marked as declined. Your care team can see this and follow up if needed.
       </p>
     );
@@ -62,14 +62,14 @@ export function DeclineScreeningForm({
   }
 
   return (
-    <form onSubmit={handleDecline} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+    <form onSubmit={handleDecline} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
       <Textarea
         placeholder="Let us know why (e.g. already had this elsewhere, not applicable to me)"
         value={reason}
         onChange={(event) => setReason(event.target.value)}
         rows={2}
       />
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-red-600 dark:text-red-300">{error}</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" variant="outline" disabled={declineSchedule.isPending}>
           {declineSchedule.isPending ? "Saving…" : "Confirm decline"}

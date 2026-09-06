@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { ReminderFrequencySelector } from "./reminder-frequency-selector";
 
 type PatientFilter = "mine" | "recent" | "high_risk" | "programme";
@@ -52,12 +53,21 @@ export default async function ClinicianPatientsPage({
   const supabase = await createClient();
 
   let restrictedIds: string[] | null = null;
+  // A filter's id lookup can fail on its own, separately from the roster read
+  // below. When it did, it returned `[]` and the tab rendered its own empty
+  // state: "No patients are assigned to you on the care team yet." for a
+  // clinician who has a full panel, or "No patient currently has a high or
+  // very-high prevention risk tier on file" for an org that does.
+  let filterFailed = false;
   if (filter) {
-    restrictedIds = await loadFilteredPatientIds(supabase, filter);
+    const result = await loadFilteredPatientIds(supabase, filter);
+    restrictedIds = result.ids;
+    filterFailed = result.failed;
   }
 
+  let rosterFailed = false;
   let patients: { id: string; full_name: string | null; patient_number: string | null; phone: string | null }[] = [];
-  if (!filter || (restrictedIds && restrictedIds.length > 0)) {
+  if (!filterFailed && (!filter || (restrictedIds && restrictedIds.length > 0))) {
     let query = supabase
       .from("profiles")
       .select("id, full_name, patient_number, phone")
@@ -70,7 +80,8 @@ export default async function ClinicianPatientsPage({
     if (filter && restrictedIds) {
       query = query.in("id", restrictedIds);
     }
-    const { data } = await query;
+    const { data, error } = await query;
+    rosterFailed = error !== null;
     patients = data ?? [];
     // "Recent" has a real order (most-recently-viewed first) that the
     // full_name sort above would otherwise discard.
@@ -79,6 +90,8 @@ export default async function ClinicianPatientsPage({
       patients = [...patients].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0));
     }
   }
+
+  const loadFailed = filterFailed || rosterFailed;
 
   function tabHref(value: PatientFilter | undefined): string {
     const params = new URLSearchParams();
@@ -149,11 +162,21 @@ export default async function ClinicianPatientsPage({
               : q?.trim()
                 ? `Results for “${q.trim()}”`
                 : "All patients"}
-            {` (${patients.length})`}
+            {loadFailed ? "" : ` (${patients.length})`}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {patients.length === 0 ? (
+          {/* "No patients enrolled yet." on the org directory is the same
+              false all-clear as an empty worklist: a clinician who cannot
+              find a patient here concludes the patient is not on the
+              platform, and goes no further. */}
+          {loadFailed ? (
+            <LoadFailure>
+              The patient directory could not be loaded. This is not a report that there are no
+              patients{filter ? " on this tab" : ""}. Reload the page, and if it keeps failing,
+              raise it with the platform team rather than assuming a patient is not enrolled.
+            </LoadFailure>
+          ) : patients.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
               {filter
                 ? EMPTY_STATE[filter]
@@ -175,28 +198,37 @@ export default async function ClinicianPatientsPage({
  * filter is chosen, so an unauthenticated edge case or an empty result set
  * both correctly render the tab's empty state rather than silently falling
  * back to the unfiltered roster.
+ *
+ * `failed` is reported separately from an empty `ids`, because those two mean
+ * opposite things to the reader: "nobody is assigned to you" and "we could
+ * not find out who is assigned to you" produced the same screen until this
+ * distinction existed. The high-risk branch already logged its error to the
+ * server console, which nobody looking at the page can see.
  */
+type FilteredPatientIds = { ids: string[]; failed: boolean };
+
 async function loadFilteredPatientIds(
   supabase: Awaited<ReturnType<typeof createClient>>,
   filter: PatientFilter,
-): Promise<string[]> {
+): Promise<FilteredPatientIds> {
   if (filter === "mine") {
     const currentUser = await getCurrentUser();
-    if (!currentUser) return [];
-    const { data } = await supabase
+    if (!currentUser) return { ids: [], failed: false };
+    const { data, error } = await supabase
       .from("care_team_assignment")
       .select("patient_id")
       .eq("clinician_id", currentUser.id);
-    return (data ?? []).map((a) => a.patient_id);
+    if (error) return { ids: [], failed: true };
+    return { ids: (data ?? []).map((a) => a.patient_id), failed: false };
   }
 
   if (filter === "recent") {
     const currentUser = await getCurrentUser();
-    if (!currentUser) return [];
+    if (!currentUser) return { ids: [], failed: false };
     // audit_log has one row per view, not one per patient — dedupe here
     // (Supabase JS has no DISTINCT ON) keeping the first (most recent, since
     // the query is already ordered desc) occurrence of each patient id.
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("audit_log")
       .select("entity_id, created_at")
       .eq("actor_id", currentUser.id)
@@ -204,6 +236,7 @@ async function loadFilteredPatientIds(
       .eq("entity_type", "patient")
       .order("created_at", { ascending: false })
       .limit(300);
+    if (error) return { ids: [], failed: true };
     const seen = new Set<string>();
     const ids: string[] = [];
     for (const row of data ?? []) {
@@ -212,22 +245,23 @@ async function loadFilteredPatientIds(
         ids.push(row.entity_id);
       }
     }
-    return ids.slice(0, 50);
+    return { ids: ids.slice(0, 50), failed: false };
   }
 
   if (filter === "high_risk") {
     const { data, error } = await supabase.rpc("high_risk_patient_ids");
     if (error) {
       console.error("Failed to load high-risk patient ids", error);
-      return [];
+      return { ids: [], failed: true };
     }
-    return (data ?? []).map((row) => row.patient_id);
+    return { ids: (data ?? []).map((row) => row.patient_id), failed: false };
   }
 
   // filter === "programme"
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("preventive_programme_enrolments")
     .select("patient_id")
     .eq("status", "enrolled");
-  return [...new Set((data ?? []).map((row) => row.patient_id))];
+  if (error) return { ids: [], failed: true };
+  return { ids: [...new Set((data ?? []).map((row) => row.patient_id))], failed: false };
 }

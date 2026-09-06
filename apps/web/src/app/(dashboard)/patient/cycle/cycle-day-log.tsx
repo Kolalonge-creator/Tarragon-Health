@@ -8,9 +8,13 @@ import {
   type MenstrualDailyLog,
   type MenstrualFlowLevel,
   type MenstrualMood,
+  type MenstrualOvulationTestResult,
   type MenstrualSymptom,
 } from "@/lib/queries/menstrual-cycle";
+import { Input } from "@/components/ui/input";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * The per-day log: flow, symptoms and mood for one date.
  *
@@ -41,6 +45,12 @@ const SYMPTOM_OPTIONS: { value: MenstrualSymptom; label: string }[] = [
   { value: "constipation", label: "Constipation" },
   { value: "food_cravings", label: "Cravings" },
   { value: "insomnia", label: "Trouble sleeping" },
+];
+
+const OVULATION_TEST_OPTIONS: { value: MenstrualOvulationTestResult; label: string }[] = [
+  { value: "negative", label: "Negative" },
+  { value: "positive", label: "Positive" },
+  { value: "peak", label: "Peak" },
 ];
 
 const MOOD_OPTIONS: { value: MenstrualMood; label: string }[] = [
@@ -75,7 +85,7 @@ function Chip({
           ? tone === "period"
             ? "border-transparent text-white"
             : "border-transparent bg-brand-green text-white"
-          : "border-charcoal-ink/20 text-charcoal-ink hover:bg-charcoal-ink/5",
+          : "border-charcoal-ink/20 dark:border-night-ink/25 text-charcoal-ink dark:text-night-ink hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10",
       ].join(" ")}
       style={
         selected && tone === "period" ? { backgroundColor: "var(--cycle-period)" } : undefined
@@ -102,6 +112,9 @@ export function CycleDayLog({
   existing: MenstrualDailyLog | null;
 }) {
   const save = useSaveDailyLog();
+  // One message for the day as a whole: the mutation fails or it does not,
+  // and nothing here is per-field validated.
+  const errorId = fieldErrorId("cycle-day-log");
   // Seeded once per mount. The parent remounts this component with
   // key={date}, so moving around the calendar shows that day's log rather
   // than the last one edited — which is what a reset-on-prop-change effect
@@ -110,8 +123,14 @@ export function CycleDayLog({
   const [symptoms, setSymptoms] = useState<MenstrualSymptom[]>(existing?.symptoms ?? []);
   const [moods, setMoods] = useState<MenstrualMood[]>(existing?.moods ?? []);
   const [notes, setNotes] = useState(existing?.notes ?? "");
+  const [bbt, setBbt] = useState(
+    existing?.basal_body_temperature_c != null ? String(existing.basal_body_temperature_c) : ""
+  );
+  const [ovulationTest, setOvulationTest] = useState<MenstrualOvulationTestResult | null>(
+    existing?.ovulation_test_result ?? null
+  );
 
-  const readableDate = new Date(`${date}T00:00:00Z`).toLocaleDateString(undefined, {
+  const readableDate = formatPatientDate(`${date}T00:00:00Z`, {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -130,13 +149,17 @@ export function CycleDayLog({
           symptoms,
           moods,
           notes: notes.trim() || null,
+          // Empty string means "not measured", which is a different thing
+          // from zero and must not be sent as one.
+          basalBodyTemperatureC: bbt.trim() === "" ? null : Number(bbt),
+          ovulationTestResult: ovulationTest,
         });
       }}
     >
-      <p className="text-sm font-medium text-charcoal-ink">{readableDate}</p>
+      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{readableDate}</p>
 
       <fieldset>
-        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70">Flow</legend>
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">Flow</legend>
         <div className="flex flex-wrap gap-2">
           {FLOW_OPTIONS.map((option) => (
             <Chip
@@ -151,7 +174,7 @@ export function CycleDayLog({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70">
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           How you felt physically
         </legend>
         <div className="flex flex-wrap gap-2">
@@ -167,7 +190,7 @@ export function CycleDayLog({
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70">Mood</legend>
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">Mood</legend>
         <div className="flex flex-wrap gap-2">
           {MOOD_OPTIONS.map((option) => (
             <Chip
@@ -180,8 +203,56 @@ export function CycleDayLog({
         </div>
       </fieldset>
 
+      {/* Optional, and only meaningful to somebody actively tracking
+          ovulation, so it sits after the everyday fields rather than
+          greeting everyone who opens the form. */}
+      <fieldset>
+        <legend className="mb-2 text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
+          Tracking ovulation? (optional)
+        </legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <label htmlFor="cycle-bbt" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Waking temperature (&deg;C)
+            </label>
+            <Input
+              id="cycle-bbt"
+              type="number"
+              step="0.01"
+              min={34}
+              max={40}
+              inputMode="decimal"
+              placeholder="36.50"
+              value={bbt}
+              onChange={(event) => setBbt(event.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <span id="cycle-ovulation-test-label" className="block text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              Ovulation test
+            </span>
+            <div role="group" aria-labelledby="cycle-ovulation-test-label" className="flex flex-wrap gap-2">
+              {OVULATION_TEST_OPTIONS.map((option) => (
+                <Chip
+                  key={option.value}
+                  label={option.label}
+                  selected={ovulationTest === option.value}
+                  onClick={() =>
+                    setOvulationTest(ovulationTest === option.value ? null : option.value)
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+        <p className="mt-1.5 text-[11px] text-charcoal-ink/50 dark:text-night-ink/55">
+          Take your temperature before getting out of bed. A sustained rise suggests ovulation
+          has already happened, so it confirms rather than predicts.
+        </p>
+      </fieldset>
+
       <div className="space-y-1.5">
-        <label htmlFor="cycle-notes" className="text-xs font-medium text-charcoal-ink/70">
+        <label htmlFor="cycle-notes" className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Anything else (optional)
         </label>
         <Textarea
@@ -190,21 +261,21 @@ export function CycleDayLog({
           value={notes}
           onChange={(event) => setNotes(event.target.value)}
           placeholder="Only you and your care team can see this."
+          {...fieldErrorProps(errorId, save.isError)}
         />
       </div>
 
-      {save.isError && (
-        <p className="text-sm text-red-600">
-          {(save.error as Error)?.message ?? "Could not save that. Please try again."}
-        </p>
-      )}
+      {/* The raw mutation error used to be printed here, which put a
+          PostgREST string in front of a patient. Nothing about a failed save
+          is per-field, so one human sentence is the whole message. */}
+      <FormError id={errorId} message={save.isError && "Could not save that just now. Please try again."} />
 
       <div className="flex items-center gap-3">
         <Button type="submit" size="sm" disabled={save.isPending}>
           {save.isPending ? "Saving..." : "Save this day"}
         </Button>
         {save.isSuccess && !save.isPending && (
-          <span className="text-xs text-brand-green">Saved</span>
+          <span className="text-xs text-brand-green dark:text-brand-green-bright">Saved</span>
         )}
       </div>
     </form>

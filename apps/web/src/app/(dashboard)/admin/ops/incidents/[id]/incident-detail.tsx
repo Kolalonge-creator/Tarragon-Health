@@ -268,7 +268,7 @@ export function IncidentDetail({
           <Card>
             <CardHeader>
               <CardTitle>Timeline</CardTitle>
-              <CardDescription>Append-only — nothing here can be edited or deleted.</CardDescription>
+              <CardDescription>Append-only: nothing here can be edited or deleted.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
               {canManage && (
@@ -304,7 +304,7 @@ export function IncidentDetail({
             <CardHeader>
               <CardTitle>Root cause &amp; corrective action</CardTitle>
               <CardDescription>
-                Required before this incident can be resolved or closed — this is the record that
+                Required before this incident can be resolved or closed. This is the record that
                 the platform actually learns something from an incident, not just that it happened.
               </CardDescription>
             </CardHeader>

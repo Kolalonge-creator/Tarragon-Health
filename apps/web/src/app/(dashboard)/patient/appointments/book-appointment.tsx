@@ -16,8 +16,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -93,8 +94,8 @@ export function BookAppointment({
       .then((appt) => {
         setMessage(
           appt.status === "confirmed"
-            ? { tone: "success", text: "Payment received — your visit is booked." }
-            : { tone: "error", text: "Payment is still processing — check back in a moment." }
+            ? { tone: "success", text: "Payment received. Your visit is booked." }
+            : { tone: "error", text: "Payment is still processing. Check back in a moment." }
         );
       })
       .catch((error) => {
@@ -121,6 +122,7 @@ export function BookAppointment({
         scheduledFor: slot.slot_start,
         endsAt: slot.slot_end,
         location: slot.location ?? undefined,
+        patientId,
       });
       const confirmed = await confirm.mutateAsync(held.id);
 
@@ -147,14 +149,14 @@ export function BookAppointment({
         setPendingPaymentAppointment({ id: confirmed.id, productCode, slotStart: slot.slot_start });
         setMessage({
           tone: "success",
-          text: `Time held for ${formatSlot(slot.slot_start)} — pay to confirm your booking.`,
+          text: `Time held for ${formatSlot(slot.slot_start)}. Pay to confirm your booking.`,
         });
         return;
       }
 
-      setMessage({ tone: "error", text: "Could not book that slot — try another." });
+      setMessage({ tone: "error", text: "Could not book that slot. Try another." });
     } catch (error) {
-      setMessage({ tone: "error", text: (error as Error).message || "Could not book that slot — try another." });
+      setMessage({ tone: "error", text: (error as Error).message || "Could not book that slot. Try another." });
     }
   }
 
@@ -200,7 +202,7 @@ export function BookAppointment({
         preferredFrom: now.toISOString(),
         preferredUntil: in30Days.toISOString(),
       });
-      setMessage({ tone: "success", text: "You're on the waiting list — we'll notify you the moment a slot opens." });
+      setMessage({ tone: "success", text: "You're on the waiting list. We'll notify you the moment a slot opens." });
     } catch (error) {
       setMessage({ tone: "error", text: (error as Error).message || "Could not join the waiting list." });
     }
@@ -214,7 +216,7 @@ export function BookAppointment({
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-3">
           <div className="space-y-1">
-            <label className="text-xs text-charcoal-ink/60" htmlFor="appointment-type">
+            <label className="text-xs text-charcoal-ink/60 dark:text-night-ink/60" htmlFor="appointment-type">
               Appointment type
             </label>
             <Select
@@ -230,7 +232,7 @@ export function BookAppointment({
             </Select>
           </div>
           <div className="space-y-1">
-            <label className="text-xs text-charcoal-ink/60" htmlFor="consultation-method">
+            <label className="text-xs text-charcoal-ink/60 dark:text-night-ink/60" htmlFor="consultation-method">
               How
             </label>
             <Select
@@ -246,15 +248,15 @@ export function BookAppointment({
         </div>
 
         {message && (
-          <p className={`text-sm ${message.tone === "success" ? "text-brand-green" : "text-red-600"}`}>
+          <p className={`text-sm ${message.tone === "success" ? "text-brand-green dark:text-brand-green-bright" : "text-red-600 dark:text-red-400"}`}>
             {message.text}
           </p>
         )}
 
         {pendingPaymentAppointment && (
-          <div className="flex flex-wrap items-center gap-3 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
-            <p className="text-sm text-charcoal-ink">
-              Your slot for {formatSlot(pendingPaymentAppointment.slotStart)} is held — pay now to confirm it.
+          <div className="flex flex-wrap items-center gap-3 rounded-md border border-brand-green/30 bg-brand-green/5 dark:bg-brand-green/10 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
+              Your slot for {formatSlot(pendingPaymentAppointment.slotStart)} is held. Pay now to confirm it.
             </p>
             <Button size="sm" className="ml-auto" disabled={isBuying} onClick={payForPendingAppointment}>
               {isBuying ? "Redirecting to payment…" : "Pay to confirm"}
@@ -262,11 +264,11 @@ export function BookAppointment({
           </div>
         )}
 
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Looking for open times…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Looking for open times…</p>}
 
         {!isLoading && slots && slots.length === 0 && (
           <div className="space-y-2">
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               No open times in the next two weeks for this appointment type.
             </p>
             <Button
@@ -281,15 +283,15 @@ export function BookAppointment({
         )}
 
         {!isLoading && slots && slots.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {slots.slice(0, 20).map((slot) => (
               <li
                 key={`${slot.clinician_id}-${slot.slot_start}`}
                 className="flex flex-wrap items-center gap-2 py-2"
               >
                 <div>
-                  <p className="text-sm text-charcoal-ink">{formatSlot(slot.slot_start)}</p>
-                  <p className="text-xs text-charcoal-ink/60">
+                  <p className="text-sm text-charcoal-ink dark:text-night-ink">{formatSlot(slot.slot_start)}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                     {slot.clinician_name} · {slot.consultation_method === "telemedicine" ? "Telemedicine" : slot.location || "In person"}
                   </p>
                 </div>

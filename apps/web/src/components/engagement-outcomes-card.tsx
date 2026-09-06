@@ -44,7 +44,7 @@ export function EngagementOutcomesCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.analytics className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <NAV_ICON.analytics className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
           Engagement and BP control
         </CardTitle>
         <CardDescription>
@@ -59,14 +59,14 @@ export function EngagementOutcomesCard({
               <StatTile
                 key={bucket.tier}
                 icon={NAV_ICON.analytics}
-                label={`${TIER_LABEL[bucket.tier]} — in BP range`}
+                label={`${TIER_LABEL[bucket.tier]}: in BP range`}
                 value={`${Math.round((bucket.bpInRangeCount / bucket.cohortSize) * 100)}%`}
                 unit={`of ${bucket.cohortSize} monitored`}
               />
             )
           )}
         </div>
-        <p className="text-xs text-charcoal-ink/50">
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           Latest engagement tier vs. latest BP-control assessment, monitored{" "}
           {entityLabel === "member" ? "members" : "staff"} only. Cells under the organisation&apos;s
           minimum cohort size are withheld to protect individual privacy.

@@ -3,10 +3,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Stepper } from "@/components/ui/stepper";
 import { deriveReferralPipelineStages } from "@/lib/referrals/pipeline-stages";
+import { signReferralOutcomeDocumentPath } from "@/lib/referrals/outcome-documents";
 import { koboToNaira } from "@tarragon/shared";
 import type { SpecialistReferralWithDetails } from "@/lib/queries/specialist-referrals";
 import { REFERRAL_STATUS_BADGE } from "@/lib/worklist/referral-status-badge";
 import { ClinicalSummaryPanel } from "./clinical-summary-panel";
+import { AssignSpecialistProviderForm } from "./assign-specialist-provider-form";
+
+const ASSIGNABLE_STATUSES = ["pending", "waitlisted"] as const;
 
 const REFERRAL_SELECT =
   "*, patient:profiles!specialist_referrals_patient_id_fkey(full_name), specialist_provider:specialist_providers!specialist_referrals_specialist_provider_id_fkey(name, consultation_fee_kobo)";
@@ -44,6 +48,12 @@ export default async function ReferralDetailPage({
 
   const typedReferral = referral as SpecialistReferralWithDetails;
   const statusBadge = REFERRAL_STATUS_BADGE[typedReferral.status];
+  // Authorised here (this select already went through is_org_staff RLS) —
+  // the signed URL itself is minted with the service-role client since org
+  // staff have no direct storage-object read policy on this bucket.
+  const outcomeDocumentUrl = typedReferral.outcome_document_path
+    ? await signReferralOutcomeDocumentPath(typedReferral.outcome_document_path)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -72,10 +82,19 @@ export default async function ReferralDetailPage({
               {koboToNaira(typedReferral.referral_fee_kobo ?? 0).toLocaleString()}
             </p>
           )}
+          {!typedReferral.specialist_provider &&
+            ASSIGNABLE_STATUSES.includes(
+              typedReferral.status as (typeof ASSIGNABLE_STATUSES)[number]
+            ) && (
+              <AssignSpecialistProviderForm
+                referralId={typedReferral.id}
+                specialistType={typedReferral.specialist_type}
+              />
+            )}
         </CardContent>
       </Card>
 
-      <ClinicalSummaryPanel referral={typedReferral} />
+      <ClinicalSummaryPanel referral={typedReferral} outcomeDocumentUrl={outcomeDocumentUrl} />
     </div>
   );
 }

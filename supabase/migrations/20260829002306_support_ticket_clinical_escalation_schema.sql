@@ -50,6 +50,8 @@ $$;
 comment on function private.can_handle_support_escalation(uuid) is
   'Gate for escalating a support ticket into clinical review (§24.7/24.8). Any active clinical-tier staff member (Tier 1 and up) or Clinical Director — a Care Coordinator may not, since deciding a ticket needs clinical judgment is itself a clinical judgment. Deliberately separate from can_handle_emergency_escalation/has_prescribing_authority (different act, same divergence-on-purpose precedent).';
 
+revoke all on function private.can_handle_support_escalation(uuid) from public;
+revoke all on function private.can_handle_support_escalation(uuid) from anon;
 revoke all on function private.can_handle_support_escalation(uuid) from public, anon;
 
 -- Redefine once more to add the escalation-authority gate: only

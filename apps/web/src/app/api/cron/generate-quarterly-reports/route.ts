@@ -1,20 +1,18 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generateAndStoreQuarterlyReport } from "@/lib/reports/generate-quarterly-report";
 
-const QUARTERLY_REPORT_FEATURE = "quarterly_report";
 const DUE_AFTER_DAYS = 85; // slightly under 90 so a daily cron run never skips a boundary
 
 /**
  * Scheduled generation of quarterly reports for every patient entitled to
  * one who doesn't already have one from the last ~90 days.
  *
- * Eligibility is read from the service_product's own features[] (repointed
- * 2026-08-31 off subscription_plans/subscriptions when the platform moved to
- * pay-per-service — see private.patient_has_feature_access) rather than a
- * hardcoded list of plan codes, so a future pack carrying the feature is
- * picked up with no code change.
+ * Every onboarded patient is eligible: the quarterly report became free to
+ * all patients when the Prevent/Essential/Complete packs were retired, so
+ * there is no entitlement to read. Eligibility used to come from the
+ * service_product's own features[], which would now match almost nobody.
  *
- * One report per subscriber: with individual enrolment there is no plan
+ * One report per patient: with individual enrolment there is no plan
  * membership to fan out to. Someone who looks after another person's record
  * sees that person's own report through patient_quarterly_reports' SELECT
  * policy, which admits a profile_access grantee.
@@ -34,19 +32,21 @@ export async function GET(request: Request): Promise<Response> {
 
   const supabase = createServiceRoleClient();
 
-  const { data: purchases } = await supabase
-    .from("service_purchases")
-    .select(
-      "patient_id, organisation_id, expires_at, service_product:service_products!inner(features)"
-    )
-    .eq("status", "active");
+  // Every onboarded patient, not only those holding a pack whose features[]
+  // carried 'quarterly_report'. The report became free to all patients when
+  // the packs were retired; reading eligibility off service_purchases would
+  // now silently exclude almost everybody, since no active product grants it.
+  const { data: patients } = await supabase
+    .from("profiles")
+    .select("id, organisation_id")
+    .eq("role", "patient")
+    .not("onboarding_completed_at", "is", null)
+    .not("organisation_id", "is", null);
 
-  const now = Date.now();
   const patientOrgPairs = new Map<string, string>();
-  for (const purchase of purchases ?? []) {
-    if (purchase.expires_at && new Date(purchase.expires_at).getTime() <= now) continue;
-    if (!(purchase.service_product.features ?? []).includes(QUARTERLY_REPORT_FEATURE)) continue;
-    patientOrgPairs.set(purchase.patient_id, purchase.organisation_id);
+  for (const patient of patients ?? []) {
+    if (!patient.organisation_id) continue;
+    patientOrgPairs.set(patient.id, patient.organisation_id);
   }
 
   const dueBefore = new Date();

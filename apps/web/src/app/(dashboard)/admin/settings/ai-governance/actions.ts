@@ -13,7 +13,7 @@ export type AiGovernanceActionState = { error?: string; success?: string } | und
 const killSwitchSchema = z.object({
   systemId: z.string().uuid(),
   enabled: z.enum(["on", "off"]),
-  reason: z.string().trim().min(10, "Say why in a sentence — this goes on the record."),
+  reason: z.string().trim().min(10, "Say why in a sentence. This goes on the record."),
 });
 
 /**

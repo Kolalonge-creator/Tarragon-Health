@@ -15,7 +15,7 @@ const STATUS_BADGE: Record<string, { variant: "green" | "grey" | "amber" | "blue
   active: { variant: "green", label: "Active" },
   expired: { variant: "amber", label: "Expired" },
   cancelled: { variant: "grey", label: "Cancelled" },
-  superseded: { variant: "blue", label: "Superseded — a newer version exists" },
+  superseded: { variant: "blue", label: "Superseded (a newer version exists)" },
 };
 
 /**

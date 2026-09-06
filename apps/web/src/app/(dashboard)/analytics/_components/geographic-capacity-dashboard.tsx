@@ -56,7 +56,7 @@ export function GeographicCapacityDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Provider counts are catalogue aggregates only — never a patient-facing recommendation or
+        Provider counts are catalogue aggregates only, never a patient-facing recommendation or
         ranking (see docs/CLINICAL_NETWORK_SPEC.md §3/§4.17). &ldquo;Live&rdquo; reflects
         service_regions.is_active, the same state-rollout switch the app itself enforces.
       </p>

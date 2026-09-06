@@ -123,7 +123,7 @@ export async function matchStatementAction(statementId: string): Promise<Partner
   return {
     message:
       result.variance_lines === 0
-        ? "Matched — every line agrees with our own orders."
+        ? "Matched. Every line agrees with our own orders."
         : `Matched with ${result.variance_lines} line(s) disagreeing with our orders (difference: ${result.difference_kobo} kobo).`,
   };
 }
@@ -140,5 +140,5 @@ export async function approveStatementAction(
   if (error) return { error: error.message };
   revalidatePath("/finance/partner-settlements");
   const result = data as { agreed_kobo: number };
-  return { message: `Approved — a vendor bill for ${result.agreed_kobo} kobo has been raised.` };
+  return { message: `Approved. A vendor bill for ${result.agreed_kobo} kobo has been raised.` };
 }

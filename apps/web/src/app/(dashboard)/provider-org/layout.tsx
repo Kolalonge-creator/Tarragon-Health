@@ -26,7 +26,7 @@ export default async function ProviderOrgLayout({ children }: { children: React.
         greeting={greeting}
         roleLabel="Provider organisation"
         comingUp={[
-          "The provider organisation platform is built and ready — a Tarragon superadmin has not switched it on yet.",
+          "The provider organisation platform is built and ready. A Tarragon superadmin has not switched it on yet.",
         ]}
       />
     );
@@ -47,7 +47,7 @@ export default async function ProviderOrgLayout({ children }: { children: React.
       <DashboardPlaceholder
         greeting={greeting}
         roleLabel="Provider organisation"
-        comingUp={["Your login isn't linked to an organisation yet — ask a Tarragon admin to add you."]}
+        comingUp={["Your login isn't linked to an organisation yet. Ask a Tarragon admin to add you."]}
       />
     );
   }

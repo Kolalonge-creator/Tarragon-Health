@@ -56,7 +56,7 @@ export function PatientReferralsList({ patientId }: { patientId: string }) {
                     </Link>
                   ) : (
                     <p className="text-xs text-charcoal-ink/50">
-                      Still a draft — finish it from the Referrals worklist to submit.
+                      Still a draft. Finish it from the Referrals worklist to submit.
                     </p>
                   )}
                 </li>

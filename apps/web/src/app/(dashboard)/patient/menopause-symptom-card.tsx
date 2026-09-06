@@ -12,8 +12,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * Menopause (§44.12): symptom tracking, informational only. Lifestyle
  * support and clinical consultation are
@@ -29,6 +31,8 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
   const logs = useMenopauseSymptomLogs(patientId);
   const invalidate = useInvalidateWomensHealth(patientId);
   const [state, formAction, pending] = useActionState(logMenopauseSymptoms, undefined);
+  const errorId = fieldErrorId("menopause-symptom-log");
+  const errorProps = fieldErrorProps(errorId, Boolean(state?.error));
   const [symptomTypes, setSymptomTypes] = useState<Set<MenopauseSymptomType>>(new Set());
   const [bleeding, setBleeding] = useState(false);
 
@@ -69,7 +73,7 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
                       "rounded-full border px-3 py-1.5 text-xs font-medium transition",
                       isOn
                         ? "border-brand-green bg-brand-green text-white"
-                        : "border-charcoal-ink/20 bg-white text-charcoal-ink hover:border-brand-green/50"
+                        : "border-charcoal-ink/20 dark:border-night-ink/25 bg-white dark:bg-night-card text-charcoal-ink dark:text-night-ink hover:border-brand-green/50"
                     )}
                   >
                     {MENOPAUSE_SYMPTOM_LABEL[type]}
@@ -84,7 +88,7 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
 
           <div className="space-y-1.5">
             <Label htmlFor="severity">Overall severity (0–10)</Label>
-            <Input id="severity" name="severity" type="number" min={0} max={10} className="max-w-24" />
+            <Input id="severity" name="severity" type="number" min={0} max={10} className="max-w-24" {...errorProps} />
           </div>
 
           <label className="flex items-center gap-2 text-sm">
@@ -98,19 +102,19 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
             I&apos;ve had bleeding since menopause
           </label>
           {bleeding && (
-            <p className="text-xs text-amber-700">
-              Any bleeding after menopause always needs assessment — reporting this notifies your
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              Any bleeding after menopause always needs assessment. Reporting this notifies your
               care team.
             </p>
           )}
 
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notes (optional)</Label>
-            <Input id="notes" name="notes" />
+            <Input id="notes" name="notes" {...errorProps} />
           </div>
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-          {state?.success && <p className="text-sm text-brand-green">Logged.</p>}
+          <FormError id={errorId} message={state?.error} />
+          {state?.success && <p className="text-sm text-brand-green dark:text-brand-green-bright">Logged.</p>}
 
           <Button type="submit" size="sm" disabled={pending || (symptomTypes.size === 0 && !bleeding)}>
             {pending ? "Saving…" : "Log symptoms"}
@@ -118,11 +122,11 @@ export function MenopauseSymptomCard({ patientId }: { patientId: string }) {
         </form>
 
         {logs.data && logs.data.length > 0 && (
-          <div className="space-y-1.5 border-t border-charcoal-ink/10 pt-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">Recent</p>
+          <div className="space-y-1.5 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+            <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">Recent</p>
             {logs.data.slice(0, 5).map((log) => (
-              <p key={log.id} className="text-sm text-charcoal-ink/80">
-                {new Date(log.logged_at).toLocaleDateString()} —{" "}
+              <p key={log.id} className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+                {formatPatientDate(log.logged_at)}:{" "}
                 {log.symptom_types.map((t) => MENOPAUSE_SYMPTOM_LABEL[t]).join(", ") || "no symptoms"}
                 {log.postmenopausal_bleeding ? " · bleeding reported" : ""}
               </p>

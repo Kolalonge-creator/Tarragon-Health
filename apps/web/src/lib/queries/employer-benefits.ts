@@ -35,7 +35,7 @@ export function useBenefitPackages(organisationId: string) {
   });
 }
 
-/** The plan tiers a package can reference — same catalogue individual
+/** The service products a package can reference — same catalogue individual
  * patients buy from directly. */
 export function useServiceProductCatalog() {
   return useQuery({

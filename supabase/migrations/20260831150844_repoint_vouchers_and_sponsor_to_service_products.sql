@@ -383,24 +383,24 @@ begin
     raise exception 'old sponsored_subscription trigger was not removed';
   end if;
 
-  -- Was a hardcoded "expected 6" (the live QA-fixture count at authoring
-  -- time, per the header note) — that hard-fails a fresh `supabase db
-  -- reset`, which has zero subscriptions rows (the 6 are real @tarragon.test
-  -- signups, not something any migration seeds). Recompute the SAME join the
-  -- INSERT above uses instead, so this validates "the backfill covered every
-  -- eligible subscription" on ANY environment, live or freshly reset (0=0
-  -- there, 6=6 on live today).
+  -- Not a hardcoded 6: that only held on the live project's actual QA
+  -- fixture data (see header) and made this assertion fail on a from-scratch
+  -- replay, where public.subscriptions is empty (seed.sql seeds none -- see
+  -- CLAUDE.md's standing note that data-only backfills silently diverge
+  -- between a fresh reset and the live project). Mirrors the backfill
+  -- INSERT's own join logic so it stays a real proof of 1:1 coverage in
+  -- either environment: 0 expected/0 backfilled on a fresh reset, 6/6 live.
   select count(*) into v_expected
-  from public.subscriptions s
-  join public.subscription_plans p on p.id = s.plan_id
-  join public.service_products sp
-    on sp.code = regexp_replace(p.code, '_(yearly|usd|gbp)$', '') || '_pack'
-  where s.subscriber_id is not null;
+    from public.subscriptions s
+    join public.subscription_plans p on p.id = s.plan_id
+    join public.service_products sp
+      on sp.code = regexp_replace(p.code, '_(yearly|usd|gbp)$', '') || '_pack'
+   where s.subscriber_id is not null;
 
   select count(*) into v_backfilled from public.service_purchases
     where patient_id in (select subscriber_id from public.subscriptions);
   if v_backfilled <> v_expected then
-    raise exception 'expected % backfilled service_purchases rows (one per matched subscription), got %', v_expected, v_backfilled;
+    raise exception 'expected % backfilled QA service_purchases rows (one per matched subscription), got %', v_expected, v_backfilled;
   end if;
 
   raise notice 'PASS: vouchers and sponsor flow repointed to service_products/service_purchases; % rows backfilled', v_backfilled;

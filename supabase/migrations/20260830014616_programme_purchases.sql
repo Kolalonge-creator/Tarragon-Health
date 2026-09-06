@@ -230,6 +230,7 @@ create policy programme_purchases_update on public.programme_purchases
   with check (private.is_org_staff(organisation_id));
 
 grant select, insert, update on public.programme_purchases to authenticated;
+revoke all on public.programme_purchases from anon;
 -- `revoke ... from public` is what actually removes the PUBLIC pseudo-grant
 -- anon inherits through on this project; a bare `revoke ... from anon` alone
 -- is a no-op when anon never held a direct grant — same standing gotcha as

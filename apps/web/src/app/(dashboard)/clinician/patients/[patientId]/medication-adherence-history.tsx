@@ -32,7 +32,7 @@ export async function MedicationAdherenceHistory({ patientId }: { patientId: str
       <CardHeader>
         <CardTitle>Dose log history</CardTitle>
         <CardDescription>
-          Every dose entry this patient (or someone acting for them) has logged, most recent first —
+          Every dose entry this patient (or someone acting for them) has logged, most recent first,
           including corrections, which appear as their own new entry rather than replacing the
           original.
         </CardDescription>

@@ -166,7 +166,7 @@ function PartnerNotificationsForClinician({ episodeId }: { episodeId: string }) 
   return (
     <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60">
-        Partner notification — clinician assisted
+        Partner notification (clinician assisted)
       </p>
       {assisted.map((notification) => (
         <PartnerNotificationRow key={notification.id} notification={notification} />
@@ -216,7 +216,7 @@ function StiCaseRow({ episode }: { episode: StiCaseEpisodeWithDetails }) {
             {episode.patient?.patient_number ? ` · ${episode.patient.patient_number}` : ""}
           </p>
           <p className="text-xs text-charcoal-ink/60">
-            {STI_CODE_LABEL[episode.sti_code] ?? episode.sti_code.replace(/_/g, " ")} — result
+            {STI_CODE_LABEL[episode.sti_code] ?? episode.sti_code.replace(/_/g, " ")}: result
             {episode.screening_result?.created_at
               ? ` ${new Date(episode.screening_result.created_at).toLocaleDateString()}`
               : " date unknown"}
@@ -299,7 +299,7 @@ function StiCasesSection() {
       <CardHeader>
         <CardTitle>STI cases</CardTitle>
         <CardDescription>
-          Open chlamydia, gonorrhoea, and syphilis cases — result received through treatment and
+          Open chlamydia, gonorrhoea, and syphilis cases: result received through treatment and
           follow-up.
         </CardDescription>
       </CardHeader>
@@ -406,7 +406,7 @@ function EmergencyContraceptionSection() {
           Emergency contraception requests
         </CardTitle>
         <CardDescription className="text-charcoal-ink/70">
-          Each carries a 1-hour SLA from when it was requested — oldest, most urgent first.
+          Each carries a 1-hour SLA from when it was requested, oldest and most urgent first.
         </CardDescription>
       </CardHeader>
       <CardContent>

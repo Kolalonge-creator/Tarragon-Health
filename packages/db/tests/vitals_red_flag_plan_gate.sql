@@ -33,16 +33,29 @@ declare
   v_paid_patient  uuid := gen_random_uuid();
   v_complete_plan uuid;
 begin
-  select organisation_id into v_org
-  from public.profiles where role = 'patient' and organisation_id is not null limit 1;
-
+  -- Resolved from public.organisations, not from an existing patient: a
+  -- migration (20260706084837) seeds the direct-consumer org, so this holds on
+  -- a bare `supabase db reset`, where no patient profile exists yet.
+  select id into v_org from public.organisations limit 1;
   if v_org is null then
-    raise exception 'no organisation has patient profiles — cannot run this test';
+    insert into public.organisations (name, type)
+    values ('VRFPG Test Org', 'clinic')
+    returning id into v_org;
   end if;
 
-  select id into v_complete_plan from public.service_products where code = 'complete_pack' limit 1;
+  -- Resolved by FEATURE, not by the product code this file used to name.
+  -- complete_pack is is_active = false since the 2026-09-02 pay-per-service
+  -- pivot retired the packs: a by-code lookup still finds the row, still
+  -- inserts a purchase, and the paid patient then holds no entitlement at all,
+  -- so case 1 would report the paid patient behaving exactly like the free one
+  -- and read as a broken gate. Whatever product carries the feature today is
+  -- the right fixture.
+  select id into v_complete_plan
+  from public.service_products
+  where is_active and 'vitals_red_flag_doctor_escalation' = any(features)
+  order by code limit 1;
   if v_complete_plan is null then
-    raise exception 'no complete_pack service_products row found — cannot run this test';
+    raise exception 'VACUOUS: no active service_product grants vitals_red_flag_doctor_escalation — the paid half of this gate could not be exercised by anybody';
   end if;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)

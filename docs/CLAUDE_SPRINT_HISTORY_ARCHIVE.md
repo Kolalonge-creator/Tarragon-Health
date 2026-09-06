@@ -2751,6 +2751,156 @@ narrower affiliate-link gap that one didn't cover.
   remaining `affiliate_link`/`affiliate_partner`/`'affiliate'` reference outside the two migration files
   themselves (the historical one and this one) — none found.
 
+### 2026-08-28 — Specialist Referral Engine: outcome capture, feedback loop, enforced closure, staleness escalation
+
+An incoming spec (task spec §11, "Specialist Referral Engine") was handed in describing the full
+referral-lifecycle journey. Same discipline as `docs/CLINICAL_NETWORK_SPEC.md`'s own reconciliation
+approach: read what already exists before writing anything, respect `CLAUDE.md`'s guardrail on the
+matching/ranking engine, and build the confirmed gaps additively — user explicitly confirmed the
+intent was "complementary to what we already have... to enhance it and not to replace it."
+
+**What research found before writing anything:** most of §11 already existed — `specialist_referrals`
+(8-stage `referral_status`, urgency, `clinical_summary`, waitlist + interim-management-plan workflow),
+`ChooseReferralSpecialist`/`useMatchedSpecialistProviders` (plain filter, no ranking — the guardrail has
+held), and referral letters. **Critically, specialist booking/matching was deliberately SUSPENDED
+2026-08-03** (`20260803142941_self_arranged_specialist_referrals.sql`) — `fulfilment` defaults
+`self_arranged`, all 9 `specialist_providers` deactivated, `set_referral_specialist_provider` now always
+raises. Building §11.7/§11.8's "match and book a specific provider" flow would have reversed that
+founder decision, not just brushed the matching guardrail — correctly out of scope. The real, confirmed
+gap was downstream: the lifecycle just stops at `completed` — no structured outcome, no notification to
+the referring clinician when a specialist's outcome comes back, no closure enforcement, no escalation for
+a referral nobody follows up on, and the referral letter already promises "upload it in the app" with no
+such path anywhere in the codebase.
+
+**Shipped, in build order** (8 migrations, `20260828030512` through `20260828033417`):
+1. `referral_status` gains `closed` (one new terminal value — kept the existing "status stays coarse,
+   timestamps carry the fine-grained pipeline" idiom rather than proliferating enum states).
+2. `timeline_event_type` gains `referral_outcome_recorded`; `outreach_trigger_type` gains
+   `referral_follow_up`.
+3. `specialist_referrals` gains `referred_by` (FK `clinical_staff`, nullable, never inferred — mirrors
+   `bariatric_referrals.referred_by`/`lab_orders.ordered_by`), `preferred_consultation_type`,
+   `preferred_location`, `parent_referral_id` (self-FK, specialist-to-specialist chaining, §11.16).
+4. `specialist_referrals` gains `outcome_document_path/_uploaded_at/_uploaded_by`, `care_plan_update_note`,
+   `closed_at`, `closed_by`, a `specialist_referrals_closed_requires_outcome` CHECK (closing requires an
+   outcome — transcribed plan or uploaded doc — + a non-empty care-plan note + clinical-tier attribution),
+   and `private.enforce_specialist_referral_outcome_and_closure` (BEFORE UPDATE): freezes `closed_at`/
+   `closed_by` once set, blocks reopening a closed referral, server-derives the document uploader and the
+   closer (clinical-tier only, mirrors `clinical_encounter_notes`' attribution trigger).
+5. Private storage bucket `specialist-referral-outcome-documents` (patient-own-folder policies, mirrors
+   `lab-result-documents`).
+6. Feedback-loop notifications (§11.14): outcome recorded → notify the referring/assigned clinician +
+   `referral_outcome_recorded` timeline event; closed → notify the patient.
+7. Three staleness sweeps (§11.12, adapted to the self-arranged model — "did not book a Tarragon
+   appointment" has no meaning anymore, so the real equivalent is "no outcome recorded"): 14d → patient
+   reminder, 30d → `care_outreach_tasks` row (`referral_follow_up`), urgent/priority + 7d → `clinician_alerts`
+   row (reused `failed_referral` type_code rather than adding a new ungoverned one).
+
+**App layer:** `useCreateSpecialistReferral`/`CreateReferralForm` (clinician-facing referral creation —
+confirmed zero prior UI existed; only the abnormal-result-handler Edge Function ever inserted a row),
+`useCloseReferralWithCarePlanUpdate`, outcome-document upload (patient self-upload + staff-on-behalf,
+mirrors `uploadResultDocumentAsPatient`/`uploadResultDocumentForPatient`), extended
+`ClinicalSummaryPanel`/`your-referrals.tsx`/`pipeline-stages.ts`/`notification-bell.tsx` describe() cases.
+`treatment_plan_note`/`treatment_plan_received_at`/`shared_care_handback_at` and the existing waitlist/
+urgency/assignment hooks are all untouched.
+
+**Two things found only by testing against the LIVE project, not by reading migration files:**
+- **Local git is hundreds of migrations behind the live `koiplnmbgnqnbywhpjlf` project.** `list_migrations`
+  showed real, applied-live migrations with no matching file anywhere in this git history —
+  `care_plan_goals`/`care_plan_decisions`/`care_tasks` (a real structured care-plan system), an
+  `outreach_trigger_type` already carrying `missed_care_task`/`missed_appointment`/`failed_referral`, a
+  `queue_care_outreach()` that already raises `failed_referral` outreach tasks for **declined** referrals
+  (confirmed non-overlapping with this work's staleness sweep, which covers **stuck-without-outcome**
+  referrals regardless of decline status) — none of it in git. Conversely, at least one git-committed
+  migration (`20260827203614_provider_notifications.sql`, the `specialist_referrals_notify_clinician`
+  trigger) has **no live counterpart at all** — committed but never applied. Every specific fact this
+  entry states about live state was checked directly via `execute_sql`/`list_migrations`, not assumed from
+  the git tree — the standing lesson in `CLAUDE.md` about checking live definitions directly applies to
+  entire migrations now, not just individual functions.
+- **`specialist_referrals`' UPDATE RLS policy is staff-only (`private.is_org_staff`), even for a patient's
+  own row** — confirmed only by actually running `packages/db/tests/specialist_referral_engine.sql`
+  against the live project (not just reading the original 2026-07-05 migration, which had patient-or-staff
+  UPDATE). The first cut of the patient outcome-document-upload action used the patient's own session for
+  the table write and silently no-op'd (0 rows, no error) — caught before shipping only because the SQL
+  proof test was run for real. Fixed to verify ownership via the patient's own RLS-scoped SELECT, then
+  write via the service-role client with `outcome_document_uploaded_by` passed explicitly (the enforcement
+  trigger only auto-derives it from `auth.uid()` when a real session is present, same pattern
+  `handle_lab_result_document` already uses for its staff-upload path).
+- Migrations applied directly to the live project via `apply_migration` (this project's own established
+  practice per this file's own precedent — no separate "push-live" step exists for database migrations).
+  `get_advisors` (security) shows nothing against any new object. `pnpm --filter web typecheck/lint/test`
+  clean (107/107 suites, 1120/1120 tests); `database.types.ts` hand-patched (new columns, `referral_status`
+  gains `closed`, `timeline_event_type`/`outreach_trigger_type` gain their new values) rather than
+  regenerated, same precedent as prior entries in this file.
+- **Not built, guardrail unchanged:** specialist matching/ranking, reactivating `specialist_providers`
+  booking, any integration with the live-only `care_plan_goals`/`care_plan_decisions` system (deliberately
+  left alone — `care_plan_update_note` stays a narrative note alongside the record, same relationship
+  `clinical_encounter_notes.plan` already has to `medications`/`lab_orders`, since the live-only system's
+  full constraints/RLS couldn't be verified from outside a single session).
+
+### 2026-08-28 — Partner-specialist booking: reactivated the "is_active flip", on explicit ask
+
+Same-day follow-up to the Specialist Referral Engine entry above. Founder explicitly asked to "build
+this full... so it can be easily activated when Tarragon start having specialist onboard" — read as
+authorising the specific piece the referral-engine work above deliberately left alone: finishing the
+`partner` half of `fulfilment_mode` (added 2026-08-03,
+`20260803142941_self_arranged_specialist_referrals.sql`) so a real contracted specialist can actually
+be booked once one exists, without reversing `self_arranged` as the default or touching the
+matching/ranking guardrail (still untouched — no scoring, no "Tarragon recommends", staff/patient still
+pick manually from a plain filtered list).
+
+**What was actually broken, found by reading the 2026-08-03 migration in full before writing anything:**
+its own comment says "Dormant, not deleted. Contracting a specialist is an `is_active` flip" — but
+`set_referral_specialist_provider` was left **unconditionally raising** ('Specialist booking is not
+available yet') regardless of whether a real active provider existed, so flipping `is_active` alone
+would never actually have activated anything; and the referrals worklist's `useAssignSpecialistProvider`
+hook did a raw `.update()` that would violate `enforce_referral_fulfilment`'s self_arranged guard (every
+referral defaults to `self_arranged`, and only the RPC is meant to flip it to `partner`) — so that whole
+assignment UI was silently dead in production. Also found, before building anything new: a **complete
+admin onboarding UI for specialist_providers already existed** at
+`admin/settings/partners/specialists/` (create form, license editor, commission-rate editor,
+activate/deactivate toggle, using the already-defined `partners.specialists.manage` RBAC permission) —
+almost built a duplicate before checking.
+
+**Shipped:**
+- `20260828234512_activate_partner_specialist_booking.sql` rewrites `set_referral_specialist_provider`
+  to do real work again: requires the caller to be org staff for the referral's own org, the referral to
+  still be assignable (`pending`/`waitlisted`, not already paid/booked/closed), and the chosen provider
+  to be genuinely active AND specialty-matched — then flips `fulfilment` to `partner`, locks in the fee
+  from the **provider's own row** (never a caller-supplied value), and advances `status` to
+  `pending_payment`. Everything downstream (payment checkout, `specialist_referrals_record_commission`,
+  the booking/close pipeline) is pre-existing and untouched — reaching `payment_confirmed` for real is
+  what re-activates it.
+- `useAssignSpecialistProvider` (`lib/queries/specialist-referrals.ts`) now calls the RPC via
+  `supabase.rpc(...)` instead of the raw update; `AssignProviderForm` surfaces the RPC's real error
+  message instead of a generic one.
+- Extended the existing specialist-onboarding form with `city`/`contact_email`/`contact_phone` — these
+  columns already existed but the form never collected them, and `contact_email`/`contact_phone` are
+  what `specialist_referrals_enqueue_notifications` actually sends the booking confirmation to; without
+  them a real specialist would never be told they'd been booked.
+- **Explicitly not built, guardrail unchanged**: no wiring into the Appointment Engine. Checked
+  `hold_appointment_slot`'s signature first — it's built around `p_clinician_id` (an internal
+  `clinical_staff`-linked profile with its own `provider_availability_rules`), which an external
+  contracted specialist has no equivalent of and, per this codebase's own "specialists have no platform
+  login" pattern, never will. Forcing partner-specialist booking through that engine would mean
+  inventing availability data no real specialist ever provided — the existing simple
+  `appointment_date`/`booking_confirmed_at` fields on the referral (a human coordinates the actual time
+  with the external party) are the architecturally correct model here, not a gap.
+- `packages/db/tests/specialist_referral_partner_booking.sql` run live: 6 cases (happy-path assignment
+  correctly locking fulfilment/status/fee; inactive-provider, specialty-mismatch, already-progressed-
+  referral, and non-staff-caller all correctly blocked; a waitlisted referral assignable too) — all pass.
+  One real bug caught only by running it: `select function_returning_composite() into record_var` failed
+  with a spurious "invalid input syntax for type uuid" even though the RPC itself succeeded (visible
+  inside the malformed error text) — a test-harness issue, not an RPC bug; fixed by reading the row back
+  with a plain `select ... into` from the table instead, same idiom already used in the closure-series
+  test above.
+- `pnpm --filter web typecheck/lint/test` clean (107/107 suites, 1120/1120 tests). Applied directly to
+  the live `koiplnmbgnqnbywhpjlf` project, same as the entry above.
+- **Still requires real ops work before any patient sees a partner-booked referral**: an admin adding a
+  genuine specialist through the existing onboarding UI (name, real contact details, real fee, license) and
+  flipping `is_active` true. Nothing else changes until that happens — every referral still defaults to
+  `self_arranged` and the assignment UI still shows "no active providers match" against an empty
+  catalogue, identical to today.
+
 ### 2026-08-29 — care_message_draft_replies: AI-drafted reply assist for the Care Coordinator inbox
 
 A doctor-cost-optimization / Care Coordinator-scaling discussion asked what of the proposed scaling
@@ -3346,3 +3496,195 @@ precedent first, per standing instruction, with two real findings worth keeping 
   wire through; the per-order upload slot in `lab-orders-list.tsx` still doesn't show it. No change to
   `video_visit_prices` — still no admin UI for that one, only for this feature's own price now.
 
+### 2026-09-03 — Reconcile PR #283 (Specialist Referral Engine: outcome capture, closure, partner-booking) against main-dev
+
+This branch was cut 2026-08-28, before the "Referral Management Engine: found a concurrent session's
+parallel build first" entry above (2026-08-29) — that entry's "concurrent session" it recovered 20
+migrations from **is this branch**, applied directly to the live project the same day. By the time this
+reconciliation ran, all 9 of this branch's own migrations were already byte-identical duplicates of
+migrations main-dev already carries (confirmed via direct diff of every pair) — none needed reapplying,
+and `database.types.ts` (both `packages/shared/` and `packages/db/`) already had every column this branch
+needed. The `create-referral-form.tsx` this branch built was also superseded outright by main-dev's own
+richer version (referral_source taxonomy, appropriateness/CDS check, psychiatry/psychology) — dropped in
+favour of main-dev's.
+
+**What was genuinely missing and got spliced in:**
+- The outcome-document-upload feature (`referral-outcome-document-upload.tsx`,
+  `lib/referrals/{actions,outcome-documents}.ts`, `lib/validation/specialist-referral-documents.ts`) — the
+  "upload it in the app" promise the referral letter already makes, with no implementation anywhere on
+  main-dev. Spliced into main-dev's own (independently-built, text-only) closure flow on
+  `clinical-summary-panel.tsx` as an alternative to transcribing a report by hand — either now satisfies
+  `specialist_referrals_closed_requires_outcome`, which already accepted either path. Found and removed a
+  real redundant duplicate closure section in this branch's own original file along the way (two separate
+  "close this referral" cards doing the same thing) rather than carrying it forward.
+- `useAssignSpecialistProvider` (RPC-based, correctly calling the reactivated
+  `set_referral_specialist_provider`) plus a new `AssignSpecialistProviderForm` on the referral detail
+  page — main-dev's own code comment on `useMatchedSpecialistProviders` explicitly flagged this as
+  deliberately unbuilt ("a future clinician-side assignment UI should call
+  set_referral_specialist_provider()... rather than resurrecting that raw-update pattern") after deleting
+  the old broken version as dead code. Placed on the detail page, not the worklist list page this branch
+  originally used — main-dev's list page had already been redesigned to push all per-referral actions
+  there. No scoring/ranking added; reuses the existing plain-filter `useMatchedSpecialistProviders`.
+- `notification-bell.tsx` wiring for `clinician_referral_outcome_received`/`referral_closed`/
+  `referral_reminder` — these templates are already being inserted by main-dev's own (duplicate,
+  already-live) feedback-loop/staleness migrations, but nothing described them, so they were rendering
+  with the generic fallback.
+- A `referralsAwaitingClosure` worklist count + "Referrals to review & close" dashboard tile — no
+  equivalent existed on main-dev.
+- Two DB test files (`specialist_referral_engine.sql`, `specialist_referral_partner_booking.sql`) — a
+  genuinely more thorough 6-case discriminating suite for the closure CHECK/tier-gate and the
+  reactivated-RPC's guards than main-dev's existing referral tests carry.
+
+**Dropped as duplicate/superseded**, beyond the migrations and `create-referral-form.tsx` above: this
+branch's own `useCloseReferralWithCarePlanUpdate`/`useCreateSpecialistReferral` (functionally identical to
+main-dev's own `useCloseReferral`/`useCreateReferral`, confirmed unused anywhere once their consumers were
+resolved to main-dev's side); the `outreach-worklist.tsx`/`patient-timeline.tsx` label tweaks for
+`referral_follow_up`/`referral_outcome_recorded` (main-dev already had both keys, different wording only).
+
+Confirmed no specialist-matching/ranking logic crossed in anywhere (every provider list stays a plain
+filter, per `docs/CLINICAL_NETWORK_SPEC.md` §3) — same guardrail already checked for PR #336/#338.
+`pnpm --filter @tarragon/web exec tsc --noEmit` and `pnpm --filter @tarragon/web run lint` clean.
+
+
+### 2026-08-31 to 2026-09-03 — Subscriptions retired for pay-per-service, Women's Health/cycle tracking built, a reproductive-health RLS hardening sweep, CI enforcement finally landed, and a 70-branch mega-merge
+
+Documentation catch-up written 2026-09-03 covering three days this file had not yet recorded — the gap
+was found and closed as part of a founder-requested "make sure CLAUDE.md doesn't drift" pass. Sourced
+from merged-PR titles/timestamps (`gh pr list`), direct GitHub/Supabase API checks, and several
+same-week memory files written by the sessions that did the work; the detail below is a synthesis, not
+a fresh investigation — treat migration filenames/PR numbers as pointers to re-verify, not settled fact.
+
+**1. Subscriptions retired outright — the app is free, Tarragon charges only for a doctor's time.**
+PR #461 (`feat/free-app-pay-per-service`), building on the 2026-08-31 pay-per-service migration
+(PR #418). `subscription_plans` (`prevent`/`essential`/`complete`, monthly + yearly, both Lifestyle
+Coaching packs) set `is_active=false`; existing holders keep access until expiry since
+`patient_has_feature_access` reads the purchase, not the plan's active flag. Seven previously-paid
+features became free (no marginal clinician cost): `health_education`, `lifestyle_coaching`,
+`ai_coach`, `quarterly_report`, `prevention_coordination`, `lab_coordination`, `medication_refills`.
+Six stayed paid because they cost real doctor time, preserving the 2026-08-10 "Tarragon Free consumes
+no doctor time" rule: `clinician_review`, `doctor_checkin`, `async_doctor_visit`,
+`multi_condition_review`, `result_document_review`, `vitals_red_flag_doctor_escalation`. The 12-week
+doctor-supported chronic-care programme (hypertension/diabetes only — weight has its own free coaching
+track) became the one recurring paid route to those six, and was repriced twice in the same session on
+founder correction: ₦15,000 placeholder → ₦40,000 (3×₦10k doctor reviews + ₦10k medication review) →
+**₦50,000** (extra ₦10k framed as "ongoing coordination and monitoring" so the listed breakdown sums to
+the headline price). Four real bugs found and fixed along the way: the diaspora ($) tab pointed at
+`_usd_pack` products that never existed in `service_products` (entire tab unbuyable); "a month of
+Essential Care" was buying twelve months; the education library was marketed free while
+`/patient/learn` still gated it behind `health_education`; the family dashboard was still sold as an
+upgrade though its actual gate had been removed weeks earlier (a dead-gate pattern — gated on a key no
+product grants).
+
+**Diaspora/Stripe removed entirely in the same PR, two same-day follow-up commits.** Stripe was never
+actually usable (no UK entity registered, `isStripeConfigured()` always failed closed) but two live
+surfaces still walked a patient toward that dead end — onboarding's naira/dollar plan-choice step
+(replaced with a plain "you're all set" confirmation) and `/admin/settings/diaspora-pricing` (deleted
+outright, its `subscription_plans`/`add_ons` tables already dead). The one historical USD purchase row
+was confirmed test data (patient literally named "Test Diaspora Patient") before being deleted, then
+`lib/stripe/*`, the `stripe-webhook` Edge Function, and every Stripe branch in every checkout path were
+removed. Paystack (NGN) is now the only live payment provider on the platform. **This is a bigger,
+structural pivot than the routine pricing churn this file already warns about** — don't assume any
+subscription/pack/tier language elsewhere in this file (including earlier in this same archive) still
+describes the live entitlement model.
+
+**2. Care Voucher / sponsor finance-posting: three more live gaps found in the 2026-08-31 repoint
+migration, beyond what PR #447 already fixed.** Merged as PR #455. The 2026-08-31 migration that
+repointed vouchers/sponsors from subscriptions to `service_products`
+(`20260831150844_repoint_vouchers_and_sponsor_to_service_products.sql`) left: `voucher_payment` finance
+posting unreachable (same `processed_at IS NULL` guard bug PR #447 had just fixed for a different
+payment kind); sponsor-paid service purchases silently never activating the beneficiary (the migration
+renamed `activate_sponsored_subscription` → `activate_sponsored_service_purchase` and, in the rename,
+reintroduced a guard that had already been fixed once for this exact checkout kind one day earlier);
+`sponsored_subscription` had no `finance_post_from_payment` branch at all; and
+`care_vouchers_kind_shape` was never widened for the new `service_product_id` column, so **every real
+`purchase_service_voucher()` call had been failing its check constraint since 2026-08-31** — the entire
+Care Voucher purchase path was dead for two days with no error surfaced anywhere. Compliance-hardening
+follow-up the same day: PR #425 renamed `credit_kobo` to `instalment_kobo` on the Care Voucher tables
+(no functional change, structuring-language cleanup).
+
+**3. Women's Health platform and a real menstrual cycle tracker, replacing a single "not a prediction"
+nudge.** PR #323 (Women's Health platform: menstrual, pregnancy/antenatal, postnatal, breast, menopause,
+fertility) absorbed a separately-built, more-complete cycle tracker (originally PR #457, closed by the
+repo owner in favour of #323 once compared) — `menstrual_cycles` + `menstrual_daily_logs`, a pure
+prediction engine (`lib/rules/cycle-prediction.ts`), a ring/calendar UI at `/patient/cycle`, and daily
+in-app-only reminders. Ovulation is deliberately back-counted from the *predicted next period* (luteal
+phase ~fixed at 14 days), never the cycle midpoint — the single biggest error class in naive cycle apps,
+pinned by a test. Follow-up PR #467 (merged 2026-09-03) added symptom/mood pattern insights, a BBT/LH
+thermal-shift ovulation-confirmation engine (confirms, never predicts — basal temperature deliberately
+kept off `vitals_readings` so a normal post-ovulation reading never pages a clinician), a cycle-length
+chart against the FIGO 24-38 day band, and wired the feature into patient-facing navigation.
+
+**4. A reproductive-health RLS hardening sweep — the same consent-model gap found and fixed five
+separate times in three days.** `care_access_category` has eight values; `reproductive_health` is
+deliberately excluded from both the dependent-account bypass and emergency break-glass in
+`private.can_read_clinical()` — every other category allows a caregiver/emergency read-through, this one
+never does. Across PR #402 (`reproductive_health_profiles` RLS), #404 (vaccination/cardiovascular/
+quarterly-report RLS), #405 (extracted `hiv_status`/`hbv_status`/`hcv_status` out of `profiles` into
+their own category-scoped table), #459 (a regression the Adolescent Health merge introduced into
+`reproductive_health_profiles`), #460 (Women's Health tables that had copied an older sibling's
+pre-category-model RLS shape wholesale, bypassing the category check entirely), #463 (six RLS policies
+still on a legacy 1-argument `can_read_clinical` overload), and #468 (a write-side RLS gap the read-side
+fixes above had left open, plus a broader db-test/live-bug sweep) — the pattern each time was a new or
+edited table copying an existing sibling's policy text without checking whether that sibling predated
+`20260830103251_category_scoped_clinical_access_and_emergency_access.sql`. See the new standing
+engineering lesson in `CLAUDE.md` above; do not copy RLS shape for any reproductive-health-adjacent
+table without writing the category-scoped check fresh and proving a caregiver/emergency session is
+actually refused.
+
+**5. CI migration-replay privilege drift fully closed, and `main-dev` branch protection now genuinely
+enforces its checks.** Two independent gaps in the "Supabase migration replay" CI job were found and
+closed the same week: the table-level anon-default-privilege gap (already closed 2026-07-31 for
+tables) had an uncorrected functions/sequences counterpart — PR #438 closed it structurally
+(`revoke ... from public`, not `from anon`, since anon inherits function EXECUTE through the PUBLIC
+pseudo-role); PR #441 fixed three migration-version collisions PR #322 (Healthy Ageing) had introduced
+against earlier, differently-named migrations for the same tables. **Once both merged, `main-dev`
+branch protection was updated to actually require all three CI jobs to pass** — confirmed directly via
+the GitHub API on 2026-09-03 (`required_status_checks.contexts` lists all three,
+`mergeStateStatus: BLOCKED` genuinely refuses a failing merge). This closes a gap that had stood open
+since at least 2026-08-30, during which the migration-replay job failed on essentially every PR merged
+2026-08-30 through 2026-09-02 without blocking a single one of those merges — see the (now resolved)
+"Known standing follow-ups" entry in `CLAUDE.md`.
+
+**6. Migration drift between `main-dev` and the live database is large and still growing, not fixed.**
+A reconciliation pass on 2026-09-03 found the true counts had moved from an initial 107 missing/20
+orphaned estimate to **124 missing/148 orphaned** within the same few hours, because migrations are
+applied to the one shared live project continuously by many concurrent sessions — any fix attempt races
+a moving target. Two pre-existing PRs (#341, #313, both open since 2026-08-29) already attempted this
+exact reconciliation and are now themselves stale. One finding worth flagging directly to the founder:
+two migrations from 2026-08-31 (a "since you were last here" patient summary feature and an
+engagement-decline notification) are live in production with zero git record on any branch anywhere —
+recoverable losslessly from `schema_migrations.statements`, not yet backfilled as a real migration file.
+See `CLAUDE.md`'s updated "Known standing follow-ups" for the current numbers and the instruction not to
+start a third parallel reconciliation branch.
+
+**7. 2026-09-02 — a single day, roughly 70 previously-built feature branches merged into `main-dev` at
+once.** This project runs a large, deliberate fleet of concurrent Claude Code worktree sessions (17+
+confirmed active 2026-08-29, 86 worktrees present as of this writing) that periodically get batch-merged;
+2026-09-02 was one such consolidation day. Merged branches closed most of the spec-module backlog this
+file's "Where to Look" section had been describing as design/reconciliation-only, spanning clinical
+modules (Predictive Risk & Early Warning Engine §39, Clinical Decision Support §38, Symptom Assessment &
+Triage Engine reconciliation §37, Clinical Rules & Care Protocol Engine reconciliation §32, Referral
+Management Engine + 20 recovered orphaned migrations, Specialist Network & Provider Platform
+foundations, Vaccination & Immunisation Engine gap closure, Wearables granular consent + heart-rate
+red-flag engine, Diagnostic ordering gap closure, prescription-lifecycle gaps, medication safety/
+adherence gap closure), patient-facing platform modules (Patient Identity & MPI, Family Care Circle gap
+closure, Caregiver Proxy Access, Sexual & Reproductive Health, Pediatric & Child Health, Adolescent
+Health, Mental Health & Wellbeing, Healthy Ageing & Elderly Care, Imaging & Diagnostic Procedure
+Platform, Patient dashboard "personal health operating system" §76, AI Health Assistant §78 gap closure,
+Patient Engagement Engine, Nigerian Nutrition Intelligence, Health Education Platform, patient-
+communication gap closure, notification template registry), and business/admin/ops modules (§91
+Payments/Billing gap closure — subsidy engine, fraud detection, VAT, refunds; §90 continuity/DR gaps;
+Employer Health Platform reconciliation, employer roster eligible/activated billing; Insurer/payer +
+provider organisation platform reconciliation (Modules 27/28 — confirmed still shipped dormant, gated
+behind `platform_modules`, no live counterparty); AI Governance dashboard + kill-switch admin UI;
+Interoperability & API Platform reconciliation; Operations & Command Centre; Provider Quality &
+Performance Management; Diaspora Gift-a-Health-Check + group screening days; disease-surveillance
+trend/funnel analytics). **The standing specialist-matching/ranking-engine guardrail was explicitly
+re-checked against the Referral Management Engine and Specialist Network PRs (#338, #336) by the
+sessions doing that work, and confirmed still holding — every provider list stays a plain filter, no
+ranking logic crossed in** (see this file's 2026-08-28/2026-08-29/2026-09-03 Referral Management Engine
+entries). **The remaining ~65 PRs in this merge were not individually re-audited against every CLAUDE.md
+guardrail as part of this documentation pass** — treat any specific one as unverified until checked, and
+prefer reading that spec's own doc (several already carry a 2026-09-02 reconciliation note, e.g.
+`FAMILY_CARE_CIRCLE_SPEC.md`) over assuming this file's older "Phase 2/3, needs an explicit ask"
+language still applies.

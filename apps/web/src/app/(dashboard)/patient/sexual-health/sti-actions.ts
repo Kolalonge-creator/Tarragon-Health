@@ -141,9 +141,9 @@ export async function requestSelfNotifyPartnerCopy(
 
   return {
     smsTemplate:
-      "Hi — I wanted to let you know it's worth getting checked for STIs. No pressure, just thought you should know. Most clinics/pharmacies can test quickly.",
+      "Hi, I wanted to let you know it's worth getting checked for STIs. No pressure, just thought you should know. Most clinics/pharmacies can test quickly.",
     whatsappTemplate:
-      "Hey, hope you're doing okay. I wanted to give you a heads-up that it's worth getting an STI check soon — no pressure at all, just thought you'd want to know. Most clinics, labs and even some pharmacies can test quickly and confidentially, so it doesn't have to be a big deal.",
+      "Hey, hope you're doing okay. I wanted to give you a heads-up that it's worth getting an STI check soon. No pressure at all, just thought you'd want to know. Most clinics, labs and even some pharmacies can test quickly and confidentially, so it doesn't have to be a big deal.",
   };
 }
 

@@ -152,6 +152,34 @@ export function useLabPartnerUploadResult() {
   });
 }
 
+/**
+ * Marks a collected sample rejected (haemolysed, insufficient volume, wrong
+ * tube, ...) — Laboratory Engine §14.15. Routed through the
+ * lab_partner_reject_sample RPC rather than a direct table update: a
+ * lab_partner account has no RLS write on lab_orders at all (is_org_staff
+ * excludes it by design), the same reason uploadResultAsLabPartner exists.
+ * The side effects (patient notification, operational alert, and reopening
+ * a linked due-screening so the patient can rebook) all happen inside the
+ * lab_orders trigger this RPC's UPDATE fires — nothing to do here beyond
+ * calling it and refreshing the worklist.
+ */
+export function useLabPartnerRejectSample() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("lab_partner_reject_sample", {
+        p_order_id: orderId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["lab-partner-orders"] });
+    },
+  });
+}
+
 export type LabTestRow = Tables<"lab_tests">;
 
 /**
