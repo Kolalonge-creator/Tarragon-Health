@@ -425,6 +425,11 @@ export function getNavSections(
                   icon: "labs",
                 },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
+                // Chief Medical Officer only (canAssignCases in
+                // lib/clinical/doctor-tier.ts) — shown to every clinician tier
+                // per this file's own gating philosophy above; the page
+                // itself redirects/shows a friendly message for anyone else.
+                { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
               ],
             },
             // Only reachable for a clinician holding a delegated

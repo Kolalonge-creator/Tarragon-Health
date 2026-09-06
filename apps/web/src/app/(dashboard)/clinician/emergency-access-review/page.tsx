@@ -14,7 +14,7 @@ import { EmergencyAccessReviewQueue } from "./emergency-access-review-queue";
 export default async function EmergencyAccessReviewPage() {
   const profile = await getCurrentProfile();
   const staff = await getCurrentClinicalStaff();
-  const canReview = profile?.role === "admin" || staff?.is_clinical_director === true;
+  const canReview = profile?.role === "admin" || staff?.doctor_tier === "chief_medical_officer";
 
   if (!canReview) {
     return (

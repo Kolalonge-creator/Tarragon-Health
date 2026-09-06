@@ -34,9 +34,11 @@
 -- can_confirm_medication_refill to `doctor_tier = 'tier_1'` and re-run. Case 3
 -- must FAIL, naming that gate with tier_1=allowed / tier_2=denied.
 --
--- Note the probe row carries indemnity fields: the DB enforces current
--- indemnity cover before a Clinical Director, Tier 4 or Tier 5 record may be
--- active, so a probe without them could not legally reach the senior tiers.
+-- Note the probe row carries indemnity fields and employment_type =
+-- 'contracted': the DB enforces current indemnity cover before a Chief
+-- Medical Officer, or a contracted Senior Medical Officer, may be active, so
+-- a probe without them (or one left 'employed') could not legally reach the
+-- senior tiers.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/tier_authority_monotonicity.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
@@ -57,8 +59,7 @@ declare
   v_profile    uuid;
   v_staff_id   uuid;
   v_tiers      text[] := array[
-                  'tier_1','tier_2','tier_3',
-                  'tier_4_senior_registrar','tier_5_partner_specialist'
+                  'medical_officer','senior_medical_officer','chief_medical_officer'
                 ];
   v_tier       text;
   v_rank       int := 0;
@@ -89,12 +90,12 @@ begin
 
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director,
+    employment_type,
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   )
   values (
     v_org, v_profile, 'Tier Monotonicity Probe', true, now(),
-    false,
+    'contracted',
     'Probe Indemnity Ltd', 'PROBE-MONOTONICITY', now() + interval '1 year'
   )
   returning id into v_staff_id;
@@ -247,11 +248,9 @@ select line from (
   select
     99, 1,
     'MATRIX ' || rpad(gate, 32) ||
-      ' t1=' || max(allowed::int) filter (where tier = 'tier_1') ||
-      ' t2=' || max(allowed::int) filter (where tier = 'tier_2') ||
-      ' t3=' || max(allowed::int) filter (where tier = 'tier_3') ||
-      ' t4=' || max(allowed::int) filter (where tier = 'tier_4_senior_registrar') ||
-      ' t5=' || max(allowed::int) filter (where tier = 'tier_5_partner_specialist') ||
+      ' mo=' || max(allowed::int) filter (where tier = 'medical_officer') ||
+      ' smo=' || max(allowed::int) filter (where tier = 'senior_medical_officer') ||
+      ' cmo=' || max(allowed::int) filter (where tier = 'chief_medical_officer') ||
       ' coord=' || max(allowed::int) filter (where tier = 'care_coordinator')
   from tier_authority_matrix
   group by gate

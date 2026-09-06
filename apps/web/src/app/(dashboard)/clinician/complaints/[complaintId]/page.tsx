@@ -11,7 +11,7 @@ export default async function ClinicianComplaintDetailPage({ params }: { params:
   // Mirrors private.can_review_complaint_governance(org): an admin, or the
   // org's Clinical Director. Only gates whether the governance_review
   // control renders — the RPC's own check is the real enforcement.
-  const canReviewGovernance = profile?.role === "admin" || staff?.is_clinical_director === true;
+  const canReviewGovernance = profile?.role === "admin" || staff?.doctor_tier === "chief_medical_officer";
 
   return (
     <div className="space-y-6">
