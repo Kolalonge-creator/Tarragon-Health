@@ -64,6 +64,11 @@ create policy lab_test_price_versions_insert on public.lab_test_price_versions
 -- convention someone could forget.
 
 grant select, insert on public.lab_test_price_versions to authenticated;
+-- Append-only is enforced by the revoke, not the grant: the platform-wide
+-- `alter default privileges ... to authenticated` already granted ALL on this
+-- table the moment it was created, so without this line UPDATE and DELETE stay
+-- available and this migration's own closing assertion fails.
+revoke update, delete on public.lab_test_price_versions from authenticated;
 
 create view public.lab_test_current_prices
 with (security_invoker = true) as

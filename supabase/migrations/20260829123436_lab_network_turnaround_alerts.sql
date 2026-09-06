@@ -68,6 +68,11 @@ create policy lab_turnaround_alerts_update on public.lab_turnaround_alerts
 -- Update is scoped to acknowledging an alert (the only mutation a human
 -- should ever make to a row this table generates for itself).
 grant select, update on public.lab_turnaround_alerts to authenticated;
+-- The platform-wide `alter default privileges ... to authenticated` grants ALL
+-- on every new public table, so the grant above restricts nothing on its own --
+-- the revoke is what actually makes insert service-role-only, and what makes
+-- this migration's own closing assertion true.
+revoke insert, delete on public.lab_turnaround_alerts from authenticated;
 
 do $$
 begin
