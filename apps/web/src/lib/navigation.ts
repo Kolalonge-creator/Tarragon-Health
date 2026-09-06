@@ -408,6 +408,7 @@ export function getNavSections(
                 { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication", countKey: "adherenceAlerts" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages", countKey: "outreach" },
+                { label: "Population health", href: "/clinician/populations", icon: "population" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan", countKey: "recommendations" },
                 { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
                 { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },

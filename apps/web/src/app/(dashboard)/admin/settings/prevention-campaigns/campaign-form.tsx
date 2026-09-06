@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,7 +20,12 @@ const EXAMPLE_ACTIONS = JSON.stringify(
   2
 );
 
-export function CampaignForm() {
+export interface CampaignPopulationOption {
+  id: string;
+  name: string;
+}
+
+export function CampaignForm({ populations = [] }: { populations?: CampaignPopulationOption[] }) {
   const [state, action, pending] = useActionState<SaveCampaignState, FormData>(
     createPreventionCampaignAction,
     undefined
@@ -50,6 +56,29 @@ export function CampaignForm() {
           <div className="space-y-1">
             <Label htmlFor="description">Description</Label>
             <Textarea id="description" name="description" maxLength={2000} />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="population_id">Target population (optional)</Label>
+            <select
+              id="population_id"
+              name="population_id"
+              className="h-9 w-full rounded-md border border-charcoal-ink/20 bg-white px-2 text-sm"
+              defaultValue=""
+            >
+              <option value="">None — use the eligibility rule below only</option>
+              {populations.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-charcoal-ink/50">
+              A population from{" "}
+              <Link href="/clinician/populations" className="underline">
+                Population health
+              </Link>{" "}
+              — its size shows up as this campaign&apos;s baseline once you save.
+            </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1">
