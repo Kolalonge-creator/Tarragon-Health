@@ -53,14 +53,3 @@ vitals_red_flag_notification_wiring.sql
 vitals_red_flag_plan_gate.sql
 revenue_recognition_orphan_source_guard.sql
 migration_replay_leaves_no_orphaned_finance_rows.sql
-
-# --- Added while merging main-dev into PR #479 (mobile truncated_types) ----
-# Two proofs that predate or landed alongside this manifest's own creation
-# (#489/#491) and were missed: abnormal_screening_result_upgrade.sql (older
-# Cat2->1 regression test) and payer_board_outcomes_report.sql (#462). Both
-# build their own fixtures, are wrapped in BEGIN/ROLLBACK with a
-# raise-exception-on-FAIL closing block, and were confirmed to PASS against a
-# fresh `supabase db reset` in CI (run 34038141135). support_centre.sql from
-# the same sweep (#471) is excluded instead -- see ci.excluded.
-abnormal_screening_result_upgrade.sql
-payer_board_outcomes_report.sql
