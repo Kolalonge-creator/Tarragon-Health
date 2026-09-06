@@ -295,7 +295,18 @@ taken on faith:**
   single one). Re-verify with `gh api repos/.../branches/main-dev/protection` before assuming a red
   check is cosmetic — it now genuinely blocks. Note a `Vercel` status context can still show `FAILURE`
   on a PR (often just the account's daily deploy-rate cap) without blocking merge — it is not in
-  `required_status_checks.contexts`.
+  `required_status_checks.contexts`. **Update 2026-09-06: ci.yml now has a FOURTH job,
+  `TypeScript (mobile)` (PR #482) — deliberately NOT yet a required context; the founder adds it to
+  `required_status_checks.contexts` once it has run green on a few PRs.** Two facts learned building
+  it, worth not re-deriving: (1) apps/mobile was never actually unchecked in CI — the
+  `TypeScript (web + shared)` job's `pnpm typecheck`/`pnpm lint` are UNFILTERED `turbo run` commands
+  whose task graph has always included `@tarragon/mobile#typecheck`/`#lint` (confirmed via
+  `turbo run typecheck --dry=json`); that job's NAME is stale, not its coverage, so a "mobile has no
+  CI" claim anywhere (including past memory/PR text) is wrong at the mechanism level. (2) Do not
+  rename `TypeScript (web + shared)` (its exact name is a live required context — renaming strands
+  branch protection on a check that never reports) and do not narrow its turbo scope
+  (`--filter=!@tarragon/mobile`) until the mobile job is itself required, or mobile regressions
+  genuinely become unblocked for the first time.
 - The Diabetes (`guideline/Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md`) and Hypertension
   (`guideline/Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md`) clinical pathways each had
   a handful of items still open the last time they were reviewed — mostly Clinical Director
