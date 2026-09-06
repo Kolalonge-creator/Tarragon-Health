@@ -31,6 +31,22 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Independent verification of an issued outcomes report, for a board member
+  // or auditor holding a printout who has no account and should not need one.
+  // Exits here for the same two reasons /emergency/ does: it needs no session
+  // (so none of the role gating below applies), and it must not be caught by
+  // the isPublicPath branch further down, which would bounce an ALREADY
+  // signed-in visitor to their own dashboard — a Tarragon or payer staff
+  // member checking a document somebody handed them is exactly who follows
+  // this link. The report number and verification code travel as query
+  // parameters, so no-referrer keeps them out of any outbound Referer header.
+  // The function behind the page discloses no figure from the report, whoever
+  // calls it.
+  if (pathname === "/verify-report") {
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   // The mobile app's WebView session bridge (apps/mobile/src/screens/
   // webview-screen.tsx) must run its own client-side setSession() exchange
   // and `next` redirect every time it's hit — authenticated or not. Without
