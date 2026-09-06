@@ -18,29 +18,6 @@
 # workflow. Nineteen were moved up to ci.manifest in that pass; what remains is
 # still the same backlog, minus the three below, which are a different thing.
 #
-# Added 2026-09-06 (not reviewed for fixture self-sufficiency, just classified
-# so run-db-proofs.sh's unlisted-file check stops failing on files it never
-# saw): each header says "Run via npx supabase db query --linked", i.e. written
-# against the live project's own fixtures (real screen_types/organisations/
-# support-ticket rows), not a bare `supabase db reset`. Same backlog as the
-# rest of this file -- move up once confirmed self-sufficient.
-abnormal_screening_result_upgrade.sql
-payer_board_outcomes_report.sql
-support_centre.sql
-#
-# Added 2026-09-06, Connected Medical Device Platform (PR #355): same shape
-# as the three directly above -- device_registry_lifecycle.sql's header also
-# says "Run: npx supabase db query --linked", and its fixture-resolution
-# query (`select organisation_id from public.profiles where role = 'patient'
-# ... limit 1`, raising "no organisation has patient profiles" otherwise)
-# needs a patient profile that only exists on the live project, not after a
-# fresh `supabase db reset` (seed.sql seeds catalogues only). The author's
-# own "22/22 checks pass" run was against a hand-built local Postgres 16
-# harness with its own fixture, not this CI stack. Move up once it builds
-# its own patient/org fixture the way the RLS-probe files elsewhere in this
-# directory do.
-device_registry_lifecycle.sql
-#
 # ===========================================================================
 # NOT A FIXTURE PROBLEM: three scripts here now FAIL for real. They stay
 # excluded only because the behaviour they assert is genuinely absent, and
@@ -130,6 +107,7 @@ device_registry_lifecycle.sql
 #     otherwise) -- exactly the class of fixture this file's own header
 #     describes, at the more demanding end of it.
 # ===========================================================================
+abnormal_screening_result_upgrade.sql
 actor_column_fk_documentation.sql
 adherence_escalation_not_available.sql
 ai_assistant_turns_rls.sql
@@ -166,6 +144,18 @@ communication_preferences_and_marketing_consent.sql
 computed_review_price.sql
 consultation_system.sql
 data_governance_rls.sql
+#
+# device_registry_lifecycle.sql (PR #355, Connected Medical Device Platform):
+# same fixture backlog as items 4-6 above. Its header says
+# "Run: npx supabase db query --linked", and it resolves its fixture with
+# `select organisation_id from public.profiles where role = 'patient' ... limit 1`,
+# raising "no organisation has patient profiles" otherwise -- a row that only
+# exists on the live project, not after a fresh `supabase db reset` (seed.sql
+# seeds catalogues only). The author's own 22/22-checks-pass run was against a
+# hand-built local Postgres harness with its own fixture, not this CI stack.
+# Move to ci.manifest once it builds its own patient/org fixture the way the
+# RLS-probe files elsewhere in this directory do.
+device_registry_lifecycle.sql
 dependent_majority_review_sweep.sql
 diabetes_recheck_cadence.sql
 diagnostic_ordering_investigation_management.sql
@@ -224,6 +214,7 @@ patient_health_record_round3.sql
 patient_serology_status_extraction.sql
 patient_stopped_medication_raises_review.sql
 patient_timeline_gap_closure.sql
+payer_board_outcomes_report.sql
 payer_provider_org_platform.sql
 pharmacy_engine_end_to_end.sql
 polypharmacy_review_signal.sql
@@ -261,6 +252,7 @@ sponsor_pay_booking_order.sql
 sponsor_spend_receipts.sql
 subscription_care_vouchers.sql
 subsidy_split_engine.sql
+support_centre.sql
 supporter_accounts.sql
 supporter_reporting.sql
 symptom_triage_assessment_engine.sql
