@@ -123,6 +123,30 @@ export async function postHealthSamples(
   });
 }
 
+export interface PostDeviceFaultReportResult {
+  success: boolean;
+  reportId?: string;
+  status?: string;
+  error?: string;
+}
+
+/** "My BP machine isn't working" — spec §52.12. Filed against the pairing
+ * (patient_device_id from patient_devices, e.g. the Devices screen's
+ * current list), not a device_units id the app never sees directly. */
+export async function postDeviceFaultReport(
+  patientDeviceId: string,
+  description: string
+): Promise<PostDeviceFaultReportResult> {
+  const result = await request<{ report_id: string; status: string }>(
+    "/api/mobile/device-faults",
+    "POST",
+    { patient_device_id: patientDeviceId, description }
+  );
+  return result.ok
+    ? { success: true, reportId: result.data.report_id, status: result.data.status }
+    : { success: false, error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable

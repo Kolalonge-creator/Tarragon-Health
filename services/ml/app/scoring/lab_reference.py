@@ -46,19 +46,27 @@ AnalyteCode = Literal[
     "triglycerides",
     "psa",
 ]
-AnalyteStatus = Literal["normal", "borderline", "abnormal", "critical"]
+AnalyteStatus = Literal["normal", "borderline", "indeterminate", "abnormal", "critical"]
 # HbA1c is reported both ways in practice — ADA/US labs in NGSP %, many
 # Nigerian and UK-trained clinicians in IFCC mmol/mol. Every other analyte
 # here has one canonical unit; HbA1c is the deliberate exception.
 HbA1cUnit = Literal["percent", "mmol_mol"]
 
 # Ordinal severity used to fold several analyte statuses into one overall
-# screening result_status (see screening_interpretation.py).
+# screening result_status (see screening_interpretation.py). 'indeterminate'
+# (Result Lifecycle spec §58.3 — "further assessment/repeat testing") is
+# never produced by classify_analyte below (a numeric reading always lands
+# somewhere determinate); it only ever arrives via procedural_status, a
+# clinician's own manual call on an imaging/pathology screen ML cannot
+# classify itself, so its severity value never actually competes against an
+# analyte-derived status in the same max() call in current usage — placed
+# between borderline and abnormal on the ordinal scale for when it does.
 STATUS_SEVERITY: dict[AnalyteStatus, int] = {
     "normal": 0,
     "borderline": 1,
-    "abnormal": 2,
-    "critical": 3,
+    "indeterminate": 2,
+    "abnormal": 3,
+    "critical": 4,
 }
 
 # screen_types.code / abnormal_flags vocabulary the AbnormalResultHandler

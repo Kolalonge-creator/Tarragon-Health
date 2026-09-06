@@ -17,6 +17,10 @@
       "schedule": "0 3 * * *"
     },
     {
+      "path": "/api/cron/device-connectivity-check",
+      "schedule": "0 6 * * *"
+    },
+    {
       "path": "/api/cron/integration-health-check",
       "schedule": "45 4 * * *"
     },
