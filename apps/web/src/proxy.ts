@@ -240,6 +240,8 @@ export async function proxy(request: NextRequest) {
         "/clinician/escalations",
         "/clinician/orders",
         "/clinician/support-inbox",
+        "/clinician/support-tickets",
+        "/clinician/complaints",
         "/clinician/safety-incidents",
         // Added 2026-09-05. Both were in the Coordinator's sidebar and not on
         // this list, so they bounced with no explanation. Each was checked
