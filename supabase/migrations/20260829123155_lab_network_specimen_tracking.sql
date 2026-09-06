@@ -61,13 +61,17 @@ create trigger lab_specimens_set_updated_at
 alter table public.lab_specimens enable row level security;
 
 -- Same visibility shape as lab_orders_select (20260731181143) plus the lab
--- partner branch lab_partner_orders already relies on.
+-- partner branch lab_partner_orders already relies on. can_read_clinical is
+-- the 2-arg, category-scoped form (20260830103251_category_scoped_clinical_
+-- access_and_emergency_access.sql) -- this branch was written before that
+-- migration existed on main-dev, so it still had the old 1-arg call; a
+-- specimen's contents are lab results, hence 'labs_results'.
 create policy lab_specimens_select on public.lab_specimens
   for select to authenticated
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or private.can_read_clinical(patient_id)
+    or private.can_read_clinical(patient_id, 'labs_results'::public.care_access_category)
     or (provider_id is not null and provider_id = private.lab_partner_provider())
   );
 
