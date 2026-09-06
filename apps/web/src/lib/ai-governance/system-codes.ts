@@ -72,6 +72,10 @@ export const AI_SYSTEMS = {
     code: "AI-010",
     failClosedIfGovernanceUnavailable: true,
   },
+  mealPlanGeneration: {
+    code: "AI-011",
+    failClosedIfGovernanceUnavailable: false,
+  },
   vaccinationCardOcr: {
     code: "AI-012",
     failClosedIfGovernanceUnavailable: true,
