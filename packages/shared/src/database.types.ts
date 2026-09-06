@@ -11920,6 +11920,54 @@ export type Database = {
           },
         ]
       }
+      erectile_dysfunction_assessments: {
+        Row: {
+          cardiometabolic_review_suggested: boolean
+          created_at: string
+          id: string
+          item_responses: Json
+          organisation_id: string
+          patient_id: string
+          severity_band: string
+          total_score: number
+        }
+        Insert: {
+          cardiometabolic_review_suggested?: boolean
+          created_at?: string
+          id?: string
+          item_responses?: Json
+          organisation_id: string
+          patient_id: string
+          severity_band: string
+          total_score: number
+        }
+        Update: {
+          cardiometabolic_review_suggested?: boolean
+          created_at?: string
+          id?: string
+          item_responses?: Json
+          organisation_id?: string
+          patient_id?: string
+          severity_band?: string
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erectile_dysfunction_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "erectile_dysfunction_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       escalation_notes: {
         Row: {
           author_id: string | null
@@ -21091,6 +21139,54 @@ export type Database = {
           },
         ]
       }
+      male_fertility_assessments: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          prior_semen_analysis: string
+          risk_factors: Json
+          semen_analysis_suggested: boolean
+          trying_to_conceive_months: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          prior_semen_analysis?: string
+          risk_factors?: Json
+          semen_analysis_suggested?: boolean
+          trying_to_conceive_months: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          prior_semen_analysis?: string
+          risk_factors?: Json
+          semen_analysis_suggested?: boolean
+          trying_to_conceive_months?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "male_fertility_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "male_fertility_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mental_health_screens: {
         Row: {
           created_at: string
@@ -28342,6 +28438,54 @@ export type Database = {
             columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      prostate_symptom_assessments: {
+        Row: {
+          created_at: string
+          id: string
+          item_responses: Json
+          organisation_id: string
+          patient_id: string
+          psa_conversation_suggested: boolean
+          severity_band: string
+          total_score: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_responses?: Json
+          organisation_id: string
+          patient_id: string
+          psa_conversation_suggested?: boolean
+          severity_band: string
+          total_score: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_responses?: Json
+          organisation_id?: string
+          patient_id?: string
+          psa_conversation_suggested?: boolean
+          severity_band?: string
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prostate_symptom_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prostate_symptom_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -43121,6 +43265,8 @@ export type Database = {
         | "severe_headache"
         | "visual_disturbance"
         | "confusion"
+        | "testicular_pain"
+        | "testicular_lump"
         | "poor_feeding"
         | "lethargy"
         | "grunting_or_retractions"
@@ -45517,6 +45663,8 @@ export const Constants = {
         "severe_headache",
         "visual_disturbance",
         "confusion",
+        "testicular_pain",
+        "testicular_lump",
         "poor_feeding",
         "lethargy",
         "grunting_or_retractions",
