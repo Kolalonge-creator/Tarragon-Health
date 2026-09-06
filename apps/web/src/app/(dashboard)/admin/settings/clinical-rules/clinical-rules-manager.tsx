@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
 import {
   promoteToShadowAction,
   signClinicalRuleAction,
@@ -375,6 +378,8 @@ export function ClinicalRulesManager({
   clinicalStaff: ClinicalStaffOption[];
   signedProtocols: SignedProtocolOption[];
 }) {
+  const [search, setSearch] = useState("");
+
   const byKey = new Map<string, ClinicalRuleVersionRow[]>();
   for (const rule of rules) {
     const bucket = byKey.get(rule.rule_key) ?? [];
@@ -388,9 +393,35 @@ export function ClinicalRulesManager({
     return <p className="text-sm text-charcoal-ink/60">No clinical rules defined yet.</p>;
   }
 
+  // A distinct rule_key (a new clinical decision, not a re-sign of one) is
+  // added rarely, but "rarely" compounds over a decade the same way a
+  // distinct protocol_id does — a plain text filter over rule_key/name
+  // scales indefinitely without hiding a rule from anyone who needs it.
+  const searchNormalized = search.trim().toLowerCase();
+  const visibleGroups = groups.filter(
+    ([ruleKey, versions]) =>
+      searchNormalized.length === 0 ||
+      ruleKey.toLowerCase().includes(searchNormalized) ||
+      versions[0].name.toLowerCase().includes(searchNormalized)
+  );
+
   return (
     <div className="space-y-8">
-      {groups.map(([ruleKey, versions]) => {
+      {groups.length > 5 && (
+        <div className="space-y-1.5">
+          <Label htmlFor="rule-search">Find a rule</Label>
+          <Input
+            id="rule-search"
+            placeholder="Search by rule_key or name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+      )}
+      {visibleGroups.length === 0 && (
+        <p className="text-sm text-charcoal-ink/60">No clinical rule matches &quot;{search}&quot;.</p>
+      )}
+      {visibleGroups.map(([ruleKey, versions]) => {
         const signedVersions = versions.filter((v) => v.approved_by).map((v) => v.version);
         // versions is already ordered version desc (page.tsx's query order).
         const latest = versions[0];
@@ -399,9 +430,11 @@ export function ClinicalRulesManager({
         return (
           <div key={ruleKey} className="space-y-3">
             <h2 className="font-mono text-sm text-charcoal-ink/50">{ruleKey}</h2>
-            {versions.map((rule) => (
-              <RuleVersionCard key={rule.id} rule={rule} signedVersions={signedVersions} />
-            ))}
+            <VersionHistoryList itemNoun="version">
+              {versions.map((rule) => (
+                <RuleVersionCard key={rule.id} rule={rule} signedVersions={signedVersions} />
+              ))}
+            </VersionHistoryList>
             {latestNeedsGovernance && latest.status !== "retired" && latest.status !== "rolled_back" && (
               <DraftNextVersionForm
                 sourceId={latest.id}
