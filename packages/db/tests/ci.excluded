@@ -18,6 +18,18 @@
 # workflow. Nineteen were moved up to ci.manifest in that pass; what remains is
 # still the same backlog, minus the three below, which are a different thing.
 #
+# Added 2026-09-06 (PR #353 merge): abnormal_screening_result_upgrade.sql,
+# payer_board_outcomes_report.sql and support_centre.sql existed on main-dev
+# unlisted in either file (a pre-existing gap, unrelated to #353's own
+# population_health_engine.sql, caught only because the CI job now refuses to
+# run at all with any unlisted file). Each looks up a pre-existing patient/
+# organisation/admin/clinical_staff/protocol row (`select ... from
+# public.profiles where role = 'patient' limit 1` and similar) rather than
+# creating its own fixtures, and `supabase/seed/seed.sql` creates none of
+# those roles — a fresh reset would hand each script a null lookup rather
+# than a real regression signal. Ordinary fixture-dependency backlog per the
+# header above, not the FAIL-for-real class below.
+#
 # ===========================================================================
 # NOT A FIXTURE PROBLEM: three scripts here now FAIL for real. They stay
 # excluded only because the behaviour they assert is genuinely absent, and
@@ -62,6 +74,7 @@
 #     between profiles and clinical_staff, where the wrong join returns NULL
 #     silently. One column, and the fix is a COMMENT ON in a migration.
 # ===========================================================================
+abnormal_screening_result_upgrade.sql
 actor_column_fk_documentation.sql
 adherence_escalation_not_available.sql
 ai_assistant_turns_rls.sql
@@ -156,6 +169,7 @@ patient_health_record_round3.sql
 patient_serology_status_extraction.sql
 patient_stopped_medication_raises_review.sql
 patient_timeline_gap_closure.sql
+payer_board_outcomes_report.sql
 payer_provider_org_platform.sql
 pharmacy_engine_end_to_end.sql
 polypharmacy_review_signal.sql
@@ -193,6 +207,7 @@ sponsor_pay_booking_order.sql
 sponsor_spend_receipts.sql
 subscription_care_vouchers.sql
 subsidy_split_engine.sql
+support_centre.sql
 supporter_accounts.sql
 supporter_reporting.sql
 symptom_triage_assessment_engine.sql

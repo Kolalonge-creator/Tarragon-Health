@@ -53,3 +53,4 @@ vitals_red_flag_notification_wiring.sql
 vitals_red_flag_plan_gate.sql
 revenue_recognition_orphan_source_guard.sql
 migration_replay_leaves_no_orphaned_finance_rows.sql
+population_health_engine.sql
