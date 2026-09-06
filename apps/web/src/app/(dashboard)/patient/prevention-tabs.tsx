@@ -54,7 +54,7 @@ export function PreventionTabs({ tabs }: { tabs: PreventionTab[] }) {
       <div
         role="tablist"
         aria-label="Prevention sections"
-        className="flex gap-1 overflow-x-auto border-b border-charcoal-ink/10 pb-px"
+        className="flex gap-1 overflow-x-auto border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-px"
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeId;
@@ -68,8 +68,8 @@ export function PreventionTabs({ tabs }: { tabs: PreventionTab[] }) {
               className={cn(
                 "shrink-0 whitespace-nowrap rounded-t-lg border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "border-brand-green text-deep-forest"
-                  : "border-transparent text-charcoal-ink/55 hover:text-charcoal-ink"
+                  ? "border-brand-green dark:border-brand-green-bright text-deep-forest dark:text-brand-green-bright"
+                  : "border-transparent text-charcoal-ink/55 dark:text-night-ink/60 hover:text-charcoal-ink dark:hover:text-night-ink"
               )}
             >
               {tab.label}

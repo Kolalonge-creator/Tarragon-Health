@@ -30,15 +30,15 @@ export function ResultDocumentsDownloadPicker({ results }: { results: Downloadab
   const href = `/api/patient/lab-result/combined/pdf?ids=${Array.from(selected).join(",")}`;
 
   return (
-    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3">
-      <p className="text-xs font-medium text-charcoal-ink/70">
+    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
+      <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">
         Combine results into one PDF (or use each result&rsquo;s own &ldquo;Download as PDF&rdquo; link
         above to keep them separate)
       </p>
       <ul className="space-y-1">
         {results.map((result) => (
           <li key={result.id}>
-            <label className="flex items-center gap-2 text-sm text-charcoal-ink">
+            <label className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
               <input
                 type="checkbox"
                 checked={selected.has(result.id)}
@@ -52,12 +52,12 @@ export function ResultDocumentsDownloadPicker({ results }: { results: Downloadab
       {selected.size >= 2 ? (
         <a
           href={href}
-          className="inline-block text-sm font-medium text-brand-green hover:underline"
+          className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
         >
           Download {selected.size} selected as one PDF →
         </a>
       ) : (
-        <p className="text-xs text-charcoal-ink/50">Select at least 2 results to combine.</p>
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Select at least 2 results to combine.</p>
       )}
     </div>
   );

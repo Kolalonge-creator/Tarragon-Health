@@ -50,7 +50,7 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
   const bannerCopy =
     bannerParts.join(", ") +
     (openRisk > 0
-      ? ` — ${formatNumber(openRisk)} open risk item${openRisk === 1 ? "" : "s"} still need review.`
+      ? `. ${formatNumber(openRisk)} open risk item${openRisk === 1 ? "" : "s"} still need review.`
       : ".");
 
   return (
@@ -88,8 +88,8 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
         />
         <StatTile
           icon={TrendingUp}
-          label="ARR"
-          value={formatMinor(investor.data?.arr_minor ?? 0, "NGN")}
+          label="Revenue (12 months)"
+          value={formatMinor(investor.data?.revenue_12m_minor ?? 0, "NGN")}
           delta={
             momGrowth !== undefined
               ? { text: `${formatPercent(Math.abs(momGrowth))} MoM`, direction: momGrowth >= 0 ? "up" : "down" }

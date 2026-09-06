@@ -3,6 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { loadMedicationSafety } from "@/lib/clinical/patient-clinical-context";
 import type { DrugSafetySeverity, FindingKind } from "@/lib/rules/drug-safety";
+import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
 
 const SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {
   contraindicated: { label: "Avoid", variant: "red" },
@@ -43,15 +44,21 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
   const supabase = await createClient();
   const { report, egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason, medicationCount, allergies } =
     await loadMedicationSafety(supabase, patientId);
+  const { pregnancyCheckNote } = report;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Medication safety</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          Medication safety
+          {isPolypharmacy(medicationCount) && <Badge variant="amber">Polypharmacy</Badge>}
+        </CardTitle>
         <CardDescription>
           Interactions, duplicate therapy, allergy cross-checks, and kidney-function dosing across the{" "}
           {medicationCount} active medicine{medicationCount === 1 ? "" : "s"} on file. Advisory:
           nothing here changes a prescription.
+          {isPolypharmacy(medicationCount) &&
+            ` ${POLYPHARMACY_THRESHOLD} or more active medicines at once is worth a deliberate review, not automatic discontinuation of any of them.`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -156,6 +163,12 @@ export async function MedicationSafetyPanel({ patientId }: { patientId: string }
         {report.renalCheckSkipped && medicationCount > 0 ? (
           <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
             {report.renalCheckSkipped}
+          </p>
+        ) : null}
+
+        {pregnancyCheckNote && medicationCount > 0 ? (
+          <p className="rounded border border-amber-300 bg-amber-50 p-2 text-xs text-amber-900">
+            {pregnancyCheckNote}
           </p>
         ) : null}
       </CardContent>

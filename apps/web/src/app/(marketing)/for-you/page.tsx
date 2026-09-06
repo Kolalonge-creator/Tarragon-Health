@@ -8,16 +8,21 @@ import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
 import { SERVICE_CARDS } from "../_content/services";
-import { NGN_TIERS } from "../_content/pricing";
+import { PAID_SERVICES } from "../_content/pricing";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
-const ESSENTIAL_CARE_TIER = NGN_TIERS.find((tier) => tier.id === "essential")!;
+const CHRONIC_PROGRAMME = PAID_SERVICES.find((service) => service.id === "chronic-programme")!;
 
+// Retitled from "For you", which competed head-on with /who-its-for in search
+// and in the footer: two pages, one apparent question. This is the INDIVIDUAL's
+// page (the audience strip already called it "For individuals"); /who-its-for
+// is the router that sends each audience here or to /parentcare, /corporate,
+// /hmo.
 export const metadata: Metadata = pageMetadata({
-  title: "For you",
+  title: "For individuals",
   description:
-    "What TarragonHealth does for you as an individual: doctor-reviewed monitoring for hypertension, diabetes, and weight management, preventive screening, medication support, and lab coordination on one record.",
+    "The free app for individuals: monitoring for hypertension, diabetes and weight, preventive screening, medication support and lab coordination, one record.",
   path: MARKETING_ROUTES.forYou,
 });
 
@@ -91,7 +96,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "A doctor actually reviews your numbers",
-    body: "On paid plans, a doctor sets your care plan and reviews your trends on a scheduled basis, even when you feel fine. That's the difference between owning a BP monitor and being monitored.",
+    body: "On the 12-week doctor-supported programme, a doctor sets your care plan and reviews your trends on a scheduled basis, even when you feel fine. That's the difference between owning a BP monitor and being monitored.",
   },
   {
     title: "Labs and refills are arranged for you",
@@ -99,7 +104,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "Small habits earn real rewards",
-    body: "Logging a reading, finishing a lesson, or completing a challenge earns wellness points, free on every plan. Collect badges along the way, and redeem points any time for a reward voucher that comes off the price of your care.",
+    body: "Logging a reading, finishing a lesson, or completing a challenge earns wellness points, free for everyone. Collect badges along the way, and redeem points any time for a reward voucher that comes off the price of your care.",
   },
   {
     title: "Escalation only when it's needed",
@@ -118,7 +123,7 @@ export default function ForYouPage() {
               Track your health without carrying it alone
             </h1>
             <p className="mt-4 font-heading text-lg text-brand-green">
-              Your numbers are yours. Your risk is yours. Your plan should be too.
+              Your numbers are yours. Your risk is yours. Your care should fit both.
             </p>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Most people only discover a problem when it becomes an emergency. Tarragon gives you
@@ -131,7 +136,7 @@ export default function ForYouPage() {
                 <Link href="/signup">Get started</Link>
               </Button>
               <Button asChild variant="outline" size="lg">
-                <Link href={MARKETING_ROUTES.pricing}>Find your plan</Link>
+                <Link href={MARKETING_ROUTES.pricing}>See what things cost</Link>
               </Button>
             </div>
           </div>
@@ -235,19 +240,19 @@ export default function ForYouPage() {
         />
         <div className="mx-auto max-w-3xl space-y-4 text-lg leading-relaxed text-charcoal-ink/75">
           <p>
-            Tarragon Free lets you track your own numbers forever, at no cost; it never expires and
-            never converts to a paid plan on its own. When you want a doctor actually reviewing your
-            readings, Essential Care starts at {ESSENTIAL_CARE_TIER.priceMain}/month for one
-            condition, and Complete Care covers hypertension, diabetes, and weight together on one
-            scheduled care plan.
+            The app is free and stays free: track your own numbers, get your screening calendar,
+            read the whole education library, and use the AI Health Coach, with no time limit and no
+            card required. When you want a doctor actually managing hypertension or diabetes with
+            you, the 12-week doctor-supported programme is {CHRONIC_PROGRAMME.price}; managing your
+            weight alongside either condition is part of the same review, at no extra charge.
           </p>
           <p>
-            Not sure which fits? The three-question plan finder on the{" "}
-            <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
+            Want a doctor for one thing rather than twelve weeks? The{" "}
+            <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               pricing page
             </Link>{" "}
-            points you to the right one. And looking after a parent instead?{" "}
-            <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
+            lists every one-off service and what it costs. And looking after a parent instead?{" "}
+            <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}
             is built exactly for that.

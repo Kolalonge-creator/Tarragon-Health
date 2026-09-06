@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { Device } from "react-native-ble-plx";
 import type { Tables } from "@tarragon/shared";
 import { requestBlePermissions, scanForClinicalDevices, type SupportedDeviceType } from "@/lib/ble";
+import { postDeviceFaultReport } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
-import { colors, spacing } from "@/ui/theme";
+import { colors, radius, spacing } from "@/ui/theme";
 import {
   Card,
   ErrorText,
@@ -57,49 +58,72 @@ function deviceIcon(deviceType: string): keyof typeof Ionicons.glyphMap {
 export function DevicesScreen({ patientId, organisationId, onOpenDevice }: DevicesScreenProps) {
   const [devices, setDevices] = useState<PatientDevice[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed device query must not render "No devices paired yet" — that
+  // tells a patient their cuff is gone when it's the fetch that failed.
+  const [loadError, setLoadError] = useState(false);
   const [pairing, setPairing] = useState(false);
   const [found, setFound] = useState<{ device: Device; deviceType: SupportedDeviceType }[]>([]);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [faultTarget, setFaultTarget] = useState<PatientDevice | null>(null);
+  const [faultDescription, setFaultDescription] = useState("");
+  const [faultSubmitting, setFaultSubmitting] = useState(false);
+  const [faultError, setFaultError] = useState<string | null>(null);
+  const [faultSuccess, setFaultSuccess] = useState(false);
+  const [pairError, setPairError] = useState<string | null>(null);
 
   const loadDevices = useCallback(async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from("patient_devices")
-      .select("*")
-      .eq("patient_id", patientId)
-      .eq("status", "active")
-      .order("paired_at", { ascending: false });
-    setDevices(data ?? []);
-    setLoading(false);
+    try {
+      const { data, error } = await supabase
+        .from("patient_devices")
+        .select("*")
+        .eq("patient_id", patientId)
+        .eq("status", "active")
+        .order("paired_at", { ascending: false });
+      if (error) {
+        setLoadError(true);
+      } else {
+        setLoadError(false);
+        setDevices(data ?? []);
+      }
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [patientId]);
 
   useEffect(() => {
-    loadDevices();
+    void loadDevices();
   }, [loadDevices]);
 
   useEffect(() => {
     if (!pairing) return;
     setFound([]);
     setScanError(null);
+    setPairError(null);
     let stopScan: (() => void) | undefined;
 
-    requestBlePermissions().then((granted) => {
-      if (!granted) {
-        setScanError("Bluetooth permission is required to pair a device.");
-        return;
-      }
-      stopScan = scanForClinicalDevices(
-        (device, deviceType) => {
-          setFound((prev) => (prev.some((f) => f.device.id === device.id) ? prev : [...prev, { device, deviceType }]));
-        },
-        (error) => setScanError(error.message)
-      );
-    });
+    requestBlePermissions()
+      .then((granted) => {
+        if (!granted) {
+          setScanError("Bluetooth permission is required to pair a device.");
+          return;
+        }
+        stopScan = scanForClinicalDevices(
+          (device, deviceType) => {
+            setFound((prev) => (prev.some((f) => f.device.id === device.id) ? prev : [...prev, { device, deviceType }]));
+          },
+          (error) => setScanError(error.message)
+        );
+      })
+      .catch(() => setScanError("Bluetooth isn't available right now. Close this and try again."));
 
     return () => stopScan?.();
   }, [pairing]);
 
   async function handlePair(device: Device, deviceType: SupportedDeviceType) {
+    setPairError(null);
     const { error } = await supabase.from("patient_devices").insert({
       patient_id: patientId,
       organisation_id: organisationId,
@@ -107,9 +131,36 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
       ble_device_id: device.id,
       model: device.name ?? device.localName ?? null,
     });
-    if (!error) {
-      setPairing(false);
-      await loadDevices();
+    if (error) {
+      // Pairing used to fail with no visible change at all — the patient
+      // tapped, nothing happened, and the device never appeared.
+      setPairError("We couldn't finish pairing that device. Tap it to try again.");
+      return;
+    }
+    setPairing(false);
+    await loadDevices();
+  }
+
+  function openFaultReport(device: PatientDevice) {
+    setFaultTarget(device);
+    setFaultDescription("");
+    setFaultError(null);
+    setFaultSuccess(false);
+  }
+
+  /** Spec §52.12 — "My BP machine isn't working": files a device_fault_reports
+   * row via /api/mobile/device-faults so staff can pick up troubleshooting/
+   * replacement; see that route for the RLS-scoped insert. */
+  async function submitFaultReport() {
+    if (!faultTarget || faultDescription.trim().length === 0) return;
+    setFaultSubmitting(true);
+    setFaultError(null);
+    const result = await postDeviceFaultReport(faultTarget.id, faultDescription.trim());
+    setFaultSubmitting(false);
+    if (result.success) {
+      setFaultSuccess(true);
+    } else {
+      setFaultError(result.error ?? "Couldn't send your report. Please try again.");
     }
   }
 
@@ -127,6 +178,20 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
         <SectionLabel>Paired devices</SectionLabel>
         {loading ? (
           <ActivityIndicator color={colors.brand} />
+        ) : loadError ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="We couldn't load your devices right now. Tap to retry."
+            onPress={() => void loadDevices()}
+          >
+            <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
+              <Ionicons name="cloud-offline-outline" size={28} color={colors.faint} />
+              <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>
+                We couldn&apos;t load this right now
+              </Text>
+              <MutedText>Your paired devices are safe. Tap to retry.</MutedText>
+            </Card>
+          </Pressable>
         ) : devices.length === 0 ? (
           <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
             <Ionicons name="bluetooth-outline" size={28} color={colors.faint} />
@@ -151,13 +216,23 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
                       width: 36,
                       height: 36,
                       borderRadius: 18,
-                      backgroundColor: "#E8F3EE",
+                      backgroundColor: colors.brandTintAlt,
                       alignItems: "center",
                       justifyContent: "center",
                     }}
                   >
                     <Ionicons name={deviceIcon(item.device_type)} size={18} color={colors.brand} />
                   </View>
+                }
+                trailing={
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Report a problem with this device"
+                    onPress={() => openFaultReport(item)}
+                    hitSlop={8}
+                  >
+                    <Ionicons name="alert-circle-outline" size={20} color={colors.faint} />
+                  </Pressable>
                 }
               />
             ))}
@@ -179,6 +254,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
             Turn on your device (BP cuff, glucometer, scale, thermometer, or pulse oximeter) and put it in pairing mode.
           </MutedText>
           {scanError ? <ErrorText>{scanError}</ErrorText> : null}
+          {pairError ? <ErrorText>{pairError}</ErrorText> : null}
           <FlatList
             data={found}
             keyExtractor={(item) => item.device.id}
@@ -186,7 +262,7 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
             renderItem={({ item }) => (
               <Pressable
                 accessibilityRole="button"
-                onPress={() => handlePair(item.device, item.deviceType)}
+                onPress={() => void handlePair(item.device, item.deviceType)}
               >
                 {({ pressed }) => (
                   <Card style={{ opacity: pressed ? 0.7 : 1 }}>
@@ -202,6 +278,58 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
             )}
           />
           <SecondaryButton title="Cancel" onPress={() => setPairing(false)} />
+        </View>
+      </Modal>
+
+      <Modal visible={faultTarget !== null} animationType="slide" onRequestClose={() => setFaultTarget(null)}>
+        <View style={{ flex: 1, padding: spacing.screen, gap: 14, backgroundColor: colors.background }}>
+          <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Report a problem</Text>
+          {faultTarget ? (
+            <MutedText>
+              {faultTarget.nickname ?? faultTarget.model ?? deviceLabel(faultTarget.device_type)}
+            </MutedText>
+          ) : null}
+
+          {faultSuccess ? (
+            <Card style={{ alignItems: "center", gap: 8, paddingVertical: 28 }}>
+              <Ionicons name="checkmark-circle-outline" size={28} color={colors.brand} />
+              <Text style={{ fontSize: 16, fontWeight: "600", color: colors.ink }}>Thanks — we've got it</Text>
+              <MutedText>Your care team will follow up if this device needs troubleshooting or replacing.</MutedText>
+              <PrimaryButton title="Done" onPress={() => setFaultTarget(null)} />
+            </Card>
+          ) : (
+            <>
+              <MutedText>What's going wrong? (won't turn on, won't pair, wrong readings, etc.)</MutedText>
+              <TextInput
+                multiline
+                numberOfLines={4}
+                placeholder="Describe the problem…"
+                placeholderTextColor={colors.faint}
+                value={faultDescription}
+                onChangeText={setFaultDescription}
+                style={{
+                  minHeight: 96,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: radius.control,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  fontSize: 13.5,
+                  color: colors.ink,
+                  backgroundColor: colors.card,
+                  textAlignVertical: "top",
+                }}
+              />
+              {faultError ? <ErrorText>{faultError}</ErrorText> : null}
+              <PrimaryButton
+                title="Send report"
+                onPress={submitFaultReport}
+                disabled={faultDescription.trim().length === 0}
+                loading={faultSubmitting}
+              />
+              <SecondaryButton title="Cancel" onPress={() => setFaultTarget(null)} />
+            </>
+          )}
         </View>
       </Modal>
     </ScrollView>

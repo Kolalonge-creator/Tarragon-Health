@@ -2,7 +2,6 @@
 --
 -- See 20260829142844_medication_dispensing_fulfilment_schema.sql for the full
 -- context. This file adds the actions the schema had no way to reach:
---   • pharmacist_accept_order       — spec §63.2 "Pharmacy accepts"
 --   • pharmacist_flag_unavailable   — spec §63.4 "Medicine unavailable"
 --   • pharmacist_record_dispense    — extended: partial dispensing, batch,
 --                                     substitution, controlled-substance
@@ -15,41 +14,33 @@
 --                                     existing courier-assignment mutations
 --                                     in logistics-partners.ts)
 --
--- The first two follow the exact cross-pharmacy isolation model as the four
+-- §63.2 "Pharmacy accepts" is NOT built here: while this branch was in
+-- flight, main-dev independently shipped a richer pharmacist_accept_order(
+-- p_order_id, p_confirmed_quantity, p_confirmed_price_kobo,
+-- p_estimated_fulfilment_at) in 20260828232556_pharmacy_order_acceptance_
+-- decline_refund.sql (earlier timestamp, already live) — confirms
+-- availability/quantity/price/fulfilment time and auto-flags an underpaid
+-- confirmation for refund. This file originally also created a plain
+-- pharmacist_accept_order(p_order_id uuid), which is not the same function
+-- to Postgres (different argument list = a second overload, not a
+-- replacement) and would have left two ways to "accept" an order live at
+-- once. Dropped in favour of the already-shipped, more complete one rather
+-- than resolved as a merge conflict.
+--
+-- These follow the exact cross-pharmacy isolation model as the four
 -- existing pharmacist RPCs (20260716178000_pharmacist_surface.sql): scoped
 -- via private.pharmacist_partner(), SECURITY DEFINER, zero rows returned/
 -- affected for a non-pharmacist or the wrong pharmacy.
 
 -- ---------------------------------------------------------------------------
--- 1. Pharmacy accepts an order (requested/payment_confirmed -> confirmed).
--- ---------------------------------------------------------------------------
-
-create or replace function public.pharmacist_accept_order(p_order_id uuid)
-returns void
-language plpgsql
-security definer
-set search_path = ''
-as $$
-declare
-  v_order public.pharmacy_orders%rowtype;
-begin
-  select * into v_order
-  from public.pharmacy_orders
-  where id = p_order_id and pharmacy_partner_id = private.pharmacist_partner();
-
-  if v_order.id is null then
-    raise exception 'Order not found for this pharmacy' using errcode = '42501';
-  end if;
-  if v_order.status not in ('requested', 'payment_confirmed') then
-    raise exception 'Order is not awaiting acceptance' using errcode = '22023';
-  end if;
-
-  update public.pharmacy_orders set status = 'confirmed' where id = p_order_id;
-end;
-$$;
-
--- ---------------------------------------------------------------------------
--- 2. Pharmacy flags an order as unavailable. Deliberately no stock lookup —
+-- 1. Pharmacy flags a CONFIRMED order as unavailable-as-prescribed.
+--    Deliberately not a duplicate of main-dev's pharmacist_decline_order:
+--    decline is a full cancellation (status -> 'cancelled', refund due
+--    immediately); this is a narrower checkpoint (status -> 'unavailable',
+--    sitting between 'confirmed' and 'dispensed') so a substitution
+--    (pharmacist_record_dispense's substituted_for/substitution_reason,
+--    below) can still move the order forward without ever having cancelled
+--    it. Deliberately no stock lookup —
 --    the pharmacist decides and states why, matching the "no inventory"
 --    founder constraint. Cannot flag an order already dispensed/closed.
 -- ---------------------------------------------------------------------------
@@ -227,10 +218,6 @@ $$;
 -- authenticated (see feedback_supabase_anon_execute_gotcha memory).
 -- ---------------------------------------------------------------------------
 
-revoke execute on function public.pharmacist_accept_order(uuid) from public;
-revoke execute on function public.pharmacist_accept_order(uuid) from anon;
-grant execute on function public.pharmacist_accept_order(uuid) to authenticated;
-
 revoke execute on function public.pharmacist_flag_unavailable(uuid, text) from public;
 revoke execute on function public.pharmacist_flag_unavailable(uuid, text) from anon;
 grant execute on function public.pharmacist_flag_unavailable(uuid, text) to authenticated;
@@ -248,8 +235,12 @@ grant execute on function public.record_pharmacy_delivery_attempt(uuid, text, te
 -- ---------------------------------------------------------------------------
 do $$
 begin
-  if has_function_privilege('anon', 'public.pharmacist_accept_order(uuid)', 'execute') then
-    raise exception 'pharmacist_accept_order is still anon-executable';
+  if exists (
+    select 1 from pg_proc
+     where proname = 'pharmacist_accept_order' and pronamespace = 'public'::regnamespace
+       and pg_get_function_arguments(oid) = 'p_order_id uuid'
+  ) then
+    raise exception 'the duplicate single-arg pharmacist_accept_order overload is still present';
   end if;
   if has_function_privilege('anon', 'public.pharmacist_flag_unavailable(uuid, text)', 'execute') then
     raise exception 'pharmacist_flag_unavailable is still anon-executable';

@@ -93,14 +93,47 @@ const TEAM: TeamMember[] = [
 export function LeadershipGrid() {
   const [openId, setOpenId] = React.useState<string | null>(null);
   const active = TEAM.find((m) => m.id === openId) ?? null;
+  const panelRef = React.useRef<HTMLDivElement>(null);
+  const triggerRef = React.useRef<HTMLElement | null>(null);
 
+  // aria-modal tells assistive tech to ignore everything outside the dialog,
+  // so focus must actually live inside it: move it in on open, keep Tab
+  // cycling within, lock body scroll, and hand focus back to the card that
+  // opened it on close.
   React.useEffect(() => {
     if (!active) return;
+    const panel = panelRef.current;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    panel
+      ?.querySelector<HTMLElement>("button, [href], [tabindex]:not([tabindex='-1'])")
+      ?.focus();
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpenId(null);
+      if (e.key === "Escape") {
+        setOpenId(null);
+        return;
+      }
+      if (e.key !== "Tab" || !panel) return;
+      const focusables = panel.querySelectorAll<HTMLElement>(
+        "button, [href], [tabindex]:not([tabindex='-1'])"
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      triggerRef.current?.focus();
+    };
   }, [active]);
 
   return (
@@ -110,7 +143,10 @@ export function LeadershipGrid() {
           <button
             key={member.id}
             type="button"
-            onClick={() => setOpenId(member.id)}
+            onClick={(event) => {
+              triggerRef.current = event.currentTarget;
+              setOpenId(member.id);
+            }}
             className="flex flex-col items-center rounded-2xl border border-charcoal-ink/10 bg-white p-6 text-center transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
           >
             {member.photoSrc ? (
@@ -138,7 +174,6 @@ export function LeadershipGrid() {
             <h3 className="mt-3 font-heading text-lg font-semibold text-charcoal-ink">
               {member.name}
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">{member.title}</p>
             <span className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-deep-forest">
               Meet {member.name.split(" ")[1] ?? member.name}
               <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />
@@ -150,13 +185,17 @@ export function LeadershipGrid() {
       {active ? (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={`About ${active.name}`}>
           <button
+            type="button"
             aria-label="Close"
             className="absolute inset-0 bg-charcoal-ink/50"
             onClick={() => setOpenId(null)}
           />
-          <div className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl">
+          <div
+            ref={panelRef}
+            className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
+          >
             <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-6 py-4">
-              <p className="text-sm font-medium uppercase tracking-wide text-charcoal-ink/50">
+              <p className="text-sm font-medium uppercase tracking-wide text-charcoal-ink/65">
                 About {active.name.split(" ")[1] ?? active.name}
               </p>
               <button
@@ -164,7 +203,7 @@ export function LeadershipGrid() {
                 onClick={() => setOpenId(null)}
                 aria-label="Close"
                 className={cn(
-                  "rounded-full p-1.5 text-charcoal-ink/50 transition-colors hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
+                  "rounded-full p-1.5 text-charcoal-ink/65 transition-colors hover:bg-charcoal-ink/5 hover:text-charcoal-ink"
                 )}
               >
                 <X className="h-5 w-5" strokeWidth={2} />
@@ -196,7 +235,7 @@ export function LeadershipGrid() {
               </h2>
               <p className="mt-1 text-sm font-medium text-charcoal-ink/60">{active.title}</p>
               {active.credentials ? (
-                <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/40">
+                <p className="mt-1 text-xs uppercase tracking-wide text-charcoal-ink/65">
                   {active.credentials}
                 </p>
               ) : null}

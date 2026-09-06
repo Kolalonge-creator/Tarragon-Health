@@ -90,7 +90,7 @@ export function CareAccessRequestsList({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
         {needsMyResponse.map((r) => {
           const isAboutMyRecord = r.profile_id === currentUserId;
@@ -114,9 +114,9 @@ export function CareAccessRequestsList({
           return (
             <div
               key={r.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-charcoal-ink/10 p-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
             >
-              <p className="text-sm text-charcoal-ink">{text}</p>
+              <p className="text-sm text-charcoal-ink dark:text-night-ink">{text}</p>
               <div className="flex gap-2">
                 <Button
                   size="sm"
@@ -147,9 +147,9 @@ export function CareAccessRequestsList({
           return (
             <div
               key={r.id}
-              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-charcoal-ink/10 bg-charcoal-ink/[0.02] p-3"
+              className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3"
             >
-              <p className="text-sm text-charcoal-ink/70">{text}</p>
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{text}</p>
               <Button
                 size="sm"
                 variant="outline"

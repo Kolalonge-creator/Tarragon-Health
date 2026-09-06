@@ -37,9 +37,13 @@ export const integrationReadingSchema = z
     z.object({
       ...baseFields,
       vital_type: z.literal("blood_pressure"),
-      systolic: z.number().int().min(60).max(200),
-      diastolic: z.number().int().min(40).max(130),
-      pulse_bpm: z.number().int().min(40).max(200).optional(),
+      // Full plausible bands, identical to the mobile BLE path and the manual
+      // path (see ./device-reading.ts): a partner cuff reporting a genuine
+      // hypertensive crisis (210/125) must reach the escalation pipeline
+      // rather than bounce off validation at the ingestion boundary.
+      systolic: z.number().int().min(60).max(260),
+      diastolic: z.number().int().min(30).max(160),
+      pulse_bpm: z.number().int().min(20).max(300).optional(),
     }),
     z.object({
       ...baseFields,
@@ -62,7 +66,7 @@ export const integrationReadingSchema = z
       ...baseFields,
       vital_type: z.literal("spo2"),
       spo2_pct: z.number().int().min(50).max(100),
-      pulse_bpm: z.number().int().min(30).max(250).optional(),
+      pulse_bpm: z.number().int().min(20).max(300).optional(),
     }),
   ])
   .superRefine((data, ctx) => {

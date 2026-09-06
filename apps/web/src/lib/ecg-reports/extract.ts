@@ -336,9 +336,22 @@ export async function extractEcgReport(input: {
             image_url: { url: `data:${input.mediaType};base64,${input.fileBase64}` },
           };
 
+    // SYSTEM_PROMPT (fixed instructions + the full ECG parameter vocabulary) is
+    // identical on every call regardless of patient — cache_control marks it as
+    // the breakpoint so repeat calls re-read it instead of re-billing full
+    // price. It sits right around Sonnet 5's 1024-token cacheable-prefix
+    // minimum today (13-parameter vocabulary is the smaller of this platform's
+    // two vision-extraction catalogues, see lib/lab-reports/extract.ts) — a
+    // marker below the minimum is a documented no-op (no error, just
+    // `cache_creation_input_tokens: 0`), so this costs nothing even before the
+    // catalogue grows past it.
     const raw = await structured.invoke(
       [
-        new SystemMessage(SYSTEM_PROMPT),
+        new SystemMessage({
+          content: [
+            { type: "text", text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" } },
+          ],
+        }),
         new HumanMessage({ content: [{ type: "text", text: instruction }, documentBlock] }),
       ],
       { signal: controller.signal },

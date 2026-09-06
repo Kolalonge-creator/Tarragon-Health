@@ -1,0 +1,15 @@
+-- Tarragon Health — module 27, part 2 prep: one new enrolment-source value.
+--
+-- 27.9/27.11: an insurer enrols its members into a Tarragon chronic-disease
+-- programme ("all members with hypertension receive BP monitoring and
+-- structured follow-up") rather than a clinician recommending it case by
+-- case. chronic_programme_enrolments.source already distinguishes
+-- recommended/staff/clinician; a payer-triggered bulk enrolment is a fourth,
+-- genuinely different provenance and deserves its own value rather than
+-- being mislabelled 'staff' (no Tarragon staff member acted) or 'recommended'
+-- (nothing was offered for the patient to accept — it is not surfaced as a
+-- product programme initiated by the payer's contract, per its column
+-- comment). Alone in its own migration for the same reason the account-role
+-- enum additions are: a new enum value cannot be used in the same
+-- transaction that adds it.
+alter type public.chronic_enrolment_source add value if not exists 'payer_directive';

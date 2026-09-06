@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { MarketingHero } from "./marketing-hero";
 import { PhotoBannerHero } from "./marketing-photo-banner-hero";
 import { Section, SectionHeading } from "./section";
@@ -11,12 +12,7 @@ import { RoiCalculator } from "./roi-calculator";
 import { StepsExplorer } from "./steps-explorer";
 import { AnimatedNumber } from "./animated-number";
 import type { B2bPageContent } from "../_content/b2b";
-
-const PILL_TONE = {
-  green: "bg-soft-sage text-deep-forest",
-  amber: "bg-sprout-gold/15 text-charcoal-ink",
-  red: "bg-[#F8E4E1] text-[#B0453B]",
-} as const;
+import { PILL_TONE } from "../_content/pill-tone";
 
 export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
   const contactHref = `${MARKETING_ROUTES.contact}?source=${content.slug}`;
@@ -40,11 +36,7 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
           imagePosition={content.hero.imageFocus}
         />
       ) : (
-        <Section className="relative overflow-hidden pt-20">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute -top-24 left-1/2 -z-10 h-[520px] w-[520px] -translate-x-1/2 rounded-full bg-brand-green/10 blur-3xl"
-          />
+        <Section className="pt-20">
           <MarketingHero media={content.hero}>
             <h1 className="font-heading text-4xl font-bold text-charcoal-ink sm:text-5xl">
               {content.headline}
@@ -74,14 +66,24 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
       <Section>
         <SectionHeading title="What's included" />
         <ul className="mx-auto grid max-w-4xl gap-3 sm:grid-cols-2">
-          {content.included.map((item) => (
-            <li
+          {content.included.map((item, index) => (
+            <Card
               key={item}
-              className="rounded-xl border border-charcoal-ink/10 bg-white p-4 text-charcoal-ink/75"
+              asChild
+              className={cn(
+                "hover:shadow-sm",
+                // An odd count would leave the last card orphaned in the left
+                // column; span it instead so the grid always closes cleanly.
+                index === content.included.length - 1 &&
+                  content.included.length % 2 === 1 &&
+                  "sm:col-span-2"
+              )}
             >
-              <span className="mr-2 font-semibold text-brand-green">Included:</span>
-              {item}
-            </li>
+              <li className="p-4 text-charcoal-ink/75">
+                <span className="mr-2 font-semibold text-brand-green">Included:</span>
+                {item}
+              </li>
+            </Card>
           ))}
         </ul>
       </Section>
@@ -97,7 +99,16 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
             </h2>
             <p className="mt-4 text-charcoal-ink/70">{content.exampleNote}</p>
           </div>
-          <div className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm">
+          {/* The numbers below are illustrative, not client data. The
+              "Illustrative example" note sits in the copy column beside this
+              card, which a visitor scanning the figures can easily miss, so
+              the card labels itself too. Do not remove this badge while the
+              figures are samples. */}
+          <Card className="p-6 hover:shadow-sm">
+            <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-sprout-gold/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-charcoal-ink">
+              <span aria-hidden>◆</span>
+              Sample report
+            </p>
             {content.exampleStats.map((stat, index) => (
               <div
                 key={stat.label}
@@ -110,6 +121,11 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
                 <span className="flex items-center gap-2 font-heading text-sm font-semibold text-charcoal-ink">
                   <AnimatedNumber value={stat.value} />
                   {stat.pill ? (
+                    // Deliberately not the shared clinical-status Badge component — its
+                    // red/amber/green variants are reserved for the dashboard's clinical
+                    // severity system, not marketing copy (see badge.tsx's own header
+                    // comment and CLAUDE.md's brand-colour-vs-status-colour rule). This
+                    // pill uses brand tokens (sage/gold) instead.
                     <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", PILL_TONE[stat.pill.tone])}>
                       {stat.pill.text}
                     </span>
@@ -117,21 +133,14 @@ export function B2bPageTemplate({ content }: { content: B2bPageContent }) {
                 </span>
               </div>
             ))}
-          </div>
+          </Card>
         </div>
       </Section>
 
       <Section>
+        <SectionHeading eyebrow="Your path" title="How it works" size="large" />
         <div className="mx-auto max-w-3xl">
-          <p className="text-center text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Your path
-          </p>
-          <h2 className="mt-2 text-center font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
-            How it works
-          </h2>
-          <div className="mt-8">
-            <StepsExplorer steps={content.howItWorks} tone="green" />
-          </div>
+          <StepsExplorer steps={content.howItWorks} tone="green" />
         </div>
       </Section>
 

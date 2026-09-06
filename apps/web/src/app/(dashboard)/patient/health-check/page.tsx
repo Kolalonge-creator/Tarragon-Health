@@ -11,6 +11,12 @@ import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { AnnualHealthCheckBooking } from "../annual-health-check-booking";
 import { LipidProfileCard } from "@/components/patient/lipid-profile-card";
 import { RiskSignalsCard } from "../risk-signals-card";
+import { HealthCheckVideoConsultCard } from "../health-check-video-consult-card";
+import {
+  countStageState,
+  screeningStageState,
+  type HealthCheckStageState,
+} from "@/lib/screening/health-check-stage-state";
 
 /**
  * Stage 3 ("Your measurements") requires a real spread of readings taken
@@ -36,16 +42,11 @@ export default async function HealthCheckPage() {
   // Ensure this year's check row exists (caller-scoped, idempotent).
   await supabase.rpc("open_health_check");
 
-  // Same gate as the prevention hub: the curated Screen ladder is a paid-plan
-  // feature. Uploading a result and having a doctor read it never is.
-  const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "lab_coordination",
-  });
-  const { data: preventionCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "prevention_coordination",
-  });
-  const screensEnabled =
-    (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
+  // The screening calendar and lab-request coordination are free to every
+  // patient since the pay-per-service rework — neither costs clinician time.
+  // Kept as a named constant rather than deleted so the downstream layout
+  // reads the same, and so re-gating it later is a one-line change.
+  const screensEnabled = true;
 
   const year = new Date().getFullYear();
   const yearStart = `${year}-01-01T00:00:00.000Z`;
@@ -53,7 +54,7 @@ export default async function HealthCheckPage() {
   const { data: check } = await supabase
     .from("annual_health_checks")
     .select(
-      "created_at, reviewed_at, reviewed_by, review_summary, status, lab_order_id, lab_order:lab_orders!annual_health_checks_lab_order_id_fkey(panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name))"
+      "created_at, reviewed_at, reviewed_by, review_summary, status, lab_order_id, lab_order:lab_orders!annual_health_checks_lab_order_id_fkey(panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name)), video_consult:video_consultations!annual_health_checks_video_consultation_id_fkey(id, proposed_slots, scheduled_at)"
     )
     .eq("patient_id", profile.id)
     .eq("year", year)
@@ -66,7 +67,7 @@ export default async function HealthCheckPage() {
   const [
     { count: riskCount },
     { count: wellbeingCount },
-    { data: vitalsRows },
+    { data: vitalsRows, error: vitalsError },
     { count: screeningsDue },
   ] = await Promise.all([
     supabase
@@ -113,27 +114,48 @@ export default async function HealthCheckPage() {
 
   const tierName = check?.lab_order?.panel_bundle?.name ?? null;
 
-  const stages = [
+  // Each stage's evidence can fail to arrive, and a stage that cannot be
+  // proved is neutral rather than a to-do: a failed count must not send a
+  // patient back to redo a questionnaire they have already finished.
+  const profileStage = countStageState({
+    count: riskCount,
+    doneLabel: "Completed",
+    todoLabel: "Tell us your history and lifestyle",
+    unknownLabel: "We could not check your health profile just now. Please refresh and try again.",
+  });
+  const wellbeingStage = countStageState({
+    count: wellbeingCount,
+    doneLabel: "Checked in this year",
+    todoLabel: "A quick, private wellbeing check-in",
+    unknownLabel: "We could not check this just now. Please refresh and try again.",
+  });
+  const screenings = screeningStageState({ riskCount, screeningsDue });
+
+  /** Every stage carries its own state and the one line that describes it, so
+   * a stage can be neutral ("we can't say yet") without being forced into the
+   * done/to-do pair. Every stage whose evidence is a read can land there when
+   * that read fails: see health-check-stage-state.ts. */
+  const stages: { title: string; state: HealthCheckStageState["kind"]; label: string; href: string | null }[] = [
     {
       title: "1. Your health profile",
-      done: (riskCount ?? 0) > 0,
-      doneLabel: "Completed",
-      toDoLabel: "Tell us your history and lifestyle",
+      state: profileStage.kind,
+      label: profileStage.label,
       href: "/patient/prevention#risk-assessment",
     },
     {
       title: "2. Mental wellbeing",
-      done: (wellbeingCount ?? 0) > 0,
-      doneLabel: "Checked in this year",
-      toDoLabel: "A quick, private wellbeing check-in",
+      state: wellbeingStage.kind,
+      label: wellbeingStage.label,
       href: null,
     },
     {
       title: "3. Your measurements",
-      done: vitalsComplete,
-      doneLabel: "All readings logged for this check",
-      toDoLabel:
-        missingVitalKinds.length === 0
+      state: vitalsError ? "neutral" : vitalsComplete ? "done" : "todo",
+      label: vitalsError
+        ? "We could not check your readings just now. Please refresh and try again."
+        : vitalsComplete
+        ? "All readings logged for this check"
+        : missingVitalKinds.length === 0
           ? "Log blood pressure (×2), weight, waist and pulse"
           : `Still need: ${missingVitalKinds
               .map((kind) =>
@@ -146,18 +168,15 @@ export default async function HealthCheckPage() {
     },
     {
       title: "4. Screenings",
-      done: (screeningsDue ?? 0) === 0,
-      doneLabel: "Up to date",
-      toDoLabel: `${screeningsDue ?? 0} screening${(screeningsDue ?? 0) === 1 ? "" : "s"} due, book now`,
+      state: screenings.kind,
+      label: screenings.label,
       href: "/patient/prevention#screenings",
     },
     {
       title: "5. Immunisations",
-      done: false,
-      doneLabel: "",
-      toDoLabel: "Review the vaccines you're due",
+      state: "neutral",
+      label: "Review the vaccines you're due",
       href: "/patient/prevention#vaccinations",
-      neutral: true as const,
     },
   ];
 
@@ -171,7 +190,7 @@ export default async function HealthCheckPage() {
           description="A yearly, whole-body check: the right checks for you, and a plan to keep you well. Work through each step; your care team reviews everything at the end."
         />
         {tierName && (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             You&apos;re completing the <span className="font-medium">{tierName}</span> this year.
           </p>
         )}
@@ -179,23 +198,23 @@ export default async function HealthCheckPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Your {year} check</CardTitle>
+          <CardTitle as="h2" className="text-base">Your {year} check</CardTitle>
         </CardHeader>
-        <CardContent className="divide-y divide-charcoal-ink/10">
+        <CardContent className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {stages.map((stage) => (
             <div key={stage.title} className="flex items-center justify-between gap-3 py-3 first:pt-0 last:pb-0">
               <div>
-                <p className="text-sm font-medium text-charcoal-ink">{stage.title}</p>
-                <p className="text-xs text-charcoal-ink/60">
-                  {stage.done ? stage.doneLabel : stage.toDoLabel}
-                </p>
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{stage.title}</p>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{stage.label}</p>
               </div>
               <div className="flex items-center gap-2">
-                {!("neutral" in stage) && (
-                  <Badge variant={stage.done ? "green" : "amber"}>{stage.done ? "Done" : "To do"}</Badge>
+                {stage.state !== "neutral" && (
+                  <Badge variant={stage.state === "done" ? "green" : "amber"}>
+                    {stage.state === "done" ? "Done" : "To do"}
+                  </Badge>
                 )}
                 {stage.href && (
-                  <Link href={stage.href} className="text-sm text-brand-green hover:underline">
+                  <Link href={stage.href} className="text-sm text-brand-green dark:text-brand-green-bright hover:underline">
                     Open →
                   </Link>
                 )}
@@ -225,41 +244,44 @@ export default async function HealthCheckPage() {
       {/* Review & communicate — the doctor's stage. Null-gated attribution. */}
       <Card variant={check?.reviewed_at ? "soft" : "default"}>
         <CardHeader>
-          <CardTitle className="text-base">Review &amp; communicate</CardTitle>
+          <CardTitle as="h2" className="text-base">Review &amp; communicate</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1 text-sm">
           {check?.reviewed_at ? (
             <>
-              <p className="text-charcoal-ink/80">
+              <p className="text-charcoal-ink/80 dark:text-night-ink/80">
                 Completed{reviewerName ? ` · Reviewed by ${reviewerName}` : " · Reviewed by your care team"} ·{" "}
-                {new Date(check.reviewed_at).toLocaleDateString("en-GB", {
+                {new Date(check.reviewed_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
                   day: "numeric",
                   month: "short",
                   year: "numeric",
                 })}
               </p>
-              {check.review_summary && <p className="text-charcoal-ink/70">{check.review_summary}</p>}
+              {check.review_summary && <p className="text-charcoal-ink/70 dark:text-night-ink/70">{check.review_summary}</p>}
               <p>
                 <a
                   href="/api/patient/health-check/report"
-                  className="text-brand-green hover:underline"
+                  className="text-brand-green dark:text-brand-green-bright hover:underline"
                 >
                   Download your Health Check report (PDF) →
                 </a>
               </p>
             </>
           ) : (
-            <p className="text-charcoal-ink/60">
-              Once your checks are in, a doctor reviews everything and shares your results and plan.
+            <p className="text-charcoal-ink/60 dark:text-night-ink/60">
+              Once your checks are in, a doctor reviews everything and walks you through your
+              results and plan on a video call.
             </p>
           )}
         </CardContent>
       </Card>
 
+      <HealthCheckVideoConsultCard consult={check?.video_consult ?? null} />
+
       <MentalHealthSummary patientId={profile.id} />
 
       <div>
-        <h2 className="mb-2 font-heading text-lg font-semibold text-charcoal-ink">Mental wellbeing check-in</h2>
+        <h2 className="mb-2 font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">Mental wellbeing check-in</h2>
         <MentalHealthScreenForm patientId={profile.id} />
       </div>
     </div>

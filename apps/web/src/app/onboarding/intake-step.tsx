@@ -28,11 +28,16 @@ export function IntakeStep({
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
           Your health profile
         </h2>
+        {/* "Two minutes" sat in front of a four-part questionnaire plus a
+            medication logger, which is not a two-minute job for most people.
+            Saying what it is, rather than underselling how long it takes,
+            costs nothing and is the difference between a promise kept and a
+            small lie on the way in. */}
         <p className="mt-1 text-sm text-charcoal-ink/60">
-          Two minutes here builds your personal prevention plan: a screening and vaccination
-          calendar matched to your age, sex, and history, whether you&apos;re managing a
-          condition or perfectly healthy and want to stay that way. You can also do this
-          later from your dashboard.
+          Four short sections here build your personal prevention plan: a screening and
+          vaccination calendar matched to your age, sex, and history, whether you&apos;re managing
+          a condition or perfectly healthy and want to stay that way. You can stop part-way, or
+          do the whole thing later from your dashboard.
         </p>
       </div>
 
@@ -60,8 +65,10 @@ export function IntakeStep({
       </div>
 
       <div className="border-t border-charcoal-ink/10 pt-4">
+        {/* There is no plan step to continue to: plans were retired, and this
+            button has always gone straight to the confirmation screen. */}
         <Button type="button" variant="ghost" onClick={onSkip}>
-          Continue to choose your plan →
+          Continue to the last step
         </Button>
         <p className="mt-1 text-xs text-charcoal-ink/50">
           Skipping is fine. Your screening calendar stays empty until this is done, and you can

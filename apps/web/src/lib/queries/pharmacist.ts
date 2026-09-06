@@ -109,13 +109,37 @@ export function usePharmacistRecordDispense() {
   });
 }
 
-/** Pharmacy accepts a routed order (requested/payment_confirmed -> confirmed). Spec §63.2. */
+/**
+ * Pharmacy Engine spec §12.5 — the accept/decline workflow that never
+ * existed before (pharmacist_record_dispense only ever wrote to the
+ * separate pharmacy_order_dispenses log, never pharmacy_orders.status; see
+ * docs/PHARMACY_ENGINE_SPEC.md). accept confirms availability/quantity/
+ * price/fulfilment time; a confirmed price below what the patient paid
+ * auto-flags the difference for refund (DB-side, pharmacist_accept_order).
+ * decline is the out-of-stock/cannot-fulfil path, which auto-flags a full
+ * refund and notifies the patient (pharmacist_decline_order).
+ */
 export function usePharmacistAcceptOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (orderId: string) => {
+    mutationFn: async ({
+      orderId,
+      confirmedQuantity,
+      confirmedPriceKobo,
+      estimatedFulfilmentAt,
+    }: {
+      orderId: string;
+      confirmedQuantity: string;
+      confirmedPriceKobo?: number | null;
+      estimatedFulfilmentAt?: string | null;
+    }) => {
       const supabase = createClient();
-      const { error } = await supabase.rpc("pharmacist_accept_order", { p_order_id: orderId });
+      const { error } = await supabase.rpc("pharmacist_accept_order", {
+        p_order_id: orderId,
+        p_confirmed_quantity: confirmedQuantity,
+        p_confirmed_price_kobo: confirmedPriceKobo ?? undefined,
+        p_estimated_fulfilment_at: estimatedFulfilmentAt ?? undefined,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
@@ -124,7 +148,33 @@ export function usePharmacistAcceptOrder() {
   });
 }
 
-/** Pharmacy flags an order as unavailable — no stock lookup, the pharmacist states why (spec §63.4). */
+export function usePharmacistDeclineOrder() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("pharmacist_decline_order", {
+        p_order_id: orderId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
+    },
+  });
+}
+
+/**
+ * Pharmacy flags a confirmed order as unavailable-as-prescribed (spec §63.4)
+ * — deliberately NOT the same as decline. This is a checkpoint, not a
+ * cancellation: 'unavailable' sits between 'confirmed' and 'dispensed' so a
+ * substitution (pharmacist_record_dispense's substituted_for/
+ * substitution_reason) can still move the order forward. If no substitution
+ * works out, pharmacist_decline_order also accepts an 'unavailable' order
+ * (see the migration extending its status check), so the refund path this
+ * status started from is never a dead end.
+ */
 export function usePharmacistFlagUnavailable() {
   const queryClient = useQueryClient();
   return useMutation({

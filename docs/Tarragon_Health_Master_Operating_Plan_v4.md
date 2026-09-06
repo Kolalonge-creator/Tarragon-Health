@@ -80,7 +80,7 @@ Repeat Forever
 
 | Role | Who | Employment | Responsibility |
 |---|---|---|---|
-| **Care Coordinator** | Non-clinical staff (health coach / trained admin) | Employed | Logistics only: check-in calls/WhatsApp threads, adherence and missed-reading tracking, lab/refill booking, data collection. Never interprets a result, never adjusts medication, never closes a clinical escalation — routes anything requiring judgment to Tier 1. |
+| **Care Coordinator** | Non-clinical staff (health coach / trained admin) | Employed | Logistics only: in-app check-ins (`care_messages`; never WhatsApp for the two-way conversation), adherence and missed-reading tracking, lab/refill booking, data collection. Never interprets a result, never adjusts medication, never closes a clinical escalation — routes anything requiring judgment to Tier 1. |
 | **Tier 1 — Medical Officer, <3 yrs experience** | Junior doctor | Employed | First-line clinical review of routine readings and stable chronic-disease follow-up, under protocol. Confirms/continues existing stable prescriptions per protocol. Escalates anything outside protocol to Tier 2. |
 | **Tier 2 — Medical Officer, 3+ yrs experience** | Mid-level doctor | Employed | Routine medication initiation and dose adjustment, standard escalation review, handles what Tier 1 flags. At pilot scale, may double as Tier 3 (see Section 14 staffing plan). |
 | **Tier 3 — Senior Medical Officer** | Experienced doctor | Employed | Complex chronic-disease case management, multi-drug regimen management, QA/spot-audit of Tier 1 and Tier 2 decisions, escalation point for Tier 2. Formalised as a distinct hired role once pilot volume justifies it (Phase 2 trigger, Section 14). |
@@ -117,7 +117,7 @@ Tier 3/4 resumes ongoing management
 | Tier 4 | Approves before specialist referral; reviews and reconciles specialist-initiated changes |
 | Tier 5 (Partner Specialist) | Prescribes complex/specialist-only medications during the referral episode |
 
-**Placeholder staffing ratios** (starting assumptions only — to be recalculated from real time-per-case data collected during the pilot, per Open Decision in Section 15):
+**Placeholder staffing ratios** (starting assumptions only — to be recalculated from real time-per-case data collected during the pilot, per Open Decision in Section 16):
 
 | Tier | Indicative panel/coverage at pilot scale (100 patients) |
 |---|---|
@@ -126,6 +126,27 @@ Tier 3/4 resumes ongoing management
 | Tier 3 | At pilot scale, folded into Tier 2's own escalation capacity — not separately hired until Phase 2 trigger is met |
 | Tier 4 | Part-time retainer (a few hours/week) — sufficient at 100-patient scale; converts to larger contract as referral volume grows |
 | Tier 5 | Engaged case-by-case, no retainer needed at pilot scale |
+| Care Coordinator | See "Cost Compression Model" below — caseload depends on how much of the role's queue is async/trigger-routed vs. live/scheduled |
+
+### Cost Compression Model: Doctor Engagement + Care Coordinator Scaling
+
+**Principle:** AI absorbs the constant-cost, no-judgment work (education content, adherence nudges, logging prompts — already low-cost and carrying no prescribing risk, since it never decides anything). Every judgment that touches diagnosis, prescribing, or escalation resolution still requires the tiered doctor set out above — **compressed to an exception-only, minutes-per-case review, never removed.** This does not change Section 9's governance principle: AI output is a filter or a draft that a tiered clinician or coordinator reviews, never an autonomous clinical decision.
+
+**Doctor-side levers (compress engagement, don't remove it):**
+1. **Exception-only review.** The rules-engine triage already in Section 7 (Level 1) classifies every result green/amber/red before a human sees it. A Tier 1/2 worklist that surfaces only amber/red and off-protocol cases — not every routine in-range reading — turns doctor time into minutes of async review per patient rather than a consultation.
+2. **Batched async sign-off in place of live calls for routine review.** A doctor clearing a worklist of flagged cases in one sitting is cheaper per case than scheduled one-to-one calls — a worklist/dashboard UX pattern on Tier 1–2's existing worklist, not new schema.
+3. **Contractor/per-case pay scales with volume for the tiers already structured that way.** Tier 4 and Tier 5 are already contracted/per-consult (Section 4's role table) rather than salaried, so their cost already tracks case volume instead of sitting as fixed overhead pre-patients. Whether that same logic should extend to Tier 1–2 coverage (vs. remaining employed, as designed) is a question for Open Decision 2 (Tier 4/5 contract terms) once real pilot volume and time-per-case data exist — not a change to make ahead of that data.
+4. Doctor-tier panel ratios above remain exactly what Open Decision 1 already flags them as: placeholders pending real time-per-case pilot data, not numbers to build fixed staffing plans against yet.
+
+**Care Coordinator-side levers (this is the "human coach" role — it already exists in the table above; the lever is how it's scaled, not a new role):**
+1. **Async, in-app only — never WhatsApp for the two-way conversation.** Per CLAUDE.md's patient↔care-team messaging rule, that conversation runs on `care_messages`/`care_message_threads` in-app, not WhatsApp. A coordinator working an async in-app queue clears it in batches between other work instead of being blocked on live calls; WhatsApp/SMS stay reminder/notification-only, unchanged.
+2. **AI drafts, coordinator reviews and sends.** Built 2026-08-29 (`care_message_draft_replies`, see the sprint archive) as the Care Coordinator-side counterpart to `case_briefs` on the doctor side — a manual "Draft reply" control in the thread view, Claude Haiku-drafted, display-only (never pre-loaded into the compose box, so a draft can't be sent unread). The drafting prompt itself refuses a substantive reply and flags `needs_clinical_review` when the patient's message sounds like it needs a clinician's judgment. Runs through Section 9's AI-oversight governance and stays inside the Care Coordinator's existing limits — never interpreting a result, never adjusting medication, never closing an escalation.
+3. **Trigger-based, not scheduled-for-everyone.** The adherence/missed-reading tracking the Care Coordinator already owns (Section 4; Section 8 stage 5) is the natural trigger source: a missed reading, a worsening trend, or a logging drop-off surfaces a patient to the coordinator's queue, rather than every patient getting a fixed-cadence check-in regardless of need.
+4. **Risk-tiered cadence.** Newly enrolled or clinically unstable patients get more frequent proactive outreach; stable, adherent, long-tenured patients drop to monthly-or-trigger-only.
+5. **Cohort/group check-ins for the stable tier — a Phase 2/3 candidate, not scoped for build.** Group-based outreach for low-risk, stable patients (in-app only, never a WhatsApp group, per the same rule as point 1) would need its own explicit ask and its own build before any functional code — it is a new feature, not a scaling technique for the Care Coordinator role that already exists.
+6. **Hire with volume, not ahead of it.** Matches the Care Coordinator's existing employed/non-clinical model — add headcount once an existing coordinator's live/trigger queue is consistently maxed, not speculatively ahead of enrolled patients.
+
+An async, trigger-routed, AI-draft-assisted Care Coordinator plausibly covers a caseload an order of magnitude larger than a live-call, fixed-schedule model would support. Treat that as a planning assumption to validate against real pilot check-in volume and time-per-case data — not a committed ratio, for the same reason Open Decision 1 keeps the doctor-tier ratios as placeholders.
 
 ---
 
@@ -136,7 +157,7 @@ Tier 3/4 resumes ongoing management
 | **1. Chronic Disease Management** | Hypertension, diabetes, obesity-related risk, kidney risk, cardiovascular risk (core wedge); CKD, asthma, heart failure, COPD, stroke follow-up in Phase 3 | Pillar: Clinical Care |
 | **2. Preventive Medicine** | Age/risk-based screening, annual health checks, care gap detection | Pillar: Diagnostics (Section 6) |
 | **3. Care Coordination** | Labs, pharmacy, specialist referrals, hospital handoffs | Pillars: Treatment, Care Coordination (Sections 7–8) |
-| **4. B2B & Institutional** | Corporate wellness, HMO capitation, government/NHIA contracts | Pillar: Population Health & Analytics |
+| **4. B2B & Institutional** | Corporate wellness, HMO partnerships (outcomes-based, not capitation — removed as a product 2026-07-29, CLAUDE.md's I8), government/NHIA contracts | Pillar: Population Health & Analytics |
 | **5. Platform Infrastructure** | WhatsApp/SMS engine, doctor-tier dashboards, patient record, partner API layer, AI/analytics | Pillars: Patient Access & Engagement, Patient Support |
 
 Cutting across all five: a **Clinical Governance Layer** (Section 9) — no patient interaction bypasses it.
@@ -146,7 +167,7 @@ Cutting across all five: a **Clinical Governance Layer** (Section 9) — no pati
 ## 6. Investigations & Diagnostics Pathway
 
 ### Tier 1 — Scheduled Monitoring (Phase 1 · pilot-ready · ~70–80% of all tests)
-Default experience. Chronic disease patients automatically receive investigations per evidence-based guidelines (diabetes: HbA1c every 3 months, UACR/eGFR/lipids/retinal screening yearly; hypertension: U&E/eGFR every 6–12 months, urine dipstick + lipids yearly, ECG every 2–3 years). Platform calculates due dates, sends reminders, books at a partner lab, shows expected cost, receives results, flags abnormals, updates the dashboard. Fully automated.
+Default experience. Chronic disease patients automatically receive investigations per evidence-based guidelines (diabetes: HbA1c every 3 months, UACR/eGFR/lipids/retinal screening yearly; hypertension: U&E/eGFR every 6–12 months, urine dipstick + lipids yearly, ECG every 2–3 years). **Corrected — the "books at a partner lab" step is superseded by self-arranged fulfilment (founder decision 2026-08-03).** Real flow: platform calculates due dates, sends reminders, shows expected cost → patient books/pays the lab directly (any provider, or a contracted partner like Synlab for panel bundles where a real billing relationship exists) → patient/lab uploads results → flags abnormals, updates the dashboard.
 
 ### Tier 2 — Doctor-Requested Investigations (Phase 1 · pilot-ready)
 A Tier 2+ doctor orders additional tests during review (e.g. FBC, CRP, ferritin, B12 for worsening diabetes). Patient notified, chooses a lab, pays, attends. Results return to the ordering doctor's tier dashboard.
@@ -191,7 +212,7 @@ Maps directly onto the doctor-tier ladder in Section 4. Levels 1–4 are pilot-r
 
 ## 8. Medication & Pharmacy Pathway
 
-**Governing principle:** Tarragon coordinates medication management. It never prescribes and never dispenses. Licensed doctors (per their tier's authority, Section 4) prescribe; licensed pharmacies dispense.
+**Governing principle:** Tarragon coordinates medication management. It never prescribes and never dispenses. Licensed doctors (per their tier's authority, Section 4) prescribe; licensed pharmacies dispense. **Corrected — since self-arranged fulfilment (2026-08-03), "licensed partner pharmacy" below means any pharmacy the patient chooses and pays directly**, not a Tarragon-contracted/booked/billed relationship — Tarragon does not route or bill pharmacy fulfilment on a patient's behalf.
 
 ### Six stages
 
@@ -274,18 +295,18 @@ Sits across all five categories; no patient interaction bypasses it.
 
 | Partner type | Role | Phase |
 |---|---|---|
-| Labs | Test booking, result upload, abnormal flagging | Phase 1 |
-| Pharmacies | Prescription validation, dispensing, counselling | Phase 1 |
+| Labs | ~~Test booking~~, result upload, abnormal flagging — booking/billing superseded 2026-08-03 by self-arranged fulfilment (patient books/pays directly; a handful of contracted partners like Synlab retain a real billing relationship for panel bundles) | Phase 1 |
+| Pharmacies | ~~Prescription validation, dispensing, counselling~~ — same self-arranged fulfilment correction as Labs above; Tarragon does not book, bill, or dispense through a partner pharmacy | Phase 1 |
 | Specialist consultants | Referral-only input, informal in Phase 1, full network in Phase 2 | Phase 1 (informal) → Phase 2 (network) |
 | Hospitals | Urgent referral, post-discharge monitoring | Phase 1 referral; discharge-monitoring contracts Phase 2 |
 | Home-visit providers | Sample collection, frail-patient support | Built 2026-07-16 (pulled forward from Phase 2), dormant until a real partner is contracted |
 | Pharmacy delivery/logistics partners | Medication delivery | Built 2026-07-16 (pulled forward from Phase 2), dormant until a real partner is contracted |
-| Device/wearable manufacturers | BP monitors, glucometers, scales — API/Bluetooth integration | Phase 2 |
+| Device/wearable manufacturers | BP monitors, glucometers, scales, wearables — API/Bluetooth integration built and shipped (see CLAUDE.md's Device & Wearable Integration section); device bundles themselves deliberately shelved 2026-08-02, patients self-source | Built |
 | Physiotherapy / rehab providers | Referral pathway | Phase 3 |
 | Ambulance / emergency transport | Emergency escalation pathway | Phase 3 |
-| Employers | Staff enrolment, corporate wellness | Phase 2 |
-| HMOs | Member monitoring, capitation | Phase 2 |
-| Diaspora groups | ParentCare distribution, overseas payments | Phase 1 |
+| Employers | Staff enrolment, corporate wellness | Built 2026-07-16 (pulled forward from Phase 2), see CLAUDE.md's Clinical Tier Ladder section |
+| HMOs | Member monitoring, outcomes-based contracting (not capitation — removed as a product 2026-07-29, CLAUDE.md's I8) | Built 2026-07-16 (pulled forward from Phase 2) |
+| Diaspora groups | ~~ParentCare distribution~~ — ParentCare deleted 2026-07-29; diaspora is now a sponsor of a patient's Paystack purchase (Care Voucher / gift-a-health-check), not a distribution channel for a tier | Phase 1 |
 | NHIA / government / public health agencies | Population screening, chronic disease registries | Phase 3 |
 
 Each partner integrates through standardised APIs where available, manual upload where not, SLAs, clinical governance standards, and performance metrics.
@@ -326,13 +347,13 @@ Organised by business category so it plugs directly into the existing sprint/cat
 - Hospital discharge/post-admission monitoring contracts
 
 ### Category 4 — B2B & Institutional
-- Employer dashboard: staff enrolment, anonymised population risk reports, chronic disease metrics
-- HMO dashboard: member monitoring, risk stratification, care gap tracking, outcome reporting
+- ~~Employer dashboard: staff enrolment, anonymised population risk reports, chronic disease metrics~~ — built 2026-07-16 (pulled forward from Phase 2), see CLAUDE.md's Clinical Tier Ladder section
+- ~~HMO dashboard: member monitoring, risk stratification, care gap tracking, outcome reporting~~ — built 2026-07-16 (pulled forward from Phase 2), see CLAUDE.md's Clinical Tier Ladder section
 - First corporate wellness contracts sold using pilot outcome data
-- First HMO capitation conversations
+- ~~First HMO capitation conversations~~ — capitation was removed as a shipped guardrail 2026-07-29, "no capitation, ever" (CLAUDE.md's Non-Negotiable Business Rules, I8); this item no longer applies
 
 ### Category 5 — Platform Infrastructure
-- Premium ParentCare tier: dedicated coordinator, scheduled Tier 2+ doctor review, quarterly family report
+- ~~Premium ParentCare tier: dedicated coordinator, scheduled Tier 2+ doctor review, quarterly family report~~ — ParentCare deleted entirely 2026-07-29 (individual enrolment only, no family plans, ever); this item no longer applies
 - AI assistant v1: summarisation, patient education content generation, Care Coordinator/doctor worklist prioritisation, admin automation. **Not** autonomous clinical decision-making — every output stays inside the Section 9 governance review.
 - Mobile app (React Native) as a first-class channel alongside WhatsApp/web
 - Partner API layer opened for lab/pharmacy integrations that move beyond manual upload
@@ -394,7 +415,7 @@ Once these are hit, Category-by-category Phase 2 items in Section 13 can begin, 
 
 1. **Exact doctor-tier panel ratios.** Section 4's numbers are placeholders. Recalculate from real time-per-case data once the pilot is running.
 2. **Tier 4/5 contract terms.** Define the actual retainer structure (hours/week, per-consult rate) for the Senior Registrar and the specific commercial terms for Partner Specialists.
-3. **Re-run pilot unit economics** against the tiered staffing model in Section 4 — materially different cost curve from the original flat nurse-led assumption.
+3. **Re-run pilot unit economics** against the tiered staffing model in Section 4 — materially different cost curve from the original flat nurse-led assumption. The "Cost Compression Model" subsection in Section 4 lays out the mechanism (exception-only doctor review, async/trigger-routed Care Coordinator scaling); this decision is about plugging real pilot numbers into that mechanism, not designing a new one.
 4. **Finalise Phase 2 gate numbers** (Section 14) — the thresholds listed are a reasonable starting framework, not a commitment; adjust once early pilot weeks produce real numbers.
 5. **MDCN / regulatory confirmation** that the Tier 1–4 authority split in Section 4 (e.g., Tier 1 confirming refills, Tier 2 initiating new medications) is compliant as designed — recommend a compliance review before this becomes the operating protocol nurses/doctors work from.
 

@@ -11,9 +11,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { StatTile } from "@/components/ui/stat-tile";
+import { statTileValue } from "@/components/ui/stat-tile-value";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
+import { formatPatientDate } from "@/lib/format-date";
 const WEIGHT_CONFIG: ChartConfig = {
   weight_kg: { label: "Weight (kg)", color: "var(--color-chart-glucose)" },
 };
@@ -22,7 +24,7 @@ const RANGE_DAYS = { week: 7, month: 30, all: 3650 } as const;
 type Range = keyof typeof RANGE_DAYS;
 
 function formatDate(taken_at: string): string {
-  return new Date(taken_at).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return formatPatientDate(taken_at, { month: "short", day: "numeric" });
 }
 
 function fmtKg(n: number): string {
@@ -67,12 +69,12 @@ export function WeightClient({ patientId }: { patientId: string }) {
             ))}
           </div>
 
-          {trend.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {trend.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {trend.isError && (
-            <p className="text-sm text-red-600">Could not load your weight trend.</p>
+            <p className="text-sm text-red-600 dark:text-red-400">Could not load your weight trend.</p>
           )}
           {!trend.isLoading && !trend.isError && points.length < 2 && (
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               Not enough readings in this range yet; log weight from your vitals or lifestyle
               check-in to build the chart.
             </p>
@@ -188,7 +190,7 @@ function WeightGoalSection({
                 />
               </div>
             </div>
-            {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+            {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
             <div className="flex gap-2">
               <Button type="submit">Save goal</Button>
               {hasGoal && (
@@ -200,36 +202,42 @@ function WeightGoalSection({
           </form>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-4 border-b border-charcoal-ink/10 pb-4">
+            <div className="grid grid-cols-2 gap-4 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4">
               <div>
-                <p className="text-xs uppercase tracking-wide text-charcoal-ink/50">Starting</p>
-                <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                <p className="text-xs uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">Starting</p>
+                <p className="font-heading text-xl font-semibold text-charcoal-ink dark:text-night-ink">
                   {startingWeightKg != null ? fmtKg(startingWeightKg) : "—"}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-xs uppercase tracking-wide text-charcoal-ink/50">Goal</p>
-                <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                <p className="text-xs uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">Goal</p>
+                <p className="font-heading text-xl font-semibold text-charcoal-ink dark:text-night-ink">
                   {goalWeightKg != null ? fmtKg(goalWeightKg) : "—"}
                 </p>
               </div>
             </div>
 
-            <p className="text-sm font-medium text-charcoal-ink">Overall progress</p>
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Overall progress</p>
             <div className="grid grid-cols-2 gap-3">
               <StatTile
                 icon={SEMANTIC_ICON.weight}
                 iconTint="ivory"
                 label="Initial weight"
-                value={startingWeightKg != null ? startingWeightKg.toFixed(1) : "—"}
-                unit="kg"
+                {...statTileValue(
+                  startingWeightKg != null ? startingWeightKg.toFixed(1) : null,
+                  "No starting weight yet",
+                  "kg"
+                )}
               />
               <StatTile
                 icon={SEMANTIC_ICON.weightTrend}
                 iconTint="gold"
                 label={change != null && change < 0 ? "Change so far (up)" : "Total lost so far"}
-                value={change != null ? Math.abs(change).toFixed(1) : "—"}
-                unit="kg"
+                {...statTileValue(
+                  change != null ? Math.abs(change).toFixed(1) : null,
+                  "Log a weight to see this",
+                  "kg"
+                )}
                 delta={
                   change != null
                     ? {
