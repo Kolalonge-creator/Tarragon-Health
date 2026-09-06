@@ -16,10 +16,7 @@
 #
 # Reviewed 2026-09-05: none of the scripts below had ever been executed by any
 # workflow. Nineteen were moved up to ci.manifest in that pass; what remains is
-# still the same backlog, minus the three covered by PR #456's block below,
-# which are a different thing (each header says "Run via npx supabase db
-# query --linked", i.e. written against the live project's own fixtures, not
-# a bare `supabase db reset`).
+# still the same backlog, minus the three below, which are a different thing.
 #
 # ===========================================================================
 # NOT A FIXTURE PROBLEM: three scripts here now FAIL for real. They stay
