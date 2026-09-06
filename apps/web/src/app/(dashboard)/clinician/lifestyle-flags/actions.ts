@@ -39,7 +39,7 @@ export async function standDownFlag(
 
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("id, doctor_tier, is_clinical_director")
+    .select("id, doctor_tier")
     .eq("profile_id", user.id)
     .eq("active", true)
     .maybeSingle();
