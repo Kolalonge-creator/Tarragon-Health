@@ -30,10 +30,11 @@ const EMPTY_STATE: Record<PatientFilter, string> = {
  *
  * Care Team / Provider Workspace §5.4 asks for "assigned / programme / recent
  * / high-risk / requiring action" lists. "Requiring action" is already the
- * worklist/work-queue surface elsewhere in this app (todays-queue-panel.tsx,
- * the worklist count strip on /clinician) — duplicating it as a patient-list
- * filter here would just be a second, easier-to-drift view of the same
- * queue, so it's deliberately not one of the tabs below.
+ * worklist/work-queue surface elsewhere in this app (the /clinician worklist
+ * plus the live sidebar count badges, see lib/queries/worklist-counts.ts) —
+ * duplicating it as a patient-list filter here would just be a second,
+ * easier-to-drift view of the same queue, so it's deliberately not one of
+ * the tabs below.
  */
 export default async function ClinicianPatientsPage({
   searchParams,
