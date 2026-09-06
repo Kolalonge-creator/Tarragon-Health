@@ -193,6 +193,13 @@ sponsor_pay_booking_order.sql
 sponsor_spend_receipts.sql
 subscription_care_vouchers.sql
 subsidy_split_engine.sql
+# support_centre.sql -- fixture problem, confirmed 2026-09-06: aborts with
+# "need an org with 2+ patients, a Care Coordinator, a clinical-tier staff
+# member, a Clinical Director and an admin to run this test" against a fresh
+# `supabase db reset` + seed.sql, i.e. written against the live project's
+# @tarragon.test QA roster (see project_qa_test_accounts_20260727), not
+# fixtures it builds itself.
+support_centre.sql
 supporter_accounts.sql
 supporter_reporting.sql
 symptom_triage_assessment_engine.sql

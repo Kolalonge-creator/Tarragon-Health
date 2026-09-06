@@ -57,4 +57,3 @@ migration_replay_leaves_no_orphaned_finance_rows.sql
 # --- Added 2026-09-06, classifying 3 previously-unlisted proofs -------------
 abnormal_screening_result_upgrade.sql
 payer_board_outcomes_report.sql
-support_centre.sql
