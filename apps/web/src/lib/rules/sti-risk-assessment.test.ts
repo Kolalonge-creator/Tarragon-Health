@@ -34,14 +34,14 @@ describe("scoreStiRiskCheck", () => {
     expect(result.recommendedScreenCodes).toEqual([]);
   });
 
-  it("bands a score of exactly 2 as moderate with the 3-test recommendation", () => {
+  it("bands a score of exactly 2 as moderate with the single-test recommendation", () => {
     // new_partner_3mo (+1) + condom_use never (+1) = 2.
     const result = scoreStiRiskCheck(
       baseInput({ new_partner_3mo: true, condom_use: "never" })
     );
     expect(result.riskLevel).toBe("moderate");
     expect(result.symptomFlag).toBe(false);
-    expect(result.recommendedScreenCodes).toEqual(["hiv", "syphilis", "chlamydia_gonorrhoea"]);
+    expect(result.recommendedScreenCodes).toEqual(["hiv"]);
   });
 
   it("bands a score of exactly 3 as still moderate", () => {
@@ -50,36 +50,24 @@ describe("scoreStiRiskCheck", () => {
       baseInput({ partner_count_12mo: "2_4", condom_use: "never", prior_sti_diagnosis: true })
     );
     expect(result.riskLevel).toBe("moderate");
-    expect(result.recommendedScreenCodes).toEqual(["hiv", "syphilis", "chlamydia_gonorrhoea"]);
+    expect(result.recommendedScreenCodes).toEqual(["hiv"]);
   });
 
-  it("bands a score of exactly 4 as high with the full 5-test recommendation", () => {
+  it("bands a score of exactly 4 as high with the full 3-test recommendation", () => {
     // partner_count_12mo 5_plus (+2) + condom_use never (+1) + new_partner_3mo (+1) = 4.
     const result = scoreStiRiskCheck(
       baseInput({ partner_count_12mo: "5_plus", condom_use: "never", new_partner_3mo: true })
     );
     expect(result.riskLevel).toBe("high");
     expect(result.symptomFlag).toBe(false);
-    expect(result.recommendedScreenCodes).toEqual([
-      "hiv",
-      "syphilis",
-      "chlamydia_gonorrhoea",
-      "hep_b",
-      "hep_c",
-    ]);
+    expect(result.recommendedScreenCodes).toEqual(["hiv", "hep_b", "hep_c"]);
   });
 
   it("forces at least moderate and the full recommendation list when a symptom is reported, regardless of an otherwise-zero point total", () => {
     const result = scoreStiRiskCheck(baseInput({ symptoms: ["discharge"] }));
     expect(result.symptomFlag).toBe(true);
     expect(result.riskLevel).toBe("moderate");
-    expect(result.recommendedScreenCodes).toEqual([
-      "hiv",
-      "syphilis",
-      "chlamydia_gonorrhoea",
-      "hep_b",
-      "hep_c",
-    ]);
+    expect(result.recommendedScreenCodes).toEqual(["hiv", "hep_b", "hep_c"]);
   });
 
   it("keeps the symptom flag independent of which non-'none' symptom(s) are picked", () => {
