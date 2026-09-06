@@ -77,10 +77,13 @@ grant select, insert on public.result_release_policies to authenticated;
 -- Called directly from an RLS USING clause (see the policy rewrite below),
 -- not merely from another SECURITY DEFINER trigger — so, unlike
 -- escalation_sla_minutes/notify_clinician_alert, this must stay executable
--- by `authenticated` (the 20260812003758 default-privileges rule already
--- grants that automatically for every new private.* function; no explicit
--- grant/revoke needed or added here — confirmed by the assertion block
--- below rather than assumed).
+-- by `authenticated`. The 20260812003758 default-privileges rule grants
+-- that to `authenticated` automatically for every new private.* function,
+-- but a fresh Postgres function also gets an implicit EXECUTE grant to the
+-- PUBLIC pseudo-role at creation time, and `anon` inherits through PUBLIC —
+-- `revoke ... from anon` alone does not touch that (CLAUDE.md's standing
+-- anon/PUBLIC gotcha). Explicit revoke-from-public below, same shape as
+-- sign_result_release_policies further down this file.
 -- ---------------------------------------------------------------------------
 create or replace function private.result_release_mode(p_screen_type_code text)
 returns public.result_release_mode
@@ -102,6 +105,9 @@ as $$
   );
 $$;
 
+revoke all on function private.result_release_mode(text) from public;
+grant execute on function private.result_release_mode(text) to authenticated;
+
 -- 'restricted' only withholds the row from the PATIENT when it is actually
 -- bad news (abnormal/critical) — a normal HIV/mammography/PSA result has
 -- nothing to soften and stays immediately visible, matching the sensitive-
@@ -121,6 +127,9 @@ as $$
     and p_result_status in ('abnormal', 'critical')
     and private.result_release_mode(p_screen_type_code) = 'restricted';
 $$;
+
+revoke all on function private.patient_result_blocked(text, public.result_status) from public;
+grant execute on function private.patient_result_blocked(text, public.result_status) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- The RLS rewrite. Byte-identical to the live screening_results_select
