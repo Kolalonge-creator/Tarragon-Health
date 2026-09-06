@@ -56,7 +56,7 @@ export default async function CoveragePage() {
             TarragonHealth works anywhere in Nigeria. We tell you which tests
             are worth doing and when, write you a request to take to any lab
             you like, read the result with you, and follow up. None of that
-            waits on us signing a partner in your state, so it's never
+            waits on us signing a partner in your state, so it&apos;s never
             switched off where you live.
           </p>
           <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
@@ -66,13 +66,13 @@ export default async function CoveragePage() {
           <p className="mt-4 text-sm text-charcoal-ink/60">
             What we do not yet do anywhere: collect a sample from your home,
             or deliver medication to your door. Those still need a contracted
-            partner in your state, and we'd rather say so than imply
+            partner in your state, and we&apos;d rather say so than imply
             otherwise.
           </p>
           <p className="mt-4 text-sm text-charcoal-ink/60">
             Billing a lab on your behalf is the one exception: for some
             screening bundles, you can opt in to have us arrange it with our
-            contracted lab partner and bill you directly instead. It's always
+            contracted lab partner and bill you directly instead. It&apos;s always
             optional, alongside the self-arranged path above.
           </p>
           {liveStates.length > 0 && (
