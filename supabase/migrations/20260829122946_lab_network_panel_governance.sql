@@ -20,7 +20,7 @@
 
 create type public.panel_bundle_category as enum (
   'wellness_baseline', 'annual_core', 'diabetes', 'cardiovascular', 'kidney',
-  'cancer_screening', 'single_test', 'other'
+  'cancer_screening', 'sexual_health', 'single_test', 'other'
 );
 
 alter table public.panel_bundles
@@ -41,6 +41,17 @@ update public.panel_bundles set category = 'diabetes',
        clinical_protocol_ref = 'Metabolic/renal work-up for a patient with diabetes — aligned to the platform''s diabetes chronic-disease pathway.'
   where code = 'diabetes_panel';
 update public.panel_bundles set category = 'cancer_screening' where code in ('single_fit', 'single_cervical_smear', 'single_psa');
+-- sti_panel_full (added 20260829090000, before this migration) is a genuine
+-- clinical grouping of its own: HIV, syphilis, hep B, hep C, chlamydia and
+-- gonorrhoea are ordered together because a sexual-health screen covers them
+-- together, not because they are commercially convenient. It fits none of the
+-- other categories, and forcing it into one would defeat the point of this
+-- column, so it gets its own. Without this it stays 'other' and this
+-- migration's own closing assertion (no active bundle left uncategorised)
+-- fails, which is exactly what it is there to catch.
+update public.panel_bundles set category = 'sexual_health',
+  clinical_protocol_ref = 'Combined sexual-health screen: the infections a single confidential STI check is expected to cover.'
+  where code = 'sti_panel_full';
 update public.panel_bundles set category = 'single_test'
   where code like 'single_%' and category = 'other';
 update public.panel_bundles set category = 'other' where code in ('screen_advanced', 'screen_comprehensive');

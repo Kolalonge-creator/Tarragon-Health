@@ -42047,6 +42047,7 @@ export type Database = {
         | "cardiovascular"
         | "kidney"
         | "cancer_screening"
+        | "sexual_health"
         | "single_test"
         | "other"
       activity_entry_type: "steps" | "workout"
