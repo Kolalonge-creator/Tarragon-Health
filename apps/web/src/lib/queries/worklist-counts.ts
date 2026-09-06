@@ -16,10 +16,12 @@ type Client = SupabaseClient<Database>;
  * defensive habit: these numbers are a doctor's answer to "what needs me
  * today", and a swallowed error would render as a confident "0" — a failed
  * query dressed up as an empty queue. Throwing is what puts the consuming
- * components (TodaysQueuePanel, WorklistCountStrip) into their `isError`
- * branch, which says the counts could not be loaded instead of asserting
- * there is nothing waiting. Never soften one of these back to `count ?? 0`
- * on its own.
+ * component into its `isError` branch, which says the counts could not be
+ * loaded instead of asserting there is nothing waiting — see AppShell's
+ * NavBadge (app-shell.tsx), the sidebar badge every NavItem.countKey feeds,
+ * which renders a small amber dot rather than a silently-vanished badge on
+ * this exact failure. Never soften one of these back to `count ?? 0` on its
+ * own.
  */
 async function countOpenEscalations(supabase: Client) {
   const { count, error } = await supabase
