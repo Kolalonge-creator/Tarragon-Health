@@ -4,14 +4,30 @@ import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ScreeningResultForm } from "./screening-result-form";
 import { EcgResultPanel } from "./ecg-result-panel";
-import { setScreeningResultFollowUpAction } from "./screening-result-actions";
+import {
+  setScreeningResultFollowUpAction,
+  markResultPatientInformed,
+  RESULT_ACTION_TYPES,
+  type ResultActionType,
+} from "./screening-result-actions";
 import type { SCREENING_RESULT_SCREEN_TYPES } from "@/lib/validation/screening-result";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 type ScreenType = (typeof SCREENING_RESULT_SCREEN_TYPES)[number];
+
+const ACTION_TYPE_LABELS: Record<ResultActionType, string> = {
+  repeat_test: "Repeat test",
+  medication_change: "Medication change",
+  appointment: "Appointment",
+  specialist_referral: "Specialist referral",
+  monitoring: "Monitoring",
+  no_action: "No immediate action",
+};
 
 export type ScreenOrderChecklistItem = {
   orderId: string;
@@ -24,6 +40,12 @@ export type ScreenOrderChecklistItem = {
     resultId: string | null;
     resultStatus: string | null;
     followUpAction: string | null;
+    actionType: string | null;
+    patientInformedAt: string | null;
+    /** Pre-rendered by the server-component caller (ReviewedResultLine is
+     * an async Server Component and cannot be imported into this "use
+     * client" file — see screen-order-results-section.tsx). */
+    reviewedNode: React.ReactNode;
   }[];
 };
 
@@ -32,6 +54,7 @@ function FollowUpActionForm({ resultId, onSaved }: { resultId: string; onSaved: 
     setScreeningResultFollowUpAction.bind(null, resultId),
     undefined
   );
+  const [actionType, setActionType] = useState<ResultActionType>("repeat_test");
   const router = useRouter();
 
   useEffect(() => {
@@ -44,24 +67,68 @@ function FollowUpActionForm({ resultId, onSaved }: { resultId: string; onSaved: 
 
   return (
     <form action={formAction} className="mt-2 flex flex-wrap items-start gap-2">
-      <Input
-        name="follow_up_action"
-        placeholder="What should happen next for this result?"
-        className="min-w-[220px] flex-1"
-        required
-      />
-      <Input
-        name="recall_months"
-        type="number"
-        min={1}
-        max={60}
-        placeholder="Repeat in (months)"
-        className="w-40"
-      />
-      <Button type="submit" size="sm" disabled={pending}>
+      <div className="min-w-[200px] space-y-1.5">
+        <Label htmlFor={`action_type-${resultId}`} className="text-xs">
+          What should happen next?
+        </Label>
+        <Select
+          id={`action_type-${resultId}`}
+          name="action_type"
+          value={actionType}
+          onChange={(event) => setActionType(event.target.value as ResultActionType)}
+        >
+          {RESULT_ACTION_TYPES.map((type) => (
+            <option key={type} value={type}>
+              {ACTION_TYPE_LABELS[type]}
+            </option>
+          ))}
+        </Select>
+      </div>
+      {actionType === "repeat_test" && (
+        <div className="space-y-1.5">
+          <Label htmlFor={`recall-${resultId}`} className="text-xs">
+            Repeat in (months)
+          </Label>
+          <Input id={`recall-${resultId}`} name="recall_months" type="number" min={1} max={60} className="w-40" />
+        </div>
+      )}
+      <div className="min-w-[220px] flex-1 space-y-1.5">
+        <Label htmlFor={`note-${resultId}`} className="text-xs">
+          Detail
+        </Label>
+        <Input
+          id={`note-${resultId}`}
+          name="follow_up_action"
+          placeholder="e.g. Repeat FBC in 3 months"
+          required
+        />
+      </div>
+      <Button type="submit" size="sm" disabled={pending} className="mt-6">
         {pending ? "Saving…" : "Save follow-up"}
       </Button>
       {state?.error && <p className="w-full text-xs text-red-600">{state.error}</p>}
+    </form>
+  );
+}
+
+function MarkPatientInformedButton({ resultId }: { resultId: string }) {
+  const [state, formAction, pending] = useActionState(
+    markResultPatientInformed.bind(null, resultId),
+    undefined
+  );
+  const router = useRouter();
+
+  useEffect(() => {
+    if (state?.success) router.refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state?.success]);
+
+  return (
+    <form action={formAction}>
+      <Button type="submit" size="sm" variant="outline" disabled={pending}>
+        {pending ? "Saving…" : "Mark patient informed"}
+      </Button>
+      {state?.error && <p className="mt-1 text-xs text-red-600">{state.error}</p>}
     </form>
   );
 }
@@ -108,7 +175,7 @@ export function ScreenOrderChecklist({
             const needsFollowUp =
               c.satisfied &&
               c.resultStatus &&
-              ["abnormal", "critical"].includes(c.resultStatus) &&
+              ["abnormal", "critical", "indeterminate"].includes(c.resultStatus) &&
               !c.followUpAction;
             // Borderline results don't force the amber "needs follow-up"
             // badge (abnormal/critical already escalates to a doctor
@@ -137,9 +204,19 @@ export function ScreenOrderChecklist({
                   )}
                 </div>
                 {c.satisfied && c.followUpAction && (
-                  <p className="mt-1 text-xs text-charcoal-ink/70">
-                    Follow-up: {c.followUpAction}
-                  </p>
+                  <div className="mt-1 space-y-1">
+                    <p className="text-xs text-charcoal-ink/70">
+                      Follow-up
+                      {c.actionType && ` (${ACTION_TYPE_LABELS[c.actionType as ResultActionType] ?? c.actionType})`}:{" "}
+                      {c.followUpAction}
+                    </p>
+                    {c.reviewedNode}
+                    {c.patientInformedAt ? (
+                      <p className="text-xs text-brand-green">Patient informed</p>
+                    ) : (
+                      c.resultId && <MarkPatientInformedButton resultId={c.resultId} />
+                    )}
+                  </div>
                 )}
                 {canOfferFollowUp && c.resultId && (
                   showFollowUpFor[c.code] ? (

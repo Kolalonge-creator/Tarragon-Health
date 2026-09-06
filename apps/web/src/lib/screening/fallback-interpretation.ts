@@ -60,8 +60,9 @@ type Sex = Enums<"sex">;
 const STATUS_SEVERITY: Record<ResultStatus, number> = {
   normal: 0,
   borderline: 1,
-  abnormal: 2,
-  critical: 3,
+  indeterminate: 2,
+  abnormal: 3,
+  critical: 4,
 };
 
 /** ADA fasting plasma glucose (mg/dL). "critical" is an alerting threshold,
