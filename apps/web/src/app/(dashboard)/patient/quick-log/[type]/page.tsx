@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { redirect, notFound } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { VitalsForm } from "../../vitals-form";
 import { VITAL_TYPES, type VitalType } from "@/lib/vitals/vital-types";
 
@@ -35,18 +35,19 @@ export default async function QuickLogPage({
   if (profile.role !== "patient") redirect("/");
 
   return (
-    <div className="mx-auto max-w-lg space-y-4 px-4 py-8">
-      <VitalsForm
-        patientId={profile.id}
-        lockedType={type}
+    <div className="mx-auto max-w-lg space-y-6 px-4 py-8">
+      {/* The page's own h1. This is a deep-link destination from a reminder
+          message, so it is often the first thing a patient sees after signing
+          in; until now its only heading was the form card's own h3, leaving
+          the page unnamed for a screen reader and for anyone scanning it. The
+          back link replaces a hand-rolled "Go to my full dashboard" link that
+          sat at the bottom and pointed at Vitals. */}
+      <PageHeader
         title={`Log your ${TYPE_LABEL[type].toLowerCase()}`}
+        backTo={{ href: "/patient/vitals", label: "All my vitals" }}
+        description="A few seconds now, and it goes straight into your record."
       />
-      <Link
-        href="/patient/vitals"
-        className="block text-center text-sm text-charcoal-ink/60 hover:underline"
-      >
-        Go to my full dashboard
-      </Link>
+      <VitalsForm patientId={profile.id} lockedType={type} />
     </div>
   );
 }

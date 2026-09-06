@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useWorklistCounts, type WorklistCountKey } from "@/lib/queries/worklist-counts";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 const QUEUE_ITEMS: { key: WorklistCountKey; href: string; label: string }[] = [
   { key: "asyncConsults", href: "/clinician/async-consults", label: "Async consults waiting" },
@@ -28,7 +29,12 @@ export function TodaysQueuePanel() {
       </CardHeader>
       <CardContent>
         {isError ? (
-          <p className="text-sm text-charcoal-ink/60">Couldn&apos;t load today&apos;s queue.</p>
+          // Never fall through to the list on error: every badge would read
+          // "0" and a doctor would take that as "nothing waiting on me".
+          <LoadFailure>
+            These counts could not be loaded, so do not read this panel as an empty queue. Reload
+            the dashboard, and open the worklists directly in the meantime.
+          </LoadFailure>
         ) : (
           <ul className="divide-y divide-charcoal-ink/10">
             {QUEUE_ITEMS.map(({ key, href, label }) => {

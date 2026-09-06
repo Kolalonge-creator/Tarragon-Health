@@ -117,7 +117,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
         />
       </Section>
 
-      <Section title="Tax & statutory registrations" description="Confirm current numbers before filing anywhere — this page only stores what you enter.">
+      <Section title="Tax & statutory registrations" description="Confirm current numbers before filing anywhere. This page only stores what you enter.">
         <Field label="FIRS TIN" value={form.tin} onChange={(v) => set("tin", v)} />
         <Field label="VAT registration number" value={form.vat_registration_number} onChange={(v) => set("vat_registration_number", v)} />
         <Field label="NSITF employer number" value={form.nsitf_number} onChange={(v) => set("nsitf_number", v)} />
@@ -135,7 +135,7 @@ export function CompanyProfileForm({ initial }: { initial: CompanyProfile }) {
         <Field label="Registered phone" value={form.registered_phone} onChange={(v) => set("registered_phone", v)} placeholder="+234…" />
       </Section>
 
-      <Section title="Governance" description="Free text — this page doesn't model a directors table; keep it in sync with what's actually on file at CAC.">
+      <Section title="Governance" description="Free text: this page doesn't model a directors table; keep it in sync with what's actually on file at CAC.">
         <div className="sm:col-span-2">
           <Label>Directors (as filed with CAC)</Label>
           <Textarea rows={3} value={form.directors_text} onChange={(e) => set("directors_text", e.target.value)} placeholder="One per line" />

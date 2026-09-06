@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { sendCoachMessage } from "@/app/(dashboard)/patient/ai-coach-actions";
+import { runAiCoachQuickAction } from "@/app/(dashboard)/patient/ai-coach-quick-action";
 import type { CoachChatMessage } from "@tarragon/shared";
 
 export function useAiConversation(patientId: string) {
@@ -29,6 +30,18 @@ export function useSendCoachMessage(patientId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: sendCoachMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["ai-conversation", patientId] });
+    },
+  });
+}
+
+/** §36.5/§36.8/§36.9 quick actions — "Explain my health record", "What do
+ * I need to do this month", "Help me prepare for my appointment". */
+export function useAiCoachQuickAction(patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: runAiCoachQuickAction,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["ai-conversation", patientId] });
     },

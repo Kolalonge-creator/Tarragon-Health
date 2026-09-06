@@ -1,21 +1,17 @@
-import { createClient } from "@/lib/supabase/server";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { MedicationsList } from "@/app/(dashboard)/patient/medications-list";
 import { AdherenceCheckins } from "@/app/(dashboard)/patient/adherence-checkins";
+import { MedicationReconciliationConfirm } from "@/app/(dashboard)/patient/medication-reconciliation-confirm";
 import { CheckMyPack } from "@/app/(dashboard)/patient/check-my-pack";
 import { LabMonitoringCard } from "@/app/(dashboard)/patient/lab-monitoring-card";
+import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { AddMedicationForm } from "@/app/(dashboard)/patient/add-medication-form";
 
 export default async function PatientMedicationsPage() {
   const { subjectId } = await getPatientDashboardContext();
-
-  const supabase = await createClient();
-  const { data: refillCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "medication_refills",
-  });
 
   return (
     <DashboardSection
@@ -28,7 +24,7 @@ export default async function PatientMedicationsPage() {
         <div className="space-y-4">
           <MedicationsList
             patientId={subjectId}
-            refillCoordinationEnabled={refillCoordinationEnabled ?? false}
+            refillCoordinationEnabled
             canStop
           />
           <AddMedicationForm patientId={subjectId} source="patient" />
@@ -36,12 +32,14 @@ export default async function PatientMedicationsPage() {
 
         <div className="space-y-4">
           <TodaysDoses patientId={subjectId} />
+          <MedicationReconciliationConfirm patientId={subjectId} />
           <AdherenceCheckins patientId={subjectId} />
           {/* Patients buy from any pharmacy now, so nobody here sees the box.
               Reads it back and compares it with what was prescribed — and points
               at NAFDAC for the authenticity question we cannot answer. */}
           <CheckMyPack />
           <LabMonitoringCard patientId={subjectId} />
+          <MedicationEffectivenessCard patientId={subjectId} />
         </div>
       </div>
       {/* Pharmacy ORDERING is dormant while no pharmacy partner is

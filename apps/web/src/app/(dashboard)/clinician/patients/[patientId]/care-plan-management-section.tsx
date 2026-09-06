@@ -19,11 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const STATUS_BADGE: Record<CarePlanRow["status"], { label: string; variant: BadgeProps["variant"] }> = {
-  draft: { label: "Draft — needs approval", variant: "amber" },
+  draft: { label: "Draft (needs approval)", variant: "amber" },
   active: { label: "Active", variant: "green" },
   paused: { label: "Paused", variant: "blue" },
   completed: { label: "Completed", variant: "grey" },
   discharged: { label: "Discharged", variant: "grey" },
+  declined: { label: "Declined", variant: "red" },
+  transferred: { label: "Transferred", variant: "grey" },
   cancelled: { label: "Cancelled", variant: "grey" },
 };
 
@@ -57,7 +59,7 @@ export function CarePlanManagementSection({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-charcoal-ink/60">
-            No care plan on file yet — accept a recommendation from Recommendations to start one.
+            No care plan on file yet. Accept a recommendation from Recommendations to start one.
           </p>
         </CardContent>
       </Card>
@@ -310,7 +312,7 @@ function VersionHistory({ carePlanId }: { carePlanId: string }) {
 
   if (isLoading) return <p className="text-xs text-charcoal-ink/50">Loading history…</p>;
   if (!versions || versions.length === 0) {
-    return <p className="text-xs text-charcoal-ink/50">No prior versions — this plan hasn&apos;t been edited yet.</p>;
+    return <p className="text-xs text-charcoal-ink/50">No prior versions. This plan hasn&apos;t been edited yet.</p>;
   }
 
   return (

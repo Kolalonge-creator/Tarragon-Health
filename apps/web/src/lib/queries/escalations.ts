@@ -17,13 +17,15 @@ export type EscalationWithDetails = Tables<"escalations"> & {
         overridden_by_staff: { full_name: string } | null;
         sla_due_at: string | null;
         screening_result: { result_status: ScreeningResultStatus } | null;
+        responsible_clinician: { full_name: string } | null;
+        backup_clinician: { full_name: string } | null;
       }
     | null;
   assigned_doctor: { full_name: string | null } | null;
 };
 
 const ESCALATION_SELECT =
-  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
+  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name), backup_clinician:clinical_staff!clinician_alerts_backup_clinician_id_fkey(full_name)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
 
 /**
  * Open/under-review escalations — doctor worklist (unclaimed or claimed by
@@ -247,10 +249,16 @@ export function useResolveEscalation() {
       escalationId,
       status,
       resolutionNote,
+      identityConfirmed,
     }: {
       escalationId: string;
       status: "resolved" | "referred";
       resolutionNote: string;
+      /** Wrong-patient prevention (§89.4) — the DB rejects a RESOLVE
+       * transition without this (private.enforce_escalation_identity_confirm);
+       * referring a case is unaffected. Server derives
+       * identity_confirmed_by/at from auth.uid(), never client-supplied. */
+      identityConfirmed: boolean;
     }) => {
       const supabase = createClient();
       const {
@@ -265,6 +273,7 @@ export function useResolveEscalation() {
           resolution_note: resolutionNote,
           reviewed_by: user.id,
           reviewed_at: new Date().toISOString(),
+          identity_confirmed: identityConfirmed,
         })
         .eq("id", escalationId);
       if (error) throw error;

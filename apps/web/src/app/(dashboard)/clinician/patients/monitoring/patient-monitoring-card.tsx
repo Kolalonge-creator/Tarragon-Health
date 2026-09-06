@@ -51,6 +51,7 @@ export function PatientMonitoringCard({ patient }: { patient: PatientMonitoringR
               label="Heart rate"
               value={patient.vitals.pulse.value != null ? String(patient.vitals.pulse.value) : null}
               unit="bpm"
+              level={patient.vitals.pulse.level}
             />
             <VitalTile
               icon="bp"

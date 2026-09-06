@@ -1,6 +1,6 @@
 "use client";
 
-import { MapPin, UserMinus, UserRoundCheck, Users } from "lucide-react";
+import { MapPin, Receipt, UserMinus, UserRoundCheck, Users } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
 import { useUserSegments } from "@/lib/analytics/queries";
 import { formatNumber } from "@/lib/analytics/format";
@@ -17,7 +17,7 @@ export function UsersDashboard() {
         <StatTile icon={Users} label="Total patients" value={formatNumber(a?.total ?? 0)} />
         <StatTile icon={UserRoundCheck} label="Active (30 days)" value={formatNumber(a?.active_30d ?? 0)} />
         <StatTile icon={UserMinus} label="Dormant (30+ days)" value={formatNumber(a?.dormant_30d ?? 0)} />
-        <StatTile icon={UserMinus} label="Churned (cancelled)" value={formatNumber(data?.churned ?? 0)} />
+        <StatTile icon={Receipt} label="Paying patients" value={formatNumber(data?.paying_patients ?? 0)} />
       </div>
 
       <SectionCard
@@ -35,21 +35,19 @@ export function UsersDashboard() {
                     { metric: "Dormant 30d+", value: a.dormant_30d },
                     { metric: "Dormant 90d+", value: a.dormant_90d },
                     { metric: "Never active", value: a.never_active },
-                    { metric: "Churned", value: data?.churned ?? 0 },
                   ]
                 : []
             }
           />
         }
       >
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-5">
           {[
             { label: "Active 30d", value: a?.active_30d ?? 0 },
             { label: "Active 90d", value: a?.active_90d ?? 0 },
             { label: "Dormant 30d+", value: a?.dormant_30d ?? 0 },
             { label: "Dormant 90d+", value: a?.dormant_90d ?? 0 },
             { label: "Never active", value: a?.never_active ?? 0 },
-            { label: "Churned", value: data?.churned ?? 0 },
           ].map((m) => (
             <div key={m.label} className="rounded-lg border border-charcoal-ink/10 bg-white p-3">
               <p className="text-xs text-charcoal-ink/60">{m.label}</p>
@@ -63,12 +61,12 @@ export function UsersDashboard() {
 
       <div className="grid gap-6 lg:grid-cols-3">
         <SectionCard
-          title="Users per plan"
-          actions={<ExportButton filename="users-by-plan" rows={data?.by_plan ?? []} />}
+          title="Patients per service bought"
+          actions={<ExportButton filename="patients-by-product" rows={data?.by_product ?? []} />}
         >
           <MiniBarList
-            items={(data?.by_plan ?? []).map((p) => ({ label: p.plan, value: p.users }))}
-            emptyLabel="No subscribers yet."
+            items={(data?.by_product ?? []).map((p) => ({ label: p.product, value: p.users }))}
+            emptyLabel="Nothing has been bought yet."
           />
         </SectionCard>
         <SectionCard

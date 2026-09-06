@@ -13,7 +13,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Annual Health Check",
   description:
-    "One day a year for your health: bloods, blood pressure, BMI, and the cancer screening that fits your age and sex. We say what to get and why, you use any lab you like, and a doctor reads the result with you.",
+    "One day a year for your health: bloods, blood pressure, BMI and the screening that fits your age and sex. Use any lab you like, a doctor reads it.",
   path: MARKETING_ROUTES.annualHealthCheck,
 });
 
@@ -30,11 +30,15 @@ export const metadata: Metadata = pageMetadata({
  *  - Price: lab_orders are created pending_payment at the bundle's own
  *    price_kobo, and no charge happens until the patient completes hosted
  *    checkout, so "nothing is taken before you confirm" is structurally true.
- *  - Card details: checkout is hosted by Paystack/Stripe; the platform never
+ *  - Card details: checkout is hosted by Paystack; the platform never
  *    receives or stores a card number.
  *
- * NOTE: this block intentionally does NOT repeat the homepage TrustBand's
- * "MDCN-registered doctors" wording. Re-checked live 2026-08-05: of 7 active
+ * NOTE: this block intentionally does NOT repeat the "MDCN-registered
+ * doctors" wording. The homepage TrustBand carried exactly that claim until
+ * 2026-09-05, when it was corrected to describe the verification mechanism
+ * instead; do not reintroduce it in either place. Re-checked live 2026-09-05:
+ * clinical_staff holds 8 active rows whose credential numbers are QA-000001,
+ * TEST-0001 through TEST-0006, and one null. Prior check, 2026-08-05: of 7 active
  * clinical_staff records, 6 carry a credential_number and a distinct
  * verified_by (all still QA test values — TEST-0001 etc, not real MDCN
  * numbers), and 1 has both credential_number and verified_by null (an older
@@ -57,7 +61,7 @@ const BOOKING_ASSURANCES = [
   },
   {
     title: "We never see your card",
-    body: "Payment is handled by Paystack or Stripe on their own checkout. Your card number never reaches Tarragon, so it is not ours to lose.",
+    body: "Payment is handled by Paystack on their own checkout. Your card number never reaches Tarragon, so it is not ours to lose.",
   },
 ];
 
@@ -79,8 +83,8 @@ const WHATS_INCLUDED = [
     body: "Measured properly and recorded to your Tarragon record, so next year has something real to compare against.",
   },
   {
-    title: "A doctor reads every result",
-    body: "Checked against your history, and explained plainly: what's fine, what to watch, and what, if anything, to do next.",
+    title: "A doctor walks you through it",
+    body: "A 15-minute video consult with a doctor, checked against your history and explained plainly: what's fine, what to watch, and what, if anything, to do next. Included on every tier.",
   },
   {
     title: "One record, year after year",
@@ -101,13 +105,13 @@ const HOW_IT_WORKS = [
   },
   {
     step: 3,
-    title: "Doctor reviews your results",
-    body: "Every result is read by a doctor. Most people get the best news there is: all clear, see you next year.",
+    title: "A video consult with your doctor",
+    body: "Every result is read by a doctor, then you get a 15-minute video call to walk through it together. Most people get the best news there is: all clear, see you next year.",
   },
   {
     step: 4,
     title: "A plan, if you need one",
-    body: "If something needs attention, your doctor follows up the same day and helps you decide what's next, on the same record, with no starting over.",
+    body: "If something needs attention, a doctor follows up within a day, and within 12 hours if it's critical, then helps you decide what's next, on the same record, with no starting over.",
   },
 ];
 
@@ -161,8 +165,9 @@ export default function AnnualHealthCheckPage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Chosen because they catch the conditions that quietly account for most avoidable
               illness in Nigeria: diabetes, heart disease, and late-found cancers. Blood sugar,
-              cholesterol, BP &amp; BMI, and a doctor&apos;s read are on every tier below, starting
-              with Core Screen; cancer screening is added on Advanced Screen.
+              cholesterol, BP &amp; BMI, and a doctor video consult to walk through it all are on
+              every tier below, starting with Core Screen; cancer screening is added on Advanced
+              Screen.
             </p>
           </div>
           <MarketingMediaFrame
@@ -208,19 +213,19 @@ export default function AnnualHealthCheckPage() {
           {[
             {
               name: "Core Screen",
-              price: "With a paid plan",
-              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once).",
+              price: "You pay the lab, once",
+              body: "A full cardiometabolic and organ-baseline workup (HbA1c, full lipid panel, full blood count, liver/kidney/thyroid function, urinalysis) plus HIV, Hepatitis B, and Hepatitis C screening, genotype and blood group (once), and a 15-minute doctor video consult to walk through your results.",
               highlight: true,
             },
             {
               name: "Advanced Screen",
-              price: "With a paid plan",
+              price: "You pay the lab, once",
               body: "Everything in Core Screen, plus the cancer screening that fits your age and sex (cervical screening or PSA), an ECG, and a personalised screening calendar.",
             },
             {
               name: "Comprehensive Screen",
-              price: "With a paid plan",
-              body: "Everything in Advanced Screen, plus imaging, a syphilis screen, and a 15-minute doctor video consult to walk through your whole result set.",
+              price: "You pay the lab, once",
+              body: "Everything in Advanced Screen, plus imaging.",
             },
           ].map((tier) => (
             <div
@@ -246,6 +251,25 @@ export default function AnnualHealthCheckPage() {
         </p>
         <div className="mx-auto mt-6 max-w-2xl">
           <ConfidentialResultNotice />
+        </div>
+        <div className="mx-auto mt-8 max-w-3xl rounded-xl border border-dashed border-charcoal-ink/15 bg-white/60 p-6 text-center">
+          <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">Coming soon</p>
+          <h3 className="mt-1 font-heading text-lg font-semibold text-charcoal-ink">
+            Full Panel: more biomarkers, on top of any tier
+          </h3>
+          <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
+            Vitamin D, B12 &amp; folate, iron studies, hs-CRP, a coagulation profile, and an
+            age/sex-appropriate tumour marker screen, added to your next check as a one-time
+            upgrade. We&apos;re holding it back until a Clinical Director has signed off the exact
+            panel, not selling it before it&apos;s reviewed.
+          </p>
+          <p className="mt-3 text-sm text-charcoal-ink/60">
+            Want to look further still?{" "}
+            <Link href={MARKETING_ROUTES.advancedDiagnostics} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+              Advanced diagnostic imaging
+            </Link>{" "}
+            is on the same waitlist.
+          </p>
         </div>
       </Section>
 
@@ -278,8 +302,8 @@ export default function AnnualHealthCheckPage() {
             arrange it.
           </p>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-            Looking for the year-round version? <Link href={MARKETING_ROUTES.pricing} className="text-brand-green hover:underline">Tarragon Prevent</Link> keeps
-            your full screening and vaccination calendar running all year. Comprehensive Screen
+            Looking for the year-round version? <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">Your free screening calendar</Link> keeps
+            your full screening and vaccination schedule running all year. Comprehensive Screen
             already includes the doctor video consult reviewing your whole result set, so
             there&apos;s no separate review to buy.
           </p>
@@ -310,7 +334,7 @@ export default function AnnualHealthCheckPage() {
         <CtaBand
           variant="gradient"
           title="Book this year's check."
-          description="One morning, once a year, and a doctor who tells you where you stand. No subscription needed: it is pay-once, on any plan including the free one."
+          description="One morning, once a year, and a doctor who tells you where you stand. No subscription, nothing renews: you pay once, and the app itself stays free."
           primaryHref="/signup?intent=health_check"
           primaryLabel="Book your check"
         />

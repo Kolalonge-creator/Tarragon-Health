@@ -240,11 +240,11 @@ begin
 end;
 $$;
 
-revoke all on function public.create_emergency_card() from public;
+revoke all on function public.create_emergency_card() from public, anon;
 revoke all on function public.create_emergency_card() from anon;
-revoke all on function public.revoke_emergency_card() from public;
+revoke all on function public.revoke_emergency_card() from public, anon;
 revoke all on function public.revoke_emergency_card() from anon;
-revoke all on function public.emergency_card_by_token(text) from public;
+revoke all on function public.emergency_card_by_token(text) from public, anon;
 
 grant execute on function public.create_emergency_card() to authenticated;
 grant execute on function public.revoke_emergency_card() to authenticated;

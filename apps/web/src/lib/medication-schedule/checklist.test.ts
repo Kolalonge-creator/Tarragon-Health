@@ -25,6 +25,17 @@ describe("buildTodaysDoseChecklist", () => {
     expect(result.find((i) => i.time === "20:00")?.status).toBe("pending");
   });
 
+  it.each(["skipped", "delayed", "not_available"] as const)(
+    "reflects a %s logged status for a matching slot",
+    (status) => {
+      const result = buildTodaysDoseChecklist(
+        [medication],
+        [{ medication_id: "med-1", scheduled_time: "08:00", status }]
+      );
+      expect(result.find((i) => i.time === "08:00")?.status).toBe(status);
+    }
+  );
+
   it("ignores logs for a different medication", () => {
     const result = buildTodaysDoseChecklist(
       [medication],

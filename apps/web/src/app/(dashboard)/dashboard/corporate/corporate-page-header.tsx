@@ -7,6 +7,18 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
     title: "Corporate admin",
     subtitle: "Enrolment, contract performance and anonymised workforce analytics.",
   },
+  "/dashboard/corporate/eligibility": {
+    title: "Eligibility & benefits",
+    subtitle: "Locations, departments, benefit packages and per-year allowances (Module 26 §26.5-§26.7).",
+  },
+  "/dashboard/corporate/campaigns": {
+    title: "Campaigns & messages",
+    subtitle: "Health campaigns and organisational messages to your workforce (Module 26 §26.10-§26.12).",
+  },
+  "/dashboard/corporate/billing": {
+    title: "Billing",
+    subtitle: "Your contract terms and invoices (Module 26 §26.15).",
+  },
   "/dashboard/corporate/reports": {
     title: "Reports & outcomes",
     subtitle: "Age segmentation, outcome evidence, medication and lifestyle outcomes, and shareable snapshots.",

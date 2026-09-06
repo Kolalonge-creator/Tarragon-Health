@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import type { CareAccessCategory } from "@/lib/queries/care-access";
 
 export type SupportedPersonVoucher = {
   id: string;
@@ -17,8 +18,8 @@ export type SupportedPerson = {
   profileId: string;
   fullName: string | null;
   permissionLevel: "view" | "manage";
-  /** The record owner has said this person may see their health information. */
-  clinicalAccess: boolean;
+  /** Which categories of health information the record owner has said this person may see. */
+  categories: CareAccessCategory[];
   isDependentAccount: boolean;
   /** Bought and fully paid, waiting to be used. */
   readyVouchers: SupportedPersonVoucher[];
@@ -39,11 +40,11 @@ export type SupportedPerson = {
  * single row. A voucher names a service, so a sponsor sees "an Annual Health
  * Check was bought and later used" and never a result.
  *
- * Clinical data is a separate question with a separate answer: since
- * 20260731181143 a record owner may consent, per person, to being read, and
- * clinicalAccess on each row below reports whether they have. The health
- * itself is fetched by useSupportedPersonHealth, and only for someone who
- * said yes.
+ * Clinical data is a separate question with a separate answer: a record owner
+ * may consent, per person and per category, to being read, and categories on
+ * each row below reports which ones they have. The health itself is fetched
+ * by useSupportedPersonHealth, and only for someone who has at least one
+ * category turned on.
  *
  * Two queries total no matter how many people are supported: the grants, then
  * every voucher for all of them in one batch, stitched in memory.
@@ -61,7 +62,8 @@ export function useSupportedPeople() {
       const { data: grants, error: grantsError } = await supabase
         .from("profile_access")
         .select(
-          "permission_level, clinical_access, profile:profiles!profile_access_profile_id_fkey(id, full_name, is_dependent_account)"
+          `permission_level, profile:profiles!profile_access_profile_id_fkey(id, full_name, is_dependent_account),
+           categories:profile_access_categories(category)`
         )
         .eq("grantee_user_id", user.id);
       if (grantsError) throw grantsError;
@@ -76,7 +78,7 @@ export function useSupportedPeople() {
               fullName: profile.full_name,
               isDependentAccount: profile.is_dependent_account === true,
               permissionLevel: row.permission_level as "view" | "manage",
-              clinicalAccess: row.clinical_access === true,
+              categories: (row.categories ?? []).map((c) => c.category as CareAccessCategory),
             },
           ];
         })
@@ -118,7 +120,7 @@ export function useSupportedPeople() {
           profileId: person.profileId,
           fullName: person.fullName,
           permissionLevel: person.permissionLevel,
-          clinicalAccess: person.clinicalAccess,
+          categories: person.categories,
           isDependentAccount: person.isDependentAccount,
           readyVouchers: mine.filter((v) => v.status === "active").map(shape),
           savingVouchers: mine.filter((v) => v.status === "reserved").map(shape),
@@ -171,6 +173,13 @@ export type SupportedPersonHealth = {
   latestResult: { status: string; recordedAt: string } | null;
   /** Escalations still open or under review: "someone is on it", not what it is. */
   openFollowUps: number;
+  /**
+   * The next booked/confirmed appointment, if any. Reachable only once
+   * appointments_select's view_appointments clause admits this caller — a
+   * grant that withholds that specific capability sees this as null, the
+   * same silent-RLS-filter shape as every other field here, not an error.
+   */
+  nextAppointment: { id: string; scheduledFor: string; appointmentType: string } | null;
 };
 
 /**
@@ -263,7 +272,7 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
       const supabase = createClient();
       const today = new Date().toISOString().slice(0, 10);
 
-      const [bp, latest, plans, meds, screenings, risk, results, followUps] = await Promise.all([
+      const [bp, latest, plans, meds, screenings, risk, results, followUps, appointments] = await Promise.all([
         supabase
           .from("vitals_readings")
           .select("systolic, diastolic, taken_at")
@@ -313,6 +322,14 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
           .select("id")
           .eq("patient_id", profileId)
           .in("status", ["open", "under_review"]),
+        supabase
+          .from("appointments")
+          .select("id, scheduled_for, appointment_type")
+          .eq("patient_id", profileId)
+          .in("status", ["held", "booked", "confirmed"])
+          .gte("scheduled_for", new Date().toISOString())
+          .order("scheduled_for", { ascending: true })
+          .limit(1),
       ]);
 
       const firstBp = bp.data?.[0] ?? null;
@@ -368,6 +385,13 @@ export function useSupportedPersonHealth(profileId: string, hasConsent: boolean)
             }
           : null,
         openFollowUps: (followUps.data ?? []).length,
+        nextAppointment: appointments.data?.[0]
+          ? {
+              id: appointments.data[0].id,
+              scheduledFor: appointments.data[0].scheduled_for,
+              appointmentType: appointments.data[0].appointment_type,
+            }
+          : null,
       };
     },
   });

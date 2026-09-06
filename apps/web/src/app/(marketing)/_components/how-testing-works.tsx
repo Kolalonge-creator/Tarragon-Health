@@ -85,7 +85,7 @@ export function HowTestingWorks({ current }: { current: Lens }) {
                   href={lens.href}
                   className="mt-3 inline-block text-sm font-medium text-brand-green hover:underline"
                 >
-                  {lens.linkLabel} →
+                  {lens.linkLabel} <span aria-hidden>→</span>
                 </Link>
               )}
             </div>

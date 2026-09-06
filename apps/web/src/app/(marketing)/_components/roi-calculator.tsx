@@ -106,7 +106,7 @@ export function RoiCalculator() {
           {fmt(avoided)} <span className="text-base font-medium">modeled cost avoided / year</span>
         </p>
       </div>
-      <p className="mt-3 text-xs text-charcoal-ink/50">
+      <p className="mt-3 text-xs text-charcoal-ink/65">
         A modeled estimate from your own assumptions, not a claims analysis, a guarantee,
         or a quote. We&apos;ll build the real business case with your data.
       </p>

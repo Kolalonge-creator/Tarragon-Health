@@ -43,6 +43,13 @@ import { z } from "zod";
  * (device-readings, cgm-readings, health-samples) still have no acting-for
  * support; this one needed it because the native Vitals screen is the
  * mobile equivalent of logVital, which already has it.
+ *
+ * Optionally carries a client_reading_id (a UUID the phone generates at the
+ * moment of local-first entry into its offline queue — see
+ * apps/mobile/src/lib/offline-vitals-queue.ts). A queued reading may be
+ * retried blind after a dropped connection, so vitals_readings_client_dedupe_idx
+ * (patient_id, client_reading_id) makes a replay of the same id a no-op
+ * rather than a duplicate row — see the 23505 handling below.
  */
 const mobileVitalsSchema = z
   .discriminatedUnion("vital_type", [
@@ -109,6 +116,9 @@ export async function POST(request: Request): Promise<NextResponse> {
     ? beneficiaryParsed.data.beneficiary_profile_id
     : undefined;
 
+  const clientReadingParsed = z.object({ client_reading_id: z.string().uuid().optional() }).safeParse(body);
+  const clientReadingId = clientReadingParsed.success ? clientReadingParsed.data.client_reading_id : undefined;
+
   let subjectId = user.id;
   if (beneficiaryId) {
     const { data: allowed } = await supabase.rpc("can_act_for", { p_beneficiary: beneficiaryId });
@@ -151,9 +161,18 @@ export async function POST(request: Request): Promise<NextResponse> {
           note: reading.note ?? null,
         };
   row.taken_at = taken_at ? new Date(taken_at).toISOString() : new Date().toISOString();
+  row.client_reading_id = clientReadingId ?? null;
 
   const { error: insertError } = await supabase.from("vitals_readings").insert(row);
   if (insertError) {
+    // A queued offline reading may retry blind after a dropped connection —
+    // a 23505 against vitals_readings_client_dedupe_idx means this exact
+    // client_reading_id already landed, so the replay is a no-op success,
+    // not a duplicate to reject. Only applies when the client actually sent
+    // one; a bare unique-violation with no client_reading_id is a real error.
+    if (clientReadingId && insertError.code === "23505") {
+      return NextResponse.json({ success: true });
+    }
     return NextResponse.json({ error: insertError.message }, { status: 500 });
   }
 
