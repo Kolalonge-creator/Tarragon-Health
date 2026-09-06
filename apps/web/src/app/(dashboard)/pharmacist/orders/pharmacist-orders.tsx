@@ -8,8 +8,10 @@ import {
   usePharmacistRecordDispense,
   usePharmacistAcceptOrder,
   usePharmacistDeclineOrder,
+  usePharmacistFlagUnavailable,
 } from "@/lib/queries/pharmacist";
 import { assessAllergyFindings, type AllergyInput, type MedicationInput } from "@/lib/rules/drug-safety";
+import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -188,12 +190,26 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
   const { data: allergies } = usePharmacistOrderAllergies(order.order_id, expanded);
   const { data: medications } = usePharmacistOrderMedications(order.order_id, expanded);
   const record = usePharmacistRecordDispense();
+  const accept = usePharmacistAcceptOrder();
+  const flagUnavailable = usePharmacistFlagUnavailable();
 
   const [drugName, setDrugName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [dispensedOn, setDispensedOn] = useState(
     new Date().toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }),
   );
+  const [quantityPrescribed, setQuantityPrescribed] = useState("");
+  const [isPartial, setIsPartial] = useState(false);
+  const [outstandingNote, setOutstandingNote] = useState("");
+  const [batchNumber, setBatchNumber] = useState("");
+  const [isSubstitution, setIsSubstitution] = useState(false);
+  const [substitutedFor, setSubstitutedFor] = useState("");
+  const [substitutionReason, setSubstitutionReason] = useState("");
+  const [enhancedVerificationConfirmed, setEnhancedVerificationConfirmed] = useState(false);
+  const [unavailableOpen, setUnavailableOpen] = useState(false);
+  const [unavailableReason, setUnavailableReason] = useState("");
+
+  const controlledInfo = useMemo(() => controlledSubstanceInfo(drugName), [drugName]);
 
   const meta = statusMeta(order.status);
 
@@ -252,6 +268,67 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
               ` · ready by ${new Date(order.estimated_fulfilment_at).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`}
           </p>
         )}
+
+      {/* Flag-unavailable is a checkpoint on an already-accepted order, not
+          a replacement for AcceptDeclineForm's decline — see
+          usePharmacistFlagUnavailable's own doc comment. Scoped to
+          'confirmed' only so it never overlaps with needsPharmacistResponse
+          above. */}
+      {order.status === "confirmed" && (
+        <div>
+          {!unavailableOpen ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 w-fit px-0 text-xs font-semibold text-red-700 hover:bg-transparent hover:text-red-800"
+              onClick={() => setUnavailableOpen(true)}
+            >
+              Medicine unavailable
+            </Button>
+          ) : (
+            <div className="flex flex-wrap items-end gap-2 rounded-md bg-red-50 p-2">
+              <div className="min-w-48 flex-1 space-y-1">
+                <Label htmlFor={`unavail_reason_${order.order_id}`} className="text-xs">
+                  Why can&apos;t this be fulfilled as prescribed?
+                </Label>
+                <Input
+                  id={`unavail_reason_${order.order_id}`}
+                  value={unavailableReason}
+                  onChange={(e) => setUnavailableReason(e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="e.g. Out of stock, discontinued…"
+                />
+              </div>
+              <Button
+                size="sm"
+                disabled={flagUnavailable.isPending || !unavailableReason.trim()}
+                onClick={() =>
+                  flagUnavailable.mutate(
+                    { orderId: order.order_id, reason: unavailableReason.trim() },
+                    { onSuccess: () => setUnavailableOpen(false) },
+                  )
+                }
+              >
+                {flagUnavailable.isPending ? "Saving…" : "Confirm"}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setUnavailableOpen(false)}>
+                Cancel
+              </Button>
+              {flagUnavailable.isError && (
+                <p className="basis-full text-xs text-red-600">Could not save. Try again.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {order.status === "unavailable" && (
+        <p className="rounded-md bg-amber-50 px-2.5 py-1.5 text-xs text-amber-900">
+          Flagged unavailable. A substitution can still be dispensed below once agreed with the
+          prescriber, or the order can still be declined for a refund if none works out.
+        </p>
+      )}
 
       <Button
         type="button"
@@ -317,9 +394,21 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
                   className="h-8 text-xs"
                 />
               </div>
-              <div className="w-20 space-y-1">
+              <div className="w-24 space-y-1">
+                <Label htmlFor={`d_qty_prescribed_${order.order_id}`} className="text-xs">
+                  Prescribed
+                </Label>
+                <Input
+                  id={`d_qty_prescribed_${order.order_id}`}
+                  value={quantityPrescribed}
+                  onChange={(e) => setQuantityPrescribed(e.target.value)}
+                  className="h-8 text-xs"
+                  placeholder="e.g. 30"
+                />
+              </div>
+              <div className="w-24 space-y-1">
                 <Label htmlFor={`d_qty_${order.order_id}`} className="text-xs">
-                  Qty
+                  Dispensed
                 </Label>
                 <Input
                   id={`d_qty_${order.order_id}`}
@@ -340,13 +429,137 @@ function OrderCard({ order }: { order: PharmacistOrderRow }) {
                   className="h-8 text-xs"
                 />
               </div>
+              <div className="w-32 space-y-1">
+                <Label htmlFor={`d_batch_${order.order_id}`} className="text-xs">
+                  Batch (optional)
+                </Label>
+                <Input
+                  id={`d_batch_${order.order_id}`}
+                  value={batchNumber}
+                  onChange={(e) => setBatchNumber(e.target.value)}
+                  className="h-8 text-xs"
+                />
+              </div>
+            </div>
+
+            <label className="mt-2 flex items-center gap-1.5 text-xs text-charcoal-ink/70">
+              <input
+                type="checkbox"
+                checked={isPartial}
+                onChange={(e) => setIsPartial(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              This only partially fills the prescription
+            </label>
+            {isPartial && (
+              <div className="mt-1.5 space-y-1">
+                <Label htmlFor={`d_outstanding_${order.order_id}`} className="text-xs">
+                  Outstanding note (e.g. &quot;10 tablets outstanding, restock expected Friday&quot;)
+                </Label>
+                <Textarea
+                  id={`d_outstanding_${order.order_id}`}
+                  value={outstandingNote}
+                  onChange={(e) => setOutstandingNote(e.target.value)}
+                  className="min-h-14 text-xs"
+                />
+              </div>
+            )}
+
+            <label className="mt-2 flex items-center gap-1.5 text-xs text-charcoal-ink/70">
+              <input
+                type="checkbox"
+                checked={isSubstitution}
+                onChange={(e) => setIsSubstitution(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              Dispensing a substitute for the prescribed medicine
+            </label>
+            {isSubstitution && (
+              <div className="mt-1.5 flex flex-wrap items-end gap-2">
+                <div className="min-w-40 flex-1 space-y-1">
+                  <Label htmlFor={`d_sub_for_${order.order_id}`} className="text-xs">
+                    Originally prescribed
+                  </Label>
+                  <Input
+                    id={`d_sub_for_${order.order_id}`}
+                    value={substitutedFor}
+                    onChange={(e) => setSubstitutedFor(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="min-w-40 flex-1 space-y-1">
+                  <Label htmlFor={`d_sub_reason_${order.order_id}`} className="text-xs">
+                    Reason (prescriber involvement confirmed where required)
+                  </Label>
+                  <Input
+                    id={`d_sub_reason_${order.order_id}`}
+                    value={substitutionReason}
+                    onChange={(e) => setSubstitutionReason(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            )}
+
+            {controlledInfo && (
+              <div
+                className={cn(
+                  "mt-2 rounded border p-2 text-xs leading-relaxed",
+                  controlledInfo.tier === "narcotic"
+                    ? "border-red-300 bg-red-50 text-red-900"
+                    : "border-amber-300 bg-amber-50 text-amber-900",
+                )}
+              >
+                <p className="font-semibold">{controlledInfo.label} — enhanced verification required.</p>
+                <p className="mt-0.5">{controlledInfo.note}</p>
+                <label className="mt-1.5 flex items-center gap-1.5 font-medium">
+                  <input
+                    type="checkbox"
+                    checked={enhancedVerificationConfirmed}
+                    onChange={(e) => setEnhancedVerificationConfirmed(e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  I confirm the additional safeguard above for this controlled/restricted medicine
+                </label>
+              </div>
+            )}
+
+            <div className="mt-2">
               <Button
                 size="sm"
-                disabled={record.isPending || !drugName.trim()}
+                disabled={
+                  record.isPending || !drugName.trim() || (!!controlledInfo && !enhancedVerificationConfirmed)
+                }
                 onClick={() =>
                   record.mutate(
-                    { orderId: order.order_id, drugName: drugName.trim(), quantity: quantity.trim(), dispensedOn },
-                    { onSuccess: () => { setDrugName(""); setQuantity(""); } },
+                    {
+                      orderId: order.order_id,
+                      drugName: drugName.trim(),
+                      quantity: quantity.trim(),
+                      dispensedOn,
+                      quantityPrescribed: quantityPrescribed.trim() || undefined,
+                      isPartial,
+                      outstandingNote: isPartial ? outstandingNote.trim() || undefined : undefined,
+                      batchNumber: batchNumber.trim() || undefined,
+                      substitutedFor: isSubstitution ? substitutedFor.trim() || undefined : undefined,
+                      substitutionReason: isSubstitution ? substitutionReason.trim() || undefined : undefined,
+                      controlledTier: controlledInfo?.tier ?? null,
+                      enhancedVerificationConfirmed,
+                    },
+                    {
+                      onSuccess: () => {
+                        setDrugName("");
+                        setQuantity("");
+                        setQuantityPrescribed("");
+                        setIsPartial(false);
+                        setOutstandingNote("");
+                        setBatchNumber("");
+                        setIsSubstitution(false);
+                        setSubstitutedFor("");
+                        setSubstitutionReason("");
+                        setEnhancedVerificationConfirmed(false);
+                      },
+                    },
                   )
                 }
               >

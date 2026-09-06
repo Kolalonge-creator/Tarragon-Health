@@ -18714,6 +18714,7 @@ export type Database = {
           longitude: number | null
           name: string
           regions: string[]
+          supports_cold_chain: boolean
         }
         Insert: {
           address?: string | null
@@ -18731,6 +18732,7 @@ export type Database = {
           license_verified_by?: string | null
           longitude?: number | null
           name: string
+          supports_cold_chain?: boolean
           regions?: string[]
         }
         Update: {
@@ -18748,6 +18750,7 @@ export type Database = {
           license_verified_at?: string | null
           license_verified_by?: string | null
           longitude?: number | null
+          supports_cold_chain?: boolean
           name?: string
           regions?: string[]
         }
@@ -26973,6 +26976,7 @@ export type Database = {
           pack_size: string | null
           pharmacy_partner_id: string
           price_kobo: number
+          requires_cold_chain: boolean
           stock_status:
             | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
             | null
@@ -26993,6 +26997,7 @@ export type Database = {
           pack_size?: string | null
           pharmacy_partner_id: string
           price_kobo?: number
+          requires_cold_chain?: boolean
           stock_status?:
             | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
             | null
@@ -27013,6 +27018,7 @@ export type Database = {
           pack_size?: string | null
           pharmacy_partner_id?: string
           price_kobo?: number
+          requires_cold_chain?: boolean
           stock_status?:
             | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
             | null
@@ -27029,59 +27035,160 @@ export type Database = {
           },
         ]
       }
+      pharmacy_order_delivery_attempts: {
+        Row: {
+          attempt_number: number
+          attempted_at: string
+          created_at: string
+          failure_reason:
+            | Database["public"]["Enums"]["delivery_failure_reason"]
+            | null
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          pharmacy_order_id: string
+          recorded_by: string | null
+          result: Database["public"]["Enums"]["delivery_attempt_result"]
+        }
+        Insert: {
+          attempt_number?: number
+          attempted_at?: string
+          created_at?: string
+          failure_reason?:
+            | Database["public"]["Enums"]["delivery_failure_reason"]
+            | null
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          pharmacy_order_id: string
+          recorded_by?: string | null
+          result: Database["public"]["Enums"]["delivery_attempt_result"]
+        }
+        Update: {
+          attempt_number?: number
+          attempted_at?: string
+          created_at?: string
+          failure_reason?:
+            | Database["public"]["Enums"]["delivery_failure_reason"]
+            | null
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          pharmacy_order_id?: string
+          recorded_by?: string | null
+          result?: Database["public"]["Enums"]["delivery_attempt_result"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_delivery_attempts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_delivery_attempts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_delivery_attempts_pharmacy_order_id_fkey"
+            columns: ["pharmacy_order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_delivery_attempts_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pharmacy_order_dispenses: {
         Row: {
           batch_lot: string | null
+          batch_number: string | null
+          controlled_tier: string | null
           created_at: string
           dispensed_on: string
           drug_name: string
+          enhanced_verification_confirmed: boolean
           expiry_date: string | null
           id: string
+          is_partial: boolean
           medication_id: string | null
           organisation_id: string
+          outstanding_note: string | null
           patient_id: string
           pharmacy_name: string | null
           pharmacy_order_id: string | null
           quantity: string | null
+          quantity_prescribed: string | null
           recorded_by: string | null
           source: Database["public"]["Enums"]["dispense_source"]
           strength: string | null
+          substituted_for: string | null
+          substitution_reason: string | null
           updated_at: string
         }
         Insert: {
           batch_lot?: string | null
+          batch_number?: string | null
+          controlled_tier?: string | null
           created_at?: string
           dispensed_on?: string
           drug_name: string
+          enhanced_verification_confirmed?: boolean
           expiry_date?: string | null
           id?: string
+          is_partial?: boolean
           medication_id?: string | null
           organisation_id: string
+          outstanding_note?: string | null
           patient_id: string
           pharmacy_name?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
+          quantity_prescribed?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           strength?: string | null
+          substituted_for?: string | null
+          substitution_reason?: string | null
           updated_at?: string
         }
         Update: {
           batch_lot?: string | null
+          batch_number?: string | null
+          controlled_tier?: string | null
           created_at?: string
           dispensed_on?: string
           drug_name?: string
+          enhanced_verification_confirmed?: boolean
           expiry_date?: string | null
           id?: string
+          is_partial?: boolean
           medication_id?: string | null
           organisation_id?: string
+          outstanding_note?: string | null
           patient_id?: string
           pharmacy_name?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
+          quantity_prescribed?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           strength?: string | null
+          substituted_for?: string | null
+          substitution_reason?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -27230,6 +27337,7 @@ export type Database = {
           cancellation_reason: string | null
           confirmed_price_kobo: number | null
           confirmed_quantity: string | null
+          courier_assigned_at: string | null
           courier_reference: string | null
           created_at: string
           declined_at: string | null
@@ -27262,8 +27370,11 @@ export type Database = {
           refund_ref: string | null
           refund_status: string | null
           requested_at: string
+          requires_cold_chain: boolean
           status: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo: number
+          unavailable_at: string | null
+          unavailable_reason: string | null
           updated_at: string
           voucher_covered_kobo: number
         }
@@ -27274,6 +27385,7 @@ export type Database = {
           cancellation_reason?: string | null
           confirmed_price_kobo?: number | null
           confirmed_quantity?: string | null
+          courier_assigned_at?: string | null
           courier_reference?: string | null
           created_at?: string
           declined_at?: string | null
@@ -27306,8 +27418,11 @@ export type Database = {
           refund_ref?: string | null
           refund_status?: string | null
           requested_at?: string
+          requires_cold_chain?: boolean
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
+          unavailable_at?: string | null
+          unavailable_reason?: string | null
           updated_at?: string
           voucher_covered_kobo?: number
         }
@@ -27318,6 +27433,7 @@ export type Database = {
           cancellation_reason?: string | null
           confirmed_price_kobo?: number | null
           confirmed_quantity?: string | null
+          courier_assigned_at?: string | null
           courier_reference?: string | null
           created_at?: string
           declined_at?: string | null
@@ -27350,8 +27466,11 @@ export type Database = {
           refund_ref?: string | null
           refund_status?: string | null
           requested_at?: string
+          requires_cold_chain?: boolean
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
+          unavailable_at?: string | null
+          unavailable_reason?: string | null
           updated_at?: string
           voucher_covered_kobo?: number
         }
@@ -40453,6 +40572,10 @@ export type Database = {
         }
         Returns: string
       }
+      pharmacist_flag_unavailable: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       pharmacist_order_allergies: {
         Args: { p_order_id: string }
         Returns: {
@@ -40758,6 +40881,15 @@ export type Database = {
           p_user_agent: string
         }
         Returns: boolean
+      }
+      record_pharmacy_delivery_attempt: {
+        Args: {
+          p_failure_reason?: string
+          p_notes?: string
+          p_order_id: string
+          p_result: string
+        }
+        Returns: undefined
       }
       record_result_correction: {
         Args: {
@@ -42305,6 +42437,13 @@ export type Database = {
         | "impossible_measurement"
       data_quality_finding_status: "open" | "resolved" | "dismissed"
       data_quality_severity: "info" | "warning" | "critical"
+      delivery_attempt_result: "failed" | "delivered"
+      delivery_failure_reason:
+        | "patient_unavailable"
+        | "incorrect_address"
+        | "courier_failure"
+        | "security_access_issue"
+        | "other"
       dependent_transition_state: "child" | "adolescent" | "transition_prep" | "independent"
       developmental_domain: "motor" | "language" | "social" | "cognitive" | "behavioural"
       developmental_item_answer: "yes" | "sometimes" | "not_yet"
@@ -43191,8 +43330,10 @@ export type Database = {
         | "payment_confirmed"
         | "requested"
         | "confirmed"
+        | "unavailable"
         | "dispensed"
         | "out_for_delivery"
+        | "delivery_failed"
         | "delivered"
         | "cancelled"
       pharmacy_partner_onboarding_status:
@@ -44571,6 +44712,14 @@ export const Constants = {
       ],
       data_quality_finding_status: ["open", "resolved", "dismissed"],
       data_quality_severity: ["info", "warning", "critical"],
+      delivery_attempt_result: ["failed", "delivered"],
+      delivery_failure_reason: [
+        "patient_unavailable",
+        "incorrect_address",
+        "courier_failure",
+        "security_access_issue",
+        "other",
+      ],
       dependent_transition_state: ["child", "adolescent", "transition_prep", "independent"],
       developmental_domain: ["motor", "language", "social", "cognitive", "behavioural"],
       developmental_item_answer: ["yes", "sometimes", "not_yet"],
@@ -45567,8 +45716,10 @@ export const Constants = {
         "payment_confirmed",
         "requested",
         "confirmed",
+        "unavailable",
         "dispensed",
         "out_for_delivery",
+        "delivery_failed",
         "delivered",
         "cancelled",
       ],
