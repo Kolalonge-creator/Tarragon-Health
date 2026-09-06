@@ -62,6 +62,22 @@
 #     between profiles and clinical_staff, where the wrong join returns NULL
 #     silently. One column, and the fix is a COMMENT ON in a migration.
 # ===========================================================================
+#
+# Added 2026-09-06: three proofs (abnormal_screening_result_upgrade,
+# payer_board_outcomes_report, support_centre) had landed with no entry in
+# either this file or ci.manifest, which run-db-proofs.sh now fails the job
+# on rather than silently skip -- exactly the failure mode this two-file
+# split exists to catch, so this is that check doing its job, not a fresh
+# bug. All three select an existing fixture (`select id into v_x from
+# public.profiles where role = 'patient' limit 1`, `from public.organisations
+# limit 1`, `from public.clinical_staff where ... limit 1`) rather than
+# building their own, the same fixture-fragility this file's header already
+# describes -- filed here per that default, not promoted to ci.manifest
+# unconfirmed. Promote each once it's been run against a clean
+# `supabase db reset` and confirmed to build whatever fixture it needs.
+abnormal_screening_result_upgrade.sql
+payer_board_outcomes_report.sql
+support_centre.sql
 actor_column_fk_documentation.sql
 adherence_escalation_not_available.sql
 ai_assistant_turns_rls.sql
