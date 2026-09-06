@@ -18,6 +18,16 @@
 # workflow. Nineteen were moved up to ci.manifest in that pass; what remains is
 # still the same backlog, minus the three below, which are a different thing.
 #
+# Added 2026-09-06 (not reviewed for fixture self-sufficiency, just classified
+# so run-db-proofs.sh's unlisted-file check stops failing on files it never
+# saw): each header says "Run via npx supabase db query --linked", i.e. written
+# against the live project's own fixtures (real screen_types/organisations/
+# support-ticket rows), not a bare `supabase db reset`. Same backlog as the
+# rest of this file -- move up once confirmed self-sufficient.
+abnormal_screening_result_upgrade.sql
+payer_board_outcomes_report.sql
+support_centre.sql
+#
 # ===========================================================================
 # NOT A FIXTURE PROBLEM: three scripts here now FAIL for real. They stay
 # excluded only because the behaviour they assert is genuinely absent, and
@@ -62,6 +72,52 @@
 #     between profiles and clinical_staff, where the wrong join returns NULL
 #     silently. One column, and the fix is a COMMENT ON in a migration.
 # ===========================================================================
+#
+# Found 2026-09-06 (PR #456), in neither list at all -- the original bug this
+# file exists to stop, not a new instance of the two categories above:
+#
+#  4. abnormal_screening_result_upgrade.sql -- the live proof for this
+#     platform's single highest-priority business event (CLAUDE.md: "Abnormal
+#     result -> Category 1 upgrade ... never lose it, never let it fail
+#     silently"). Two separate reasons it cannot move to ci.manifest as-is:
+#     (a) it is a fixture-backlog case like the plain list below --
+#     `select ... from public.profiles where role = 'patient' limit 1` with no
+#     null guard, and a fresh `supabase db reset` seeds zero patient profiles
+#     (supabase/seed/seed.sql: "Populates the global reference catalogues
+#     only -- no tenant/patient data"), so v_org/v_patient come back NULL and
+#     every insert after it errors on a NOT NULL violation; and (b) even once
+#     given a fixture, the file has no PASS/FAIL verdict mechanism at all --
+#     it prints a `probe` table for a human to compare against a documented
+#     "Expect:" comment, never raises, never prints a FAIL in a verdict
+#     column. run-db-proofs.sh only fails a script on a raised exception or an
+#     `... | FAIL` trailing column, so as written this would report a false
+#     PASS regardless of what the trigger actually does -- exactly the
+#     "vacuous test" failure mode the whole apparatus exists to catch, on the
+#     one proof that can least afford it. Promoting this needs both a
+#     self-built fixture (insert its own org+patient, the way
+#     payer_board_outcomes_report.sql does) AND a real verdict block
+#     (`case when ... then 'PASS' else 'FAIL' end` per case, plus a closing
+#     `raise exception` on any FAIL) before it goes anywhere near ci.manifest.
+#
+#  5. payer_board_outcomes_report.sql -- has a real, correct PASS/FAIL verdict
+#     block and a closing `raise exception` on any FAIL (not a vacuous test),
+#     but is a genuine fixture-backlog case: it needs an existing
+#     `public.organisations` row (likely fine -- the default consumer org is
+#     migration-created) AND an existing active `role = 'admin'` profile
+#     (`raise exception 'no active admin profile'` otherwise), and a fresh
+#     reset creates neither people nor admins, only catalogue rows. Building
+#     its own admin fixture (insert into auth.users + profiles, the way this
+#     file already does for its patient/payer fixtures) would let it move up.
+#
+#  6. support_centre.sql -- same shape as #5, but a much higher bar: its
+#     own fixture-resolution query requires ALL of a Care Coordinator, a
+#     non-coordinator clinical-tier staff member, a Clinical Director, an
+#     admin, and 2+ patients already present in the SAME organisation
+#     (`raise exception 'need an org with 2+ patients, a Care Coordinator...'`
+#     otherwise) -- exactly the class of fixture this file's own header
+#     describes, at the more demanding end of it.
+# ===========================================================================
+abnormal_screening_result_upgrade.sql
 actor_column_fk_documentation.sql
 adherence_escalation_not_available.sql
 ai_assistant_turns_rls.sql
@@ -156,6 +212,7 @@ patient_health_record_round3.sql
 patient_serology_status_extraction.sql
 patient_stopped_medication_raises_review.sql
 patient_timeline_gap_closure.sql
+payer_board_outcomes_report.sql
 payer_provider_org_platform.sql
 pharmacy_engine_end_to_end.sql
 polypharmacy_review_signal.sql
@@ -193,6 +250,7 @@ sponsor_pay_booking_order.sql
 sponsor_spend_receipts.sql
 subscription_care_vouchers.sql
 subsidy_split_engine.sql
+support_centre.sql
 supporter_accounts.sql
 supporter_reporting.sql
 symptom_triage_assessment_engine.sql
