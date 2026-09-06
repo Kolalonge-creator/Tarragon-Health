@@ -40569,6 +40569,10 @@ export type Database = {
         }
         Returns: string
       }
+      pharmacist_flag_unavailable: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       pharmacist_order_allergies: {
         Args: { p_order_id: string }
         Returns: {
@@ -40874,6 +40878,15 @@ export type Database = {
           p_user_agent: string
         }
         Returns: boolean
+      }
+      record_pharmacy_delivery_attempt: {
+        Args: {
+          p_failure_reason?: string
+          p_notes?: string
+          p_order_id: string
+          p_result: string
+        }
+        Returns: undefined
       }
       record_result_correction: {
         Args: {
