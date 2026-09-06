@@ -193,18 +193,6 @@ begin
 end $$;
 
 do $$
-declare
-  r record;
-begin
-  raise notice '=== DEBUG alert_rules full dump before assertion ===';
-  for r in select id, version, is_active, jsonb_array_length(config) as len from public.alert_rules order by created_at, version loop
-    raise notice 'DEBUG row: id=% version=% is_active=% len=%', r.id, r.version, r.is_active, r.len;
-  end loop;
-  raise notice 'DEBUG total row count: %', (select count(*) from public.alert_rules);
-  raise notice 'DEBUG active row count: %', (select count(*) from public.alert_rules where is_active);
-end $$;
-
-do $$
 begin
   if not exists (select 1 from pg_trigger where tgname = 'care_messages_safety_screen' and tgrelid = 'public.care_messages'::regclass and not tgisinternal) then
     raise exception 'FAIL: care_messages_safety_screen trigger was not created';

@@ -53,3 +53,8 @@ vitals_red_flag_notification_wiring.sql
 vitals_red_flag_plan_gate.sql
 revenue_recognition_orphan_source_guard.sql
 migration_replay_leaves_no_orphaned_finance_rows.sql
+
+# --- Added 2026-09-06, classifying 3 previously-unlisted proofs -------------
+abnormal_screening_result_upgrade.sql
+payer_board_outcomes_report.sql
+support_centre.sql
