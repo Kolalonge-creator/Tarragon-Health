@@ -13,10 +13,10 @@
 -- Cases:
 --   1. 'normal' result -> no screening_upgrades row, no clinician_alerts row (trigger no-ops).
 --   2. 'abnormal' + bp flag -> condition_triggered='hypertension', clinician_alerts.level=
---      'urgent_escalation', sla_due_at ~1440 min out (escalation_slas: screening_abnormal_result/
---      urgent_escalation), title 'Priority 1: abnormal screening result'.
+--      'urgent_escalation', sla_due_at matching escalation_slas' active screening_abnormal_result/
+--      urgent_escalation minutes, title 'Priority 1: abnormal screening result'.
 --   3. 'critical' + glucose flag -> condition_triggered='diabetes', level='emergency',
---      sla_due_at ~120 min out.
+--      sla_due_at matching escalation_slas' active screening_abnormal_result/emergency minutes.
 --   4. 'abnormal' + fit flag (a screen_types.sensitive=true type; sex-neutral, unlike psa/
 --      mammography/cervical, which are gated to one sex by private.enforce_psa_sdm_gate() and
 --      similar checks the test's fixture patient may not satisfy) -> condition_triggered=
@@ -33,6 +33,12 @@
 -- 'blood_pressure' between what are now cases 1 and 2.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/abnormal_screening_result_upgrade.sql
+--
+-- SLA checks below read the active minutes from escalation_slas at runtime rather than
+-- hardcoding them, because escalation_slas is the source of truth (CLAUDE.md) and is editable
+-- in the app (see 20260904.. SLA-editing work) -- a hardcoded 120-minute expectation here already
+-- went stale once, silently, when the critical-result SLA was changed to 720 minutes on
+-- 2026-09-04 (founder decision, see the active escalation_slas row's own note).
 
 begin;
 
@@ -43,7 +49,22 @@ declare
   v_org uuid;
   v_patient uuid;
   v_result_id uuid;
+  v_emergency_sla_minutes int;
+  v_urgent_sla_minutes int;
 begin
+  select (elem->>'sla_minutes')::int into v_emergency_sla_minutes
+  from public.escalation_slas, jsonb_array_elements(config) as elem
+  where is_active = true and elem->>'pathway' = 'screening_abnormal_result' and elem->>'tier' = 'emergency';
+
+  select (elem->>'sla_minutes')::int into v_urgent_sla_minutes
+  from public.escalation_slas, jsonb_array_elements(config) as elem
+  where is_active = true and elem->>'pathway' = 'screening_abnormal_result' and elem->>'tier' = 'urgent_escalation';
+
+  if v_emergency_sla_minutes is null or v_urgent_sla_minutes is null then
+    raise exception 'no active escalation_slas row for screening_abnormal_result (emergency=%, urgent_escalation=%) -- table config or seeding changed shape',
+      v_emergency_sla_minutes, v_urgent_sla_minutes;
+  end if;
+
   select organisation_id into v_org from public.profiles where role = 'patient' limit 1;
   select id into v_patient from public.profiles where role = 'patient' and organisation_id = v_org limit 1;
 
@@ -57,7 +78,7 @@ begin
   insert into probe values ('case1_alert_count',
     (select count(*)::text from public.clinician_alerts where screening_result_id = v_result_id));
 
-  -- Case 2: abnormal + bp flag -> hypertension, urgent_escalation, ~24h SLA.
+  -- Case 2: abnormal + bp flag -> hypertension, urgent_escalation, SLA = active config's urgent_escalation minutes.
   insert into public.screening_results (organisation_id, patient_id, result_status, screen_type_code, abnormal_flags)
   values (v_org, v_patient, 'abnormal', 'blood_pressure', array['bp'])
   returning id into v_result_id;
@@ -70,12 +91,13 @@ begin
   insert into probe values ('case2_alert_title',
     (select title from public.clinician_alerts
      where screening_result_id = v_result_id and title = 'Priority 1: abnormal screening result'));
-  insert into probe values ('case2_sla_within_1440_1441_min',
+  insert into probe values ('case2_sla_matches_config_urgent_minutes',
     ((select sla_due_at from public.clinician_alerts
       where screening_result_id = v_result_id and title = 'Priority 1: abnormal screening result')
-       between now() + interval '1439 minutes' and now() + interval '1441 minutes')::text);
+       between now() + (v_urgent_sla_minutes - 1 || ' minutes')::interval
+           and now() + (v_urgent_sla_minutes + 1 || ' minutes')::interval)::text);
 
-  -- Case 3: critical + glucose flag -> diabetes, emergency, ~2h SLA.
+  -- Case 3: critical + glucose flag -> diabetes, emergency, SLA = active config's emergency minutes.
   insert into public.screening_results (organisation_id, patient_id, result_status, screen_type_code, abnormal_flags)
   values (v_org, v_patient, 'critical', 'hba1c', array['glucose'])
   returning id into v_result_id;
@@ -85,10 +107,11 @@ begin
   insert into probe values ('case3_alert_level',
     (select level::text from public.clinician_alerts
      where screening_result_id = v_result_id and title = 'Priority 1: abnormal screening result'));
-  insert into probe values ('case3_sla_within_119_121_min',
+  insert into probe values ('case3_sla_matches_config_emergency_minutes',
     ((select sla_due_at from public.clinician_alerts
       where screening_result_id = v_result_id and title = 'Priority 1: abnormal screening result')
-       between now() + interval '119 minutes' and now() + interval '121 minutes')::text);
+       between now() + (v_emergency_sla_minutes - 1 || ' minutes')::interval
+           and now() + (v_emergency_sla_minutes + 1 || ' minutes')::interval)::text);
 
   -- Case 4: abnormal + fit flag -> cancer_referral, upgrade correctly linked back to the result.
   insert into public.screening_results (organisation_id, patient_id, result_status, screen_type_code, abnormal_flags)
@@ -111,8 +134,8 @@ end $$;
 
 -- Expect: case1_upgrade_count=0, case1_alert_count=0,
 -- case2_condition=hypertension, case2_alert_level=urgent_escalation,
---   case2_alert_title='Priority 1: abnormal screening result', case2_sla_within_1440_1441_min=true,
--- case3_condition=diabetes, case3_alert_level=emergency, case3_sla_within_119_121_min=true,
+--   case2_alert_title='Priority 1: abnormal screening result', case2_sla_matches_config_urgent_minutes=true,
+-- case3_condition=diabetes, case3_alert_level=emergency, case3_sla_matches_config_emergency_minutes=true,
 -- case4_condition=cancer_referral, case4_upgrade_links_back=true,
 -- case5_condition=other.
 select * from probe order by k;
