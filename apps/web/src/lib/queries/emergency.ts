@@ -16,7 +16,14 @@ export function useActiveEmergency(patientId: string) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("emergency_events")
-        .select("id, source, trigger_detail, created_at, contact_notified_at")
+        // clinician_alert_id is the per-event record of whether a
+        // clinician_alerts row was actually raised for this emergency.
+        // private.handle_emergency_event only sets it when the patient holds
+        // the vitals_red_flag_doctor_escalation entitlement; on the free tier
+        // it stays null and nobody is paged. The dialog reads it so it never
+        // tells a patient mid-emergency that their care team has been
+        // notified when no clinician has been.
+        .select("id, source, trigger_detail, created_at, contact_notified_at, clinician_alert_id")
         .eq("patient_id", patientId)
         .eq("status", "active")
         .is("acknowledged_at", null)

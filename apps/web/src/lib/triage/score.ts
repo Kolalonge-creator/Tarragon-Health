@@ -43,7 +43,8 @@ export const TRIAGE_ENGINE_VERSION = 1;
  * choice and must not be narrowed without re-checking the assertion test.
  */
 const SEVERITY_BASE: Record<EscalationLevel, number> = {
-  emergency: 1000,
+  emergency: 1300,
+  specialist_review: 1000,
   urgent_escalation: 700,
   clinician_review: 400,
   routine: 100,
@@ -237,6 +238,7 @@ export function scoreCase(input: TriageInput, now: Date): TriageResult {
 
 const SEVERITY_LABEL: Record<EscalationLevel, string> = {
   emergency: "Emergency",
+  specialist_review: "Specialist review",
   urgent_escalation: "Urgent escalation",
   clinician_review: "Needs clinician review",
   routine: "Routine",

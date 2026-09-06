@@ -303,9 +303,9 @@ $function$;
 -- it arrives through the PUBLIC pseudo-role, not a direct grant. Revoking from
 -- anon alone leaves the function executable, a mistake this codebase has made
 -- and re-made. Asserted at the bottom of this file.
-revoke all on function public.raise_lab_extraction_alert(uuid, public.alert_level, text) from public;
+revoke all on function public.raise_lab_extraction_alert(uuid, public.alert_level, text) from public, anon;
 revoke all on function public.raise_lab_extraction_alert(uuid, public.alert_level, text) from anon;
-revoke all on function public.raise_lab_extraction_alert(uuid, public.alert_level, text) from authenticated;
+revoke all on function public.raise_lab_extraction_alert(uuid, public.alert_level, text) from authenticated, anon;
 grant execute on function public.raise_lab_extraction_alert(uuid, public.alert_level, text) to service_role;
 
 -- ---------------------------------------------------------------------------
@@ -352,9 +352,9 @@ begin
 end;
 $function$;
 
-revoke all on function public.upsert_lab_report_template(text, text, text, integer, jsonb) from public;
+revoke all on function public.upsert_lab_report_template(text, text, text, integer, jsonb) from public, anon;
 revoke all on function public.upsert_lab_report_template(text, text, text, integer, jsonb) from anon;
-revoke all on function public.upsert_lab_report_template(text, text, text, integer, jsonb) from authenticated;
+revoke all on function public.upsert_lab_report_template(text, text, text, integer, jsonb) from authenticated, anon;
 grant execute on function public.upsert_lab_report_template(text, text, text, integer, jsonb) to service_role;
 
 -- ---------------------------------------------------------------------------
@@ -540,7 +540,7 @@ begin
 end;
 $function$;
 
-revoke all on function public.confirm_lab_report_extraction(uuid, jsonb, date) from public;
+revoke all on function public.confirm_lab_report_extraction(uuid, jsonb, date) from public, anon;
 revoke all on function public.confirm_lab_report_extraction(uuid, jsonb, date) from anon;
 grant execute on function public.confirm_lab_report_extraction(uuid, jsonb, date) to authenticated;
 

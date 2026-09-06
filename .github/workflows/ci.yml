@@ -40,6 +40,64 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # Dedicated, individually-nameable mobile gate. Strictly speaking apps/mobile is
+  # already typechecked/linted on every PR: the "TypeScript (web + shared)" job's
+  # unfiltered `pnpm typecheck` / `pnpm lint` run through turbo, whose task graph
+  # includes @tarragon/mobile#typecheck and #lint (verified with
+  # `turbo run typecheck --dry=json`) — that job's name is just stale. This job
+  # exists so a mobile TS/lint failure is attributed to a check named for it, and
+  # so the founder can require it on main-dev independently once it has proven
+  # stable — which matters because mobile-ota-publish.yml auto-publishes JS-only
+  # main-dev merges to the preview EAS channel with no mobile-named gate in front
+  # of it. Deliberately a single job with step-level skips (not a separate
+  # paths-filtered workflow): a workflow that never triggers leaves a required
+  # check stuck at "expected", while skipped steps still report a green job, so
+  # this stays safe to add to required_status_checks later.
+  mobile-typescript:
+    name: TypeScript (mobile)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # What can affect mobile TS: the app itself, the one workspace package it
+      # imports (@tarragon/shared resolves straight from src/, no build step),
+      # and the workspace/CI plumbing that changes how everything resolves.
+      - name: Detect mobile-relevant changes
+        id: changes
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            mobile:
+              - "apps/mobile/**"
+              - "packages/shared/**"
+              - "pnpm-lock.yaml"
+              - "pnpm-workspace.yaml"
+              - ".github/workflows/ci.yml"
+
+      - name: Install pnpm
+        if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node
+        if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
+        run: pnpm --filter @tarragon/mobile typecheck
+
+      - name: Lint
+        if: github.event_name != 'pull_request' || steps.changes.outputs.mobile == 'true'
+        run: pnpm --filter @tarragon/mobile lint
+
   python-ml:
     name: Python ML service
     runs-on: ubuntu-latest
@@ -59,6 +117,22 @@ jobs:
 
       - name: Install dependencies
         run: uv sync
+
+      - name: Audit dependencies (pip-audit)
+        run: |
+          uv pip install pip-audit
+          uv run pip-audit
+        # `uv pip install` puts pip-audit into the same uv-managed venv `uv sync`
+        # just built (without touching pyproject.toml/uv.lock — this is CI-only
+        # tooling, not a project dependency), so `uv run pip-audit` then audits
+        # this project's *actual* installed dependencies (fastapi, pydantic,
+        # scipy, sentry-sdk, uvicorn, ...) rather than an empty/unrelated
+        # environment. Confirmed live 2026-08-29 (0 known vulnerabilities in the
+        # current dependency set — see PR description). pip-audit has no
+        # built-in severity threshold to filter on (checked `pip-audit --help`);
+        # its default behavior is to fail (non-zero exit) on any known
+        # vulnerability at all, which is deliberately left as-is here rather
+        # than suppressed or narrowed.
 
       - name: Ruff
         run: uv run ruff check .
@@ -85,3 +159,14 @@ jobs:
 
       - name: Replay all migrations + seed
         run: supabase db reset
+
+      # The SQL proof scripts in packages/db/tests were referenced by no
+      # workflow at all until 2026-09-05: several thousand lines of RLS and
+      # ledger verification, complete with sabotage checks, that looked like a
+      # gate and ran only by hand. This runs the ones that hold on a freshly
+      # reset stack (packages/db/tests/ci.manifest) and fails the job on a
+      # raised assertion or a FAIL verdict. It also fails if a new proof file
+      # is in neither ci.manifest nor ci.excluded, so the next one cannot
+      # quietly join the pile that never runs.
+      - name: Run database proof scripts
+        run: ./scripts/run-db-proofs.sh

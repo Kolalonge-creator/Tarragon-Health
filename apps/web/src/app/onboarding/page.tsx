@@ -29,15 +29,18 @@ export default async function OnboardingPage() {
         .select("id", { count: "exact", head: true })
         .eq("profile_id", profile.id),
       // If onboarding_completed_at was ever cleared on an account that
-      // already has a real, paid-or-trialing subscription — a data
-      // migration, an account-recovery flow, anything — this is what
+      // already has a real, active-or-pending-payment service purchase — a
+      // data migration, an account-recovery flow, anything — this is what
       // prevents them from being walked back through "choose your plan" as
       // if they were a brand-new signup (see existing-plan-notice.tsx).
+      // pending_payment is the pay-per-service equivalent of the old
+      // subscriptions "trialing" status: money is in flight, not yet
+      // confirmed by the payment-provider webhook.
       supabase
-        .from("subscriptions")
-        .select("status, plan:subscription_plans(name)")
-        .eq("subscriber_id", profile.id)
-        .in("status", ["active", "trialing"])
+        .from("service_purchases")
+        .select("status, service_product:service_products(name)")
+        .eq("patient_id", profile.id)
+        .in("status", ["active", "pending_payment"])
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
@@ -57,7 +60,7 @@ export default async function OnboardingPage() {
         existingPlan={
           existingSubscription
             ? {
-                name: existingSubscription.plan?.name ?? "your plan",
+                name: existingSubscription.service_product?.name ?? "your plan",
                 status: existingSubscription.status,
               }
             : null

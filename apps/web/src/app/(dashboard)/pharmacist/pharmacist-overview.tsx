@@ -73,7 +73,7 @@ export function PharmacistOverview() {
         <CardContent>
           {ordersLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
           {!ordersLoading && awaitingSnapshot.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">No orders waiting — you&apos;re caught up.</p>
+            <p className="text-sm text-charcoal-ink/60">No orders waiting. You&apos;re caught up.</p>
           )}
           {awaitingSnapshot.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">

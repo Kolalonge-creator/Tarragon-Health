@@ -4,7 +4,7 @@ import { z } from "zod";
  * Population Health Management Engine (spec §41) — the typed filter
  * vocabulary a population_definitions.filters jsonb value is validated
  * against, mirroring the read side get_population_members() implements in
- * SQL (20260829121205_population_health_engine.sql). Every key is optional;
+ * SQL (20260829121454_population_health_engine.sql). Every key is optional;
  * an absent/empty array means "no constraint on this axis" both here and in
  * the database function — this schema and that function must agree on the
  * key names or a saved filter silently stops matching anything.

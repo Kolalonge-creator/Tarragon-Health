@@ -92,12 +92,16 @@ export const MARKETING_MEDIA = {
       imageFocus: "center 20%",
     } as MarketingMediaSlot,
     problem: {
-      illustration: "fragmented-care",
-      imageAlt: "Missed reminders and scattered health information between visits",
+      imageSrc: "/marketing/photos/body/problem-medication-organiser.jpg",
+      imageAlt: "Close-up of two people's hands sorting medication into a weekly pill organiser",
     } satisfies MarketingMediaSlot,
     solution: {
-      illustration: "connected-care",
-      imageAlt: "Readings, reminders, and doctor review in one connected record",
+      imageSrc: "/marketing/photos/body/how-it-works-log-reading.jpg",
+      imageAlt: "A hand holding a phone beside a home blood pressure cuff on a wooden table",
+    } satisfies MarketingMediaSlot,
+    preventionCallout: {
+      imageSrc: "/marketing/photos/body/prevention-reviewing-notes.jpg",
+      imageAlt: "A woman reviewing a printed health document at home",
     } satisfies MarketingMediaSlot,
     /** Set youtubeId when a product walkthrough is ready on YouTube. */
     walkthroughVideo: {
@@ -187,10 +191,19 @@ export const MARKETING_MEDIA = {
       imageAlt: "A hand holding a phone beside a blood pressure cuff on a table",
       imageFocus: "center 45%",
     } as MarketingMediaSlot,
+    /**
+     * Illustration, not a photograph, on purpose. who-its-for.jpg was a
+     * BYTE-IDENTICAL copy of homepage-family-phone.jpg (same md5), which
+     * /pricing/how-it-works also borrowed, so one photograph fronted three
+     * pages. The file is gone; the homepage keeps the photograph, and this
+     * page (an audience router, not a story) gets the network illustration
+     * that actually describes what it is about. Give it its own photograph
+     * once one is genuinely sourced.
+     */
     whoItsFor: {
-      imageSrc: "/marketing/photos/hero/who-its-for.jpg",
-      imageAlt: "An adult daughter and her mother smiling together at a phone",
-      imageFocus: "center 26%",
+      illustration: "care-network",
+      imageAlt:
+        "One health record connected to an individual, their family, their employer, and their HMO",
     } as MarketingMediaSlot,
     chronicCare: {
       imageSrc: "/marketing/photos/hero/chronic-care.jpg",

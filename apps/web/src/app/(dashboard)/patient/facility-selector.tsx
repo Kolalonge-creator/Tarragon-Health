@@ -109,20 +109,20 @@ export function FacilitySelector({
         <Button type="button" variant="outline" size="sm" onClick={handleUseMyLocation}>
           Use my location
         </Button>
-        {nearMe && <span className="text-xs text-charcoal-ink/60">Showing nearest first</span>}
-        {locationError && <span className="text-xs text-red-600">{locationError}</span>}
+        {nearMe && <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Showing nearest first</span>}
+        {locationError && <span className="text-xs text-red-600 dark:text-red-300">{locationError}</span>}
       </div>
 
-      {facilities.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {facilities.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
       {facilities.isError && (
-        <p className="text-sm text-red-600">Could not load facilities.</p>
+        <p className="text-sm text-red-600 dark:text-red-300">Could not load facilities.</p>
       )}
       {!facilities.isLoading && !facilities.isError && sorted.length === 0 && (
-        <p className="text-sm text-charcoal-ink/60">{emptyText}</p>
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{emptyText}</p>
       )}
 
       {sorted.length > 0 && (
-        <ul className="divide-y divide-charcoal-ink/10 rounded-md border border-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15">
           {sorted.map((facility) => {
             const isSelected = facility.id === selectedFacilityId;
             return (
@@ -132,14 +132,14 @@ export function FacilitySelector({
                   onClick={() => onSelect(facility)}
                   aria-pressed={isSelected}
                   className={`flex w-full items-start justify-between gap-2 p-3 text-left transition-colors ${
-                    isSelected ? "bg-brand-green/10" : "hover:bg-charcoal-ink/5"
+                    isSelected ? "bg-brand-green/10" : "hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10"
                   }`}
                 >
                   <div>
-                    <p className="text-sm font-medium text-charcoal-ink">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {facility.name}
                       {nearMe && facility.latitude != null && facility.longitude != null && (
-                        <span className="ml-2 text-xs font-normal text-charcoal-ink/60">
+                        <span className="ml-2 text-xs font-normal text-charcoal-ink/60 dark:text-night-ink/60">
                           {distanceKm(nearMe, {
                             lat: facility.latitude,
                             lng: facility.longitude,
@@ -148,7 +148,7 @@ export function FacilitySelector({
                         </span>
                       )}
                     </p>
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {[facility.area, facility.city, facility.state].filter(Boolean).join(", ")}
                       {facility.address ? `, ${facility.address}` : ""}
                     </p>

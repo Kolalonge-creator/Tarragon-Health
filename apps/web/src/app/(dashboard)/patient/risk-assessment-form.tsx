@@ -53,10 +53,10 @@ function CheckboxGroup({
 }) {
   return (
     <fieldset className="space-y-1.5">
-      <legend className="text-sm font-medium text-charcoal-ink">{legend}</legend>
+      <legend className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{legend}</legend>
       <div className="flex flex-wrap gap-x-4 gap-y-1" onChange={onChange}>
         {options.map(({ value, label }) => (
-          <label key={value} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80">
+          <label key={value} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             <input
               type="checkbox"
               name={name}
@@ -80,7 +80,7 @@ function CheckboxGroup({
 
 function Checkbox({ name, label }: { name: string; label: string }) {
   return (
-    <label className="flex items-center gap-1.5 text-sm text-charcoal-ink/80">
+    <label className="flex items-center gap-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
       <input type="checkbox" name={name} className="h-4 w-4" />
       {label}
     </label>
@@ -167,16 +167,16 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-6">
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             A few honest answers help us tell you what to check and when. This isn&apos;t
             a diagnosis, just a starting point for your care.
           </p>
 
-          <div className="flex items-center gap-2 text-xs text-charcoal-ink/60">
+          <div className="flex items-center gap-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             <span className="whitespace-nowrap">
               Step {step} of {STEP_COUNT}: {STEP_LABELS[step - 1]}
             </span>
-            <div className="h-1.5 flex-1 rounded-full bg-charcoal-ink/10">
+            <div className="h-1.5 flex-1 rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15">
               <div
                 className="h-1.5 rounded-full bg-brand-green transition-all"
                 style={{ width: `${(step / STEP_COUNT) * 100}%` }}
@@ -186,7 +186,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
 
           {step === 1 && (
           <div className={stepClass}>
-            <h3 className="text-sm font-semibold text-charcoal-ink">Family history</h3>
+            <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Family history</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <Checkbox name="family_diabetes" label="Diabetes" />
               <Checkbox name="family_hypertension" label="Hypertension" />
@@ -220,7 +220,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
 
           {step === 2 && (
           <div className={stepClass}>
-            <h3 className="text-sm font-semibold text-charcoal-ink">Lifestyle</h3>
+            <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Lifestyle</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="smoking_status">Smoking</Label>
@@ -331,7 +331,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   value={weightKg}
                   onChange={(e) => setWeightKg(e.target.value)}
                 />
-                {bmi && <p className="text-xs text-charcoal-ink/60">BMI: {bmi.toFixed(1)}</p>}
+                {bmi && <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">BMI: {bmi.toFixed(1)}</p>}
               </div>
             </div>
             <CheckboxGroup
@@ -347,13 +347,13 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
 
           {step === 3 && (
           <div className={stepClass}>
-            <h3 className="text-sm font-semibold text-charcoal-ink">
+            <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Past medical history &amp; medications
             </h3>
             {existingDiagnoses.length > 0 && (
-              <p className="text-xs text-charcoal-ink/50">
-                Pre-filled from your care team&apos;s records and your last assessment —
-                remove anything that&apos;s no longer right.
+              <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                Pre-filled from your care team&apos;s records and your last assessment.
+                Remove anything that&apos;s no longer right.
               </p>
             )}
             <CheckboxGroup
@@ -391,7 +391,7 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
 
           {step === 4 && (
           <div className={stepClass}>
-            <h3 className="text-sm font-semibold text-charcoal-ink">
+            <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Vaccination &amp; screening history
             </h3>
             <Checkbox name="hpv_vaccinated" label="I've had the HPV vaccine" />
@@ -403,9 +403,9 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
           </div>
           )}
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">
+            <p className="text-sm text-brand-green dark:text-brand-green-bright">
               Thanks, your care plan preview below reflects your answers.
             </p>
           )}

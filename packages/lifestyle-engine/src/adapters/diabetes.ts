@@ -7,7 +7,14 @@ import type { ConditionAdapter, RedFlagRule } from "../types/index";
 
 const SEVERE_HYPO_MMOL = 3.0; // spec §8.2: glucose < 3.0 ⇒ severe hypo
 const DKA_KETONES_MMOL = 3.0; // spec §8.2: ketones ≥ 3.0 ⇒ DKA workflow
-const HYPERGLYCAEMIC_MMOL = 25.0; // very high glucose ⇒ DKA/HHS eval
+/**
+ * Very high glucose ⇒ DKA/HHS eval. Source of truth is
+ * GLUCOSE_THRESHOLDS.veryHigh in apps/web/src/lib/vitals/glucose-red-flags.ts
+ * ("≥ 20 → urgent, screen for DKA/HHS", diabetes pathway §15.1 / §9), which
+ * every other surface on the platform already follows. This adapter carried
+ * 25.0, leaving 20.0-24.9 mmol/L urgent in the main pipeline but silent here.
+ */
+const HYPERGLYCAEMIC_MMOL = 20.0;
 
 const diabetesRedFlags: RedFlagRule[] = [
   {

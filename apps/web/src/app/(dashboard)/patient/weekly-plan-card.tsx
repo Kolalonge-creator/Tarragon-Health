@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { EmptyHint } from "@/components/ui/empty-hint";
 import { RoutineProfilePrompt } from "@/app/(dashboard)/patient/routine-profile-prompt";
 
 /** A 14-day dot trend, oldest-first (today last) — unlike a bare streak
@@ -23,13 +24,13 @@ function TrendDots({ goal }: { goal: WeeklyPlanGoal }) {
             className={
               outcome === "done"
                 ? "h-1.5 w-1.5 rounded-full bg-brand-green"
-                : "h-1.5 w-1.5 rounded-full border border-charcoal-ink/20"
+                : "h-1.5 w-1.5 rounded-full border border-charcoal-ink/20 dark:border-night-ink/25"
             }
             aria-hidden
           />
         ))}
       </div>
-      <span className="text-xs text-charcoal-ink/60">
+      <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         {doneCount}/{goal.last14Days.length} days
         {goal.streak.currentStreak > 0 && ` · ${goal.streak.currentStreak}-day streak`}
       </span>
@@ -47,10 +48,10 @@ function GoalRow({ goal, patientId }: { goal: WeeklyPlanGoal; patientId: string 
         <div className="flex items-center gap-2">
           <Badge variant="grey">{LPE_MODULE_LABEL[goal.module]}</Badge>
           {goal.cadence === "weekly" && (
-            <span className="text-xs text-charcoal-ink/50">this week</span>
+            <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">this week</span>
           )}
         </div>
-        <p className="mt-1 text-sm font-medium text-charcoal-ink">{goal.title}</p>
+        <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{goal.title}</p>
         {goal.measurementType && (
           <div className="mt-1">
             <TrendDots goal={goal} />
@@ -75,13 +76,22 @@ function GoalRow({ goal, patientId }: { goal: WeeklyPlanGoal; patientId: string 
   );
 }
 
-export function WeeklyPlanCard({ patientId }: { patientId: string }) {
+export function WeeklyPlanCard({
+  patientId,
+  emptyHint,
+}: {
+  patientId: string;
+  emptyHint?: string;
+}) {
   const { data: plan, isLoading } = useWeeklyPlan(patientId);
 
   // No active lifestyle enrolment: nothing to show, same "render nothing"
   // pattern as CareScheduleCard when there's nothing due — this card is
   // additive, never a forced universal habit tracker for every patient.
-  if (isLoading || !plan || plan.goals.length === 0) return null;
+  // A caller that has already put a heading above this one (Health summary)
+  // passes `emptyHint` so that heading is answered instead of left bare.
+  if (isLoading) return null;
+  if (!plan || plan.goals.length === 0) return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
 
   // Adaptive, not a flat list: the goal most needing attention (a raised
   // miss streak, then any recent miss) leads, matching the "start here"
@@ -93,7 +103,7 @@ export function WeeklyPlanCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Your weekly plan
         </CardTitle>
         {plan.totalToday > 0 && (
@@ -105,15 +115,15 @@ export function WeeklyPlanCard({ patientId }: { patientId: string }) {
       <CardContent>
         {priorityGoal && (
           <div className="mb-3 space-y-1">
-            <p className="text-xs font-medium text-charcoal-ink/70">Focus on this today</p>
-            <p className="rounded-md bg-soft-sage px-3 py-2 text-sm text-deep-forest">
+            <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">Focus on this today</p>
+            <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 px-3 py-2 text-sm text-deep-forest dark:text-brand-green-bright">
               {LPE_MODULE_LABEL[priorityGoal.module]} · {priorityGoal.title}
               {priorityGoal.streak.shouldRaiseWorklistItem &&
-                " — a few days missed in a row, worth a fresh start today."}
+                ": a few days missed in a row, worth a fresh start today."}
             </p>
           </div>
         )}
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {orderedGoals.map((goal) => (
             <GoalRow key={goal.id} goal={goal} patientId={patientId} />
           ))}

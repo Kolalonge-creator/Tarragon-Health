@@ -60,7 +60,7 @@ export function buildSamplePlan(age: AgeBand, sex: Sex, situation: Situation): S
     firstNinetyDays: [
       "A real two-minute health profile builds your real calendar; this example only used three quick picks.",
       "You request your first due check in the app and take it to any lab you like. You pay them directly, and we take nothing on it.",
-      "Most results just confirm you're on track. If one doesn't, a doctor follows up the same day, not next month.",
+      "Most results just confirm you're on track. If one doesn't, a doctor follows up within a day, not next month.",
     ],
   };
 }
@@ -162,7 +162,7 @@ export function PlanPreviewSample() {
                 href="/chronic-care"
                 className="inline-block text-sm font-medium text-deep-forest hover:underline"
               >
-                See how chronic care works →
+                See how chronic care works <span aria-hidden>→</span>
               </Link>
             </>
           ) : (
@@ -192,11 +192,11 @@ export function PlanPreviewSample() {
                 href="/signup"
                 className="inline-block text-sm font-medium text-deep-forest hover:underline"
               >
-                Build my real calendar →
+                Build my real calendar <span aria-hidden>→</span>
               </Link>
             </>
           )}
-          <p className="text-xs text-charcoal-ink/50">
+          <p className="text-xs text-charcoal-ink/65">
             This is an illustrative example, not a real health assessment. Your real calendar is
             built from your real answers, after you sign up.
           </p>

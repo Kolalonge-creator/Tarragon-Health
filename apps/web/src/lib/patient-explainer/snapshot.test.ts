@@ -1,5 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
-import { formatResultSnapshotForPrompt, type ResultSnapshot } from "./snapshot";
+import {
+  formatMedicationSnapshotForPrompt,
+  formatResultSnapshotForPrompt,
+  type MedicationSnapshot,
+  type ResultSnapshot,
+} from "./snapshot";
 
 function snapshot(overrides: Partial<ResultSnapshot> = {}): ResultSnapshot {
   return {
@@ -50,5 +55,83 @@ describe("formatResultSnapshotForPrompt", () => {
     const text = formatResultSnapshotForPrompt(snapshot());
     expect(text).toContain("Latest value: moderate on 2026-07-29");
     expect(text).not.toContain("  ");
+  });
+
+  it("renders details as extra lines for a medication snapshot", () => {
+    const text = formatResultSnapshotForPrompt(
+      snapshot({
+        kind: "medication",
+        subjectKey: "med-1",
+        label: "Amlodipine",
+        latest: { value: "5mg, once daily", unit: null, recordedAt: "2026-07-01T00:00:00.000Z" },
+        details: { route: "oral", instructions: "Take in the morning with food" },
+      })
+    );
+    expect(text).toContain("Route: oral");
+    expect(text).toContain("Instructions: Take in the morning with food");
+  });
+
+  it("renders details as extra lines for a care-plan-item snapshot, and omits absent ones", () => {
+    const text = formatResultSnapshotForPrompt(
+      snapshot({
+        kind: "care_plan_item",
+        subjectKey: "plan-1",
+        label: "Hypertension",
+        latest: { value: "active", unit: null, recordedAt: "2026-07-01T00:00:00.000Z" },
+        details: { target: "systolic: <130" },
+      })
+    );
+    expect(text).toContain("Target: systolic: <130");
+    expect(text).not.toContain("Notes:");
+  });
+});
+
+function medicationSnapshot(overrides: Partial<MedicationSnapshot> = {}): MedicationSnapshot {
+  return {
+    kind: "medication",
+    subjectKey: "med-1",
+    label: "Lisinopril",
+    drugName: "Lisinopril",
+    dose: "10mg",
+    frequency: "Once daily",
+    route: null,
+    indication: null,
+    instructions: null,
+    source: "clinician",
+    startedAt: "2026-07-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+describe("formatMedicationSnapshotForPrompt", () => {
+  it("includes the drug name, dose and frequency", () => {
+    const text = formatMedicationSnapshotForPrompt(medicationSnapshot());
+    expect(text).toContain("Lisinopril");
+    expect(text).toContain("10mg");
+    expect(text).toContain("Once daily");
+  });
+
+  it("attributes a clinician-sourced medication to the Tarragon care team", () => {
+    const text = formatMedicationSnapshotForPrompt(medicationSnapshot({ source: "clinician" }));
+    expect(text).toContain("the Tarragon care team");
+  });
+
+  it("attributes a patient-sourced medication as self-reported, not prescribed here", () => {
+    const text = formatMedicationSnapshotForPrompt(medicationSnapshot({ source: "patient" }));
+    expect(text).toContain("self-reported by the patient");
+  });
+
+  it("includes the recorded indication and instructions when present", () => {
+    const text = formatMedicationSnapshotForPrompt(
+      medicationSnapshot({ indication: "Blood pressure", instructions: "Take with food" })
+    );
+    expect(text).toContain("Recorded reason for taking it: Blood pressure");
+    expect(text).toContain("Recorded instructions: Take with food");
+  });
+
+  it("omits indication/instructions lines when not recorded", () => {
+    const text = formatMedicationSnapshotForPrompt(medicationSnapshot());
+    expect(text).not.toContain("Recorded reason");
+    expect(text).not.toContain("Recorded instructions");
   });
 });

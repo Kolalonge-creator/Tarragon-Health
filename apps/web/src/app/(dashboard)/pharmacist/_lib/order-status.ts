@@ -29,3 +29,13 @@ export function isAwaitingStatus(status: string): boolean {
 export function statusMeta(status: string) {
   return STATUS_META[status] ?? { label: status, badge: "grey" as const };
 }
+
+/**
+ * Pharmacy Engine spec §12.5 — a paid order the pharmacist has not yet
+ * accepted or declined. 'requested' is included for completeness (no write
+ * path sets it today, per docs/PHARMACY_ENGINE_SPEC.md's own audit) so the
+ * accept/decline controls would still work if that ever changes.
+ */
+export function needsPharmacistResponse(status: string): boolean {
+  return status === "payment_confirmed" || status === "requested";
+}

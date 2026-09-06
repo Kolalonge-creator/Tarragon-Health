@@ -4,6 +4,29 @@
 > This is an **engagement/feature layer**, not a clinical action and not a standalone plan —
 > the same bucket as the (planned) lifestyle-coaching layer. Entitlement-gated to the same
 > tiers. This doc captures the locked decisions and the shipped shape.
+>
+> **Corrected 2026-08-30 — two of the decisions below were explicitly reversed, on founder
+> confirmation, as part of closing the gaps identified against a pasted "Digital Health
+> Education & Content Platform" (§79) blueprint section (see
+> `docs/MASTER_ARCHITECTURE_BLUEPRINT_GAP_ANALYSIS.md` §7):**
+> - **Decision #2 ("behaviour change is NOT a schema concept") is REVERSED as a loop, kept as a
+>   claim-avoidance rule.** Health-education content now wires into a real learn → set-a-goal →
+>   track-progress flow — but it does this by reusing the platform's existing, already-governed
+>   `care_plan_goals` table (patient-proposed, clinician-approved) via a new nullable
+>   `source_content_id` column, not a new "behaviour changed" flag. The original objection
+>   (asserting behaviour change would be an unverifiable clinical claim) still holds and is still
+>   respected: nothing here claims a goal was achieved or that behaviour changed — it only lets a
+>   patient turn a lesson into a proposed goal, exactly like any other patient-sourced goal.
+> - **The "not a course, a loop" positioning is partially reversed: named, syllabus-visible
+>   learning pathways now exist alongside the loop, not instead of it.** A separate, concurrent
+>   build already shipped `health_education_programmes`/`health_education_programme_modules`
+>   (e.g. "Hypertension 101", "Diabetes 101") with a visible "Lesson N of M" syllabus — this is
+>   the founder's originally-sketched course shape. The personalised loop (`health_education_feed`)
+>   remains the default "Recommended for you" surface; pathways are a second, explicit "take this
+>   course" surface over the same content, not a replacement.
+>
+> Everything else below — engagement-only positioning, condition/risk-anchored personalisation,
+> library-level (never per-patient) clinical review — is unchanged and still locked.
 
 ## 1. What it is (and is NOT)
 
@@ -13,7 +36,9 @@ The founder's sketch was a linear funnel:
 Patient condition → Personalised education → Videos → Articles → Behaviour change → Knowledge assessment
 ```
 
-We deliberately did **not** build that as a straight line. The value is the loop, not the funnel:
+We deliberately did **not** build that as a straight line, at first. The value was the loop, not
+the funnel — see the 2026-08-30 correction above for where a course shape and a goal-tracking loop
+were reintroduced alongside it, not instead of it:
 
 ```
 condition + risk + what they haven't learnt yet
@@ -27,11 +52,15 @@ condition + risk + what they haven't learnt yet
 
 1. **Engagement layer, not a clinical touchpoint.** Nothing here is doctor-attributed per patient,
    nothing feeds risk scoring or escalation. A knowledge-check score is engagement telemetry, never
-   a clinical assessment.
-2. **"Behaviour change" is NOT a schema concept.** We do not store a "behaviour changed" flag — that
-   would be an unverifiable claim. Whether education moved the needle is read from the **observable
-   proxies we already collect**: adherence check-in responses, missed-dose alerts, vitals-logging
-   cadence. No new table asserts behaviour change.
+   a clinical assessment. **Still fully locked** — the goal-tracking reversal above does not touch
+   this: a proposed goal is self-reported and clinician-reviewed like any other, never an automated
+   clinical claim.
+2. **"Behaviour change" is NOT a schema concept — corrected 2026-08-30, see above.** We do not
+   store a "behaviour changed" flag or claim — that would still be an unverifiable clinical claim,
+   and remains banned. What changed is narrower: education content may now suggest a goal, which
+   lands in the existing `care_plan_goals` table. Whether the goal itself gets achieved or
+   abandoned is read from that table's own status, never asserted by health-education code. No new
+   table exists (or should ever exist) that claims a behaviour was changed by a lesson.
 3. **Condition-anchored personalisation** keys off the patient's **active `care_plans` conditions**
    (primary) and their **latest `patient_risk_scores.risk_level`** (secondary refinement) — real
    platform data, not a generic library dump.

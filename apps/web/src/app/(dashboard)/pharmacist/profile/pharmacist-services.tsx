@@ -30,7 +30,7 @@ export function PharmacistServices() {
         <CardTitle>Your medications</CardTitle>
         <CardDescription>
           Mark a medication unavailable when you&apos;re out of stock. Prices and commission rates
-          are set by Tarragon — contact support to change one.
+          are set by Tarragon. Contact support to change one.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

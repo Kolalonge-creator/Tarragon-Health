@@ -10,6 +10,11 @@ import {
   type SafetyReport,
 } from "@/lib/rules/drug-safety";
 import { analyseRecord, type TrendFinding } from "@/lib/rules/longitudinal";
+import {
+  medicationEffectivenessVitalType,
+  computeMedicationEffectiveness,
+  type MedicationEffectivenessSummary,
+} from "@/lib/rules/medication-effectiveness";
 
 /**
  * Assembles the two things the new clinical engines need from the record, in
@@ -163,7 +168,7 @@ export async function loadMedicationSafety(
 ): Promise<MedicationSafetyView> {
   const context = await loadPatientClinicalContext(supabase, patientId);
 
-  const [{ data: medications }, { data: allergyRows }] = await Promise.all([
+  const [{ data: medications }, { data: allergyRows }, { data: pregnancy }] = await Promise.all([
     supabase
       .from("medications")
       .select("id, drug_name, dose, prescriber_name, source")
@@ -174,6 +179,16 @@ export async function loadMedicationSafety(
       .select("id, allergen, reaction, severity, source")
       .eq("patient_id", patientId)
       .order("allergen"),
+    // The same `patient_pregnancy` row AddMedicationForm already reads
+    // (clinician/patients/[patientId]/page.tsx) to drive the diabetes-ladder
+    // pregnancy warnings — reused here rather than reproductive_health_profiles
+    // (a separate, self-report-only life-stage nudge) so the two medication
+    // safety surfaces can never disagree about a patient's pregnancy status.
+    supabase
+      .from("patient_pregnancy")
+      .select("is_pregnant")
+      .eq("patient_id", patientId)
+      .maybeSingle(),
   ]);
 
   const inputs: MedicationInput[] = (medications ?? []).map((m) => ({
@@ -192,10 +207,19 @@ export async function loadMedicationSafety(
     source: a.source,
   }));
 
+  // Matches the existing `?? false` default everywhere else this table is
+  // read (clinician/patients/[patientId]/page.tsx, patient/pregnancy-status.tsx)
+  // rather than treating a missing row as "unknown" — a patient never having
+  // opened the pregnancy form is already, elsewhere on this platform, treated
+  // as not pregnant, and diverging from that here would let this panel and
+  // AddMedicationForm's own inline pregnancy warning disagree for the same patient.
+  const pregnant = pregnancy?.is_pregnant ?? false;
+
   const report = assessMedicationSafety(inputs, {
     egfr: context.egfr?.egfr ?? null,
     egfrStale: context.egfr?.stale ?? false,
     allergies,
+    pregnant,
   });
 
   return {
@@ -207,4 +231,112 @@ export async function loadMedicationSafety(
     medicationCount: inputs.length,
     allergies,
   };
+}
+
+/**
+ * Medication safety pathway 64.16-64.18: turns a contraindicated-severity
+ * finding from the existing advisory engine (drug-safety.ts) into a real
+ * clinician_alerts row, via the report_medication_safety_finding RPC
+ * (20260829143601) — so a genuine interaction/duplicate-therapy/allergy/renal
+ * conflict reaches the care team instead of waiting for someone to open
+ * MedicationSafetyPanel. Call this once, right after a clinician adds a new
+ * medication for a patient.
+ *
+ * Best-effort like assessBpControlBestEffort: never throws, never blocks the
+ * caller's own success response. The RPC itself requires the caller to be
+ * org staff for the patient's organisation — only call this from a path a
+ * clinician is actually driving (never from a patient's own self-add, even
+ * one attributed to a specialist), or it will silently no-op on the RPC's
+ * own authorisation check.
+ */
+export async function assessMedicationSafetyBestEffort(
+  supabase: SupabaseClient<Database>,
+  patientId: string,
+  organisationId: string,
+): Promise<void> {
+  try {
+    const { report } = await loadMedicationSafety(supabase, patientId);
+    const contraindicated = report.findings.filter((f) => f.severity === "contraindicated");
+    if (contraindicated.length === 0) return;
+
+    const typeCode = contraindicated.some((f) => f.kind === "interaction")
+      ? "potential_interaction"
+      : "medication_safety";
+
+    const title =
+      contraindicated.length === 1
+        ? contraindicated[0].title
+        : `${contraindicated.length} contraindicated medication safety findings`;
+    const detail = contraindicated.map((f) => `${f.title}: ${f.message}`).join("\n\n");
+
+    await supabase.rpc("report_medication_safety_finding", {
+      p_patient_id: patientId,
+      p_organisation_id: organisationId,
+      p_title: title,
+      p_detail: detail,
+      p_type_code: typeCode,
+    });
+  } catch {
+    // Advisory-only follow-up — a failed alert must never surface as a
+    // failure of the medication add itself. The safety panel still shows
+    // the finding even when this best-effort alert couldn't be raised.
+  }
+}
+
+export interface MedicationEffectivenessView {
+  medicationId: string;
+  drugName: string;
+  /** medications.created_at — the platform has no dedicated start_date column; this is the same proxy PrescriptionStatusTrail already uses for "Signed". */
+  startedAt: string;
+  /** Null means not enough readings on both sides of the start date yet — see computeMedicationEffectiveness. */
+  summary: MedicationEffectivenessSummary | null;
+}
+
+/**
+ * Medication safety pathway 64.11 — a per-patient before/after view for
+ * each active BP/glucose medication (see medication-effectiveness.ts for
+ * why the scope stops there). Reads the caller's own RLS-scoped client, so
+ * this returns the same answer whether a clinician or the patient
+ * themselves is asking.
+ */
+export async function loadMedicationEffectiveness(
+  supabase: SupabaseClient<Database>,
+  patientId: string,
+): Promise<MedicationEffectivenessView[]> {
+  const { data: medications } = await supabase
+    .from("medications")
+    .select("id, drug_name, created_at")
+    .eq("patient_id", patientId)
+    .eq("is_active", true);
+
+  const relevant = (medications ?? [])
+    .map((m) => ({ ...m, vitalType: medicationEffectivenessVitalType(m.drug_name) }))
+    .filter((m): m is typeof m & { vitalType: NonNullable<typeof m.vitalType> } => m.vitalType !== null);
+
+  if (relevant.length === 0) return [];
+
+  const vitalTypes = [...new Set(relevant.map((m) => m.vitalType))];
+  const { data: readings } = await supabase
+    .from("vitals_readings")
+    .select("vital_type, systolic, diastolic, glucose_mmol_l, taken_at")
+    .eq("patient_id", patientId)
+    .in("vital_type", vitalTypes)
+    .order("taken_at", { ascending: true });
+
+  return relevant.map((m) => {
+    const readingsForType = (readings ?? [])
+      .filter((r) => r.vital_type === m.vitalType)
+      .map((r) => ({
+        takenAt: r.taken_at,
+        systolic: r.systolic,
+        diastolic: r.diastolic,
+        glucoseMmolL: r.glucose_mmol_l,
+      }));
+    return {
+      medicationId: m.id,
+      drugName: m.drug_name,
+      startedAt: m.created_at,
+      summary: computeMedicationEffectiveness(m.vitalType, m.created_at, readingsForType),
+    };
+  });
 }

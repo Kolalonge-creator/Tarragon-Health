@@ -63,4 +63,30 @@ describe("deriveReferralPipelineStages", () => {
     expect(stateOf(stages, "finding_specialist")).toBe("skipped");
     expect(stateOf(stages, "monitoring_continues")).toBe("skipped");
   });
+
+  it("treats an uploaded outcome document as a received treatment plan", () => {
+    const stages = deriveReferralPipelineStages({
+      ...base,
+      urgency: "priority",
+      specialist_provider_id: "provider-1",
+      status: "completed",
+      booking_confirmed_at: "2026-08-01T00:00:00.000Z",
+      outcome_document_path: "patient-1/report.pdf",
+    });
+    expect(stateOf(stages, "treatment_plan_received")).toBe("complete");
+    expect(stateOf(stages, "monitoring_continues")).toBe("current");
+  });
+
+  it("marks the referral fully closed once status reaches closed", () => {
+    const stages = deriveReferralPipelineStages({
+      ...base,
+      urgency: "urgent",
+      specialist_provider_id: "provider-1",
+      status: "closed",
+      booking_confirmed_at: "2026-07-16T00:00:00.000Z",
+      treatment_plan_received_at: "2026-07-17T00:00:00.000Z",
+    });
+    expect(stateOf(stages, "monitoring_continues")).toBe("complete");
+    expect(stateOf(stages, "referral_closed")).toBe("complete");
+  });
 });

@@ -118,7 +118,7 @@ begin
 end;
 $$;
 
-revoke all on function public.wallet_kyc_balance_headroom(uuid) from public;
+revoke all on function public.wallet_kyc_balance_headroom(uuid) from public, anon;
 revoke all on function public.wallet_kyc_balance_headroom(uuid) from anon;
 grant execute on function public.wallet_kyc_balance_headroom(uuid) to authenticated;
 

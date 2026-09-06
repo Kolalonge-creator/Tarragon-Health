@@ -64,8 +64,8 @@ export const CHANNEL_HEROES: Record<ChannelHeroKey, ChannelHeroCopy> = {
     title: "You already send money home for health.",
     description:
       "What you don't get back is any way of knowing what it paid for. Buy a specific check instead: you know exactly what you bought, and you're told when they use it.",
-    primaryHref: MARKETING_ROUTES.pricing,
-    primaryLabel: "See diaspora pricing",
+    primaryHref: MARKETING_ROUTES.gift,
+    primaryLabel: "Gift a health check",
     secondaryHref: MARKETING_ROUTES.howPricingWorks,
     secondaryLabel: "How care vouchers work",
   },

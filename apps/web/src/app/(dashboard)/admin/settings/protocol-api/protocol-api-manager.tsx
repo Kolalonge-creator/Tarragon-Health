@@ -11,7 +11,16 @@ import {
   issueProtocolApiKeyAction,
   listProtocolApiKeysAction,
   revokeProtocolApiKeyAction,
+  setProtocolApiLicenseAction,
 } from "./actions";
+
+type LicenseTier = "up_to_10k" | "up_to_50k" | "unlimited";
+
+const TIER_LABEL: Record<LicenseTier, string> = {
+  up_to_10k: "Up to 10,000 calls/month",
+  up_to_50k: "Up to 50,000 calls/month",
+  unlimited: "Unlimited",
+};
 
 interface PartnerRow {
   organisation_id: string;
@@ -20,6 +29,10 @@ interface PartnerRow {
   active_key_count: number;
   calls_last_30_days: number;
   last_called_at: string | null;
+  tier: string | null;
+  monthly_price_kobo: number | null;
+  calls_included_per_month: number | null;
+  calls_this_month: number;
 }
 
 interface KeyRow {
@@ -33,6 +46,10 @@ interface KeyRow {
 
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleString("en-GB") : "never";
+}
+
+function formatNaira(kobo: number): string {
+  return `₦${(kobo / 100).toLocaleString()}`;
 }
 
 export function ProtocolApiManager({ partners }: { partners: PartnerRow[] }) {
@@ -91,6 +108,18 @@ export function ProtocolApiManager({ partners }: { partners: PartnerRow[] }) {
                     {p.active_key_count === 1 ? "" : "s"} · {p.calls_last_30_days} calls in the last
                     30 days · last called {formatDate(p.last_called_at)}
                   </p>
+                  <p className="text-xs text-charcoal-ink/50">
+                    {p.tier ? (
+                      <>
+                        {TIER_LABEL[p.tier as LicenseTier]} at {formatNaira(p.monthly_price_kobo ?? 0)}/month ·{" "}
+                        {p.calls_this_month}
+                        {p.calls_included_per_month ? ` / ${p.calls_included_per_month}` : ""} calls this
+                        month
+                      </>
+                    ) : (
+                      "No license set: calls are unrestricted"
+                    )}
+                  </p>
                 </div>
                 <Button
                   size="sm"
@@ -101,12 +130,113 @@ export function ProtocolApiManager({ partners }: { partners: PartnerRow[] }) {
                 </Button>
               </div>
               {expanded === p.organisation_id && (
-                <PartnerKeys organisationId={p.organisation_id} organisationName={p.name} />
+                <>
+                  <PartnerLicense
+                    organisationId={p.organisation_id}
+                    tier={p.tier as LicenseTier | null}
+                    monthlyPriceKobo={p.monthly_price_kobo}
+                    callsIncludedPerMonth={p.calls_included_per_month}
+                  />
+                  <PartnerKeys organisationId={p.organisation_id} organisationName={p.name} />
+                </>
               )}
             </div>
           ))}
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function PartnerLicense({
+  organisationId,
+  tier,
+  monthlyPriceKobo,
+  callsIncludedPerMonth,
+}: {
+  organisationId: string;
+  tier: LicenseTier | null;
+  monthlyPriceKobo: number | null;
+  callsIncludedPerMonth: number | null;
+}) {
+  const [selectedTier, setSelectedTier] = useState<LicenseTier>(tier ?? "up_to_10k");
+  const [priceNaira, setPriceNaira] = useState(String((monthlyPriceKobo ?? 0) / 100));
+  const [callsCap, setCallsCap] = useState(String(callsIncludedPerMonth ?? ""));
+  const [message, setMessage] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function handleSave() {
+    setMessage(null);
+    const price = Math.round(Number(priceNaira) * 100);
+    if (!Number.isFinite(price) || price < 0) {
+      setMessage("Enter a valid monthly price");
+      return;
+    }
+    const cap = selectedTier === "unlimited" ? null : Number(callsCap);
+    if (selectedTier !== "unlimited" && (!Number.isFinite(cap) || (cap as number) <= 0)) {
+      setMessage("Enter a valid monthly call cap for this tier");
+      return;
+    }
+    startTransition(async () => {
+      const result = await setProtocolApiLicenseAction({
+        organisationId,
+        tier: selectedTier,
+        monthlyPriceKobo: price,
+        callsIncludedPerMonth: cap,
+      });
+      if (result.error) setMessage(result.error);
+      else setMessage("Saved");
+    });
+  }
+
+  return (
+    <div className="mt-3 space-y-2 border-t border-mist-grey/60 pt-3">
+      <p className="text-sm font-medium text-charcoal-ink">Billing tier</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <div className="space-y-1">
+          <Label htmlFor={`tier-${organisationId}`}>Tier</Label>
+          <select
+            id={`tier-${organisationId}`}
+            value={selectedTier}
+            onChange={(e) => setSelectedTier(e.target.value as LicenseTier)}
+            className="h-9 rounded-md border border-charcoal-ink/20 bg-white px-2 text-sm"
+          >
+            {(Object.keys(TIER_LABEL) as LicenseTier[]).map((t) => (
+              <option key={t} value={t}>
+                {TIER_LABEL[t]}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1">
+          <Label htmlFor={`price-${organisationId}`}>Monthly price (₦)</Label>
+          <Input
+            id={`price-${organisationId}`}
+            type="number"
+            min={0}
+            value={priceNaira}
+            onChange={(e) => setPriceNaira(e.target.value)}
+            className="w-32"
+          />
+        </div>
+        {selectedTier !== "unlimited" && (
+          <div className="space-y-1">
+            <Label htmlFor={`cap-${organisationId}`}>Calls/month</Label>
+            <Input
+              id={`cap-${organisationId}`}
+              type="number"
+              min={1}
+              value={callsCap}
+              onChange={(e) => setCallsCap(e.target.value)}
+              className="w-28"
+            />
+          </div>
+        )}
+        <Button size="sm" onClick={handleSave} disabled={pending}>
+          {pending ? "Saving…" : "Save tier"}
+        </Button>
+      </div>
+      {message && <p className="text-sm text-charcoal-ink/60">{message}</p>}
     </div>
   );
 }
@@ -167,7 +297,7 @@ function PartnerKeys({
       {issuedKey && (
         <div className="space-y-1 rounded-md bg-amber-50 p-3">
           <p className="text-sm font-medium text-charcoal-ink">
-            Copy this key now — it won&apos;t be shown again.
+            Copy this key now. It won&apos;t be shown again.
           </p>
           <code className="block break-all rounded bg-white p-2 text-xs">{issuedKey}</code>
           <Button size="sm" variant="ghost" onClick={() => setIssuedKey(null)}>
@@ -197,7 +327,7 @@ function PartnerKeys({
         {(keys ?? []).map((k) => (
           <li key={k.id} className="flex items-center justify-between text-sm">
             <span>
-              {k.name} — <code className="text-xs">{k.key_prefix}…</code>
+              {k.name}: <code className="text-xs">{k.key_prefix}…</code>
               {k.revoked_at ? (
                 <Badge variant="grey" className="ml-2">
                   Revoked
