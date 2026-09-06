@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasScope, verifyApiKey } from "@/lib/integrations/api-key";
+import { checkProtocolApiQuota } from "@/lib/protocol-api/check-quota";
 import { logProtocolApiUsage } from "@/lib/protocol-api/log-usage";
 import { cvRiskSchema } from "@/lib/validation/protocol-api";
 import { assessCvRisk, PROVISIONAL_CV_RISK_CONFIG } from "@/lib/rules/cv-risk";
@@ -26,6 +27,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   if (!hasScope(verified, "protocol_api:classify")) {
     return NextResponse.json({ error: "API key lacks the protocol_api:classify scope" }, { status: 403 });
+  }
+  const quota = await checkProtocolApiQuota(verified);
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { error: `Monthly quota exceeded (${quota.used}/${quota.limit} calls) — contact your account manager.` },
+      { status: 429 }
+    );
   }
 
   let body: unknown;

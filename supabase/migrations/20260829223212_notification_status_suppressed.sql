@@ -1,0 +1,14 @@
+-- Spec §76.12 (patient channel preferences) and §76.14 (fatigue management)
+-- both need send-pending-notifications to deliberately NOT send a routine
+-- row on a given channel — either because the patient turned that channel
+-- off for the row's category, or because it was folded into one digest send
+-- instead of arriving separately. Neither case is 'sent' (nothing was
+-- attempted/delivered) or 'failed' (nothing went wrong) — the existing
+-- notification_status enum (pending/sent/delivered/failed/read) has no
+-- honest value for "deliberately not sent". Own migration: a freshly added
+-- enum value can't be used in the same transaction it's added in.
+--
+-- Scoped to priority='routine' rows only (see patient_notification_
+-- preferences' migration header) — nothing about the critical escalation
+-- engine changes; it never produces or reads this value.
+alter type public.notification_status add value if not exists 'suppressed';

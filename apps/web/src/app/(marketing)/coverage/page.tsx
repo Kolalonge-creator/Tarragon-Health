@@ -30,7 +30,11 @@ export const revalidate = 300;
 
 export default async function CoveragePage() {
   const coverage = await getServiceCoverage();
-  const partnerLocations = await getPartnerLocations();
+  const partnerResult = await getPartnerLocations();
+  const partnerLocations = partnerResult.locations;
+  // "We have no partners" and "we could not ask" are different sentences on a
+  // public page. Only the first is safe to print.
+  const partnersKnown = partnerResult.status === "ok";
   const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   // row.isActive is the state's own master rollout switch, which can be on
   // with zero partners actually contracted there (true of every state right
@@ -101,7 +105,7 @@ export default async function CoveragePage() {
         <SectionHeading
           eyebrow="Partner locations"
           title="Where our contracted partners are"
-          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab, home visit or delivery partner is the exception — a real relationship we hold, not just a listing. This map shows exactly where those partners are, once we have one."
+          description="Most of this page is self-arranged, so it needs no partner at all. A contracted lab, home visit or delivery partner is the exception: a real relationship we hold, not just a listing. This map shows exactly where those partners are, once we have one."
         />
         {mapsApiKey && partnerLocations.length > 0 && (
           <PartnerMap locations={partnerLocations} apiKey={mapsApiKey} />
@@ -123,16 +127,29 @@ export default async function CoveragePage() {
                       <span className="font-medium text-charcoal-ink">
                         {location.name}
                       </span>{" "}
-                      — {PARTNER_TYPE_DESCRIPTION[location.type]},{" "}
+                      ({PARTNER_TYPE_DESCRIPTION[location.type]}),{" "}
                       {location.address}
                     </li>
                   ))}
                 </ul>
               </>
-            ) : (
+            ) : partnersKnown ? (
               <p className="text-sm text-charcoal-ink/70">
                 We haven&apos;t activated a contracted lab, home visit or
-                delivery partner yet — check back, or{" "}
+                delivery partner yet. Check back, or{" "}
+                <Link href="/contact" className="underline">
+                  ask us
+                </Link>{" "}
+                and we will tell you exactly what is live where you need it.
+              </p>
+            ) : (
+              // The read failed, so we do not know the answer. Saying "none
+              // yet" here would be a confident negative claim produced by a
+              // network blip, and would contradict the partner-laboratory
+              // wording on the pricing page.
+              <p className="text-sm text-charcoal-ink/70">
+                We couldn&apos;t load our partner list just now. Please refresh
+                in a moment, or{" "}
                 <Link href="/contact" className="underline">
                   ask us
                 </Link>{" "}
@@ -165,10 +182,10 @@ export default async function CoveragePage() {
       </Section>
 
       <CtaBand
-        title="Not sure which plan fits?"
+        title="Not sure what anything costs?"
         description="If you are paying from abroad for a parent at home, you can also fund their care directly and see what every payment bought."
         primaryHref="/pricing"
-        primaryLabel="See plans and prices"
+        primaryLabel="See the price list"
         secondaryHref="/contact"
         secondaryLabel="Ask us about your state"
       />

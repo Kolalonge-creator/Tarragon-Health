@@ -53,7 +53,7 @@ function ProposeAlternatesForm({ request, onDone }: { request: QueueRequest; onD
       <p className="text-xs font-medium text-charcoal-ink">Offer up to 3 alternate times</p>
       {openSlots.length === 0 && (
         <p className="text-xs text-charcoal-ink/60">
-          You have no other open published times right now — publish one on this page first.
+          You have no other open published times right now. Publish one on this page first.
         </p>
       )}
       <div className="flex flex-wrap gap-3">
@@ -216,7 +216,7 @@ export function VideoVisitRequestQueue() {
         <p className="mb-3 text-xs text-charcoal-ink/60">
           Patients have already paid for these; the money is held until a time is confirmed.
           Accept their requested time, propose different times that work better for you, or
-          decline with a reason — either way, respond within 48 hours or the patient is
+          decline with a reason. Either way, respond within 48 hours or the patient is
           refunded automatically.
         </p>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

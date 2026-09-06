@@ -68,6 +68,15 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function timeAgo(iso: string): string {
+  const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60_000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 function UploadPanel({ patients }: { patients: LiaisonPatient[] }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
@@ -277,7 +286,7 @@ function RecentUploads({ recent }: { recent: RecentUpload[] }) {
                     </p>
                     <p className="truncate text-xs text-charcoal-ink/60">
                       {doc.originalFilename ?? "result"} · {SOURCE_LABEL[doc.source] ?? doc.source} ·{" "}
-                      {new Date(doc.createdAt).toLocaleDateString()}
+                      {new Date(doc.createdAt).toLocaleDateString()} · {timeAgo(doc.createdAt)}
                       {doc.note ? ` · ${doc.note}` : ""}
                     </p>
                   </div>

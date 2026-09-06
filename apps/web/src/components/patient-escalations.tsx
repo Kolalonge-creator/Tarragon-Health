@@ -16,7 +16,7 @@ const PATIENT_STATUS_COPY: Record<EscalationStatus, string> = {
 };
 
 function formatDate(createdAt: string): string {
-  return new Date(createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(createdAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**
@@ -48,15 +48,15 @@ export async function PatientEscalations({ patientId }: { patientId: string }) {
         {escalations.map((escalation) => (
           <div
             key={escalation.id}
-            className="space-y-1 border-b border-charcoal-ink/10 pb-4 last:border-0 last:pb-0"
+            className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-4 last:border-0 last:pb-0"
           >
             <div className="flex items-baseline justify-between gap-2">
-              <p className="text-sm text-charcoal-ink">{escalation.reason}</p>
-              <p className="shrink-0 text-xs text-charcoal-ink/50">
+              <p className="text-sm text-charcoal-ink dark:text-night-ink">{escalation.reason}</p>
+              <p className="shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                 {formatDate(escalation.created_at)}
               </p>
             </div>
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {PATIENT_STATUS_COPY[escalation.status]}
             </p>
             {(() => {
@@ -65,7 +65,7 @@ export async function PatientEscalations({ patientId }: { patientId: string }) {
                 escalation.clinician_alert?.sla_due_at ?? null
               );
               return nextStep ? (
-                <p className="text-xs text-charcoal-ink/50">{nextStep}</p>
+                <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{nextStep}</p>
               ) : null;
             })()}
             <ReviewedByDoctor escalationId={escalation.id} />

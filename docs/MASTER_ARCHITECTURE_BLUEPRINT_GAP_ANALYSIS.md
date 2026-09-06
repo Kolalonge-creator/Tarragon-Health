@@ -17,6 +17,17 @@ out explicitly — this doc does not license building past those guardrails.**
 Legend: **Built** / **Partial** / **Missing** / **N/A-by-design** (blueprint concept doesn't apply
 because Tarragon deliberately chose a different, equally valid shape).
 
+**Stale warning, added 2026-09-03 — re-verify every row below before trusting it.** On 2026-09-02,
+roughly 70 previously-built feature branches merged into `main-dev` in a single day, closing a large
+fraction of exactly the Missing/Partial gaps this document lists — four days after this snapshot was
+taken. `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s 2026-08-31 to 2026-09-03 entry (§7) lists the modules
+that landed that day; several map directly onto rows below (Referral Management Engine + Specialist
+Network foundations, Clinical Rules & Care Protocol Engine reconciliation, Interoperability & API
+Platform, AI Governance dashboard, Predictive Risk & Early Warning Engine, and more). That same entry
+explicitly states the ~65 PRs in that merge were **not** individually re-audited against every
+guardrail — so treat any specific row here as unverified until checked directly, not as either
+confirmed-stale or confirmed-current.
+
 ---
 
 ## 1. Experience Layer & API Architecture
@@ -54,13 +65,15 @@ capability they describe does, just collapsed into the Next.js+Supabase pairing.
 | Named domain events (PatientRegistered, AbnormalResultReceived, etc.) | **Missing** | Zero matches for any of the 10 blueprint event names anywhere in `apps/web/src` or `supabase/`; no message-bus/broker product exists at all |
 | Care Orchestration Engine | **Partial** | One real, fully generalized instance: `supabase/functions/abnormal-result-handler/index.ts` (trigger → draft care plan/referral → alert clinician → force-escalating patient notification). **Not generalized** — the parallel BP/SpO2/temperature red-flag engines only insert alerts, they never draft a care plan or run a review loop |
 | Rules Engine | **Built** | `alert_rules` table (`20260828013011`) is genuinely versioned, jsonb-configured, Clinical-Director-signed, and in **live runtime use** across 15 alert types (`private.alert_rule_config()` called from 3+ migrations). Same governed pattern for `escalation_slas`, `cv_risk_config`, `protocol_versions`. Caveat: alert *severity* itself stays hardcoded in trigger logic by deliberate design ("so the two can never drift") |
-| Workflow Engine (durable, long-running) | **Partial** | One real timeout-driven ladder exists: `private.escalate_unacknowledged_clinician_alerts()` (pg_cron, 3-hop escalation). The referral pipeline (`referral_status` enum, 8 values) is a **status column, not a state machine** — no cron job nudges a stuck referral forward, no wait-for-acceptance/appointment/report chaining |
+| Workflow Engine (durable, long-running) | **Partial, grown since this snapshot** | One real timeout-driven ladder exists: `private.escalate_unacknowledged_clinician_alerts()` (pg_cron, 3-hop escalation). The referral pipeline (`referral_status` enum) has grown from 8 to **10 values** since this row was written (`draft`, `closed` added) via PR #338 "Build Referral Management Engine, recover 20 orphaned migrations" and PR #336 "Specialist Network & Provider Platform foundations," both merged 2026-09-02 — see the archive's 2026-08-28/2026-08-29/2026-09-03 Referral Management Engine entries. |
 
-**⚠️ Direct guardrail collision:** the blueprint's referral example (accept → appointment →
-consultation → report → follow-up) is exactly the "full specialist-matching engine + 8-stage
-referral-status pipeline" that CLAUDE.md's Clinical Tier Ladder section lists as **Phase 2/3 —
-never build functional code for this without an explicit ask**. Do not use this blueprint as
-justification to build it.
+**⚠️ Direct guardrail collision — re-checked, still holding.** The blueprint's referral example
+(accept → appointment → consultation → report → follow-up) is exactly the "full specialist-matching
+engine + 8-stage referral-status pipeline" that CLAUDE.md's Clinical Tier Ladder section lists as
+**Phase 2/3 — never build functional code for this without an explicit ask**. This guardrail was
+explicitly re-checked against PRs #336/#338 above by the sessions doing that work, and confirmed
+still holding — provider listing stays a plain filter, no ranking logic crossed in (see the archive's
+2026-08-31/2026-09-03 catch-up entry, §7). Do not use this blueprint as justification to build past it.
 
 ---
 
@@ -177,6 +190,44 @@ not against a blank slate.
 7. **§79.2/§79.3 category + format expansion** — exercise/sleep/vaccination as real categories;
    audio/infographic content types — only after (1)–(6), since format/taxonomy churn is cheapest
    to redo once, not repeatedly.
+
+### Build status — 2026-08-30 (worktree `worktree-health-education-content-platform-79`, off `main-dev`)
+
+All 7 items above were closed the same day, on explicit founder confirmation to reverse both
+locked-decision collisions ("Yes, reverse both"). Built in an isolated worktree; every migration
+applied to the shared Supabase remote via `apply_migration` (recorded in `schema_migrations`) and
+committed as local files; every DB behaviour proven via a rolled-back-transaction test with
+positive AND negative controls (`packages/db/tests/health_education_content_platform_79_gap_closure.sql`);
+`pnpm typecheck`/`lint`/`test` clean across `apps/web` and `packages/shared` throughout.
+
+**Mid-build discovery, reconciled rather than duplicated:** a concurrent session/worktree had
+*already* shipped a substantial, overlapping piece of this same gap set directly to the shared
+remote project — `health_education_content` already carried `audio_url`/`reading_level`/`category`
+/`clinical_author_name`/`evidence_source`/`version`/`approved_at`/`review_due_at`; a full
+`health_education_content_versions` snapshot-history table; `health_education_feedback`; and,
+critically, `health_education_programmes`/`health_education_programme_modules` with real
+`health_education_programmes_list()`/`health_education_programme_detail()` RPCs — already seeded
+with `hypertension_education_programme` and `diabetes_education_programme` (a plain week-by-week
+mirror of the drip curriculum, not the named-lesson syllabus the blueprint's example describes).
+None of that work exists yet in `packages/shared/src/database.types.ts`'s consuming TS code on
+`main-dev` (no `apps/web/src` file referenced any of it) — this session added the first TS/UI
+surface for it, rather than rebuilding the schema. `packages/shared/src/database.types.ts` was
+hand-patched (not regenerated) for exactly the tables/columns/functions this session touched, to
+avoid pulling in the separately-tracked ~122-table type-generation drift (see
+`reference_rpc_args_null_typegen_regression` memory).
+
+| Gap | Status | Notes |
+|---|---|---|
+| Two locked-decision collisions | ✅ decided | Founder: "Yes, reverse both" — recorded in `docs/archive/HEALTH_EDUCATION_PATHWAY_SPEC.md`'s 2026-08-30 correction note |
+| §79.9 language | ✅ built + verified | `health_education_translations` table (human-authored only, no auto-translate — see the migration header on the clinical-accuracy risk of generating Pidgin/Yoruba/Hausa/Igbo medical guidance); `health_education_feed()`/`library()`/`programme_detail()` coalesce to it by `profiles.language`, falling back to English. **Zero rows seeded** — an admin authoring UI exists (in `health-education-manager.tsx`'s Manage panel), but populating real translations is a founder/clinical-team task, same `[LOCALISE]` class as partner formularies and emergency numbers elsewhere in this repo |
+| §79.10/§79.11 governance + lifecycle | ✅ built + verified | New `health_education_content_status` enum (draft → clinical_review → approved → published → review_due → updated) + `author_name`/`content_version`/`source_reference`/`next_review_due`; `is_active` is now DERIVED from `content_status` by trigger, not independently settable; full transition audit trail (`health_education_content_status_history`); a `draft<->published` direct edge was added as a deliberate escape hatch so the pre-existing admin "Hide/Publish" instant toggle keeps working alongside the new documented-review-trail path |
+| §79.12 protocol-change → content flag | ✅ built + verified | `private.health_education_flag_content_on_protocol_change()` trigger on `protocol_versions`; verified live via a real Clinical-Director-simulated session bumping a protocol version — matching condition's published content flags to `review_due` with an audit note, unrelated conditions provably untouched |
+| §79.13 event-triggered surfacing | ✅ built + verified | `health_education_trigger_mappings` (data-driven, admin-editable) + `health_education_recommendations`, hooked via triggers on `medications` (new active medication) and `screening_results` (non-empty `abnormal_flags`) — **not** the abnormal-result-handler Edge Function itself, to avoid touching the platform's single highest-priority safety pipeline. First seed was too broad (recommended all 14 generic medicines-category articles for one new prescription — caught live in testing, since corrected to 3 curated articles via `target_content_id`); verified with positive AND negative controls (inactive medication, unmapped flag) |
+| §79.7 health-literacy self-assessment | ✅ built + verified | `health_literacy_assessments` (1-5 self-rating, patient-owned, RLS-scoped); feeds `health_education_feed()`'s ordering only (surfaces `getting_started` content first for a low-confidence rating) — never `patient_risk_scores` or escalation, preserving locked decision #1 |
+| §79.2/§79.3 category + format expansion | ✅ built + verified | `exercise`/`sleep`/`vaccination` added to `health_education_category`; existing content retagged (not duplicated) using codes confirmed live, including several added by the concurrent session (`heart-sleep-apnoea`, `ob-exercise-*`, `screen-hpv-vaccine`). Content-format enum (`article`/`video`/`audio`/`infographic`/`faq`/`quiz`/`interactive_module`) was **already live** from the concurrent session; this pass added the first patient-UI rendering for `audio` (an inline player) and status badges for the rest |
+| §79.6 named pathways (reversal) | ✅ verified, first TS surface added | Schema/RPCs/seed data pre-existed (see discovery note above); this session added `useHealthEducationProgrammes`/`useHealthEducationProgrammeDetail` and a "Learning pathways" section in the patient UI, plus language coalescing in `health_education_programme_detail()` |
+| §79.14 learn→goal→track (reversal) | ✅ built + verified | **No new goal table.** A nullable `care_plan_goals.source_content_id` links a goal to the lesson that inspired it; the patient UI's new "Set a goal based on this" flow inserts via the *existing* `care_plan_goals_patient_propose_insert` RLS policy (status='proposed', clinician-approved like any other patient-sourced goal) — verified end-to-end in a rolled-back transaction. Deliberately does not touch or merge the separate, still-unmerged sodium-budget-meter branch |
+| Browser/UI verification | 🔒 not done this session | A concurrent chat's Next.js dev server held a cross-worktree lock this session couldn't safely clear without risking that session's work; all verification here is `pnpm typecheck`/`lint`/`test` (all green) plus real rolled-back-transaction SQL proofs, not a live click-through. Worth a real browser pass before this is considered patient-facing-ready |
 
 ---
 

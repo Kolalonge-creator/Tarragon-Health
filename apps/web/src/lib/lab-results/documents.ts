@@ -32,6 +32,11 @@ export interface ResultDocumentView {
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
   isPdf: boolean;
+  /** Module 57.14 — set when THIS document is a correction of an earlier one. */
+  supersedesDocumentId: string | null;
+  /** Module 57.14 — set (server-derived) when a LATER document corrected this one. The original stays fully visible; this is a pointer, not a delete. */
+  supersededByDocumentId: string | null;
+  supersededAt: string | null;
 }
 
 /**
@@ -60,7 +65,7 @@ export async function loadResultDocuments(
   const { data: rows } = await supabase
     .from("lab_result_documents")
     .select(
-      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at",
+      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at, supersedes_document_id, superseded_by_document_id, superseded_at",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -85,6 +90,9 @@ export async function loadResultDocuments(
       actionCompletedAt: row.action_completed_at,
       signedUrl: await signResultDocumentPath(row.file_path),
       isPdf: row.mime_type === "application/pdf",
+      supersedesDocumentId: row.supersedes_document_id,
+      supersededByDocumentId: row.superseded_by_document_id,
+      supersededAt: row.superseded_at,
     })),
   );
 }

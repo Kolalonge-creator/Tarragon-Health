@@ -1,7 +1,11 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useLabPartnerOrders, useLabPartnerUploadResult } from "@/lib/queries/lab-partner";
+import {
+  useLabPartnerOrders,
+  useLabPartnerRejectSample,
+  useLabPartnerUploadResult,
+} from "@/lib/queries/lab-partner";
 import {
   RESULT_DOC_ACCEPT,
   validateResultDocFile,
@@ -31,17 +35,39 @@ const STATUS_VARIANT: Record<string, "green" | "amber" | "blue" | "grey"> = {
   processing: "blue",
   resulted: "green",
   cancelled: "grey",
+  sample_rejected: "grey",
 };
+
+// A sample can only be rejected once it has actually been collected —
+// mirrors lab_partner_reject_sample's own status guard.
+const REJECTABLE_STATUSES = new Set(["sample_collected", "processing"]);
 
 function OrderCard({ order }: { order: OrderRow }) {
   const [expanded, setExpanded] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [note, setNote] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const upload = useLabPartnerUploadResult();
+  const rejectSample = useLabPartnerRejectSample();
 
-  const done = order.status === "resulted" || order.status === "cancelled";
+  const done =
+    order.status === "resulted" || order.status === "cancelled" || order.status === "sample_rejected";
+
+  function handleReject() {
+    if (!rejectionReason.trim()) return;
+    rejectSample.mutate(
+      { orderId: order.order_id, reason: rejectionReason.trim() },
+      {
+        onSuccess: () => {
+          setRejecting(false);
+          setRejectionReason("");
+        },
+      },
+    );
+  }
 
   function handleUpload() {
     setValidationError(null);
@@ -81,23 +107,72 @@ function OrderCard({ order }: { order: OrderRow }) {
       <p className="text-xs text-charcoal-ink/60">{order.panel_name ?? "Lab test"}</p>
 
       {done ? (
-        <p className="text-xs text-brand-green">
-          {order.status === "resulted"
-            ? "Result uploaded."
-            : "This order was cancelled."}
+        <p className={order.status === "sample_rejected" ? "text-xs text-charcoal-ink/60" : "text-xs text-brand-green"}>
+          {order.status === "resulted" && "Result uploaded."}
+          {order.status === "cancelled" && "This order was cancelled."}
+          {order.status === "sample_rejected" && "Sample rejected. The patient has been notified."}
         </p>
       ) : (
         <>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-xs text-charcoal-ink/70"
-            onClick={() => setExpanded((v) => !v)}
-            aria-expanded={expanded}
-          >
-            {expanded ? "Hide" : "Upload result"}
-          </Button>
+          <div className="flex flex-wrap gap-1">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs text-charcoal-ink/70"
+              onClick={() => {
+                setExpanded((v) => !v);
+                setRejecting(false);
+              }}
+              aria-expanded={expanded}
+            >
+              {expanded ? "Hide" : "Upload result"}
+            </Button>
+            {REJECTABLE_STATUSES.has(order.status) && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-7 px-2 text-xs text-red-600 hover:text-red-700"
+                onClick={() => {
+                  setRejecting((v) => !v);
+                  setExpanded(false);
+                }}
+                aria-expanded={rejecting}
+              >
+                {rejecting ? "Hide" : "Reject sample"}
+              </Button>
+            )}
+          </div>
+
+          {rejecting && (
+            <div className="space-y-2 rounded-md bg-red-50 p-3">
+              <div className="space-y-1.5">
+                <Label htmlFor={`reject_reason_${order.order_id}`} className="text-xs">
+                  Why was the sample rejected?
+                </Label>
+                <Textarea
+                  id={`reject_reason_${order.order_id}`}
+                  placeholder="e.g. Haemolysed sample, insufficient volume, wrong tube"
+                  value={rejectionReason}
+                  onChange={(e) => setRejectionReason(e.target.value)}
+                  rows={2}
+                  className="text-xs"
+                />
+              </div>
+              {rejectSample.error && (
+                <p className="text-xs text-red-600">{(rejectSample.error as Error).message}</p>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={rejectSample.isPending || !rejectionReason.trim()}
+                onClick={handleReject}
+              >
+                {rejectSample.isPending ? "Recording…" : "Confirm rejection"}
+              </Button>
+            </div>
+          )}
 
           {expanded && (
             <div className="space-y-2 rounded-md bg-charcoal-ink/5 p-3">

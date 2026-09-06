@@ -10,9 +10,10 @@ const buttonVariants = cva(
       variant: {
         default: "bg-brand-green text-white hover:bg-brand-green/90",
         outline:
-          "border border-charcoal-ink/20 bg-transparent text-charcoal-ink hover:bg-charcoal-ink/5",
-        ghost: "text-charcoal-ink hover:bg-charcoal-ink/5",
-        link: "text-brand-green underline-offset-4 hover:underline",
+          "border border-charcoal-ink/20 bg-transparent text-charcoal-ink hover:bg-charcoal-ink/5 dark:border-night-ink/25 dark:text-night-ink dark:hover:bg-night-ink/10",
+        ghost:
+          "text-charcoal-ink hover:bg-charcoal-ink/5 dark:text-night-ink dark:hover:bg-night-ink/10",
+        link: "text-brand-green underline-offset-4 hover:underline dark:text-brand-green-bright",
       },
       size: {
         default: "h-10 px-4 py-2",

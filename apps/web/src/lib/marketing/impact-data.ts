@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { marketingAnonClient as anonClient } from "./anon-client";
 
 /**
  * Public "impact" dashboard data (M8: public outcomes dashboard). Reads
@@ -16,13 +16,6 @@ export interface ImpactMetric {
   value: number | null;
   suppressed: boolean;
   computedAt: string | null;
-}
-
-function anonClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
 }
 
 export async function loadImpactMetrics(): Promise<ImpactMetric[]> {

@@ -56,7 +56,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_create_institution_org(text, text) from public;
+revoke all on function public.admin_create_institution_org(text, text) from public, anon;
 grant execute on function public.admin_create_institution_org(text, text) to authenticated;
 revoke execute on function public.admin_create_institution_org(text, text) from anon;
 

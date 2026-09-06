@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
 import { CommissionRateEditor } from "@/components/admin/commission-rate-editor";
 import { PartnerLicenseBadge, PartnerLicenseEditor } from "@/components/admin/partner-license-fields";
+import { SearchableList } from "@/components/ui/searchable-list";
 import {
   useAllPharmacyPartners,
   useCreatePharmacyPartner,
@@ -39,7 +40,7 @@ const ONBOARDING_LABEL: Record<string, string> = {
   location_verification: "Location verification",
   service_configuration: "Service configuration",
   integration_testing: "Integration testing",
-  approved: "Approved — ready to activate",
+  approved: "Approved (ready to activate)",
   activated: "Activated",
   rejected: "Rejected",
 };
@@ -81,7 +82,7 @@ function PharmacyOnboardingPanel({ pharmacy }: { pharmacy: PharmacyPartner }) {
         )}
         {status === "location_verification" && (
           <span className="text-xs text-amber-800">
-            {(locations ?? []).some((l) => l.verified_at) ? "Has a verified location." : "Needs a verified location — see below."}
+            {(locations ?? []).some((l) => l.verified_at) ? "Has a verified location." : "Needs a verified location (see below)."}
           </span>
         )}
       </div>
@@ -90,13 +91,13 @@ function PharmacyOnboardingPanel({ pharmacy }: { pharmacy: PharmacyPartner }) {
         <ul className="space-y-1">
           {(locations ?? []).length === 0 && (
             <li className="text-xs text-charcoal-ink/50">
-              No branch locations yet — add one via this pharmacy&apos;s own self-service page first.
+              No branch locations yet. Add one via this pharmacy&apos;s own self-service page first.
             </li>
           )}
           {(locations ?? []).map((loc) => (
             <li key={loc.id} className="flex items-center justify-between gap-2 text-xs">
               <span>
-                {loc.name} — {[loc.address, loc.state].filter(Boolean).join(", ")}
+                {loc.name}, {[loc.address, loc.state].filter(Boolean).join(", ")}
                 {loc.verified_at && <Badge variant="green" className="ml-1.5">Verified</Badge>}
               </span>
               {!loc.verified_at && (
@@ -255,10 +256,10 @@ function PharmacyCommissionRates() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pharmacy medications — commission rates</CardTitle>
+        <CardTitle>Pharmacy medications: commission rates</CardTitle>
         <CardDescription>
           This is what actually drives every &quot;pharmacy&quot; commission on the Commissions
-          dashboard — computed per medication at order time, not from the pharmacy partner
+          dashboard: computed per medication at order time, not from the pharmacy partner
           itself. Changing a rate here only affects orders placed after the change.
         </CardDescription>
       </CardHeader>
@@ -389,7 +390,7 @@ function PartnerLoginLinker({
         </div>
       ) : (
         <p className="text-xs text-charcoal-ink/50">
-          No unlinked pharmacist logins available — provision one at{" "}
+          No unlinked pharmacist logins available. Provision one at{" "}
           <span className="font-medium">Admin → Members</span> (role: Pharmacist) first.
         </p>
       )}
@@ -418,7 +419,7 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
         <CardHeader>
           <CardTitle>Add a pharmacy partner</CardTitle>
           <CardDescription>
-            Starts the onboarding pipeline (application → verification → activation, below) — a
+            Starts the onboarding pipeline (application → verification → activation, below). A
             new partner is never immediately active. Contact phone/email lets a partner pharmacy
             be notified of orders without logging in.
           </CardDescription>
@@ -500,51 +501,62 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
         <CardContent className="space-y-2">
           {isLoading ? (
             <p className="text-sm text-charcoal-ink/60">Loading…</p>
-          ) : (pharmacies ?? []).length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">No pharmacies yet.</p>
           ) : (
-            (pharmacies ?? []).map((ph) => (
-              <div key={ph.id} className="space-y-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="font-medium text-charcoal-ink">{ph.name}</span>
-                    <Badge variant={ph.is_active ? "green" : "grey"}>{ph.is_active ? "Active" : "Inactive"}</Badge>
-                    {ph.delivery && <Badge variant="blue">Delivery</Badge>}
-                    <PartnerLicenseBadge expiresAt={ph.license_expires_at} />
-                    {(ph.state || ph.city) && (
-                      <span className="text-xs text-charcoal-ink/50">{[ph.city, ph.state].filter(Boolean).join(", ")}</span>
+            <SearchableList
+              items={pharmacies ?? []}
+              filterFn={(ph, q) =>
+                ph.name.toLowerCase().includes(q) ||
+                (ph.city ?? "").toLowerCase().includes(q) ||
+                (ph.state ?? "").toLowerCase().includes(q) ||
+                (ph.license_number ?? "").toLowerCase().includes(q) ||
+                (ph.license_type ?? "").toLowerCase().includes(q) ||
+                (ph.delivery && "delivery".includes(q))
+              }
+              searchPlaceholder="Search pharmacies by name, city, state, or license…"
+              emptyMessage="No pharmacies yet."
+              renderItem={(ph) => (
+                <div key={ph.id} className="space-y-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-medium text-charcoal-ink">{ph.name}</span>
+                      <Badge variant={ph.is_active ? "green" : "grey"}>{ph.is_active ? "Active" : "Inactive"}</Badge>
+                      {ph.delivery && <Badge variant="blue">Delivery</Badge>}
+                      <PartnerLicenseBadge expiresAt={ph.license_expires_at} />
+                      {(ph.state || ph.city) && (
+                        <span className="text-xs text-charcoal-ink/50">{[ph.city, ph.state].filter(Boolean).join(", ")}</span>
+                      )}
+                    </div>
+                    {(ph.onboarding_status ?? "application") === "activated" && (
+                      <Button
+                        variant="outline"
+                        disabled={toggle.isPending}
+                        onClick={() => toggle.mutate({ id: ph.id, isActive: !ph.is_active })}
+                      >
+                        {ph.is_active ? "Deactivate" : "Activate"}
+                      </Button>
                     )}
                   </div>
-                  {(ph.onboarding_status ?? "application") === "activated" && (
-                    <Button
-                      variant="outline"
-                      disabled={toggle.isPending}
-                      onClick={() => toggle.mutate({ id: ph.id, isActive: !ph.is_active })}
-                    >
-                      {ph.is_active ? "Deactivate" : "Activate"}
-                    </Button>
+                  {ph.license_number && (
+                    <p className="text-xs text-charcoal-ink/50">
+                      {ph.license_type ?? "License"}: {ph.license_number}
+                    </p>
                   )}
+                  {!["activated", "rejected"].includes(ph.onboarding_status ?? "application") && (
+                    <PharmacyOnboardingPanel pharmacy={ph} />
+                  )}
+                  {ph.onboarding_status === "rejected" && (
+                    <p className="text-xs text-red-600">Rejected: {ph.rejection_reason}</p>
+                  )}
+                  <PartnerLicenseEditor
+                    values={ph}
+                    saving={updateLicense.isPending}
+                    onSave={(next) => updateLicense.mutate({ id: ph.id, ...next })}
+                  />
+                  <PartnerLoginLinker pharmacy={ph} logins={pharmacistLogins} />
+                  <AddPharmacyMedicationForm pharmacyId={ph.id} />
                 </div>
-                {ph.license_number && (
-                  <p className="text-xs text-charcoal-ink/50">
-                    {ph.license_type ?? "License"}: {ph.license_number}
-                  </p>
-                )}
-                {!["activated", "rejected"].includes(ph.onboarding_status ?? "application") && (
-                  <PharmacyOnboardingPanel pharmacy={ph} />
-                )}
-                {ph.onboarding_status === "rejected" && (
-                  <p className="text-xs text-red-600">Rejected: {ph.rejection_reason}</p>
-                )}
-                <PartnerLicenseEditor
-                  values={ph}
-                  saving={updateLicense.isPending}
-                  onSave={(next) => updateLicense.mutate({ id: ph.id, ...next })}
-                />
-                <PartnerLoginLinker pharmacy={ph} logins={pharmacistLogins} />
-                <AddPharmacyMedicationForm pharmacyId={ph.id} />
-              </div>
-            ))
+              )}
+            />
           )}
         </CardContent>
       </Card>
