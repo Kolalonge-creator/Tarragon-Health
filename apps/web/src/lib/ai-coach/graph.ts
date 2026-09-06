@@ -16,8 +16,10 @@ import {
   COACH_UNAVAILABLE_REPLY,
   DISCLAIMER_LINE,
   EMERGENCY_SAFETY_REPLY,
+  SYMPTOM_SUGGESTION_INTRO,
 } from "./prompts";
 import { detectEmergencyKeywords } from "./keyword-guardrail";
+import { matchSymptomClustersFromText } from "@/lib/symptom-check/symptom-clusters";
 import { loadPatientContext } from "./context";
 import { logAiCoachEscalation, logAiCoachReviewFlag } from "./escalate";
 import { buildAnthropicModel, getConfiguredModelId } from "./model";
@@ -136,6 +138,28 @@ export interface CoachGraphDeps {
    * means "no embedder configured" — content retrieval is skipped
    * gracefully, same no-op contract as populateContentEmbeddings. */
   embedder?: Embedder | null;
+}
+
+/**
+ * Appends a fixed, clinician-authored test suggestion to an already-decided
+ * non-emergency reply, if `incomingMessage` matches one of the curated
+ * clusters in lib/symptom-check/symptom-clusters.ts. The LLM never decides
+ * this — a deterministic regex match against clinician-authored data does,
+ * same principle as EMERGENCY_SAFETY_REPLY being appended rather than
+ * generated. Callers must only invoke this once a message is already
+ * confirmed non-emergency (both by keywordGuardrail and by the LLM's own
+ * tier), since this function does no emergency classification of its own.
+ */
+export function appendSymptomSuggestion(reply: string, incomingMessage: string): string {
+  const clusters = matchSymptomClustersFromText(incomingMessage);
+  if (clusters.length === 0) return reply;
+  const suggestions = clusters
+    .map(
+      (cluster) =>
+        `${cluster.name}: ${cluster.patientExplanation} You can request this test in the app, or book a doctor's consultation first if you'd rather talk it through before testing.`
+    )
+    .join("\n\n");
+  return `${reply}\n\n${SYMPTOM_SUGGESTION_INTRO}\n\n${suggestions}`;
 }
 
 /** Builds the AI Coach's LangGraph turn:
@@ -435,7 +459,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
       }
       return {
         tier: result.tier,
-        reply: `${result.reply}\n\n${DISCLAIMER_LINE}`,
+        reply: appendSymptomSuggestion(`${result.reply}\n\n${DISCLAIMER_LINE}`, state.incomingMessage),
         suggestedAction: result.suggestedAction,
         modelId,
         retrievedSourceIds,
