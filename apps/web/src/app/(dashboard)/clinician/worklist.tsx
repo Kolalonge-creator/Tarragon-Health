@@ -9,7 +9,6 @@ import {
   useSnoozeAlert,
   useResolveAlert,
   useAlertTrend,
-  severityBucket,
   type AlertResolutionOutcome,
 } from "@/lib/queries/clinician-alerts";
 import { useEscalateAlert } from "@/lib/queries/escalations";
@@ -29,18 +28,6 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import type { EscalationLevel } from "@tarragon/shared";
 
 const ESCALATABLE_LEVELS = new Set(["urgent_escalation", "emergency"]);
-
-/** 8.8's inbox wireframe: URGENT / HIGH / ROUTINE bucketed counts, straight off severity (8.2). */
-const SEVERITY_BUCKET_LABEL: Record<ReturnType<typeof severityBucket>, string> = {
-  urgent: "URGENT",
-  high: "HIGH",
-  routine: "ROUTINE",
-};
-const SEVERITY_BUCKET_TINT: Record<ReturnType<typeof severityBucket>, { tintClassName: string; iconClassName: string }> = {
-  urgent: SEVERITY_TILE_TINT.red,
-  high: SEVERITY_TILE_TINT.amber,
-  routine: SEVERITY_TILE_TINT.grey,
-};
 
 const RESOLUTION_OUTCOME_LABEL: Record<AlertResolutionOutcome, string> = {
   true_positive: "True positive (real concern)",
@@ -95,37 +82,14 @@ export function Worklist() {
     {} as Partial<Record<EscalationLevel, number>>
   );
 
-  const countsBySeverityBucket = (data ?? []).reduce(
-    (acc, alert) => {
-      const bucket = severityBucket(alert.severity);
-      acc[bucket] = (acc[bucket] ?? 0) + 1;
-      return acc;
-    },
-    {} as Partial<Record<ReturnType<typeof severityBucket>, number>>
-  );
-
   return (
     <div className="space-y-4">
-      {/* 8.8 inbox summary: URGENT n / HIGH n / ROUTINE n */}
+      {/* One summary row, in the same vocabulary (LEVEL_BADGE) as the badge
+          on every row below it — a doctor scanning "Emergency: 1" up here
+          should see that exact word again on the case, not a differently-
+          bucketed "URGENT" that doesn't appear anywhere else on the page. */}
       {data && data.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
-          {(["urgent", "high", "routine"] as const).map((bucket) => {
-            const tint = SEVERITY_BUCKET_TINT[bucket];
-            return (
-              <StatTile
-                key={bucket}
-                icon={SEMANTIC_ICON.escalation}
-                tintClassName={tint.tintClassName}
-                iconClassName={tint.iconClassName}
-                label={SEVERITY_BUCKET_LABEL[bucket]}
-                value={String(countsBySeverityBucket[bucket] ?? 0)}
-              />
-            );
-          })}
-        </div>
-      )}
-      {data && data.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
           {(Object.keys(LEVEL_BADGE) as EscalationLevel[]).map((level) => {
             const badge = LEVEL_BADGE[level];
             const tint = SEVERITY_TILE_TINT[badge.variant ?? "grey"];
