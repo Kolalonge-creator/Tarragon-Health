@@ -16,17 +16,10 @@
 #
 # Reviewed 2026-09-05: none of the scripts below had ever been executed by any
 # workflow. Nineteen were moved up to ci.manifest in that pass; what remains is
-# still the same backlog, minus the three below, which are a different thing.
-#
-# Added 2026-09-06 (not reviewed for fixture self-sufficiency, just classified
-# so run-db-proofs.sh's unlisted-file check stops failing on files it never
-# saw): each header says "Run via npx supabase db query --linked", i.e. written
-# against the live project's own fixtures (real screen_types/organisations/
-# support-ticket rows), not a bare `supabase db reset`. Same backlog as the
-# rest of this file -- move up once confirmed self-sufficient.
-abnormal_screening_result_upgrade.sql
-payer_board_outcomes_report.sql
-support_centre.sql
+# still the same backlog, minus the three covered by PR #456's block below,
+# which are a different thing (each header says "Run via npx supabase db
+# query --linked", i.e. written against the live project's own fixtures, not
+# a bare `supabase db reset`).
 #
 # ===========================================================================
 # NOT A FIXTURE PROBLEM: three scripts here now FAIL for real. They stay
@@ -116,6 +109,23 @@ support_centre.sql
 #     (`raise exception 'need an org with 2+ patients, a Care Coordinator...'`
 #     otherwise) -- exactly the class of fixture this file's own header
 #     describes, at the more demanding end of it.
+# ===========================================================================
+#
+# Found 2026-09-06 (result-recall-reconciliation), same fixture-backlog
+# category as #4-6 above -- selects an existing fixture rather than building
+# its own, so it cannot run against a fresh `supabase db reset`:
+#
+#  7. result_release_policies.sql -- the live proof for the
+#     result_release_policies RLS gate (20260829135012_result_release_policies.sql).
+#     Its DO block starts `select id, organisation_id into v_patient, v_org
+#     from public.profiles where role = 'patient' limit 1` and raises
+#     immediately if none is found; a fresh reset seeds only catalogue rows,
+#     no tenant/patient data (same seed.sql note as #4-6), so this always
+#     raises rather than running. Unlike #4, it DOES carry a real per-case
+#     PASS/FAIL verdict (five cases, each a `case when ... then 'PASS' else
+#     'FAIL' end`) -- it just has no fixture of its own yet. Building one
+#     (insert its own org + patient + clinician profile, the way
+#     payer_board_outcomes_report.sql does) would let it move up.
 # ===========================================================================
 abnormal_screening_result_upgrade.sql
 actor_column_fk_documentation.sql
@@ -233,6 +243,7 @@ referral_requested_alert_and_specialist_referrals_gate.sql
 refill_confirmation_attribution.sql
 report_medication_safety_finding_rpc.sql
 result_acknowledgement_status.sql
+result_release_policies.sql
 scoped_access_roles_rls.sql
 screening_decline.sql
 screening_ladder_order_completeness.sql
