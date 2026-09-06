@@ -18,16 +18,6 @@
 # workflow. Nineteen were moved up to ci.manifest in that pass; what remains is
 # still the same backlog, minus the three below, which are a different thing.
 #
-# Added 2026-09-06 (not reviewed for fixture self-sufficiency, just classified
-# so run-db-proofs.sh's unlisted-file check stops failing on files it never
-# saw): each header says "Run via npx supabase db query --linked", i.e. written
-# against the live project's own fixtures (real screen_types/organisations/
-# support-ticket rows), not a bare `supabase db reset`. Same backlog as the
-# rest of this file -- move up once confirmed self-sufficient.
-abnormal_screening_result_upgrade.sql
-payer_board_outcomes_report.sql
-support_centre.sql
-#
 # ===========================================================================
 # NOT A FIXTURE PROBLEM: three scripts here now FAIL for real. They stay
 # excluded only because the behaviour they assert is genuinely absent, and
