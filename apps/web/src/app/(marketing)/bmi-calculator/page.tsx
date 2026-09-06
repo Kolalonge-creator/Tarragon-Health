@@ -14,7 +14,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "BMI & Calorie Calculator",
   description:
-    "Free BMI calculator and daily calorie estimate. See your body mass index range and an estimated calorie target for maintaining, losing, or gaining weight, no sign-up required.",
+    "Free BMI calculator and daily calorie estimate. See your body mass index range and a calorie target for maintaining, losing or gaining weight, no sign-up.",
   path: MARKETING_ROUTES.bmiCalculator,
 });
 

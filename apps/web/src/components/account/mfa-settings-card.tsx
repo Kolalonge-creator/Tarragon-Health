@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { APP_ICON } from "@/lib/icons";
 
 export function MfaSettingsCard({ verifiedFactorId }: { verifiedFactorId: string | null }) {
@@ -18,6 +19,7 @@ export function MfaSettingsCard({ verifiedFactorId }: { verifiedFactorId: string
 
 function MfaEnabledView({ factorId }: { factorId: string }) {
   const [state, formAction, pending] = useActionState(turnOffMfa, undefined);
+  const errorId = fieldErrorId("mfa-turn-off");
 
   return (
     <Card>
@@ -34,7 +36,7 @@ function MfaEnabledView({ factorId }: { factorId: string }) {
       <CardContent>
         <form action={formAction} className="space-y-3">
           <input type="hidden" name="factorId" value={factorId} />
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          <FormError id={errorId} message={state?.error} />
           <Button type="submit" variant="outline" disabled={pending}>
             {pending ? "Turning off…" : "Turn off two-factor authentication"}
           </Button>
@@ -56,7 +58,7 @@ function MfaSetupView() {
     if (typeof window !== "undefined") window.location.reload();
     return (
       <Card>
-        <CardContent className="py-6 text-sm text-charcoal-ink/60">
+        <CardContent role="status" className="py-6 text-sm text-charcoal-ink/60">
           Two-factor authentication is on. Refreshing…
         </CardContent>
       </Card>
@@ -111,9 +113,13 @@ function MfaSetupView() {
                 maxLength={6}
                 autoComplete="one-time-code"
                 required
+                {...fieldErrorProps(
+                  fieldErrorId("mfa-setup-code"),
+                  Boolean(verifyState?.error)
+                )}
               />
             </div>
-            {verifyState?.error && <p className="text-sm text-red-600">{verifyState.error}</p>}
+            <FormError id={fieldErrorId("mfa-setup-code")} message={verifyState?.error} />
             <Button type="submit" disabled={verifyPending}>
               {verifyPending ? "Verifying…" : "Verify & turn on"}
             </Button>
@@ -136,7 +142,11 @@ function MfaSetupView() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {enrollState?.error && <p className="mb-3 text-sm text-red-600">{enrollState.error}</p>}
+        <FormError
+          id={fieldErrorId("mfa-start")}
+          message={enrollState?.error}
+          className="mb-3"
+        />
         <Button type="button" variant="outline" onClick={handleStart} disabled={starting}>
           {starting ? "Starting…" : "Set up two-factor authentication"}
         </Button>

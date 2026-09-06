@@ -9,7 +9,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "Terms of Service",
   description:
-    "The terms that govern your use of TarragonHealth, including subscriptions, billing, cancellation, and what the platform is and isn't.",
+    "The terms that govern your use of TarragonHealth: the free app, how paid services are charged, refunds, and what the platform is and isn't.",
   path: MARKETING_ROUTES.terms,
 });
 

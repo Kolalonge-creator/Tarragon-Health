@@ -11,6 +11,11 @@ import {
   type MlClient,
 } from "@tarragon/shared";
 import { createGovernedMlClient } from "@/lib/ml/governed-ml-client";
+import {
+  interpretScreeningResultLocally,
+  withInterpretationProvenance,
+  type InterpretationSource,
+} from "@/lib/screening/fallback-interpretation";
 
 export type SubmitScreeningResultState = { error?: string; success?: boolean } | undefined;
 
@@ -25,8 +30,12 @@ function ageFromDob(dateOfBirth: string): number {
 
 /**
  * Records a completed screening/lab result for a patient: interprets it via
- * the ML service (`/interpret/labs`), writes `screening_results` (the
- * existing `handle_abnormal_screening_result` trigger handles the Cat 1
+ * the ML service (`/interpret/labs`) when that service is reachable and
+ * governance-enabled, falling back to the deterministic rule-based
+ * interpretation in `lib/screening/fallback-interpretation.ts` when it is
+ * not — the ML leg is advisory and must never stop a clinician recording a
+ * result they are holding. Then writes `screening_results` (the existing
+ * `handle_abnormal_screening_result` trigger handles the Cat 1
  * escalation automatically — nothing else to do here), and persists each
  * submitted analyte value to `lab_analyte_readings` for future trend
  * analysis. Opportunistically also computes CVD risk (when a lipid panel
@@ -91,45 +100,89 @@ export async function submitScreeningResult(
     }
   }
 
+  // The ML interpretation is ADVISORY, never a gate. `createGovernedMlClient`
+  // returns null on an environment with no ML_SERVICE_URL/ML_SERVICE_KEY (the
+  // normal state — Sprint 4 is paused), and `interpretLabs` returns null on a
+  // timeout, a non-2xx, malformed JSON, or the AI-governance kill switch.
+  // Either way the clinician is holding a real lab report, so the result is
+  // recorded from the values they entered and the pipeline
+  // (handle_abnormal_screening_result -> screening_upgrades ->
+  // clinician_alerts -> SLA) fires exactly as it would have. Blocking the
+  // insert here used to lose the platform's highest-priority business event
+  // entirely; see lib/screening/fallback-interpretation.ts.
   const mlClient = createGovernedMlClient(supabase, {
     subjectProfileId: patientId,
     inputCategory: "screening_result_interpretation",
   });
-  if (!mlClient) {
-    return { error: "ML service is not configured, cannot interpret this result" };
-  }
 
-  const interpretation = await mlClient.interpretLabs({
-    screen_type_code: input.screen_type_code,
-    sex,
-    age,
-    analytes: analytes.length > 0 ? analytes : undefined,
-    qualitative_result: input.qualitative_result,
-    genotype: input.genotype,
-    procedural_status: input.procedural_status,
-  });
-  if (!interpretation) {
-    return { error: "ML service is unavailable, try again shortly" };
-  }
+  const mlInterpretation = mlClient
+    ? await mlClient.interpretLabs({
+        screen_type_code: input.screen_type_code,
+        sex,
+        age,
+        analytes: analytes.length > 0 ? analytes : undefined,
+        qualitative_result: input.qualitative_result,
+        genotype: input.genotype,
+        procedural_status: input.procedural_status,
+      })
+    : null;
 
-  const { error: insertError } = await supabase.from("screening_results").insert({
-    organisation_id: organisationId,
-    patient_id: patientId,
-    result_status: interpretation.result_status,
-    result_summary: interpretation.summary,
-    abnormal_flags: interpretation.abnormal_flags,
-    // Drives the abnormal-result trigger's sensitive-positive gate — a
-    // positive HIV/hep/cancer result is doctor-delivered, never auto-messaged.
-    screen_type_code: input.screen_type_code,
-    // Ties this result to a specific Screen-tier order when recorded via the
-    // order-scoped checklist; null for the standalone "record a result"
-    // form. Drives private.check_screen_order_completeness — see the
-    // lab_order_id comment on screeningResultSchema.
-    lab_order_id: input.lab_order_id ?? null,
-  });
+  const interpretationSource: InterpretationSource = mlInterpretation ? "ml" : "clinician";
+  const interpretation =
+    mlInterpretation ??
+    interpretScreeningResultLocally({
+      screenTypeCode: input.screen_type_code,
+      sex,
+      age,
+      analytes,
+      qualitativeResult: input.qualitative_result,
+      genotype: input.genotype,
+      proceduralStatus: input.procedural_status,
+    });
+
+  const { data: insertedResult, error: insertError } = await supabase
+    .from("screening_results")
+    .insert({
+      organisation_id: organisationId,
+      patient_id: patientId,
+      result_status: interpretation.result_status,
+      result_summary: withInterpretationProvenance(interpretation.summary, interpretationSource),
+      abnormal_flags: interpretation.abnormal_flags,
+      // Drives the abnormal-result trigger's sensitive-positive gate — a
+      // positive HIV/hep/cancer result is doctor-delivered, never auto-messaged.
+      screen_type_code: input.screen_type_code,
+      // Ties this result to a specific Screen-tier order when recorded via the
+      // order-scoped checklist; null for the standalone "record a result"
+      // form. Drives private.check_screen_order_completeness — see the
+      // lab_order_id comment on screeningResultSchema.
+      lab_order_id: input.lab_order_id ?? null,
+    })
+    .select("id")
+    .single();
   if (insertError) {
     return { error: insertError.message };
   }
+
+  // Machine-readable provenance. `screening_results` has no
+  // interpretation_source column (live schema checked 2026-09-05), so the
+  // audit trail carries it — see fallback-interpretation.ts's marker comment
+  // for what a follow-up migration should backfill from these rows.
+  await createServiceRoleClient()
+    .from("audit_log")
+    .insert({
+      organisation_id: organisationId,
+      actor_id: null,
+      action: "screening_result.recorded",
+      entity_type: "screening_results",
+      entity_id: insertedResult?.id ?? null,
+      event: {
+        interpretation_source: interpretationSource,
+        ml_client_configured: mlClient !== null,
+        screen_type_code: input.screen_type_code,
+        result_status: interpretation.result_status,
+        abnormal_flags: interpretation.abnormal_flags,
+      },
+    });
 
   if (analytes.length > 0) {
     const unitFor = (code: AnalyteReadingIn["code"]): string =>
@@ -175,6 +228,8 @@ export async function submitScreeningResult(
     }
   }
 
+  // Both are ML-only enrichments; with no client they simply do not run.
+  // Neither has ever been allowed to block the result recording above.
   await Promise.all([
     maybeComputeCvdRisk(mlClient, {
       organisationId,
@@ -275,7 +330,7 @@ export async function setScreeningResultFollowUpAction(
 }
 
 async function maybeComputeCvdRisk(
-  mlClient: MlClient,
+  mlClient: MlClient | null,
   params: {
     organisationId: string;
     patientId: string;
@@ -284,6 +339,7 @@ async function maybeComputeCvdRisk(
     analytes: AnalyteReadingIn[];
   }
 ): Promise<void> {
+  if (!mlClient) return;
   const totalCholesterol = params.analytes.find((a) => a.code === "total_cholesterol")?.value;
   const hdlCholesterol = params.analytes.find((a) => a.code === "hdl_cholesterol")?.value;
   if (totalCholesterol === undefined || hdlCholesterol === undefined) return;
@@ -340,10 +396,10 @@ async function maybeComputeCvdRisk(
 }
 
 async function maybeComputeHba1cTrajectory(
-  mlClient: MlClient,
+  mlClient: MlClient | null,
   params: { organisationId: string; patientId: string; hasHba1cResult: boolean }
 ): Promise<void> {
-  if (!params.hasHba1cResult) return;
+  if (!mlClient || !params.hasHba1cResult) return;
 
   const supabase = await createClient();
   const { data: history } = await supabase

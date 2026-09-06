@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { ProviderQualityDashboard } from "./provider-quality-dashboard";
 
 /**
@@ -19,15 +20,10 @@ export default async function ProviderQualityPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Provider quality</h1>
-        <p className="text-charcoal-ink/60">
-          Operational, documentation, and patient-experience performance by metric (never a
-          single provider score, §29.10), plus the roster&apos;s credential status and the
-          complaints pipeline. Clinical quality indicators appear only once a Clinical Director
-          has validated and signed one off.
-        </p>
-      </div>
+      <PageHeader
+        title="Provider quality"
+        description="Operational, documentation, and patient-experience performance by metric (never a single provider score, §29.10), plus the roster's credential status and the complaints pipeline. Clinical quality indicators appear only once a Clinical Director has validated and signed one off."
+      />
       <ProviderQualityDashboard />
     </div>
   );

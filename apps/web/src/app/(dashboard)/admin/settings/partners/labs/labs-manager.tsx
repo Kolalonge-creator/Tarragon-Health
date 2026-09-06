@@ -35,6 +35,7 @@ import {
   PartnerLicenseEditor,
 } from "@/components/admin/partner-license-fields";
 import { MapsProvider } from "@/components/admin/maps-provider";
+import { SearchableList } from "@/components/ui/searchable-list";
 import { koboToNaira } from "@tarragon/shared";
 
 function parseRegions(raw: string): string[] {
@@ -431,90 +432,101 @@ export function LabsManager({
           <CardContent className="space-y-2">
             {isLoading ? (
               <p className="text-sm text-charcoal-ink/60">Loading…</p>
-            ) : (labs ?? []).length === 0 ? (
-              <p className="text-sm text-charcoal-ink/60">No labs yet.</p>
             ) : (
-              (labs ?? []).map((lab) => {
-                const expanded = expandedId === lab.id;
-                return (
-                  <div
-                    key={lab.id}
-                    className="rounded-md border border-charcoal-ink/10 px-4 py-2"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2 text-sm">
-                        <span className="font-medium text-charcoal-ink">
-                          {lab.name}
-                        </span>
-                        <Badge variant={lab.is_active ? "green" : "grey"}>
-                          {lab.is_active ? "Active" : "Inactive"}
-                        </Badge>
-                        {lab.home_collection && (
-                          <Badge variant="blue">Home collection</Badge>
-                        )}
-                        <PartnerLicenseBadge
-                          expiresAt={lab.license_expires_at}
-                        />
-                        {lab.regions.length > 0 && (
-                          <span className="text-xs text-charcoal-ink/50">
-                            {lab.regions.join(", ")}
+              <SearchableList
+                items={labs ?? []}
+                searchPlaceholder="Search labs by name, region, or contact…"
+                emptyMessage="No labs yet."
+                filterFn={(lab, query) =>
+                  lab.name.toLowerCase().includes(query) ||
+                  lab.regions.some((region) =>
+                    region.toLowerCase().includes(query),
+                  ) ||
+                  (lab.contact_email ?? "").toLowerCase().includes(query) ||
+                  (lab.contact_phone ?? "").toLowerCase().includes(query)
+                }
+                renderItem={(lab) => {
+                  const expanded = expandedId === lab.id;
+                  return (
+                    <div
+                      key={lab.id}
+                      className="rounded-md border border-charcoal-ink/10 px-4 py-2"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                          <span className="font-medium text-charcoal-ink">
+                            {lab.name}
                           </span>
-                        )}
+                          <Badge variant={lab.is_active ? "green" : "grey"}>
+                            {lab.is_active ? "Active" : "Inactive"}
+                          </Badge>
+                          {lab.home_collection && (
+                            <Badge variant="blue">Home collection</Badge>
+                          )}
+                          <PartnerLicenseBadge
+                            expiresAt={lab.license_expires_at}
+                          />
+                          {lab.regions.length > 0 && (
+                            <span className="text-xs text-charcoal-ink/50">
+                              {lab.regions.join(", ")}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              setExpandedId(expanded ? null : lab.id)
+                            }
+                          >
+                            {expanded ? "Hide details" : "Manage"}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            disabled={toggle.isPending}
+                            onClick={() =>
+                              toggle.mutate({
+                                id: lab.id,
+                                isActive: !lab.is_active,
+                              })
+                            }
+                          >
+                            {lab.is_active ? "Deactivate" : "Activate"}
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() =>
-                            setExpandedId(expanded ? null : lab.id)
-                          }
-                        >
-                          {expanded ? "Hide details" : "Manage"}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          disabled={toggle.isPending}
-                          onClick={() =>
-                            toggle.mutate({
-                              id: lab.id,
-                              isActive: !lab.is_active,
-                            })
-                          }
-                        >
-                          {lab.is_active ? "Deactivate" : "Activate"}
-                        </Button>
+                      <div className="mt-1">
+                        <TurnaroundBadge providerId={lab.id} />
                       </div>
+                      {expanded && (
+                        <div className="mt-3 space-y-3 border-t border-charcoal-ink/10 pt-3">
+                          <ContactEditor lab={lab} />
+                          {lab.license_number && (
+                            <p className="text-xs text-charcoal-ink/50">
+                              {lab.license_type ?? "License"}:{" "}
+                              {lab.license_number}
+                            </p>
+                          )}
+                          <PartnerLicenseEditor
+                            values={lab}
+                            saving={updateLicense.isPending}
+                            onSave={(next) =>
+                              updateLicense.mutate({ id: lab.id, ...next })
+                            }
+                          />
+                          <AdminLabProviderLocations labProviderId={lab.id} />
+                          <AdminLabFacilities labProviderId={lab.id} />
+                          <PartnerLoginLinker
+                            lab={lab}
+                            logins={labPartnerLogins}
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div className="mt-1">
-                      <TurnaroundBadge providerId={lab.id} />
-                    </div>
-                    {expanded && (
-                      <div className="mt-3 space-y-3 border-t border-charcoal-ink/10 pt-3">
-                        <ContactEditor lab={lab} />
-                        {lab.license_number && (
-                          <p className="text-xs text-charcoal-ink/50">
-                            {lab.license_type ?? "License"}:{" "}
-                            {lab.license_number}
-                          </p>
-                        )}
-                        <PartnerLicenseEditor
-                          values={lab}
-                          saving={updateLicense.isPending}
-                          onSave={(next) =>
-                            updateLicense.mutate({ id: lab.id, ...next })
-                          }
-                        />
-                        <AdminLabProviderLocations labProviderId={lab.id} />
-                        <AdminLabFacilities labProviderId={lab.id} />
-                        <PartnerLoginLinker
-                          lab={lab}
-                          logins={labPartnerLogins}
-                        />
-                      </div>
-                    )}
-                  </div>
-                );
-              })
+                  );
+                }}
+              />
             )}
           </CardContent>
         </Card>

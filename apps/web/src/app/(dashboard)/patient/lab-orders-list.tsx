@@ -8,6 +8,8 @@ import { PatientResultUpload } from "@/components/patient-result-upload";
 import { EcgReportUpload } from "@/components/ecg-report-upload";
 import { RequestPartnerLabVisit } from "@/app/(dashboard)/patient/request-partner-lab-visit";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 
 /** Self-arranged: the states that matter to a patient are "we've written it,
  * go when you can" and "the result is in". Payment states are retained in the
@@ -28,10 +30,12 @@ const AWAITING_RESULT: LabOrderStatus[] = ["payment_confirmed", "ordered", "proc
 
 export function LabOrdersList({ patientId }: { patientId: string }) {
   const { data: orders, isLoading, isError } = usePatientLabOrders(patientId);
+  const state = listQueryState({ isLoading, isError, count: orders?.length });
 
-  if (isLoading || isError || !orders || orders.length === 0) {
-    return null;
-  }
+  // A pending test request the patient still has to take to a lab is exactly
+  // the thing that must not silently vanish when the read fails.
+  if (state === "error") return <LoadErrorCard title="Your test requests" what="your test requests" />;
+  if (state !== "ready" || !orders) return null;
 
   return (
     <Card>
@@ -39,7 +43,7 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
         <CardTitle>Your test requests</CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {orders.map((order) => {
             const badge = LAB_ORDER_STATUS_BADGE[order.status];
             const awaiting = AWAITING_RESULT.includes(order.status);
@@ -53,9 +57,9 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
                   {order.urgency === "urgent" && <Badge variant="red">Urgent</Badge>}
-                  <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+                  <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
                 </div>
-                <p className="text-sm font-medium text-charcoal-ink">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                   {order.panel_bundle?.name ?? "Lab test"}
                 </p>
                 {/* Null-gated: only a clinician-generated order ever sets
@@ -63,15 +67,15 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                     due-screening order rather than showing "Ordered by"
                     with nothing after it. */}
                 {order.ordered_by_staff && (
-                  <p className="text-xs text-charcoal-ink/60">
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                     Ordered by Dr. {order.ordered_by_staff.full_name}
                   </p>
                 )}
                 {order.clinical_indication && (
-                  <p className="text-xs text-charcoal-ink/60">Reason: {order.clinical_indication}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Reason: {order.clinical_indication}</p>
                 )}
                 {order.panel_bundle?.preparation_instructions && (
-                  <p className="rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs text-blue-900">
+                  <p className="rounded-lg border border-blue-200 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/15 p-2 text-xs text-blue-900 dark:text-blue-300">
                     {order.panel_bundle.preparation_instructions}
                   </p>
                 )}
@@ -82,7 +86,7 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                   <>
                     <a
                       href={`/api/patient/lab-order/${order.id}/request`}
-                      className="inline-block text-xs font-medium text-brand-green hover:underline"
+                      className="inline-block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
                     >
                       Download the request to take with you
                     </a>

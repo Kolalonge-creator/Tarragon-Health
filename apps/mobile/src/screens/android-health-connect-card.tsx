@@ -10,8 +10,9 @@ import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
  * Android Health Connect card — the Android peer of apple-health-card.tsx,
  * same structure and copy tone deliberately so the two platforms read as
  * one feature rather than two. Replaces the "not yet built" placeholder
- * that lived on the Devices tab (devices-screen.tsx) before this bridge was
- * built; see health-connect.ts for the read path itself.
+ * that lived on the Devices section (devices-screen.tsx, opened from the nav
+ * drawer) before this bridge was built; see health-connect.ts for the read
+ * path itself.
  *
  * Hides itself entirely on iOS and on any Android device where Health
  * Connect isn't available (not installed, or an old OS with no path to
@@ -25,9 +26,15 @@ export function AndroidHealthConnectCard() {
 
   useEffect(() => {
     let active = true;
-    isHealthConnectAvailable().then((value) => {
-      if (active) setAvailable(value);
-    });
+    isHealthConnectAvailable()
+      .then((value) => {
+        if (active) setAvailable(value);
+      })
+      .catch(() => {
+        // Treat "couldn't even check" as unavailable — hiding the card is
+        // the same rule as any device where Health Connect can't work.
+        if (active) setAvailable(false);
+      });
     return () => {
       active = false;
     };
@@ -53,7 +60,7 @@ export function AndroidHealthConnectCard() {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: "#E8F3EE",
+            backgroundColor: colors.brandTintAlt,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -72,7 +79,7 @@ export function AndroidHealthConnectCard() {
         We read your blood pressure, blood sugar, weight, oxygen level, resting heart rate and
         steps. Your care team sees them alongside everything else on your record. We never write
         anything back to Health Connect, and you choose what to share on the next screen. Once
-        you&apos;ve synced, we&apos;ll also keep checking for new readings in the background — tap
+        you&apos;ve synced, we&apos;ll also keep checking for new readings in the background; tap
         Sync any time you want the latest right now.
       </MutedText>
 
@@ -113,7 +120,7 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
     <View style={{ gap: 4 }}>
       <Text style={{ color: colors.success, fontSize: 14, fontWeight: "600" }}>
         {saved === 0
-          ? "Already up to date — these readings were on your record."
+          ? "Already up to date. These readings were on your record."
           : `Added ${saved} ${saved === 1 ? "reading" : "readings"} to your record.`}
       </Text>
       {result.partial ? <PartialSyncNote /> : null}
@@ -128,7 +135,7 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
  * sync still ran and a later attempt (manual or the background task) simply
  * retries the same delta. */
 function PartialSyncNote() {
-  return <MutedText>Some readings couldn&apos;t be checked this time — we&apos;ll try again.</MutedText>;
+  return <MutedText>Some readings couldn&apos;t be checked this time. We&apos;ll try again.</MutedText>;
 }
 
 /** Shown when this sync's offline-queue flush (offline-queue.ts) uploaded

@@ -59,11 +59,11 @@ export function UpgradePrompt({ feature }: { feature: string }) {
   return (
     <Card className="border-dashed">
       <CardContent className="flex items-start gap-3 py-4">
-        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-brand-green" aria-hidden />
+        <Icon className="mt-0.5 h-5 w-5 shrink-0 text-brand-green dark:text-brand-green-bright" aria-hidden />
         <div className="space-y-2">
           <div>
-            <p className="text-sm font-medium text-charcoal-ink">{copy.title}</p>
-            <p className="text-sm text-charcoal-ink/70">{copy.body}</p>
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{copy.title}</p>
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{copy.body}</p>
           </div>
           <Button asChild size="sm">
             <Link href="/patient/subscription">See what this costs</Link>

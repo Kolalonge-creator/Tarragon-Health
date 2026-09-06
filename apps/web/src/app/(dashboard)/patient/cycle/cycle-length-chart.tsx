@@ -61,6 +61,9 @@ export function CycleLengthChart({ stats }: { stats: CycleStats }) {
             width={100}
             height={Math.max(0, y(NORMAL_CYCLE_MIN_DAYS) - y(NORMAL_CYCLE_MAX_DAYS))}
             fill="var(--soft-sage)"
+            // Soft sage doesn't flip with the theme; the class wins over the
+            // presentation attribute in dark only, so light is untouched.
+            className="dark:fill-night-ink/10"
           />
           {lengths.map((length, index) => {
             const top = y(length);
@@ -80,7 +83,7 @@ export function CycleLengthChart({ stats }: { stats: CycleStats }) {
           })}
         </svg>
 
-        <ul className="mt-2 flex justify-between text-[11px] text-charcoal-ink/60">
+        <ul className="mt-2 flex justify-between text-[11px] text-charcoal-ink/60 dark:text-night-ink/60">
           {lengths.map((length, index) => (
             <li key={`${index}-label`} className="flex-1 text-center">
               {length}
@@ -89,7 +92,7 @@ export function CycleLengthChart({ stats }: { stats: CycleStats }) {
         </ul>
 
         {stats.variationDays !== null && (
-          <p className="mt-2 text-xs text-charcoal-ink/60">
+          <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             {stats.regularity === "regular"
               ? `Steady: ${stats.variationDays} ${stats.variationDays === 1 ? "day" : "days"} between your shortest and longest.`
               : `Your cycles vary by ${stats.variationDays} days. Some variation is normal; a lot of it is worth a mention to your care team.`}

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { PLATFORM_URL } from "./platform-url";
 import type { HealthSample } from "./healthkit";
 import type { HealthProvider } from "./health-sync";
 
@@ -7,8 +8,13 @@ import type { HealthProvider } from "./health-sync";
  * platform's Route Handlers over plain HTTPS, authenticated with the mobile
  * session's own JWT — see apps/web/src/app/api/mobile/device-readings/route.ts
  * and apps/web/src/app/api/mobile/health-samples/route.ts.
+ *
+ * Falls back to PLATFORM_URL (the same host the WebView bridge already
+ * defaults to) when EXPO_PUBLIC_API_BASE_URL is unset — an unset env var
+ * used to interpolate as the literal string "undefined/api/…", which failed
+ * every request with an unhelpful error rather than an obvious config gap.
  */
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? PLATFORM_URL;
 
 export interface PostDeviceReadingResult {
   success: boolean;
@@ -160,6 +166,23 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * The timeout + single-retry-on-no-response policy above, exported for the
+ * one caller that can't go through request() because its body isn't JSON
+ * (labs.ts's multipart photo upload). Rejects only when neither attempt got
+ * a response at all — an HTTP error status still resolves, exactly like
+ * request()'s own behaviour, since a request that reached the server may
+ * already have taken effect and must not be retried blind.
+ */
+export async function fetchWithTimeoutAndRetry(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetchWithTimeout(url, init);
+  } catch {
+    await sleep(RETRY_DELAY_MS);
+    return fetchWithTimeout(url, init);
+  }
+}
+
 async function request<T>(
   path: string,
   method: "GET" | "POST",
@@ -184,15 +207,9 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetchWithTimeout(url, init);
+    response = await fetchWithTimeoutAndRetry(url, init);
   } catch {
-    // First attempt never got a response — worth one retry before giving up.
-    try {
-      await sleep(RETRY_DELAY_MS);
-      response = await fetchWithTimeout(url, init);
-    } catch {
-      return { ok: false, error: NETWORK_ERROR_MESSAGE };
-    }
+    return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
 
   try {

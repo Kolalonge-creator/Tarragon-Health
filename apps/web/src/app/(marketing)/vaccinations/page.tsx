@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Vaccinations",
   description:
-    "A personal vaccination schedule for you and your children, reminders when a dose is due, and a doctor-verified certificate you'll never lose. Get the dose wherever suits you, then log it.",
+    "A personal vaccination schedule for you and your children, a reminder when a dose is due, and a doctor-verified certificate. Get the dose anywhere.",
   path: MARKETING_ROUTES.vaccinations,
 });
 
@@ -167,7 +167,7 @@ export default function VaccinationsPage() {
             <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               preventive health at Tarragon
             </Link>
-            , which also builds your screening calendar and yearly Health Check.
+            , which also builds your free screening calendar and your yearly Health Check.
           </p>
         </div>
       </Section>

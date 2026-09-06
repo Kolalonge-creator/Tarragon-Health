@@ -77,7 +77,7 @@ export function ResultExplainer({
       <Button
         size="sm"
         variant="ghost"
-        className="h-auto gap-1.5 px-0 text-xs text-brand-green hover:bg-transparent hover:underline"
+        className="h-auto gap-1.5 px-0 text-xs text-brand-green dark:text-brand-green-bright hover:bg-transparent hover:underline"
         onClick={() => {
           setOpen(true);
           if (!result) void load();
@@ -95,22 +95,22 @@ export function ResultExplainer({
         <Badge variant="grey">AI-drafted: for understanding, not a diagnosis</Badge>
       </div>
 
-      {isPending && <p className="text-sm text-charcoal-ink/60">Working this out for you…</p>}
+      {isPending && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Working this out for you…</p>}
 
       {!isPending && result?.status === "failed" && (
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           Couldn&apos;t put together an explanation right now. Nothing else on this page is
           affected. Your care team can walk you through this number any time.
         </p>
       )}
 
       {!isPending && result?.status === "generated" && result.explanation && (
-        <p className="text-sm text-charcoal-ink">{result.explanation}</p>
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">{result.explanation}</p>
       )}
 
       <button
         type="button"
-        className="text-xs text-charcoal-ink/40 hover:underline"
+        className="text-xs text-charcoal-ink/40 dark:text-night-ink/50 hover:underline"
         onClick={() => setOpen(false)}
       >
         Hide

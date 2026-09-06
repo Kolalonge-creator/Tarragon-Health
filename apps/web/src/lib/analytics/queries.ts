@@ -42,7 +42,7 @@ import {
   staffActivitySchema,
   supportResponseTimeSchema,
   userSegmentsSchema,
-  revenueByPlanSchema,
+  revenueByProductSchema,
   revenueTimeseriesSchema,
   trafficSummarySchema,
   trafficTimeseriesSchema,
@@ -106,13 +106,13 @@ export function useRevenueTimeseries(period: GrowthPeriod = "month") {
   });
 }
 
-export function useRevenueByPlan() {
+export function useRevenueByProduct() {
   return useQuery({
-    queryKey: ["analytics", "revenue-by-plan"],
+    queryKey: ["analytics", "revenue-by-product"],
     queryFn: async () => {
-      const { data, error } = await createClient().rpc("analytics_revenue_by_plan");
+      const { data, error } = await createClient().rpc("analytics_revenue_by_product");
       if (error) throw error;
-      return revenueByPlanSchema.parse(data);
+      return revenueByProductSchema.parse(data);
     },
   });
 }

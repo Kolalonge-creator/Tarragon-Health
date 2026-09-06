@@ -30,7 +30,11 @@ export const revalidate = 300;
 
 export default async function CoveragePage() {
   const coverage = await getServiceCoverage();
-  const partnerLocations = await getPartnerLocations();
+  const partnerResult = await getPartnerLocations();
+  const partnerLocations = partnerResult.locations;
+  // "We have no partners" and "we could not ask" are different sentences on a
+  // public page. Only the first is safe to print.
+  const partnersKnown = partnerResult.status === "ok";
   const mapsApiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   // row.isActive is the state's own master rollout switch, which can be on
   // with zero partners actually contracted there (true of every state right
@@ -129,10 +133,23 @@ export default async function CoveragePage() {
                   ))}
                 </ul>
               </>
-            ) : (
+            ) : partnersKnown ? (
               <p className="text-sm text-charcoal-ink/70">
                 We haven&apos;t activated a contracted lab, home visit or
                 delivery partner yet. Check back, or{" "}
+                <Link href="/contact" className="underline">
+                  ask us
+                </Link>{" "}
+                and we will tell you exactly what is live where you need it.
+              </p>
+            ) : (
+              // The read failed, so we do not know the answer. Saying "none
+              // yet" here would be a confident negative claim produced by a
+              // network blip, and would contradict the partner-laboratory
+              // wording on the pricing page.
+              <p className="text-sm text-charcoal-ink/70">
+                We couldn&apos;t load our partner list just now. Please refresh
+                in a moment, or{" "}
                 <Link href="/contact" className="underline">
                   ask us
                 </Link>{" "}

@@ -131,7 +131,7 @@ export default async function ResourceArticlePage({
             {article.title}
           </h1>
           <p className="mt-4 text-lg text-charcoal-ink/70">{article.description}</p>
-          <p className="mt-4 text-xs text-charcoal-ink/50">
+          <p className="mt-4 text-xs text-charcoal-ink/65">
             {isReviewed
               ? `Medically reviewed by ${article.reviewedByName} on ${new Date(
                   article.reviewedAt as string

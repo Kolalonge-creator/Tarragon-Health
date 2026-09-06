@@ -40,7 +40,7 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         {target && (
-          <p className="text-charcoal-ink/80">
+          <p className="text-charcoal-ink/80 dark:text-night-ink/80">
             Your care team&apos;s target:{" "}
             {target.hba1c_target_percent ? (
               <span className="font-medium">HbA1c under {target.hba1c_target_percent}%</span>
@@ -52,22 +52,22 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
         )}
         {tir ? (
           <div className="space-y-1.5">
-            <p className="text-charcoal-ink/80">
+            <p className="text-charcoal-ink/80 dark:text-night-ink/80">
               Last {WINDOW_DAYS} days ({tir.total} readings), how often you were in range
               ({tir.low}–{tir.high} mmol/L):
             </p>
-            <div className="flex h-4 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
+            <div className="flex h-4 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15">
               {tir.belowPct > 0 && <div className="bg-red-400" style={{ width: `${tir.belowPct}%` }} />}
               <div className="bg-brand-green" style={{ width: `${tir.inRangePct}%` }} />
               {tir.abovePct > 0 && <div className="bg-amber-400" style={{ width: `${tir.abovePct}%` }} />}
             </div>
-            <p className="text-charcoal-ink/60">
+            <p className="text-charcoal-ink/60 dark:text-night-ink/60">
               {tir.inRangePct}% in range · {tir.belowPct}% low · {tir.abovePct}% high. Your doctor
               reviews the pattern; a single reading isn&apos;t the whole picture.
             </p>
           </div>
         ) : (
-          <p className="text-charcoal-ink/60">Log a few glucose readings to see your time-in-range.</p>
+          <p className="text-charcoal-ink/60 dark:text-night-ink/60">Log a few glucose readings to see your time-in-range.</p>
         )}
       </CardContent>
     </Card>

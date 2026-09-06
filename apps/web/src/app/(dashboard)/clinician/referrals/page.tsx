@@ -9,6 +9,8 @@ import {
   type SpecialistReferralWithDetails,
 } from "@/lib/queries/specialist-referrals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -68,6 +70,7 @@ function DeclineForm({ referral }: { referral: SpecialistReferralWithDetails }) 
 
 export default function ClinicianReferralsPage() {
   const { data, isLoading, isError } = useOrgSpecialistReferrals();
+  const state = listQueryState({ isLoading, isError, count: data?.length });
 
   return (
     <div className="space-y-6">
@@ -86,10 +89,15 @@ export default function ClinicianReferralsPage() {
         </Link>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load referrals.</p>}
-        {data && data.length === 0 && <p className="text-sm text-charcoal-ink/60">No referrals yet.</p>}
-        {data && data.length > 0 && (
+        {state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {state === "error" && (
+          <LoadFailure>
+            Referrals could not be loaded. This is not a report that none are open or that none
+            need actioning. Reload to try again.
+          </LoadFailure>
+        )}
+        {state === "empty" && <p className="text-sm text-charcoal-ink/60">No referrals yet.</p>}
+        {state === "ready" && data && (
           <ul className="divide-y divide-charcoal-ink/10">
             {data.map((referral) => {
               const statusBadge = REFERRAL_STATUS_BADGE[referral.status];

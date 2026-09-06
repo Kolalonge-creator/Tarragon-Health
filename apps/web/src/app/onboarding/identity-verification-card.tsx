@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 const DOCUMENT_TYPE_LABELS: Record<string, string> = {
   passport: "International passport",
@@ -28,6 +29,7 @@ export function IdentityVerificationCard({ patientId }: { patientId: string }) {
   const [state, formAction, pending] = useActionState(submitIdentityVerification, undefined);
   const [method, setMethod] = useState<"nin" | "bvn" | "document">("nin");
 
+  const errorId = fieldErrorId("identity-verification");
   const alreadyVerified = latest?.status === "verified";
   const alreadyPending = latest?.status === "pending" || state?.status === "pending";
 
@@ -45,7 +47,7 @@ export function IdentityVerificationCard({ patientId }: { patientId: string }) {
       </div>
 
       {alreadyVerified ? (
-        <p className="rounded-lg bg-brand-green/10 p-3 text-sm text-brand-green">
+        <p role="status" className="rounded-lg bg-brand-green/10 p-3 text-sm text-brand-green">
           Your identity is verified.
         </p>
       ) : (
@@ -56,6 +58,7 @@ export function IdentityVerificationCard({ patientId }: { patientId: string }) {
               <Select
                 id="method"
                 name="method"
+                {...fieldErrorProps(errorId, state?.field === "method" && Boolean(state?.error))}
                 value={method}
                 onChange={(e) => setMethod(e.target.value as "nin" | "bvn" | "document")}
                 required
@@ -72,16 +75,32 @@ export function IdentityVerificationCard({ patientId }: { patientId: string }) {
                 name="idNumber"
                 inputMode={method === "document" ? "text" : "numeric"}
                 autoComplete="off"
-                placeholder={method === "document" ? "e.g. A01234567" : "XXXXXXXXXXX"}
+                placeholder={method === "document" ? "e.g. A01234567" : "12345678901"}
                 required
+                {...fieldErrorProps(
+                  errorId,
+                  Boolean(state?.error) && state?.field !== "method",
+                  "identity-id-hint"
+                )}
               />
+              <p id="identity-id-hint" className="text-xs text-charcoal-ink/50">
+                {method === "document"
+                  ? "The reference printed on the document."
+                  : "Eleven digits, no spaces."}
+              </p>
             </div>
           </div>
 
           {method === "document" && (
             <div className="space-y-1.5">
               <Label htmlFor="documentType">Document type</Label>
-              <Select id="documentType" name="documentType" defaultValue="" required>
+              <Select
+                id="documentType"
+                name="documentType"
+                defaultValue=""
+                required
+                aria-describedby="identity-document-hint"
+              >
                 <option value="" disabled>
                   Choose a document
                 </option>
@@ -91,25 +110,29 @@ export function IdentityVerificationCard({ patientId }: { patientId: string }) {
                   </option>
                 ))}
               </Select>
-              <p className="text-xs text-charcoal-ink/50">
-                Reviewed by our team — this can take a little longer than NIN/BVN.
+              <p id="identity-document-hint" className="text-xs text-charcoal-ink/50">
+                Reviewed by our team, so this can take a little longer than a NIN or BVN.
               </p>
             </div>
           )}
 
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-          {state?.status === "verified" && (
-            <p className="text-sm text-brand-green">Your identity is verified.</p>
-          )}
-          {state?.status === "failed" && (
-            <p className="text-sm text-red-600">
-              We couldn&apos;t verify that number. Check it and try again, or skip for now.
-            </p>
-          )}
+          <FormError
+            id={errorId}
+            message={
+              state?.error ??
+              (state?.status === "failed"
+                ? "We could not verify that number. Check it and try again, or skip for now."
+                : null)
+            }
+          />
+          <FormSuccess
+            message={state?.status === "verified" && "Your identity is verified."}
+          />
           {(state?.status === "unavailable" || state?.status === "pending" || alreadyPending) &&
-            !state?.error && (
-              <p className="text-sm text-charcoal-ink/60">
-                Thanks — we&apos;ve recorded this and will confirm it shortly.
+            !state?.error &&
+            state?.status !== "failed" && (
+              <p role="status" className="text-sm text-charcoal-ink/60">
+                Thanks. We have recorded this and will confirm it shortly.
               </p>
             )}
 

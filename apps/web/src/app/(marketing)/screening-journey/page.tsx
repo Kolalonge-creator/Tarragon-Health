@@ -11,7 +11,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Screening Journey",
   description:
-    "See exactly which health screenings are recommended for your age and sex, and walk through each one step by step: what it's for, how to book it, what happens on the day, and how results come back.",
+    "See which screenings are recommended for your age and sex, then walk through each one: what it is for, where to get it, and how the result comes back.",
   path: MARKETING_ROUTES.screeningJourney,
 });
 
@@ -30,7 +30,7 @@ const GENERAL_STEPS = [
   },
   {
     title: "A doctor reads every result",
-    body: "Nothing is left to a printout. A doctor reviews every result against your history. An abnormal result triggers an immediate alert and same-day follow-up; it's never just filed away.",
+    body: "Nothing is left to a printout. A doctor reviews every result against your history. An abnormal result triggers an immediate alert and follow-up within a day, or within 12 hours if it's critical; it's never just filed away.",
   },
 ];
 

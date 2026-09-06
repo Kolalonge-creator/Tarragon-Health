@@ -14,10 +14,15 @@ import { pageMetadata } from "@/lib/marketing/site";
 
 const CHRONIC_PROGRAMME = PAID_SERVICES.find((service) => service.id === "chronic-programme")!;
 
+// Retitled from "For you", which competed head-on with /who-its-for in search
+// and in the footer: two pages, one apparent question. This is the INDIVIDUAL's
+// page (the audience strip already called it "For individuals"); /who-its-for
+// is the router that sends each audience here or to /parentcare, /corporate,
+// /hmo.
 export const metadata: Metadata = pageMetadata({
-  title: "For you",
+  title: "For individuals",
   description:
-    "What TarragonHealth does for you as an individual: doctor-reviewed monitoring for hypertension, diabetes, and weight management, preventive screening, medication support, and lab coordination on one record.",
+    "The free app for individuals: monitoring for hypertension, diabetes and weight, preventive screening, medication support and lab coordination, one record.",
   path: MARKETING_ROUTES.forYou,
 });
 

@@ -45,7 +45,7 @@ export function ShareArticleButton({
       type="button"
       onClick={handleShare}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border border-charcoal-ink/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-charcoal-ink shadow-sm transition hover:border-brand-green/40 hover:text-brand-green",
+        "inline-flex items-center gap-1.5 rounded-full border border-charcoal-ink/15 bg-white px-3.5 py-1.5 text-xs font-semibold text-charcoal-ink shadow-sm transition hover:border-brand-green/40 hover:text-brand-green focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-brand-green",
         className
       )}
     >

@@ -1,5 +1,7 @@
 import { redirect } from "next/navigation";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { PageHeader } from "@/components/ui/page-header";
+import { SEMANTIC_ICON } from "@/lib/icons";
 import { BookAppointment } from "./book-appointment";
 import { MyAppointmentsList } from "./my-appointments-list";
 import type { AppointmentType } from "@/lib/queries/appointments";
@@ -47,12 +49,11 @@ export default async function PatientAppointmentsPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Appointments</h1>
-        <p className="text-sm text-charcoal-ink/60">
-          Book a GP, specialist, nurse, or other visit, and manage your upcoming appointments.
-        </p>
-      </div>
+      <PageHeader
+        title="Appointments"
+        icon={SEMANTIC_ICON.booking}
+        description="Book a GP, specialist, nurse, or other visit, and manage your upcoming appointments."
+      />
       <MyAppointmentsList patientId={subjectId} />
       <BookAppointment
         organisationId={profile.organisation_id}

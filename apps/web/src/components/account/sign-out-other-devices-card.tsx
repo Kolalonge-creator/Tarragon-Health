@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { signOutOtherSessions } from "./session-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId } from "@/components/ui/form-error";
 
 /**
  * Lets a signed-in user revoke every session but this one — a self-service
@@ -25,12 +26,10 @@ export function SignOutOtherDevicesCard() {
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-3">
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-          {state?.success && (
-            <p className="text-sm text-brand-green">
-              Done. Every other device and browser has been signed out.
-            </p>
-          )}
+          <FormError id={fieldErrorId("sign-out-others")} message={state?.error} />
+          <FormSuccess
+            message={state?.success && "Done. Every other device and browser has been signed out."}
+          />
           <Button type="submit" variant="outline" disabled={pending}>
             {pending ? "Signing out other devices…" : "Sign out everywhere else"}
           </Button>

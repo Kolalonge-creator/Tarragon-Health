@@ -5,10 +5,12 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { checkDependencies, type DependencyReport } from "@/lib/status/check-dependencies";
 import { businessSummarySchema, financialSummarySchema } from "@/lib/analytics/schemas";
-import { formatMinor, formatNumber, formatPercent } from "@/lib/analytics/format";
+import { formatMinor, formatNumber } from "@/lib/analytics/format";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { StatTile } from "@/components/ui/stat-tile";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/server-query-state";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 
 type AdminTile = {
@@ -113,11 +115,26 @@ export default async function AdminPage() {
   const openBookingsCount = openBookingsRes.count ?? 0;
   const pendingBookingsCount = pendingBookingsRes.count ?? 0;
 
-  const primaryMrr =
-    financial.mrr_by_currency.find((m) => m.currency === "NGN") ?? financial.mrr_by_currency[0];
-  const mrrDisplay = primaryMrr
-    ? formatMinor(primaryMrr.mrr_minor, primaryMrr.currency ?? "NGN")
-    : formatMinor(0, "NGN");
+  // Six reads, four tiles and one welcome sentence, all of which used to
+  // render a confident zero on failure. The `?? 0` and `?? {}` above are what
+  // made that invisible: they are fine as defaults for a successful read that
+  // genuinely returned nothing, and a lie for a read that never happened.
+  // Tracked per tile rather than per page so a single broken RPC does not
+  // blank three tiles that loaded perfectly well.
+  const patientsFailed = businessRes.error !== null;
+  const revenueFailed = financialRes.error !== null;
+  const cliniciansFailed = anyQueryFailed([activeClinicianRes, pendingVerificationRes]);
+  const bookingsFailed = anyQueryFailed([openBookingsRes, pendingBookingsRes]);
+  const failedTiles = failedQueryLabels([
+    { label: "patient numbers", error: businessRes.error },
+    { label: "revenue", error: financialRes.error },
+    { label: "clinician counts", error: cliniciansFailed ? true : null },
+    { label: "booking counts", error: bookingsFailed ? true : null },
+  ]);
+
+  // Revenue, not MRR: the app is free and Tarragon charges per piece of doctor
+  // work, so there is nothing recurring to report (2026-09-02 cutover).
+  const revenue90dDisplay = formatMinor(financial.revenue_90d_kobo, "NGN");
 
   const attentionParts: string[] = [];
   if (pendingVerificationCount > 0) {
@@ -130,10 +147,16 @@ export default async function AdminPage() {
       `${formatNumber(pendingBookingsCount)} pending booking request${pendingBookingsCount === 1 ? "" : "s"}`
     );
   }
+  // "You're caught up" is the one sentence on this page that must never be
+  // produced by a failed query. Both halves of it came from counts that
+  // defaulted to zero, so a broken read greeted an administrator with an
+  // explicit all-clear.
   const attentionCopy =
-    attentionParts.length > 0
-      ? `${attentionParts.join(" and ")} need attention today.`
-      : "Nothing needs attention right now. You're caught up.";
+    cliniciansFailed || bookingsFailed
+      ? "Today's counts could not be loaded, so this is not an all-clear. Check the verification and booking queues directly."
+      : attentionParts.length > 0
+        ? `${attentionParts.join(" and ")} need attention today.`
+        : "Nothing needs attention right now. You're caught up.";
 
   const groups: AdminTileGroup[] = [
     {
@@ -309,8 +332,8 @@ export default async function AdminPage() {
       tiles: [
         {
           href: "/admin/settings/subscriptions",
-          label: "Subscription plans & add-ons",
-          blurb: "Legacy plan/add-on editor, no longer sets live patient pricing",
+          label: "Retired subscription catalogue",
+          blurb: "Read-only history of the plans and add-ons retired in 2026",
           icon: SEMANTIC_ICON.billing,
           visible: can("subscriptions.manage"),
         },
@@ -326,13 +349,6 @@ export default async function AdminPage() {
     {
       label: "Platform & growth",
       tiles: [
-        {
-          href: "/admin/settings/ops-console",
-          label: "Operations console",
-          blurb: "One cross-domain worklist: alerts, referrals, labs, payments, incidents",
-          icon: NAV_ICON.operations,
-          visible: can("ops.console.view"),
-        },
         {
           href: "/analytics",
           label: "Platform analytics",
@@ -461,36 +477,73 @@ export default async function AdminPage() {
         )}
       </div>
 
+      {/* Unlike the clinician worklist strip, this one degrades per tile
+          rather than replacing the whole row: these four figures come from
+          four independent reads, and blanking three that loaded correctly to
+          report one that didn't would throw away more truth than it saves.
+          A failed tile shows StatTile's muted `empty` hint and drops its
+          delta line, so no number and no comparison is invented; the notice
+          below names which ones are missing. */}
+      {failedTiles.length > 0 && (
+        <LoadFailure>
+          The {joinLabels(failedTiles)} on this page could not be loaded. Those tiles show no
+          figure rather than a zero, and nothing here should be read as a platform total. Reload
+          to try again.
+        </LoadFailure>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           icon={SEMANTIC_ICON.parentCare}
           label="Total patients"
-          value={formatNumber(business.total_patients)}
-          delta={{ text: `${formatNumber(business.active_patients)} active`, direction: "flat" }}
+          {...(patientsFailed
+            ? { empty: { hint: "Could not be loaded" } }
+            : {
+                value: formatNumber(business.total_patients),
+                delta: {
+                  text: `${formatNumber(business.active_patients)} active`,
+                  direction: "flat" as const,
+                },
+              })}
         />
         <StatTile
           icon={SEMANTIC_ICON.clinicianFollowUp}
           label="Active clinicians"
-          value={formatNumber(activeClinicianCount)}
-          delta={{
-            text: `${formatNumber(pendingVerificationCount)} pending verification`,
-            direction: "flat",
-          }}
+          {...(cliniciansFailed
+            ? { empty: { hint: "Could not be loaded" } }
+            : {
+                value: formatNumber(activeClinicianCount),
+                delta: {
+                  text: `${formatNumber(pendingVerificationCount)} pending verification`,
+                  direction: "flat" as const,
+                },
+              })}
         />
         <StatTile
           icon={SEMANTIC_ICON.billing}
-          label="MRR"
-          value={mrrDisplay}
-          delta={{ text: `${formatPercent(financial.churn_rate)} churn`, direction: "flat" }}
+          label="Revenue (90 days)"
+          {...(revenueFailed
+            ? { empty: { hint: "Could not be loaded" } }
+            : {
+                value: revenue90dDisplay,
+                delta: {
+                  text: `${formatNumber(financial.paid_purchases)} paid service${financial.paid_purchases === 1 ? "" : "s"}`,
+                  direction: "flat" as const,
+                },
+              })}
         />
         <StatTile
           icon={SEMANTIC_ICON.booking}
           label="Open bookings"
-          value={formatNumber(openBookingsCount)}
-          delta={{
-            text: `${formatNumber(pendingBookingsCount)} awaiting review`,
-            direction: "flat",
-          }}
+          {...(bookingsFailed
+            ? { empty: { hint: "Could not be loaded" } }
+            : {
+                value: formatNumber(openBookingsCount),
+                delta: {
+                  text: `${formatNumber(pendingBookingsCount)} awaiting review`,
+                  direction: "flat" as const,
+                },
+              })}
         />
       </div>
 

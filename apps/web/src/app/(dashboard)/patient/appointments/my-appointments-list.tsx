@@ -16,10 +16,11 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 const JOINABLE_STATUSES = ["booked", "confirmed", "checked_in", "in_progress"];
 
 function formatSlot(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, {
+  return formatPatientDateTime(iso, {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -70,24 +71,24 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
         <CardTitle>Your upcoming appointments</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
 
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {appointments && appointments.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No upcoming appointments yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No upcoming appointments yet.</p>
         )}
         {appointments && appointments.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {appointments.map((appt) => {
-              const status = APPOINTMENT_STATUS_LABELS[appt.status] ?? { label: appt.status, tone: "grey" as const };
+              const status = APPOINTMENT_STATUS_LABELS[appt.status] ?? { label: appt.status.replace(/_/g, " "), tone: "grey" as const };
               return (
                 <li key={appt.id} className="flex flex-wrap items-center gap-2 py-2">
                   <div>
-                    <p className="text-sm text-charcoal-ink">
-                      {APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type},{" "}
+                    <p className="text-sm text-charcoal-ink dark:text-night-ink">
+                      {APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type.replace(/_/g, " ")},{" "}
                       {formatSlot(appt.scheduled_for)}
                     </p>
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {appt.clinician?.full_name ?? "Care team"} ·{" "}
                       {appt.consultation_method === "telemedicine" ? "Telemedicine" : appt.location || "In person"}
                     </p>
@@ -122,16 +123,16 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
         )}
 
         {waitingList && waitingList.length > 0 && (
-          <div className="space-y-2 border-t border-charcoal-ink/10 pt-4">
-            <p className="text-xs font-medium text-charcoal-ink/60">Waiting list</p>
-            <ul className="divide-y divide-charcoal-ink/10">
+          <div className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+            <p className="text-xs font-medium text-charcoal-ink/60 dark:text-night-ink/60">Waiting list</p>
+            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
               {waitingList.map((entry) => (
                 <li key={entry.id} className="flex flex-wrap items-center gap-2 py-2">
                   <div>
-                    <p className="text-sm text-charcoal-ink">
-                      {APPOINTMENT_TYPE_LABELS[entry.appointment_type] ?? entry.appointment_type}
+                    <p className="text-sm text-charcoal-ink dark:text-night-ink">
+                      {APPOINTMENT_TYPE_LABELS[entry.appointment_type] ?? entry.appointment_type.replace(/_/g, " ")}
                     </p>
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {entry.status === "offered"
                         ? "A slot just opened up. Accept it before the offer expires."
                         : "Waiting for a slot to open."}

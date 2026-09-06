@@ -4,11 +4,13 @@ import { useState, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { lagosDateTimeInputValue, lagosDateTimeInputToIso } from "@/lib/format-date";
 
 export type DataBreachIncidentRow = {
   id: string;
@@ -54,7 +56,7 @@ function deadlineText(discoveredAt: string, ndpcNotifiedAt: string | null): { te
 function NewIncidentForm({ onCreated }: { onCreated: (row: DataBreachIncidentRow) => void }) {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
-  const [discoveredAt, setDiscoveredAt] = useState(() => new Date().toISOString().slice(0, 16));
+  const [discoveredAt, setDiscoveredAt] = useState(() => lagosDateTimeInputValue());
   const [severity, setSeverity] = useState<DataBreachIncidentRow["severity"]>("medium");
   const [description, setDescription] = useState("");
   const [categories, setCategories] = useState("");
@@ -85,13 +87,14 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: DataBreachIncidentRow
           <Input id="incident-title" value={title} onChange={(e) => setTitle(e.target.value)} required />
         </div>
         <div className="space-y-1">
-          <Label htmlFor="incident-discovered">Discovered at</Label>
+          <Label htmlFor="incident-discovered">Discovered at (Lagos time)</Label>
           <Input
             id="incident-discovered"
             type="datetime-local"
             value={discoveredAt}
             onChange={(e) => setDiscoveredAt(e.target.value)}
           />
+          <p className="text-xs text-charcoal-ink/60">The 72-hour NDPC clock is counted from this moment.</p>
         </div>
         <div className="space-y-1">
           <Label htmlFor="incident-severity">Severity</Label>
@@ -140,6 +143,13 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: DataBreachIncidentRow
             disabled={pending || !title.trim() || !description.trim()}
             onClick={() => {
               setError(null);
+              // Read back as Lagos time, not the browser's zone: the whole
+              // statutory deadline hangs off this one timestamp.
+              const discoveredAtIso = lagosDateTimeInputToIso(discoveredAt);
+              if (!discoveredAtIso) {
+                setError("Enter when the incident was discovered.");
+                return;
+              }
               startTransition(async () => {
                 const supabase = createClient();
                 const {
@@ -149,7 +159,7 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: DataBreachIncidentRow
                   .from("data_breach_incidents")
                   .insert({
                     title: title.trim(),
-                    discovered_at: new Date(discoveredAt).toISOString(),
+                    discovered_at: discoveredAtIso,
                     severity,
                     description: description.trim(),
                     affected_data_categories: categories
@@ -168,6 +178,7 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: DataBreachIncidentRow
                 onCreated(data as DataBreachIncidentRow);
                 setOpen(false);
                 setTitle("");
+                setDiscoveredAt(lagosDateTimeInputValue());
                 setDescription("");
                 setCategories("");
                 setAffectedCount("");
@@ -302,8 +313,12 @@ function IncidentRow({
 
 export function DataBreachIncidentsManager({
   initialIncidents,
+  loadFailed = false,
 }: {
   initialIncidents: DataBreachIncidentRow[];
+  /** The register read failed. The new-incident form stays usable regardless:
+   * a broken read must never stop somebody starting the 72-hour clock. */
+  loadFailed?: boolean;
 }) {
   const [incidents, setIncidents] = useState(initialIncidents);
 
@@ -314,11 +329,20 @@ export function DataBreachIncidentsManager({
         <CardHeader>
           <CardTitle>Incidents</CardTitle>
           <CardDescription>
-            {incidents.filter((i) => i.status !== "closed").length} open or in progress.
+            {loadFailed
+              ? "The register could not be read."
+              : `${incidents.filter((i) => i.status !== "closed").length} open or in progress.`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {incidents.length === 0 ? (
+          {loadFailed ? (
+            <LoadFailure>
+              The breach register could not be loaded. This is not a report that no breach is open,
+              and any 72-hour NDPC notification deadline already running is not visible here.
+              Reload before concluding nothing is outstanding. You can still log a new incident
+              above.
+            </LoadFailure>
+          ) : incidents.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No incidents logged.</p>
           ) : (
             incidents.map((incident) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { protocolContentText } from "./protocol-content-text";
 import { useProtocolVersions, useCreateProtocolVersion } from "@/lib/queries/protocol-versions";
 import {
   Card,
@@ -143,6 +144,21 @@ export function ProtocolVersionsManager() {
                       ` · ${v.approved_by_staff.credential_type} ${v.approved_by_staff.credential_number}`}
                   </p>
                   <p className="text-sm text-charcoal-ink/80">{v.change_summary}</p>
+                  {/* The signed text itself. It was previously written and
+                      never read back anywhere in the app, so nobody could
+                      see what they had signed — which defeats the point of
+                      a signed record. Collapsed by default because these
+                      run to several screens. */}
+                  {protocolContentText(v.content) && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-xs font-medium text-brand-green">
+                        Read the signed protocol
+                      </summary>
+                      <pre className="mt-2 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg bg-warm-ivory p-3 font-sans text-sm leading-relaxed text-charcoal-ink/90">
+                        {protocolContentText(v.content)}
+                      </pre>
+                    </details>
+                  )}
                 </li>
               ))}
             </ul>

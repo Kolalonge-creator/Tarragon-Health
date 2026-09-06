@@ -8,6 +8,16 @@ import type { FaqItem } from "../_components/marketing-faq-accordion";
  * DB-driven counterpart; keep this list in sync with it by hand when a
  * curated device changes. Per the Device Pairing & Integration Spec v2 §9.1.
  *
+ * 2026-09-05: the two clinical models named here are the ones with credible,
+ * documented STANDARD Bluetooth GATT compliance (A&D UA-651BLE for BP, Roche
+ * Accu-Chek Guide/Guide Me for glucose), which is what Tarragon's own pairing
+ * path is written against. This page previously named the Omron 10 Series,
+ * which pushes a proprietary app/SDK instead — not false, since this page only
+ * ever claimed Apple Health / Health Connect sharing, but it pointed patients
+ * at hardware the platform can never pair with directly. Nothing here promises
+ * direct pairing: that path is built but has never been run against real
+ * hardware, so no "supported devices" claim belongs on this page until it has.
+ *
  * 2026-08-26: no purchase link — Jumia/Konga have no workable affiliate
  * programme for these categories, and a direct-manufacturer/international
  * link exposes a Nigerian patient to import duty at checkout. This is a
@@ -28,10 +38,10 @@ export const MARKETING_DEVICES: readonly MarketingDeviceCard[] = [
   {
     category: "blood_pressure",
     categoryLabel: "Blood pressure monitor",
-    deviceName: "Omron 10 Series Wireless Upper Arm (BP7450)",
-    vendorName: "Omron",
+    deviceName: "A&D Medical UA-651BLE",
+    vendorName: "A&D Medical",
     whyWeRecommend:
-      "One of the most widely trusted consumer BP brands. Its own app shares readings with Apple Health and Health Connect, which Tarragon reads as device sync rolls out.",
+      "A clinically validated upper-arm cuff that speaks the standard Bluetooth blood pressure profile rather than a brand-specific one, so its readings are not tied to a single company's app. That is the profile Tarragon's own pairing is built against.",
   },
   {
     category: "weight",
@@ -44,10 +54,10 @@ export const MARKETING_DEVICES: readonly MarketingDeviceCard[] = [
   {
     category: "blood_glucose",
     categoryLabel: "Glucometer",
-    deviceName: "Accu-Chek Instant",
+    deviceName: "Accu-Chek Guide (or Guide Me)",
     vendorName: "Roche",
     whyWeRecommend:
-      "A globally trusted glucose-monitoring brand, Bluetooth-enabled and already stocked locally, so there's no import wait.",
+      "A globally trusted meter, already stocked locally so there's no import wait, and one that uses the standard Bluetooth glucose profile Tarragon's pairing is built against.",
   },
 ] as const;
 

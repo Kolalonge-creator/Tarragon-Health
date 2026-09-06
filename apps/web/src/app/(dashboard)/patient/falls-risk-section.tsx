@@ -22,13 +22,13 @@ export async function FallsRiskSection({ patientId }: { patientId: string }) {
       </CardHeader>
       <CardContent className="space-y-3">
         {open ? (
-          <div className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 p-3">
+          <div className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
             <div>
-              <p className="text-sm font-medium text-charcoal-ink">
+              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                 {FALLS_PATHWAY_STAGE_LABEL[open.pathwayStage]}
               </p>
-              <p className="mt-0.5 text-xs text-charcoal-ink/60">
-                Flagged {new Date(open.identifiedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+              <p className="mt-0.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                Flagged {new Date(open.identifiedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })}
               </p>
             </div>
             {open.riskLevel && (

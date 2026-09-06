@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { AnalyticsManager } from "./analytics-manager";
 
 export default async function HealthEducationAnalyticsPage() {
@@ -12,21 +12,11 @@ export default async function HealthEducationAnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href="/admin/settings/health-education"
-          className="mb-1 inline-block text-xs font-medium text-charcoal-ink/60 hover:text-brand-green"
-        >
-          ← Health education library
-        </Link>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Health education analytics
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Content viewed, completion, quiz performance, and patient feedback per catalogue item
-          (docs Module 20 §20.18).
-        </p>
-      </div>
+      <PageHeader
+        title="Health education analytics"
+        description="Content viewed, completion, quiz performance, and patient feedback per catalogue item (docs Module 20 §20.18)."
+        backTo={{ href: "/admin/settings/health-education", label: "Health education library" }}
+      />
       <AnalyticsManager />
     </div>
   );

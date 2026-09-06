@@ -138,14 +138,14 @@ export function classifyGlucose(
     return {
       tier: "emergency",
       kind: "severe_hypo",
-      detail: `Severe hypoglycaemia — glucose ${g} mmol/L (< ${GLUCOSE_THRESHOLDS.severeHypo}). Treat as an emergency (§17.1): if the patient is confused or cannot swallow, nothing by mouth — emergency care now.`,
+      detail: `Severe hypoglycaemia: glucose ${g} mmol/L (< ${GLUCOSE_THRESHOLDS.severeHypo}). Treat as an emergency (§17.1): if the patient is confused or cannot swallow, nothing by mouth, emergency care now.`,
     };
   }
   if (g !== null && g >= GLUCOSE_THRESHOLDS.highForDka && ketHigh) {
     return {
       tier: "emergency",
       kind: "suspected_dka",
-      detail: `Suspected DKA — glucose ${g} mmol/L with raised ketones. Emergency (§17.2): hospital now, do not delay, never stop insulin.`,
+      detail: `Suspected DKA: glucose ${g} mmol/L with raised ketones. Emergency (§17.2): hospital now, do not delay, never stop insulin.`,
     };
   }
 
@@ -154,21 +154,21 @@ export function classifyGlucose(
     return {
       tier: "urgent",
       kind: "hypo_alert",
-      detail: `Hypoglycaemia — glucose ${g} mmol/L. 15/15 rule now (§12.6); same-day doctor review of glucose-lowering drugs / insulin.`,
+      detail: `Hypoglycaemia: glucose ${g} mmol/L. 15/15 rule now (§12.6); same-day doctor review of glucose-lowering drugs / insulin.`,
     };
   }
   if (g !== null && g >= GLUCOSE_THRESHOLDS.veryHigh) {
     return {
       tier: "urgent",
       kind: "very_high",
-      detail: `Very high glucose — ${g} mmol/L${latestKetoneMmol === null && latestKetoneUrine === null ? " (no ketone reading — patient may not have home ketone testing)" : ""}. Same-day: contact the patient to confirm DKA/HHS symptoms (vomiting, abdominal pain, deep/rapid breathing, drowsiness, marked thirst) and guide them on where/how to test ketones and get further management (§15.1, §17).`,
+      detail: `Very high glucose: ${g} mmol/L${latestKetoneMmol === null && latestKetoneUrine === null ? " (no ketone reading; patient may not have home ketone testing)" : ""}. Same-day: contact the patient to confirm DKA/HHS symptoms (vomiting, abdominal pain, deep/rapid breathing, drowsiness, marked thirst) and guide them on where/how to test ketones and get further management (§15.1, §17).`,
     };
   }
   if (ketHigh) {
     return {
       tier: "urgent",
       kind: "ketones_raised",
-      detail: `Raised ketones${latestKetoneMmol !== null ? ` (${latestKetoneMmol} mmol/L)` : latestKetoneUrine ? ` (urine ${latestKetoneUrine})` : ""}. DKA workflow — urgent doctor, do not delay (§15.3).`,
+      detail: `Raised ketones${latestKetoneMmol !== null ? ` (${latestKetoneMmol} mmol/L)` : latestKetoneUrine ? ` (urine ${latestKetoneUrine})` : ""}. DKA workflow: urgent doctor, do not delay (§15.3).`,
     };
   }
 
@@ -181,7 +181,7 @@ export function classifyGlucose(
     return {
       tier: "amber",
       kind: "persistent_hyperglycaemia",
-      detail: `Persistent hyperglycaemia — ${highCount} readings > ${persistentHigh} mmol/L recently. Priority review; consider therapy change (§15.1).`,
+      detail: `Persistent hyperglycaemia: ${highCount} readings > ${persistentHigh} mmol/L recently. Priority review; consider therapy change (§15.1).`,
     };
   }
   const lowCount = recentGlucose.filter((v) => v < GLUCOSE_THRESHOLDS.hypoAlert).length;
@@ -189,7 +189,7 @@ export function classifyGlucose(
     return {
       tier: "amber",
       kind: "recurrent_hypo",
-      detail: `Recurrent hypoglycaemia — ${lowCount} lows recently. Review for hypo unawareness; consider relaxing targets / adjusting therapy (§15.1).`,
+      detail: `Recurrent hypoglycaemia: ${lowCount} lows recently. Review for hypo unawareness; consider relaxing targets / adjusting therapy (§15.1).`,
     };
   }
   if (ketMod) {

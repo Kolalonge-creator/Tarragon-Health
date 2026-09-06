@@ -53,28 +53,28 @@ export function CareMessageTemplateManager() {
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-medium text-charcoal-ink">Reply templates</p>
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Reply templates</p>
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Starting text for a reply, always editable before you send.
         </p>
       </div>
 
-      {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
       {!isLoading && (!templates || templates.length === 0) && (
-        <p className="text-sm text-charcoal-ink/60">No templates yet.</p>
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No templates yet.</p>
       )}
       {templates && templates.length > 0 && (
-        <ul className="divide-y divide-charcoal-ink/10 rounded-lg border border-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15">
           {templates.map((t) => (
             <li key={t.id} className="flex items-start justify-between gap-3 p-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-charcoal-ink">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                   {t.title}
-                  <span className="ml-2 text-xs font-normal text-charcoal-ink/50">
+                  <span className="ml-2 text-xs font-normal text-charcoal-ink/50 dark:text-night-ink/55">
                     {TEMPLATE_CATEGORY_LABEL[t.category]}
                   </span>
                 </p>
-                <p className="mt-0.5 truncate text-xs text-charcoal-ink/60">{t.body}</p>
+                <p className="mt-0.5 truncate text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t.body}</p>
               </div>
               <Button
                 type="button"
@@ -90,7 +90,7 @@ export function CareMessageTemplateManager() {
         </ul>
       )}
 
-      <div className="space-y-2 rounded-lg border border-charcoal-ink/10 p-3">
+      <div className="space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
         <Label htmlFor="template-title">New template</Label>
         <Input
           id="template-title"
@@ -103,7 +103,7 @@ export function CareMessageTemplateManager() {
           aria-label="Template category"
           value={category}
           onChange={(e) => setCategory(e.target.value as CareMessageTemplateCategory)}
-          className="h-9 w-full rounded-md border border-charcoal-ink/15 bg-white px-2 text-sm text-charcoal-ink"
+          className="h-9 w-full rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 bg-white dark:bg-night-card px-2 text-sm text-charcoal-ink dark:text-night-ink"
         >
           {careMessageTemplateCategories.map((c) => (
             <option key={c} value={c}>
@@ -127,7 +127,7 @@ export function CareMessageTemplateManager() {
           >
             {create.isPending ? "Saving…" : "Save template"}
           </Button>
-          {error && <span className="text-sm text-red-600">{error}</span>}
+          {error && <span className="text-sm text-red-600 dark:text-red-300">{error}</span>}
         </div>
       </div>
     </div>

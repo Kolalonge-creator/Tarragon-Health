@@ -126,8 +126,17 @@ export async function upsertTaxRateAction(input: {
   return { ok: true };
 }
 
+/**
+ * Paystack (NGN) is the only live payment rail. The allow-list is enforced in
+ * public.finance_import_settlement() too — that RPC is the real boundary,
+ * since it is SECURITY DEFINER and callable directly by anyone holding
+ * finance.reconcile. This type just stops a caller in this codebase getting
+ * as far as the round trip.
+ */
+export type SettlementProvider = "paystack";
+
 export async function importSettlementAction(input: {
-  provider: string;
+  provider: SettlementProvider;
   external_ref: string;
   settlement_date: string;
   currency: string;

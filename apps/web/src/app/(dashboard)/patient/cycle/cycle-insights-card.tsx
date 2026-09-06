@@ -81,9 +81,9 @@ export function CycleInsightsCard({
                   aria-hidden
                   className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-brand-green"
                 />
-                <span className="text-sm text-charcoal-ink/80">
+                <span className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                   {describeInsight(insight, labelFor(insight))}{" "}
-                  <span className="text-charcoal-ink/50">
+                  <span className="text-charcoal-ink/50 dark:text-night-ink/55">
                     Usually in your {PHASE_LABEL[insight.phase].toLowerCase()}.
                   </span>
                 </span>
@@ -91,22 +91,22 @@ export function CycleInsightsCard({
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             Keep logging how you feel each day. Once the same thing shows up across two or more
             cycles, we can tell you when it usually turns up.
           </p>
         )}
 
         {showThermal && (
-          <div className="rounded-lg bg-warm-ivory p-3">
-            <p className="text-[11px] uppercase tracking-wide text-charcoal-ink/50">
+          <div className="rounded-lg bg-warm-ivory dark:bg-night-ink/10 p-3">
+            <p className="text-[11px] uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
               Temperature
             </p>
-            <p className="mt-0.5 text-sm text-charcoal-ink/80">
+            <p className="mt-0.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {describeThermalShift(thermalShift)}
             </p>
             {thermalShift.detected && (
-              <p className="mt-1 text-xs text-charcoal-ink/55">{THERMAL_SHIFT_DISCLAIMER}</p>
+              <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/60">{THERMAL_SHIFT_DISCLAIMER}</p>
             )}
           </div>
         )}

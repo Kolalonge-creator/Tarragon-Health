@@ -128,8 +128,18 @@ async function appendToQueue<T>(key: string, item: T, source: SyncSource): Promi
   const entries = await readQueue<T>(key, source);
   const next = [...entries, { id: newId(), enqueuedAt: new Date().toISOString(), item }];
   if (next.length > MAX_QUEUE_SIZE) {
-    // Drop-oldest — see MAX_QUEUE_SIZE's doc comment for why.
-    next.splice(0, next.length - MAX_QUEUE_SIZE);
+    // Drop-oldest — see MAX_QUEUE_SIZE's doc comment for why the NEWEST
+    // reading is the one a full queue must never refuse. The discard itself
+    // is recorded rather than silent: losing a queued clinical reading is
+    // exactly the kind of event that must be visible to whoever is holding
+    // the device when this path first runs for real. The policy is
+    // unchanged; only its visibility is.
+    const dropped = next.splice(0, next.length - MAX_QUEUE_SIZE);
+    recordSyncError(
+      source,
+      "offline_queue:overflow",
+      `Queue full (${MAX_QUEUE_SIZE}); discarded ${dropped.length} oldest entr${dropped.length === 1 ? "y" : "ies"} (oldest enqueued ${dropped[0]?.enqueuedAt}).`
+    );
   }
   return writeQueue(key, next, source);
 }

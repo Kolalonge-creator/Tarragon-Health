@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Mental Well-being Check",
   description:
-    "A free, anonymous two-minute check-in on how you're really doing. Not a diagnosis, nothing saved, just a quick, honest pulse-check with a next step if you want one.",
+    "A free, anonymous two-minute check-in on how you are really doing. Not a diagnosis, nothing saved, just an honest pulse-check and a clear next step.",
   path: MARKETING_ROUTES.mentalWellbeingCheck,
 });
 

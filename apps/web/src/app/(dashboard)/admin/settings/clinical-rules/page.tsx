@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { ClinicalRulesManager, type ClinicalRuleVersionRow } from "./clinical-rules-manager";
 
 /**
@@ -26,7 +28,7 @@ export default async function ClinicalRulesSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data: rules } = await supabase
+  const { data: rules, error: rulesError } = await supabase
     .from("clinical_rules")
     .select(
       `id, rule_key, version, name, description, category, domain, event_type,
@@ -43,21 +45,21 @@ export default async function ClinicalRulesSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Clinical Rules &amp; Care Protocol Engine
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Configurable clinical decision logic (spec §32): every rule below is data, versioned and
-          governed, not a hardcoded threshold in application code. A new or edited rule always starts
-          as a draft, moves to shadow (evaluated against real events, never acting on a patient) for
-          validation, and only a signed, owned, protocol-linked version a Clinical Director activates
-          can ever reach a patient. Every evaluation (including a rule that considered a patient and
-          declined to act) is recorded and explainable; see each rule&apos;s shadow report before
-          promoting it.
-        </p>
-      </div>
-      <ClinicalRulesManager rules={rows} />
+      <PageHeader
+        title="Clinical Rules & Care Protocol Engine"
+        description="Configurable clinical decision logic (spec §32): every rule below is data, versioned and governed, not a hardcoded threshold in application code. A new or edited rule always starts as a draft, moves to shadow (evaluated against real events, never acting on a patient) for validation, and only a signed, owned, protocol-linked version a Clinical Director activates can ever reach a patient. Every evaluation (including a rule that considered a patient and declined to act) is recorded and explainable; see each rule's shadow report before promoting it."
+      />
+      {/* An empty rules list reads as "no clinical decision logic is
+          configured", which is both alarming and wrong, and would invite
+          somebody to draft a rule that already exists in an active version. */}
+      {rulesError ? (
+        <LoadFailure>
+          The clinical rules could not be loaded. This is not a report that no rules exist or that
+          none are active. Do not draft or activate a rule from here until it loads.
+        </LoadFailure>
+      ) : (
+        <ClinicalRulesManager rules={rows} />
+      )}
     </div>
   );
 }

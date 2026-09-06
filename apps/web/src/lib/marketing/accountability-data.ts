@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { marketingAnonClient as anonClient } from "./anon-client";
 
 /**
  * The published response-time commitments, read from the signed config.
@@ -43,13 +43,6 @@ export const TIER_COPY: Record<string, { label: string; meaning: string }> = {
       "A reading above target, or a stretch of silence where readings were expected. Silence is never assumed to be safe.",
   },
 };
-
-function anonClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 /**
  * Turns minutes into something a person reads without doing arithmetic.

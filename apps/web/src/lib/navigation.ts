@@ -94,11 +94,13 @@ export function getNavSections(
               // a diaspora hometown association funding a village screening day
               // is the same "I pay, they receive" shape as People you support,
               // just for a group instead of one named relative.
+              // Deliberately NOT `primary` — the four items above already fill
+              // MAX_PRIMARY_NAV_ITEMS, so a fifth flag would silently never
+              // reach the phone bottom bar; this stays behind the More button.
               {
                 label: "Group screening days",
                 href: "/patient/screening-days",
                 icon: "booking",
-                primary: true,
                 shortLabel: "Screening",
               },
             ],
@@ -260,8 +262,25 @@ export function getNavSections(
                 { label: "Patients", href: "/clinician/patients", icon: "parentCare" },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation" },
-                { label: "Case management", href: "/clinician/case-management", icon: "carePlan" },
-                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
+                // Case management, Safeguarding, Operations queue and
+                // Medication issues were listed here but are not in
+                // proxy.ts's Care Coordinator allow-list, so all four bounced
+                // straight to /dashboard/care-coordinator with no
+                // explanation — a third of this sidebar led nowhere. Removed
+                // rather than left dead. Two of the four are deliberate:
+                //   - Case management is chronic-case clinical judgment.
+                //   - Safeguarding's RLS only admits a Tier 3+/Clinical
+                //     Director or the original reporter, so a Coordinator
+                //     would see an all-but-empty page anyway.
+                // Operations queue and Medication issues WERE also removed
+                // for that reason, then restored on 2026-09-05 once proxy.ts's
+                // isCoordinatorClinicianPath was extended to admit them. Both
+                // were checked against the Coordinator write-access rule
+                // first: the operations queue has no mutation anywhere in the
+                // route, and medication-issues gates its clinical half in the
+                // page itself. If either link is ever added back after being
+                // removed again, extend the allow-list first: a link that
+                // bounces is worse than no link.
                 {
                   label: "Operations queue",
                   href: "/clinician/operations-queue",
@@ -411,8 +430,10 @@ export function getNavSections(
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
             { label: "Incident register", href: "/admin/ops/incidents", icon: "siren" },
             { label: "Employers", href: "/admin/employers", icon: "corporate" },
+            { label: "Leads", href: "/admin/leads", icon: "members" },
             { label: "Promo codes", href: "/admin/promo-codes", icon: "billing" },
             { label: "Provider quality", href: "/admin/provider-quality", icon: "governance" },
+            { label: "Testimonials", href: "/admin/testimonials", icon: "review" },
           ],
         },
         {

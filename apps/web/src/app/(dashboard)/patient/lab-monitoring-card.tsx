@@ -4,6 +4,7 @@ import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+import { formatPatientDate } from "@/lib/format-date";
 export function LabMonitoringCard({ patientId }: { patientId: string }) {
   const { data, isLoading, isError } = usePatientLabMonitoring(patientId);
 
@@ -17,12 +18,12 @@ export function LabMonitoringCard({ patientId }: { patientId: string }) {
         <CardTitle>Lab monitoring</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load lab monitoring.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load lab monitoring.</p>
         )}
         {data && data.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {data.map((item) => {
               const overdue =
                 item.due_date != null &&
@@ -30,8 +31,8 @@ export function LabMonitoringCard({ patientId }: { patientId: string }) {
               return (
                 <li key={item.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <div className="min-w-0">
-                    <p className="text-sm text-charcoal-ink">{item.monitoring_label}</p>
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-sm text-charcoal-ink dark:text-night-ink">{item.monitoring_label}</p>
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {item.medication?.drug_name
                         ? `For ${item.medication.drug_name}`
                         : item.drug_class}
@@ -39,7 +40,7 @@ export function LabMonitoringCard({ patientId }: { patientId: string }) {
                   </div>
                   {item.due_date ? (
                     <Badge variant={overdue ? "red" : "amber"}>
-                      {overdue ? "Overdue" : "Due"} {new Date(item.due_date).toLocaleDateString()}
+                      {overdue ? "Overdue" : "Due"} {formatPatientDate(item.due_date)}
                     </Badge>
                   ) : (
                     <Badge variant="grey">As clinically indicated</Badge>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { completeOnboarding } from "./actions";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 
 /**
  * Shown instead of the free-app confirmation (see ready-notice.tsx) when the
@@ -58,7 +59,7 @@ export function ExistingPlanNotice({ planName, status }: { planName: string; sta
           {pending ? "Continuing…" : "Continue to my dashboard"}
         </Button>
       </form>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <FormError id={fieldErrorId("onboarding-existing-plan")} message={error} />
       <p className="text-center text-xs text-charcoal-ink/50">
         This isn&apos;t right, or you meant to change plans? You can do that any time from your
         dashboard&apos;s My services page instead.

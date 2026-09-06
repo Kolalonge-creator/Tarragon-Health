@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SearchableList } from "@/components/ui/searchable-list";
 
 const PRIORITY_BADGE: Record<
   NotificationTemplate["business_priority"],
@@ -119,11 +120,22 @@ export function NotificationTemplatesManager() {
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
           {isError && <p className="text-sm text-red-600">Could not load templates.</p>}
           {templates && (
-            <ul className="divide-y divide-charcoal-ink/10">
-              {templates.map((t) => (
-                <TemplateRow key={t.key} template={t} />
-              ))}
-            </ul>
+            <SearchableList
+              items={templates}
+              filterFn={(t, q) =>
+                t.key.toLowerCase().includes(q) ||
+                t.category.toLowerCase().includes(q) ||
+                t.business_priority.toLowerCase().includes(q) ||
+                t.description.toLowerCase().includes(q) ||
+                t.audience.toLowerCase().includes(q)
+              }
+              searchPlaceholder="Search notification templates…"
+              emptyMessage="No notification templates yet."
+              renderContainer={(children) => (
+                <ul className="divide-y divide-charcoal-ink/10">{children}</ul>
+              )}
+              renderItem={(t) => <TemplateRow key={t.key} template={t} />}
+            />
           )}
         </CardContent>
       </Card>

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
+import { PageHeader } from "@/components/ui/page-header";
 import { NotificationTemplatesManager } from "./notification-templates-manager";
 
 export default async function NotificationTemplatesSettingsPage() {
@@ -13,15 +14,10 @@ export default async function NotificationTemplatesSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Notification templates
-        </h1>
-        <p className="text-charcoal-ink/60">
-          The catalogue of every notification the platform sends: what it&apos;s for, how
-          urgent, which channels, and whether it needs Clinical Director sign-off.
-        </p>
-      </div>
+      <PageHeader
+        title="Notification templates"
+        description="The catalogue of every notification the platform sends: what it's for, how urgent, which channels, and whether it needs Clinical Director sign-off."
+      />
       <NotificationTemplatesManager />
     </div>
   );

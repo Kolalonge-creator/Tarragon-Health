@@ -36,7 +36,7 @@ export function PartnerLabBillingOption({
   if (order) {
     return (
       <div className="space-y-1">
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Set up with our lab partner. Pay to confirm and we&apos;ll take it from there.
         </p>
         <PayForLabOrderButton orderId={order.id} amountKobo={order.total_kobo} />
@@ -49,7 +49,7 @@ export function PartnerLabBillingOption({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="text-xs font-medium text-deep-forest hover:underline"
+        className="text-xs font-medium text-deep-forest dark:text-brand-green-bright hover:underline"
       >
         Prefer us to arrange this with our contracted lab and bill you directly?
       </button>
@@ -57,13 +57,13 @@ export function PartnerLabBillingOption({
   }
 
   return (
-    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 bg-warm-ivory/50 p-3">
-      <p className="text-xs text-charcoal-ink/70">
+    <div className="space-y-2 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-warm-ivory/50 dark:bg-night-ink/10 p-3">
+      <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
         We&apos;ll book {bundleName} with our contracted lab partner and charge you ₦
         {koboToNaira(priceKobo).toLocaleString()} now. No separate payment to the lab.
       </p>
       {createPartnerOrder.isError && (
-        <p className="text-xs text-red-600">Could not set that up just now. Please try again.</p>
+        <p className="text-xs text-red-600 dark:text-red-300">Could not set that up just now. Please try again.</p>
       )}
       <div className="flex items-center gap-2">
         <Button

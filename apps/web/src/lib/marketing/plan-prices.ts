@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { marketingAnonClient } from "./anon-client";
 import { PAID_SERVICES } from "@/app/(marketing)/_content/pricing";
 
 /**
@@ -9,10 +9,13 @@ import { PAID_SERVICES } from "@/app/(marketing)/_content/pricing";
  * another. USD is gone with the diaspora tier (2026-07-31) — someone abroad
  * sponsors another person's care in naira, they are not a patient tier.
  *
- * Reads the public_price_list() RPC through a BARE anon supabase-js client,
- * following lib/marketing/resources-data.ts: deliberately not
- * @/lib/supabase/server, so the marketing tree stays free of auth and platform
- * modules per the marketing-boundary rule. The RPC reads service_products
+ * Reads the public_price_list() RPC through the shared marketing anon client
+ * (lib/marketing/anon-client.ts): deliberately not @/lib/supabase/server, so
+ * the marketing tree stays free of auth and platform modules per the
+ * marketing-boundary rule. This loader used to be the only one that accepted
+ * NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY as well as ..._ANON_KEY; that
+ * both-names handling now lives in the shared helper, so every marketing
+ * loader survives the same key rename. The RPC reads service_products
  * (not the retired subscription_plans/add_ons — see
  * 20260902002938_public_price_list_reads_service_products.sql) and returns
  * only on-sale rows, and only code/currency/access_duration_days/price,
@@ -26,16 +29,10 @@ import { PAID_SERVICES } from "@/app/(marketing)/_content/pricing";
 export type PlanPriceMap = Map<string, number>;
 
 export async function fetchPlanPrices(): Promise<PlanPriceMap> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key =
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return new Map();
+  const supabase = marketingAnonClient();
+  if (!supabase) return new Map();
 
   try {
-    const supabase = createClient(url, key, {
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
     const { data, error } = await supabase.rpc("public_price_list");
     if (error || !data) return new Map();
 
@@ -93,8 +90,7 @@ export function formatPrice(minor: number, currency: "NGN" | "USD"): string {
  * buy. Reading the codes off PAID_SERVICES means a service can only be priced
  * here if it is actually listed, and only overridden if it is actually on sale.
  */
-export async function fetchServicePriceOverrides(): Promise<Record<string, string>> {
-  const prices = await fetchPlanPrices();
+export function servicePriceOverridesFrom(prices: PlanPriceMap): Record<string, string> {
   if (prices.size === 0) return {};
 
   const out: Record<string, string> = {};
@@ -105,4 +101,8 @@ export async function fetchServicePriceOverrides(): Promise<Record<string, strin
     }
   }
   return out;
+}
+
+export async function fetchServicePriceOverrides(): Promise<Record<string, string>> {
+  return servicePriceOverridesFrom(await fetchPlanPrices());
 }

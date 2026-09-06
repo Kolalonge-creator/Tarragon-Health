@@ -16,8 +16,8 @@ export const businessSummarySchema = z.object({
   total_patients: z.number().default(0),
   active_patients: z.number().default(0),
   onboarded_patients: z.number().default(0),
-  total_subscriptions: z.number().default(0),
-  active_subscriptions: z.number().default(0),
+  paid_purchases: z.number().default(0),
+  paying_patients: z.number().default(0),
   roles: z.array(z.object({ role: z.string(), count: z.number() })).default([]),
   org_types: z.array(z.object({ type: z.string(), count: z.number() })).default([]),
   states: z.array(z.object({ state: z.string(), count: z.number() })).default([]),
@@ -29,23 +29,30 @@ export const growthTimeseriesSchema = z
     z.object({
       bucket: z.string(),
       signups: z.number(),
-      new_subscriptions: z.number(),
+      new_purchases: z.number(),
     })
   )
   .default([]);
 export type GrowthTimeseries = z.infer<typeof growthTimeseriesSchema>;
 
 // ---- Financial (amounts in minor units — kobo for NGN) --------------------
+//
+// No MRR and no churn rate: after the 2026-09-02 pay-per-service cutover
+// nothing recurs, so both were reading tables that will never gain a row. See
+// the analytics_read_surface_off_retired_subscriptions migration.
 export const financialSummarySchema = z.object({
-  mrr_by_currency: z
-    .array(z.object({ currency: z.string().nullable(), mrr_minor: z.number() }))
-    .default([]),
   revenue_by_currency: z
     .array(z.object({ currency: z.string().nullable(), total_minor: z.number() }))
     .default([]),
-  active_subscriptions: z.number().default(0),
-  cancelled_subscriptions: z.number().default(0),
-  churn_rate: z.number().default(0),
+  revenue_total_kobo: z.number().default(0),
+  revenue_30d_kobo: z.number().default(0),
+  revenue_90d_kobo: z.number().default(0),
+  paid_purchases: z.number().default(0),
+  purchases_awaiting_payment: z.number().default(0),
+  paying_patients: z.number().default(0),
+  /** Share of paying patients who bought more than once. Not a churn rate. */
+  repeat_rate_pct: z.number().default(0),
+  avg_purchase_kobo: z.number().default(0),
   commissions: z
     .object({
       total_kobo: z.number().default(0),
@@ -71,18 +78,19 @@ export const revenueTimeseriesSchema = z
   .default([]);
 export type RevenueTimeseries = z.infer<typeof revenueTimeseriesSchema>;
 
-export const revenueByPlanSchema = z
+export const revenueByProductSchema = z
   .array(
     z.object({
-      plan_code: z.string(),
-      plan_name: z.string(),
+      product_code: z.string(),
+      product_name: z.string(),
       currency: z.string().nullable(),
-      subscribers: z.number(),
-      mrr_minor: z.number(),
+      purchases: z.number(),
+      patients: z.number(),
+      revenue_minor: z.number(),
     })
   )
   .default([]);
-export type RevenueByPlan = z.infer<typeof revenueByPlanSchema>;
+export type RevenueByProduct = z.infer<typeof revenueByProductSchema>;
 
 // ---- Population health -----------------------------------------------------
 
@@ -350,8 +358,8 @@ export const userSegmentsSchema = z.object({
       dormant_90d: 0,
       never_active: 0,
     }),
-  churned: z.number().default(0),
-  by_plan: z.array(z.object({ plan: z.string(), users: z.number() })).default([]),
+  paying_patients: z.number().default(0),
+  by_product: z.array(z.object({ product: z.string(), users: z.number() })).default([]),
   by_care_category: z
     .array(z.object({ category: z.string(), users: z.number() }))
     .default([]),
@@ -627,38 +635,38 @@ export const riskRegisterSchema = z
 export type RiskRegister = z.infer<typeof riskRegisterSchema>;
 
 // ---- Investor / board ------------------------------------------------------
+//
+// Built on collected revenue rather than a subscription book. MRR, ARR, the
+// MRR waterfall, NRR, GRR, logo/revenue churn and the LTV family are gone: all
+// of them are functions of a recurring contract and a churn rate that the
+// pay-per-service model does not have.
 export const investorSummarySchema = z.object({
-  mrr_minor: z.number().default(0),
-  arr_minor: z.number().default(0),
-  active_subscriptions: z.number().default(0),
+  revenue_30d_minor: z.number().default(0),
+  revenue_90d_minor: z.number().default(0),
+  revenue_12m_minor: z.number().default(0),
   mom_growth_pct: z.number().default(0),
-  arpa_minor: z.number().default(0),
-  logo_churn_pct: z.number().default(0),
-  revenue_churn_pct: z.number().default(0),
-  mrr_waterfall: z
+  paying_patients: z.number().default(0),
+  repeat_rate_pct: z.number().default(0),
+  /** Trailing-12-month revenue per paying patient. */
+  arppu_minor: z.number().default(0),
+  revenue_by_month: z
     .array(
       z.object({
         month: z.string(),
-        starting: z.number(),
-        new_mrr: z.number(),
-        churned_mrr: z.number(),
-        ending: z.number(),
+        revenue_minor: z.number(),
+        purchases: z.number(),
+        paying_patients: z.number(),
       })
     )
     .default([]),
-  nrr_pct: z.number().nullable().default(null),
-  grr_pct: z.number().nullable().default(null),
   concentration: z
-    .array(z.object({ plan: z.string(), mrr_minor: z.number(), pct: z.number() }))
+    .array(z.object({ product: z.string(), revenue_minor: z.number(), pct: z.number() }))
     .default([]),
   unit_economics: z
     .object({
       inputs_present: z.boolean().default(false),
       gross_margin_pct: z.number().default(0),
-      ltv_minor: z.number().nullable().default(null),
       cac_minor: z.number().nullable().default(null),
-      ltv_cac_ratio: z.number().nullable().default(null),
-      cac_payback_months: z.number().nullable().default(null),
       rule_of_40: z.number().nullable().default(null),
       net_burn_minor: z.number().nullable().default(null),
       runway_months: z.number().nullable().default(null),
@@ -707,7 +715,7 @@ export const accountingSummarySchema = z.object({
     .default({}),
   ar_aging: z
     .object({
-      subscriptions_past_due: z.number().default(0),
+      purchases_awaiting_payment: z.number().default(0),
       commission_receivable_kobo: z.number().default(0),
       aging: z.array(z.object({ bucket: z.string(), kobo: z.number() })).default([]),
     })

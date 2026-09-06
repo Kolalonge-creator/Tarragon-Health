@@ -242,15 +242,8 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
     items: [
       {
         href: "/admin/settings/subscriptions",
-        label: "Subscription plans & add-ons",
-        blurb: "Create, price, and activate plans, synced to Paystack.",
-        icon: SEMANTIC_ICON.billing,
-        visible: adminOnly,
-      },
-      {
-        href: "/admin/settings/diaspora-pricing",
-        label: "Diaspora pricing (USD)",
-        blurb: "USD pricing at the admin-set exchange rate.",
+        label: "Retired subscription catalogue",
+        blurb: "Read-only history of the plans and add-ons retired in 2026.",
         icon: SEMANTIC_ICON.billing,
         visible: adminOnly,
       },
@@ -358,13 +351,6 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         blurb: "Oversight and audit trail for every AI-assisted clinical or operational decision.",
         icon: SEMANTIC_ICON.aiCoach,
         visible: anyOf("ai_governance.manage"),
-      },
-      {
-        href: "/admin/settings/ops-console",
-        label: "Ops console",
-        blurb: "One cross-domain worklist — alerts, appointments, referrals, labs, pharmacy, support, payments, incidents.",
-        icon: NAV_ICON.operations,
-        visible: anyOf("ops.console.view"),
       },
     ],
   },

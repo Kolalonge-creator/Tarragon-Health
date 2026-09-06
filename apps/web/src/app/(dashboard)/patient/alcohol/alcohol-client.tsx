@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
 
+import { formatPatientDate } from "@/lib/format-date";
 const GOAL_KEY = "alcohol-goal";
 const LOGS_KEY = "alcohol-consumption-logs";
 
@@ -29,14 +30,14 @@ export function AlcoholClient({ patientId }: { patientId: string }) {
       <Card>
         <CardContent className="flex items-center justify-between gap-3 pt-6">
           <div>
-            <p className="text-sm font-medium text-charcoal-ink">Not sure where you stand?</p>
-            <p className="text-xs text-charcoal-ink/60">Retake the AUDIT-C screen, or read up on cutting back.</p>
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Not sure where you stand?</p>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Retake the AUDIT-C screen, or read up on cutting back.</p>
           </div>
           <div className="flex gap-2">
-            <Link href="/patient/health-check" className="text-sm font-medium text-brand-green hover:underline">
+            <Link href="/patient/health-check" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
               Screening
             </Link>
-            <Link href="/patient/learn" className="text-sm font-medium text-brand-green hover:underline">
+            <Link href="/patient/learn" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
               Learn
             </Link>
           </div>
@@ -50,15 +51,15 @@ export function AlcoholClient({ patientId }: { patientId: string }) {
           <CardTitle>History</CardTitle>
         </CardHeader>
         <CardContent>
-          {logs.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {logs.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {!logs.isLoading && (logs.data?.length ?? 0) === 0 && (
-            <p className="text-sm text-charcoal-ink/60">Nothing logged yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing logged yet.</p>
           )}
           <ul className="space-y-2">
             {(logs.data ?? []).map((entry) => (
-              <li key={entry.id} className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 p-3">
-                <p className="text-sm font-medium text-charcoal-ink">
-                  {new Date(entry.logged_on).toLocaleDateString(undefined, { month: "long", day: "numeric" })}:{" "}
+              <li key={entry.id} className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+                  {formatPatientDate(entry.logged_on, { month: "long", day: "numeric" })}:{" "}
                   {entry.drinks_count} drink{entry.drinks_count === 1 ? "" : "s"}
                   {entry.context && ` (${ALCOHOL_CONTEXT_LABELS[entry.context as keyof typeof ALCOHOL_CONTEXT_LABELS]})`}
                 </p>
@@ -104,12 +105,12 @@ function GoalCard({
       </CardHeader>
       <CardContent className="space-y-4">
         {goal?.target_drinks_per_week != null && (
-          <p className="text-sm text-charcoal-ink">
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">
             {weekTotal} of a {goal.target_drinks_per_week} drinks/week goal so far this week
           </p>
         )}
         {!goal && !editing && (
-          <p className="text-sm text-charcoal-ink/60">No goal set yet. Set one whenever you&apos;re ready.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No goal set yet. Set one whenever you&apos;re ready.</p>
         )}
         {editing && (
           <form action={formAction} className="flex items-end gap-3">
@@ -129,7 +130,7 @@ function GoalCard({
             </Button>
           </form>
         )}
-        {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
       </CardContent>
     </Card>
   );
@@ -174,8 +175,8 @@ function LogCard({ patientId }: { patientId: string }) {
             {pending ? "Saving…" : "Save"}
           </Button>
         </form>
-        {state?.error && <p className="mt-2 text-sm text-destructive">{state.error}</p>}
-        {state?.success && <p className="mt-2 text-sm text-brand-green">Logged.</p>}
+        {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
+        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">Logged.</p>}
       </CardContent>
     </Card>
   );

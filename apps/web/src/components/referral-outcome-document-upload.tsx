@@ -88,14 +88,14 @@ export function ReferralOutcomeDocumentUpload({
             setSuccess(null);
           }}
         />
-        <p className="text-xs text-charcoal-ink/50">A photo of the printout is fine. PDF or image, up to 10 MB.</p>
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">A photo of the printout is fine. PDF or image, up to 10 MB.</p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
           {upload.isPending ? "Uploading…" : "Save document"}
         </Button>
-        {success && <p className="text-xs font-medium text-brand-green">{success}</p>}
-        {displayError && <p className="text-xs text-red-600">{displayError}</p>}
+        {success && <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">{success}</p>}
+        {displayError && <p className="text-xs text-red-600 dark:text-red-300">{displayError}</p>}
       </div>
     </form>
   );
