@@ -64,7 +64,10 @@
 # ===========================================================================
 #
 # Found 2026-09-06 (PR #456), in neither list at all -- the original bug this
-# file exists to stop, not a new instance of the two categories above:
+# file exists to stop, not a new instance of the two categories above. All
+# three headers say "Run via npx supabase db query --linked", confirming they
+# were written against the live project's own fixtures, not a bare
+# `supabase db reset`:
 #
 #  4. abnormal_screening_result_upgrade.sql -- the live proof for this
 #     platform's single highest-priority business event (CLAUDE.md: "Abnormal
