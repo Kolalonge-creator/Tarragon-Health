@@ -128,6 +128,15 @@ interface ReaderResult {
 
 // v14's identifiers are plain string literals (no more HK*Identifier enums) —
 // see the package's src/generated/healthkit.generated.ts.
+//
+// Quantity types ONLY — never HKCorrelationTypeIdentifierBloodPressure.
+// HealthKit forbids authorization requests for correlation types (authorize
+// the systolic/diastolic constituents instead, which grants
+// queryCorrelationSamples), and the resulting NSInvalidArgumentException is
+// thrown inside the library's native Swift continuation where no JS
+// try/catch can reach it: found 2026-09-06 on this code's first-ever real
+// run (iOS Simulator, Release build), where it hard-crashed the app on
+// every launch once a signed-in session triggered the startup sync.
 const READ_PERMISSIONS = [
   "HKQuantityTypeIdentifierBloodPressureSystolic",
   "HKQuantityTypeIdentifierBloodPressureDiastolic",
@@ -137,14 +146,16 @@ const READ_PERMISSIONS = [
   "HKQuantityTypeIdentifierOxygenSaturation",
   "HKQuantityTypeIdentifierHeartRateVariabilitySDNN",
   "HKQuantityTypeIdentifierStepCount",
-  "HKCorrelationTypeIdentifierBloodPressure",
 ] as const;
 
 /** Same list as READ_PERMISSIONS, typed for the background-delivery/observer
- * APIs (SampleTypeIdentifier), which is everything above except it excludes
- * nothing here — all seven quantity types plus the BP correlation are valid
- * observer-query targets. Kept as its own constant rather than re-deriving
- * it, since the two APIs want slightly different TypeScript shapes. */
+ * APIs (SampleTypeIdentifier). The BP correlation type is deliberately not
+ * observed either — every blood-pressure write also writes its systolic
+ * constituent, so observing the quantity types already fires on BP changes,
+ * without risking the same uncatchable-native-exception class the
+ * authorization call hit (see READ_PERMISSIONS above). Kept as its own
+ * constant rather than re-deriving it, since the two APIs want slightly
+ * different TypeScript shapes. */
 const BACKGROUND_TYPES = READ_PERMISSIONS;
 
 /** HealthKit's molar-mass unit string for blood glucose in mmol/L — the
