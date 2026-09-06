@@ -14,6 +14,16 @@ import { ProfileMenu } from "./profile-menu";
 import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
+import { useWorklistCounts, type WorklistCountKey } from "@/lib/queries/worklist-counts";
+
+/** Live counts keyed by NavItem.countKey, plus whether the underlying batched
+ * query failed — threaded down to NavLinkItem so a failed read never renders
+ * as a silently-hidden (zero-looking) badge. See NavItem.countKey's own doc
+ * comment in lib/navigation.ts. */
+type NavCounts = {
+  counts: Partial<Record<WorklistCountKey, number>> | undefined;
+  failed: boolean;
+};
 
 function isActive(pathname: string, href: string, exact?: boolean) {
   if (exact) return pathname === href;
@@ -100,14 +110,44 @@ function BottomTabBar({
   );
 }
 
+/** A live open-item count next to a nav link (see NavItem.countKey) — hidden
+ * at zero so a persistent, always-on-screen sidebar doesn't turn into a wall
+ * of "0" pills the way a one-time dashboard summary safely can. A failed
+ * underlying query renders as a small amber dot instead of nothing: this
+ * codebase's standing rule (lib/queries/worklist-counts.ts) is that a broken
+ * count must never look like a confirmed zero, and a silently-vanished badge
+ * would do exactly that here. */
+function NavBadge({ count, failed }: { count: number | undefined; failed: boolean }) {
+  if (failed) {
+    return (
+      <span
+        role="img"
+        aria-label="Could not load this count"
+        title="Could not load this count"
+        className="ml-auto h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 dark:bg-amber-400"
+      />
+    );
+  }
+  if (!count) return null;
+  return (
+    <span className="ml-auto shrink-0 rounded-full bg-brand-green/15 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-deep-forest dark:bg-brand-green-bright/20 dark:text-brand-green-bright">
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
+
 function NavLinkItem({
   item,
   pathname,
   onNavigate,
+  navCounts,
 }: {
   item: NavItem;
   pathname: string;
   onNavigate?: () => void;
+  /** Omitted where no item in that nav ever sets a countKey (e.g. bottom tab
+   * bar items don't route through here at all) — badge simply never renders. */
+  navCounts?: NavCounts;
 }) {
   const active = isActive(pathname, item.href, item.exact);
   const Icon = APP_ICON[item.icon];
@@ -139,7 +179,10 @@ function NavLinkItem({
           )}
           strokeWidth={2}
         />
-        <span className="truncate">{item.label}</span>
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        {item.countKey && (
+          <NavBadge count={navCounts?.counts?.[item.countKey]} failed={!!navCounts?.failed} />
+        )}
       </Link>
     </li>
   );
@@ -149,10 +192,12 @@ function SidebarNav({
   sections,
   pathname,
   onNavigate,
+  navCounts,
 }: {
   sections: NavSection[];
   pathname: string;
   onNavigate?: () => void;
+  navCounts?: NavCounts;
 }) {
   return (
     <nav aria-label="Main" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
@@ -165,7 +210,13 @@ function SidebarNav({
           )}
           <ul className="space-y-0.5">
             {section.items.map((item) => (
-              <NavLinkItem key={item.href} item={item} pathname={pathname} onNavigate={onNavigate} />
+              <NavLinkItem
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                onNavigate={onNavigate}
+                navCounts={navCounts}
+              />
             ))}
           </ul>
         </div>
@@ -206,12 +257,14 @@ function CollapsibleNavGroup({
   pathname,
   open,
   onToggle,
+  navCounts,
 }: {
   label: string;
   items: NavItem[];
   pathname: string;
   open: boolean;
   onToggle: (label: string, currentlyOpen: boolean) => void;
+  navCounts?: NavCounts;
 }) {
   const panelId = React.useId();
   return (
@@ -242,7 +295,7 @@ function CollapsibleNavGroup({
         <div className="overflow-hidden" inert={!open}>
           <ul className="space-y-0.5">
             {items.map((item) => (
-              <NavLinkItem key={item.href} item={item} pathname={pathname} />
+              <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
             ))}
           </ul>
         </div>
@@ -266,9 +319,11 @@ function CollapsibleNavGroup({
 function CollapsibleSidebarNav({
   sections,
   pathname,
+  navCounts,
 }: {
   sections: NavSection[];
   pathname: string;
+  navCounts?: NavCounts;
 }) {
   const dangerItems = sections.flatMap((s) => s.items.filter((i) => i.variant === "danger"));
   const groups = sections
@@ -349,11 +404,12 @@ function CollapsibleSidebarNav({
               pathname={pathname}
               open={overrideFor(group.label) ?? group.label === activeGroupLabel}
               onToggle={toggleGroup}
+              navCounts={navCounts}
             />
           ) : (
             <ul key={i} className="space-y-0.5">
               {group.items.map((item) => (
-                <NavLinkItem key={item.href} item={item} pathname={pathname} />
+                <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
               ))}
             </ul>
           )
@@ -362,7 +418,7 @@ function CollapsibleSidebarNav({
       {dangerItems.length > 0 && (
         <ul className="mt-auto space-y-0.5 pt-6">
           {dangerItems.map((item) => (
-            <NavLinkItem key={item.href} item={item} pathname={pathname} />
+            <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
           ))}
         </ul>
       )}
@@ -476,6 +532,20 @@ export function AppShell({
   const homeHref = navSections[0]?.items[0]?.href ?? "/login";
   const allItems = navSections.flatMap((s) => s.items);
   const primaryItems = allItems.filter((item) => item.primary).slice(0, MAX_PRIMARY_NAV_ITEMS);
+
+  // One batched fetch for every countKey any link in this role's nav sets,
+  // rather than one query per badge — a role that sets none (still true of
+  // every role but clinician/care_coordinator) costs nothing, since
+  // useWorklistCounts short-circuits on an empty key list.
+  const countKeys = React.useMemo(
+    () =>
+      Array.from(
+        new Set(allItems.map((item) => item.countKey).filter((k): k is WorklistCountKey => !!k))
+      ),
+    [allItems]
+  );
+  const { data: navCountsData, isError: navCountsFailed } = useWorklistCounts(countKeys);
+  const navCounts: NavCounts = { counts: navCountsData, failed: navCountsFailed };
   // No More button when the tabs already cover every link — a supporter's
   // four-link menu would otherwise get a button opening a drawer that shows
   // them nothing new.
@@ -532,9 +602,9 @@ export function AppShell({
         <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-charcoal-ink/10 bg-white lg:flex print:hidden dark:border-night-ink/15 dark:bg-night-card">
           <BrandLockup homeHref={homeHref} />
           {surface === "warm" ? (
-            <CollapsibleSidebarNav sections={navSections} pathname={pathname} />
+            <CollapsibleSidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
           ) : (
-            <SidebarNav sections={navSections} pathname={pathname} />
+            <SidebarNav sections={navSections} pathname={pathname} navCounts={navCounts} />
           )}
           {userBlock}
         </aside>
@@ -565,6 +635,7 @@ export function AppShell({
               sections={navSections}
               pathname={pathname}
               onNavigate={() => setMobileOpen(false)}
+              navCounts={navCounts}
             />
             {userBlock}
           </div>
