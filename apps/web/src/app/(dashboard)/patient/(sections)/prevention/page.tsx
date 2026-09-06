@@ -9,6 +9,7 @@ import { AnnualHealthCheckBooking } from "@/app/(dashboard)/patient/annual-healt
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { PreventiveScreeningCalendar } from "@/app/(dashboard)/patient/preventive-screening-calendar";
 import { PreventiveProgrammes } from "@/app/(dashboard)/patient/preventive-programmes";
+import { CancerScreeningCard } from "@/app/(dashboard)/patient/cancer-screening-card";
 import { CareProgrammeRecommendations } from "@/app/(dashboard)/patient/care-programme-recommendations";
 import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-health-card";
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
@@ -158,6 +159,7 @@ export default async function PreventionHubPage() {
         <div className="space-y-6">
           <PreventionCampaignsCard patientId={subjectId} />
           <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
+          <CancerScreeningCard sex={profile.sex} />
           {/* Permissive on an unrecorded sex, deliberately: see
               shouldOfferCycleTracking. The strict `=== "female"` test this
               replaces left the cycle tracker with no entry point at all for
