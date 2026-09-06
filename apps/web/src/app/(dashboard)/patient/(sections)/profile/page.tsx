@@ -4,6 +4,7 @@ import { NAV_ICON } from "@/lib/icons";
 import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { ConditionLanguageForm } from "@/app/(dashboard)/patient/condition-language-form";
 import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contact-form";
+import { HeightForm } from "@/app/(dashboard)/patient/height-form";
 import { AvatarUploadForm } from "@/app/(dashboard)/patient/avatar-upload-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { CommunicationPreferencesForm } from "@/app/(dashboard)/patient/communication-preferences-form";
@@ -50,6 +51,7 @@ export default async function PatientProfilePage() {
         </div>
 
         <div className="space-y-4">
+          <HeightForm initial={{ height_cm: profile.height_cm }} />
           <ConditionLanguageForm
             initial={{ condition_language_preference: profile.condition_language_preference }}
           />

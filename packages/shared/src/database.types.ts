@@ -10138,6 +10138,204 @@ export type Database = {
         }
         Relationships: []
       }
+      device_fault_reports: {
+        Row: {
+          created_at: string
+          description: string
+          device_unit_id: string | null
+          id: string
+          organisation_id: string
+          patient_device_id: string | null
+          patient_id: string
+          replacement_device_unit_id: string | null
+          reported_by: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          status: Database["public"]["Enums"]["device_fault_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          device_unit_id?: string | null
+          id?: string
+          organisation_id: string
+          patient_device_id?: string | null
+          patient_id: string
+          replacement_device_unit_id?: string | null
+          reported_by: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["device_fault_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          device_unit_id?: string | null
+          id?: string
+          organisation_id?: string
+          patient_device_id?: string | null
+          patient_id?: string
+          replacement_device_unit_id?: string | null
+          reported_by?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          status?: Database["public"]["Enums"]["device_fault_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_fault_reports_device_unit_id_fkey"
+            columns: ["device_unit_id"]
+            isOneToOne: false
+            referencedRelation: "device_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_patient_device_id_fkey"
+            columns: ["patient_device_id"]
+            isOneToOne: false
+            referencedRelation: "patient_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_replacement_device_unit_id_fkey"
+            columns: ["replacement_device_unit_id"]
+            isOneToOne: false
+            referencedRelation: "device_units"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_fault_reports_reported_by_fkey"
+            columns: ["reported_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      device_units: {
+        Row: {
+          assigned_at: string | null
+          assigned_patient_id: string | null
+          calibration_interval_days: number | null
+          created_at: string
+          device_type: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version: string | null
+          id: string
+          integration_method: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          last_calibrated_at: string | null
+          lifecycle_status: Database["public"]["Enums"]["device_lifecycle_status"]
+          manufacturer: string
+          model: string
+          next_calibration_due_at: string | null
+          organisation_id: string
+          ownership: Database["public"]["Enums"]["device_ownership"]
+          owning_partner_organisation_id: string | null
+          retired_at: string | null
+          retired_reason: string | null
+          serial_number: string
+          supported_measurements: string[]
+          updated_at: string
+          validated_at: string | null
+          validated_by: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_patient_id?: string | null
+          calibration_interval_days?: number | null
+          created_at?: string
+          device_type: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version?: string | null
+          id?: string
+          integration_method?: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          last_calibrated_at?: string | null
+          lifecycle_status?: Database["public"]["Enums"]["device_lifecycle_status"]
+          manufacturer: string
+          model: string
+          next_calibration_due_at?: string | null
+          organisation_id: string
+          ownership?: Database["public"]["Enums"]["device_ownership"]
+          owning_partner_organisation_id?: string | null
+          retired_at?: string | null
+          retired_reason?: string | null
+          serial_number: string
+          supported_measurements?: string[]
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_patient_id?: string | null
+          calibration_interval_days?: number | null
+          created_at?: string
+          device_type?: Database["public"]["Enums"]["patient_device_type"]
+          firmware_version?: string | null
+          id?: string
+          integration_method?: Database["public"]["Enums"]["device_catalog_pairing_path"]
+          last_calibrated_at?: string | null
+          lifecycle_status?: Database["public"]["Enums"]["device_lifecycle_status"]
+          manufacturer?: string
+          model?: string
+          next_calibration_due_at?: string | null
+          organisation_id?: string
+          ownership?: Database["public"]["Enums"]["device_ownership"]
+          owning_partner_organisation_id?: string | null
+          retired_at?: string | null
+          retired_reason?: string | null
+          serial_number?: string
+          supported_measurements?: string[]
+          updated_at?: string
+          validated_at?: string | null
+          validated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "device_units_assigned_patient_id_fkey"
+            columns: ["assigned_patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_units_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_units_owning_partner_organisation_id_fkey"
+            columns: ["owning_partner_organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "device_units_validated_by_fkey"
+            columns: ["validated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       diabetes_complication_checks: {
         Row: {
           abnormal: boolean
@@ -11916,6 +12114,54 @@ export type Database = {
             columns: ["organisation_id"]
             isOneToOne: false
             referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      erectile_dysfunction_assessments: {
+        Row: {
+          cardiometabolic_review_suggested: boolean
+          created_at: string
+          id: string
+          item_responses: Json
+          organisation_id: string
+          patient_id: string
+          severity_band: string
+          total_score: number
+        }
+        Insert: {
+          cardiometabolic_review_suggested?: boolean
+          created_at?: string
+          id?: string
+          item_responses?: Json
+          organisation_id: string
+          patient_id: string
+          severity_band: string
+          total_score: number
+        }
+        Update: {
+          cardiometabolic_review_suggested?: boolean
+          created_at?: string
+          id?: string
+          item_responses?: Json
+          organisation_id?: string
+          patient_id?: string
+          severity_band?: string
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "erectile_dysfunction_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "erectile_dysfunction_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -17110,11 +17356,13 @@ export type Database = {
           code: string
           created_at: string
           id: string
+          laboratory: string | null
           organisation_id: string
           patient_id: string
           reference_range_high: number | null
           reference_range_low: number | null
           reference_range_text: string | null
+          report_status: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at: string | null
           taken_at: string
           unit: string | null
@@ -17127,11 +17375,13 @@ export type Database = {
           code: string
           created_at?: string
           id?: string
+          laboratory?: string | null
           organisation_id: string
           patient_id: string
           reference_range_high?: number | null
           reference_range_low?: number | null
           reference_range_text?: string | null
+          report_status?: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at?: string | null
           taken_at?: string
           unit?: string | null
@@ -17144,11 +17394,13 @@ export type Database = {
           code?: string
           created_at?: string
           id?: string
+          laboratory?: string | null
           organisation_id?: string
           patient_id?: string
           reference_range_high?: number | null
           reference_range_low?: number | null
           reference_range_text?: string | null
+          report_status?: Database["public"]["Enums"]["lab_report_status"]
           specimen_collected_at?: string | null
           taken_at?: string
           unit?: string | null
@@ -21304,6 +21556,54 @@ export type Database = {
           },
         ]
       }
+      male_fertility_assessments: {
+        Row: {
+          created_at: string
+          id: string
+          organisation_id: string
+          patient_id: string
+          prior_semen_analysis: string
+          risk_factors: Json
+          semen_analysis_suggested: boolean
+          trying_to_conceive_months: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organisation_id: string
+          patient_id: string
+          prior_semen_analysis?: string
+          risk_factors?: Json
+          semen_analysis_suggested?: boolean
+          trying_to_conceive_months: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          prior_semen_analysis?: string
+          risk_factors?: Json
+          semen_analysis_suggested?: boolean
+          trying_to_conceive_months?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "male_fertility_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "male_fertility_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mental_health_screens: {
         Row: {
           created_at: string
@@ -24141,8 +24441,11 @@ export type Database = {
         Row: {
           ble_device_id: string
           calibration_status: string | null
+          connectivity_notified_at: string | null
+          connectivity_status: Database["public"]["Enums"]["device_connectivity_status"]
           created_at: string
           device_type: Database["public"]["Enums"]["patient_device_type"]
+          device_unit_id: string | null
           duplicate_readings_count: number
           firmware_version: string | null
           id: string
@@ -24164,8 +24467,11 @@ export type Database = {
         Insert: {
           ble_device_id: string
           calibration_status?: string | null
+          connectivity_notified_at?: string | null
+          connectivity_status?: Database["public"]["Enums"]["device_connectivity_status"]
           created_at?: string
           device_type: Database["public"]["Enums"]["patient_device_type"]
+          device_unit_id?: string | null
           duplicate_readings_count?: number
           firmware_version?: string | null
           id?: string
@@ -24187,8 +24493,11 @@ export type Database = {
         Update: {
           ble_device_id?: string
           calibration_status?: string | null
+          connectivity_notified_at?: string | null
+          connectivity_status?: Database["public"]["Enums"]["device_connectivity_status"]
           created_at?: string
           device_type?: Database["public"]["Enums"]["patient_device_type"]
+          device_unit_id?: string | null
           duplicate_readings_count?: number
           firmware_version?: string | null
           id?: string
@@ -24208,6 +24517,13 @@ export type Database = {
           unpaired_reason?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "patient_devices_device_unit_id_fkey"
+            columns: ["device_unit_id"]
+            isOneToOne: false
+            referencedRelation: "device_units"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "patient_devices_organisation_id_fkey"
             columns: ["organisation_id"]
@@ -28565,6 +28881,54 @@ export type Database = {
           },
         ]
       }
+      prostate_symptom_assessments: {
+        Row: {
+          created_at: string
+          id: string
+          item_responses: Json
+          organisation_id: string
+          patient_id: string
+          psa_conversation_suggested: boolean
+          severity_band: string
+          total_score: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_responses?: Json
+          organisation_id: string
+          patient_id: string
+          psa_conversation_suggested?: boolean
+          severity_band: string
+          total_score: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_responses?: Json
+          organisation_id?: string
+          patient_id?: string
+          psa_conversation_suggested?: boolean
+          severity_band?: string
+          total_score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prostate_symptom_assessments_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prostate_symptom_assessments_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_access: {
         Row: {
           clinical_access: boolean
@@ -28670,6 +29034,8 @@ export type Database = {
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
           full_name: string | null
+          height_cm: number | null
+          height_reconciled_at: string | null
           id: string
           identity_verified_at: string | null
           is_active: boolean
@@ -28718,6 +29084,8 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           full_name?: string | null
+          height_cm?: number | null
+          height_reconciled_at?: string | null
           id: string
           identity_verified_at?: string | null
           is_active?: boolean
@@ -28766,6 +29134,8 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           full_name?: string | null
+          height_cm?: number | null
+          height_reconciled_at?: string | null
           id?: string
           identity_verified_at?: string | null
           is_active?: boolean
@@ -31365,6 +31735,47 @@ export type Database = {
           },
         ]
       }
+      result_release_policies: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          config: Json
+          created_at: string
+          id: string
+          is_active: boolean
+          notes: string | null
+          version: number
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version: number
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          config?: Json
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          notes?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "result_release_policies_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       revenue_recognition_schedules: {
         Row: {
           cancelled_reason: string | null
@@ -32250,51 +32661,69 @@ export type Database = {
       screening_results: {
         Row: {
           abnormal_flags: string[]
+          action_type: Database["public"]["Enums"]["result_action_type"] | null
           correction_reason: string | null
           corrects_result_id: string | null
           created_at: string
           follow_up_action: string | null
           id: string
           lab_order_id: string | null
+          laboratory: string | null
           organisation_id: string
           patient_id: string
+          patient_informed_at: string | null
+          patient_informed_by: string | null
           recall_months: number | null
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           schedule_id: string | null
           screen_type_code: string | null
           search_vector: unknown
         }
         Insert: {
           abnormal_flags?: string[]
+          action_type?: Database["public"]["Enums"]["result_action_type"] | null
           correction_reason?: string | null
           corrects_result_id?: string | null
           created_at?: string
           follow_up_action?: string | null
           id?: string
           lab_order_id?: string | null
+          laboratory?: string | null
           organisation_id: string
           patient_id: string
+          patient_informed_at?: string | null
+          patient_informed_by?: string | null
           recall_months?: number | null
           result_status: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           schedule_id?: string | null
           screen_type_code?: string | null
           search_vector?: unknown
         }
         Update: {
           abnormal_flags?: string[]
+          action_type?: Database["public"]["Enums"]["result_action_type"] | null
           correction_reason?: string | null
           corrects_result_id?: string | null
           created_at?: string
           follow_up_action?: string | null
           id?: string
           lab_order_id?: string | null
+          laboratory?: string | null
           organisation_id?: string
           patient_id?: string
+          patient_informed_at?: string | null
+          patient_informed_by?: string | null
           recall_months?: number | null
           result_status?: Database["public"]["Enums"]["result_status"]
           result_summary?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           schedule_id?: string | null
           screen_type_code?: string | null
           search_vector?: unknown
@@ -32331,6 +32760,20 @@ export type Database = {
           {
             foreignKeyName: "screening_results_patient_id_fkey"
             columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_results_patient_informed_by_fkey"
+            columns: ["patient_informed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "screening_results_reviewed_by_fkey"
+            columns: ["reviewed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -41425,6 +41868,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      sign_result_release_policies: { Args: { p_id: string }; Returns: string }
       sign_risk_questionnaire_config: {
         Args: { p_config_id: string }
         Returns: string
@@ -42247,11 +42691,27 @@ export type Database = {
         | "ble_vendor_sdk"
         | "health_connect_bridge"
         | "manual_only"
+      device_connectivity_status: "ok" | "no_data" | "investigating"
       device_data_deletion_scope:
         | "wearable_readings"
         | "device_connections"
         | "all_device_data"
       device_data_deletion_status: "requested" | "in_progress" | "completed" | "rejected"
+      device_fault_status:
+        | "reported"
+        | "troubleshooting"
+        | "resolved"
+        | "replacement_requested"
+        | "replaced"
+      device_lifecycle_status:
+        | "registered"
+        | "validated"
+        | "available"
+        | "assigned"
+        | "active"
+        | "inactive"
+        | "retired"
+      device_ownership: "patient_owned" | "tarragon_owned" | "partner_owned"
       dependent_kind: "minor_child" | "elder_proxy"
       diabetes_type: "type_1" | "type_2" | "gestational" | "other"
       dispense_source: "patient" | "pharmacy"
@@ -42649,6 +43109,7 @@ export type Database = {
         | "duplicate_order"
         | "clinically_withdrawn"
       lab_refund_status: "requested" | "approved" | "rejected" | "paid"
+      lab_report_status: "preliminary" | "final" | "corrected" | "amended"
       lab_result_ai_summary_status:
         | "pending"
         | "ready"
@@ -43012,6 +43473,8 @@ export type Database = {
         | "thermometer"
         | "pulse_oximeter"
         | "smart_band"
+        | "ecg"
+        | "peak_flow_meter"
       patient_document_source: "patient" | "lab_liaison" | "clinician" | "admin"
       patient_document_type:
         | "discharge_summary"
@@ -43354,13 +43817,21 @@ export type Database = {
         | "perimenopausal"
         | "menopausal"
         | "not_applicable"
+      result_action_type:
+        | "repeat_test"
+        | "medication_change"
+        | "appointment"
+        | "specialist_referral"
+        | "monitoring"
+        | "no_action"
       result_document_acknowledgement_status:
         | "new"
         | "opened"
         | "reviewed"
         | "action_required"
         | "action_completed"
-      result_status: "normal" | "borderline" | "abnormal" | "critical"
+      result_release_mode: "immediate" | "after_review" | "restricted"
+      result_status: "normal" | "borderline" | "indeterminate" | "abnormal" | "critical"
       risk_assessment_category:
         | "lifestyle"
         | "family_history"
@@ -43497,6 +43968,8 @@ export type Database = {
         | "severe_headache"
         | "visual_disturbance"
         | "confusion"
+        | "testicular_pain"
+        | "testicular_lump"
         | "poor_feeding"
         | "lethargy"
         | "grunting_or_retractions"
@@ -44487,6 +44960,7 @@ export const Constants = {
         "health_connect_bridge",
         "manual_only",
       ],
+      device_connectivity_status: ["ok", "no_data", "investigating"],
       device_data_deletion_scope: [
         "wearable_readings",
         "device_connections",
@@ -44498,6 +44972,23 @@ export const Constants = {
         "completed",
         "rejected",
       ],
+      device_fault_status: [
+        "reported",
+        "troubleshooting",
+        "resolved",
+        "replacement_requested",
+        "replaced",
+      ],
+      device_lifecycle_status: [
+        "registered",
+        "validated",
+        "available",
+        "assigned",
+        "active",
+        "inactive",
+        "retired",
+      ],
+      device_ownership: ["patient_owned", "tarragon_owned", "partner_owned"],
       dependent_kind: ["minor_child", "elder_proxy"],
       diabetes_type: ["type_1", "type_2", "gestational", "other"],
       dispense_source: ["patient", "pharmacy"],
@@ -44950,6 +45441,7 @@ export const Constants = {
         "clinically_withdrawn",
       ],
       lab_refund_status: ["requested", "approved", "rejected", "paid"],
+      lab_report_status: ["preliminary", "final", "corrected", "amended"],
       lab_result_ai_summary_status: [
         "pending",
         "ready",
@@ -45349,6 +45841,8 @@ export const Constants = {
         "thermometer",
         "pulse_oximeter",
         "smart_band",
+        "ecg",
+        "peak_flow_meter",
       ],
       patient_document_source: ["patient", "lab_liaison", "clinician", "admin"],
       patient_document_type: [
@@ -45733,6 +46227,14 @@ export const Constants = {
         "menopausal",
         "not_applicable",
       ],
+      result_action_type: [
+        "repeat_test",
+        "medication_change",
+        "appointment",
+        "specialist_referral",
+        "monitoring",
+        "no_action",
+      ],
       result_document_acknowledgement_status: [
         "new",
         "opened",
@@ -45740,7 +46242,8 @@ export const Constants = {
         "action_required",
         "action_completed",
       ],
-      result_status: ["normal", "borderline", "abnormal", "critical"],
+      result_release_mode: ["immediate", "after_review", "restricted"],
+      result_status: ["normal", "borderline", "indeterminate", "abnormal", "critical"],
       risk_assessment_category: [
         "lifestyle",
         "family_history",
@@ -45893,6 +46396,8 @@ export const Constants = {
         "severe_headache",
         "visual_disturbance",
         "confusion",
+        "testicular_pain",
+        "testicular_lump",
         "poor_feeding",
         "lethargy",
         "grunting_or_retractions",

@@ -2,9 +2,10 @@
 
 import { useState, type Key as ReactKey } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
-import { useVitalsTrend, useHba1cTrend, useBmiTrend, useLatestHeightCm } from "@/lib/queries/vitals";
+import { useVitalsTrend, useHba1cTrend, useBmiTrend, useHeightStatus } from "@/lib/queries/vitals";
 import { getHba1cBracket } from "@/lib/rules/hba1c-bracket";
 import { bmiCategory, type BmiCategory } from "@/lib/obesity/classify";
+import { HeightDiscrepancyBanner } from "@/components/height-discrepancy-banner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
@@ -128,12 +129,14 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
   );
   const hba1cTrend = useHba1cTrend(patientId);
   const bmiTrend = useBmiTrend(patientId);
-  const heightQuery = useLatestHeightCm(patientId);
+  const heightStatus = useHeightStatus(patientId);
   const { data, isLoading, isError } =
     mode === "hba1c" ? hba1cTrend : mode === "bmi" ? bmiTrend : vitalsTrend;
   const points = (data ?? []).map((reading) => ({ ...reading, date: formatDate(reading.taken_at) }));
   const lastIndex = points.length - 1;
-  const noHeightOnFile = mode === "bmi" && !heightQuery.isLoading && heightQuery.data == null;
+  const noHeightOnFile =
+    mode === "bmi" && !heightStatus.isLoading && heightStatus.data?.heightCm == null;
+  const heightDiscrepancy = mode === "bmi" ? heightStatus.data?.discrepancy : null;
 
   return (
     <Card>
@@ -189,11 +192,22 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
         {mode === "bmi" && !isLoading && !isError && noHeightOnFile && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             Add your height in your{" "}
+            <a href="/patient/profile" className="underline">
+              profile settings
+            </a>{" "}
+            or your{" "}
             <a href="/patient/prevention#risk-assessment" className="underline">
               risk assessment
             </a>{" "}
             to see your BMI trend alongside your weight.
           </p>
+        )}
+        {mode === "bmi" && !isLoading && !isError && heightDiscrepancy && (
+          <HeightDiscrepancyBanner
+            patientId={patientId}
+            profileHeightCm={heightDiscrepancy.profileHeightCm}
+            questionnaireHeightCm={heightDiscrepancy.questionnaireHeightCm}
+          />
         )}
         {!isLoading && !isError && !noHeightOnFile && points.length < 2 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Not enough readings yet.</p>
