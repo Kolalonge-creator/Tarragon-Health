@@ -118,7 +118,7 @@ export function NavDrawer({
                   width: 32,
                   height: 32,
                   borderRadius: 16,
-                  backgroundColor: "#E7EEE7",
+                  backgroundColor: colors.brandTint,
                   alignItems: "center",
                   justifyContent: "center",
                 }}

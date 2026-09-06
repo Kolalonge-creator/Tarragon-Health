@@ -19,14 +19,15 @@ export function AccountingDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Revenue recognition is modeled from subscription billing periods (ASC 606 / IFRS 15 style).
-        The general ledger and formal close stay in your accounting system: this is the
-        investor/audit-facing evidence layer.
+        A patient buys a service up front and uses it later, so revenue is recognised on
+        delivery: once the credit is redeemed or its access window has run out. Anything bought
+        and still unused sits in deferred. The general ledger and formal close stay in your
+        accounting system: this is the investor/audit-facing evidence layer.
       </p>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatTile icon={FileText} label="Billed (current periods)" value={formatMinor(rr?.billed_minor ?? 0, "NGN")} />
-        <StatTile icon={Banknote} label="Recognized to date" value={formatMinor(rr?.recognized_minor ?? 0, "NGN")} />
+        <StatTile icon={FileText} label="Collected" value={formatMinor(rr?.billed_minor ?? 0, "NGN")} />
+        <StatTile icon={Banknote} label="Recognised to date" value={formatMinor(rr?.recognized_minor ?? 0, "NGN")} />
         <StatTile icon={Scale} label="Deferred revenue" value={formatMinor(rr?.deferred_minor ?? 0, "NGN")} />
         <StatTile icon={Receipt} label="Commission receivable" value={formatMinor(ar?.commission_receivable_kobo ?? 0, "NGN")} />
       </div>
@@ -34,18 +35,18 @@ export function AccountingDashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
           title="Revenue recognition by currency"
-          description="Billed vs recognized vs deferred for in-progress subscription periods."
+          description="Collected vs recognised vs deferred, across everything bought."
           actions={<ExportButton filename="revenue-recognition" rows={rr?.by_currency ?? []} />}
         >
           {(rr?.by_currency ?? []).length === 0 ? (
-            <div className="py-6 text-center text-sm text-charcoal-ink/50">No active subscription periods.</div>
+            <div className="py-6 text-center text-sm text-charcoal-ink/50">Nothing has been bought yet.</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
                     <th className="py-2 pr-4 font-medium">Currency</th>
-                    <th className="py-2 pr-4 text-right font-medium">Billed</th>
+                    <th className="py-2 pr-4 text-right font-medium">Collected</th>
                     <th className="py-2 pr-4 text-right font-medium">Recognized</th>
                     <th className="py-2 text-right font-medium">Deferred</th>
                   </tr>
@@ -67,7 +68,7 @@ export function AccountingDashboard() {
 
         <SectionCard
           title="Accounts receivable aging"
-          description="Unpaid commissions by age; plus past-due subscriptions."
+          description="Unpaid commissions by age, plus purchases still waiting on payment."
           actions={<ExportButton filename="ar-aging" rows={ar?.aging ?? []} />}
         >
           <MiniBarList
@@ -79,14 +80,15 @@ export function AccountingDashboard() {
             emptyLabel="No receivables."
           />
           <p className="mt-4 text-sm text-charcoal-ink/70">
-            Past-due subscriptions: <b className="text-charcoal-ink">{ar?.subscriptions_past_due ?? 0}</b>
+            Purchases awaiting payment:{" "}
+            <b className="text-charcoal-ink">{ar?.purchases_awaiting_payment ?? 0}</b>
           </p>
         </SectionCard>
       </div>
 
       <SectionCard
         title="Payment reconciliation"
-        description="Collected across providers (Paystack / Stripe) vs recognized revenue."
+        description="Paystack settlements against recognised revenue. Paystack is the only live payment provider."
         actions={<ExportButton filename="payments-collected" rows={rec?.payments_collected ?? []} />}
       >
         <div className="grid gap-4 sm:grid-cols-3">
@@ -95,7 +97,7 @@ export function AccountingDashboard() {
             <p className="font-heading text-xl font-semibold text-charcoal-ink">{formatMinor(ngnCollected, "NGN")}</p>
           </div>
           <div className="rounded-lg border border-charcoal-ink/10 bg-white p-3">
-            <p className="text-xs text-charcoal-ink/60">Recognized (NGN)</p>
+            <p className="text-xs text-charcoal-ink/60">Recognised (NGN)</p>
             <p className="font-heading text-xl font-semibold text-charcoal-ink">{formatMinor(rr?.recognized_minor ?? 0, "NGN")}</p>
           </div>
           <div className="rounded-lg border border-charcoal-ink/10 bg-white p-3">

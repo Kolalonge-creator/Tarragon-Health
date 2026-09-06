@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
-import type { MedicationInput } from "@/lib/validation/medications";
+import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
 
 export type Medication = Tables<"medications">;
-export type MedicationLog = Tables<"medication_logs">;
+// medication_logs is append-only (20260830224528) — reads go through the
+// medication_logs_latest_per_slot view, whose columns are nullable (a view
+// can't carry over a base column's NOT NULL), hence sourcing the type here.
+export type MedicationLog = Tables<"medication_logs_latest_per_slot">;
 export type MedicationCollection = Tables<"pharmacy_order_dispenses">;
 
 /** A medication row plus the condition of its linked care plan, if any —
@@ -115,6 +118,12 @@ export function useMedicationCollections(patientId: string) {
   });
 }
 
+/**
+ * medication_logs is append-only (20260830224528): a slot can carry more
+ * than one row once a dose is corrected. medication_logs_latest_per_slot
+ * keeps only the latest row per (medication, date, time) — freeform/
+ * as-needed logs (no scheduled slot) are never deduped, each stands alone.
+ */
 export function useTodaysDoseLogs(patientId: string) {
   const today = todayIsoDate();
   return useQuery({
@@ -122,7 +131,7 @@ export function useTodaysDoseLogs(patientId: string) {
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("medication_logs")
+        .from("medication_logs_latest_per_slot")
         .select("*")
         .eq("patient_id", patientId)
         .eq("scheduled_for_date", today);
@@ -266,9 +275,70 @@ export function useConfirmMedicationRefill() {
 }
 
 /**
- * Select-then-branch upsert against the (medication_id, scheduled_for_date,
- * scheduled_time) partial unique index — supabase-js's `onConflict` can't
- * target a partial index, same rationale as the reminder-rules mutations.
+ * Amend a signed prescription (spec §62.14) — supersedes the current version
+ * and creates a new one carrying the edits, via the public.amend_medication()
+ * RPC (20260829010500_amend_medication.sql). Not a plain update: the RPC is
+ * what atomically flags the old row superseded and inserts the new one with
+ * version/previous_version_id set, and it enforces (independently of RLS)
+ * that only clinical staff — never the patient — may call it. Tier 2+/
+ * Clinical Director only; the DB is the real gate, hasPrescribingAuthority()
+ * just decides whether the UI offers this at all.
+ */
+export function useAmendMedication() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      medicationId,
+      input,
+    }: {
+      medicationId: string;
+      patientId: string;
+      input: AmendMedicationInput;
+    }) => {
+      const supabase = createClient();
+      // Anything left undefined here is simply omitted from the RPC call
+      // (JSON.stringify drops undefined keys) — the SQL function's own
+      // `default null` + COALESCE against the current version's value is
+      // what actually happens for an untouched field, same outcome as
+      // sending an explicit null, but this way the call matches the
+      // generated Args type (each optional param is `T | undefined`, not
+      // `T | null`).
+      const { error } = await supabase.rpc("amend_medication", {
+        p_medication_id: medicationId,
+        p_amendment_reason: input.amendment_reason,
+        p_drug_name: input.drug_name ?? undefined,
+        p_dose: input.dose ?? undefined,
+        p_frequency: input.frequency ?? undefined,
+        p_route: input.route ?? undefined,
+        p_duration_days: input.duration_days ?? undefined,
+        p_quantity: input.quantity ?? undefined,
+        p_repeats_allowed: input.repeats_allowed ?? undefined,
+        p_indication: input.indication ?? undefined,
+        p_instructions: input.instructions ?? undefined,
+        p_refill_date: input.refill_date || undefined,
+        p_schedule_times:
+          input.schedule_times && input.schedule_times.length > 0
+            ? input.schedule_times
+            : undefined,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: medicationsKey(variables.patientId) });
+      queryClient.invalidateQueries({ queryKey: stoppedMedicationsKey(variables.patientId) });
+    },
+  });
+}
+
+/**
+ * Append-only (20260830224528): every dose action is a new row, never an
+ * update of a previous one — re-tapping a slot (a correction) inserts
+ * another row, and medication_logs_latest_per_slot's latest-wins view is
+ * the read path for "today's status," preserving the full history for
+ * clinical review. This replaces the earlier select-then-branch upsert
+ * against the (medication_id, scheduled_for_date, scheduled_time) partial
+ * unique index — that index was dropped by the same migration, so an
+ * UPDATE here would now fail (no UPDATE policy remains on medication_logs).
  */
 export function useLogDose() {
   const queryClient = useQueryClient();
@@ -278,39 +348,12 @@ export function useLogDose() {
     ) => {
       const supabase = createClient();
       const { patientId, organisationId, ...rest } = input;
-
-      if (rest.scheduled_time && rest.scheduled_for_date) {
-        const { data: existing } = await supabase
-          .from("medication_logs")
-          .select("id")
-          .eq("medication_id", rest.medication_id)
-          .eq("scheduled_for_date", rest.scheduled_for_date)
-          .eq("scheduled_time", rest.scheduled_time)
-          .maybeSingle();
-
-        const { error } = existing
-          ? await supabase
-              .from("medication_logs")
-              .update({
-                status: rest.status,
-                reason: rest.reason ?? null,
-                logged_at: new Date().toISOString(),
-              })
-              .eq("id", existing.id)
-          : await supabase.from("medication_logs").insert({
-              ...rest,
-              patient_id: patientId,
-              organisation_id: organisationId,
-            });
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from("medication_logs").insert({
-          ...rest,
-          patient_id: patientId,
-          organisation_id: organisationId,
-        });
-        if (error) throw error;
-      }
+      const { error } = await supabase.from("medication_logs").insert({
+        ...rest,
+        patient_id: patientId,
+        organisation_id: organisationId,
+      });
+      if (error) throw error;
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({

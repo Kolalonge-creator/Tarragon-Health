@@ -1,0 +1,11 @@
+-- Tarragon Health — doctor-side half of the lab-result consultation fee
+-- feature (founder ask, 2026-08-30): "doctors should be able to get queue of
+-- the request pending, then they can select time and date that they are
+-- free for the consult and the video link can then be generated."
+--
+-- New terminal(-ish) status: a doctor has picked a date/time and a
+-- video_consultations row now exists for this request. Standalone migration
+-- because Postgres forbids using a freshly-added enum value in the same
+-- transaction that adds it (same split used throughout this feature's first
+-- pass — see 20260830085400/085418).
+alter type public.lab_result_consult_request_status add value if not exists 'accepted';

@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { ProtocolVersionsManager } from "./protocol-versions-manager";
+import { ProtocolDraftsManager } from "./protocol-drafts-manager";
 
 export default async function ProtocolsSettingsPage() {
   const profile = await getCurrentProfile();
@@ -15,17 +17,11 @@ export default async function ProtocolsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Clinical protocols
-        </h1>
-        <p className="text-charcoal-ink/60">
-          The version-signed record behind every &quot;protocols supervised by Dr. X&quot; claim
-          shown to patients: docs/CLINICAL_TRUST_MODEL_SPEC.md §1/§4. Append-only: signing a new
-          version is how a protocol changes, nothing here is ever edited after the fact. Only the
-          org&apos;s active Clinical Director can sign.
-        </p>
-      </div>
+      <PageHeader
+        title="Clinical protocols"
+        description={`The version-signed record behind every "protocols supervised by Dr. X" claim shown to patients: docs/CLINICAL_TRUST_MODEL_SPEC.md §1/§4. Append-only: signing a new version is how a protocol changes, nothing here is ever edited after the fact. Only the org's active Clinical Director can sign.`}
+      />
+      <ProtocolDraftsManager />
       <ProtocolVersionsManager />
     </div>
   );

@@ -320,7 +320,7 @@ begin
 end;
 $$;
 
-revoke all on function public.care_receipt(uuid, timestamptz, timestamptz) from public;
+revoke all on function public.care_receipt(uuid, timestamptz, timestamptz) from public, anon;
 revoke execute on function public.care_receipt(uuid, timestamptz, timestamptz) from anon;
 grant execute on function public.care_receipt(uuid, timestamptz, timestamptz) to authenticated;
 

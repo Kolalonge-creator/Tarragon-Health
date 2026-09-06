@@ -27,7 +27,7 @@ const CONDITION_LABEL: Record<Condition, string> = {
 };
 
 /** Mirrors private.queue_vitals_reminders()'s hardcoded fallback tier. */
-const HARDCODED_DEFAULT_DAYS = { hypertension: 3, diabetes: 3, none: 30 } as const;
+const HARDCODED_DEFAULT_DAYS = { hypertension: 7, diabetes: 7, none: 30 } as const;
 
 type RawRuleInput =
   | { scope: "global"; frequency_days: string }

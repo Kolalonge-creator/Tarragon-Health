@@ -11,6 +11,7 @@ import { HOW_IT_WORKS_STEPS, SERVICE_CARDS, WHAT_WE_TRACK } from "../_content/se
 import { MARKETING_MEDIA } from "../_content/media";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = pageMetadata({
   title: "Services",
@@ -39,8 +40,22 @@ export default function ServicesPage() {
 
       <Section className="pt-14">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {SERVICE_CARDS.map((service) => (
-            <ServiceCardLink key={service.key} service={service} />
+          {SERVICE_CARDS.map((service, index) => (
+            <div
+              key={service.key}
+              // Centre a lone card on the last row so a 7th (or any 3n+1th)
+              // entry doesn't sit orphaned in the left column.
+              className={cn(
+                index === SERVICE_CARDS.length - 1 &&
+                  SERVICE_CARDS.length % 3 === 1 &&
+                  "lg:col-start-2",
+                index === SERVICE_CARDS.length - 1 &&
+                  SERVICE_CARDS.length % 2 === 1 &&
+                  "sm:max-lg:col-span-2 sm:max-lg:mx-auto sm:max-lg:w-full sm:max-lg:max-w-md"
+              )}
+            >
+              <ServiceCardLink service={service} />
+            </div>
           ))}
         </div>
 
@@ -95,7 +110,7 @@ export default function ServicesPage() {
       <Section variant="sage" className="pb-24">
         <CtaBand
           variant="gradient"
-          title="One calm view for the care between visits"
+          title="Care that stays with you."
           description="Get started today, for yourself or someone you love."
           primaryHref="/signup"
           primaryLabel="Get started"

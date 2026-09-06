@@ -10,8 +10,7 @@ export type PayForLabOrderState = { error?: string } | undefined;
 
 /**
  * Patient-initiated payment for a booked lab order (status='pending_payment').
- * Mirrors payForReferral (apps/web/src/app/(dashboard)/patient/referrals/actions.ts)
- * exactly. Charges payable_kobo, not total_kobo — total_kobo is the catalogue
+ * Charges payable_kobo, not total_kobo — total_kobo is the catalogue
  * price before whatever the order carries in voucher_covered_kobo /
  * subscriber_discount_kobo; payable_kobo (a generated column) is what the
  * patient actually owes. Charging total_kobo would overcharge an order with

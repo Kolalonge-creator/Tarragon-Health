@@ -408,12 +408,25 @@ export async function extractLabReport(input: {
 
     // Learned hints are appended to the system prompt rather than replacing any
     // of it, so a laboratory we have never seen takes the exact path this
-    // engine has always taken.
-    const systemPrompt = SYSTEM_PROMPT + hintsPromptBlock(input.templateHints);
+    // engine has always taken. They're a SEPARATE, uncached content block after
+    // the cache breakpoint (not string-concatenated into one block) — the fixed
+    // instructions + full analyte vocabulary above are identical on every call
+    // regardless of which patient or laboratory, comfortably past Sonnet 5's
+    // 1024-token cacheable-prefix minimum, so this keeps that reused ~90% of
+    // the prompt cheap to re-send while the per-laboratory hints (which do vary
+    // call to call) stay after the breakpoint, uncached. See "Shared prefix,
+    // varying suffix" in Anthropic's prompt-caching docs — mixing the two into
+    // one string would put per-call text ahead of the marker and invalidate the
+    // cached vocabulary on every single request.
+    const hints = hintsPromptBlock(input.templateHints);
+    const systemContent = [
+      { type: "text" as const, text: SYSTEM_PROMPT, cache_control: { type: "ephemeral" as const } },
+      ...(hints ? [{ type: "text" as const, text: hints }] : []),
+    ];
 
     const raw = await structured.invoke(
       [
-        new SystemMessage(systemPrompt),
+        new SystemMessage({ content: systemContent }),
         new HumanMessage({ content: [{ type: "text", text: instruction }, documentBlock] }),
       ],
       { signal: controller.signal },

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import type { Database } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 type TimeOfDay = Database["public"]["Enums"]["lab_order_time_of_day"];
 
 const TIME_OF_DAY_OPTIONS: { value: TimeOfDay; label: string }[] = [
@@ -51,9 +52,9 @@ export function RequestPartnerLabVisit({
 
   if (confirmed) {
     return (
-      <p className="text-xs text-charcoal-ink/60">
-        Request sent — the lab will confirm your {timeOfDay} visit on{" "}
-        {new Date(scheduledDate).toLocaleDateString()}.
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        Request sent. The lab will confirm your {timeOfDay} visit on{" "}
+        {formatPatientDate(scheduledDate)}.
       </p>
     );
   }
@@ -63,7 +64,7 @@ export function RequestPartnerLabVisit({
       <button
         type="button"
         onClick={() => setExpanded(true)}
-        className="text-xs font-medium text-deep-forest hover:underline"
+        className="text-xs font-medium text-deep-forest dark:text-brand-green-bright hover:underline"
       >
         Prefer to book at a specific lab instead?
       </button>
@@ -71,7 +72,7 @@ export function RequestPartnerLabVisit({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 bg-warm-ivory/50 p-3">
+    <div className="space-y-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-warm-ivory/50 dark:bg-night-ink/5 p-3">
       <FacilitySelector
         type="lab"
         patientLocation={patientLocation}
@@ -89,7 +90,7 @@ export function RequestPartnerLabVisit({
               min={todayIsoDate()}
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink"
+              className="flex h-10 w-full rounded-md border border-charcoal-ink/20 dark:border-night-ink/25 bg-white dark:bg-night-card px-3 py-2 text-sm text-charcoal-ink dark:text-night-ink"
             />
           </div>
           <div className="space-y-1.5">
@@ -109,7 +110,7 @@ export function RequestPartnerLabVisit({
         </div>
       )}
       {requestVisit.isError && (
-        <p className="text-xs text-red-600">
+        <p className="text-xs text-red-600 dark:text-red-300">
           Could not set that up just now. Please try again.
         </p>
       )}

@@ -3,9 +3,15 @@
 import { getCurrentUser, createClient } from "@/lib/supabase/server";
 import { readMedicationPack, isPackVisionConfigured, type PackReading } from "./pack-vision";
 import { checkPackAgainstPrescription, type PackCheckResult } from "./pack-check";
+import { AI_SYSTEMS, runGovernedAi } from "@/lib/ai-governance";
 
 const MAX_BYTES = 8 * 1024 * 1024;
+/** Mirrors pack-vision.ts's own MODEL_ID, so a drift shows up in
+ * ai_vendor_model_observations rather than passing unnoticed (40.19). */
+const PACK_VISION_MODEL_ID = "claude-sonnet-5";
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/heic"];
+
+type PackReadingOutcome = { ok: true; reading: PackReading } | { ok: false };
 
 export type PackCheckActionResult =
   | { error: string }
@@ -45,19 +51,49 @@ export async function checkMedicationPack(formData: FormData): Promise<PackCheck
   }
 
   const imageBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
-  const result = await readMedicationPack({ imageBase64, mediaType: file.type });
 
-  if (!result.ok) {
+  // The patient's own session — also what the AI-007 governance check and the
+  // audit row are written through.
+  const supabase = await createClient();
+
+  // AI-007. Fallback is the path that has always existed and is never removed:
+  // the patient reads the pack themselves and types the details in.
+  const governed = await runGovernedAi<PackReadingOutcome>({
+    supabase,
+    systemCode: AI_SYSTEMS.medicationPackVision.code,
+    inputCategory: "medication_pack_photo",
+    subjectProfileId: user.id,
+    run: async () => {
+      const read = await readMedicationPack({ imageBase64, mediaType: file.type });
+      return {
+        value: read.ok ? { ok: true as const, reading: read.reading } : { ok: false as const },
+        modelIdentifier: PACK_VISION_MODEL_ID,
+        // The pack check is stateless by design (see this function's
+        // docstring), so the audit row records what was read at the level of
+        // "a name and a strength", not the photo or the patient's medicines.
+        // An unreadable photo is a legitimate answer, not a model failure, so
+        // it is recorded as a completed interaction that read nothing.
+        outputSummary: read.ok
+          ? `read drug_name=${read.reading.drug_name ?? "none"}, strength=${read.reading.strength ?? "none"}`
+          : "unreadable",
+        resultingAction: read.ok ? "pack_read_for_patient_confirmation" : "unreadable_photo",
+      };
+    },
+    fallback: () => ({ ok: false as const }),
+  });
+
+  if (!governed.value.ok) {
     return {
       error:
-        result.reason === "unavailable"
-          ? "Pack checking is not set up on this environment yet."
-          : "That photo could not be read. Try again in better light, straight on.",
+        governed.fallbackReason === "kill_switch"
+          ? "Pack checking is switched off just now. Check the pack against your prescription yourself, and message your care team if anything looks different."
+          : governed.status === "fallback"
+            ? "Pack checking is not available just now. Check the pack against your prescription yourself."
+            : "That photo could not be read. Try again in better light, straight on.",
     };
   }
 
-  // The patient's own medicines, read through their own session.
-  const supabase = await createClient();
+  const result = { ok: true as const, reading: governed.value.reading };
   const { data: medications } = await supabase
     .from("medications")
     .select("id, drug_name, dose")

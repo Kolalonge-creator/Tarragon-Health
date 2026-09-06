@@ -113,10 +113,11 @@ export default async function ResourceArticlePage({
       />
       <Section className="pt-20">
         <article className="mx-auto max-w-2xl">
-          <Link href="/resources" className="text-sm text-brand-green hover:underline">
-            ← All resources
+          <Link href="/resources" className="text-sm text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+            <span aria-hidden>←</span> All resources
           </Link>
           <ResourceThumbnail
+            category={article.category}
             icon={resourceThumbnailIcon(article)}
             className="mt-6 aspect-[16/7] rounded-2xl"
           />
@@ -130,7 +131,7 @@ export default async function ResourceArticlePage({
             {article.title}
           </h1>
           <p className="mt-4 text-lg text-charcoal-ink/70">{article.description}</p>
-          <p className="mt-4 text-xs text-charcoal-ink/50">
+          <p className="mt-4 text-xs text-charcoal-ink/65">
             {isReviewed
               ? `Medically reviewed by ${article.reviewedByName} on ${new Date(
                   article.reviewedAt as string

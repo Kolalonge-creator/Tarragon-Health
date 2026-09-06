@@ -132,15 +132,21 @@ export function useFinalizeEncounterNote() {
     mutationFn: async ({
       noteId,
       outcome,
+      identityConfirmed,
     }: {
       noteId: string;
       patientId: string;
       outcome: NonNullable<ClinicalEncounterNote["outcome"]>;
+      /** Wrong-patient prevention (§89.4) — the DB rejects finalizing without
+       * this; private.enforce_clinical_encounter_note_attribution() derives
+       * identity_confirmed_by/at server-side, this flag is the only thing
+       * the client actually controls. */
+      identityConfirmed: boolean;
     }) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("clinical_encounter_notes")
-        .update({ status: "finalized", outcome })
+        .update({ status: "finalized", outcome, identity_confirmed: identityConfirmed })
         .eq("id", noteId);
       if (error) throw error;
     },

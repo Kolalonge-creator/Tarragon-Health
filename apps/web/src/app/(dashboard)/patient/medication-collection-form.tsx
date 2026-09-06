@@ -7,6 +7,7 @@ import { todayIsoDate, type Medication } from "@/lib/queries/medications";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 /**
  * "I picked this up" — the medication half of self-arranged fulfilment.
@@ -34,6 +35,7 @@ export function MedicationCollectionForm({
   const [collectedOn, setCollectedOn] = useState(todayIsoDate());
   const [pharmacyName, setPharmacyName] = useState("");
   const [done, setDone] = useState(false);
+  const errorId = fieldErrorId(`medication-collection-${medication.id}`);
 
   const logCollection = useMutation({
     mutationFn: async () => {
@@ -63,7 +65,7 @@ export function MedicationCollectionForm({
 
   if (done) {
     return (
-      <p className="text-xs font-medium text-brand-green">
+      <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">
         Noted, thank you. Your care team can see you have this one.
       </p>
     );
@@ -78,8 +80,8 @@ export function MedicationCollectionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
-      <p className="text-xs text-charcoal-ink/60">
+    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Buy this wherever suits you. Telling us when you collected it keeps your refill reminders
         accurate.
       </p>
@@ -108,6 +110,7 @@ export function MedicationCollectionForm({
             maxLength={120}
             value={pharmacyName}
             onChange={(event) => setPharmacyName(event.target.value)}
+            {...fieldErrorProps(errorId, logCollection.isError)}
           />
         </div>
       </div>
@@ -118,9 +121,11 @@ export function MedicationCollectionForm({
         <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        {logCollection.isError && (
-          <p className="text-xs text-red-600">Could not save that. Please try again.</p>
-        )}
+        <FormError
+          id={errorId}
+          message={logCollection.isError && "Could not save that. Please try again."}
+          className="text-xs"
+        />
       </div>
     </form>
   );

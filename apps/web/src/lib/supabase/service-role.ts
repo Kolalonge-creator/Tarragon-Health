@@ -1,3 +1,9 @@
+// The build-time guard the comment below asks for. 66 other lib modules
+// already carry it; the single highest-privilege module in the codebase did
+// not. Importing this from anything that reaches a Client Component is now a
+// build error rather than a runtime hope.
+import "server-only";
+
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 

@@ -35,7 +35,7 @@ export function CapacityDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Provider counts and waitlist aggregates only — never a patient-facing recommendation or
+        Provider counts and waitlist aggregates only, never a patient-facing recommendation or
         ranking. See docs/CLINICAL_NETWORK_SPEC.md §3/§4.17.
       </p>
 
