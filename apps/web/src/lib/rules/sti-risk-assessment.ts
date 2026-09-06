@@ -10,6 +10,16 @@ import type { StiRiskCheckInput } from "@/lib/validation/sti-risk-check";
  * decides which self-bookable screens to suggest and, when it's high or a
  * symptom was reported, that a clinician_alerts row should be raised.
  *
+ * The two code lists below are deliberately hand-maintained rather than read
+ * from the DB (this stays pure/no-DB-access on purpose), which means they can
+ * drift from what is actually self-bookable if a product is withdrawn —
+ * exactly what happened 2026-09-04 when syphilis was removed from every
+ * product surface and chlamydia_gonorrhoea's lab_tests row was deleted for a
+ * cost-list error, leaving both still hardcoded here with nothing left to
+ * recommend them into. Recommending a test the patient cannot then book is a
+ * dead end, not a lesser triage signal — treat any future product withdrawal
+ * the same way: update these two lists in the same change.
+ *
  * Points (only when sexually_active_12mo is true — otherwise short-circuits
  * to low/no symptomFlag/no recommendations):
  *   new_partner_3mo                +1
@@ -34,8 +44,12 @@ export interface StiRiskCheckResult {
   recommendedScreenCodes: string[];
 }
 
-const MODERATE_SCREEN_CODES = ["hiv", "syphilis", "chlamydia_gonorrhoea"];
-const FULL_SCREEN_CODES = ["hiv", "syphilis", "chlamydia_gonorrhoea", "hep_b", "hep_c"];
+// hiv/hep_b/hep_c are the three self-bookable via the Blood-Borne Virus Screen
+// (single_hiv, single_hep_b, single_hep_c, or the combined bundle). syphilis
+// and chlamydia_gonorrhoea are deliberately absent — neither has a bookable
+// product today, see the withdrawal note above.
+const MODERATE_SCREEN_CODES = ["hiv"];
+const FULL_SCREEN_CODES = ["hiv", "hep_b", "hep_c"];
 
 export function scoreStiRiskCheck(input: StiRiskCheckInput): StiRiskCheckResult {
   if (!input.sexually_active_12mo) {
