@@ -113,6 +113,24 @@ update public.clinical_staff
 --    that uses it via ALTER COLUMN TYPE ... USING, then drop the old type.
 -- ---------------------------------------------------------------------------
 
+-- Snapshot pre-migration non-null counts for the closing assertions. This
+-- migration runs against very different data depending on environment (the
+-- live project's small QA roster vs. a CI `supabase db reset` against
+-- supabase/seed/seed.sql, which does not seed clinical_staff at all) -- a
+-- hardcoded expected row count/distribution would be correct in exactly one
+-- of those and fail the other. Comparing before/after non-null counts proves
+-- the actual invariant that matters (every recognized old value mapped to a
+-- non-null new value; nothing silently fell through the CASE's `else null`)
+-- regardless of how many rows exist in a given environment.
+create temporary table _tier_collapse_premigration_counts as
+select
+  (select count(*) filter (where doctor_tier is not null) from public.clinical_staff) as clinical_staff_non_null,
+  (select count(*) filter (where confirmed_at_tier is not null) from public.case_review_actions) as case_review_non_null,
+  (select count(*) filter (where reviewed_by_tier is not null) from public.clinical_incident_reports) as incident_reports_non_null,
+  (select count(*) filter (where confirmed_at_tier is not null) from public.fhir_import_proposed_resources) as fhir_import_non_null,
+  (select count(*) filter (where doctor_tier is not null or applies_to_director) from public.clinical_staff_indemnity_exemptions) as indemnity_exemptions_scoped,
+  (select count(*) filter (where applies_to_director) from public.clinical_staff_indemnity_exemptions) as indemnity_exemptions_director_wide;
+
 alter type public.doctor_tier rename to doctor_tier_old;
 
 create type public.doctor_tier as enum (
@@ -3193,14 +3211,20 @@ update public.alert_rules
 do $$
 declare
   v_enum_count int;
-  v_tier_counts jsonb;
   v_director_col_count int;
   v_applies_to_director_col_count int;
   v_alert_rules_active_count int;
   v_alert_rules_stale_literal_count int;
-  v_incident_report_tier_counts jsonb;
   v_emergency_grants_policy_count int;
+  v_before record;
+  v_clinical_staff_non_null int;
+  v_incident_reports_non_null int;
+  v_indemnity_exemptions_scoped int;
+  v_case_review_non_null int;
+  v_fhir_import_non_null int;
 begin
+  select * into v_before from _tier_collapse_premigration_counts;
+
   select count(*) into v_emergency_grants_policy_count
   from pg_policy pol
   join pg_class c on c.oid = pol.polrelid
@@ -3216,14 +3240,11 @@ begin
     raise exception 'public.doctor_tier has % values, expected 4', v_enum_count;
   end if;
 
-  select jsonb_object_agg(coalesce(doctor_tier::text, 'null'), n) into v_tier_counts
-  from (
-    select doctor_tier, count(*) n from public.clinical_staff group by doctor_tier
-  ) t;
-  if v_tier_counts is distinct from jsonb_build_object(
-    'care_coordinator', 1, 'medical_officer', 3, 'senior_medical_officer', 3, 'chief_medical_officer', 1
-  ) then
-    raise exception 'clinical_staff doctor_tier distribution drifted from the expected remap. Got: %', v_tier_counts;
+  select count(*) filter (where doctor_tier is not null) into v_clinical_staff_non_null
+  from public.clinical_staff;
+  if v_clinical_staff_non_null <> v_before.clinical_staff_non_null then
+    raise exception 'clinical_staff doctor_tier non-null count changed by the remap: was %, now % -- some old tier value fell through to null',
+      v_before.clinical_staff_non_null, v_clinical_staff_non_null;
   end if;
 
   select count(*) into v_director_col_count
@@ -3241,19 +3262,46 @@ begin
     raise exception 'clinical_staff_indemnity_exemptions.applies_to_director still exists after the migration';
   end if;
 
-  -- The one live indemnity exemption (founder's org-wide director exemption)
-  -- must have remapped to a chief_medical_officer tier-scoped exemption.
-  if not exists (
+  -- Any pre-existing director-wide indemnity exemption (org-wide,
+  -- applies_to_director = true) must have remapped to a chief_medical_officer
+  -- tier-scoped exemption -- conditional on one having existed, since a fresh
+  -- environment (CI's `supabase db reset` + seed.sql) has none.
+  if v_before.indemnity_exemptions_director_wide > 0 and not exists (
     select 1 from public.clinical_staff_indemnity_exemptions
     where doctor_tier = 'chief_medical_officer'
   ) then
-    raise exception 'expected the founder''s director-wide indemnity exemption to have remapped to a chief_medical_officer tier exemption';
+    raise exception 'expected a director-wide indemnity exemption to have remapped to a chief_medical_officer tier exemption';
   end if;
 
-  select jsonb_object_agg(coalesce(reviewed_by_tier::text, 'null'), n) into v_incident_report_tier_counts
-  from (select reviewed_by_tier, count(*) n from public.clinical_incident_reports group by reviewed_by_tier) t;
-  if v_incident_report_tier_counts is distinct from jsonb_build_object('null', 2, 'medical_officer', 1) then
-    raise exception 'clinical_incident_reports.reviewed_by_tier distribution drifted from the expected remap. Got: %', v_incident_report_tier_counts;
+  -- applies_to_director no longer exists post-migration, so a "scoped" row is
+  -- now just doctor_tier is not null -- confirms no scoped exemption silently
+  -- lost its scope in the remap.
+  select count(*) filter (where doctor_tier is not null) into v_indemnity_exemptions_scoped
+  from public.clinical_staff_indemnity_exemptions;
+  if v_indemnity_exemptions_scoped <> v_before.indemnity_exemptions_scoped then
+    raise exception 'clinical_staff_indemnity_exemptions scoped-row count changed by the remap: was %, now %',
+      v_before.indemnity_exemptions_scoped, v_indemnity_exemptions_scoped;
+  end if;
+
+  select count(*) filter (where reviewed_by_tier is not null) into v_incident_reports_non_null
+  from public.clinical_incident_reports;
+  if v_incident_reports_non_null <> v_before.incident_reports_non_null then
+    raise exception 'clinical_incident_reports.reviewed_by_tier non-null count changed by the remap: was %, now %',
+      v_before.incident_reports_non_null, v_incident_reports_non_null;
+  end if;
+
+  select count(*) filter (where confirmed_at_tier is not null) into v_case_review_non_null
+  from public.case_review_actions;
+  if v_case_review_non_null <> v_before.case_review_non_null then
+    raise exception 'case_review_actions.confirmed_at_tier non-null count changed by the remap: was %, now %',
+      v_before.case_review_non_null, v_case_review_non_null;
+  end if;
+
+  select count(*) filter (where confirmed_at_tier is not null) into v_fhir_import_non_null
+  from public.fhir_import_proposed_resources;
+  if v_fhir_import_non_null <> v_before.fhir_import_non_null then
+    raise exception 'fhir_import_proposed_resources.confirmed_at_tier non-null count changed by the remap: was %, now %',
+      v_before.fhir_import_non_null, v_fhir_import_non_null;
   end if;
 
   select count(*) into v_alert_rules_active_count from public.alert_rules where is_active;
