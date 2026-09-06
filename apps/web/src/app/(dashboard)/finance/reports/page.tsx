@@ -8,8 +8,8 @@ export default function FinanceReportsPage() {
         <p className="text-charcoal-ink/60">
           Three print-ready packs, built from the same live ledger as the rest of Finance: everything
           the company owes a government agency yearly, the pack an investor&apos;s due diligence asks
-          for, and the pack an internal or external auditor works from. Each opens as a clean document
-          — use your browser&apos;s Print → Save as PDF.
+          for, and the pack an internal or external auditor works from. Each opens as a clean document.
+          Use your browser&apos;s Print → Save as PDF.
         </p>
       </div>
       <ReportsHub />

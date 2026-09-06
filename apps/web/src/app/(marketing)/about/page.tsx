@@ -22,20 +22,22 @@ import { pageMetadata } from "@/lib/marketing/site";
  */
 const ABOUT_COMMITMENTS = [
   {
-    value: "4 hrs",
-    label: "contact SLA on abnormal results",
-    detail: "The clock starts the moment a result comes back abnormal, never on a schedule.",
+    value: "2 hrs",
+    label: "contact SLA on critical results",
+    detail:
+      "A critical result starts a two-hour clock to contact you; any other abnormal result is followed up within 24 hours. The clock starts the moment the result comes back, never on a schedule.",
   },
   {
-    value: "₦ + $",
-    label: "one price, either currency",
-    detail: "Pay in naira at home, or in dollars from wherever you're keeping watch from.",
+    value: "₦0",
+    label: "the app itself is free",
+    detail:
+      "Everything you can do yourself costs nothing, with no time limit. We charge only when a doctor does a specific piece of work for you, at a price you see and confirm first.",
   },
   {
     value: "Built to scale",
-    label: "how one doctor covers more ground",
+    label: "where a doctor's time goes",
     detail:
-      "We invest in protocols, automation, and triage so a doctor can safely support far more patients than a traditional clinic, without cutting corners on review.",
+      "We invest in protocols, automation, and triage so a doctor's time goes to the cases that actually need judgement, without cutting corners on review.",
   },
 ] as const;
 
@@ -86,9 +88,9 @@ export default function AboutPage() {
               className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center"
             >
               <p className="font-heading text-3xl font-bold text-sprout-gold">{item.value}</p>
-              <h3 className="mt-2 font-heading text-sm font-semibold uppercase tracking-wide text-white">
+              <p className="mt-2 font-heading text-sm font-semibold uppercase tracking-wide text-white">
                 {item.label}
-              </h3>
+              </p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">{item.detail}</p>
             </div>
           ))}
@@ -167,7 +169,7 @@ export default function AboutPage() {
           We&rsquo;re also hiring as TarragonHealth grows past one founder.{" "}
           <Link
             href={MARKETING_ROUTES.careers}
-            className="font-medium text-deep-forest hover:underline"
+            className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green"
           >
             See our open roles
           </Link>
@@ -189,7 +191,7 @@ export default function AboutPage() {
         />
         <p className="mt-6 text-center text-sm text-charcoal-ink/70">
           Read more about what we do on the{" "}
-          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Pricing
           </Link>{" "}
           page.

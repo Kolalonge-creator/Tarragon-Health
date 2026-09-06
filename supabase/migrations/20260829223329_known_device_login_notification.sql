@@ -118,7 +118,7 @@ comment on function public.record_login_device(text, text, text) is
   'case. Called from apps/web/src/lib/auth/record-login-device.ts right after a successful '
   'password or OTP sign-in. See 20260829223329_known_device_login_notification.sql for design notes.';
 
-revoke all on function public.record_login_device(text, text, text) from public;
+revoke all on function public.record_login_device(text, text, text) from public, anon;
 grant execute on function public.record_login_device(text, text, text) to authenticated;
 revoke execute on function public.record_login_device(text, text, text) from anon;
 

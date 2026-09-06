@@ -88,9 +88,9 @@ comment on function public.record_wearable_step_count(uuid, uuid, date, integer)
 -- database never had (found by the new CI migration-replay job,
 -- 2026-08-27 — this function is service_role-only, so authenticated
 -- needs the same explicit revoke anon already got above).
-revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from public;
+revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from public, anon;
 revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from anon;
-revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from authenticated;
+revoke execute on function public.record_wearable_step_count(uuid, uuid, date, integer) from authenticated, anon;
 grant execute on function public.record_wearable_step_count(uuid, uuid, date, integer) to service_role;
 
 -- Prove it, rather than hope. Runs in the migration''s own transaction and

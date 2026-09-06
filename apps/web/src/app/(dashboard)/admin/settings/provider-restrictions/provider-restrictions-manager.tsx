@@ -70,7 +70,7 @@ function RestrictionRow({ restriction }: { restriction: ProviderRestriction }) {
           </div>
           <p className="text-xs text-charcoal-ink/60">
             {REASON_LABEL[restriction.reason]}
-            {restriction.detail && ` — ${restriction.detail}`}
+            {restriction.detail && `: ${restriction.detail}`}
             {" · imposed "}
             {new Date(restriction.imposed_at).toLocaleDateString("en-GB", { dateStyle: "medium" })}
           </p>
@@ -220,7 +220,7 @@ export function ProviderRestrictionsManager() {
             <CardDescription>
               {activeCount} active restriction{activeCount === 1 ? "" : "s"}. Staged: warning → grace
               period → service restriction → suspension, each reason-coded and time-stamped.
-              Separate from a clinician&apos;s account active/inactive flag — this is the reason-coded
+              Separate from a clinician&apos;s account active/inactive flag: this is the reason-coded
               history that flag was missing.
             </CardDescription>
           </div>

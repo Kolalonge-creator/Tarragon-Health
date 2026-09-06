@@ -110,10 +110,16 @@ export default async function PreventionPage() {
           description="Your personal screening calendar is built from your age, sex, family history, and risk profile, so you only see what's relevant to you. These are the kinds of checks it tracks, reminds you about, and flags when results need attention."
         />
         <div className="mx-auto grid max-w-5xl gap-6 sm:grid-cols-2">
-          {SCREENING_GROUPS.map((group) => (
+          {SCREENING_GROUPS.map((group, index) => (
             <div
               key={group.title}
-              className="rounded-xl border border-charcoal-ink/10 bg-white p-6"
+              // Span a lone trailing card so an odd count never leaves an
+              // orphan in the left column.
+              className={
+                index === SCREENING_GROUPS.length - 1 && SCREENING_GROUPS.length % 2 === 1
+                  ? "rounded-xl border border-charcoal-ink/10 bg-white p-6 sm:col-span-2"
+                  : "rounded-xl border border-charcoal-ink/10 bg-white p-6"
+              }
             >
               <h3 className="font-heading text-xl font-semibold text-charcoal-ink">{group.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/65">{group.intro}</p>
@@ -131,12 +137,12 @@ export default async function PreventionPage() {
         <p className="mx-auto mt-8 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           You take your request to whichever laboratory you like and pay them directly, at their
           own price; we set no price on any test and take no cut. The one-day{" "}
-          <span className="font-medium text-charcoal-ink">Annual Health Check</span> is a ladder
+          <span className="font-medium text-charcoal-ink">Annual Health Check</span> is a ladder:
           pick how deep you want to go. Every tier is doctor-reviewed.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Not sure what applies to you specifically? Walk through the{" "}
-          <Link href={MARKETING_ROUTES.screeningJourney} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.screeningJourney} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Screening Journey
           </Link>
           : pick your age and sex and see each recommended screening, step by step, from booking
@@ -144,18 +150,18 @@ export default async function PreventionPage() {
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Looking after your children&apos;s vaccinations too? See how the{" "}
-          <Link href={MARKETING_ROUTES.vaccinations} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.vaccinations} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             schedule, reminders, and doctor-verified certificates
           </Link>{" "}
           work for you and your children.
         </p>
         <p className="mx-auto mt-4 max-w-3xl text-center text-sm leading-relaxed text-charcoal-ink/70">
           Curious where you stand before booking anything? Try the free{" "}
-          <Link href={MARKETING_ROUTES.bmiCalculator} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.bmiCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             BMI & calorie calculator
           </Link>{" "}
           or the{" "}
-          <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             activity intensity calculator
           </Link>
           , no sign-up required.

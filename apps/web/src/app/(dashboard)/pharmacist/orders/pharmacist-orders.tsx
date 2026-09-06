@@ -109,7 +109,7 @@ function AcceptDeclineForm({ order }: { order: PharmacistOrderRow }) {
           order.payable_kobo != null &&
           Math.round(Number(confirmedPrice) * 100) < order.payable_kobo && (
             <p className="text-[11px] text-amber-700">
-              Lower than what the patient paid — the difference will be refunded automatically.
+              Lower than what the patient paid. The difference will be refunded automatically.
             </p>
           )}
         <div className="flex flex-wrap items-center gap-2">
@@ -169,7 +169,7 @@ function AcceptDeclineForm({ order }: { order: PharmacistOrderRow }) {
         )}
       </div>
       <p className="text-[11px] text-red-700">
-        The patient paid for this — declining flags a full refund automatically.
+        The patient paid for this. Declining flags a full refund automatically.
       </p>
     </div>
   );

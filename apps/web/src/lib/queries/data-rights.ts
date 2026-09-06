@@ -39,14 +39,19 @@ export function usePatientDeletionRequests(patientId: string) {
  * are all forced server-side, unconditionally, by
  * private.enforce_data_deletion_request_attribution — this is a tracked
  * review workflow, not an auto-delete: nothing is actually removed until an
- * admin reviews it (see data-governance docs).
+ * admin reviews it (see data-governance docs). organisationId/patientId are
+ * threaded through as real values anyway (same convention as
+ * useCreateLabOrder) rather than typecast around the Insert type's NOT NULL
+ * columns, even though the trigger discards whatever is sent.
  */
-export function useCreateDeletionRequest(patientId: string) {
+export function useCreateDeletionRequest(organisationId: string, patientId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: { reason: string; requestedCategories: string[] }) => {
       const supabase = createClient();
       const { error } = await supabase.from("data_deletion_requests").insert({
+        organisation_id: organisationId,
+        patient_id: patientId,
         reason: input.reason,
         requested_categories: input.requestedCategories,
       });
@@ -80,9 +85,12 @@ export function usePatientCorrectionRequests(patientId: string) {
  * status are forced server-side, unconditionally, by private.enforce_
  * data_correction_request_attribution — a request only ever describes
  * what's wrong; the actual correction (if approved) stays a reviewed
- * clinical write elsewhere.
+ * clinical write elsewhere. organisationId/patientId are threaded through as
+ * real values anyway (same convention as useCreateLabOrder) rather than
+ * typecast around the Insert type's NOT NULL columns, even though the
+ * trigger discards whatever is sent.
  */
-export function useCreateCorrectionRequest(patientId: string) {
+export function useCreateCorrectionRequest(organisationId: string, patientId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
@@ -92,6 +100,8 @@ export function useCreateCorrectionRequest(patientId: string) {
     }) => {
       const supabase = createClient();
       const { error } = await supabase.from("data_correction_requests").insert({
+        organisation_id: organisationId,
+        patient_id: patientId,
         record_description: input.recordDescription,
         what_is_wrong: input.whatIsWrong,
         requested_change: input.requestedChange || null,

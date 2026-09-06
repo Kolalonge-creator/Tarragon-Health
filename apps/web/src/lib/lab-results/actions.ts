@@ -16,7 +16,22 @@ import {
 } from "@/lib/validation/lab-result-documents";
 
 type DocumentSource = Database["public"]["Enums"]["lab_result_document_source"];
-export type ResultUploadResult = { error?: string; success?: boolean };
+export type ResultUploadResult = {
+  error?: string;
+  success?: boolean;
+  /**
+   * Set when `error` is specifically "no paid consultation-fee credit" —
+   * lets the UI offer a "pay and continue" action instead of a dead-end
+   * error, rather than lumping it in with every other upload failure.
+   */
+  requiresConsultFeePayment?: boolean;
+};
+
+/** The stable, machine-readable marker
+ * public.claim_lab_result_consult_credit raises in its error DETAIL when no
+ * unclaimed, paid request is found — never pattern-match on its message
+ * text, which is free to change. */
+const CONSULT_FEE_REQUIRED_DETAIL = "CONSULT_FEE_REQUIRED";
 
 /**
  * Which staff account roles may upload a result on a patient's behalf, and the
@@ -61,7 +76,7 @@ export async function uploadResultDocumentForPatient(
   const supabase = await createClient();
   const { data: me } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, organisation_id")
     .eq("id", user.id)
     .single();
 
@@ -99,7 +114,26 @@ export async function uploadResultDocumentForPatient(
     .eq("id", patientId)
     .eq("role", "patient")
     .maybeSingle();
-  if (!patient || !patient.organisation_id) {
+  // ...and the org is compared explicitly rather than left implicit in that
+  // read. profiles carries several permissive SELECT policies that OR
+  // together, so "the caller could read this row" has never been the same
+  // statement as "this patient is in the caller's organisation" — and
+  // everything below this line runs on the service-role client, which has no
+  // RLS of its own to fall back on. Defence in depth for the 20260905000206
+  // care_access_requests disclosure, which reached exactly this seam.
+  //
+  // The one documented exception is the `admin` superadmin, who traverses
+  // every role area (and, per CLAUDE.md's I9 rule, is the ONLY account that
+  // may drill into an individual patient outside their own organisation).
+  // Locking admin inside a single org here would have blocked a legitimate
+  // oversight action, not closed a hole — private.is_admin() already grants
+  // exactly this read in the profiles SELECT policy.
+  const isSuperadmin = me?.role === "admin";
+  if (
+    !patient ||
+    !patient.organisation_id ||
+    (!isSuperadmin && patient.organisation_id !== me?.organisation_id)
+  ) {
     return { error: "That patient isn't in your organisation." };
   }
 
@@ -173,6 +207,20 @@ export async function uploadResultDocumentForPatient(
  * clinician_review alert, forces reviewed_by/at null, and deliberately skips
  * the "your result is available" notification for a self-upload. Uploading a
  * file never records a clinical finding on its own — a clinician does that.
+ *
+ * Founder rule, 2026-08-30: uploading is now gated behind a one-off ₦10,000
+ * consultation fee (see requestLabResultConsult in the patient dashboard's
+ * lab-result-consult-actions.ts, and the lab_result_consult_requests /
+ * public.claim_lab_result_consult_credit migrations). The gate is DB-enforced
+ * — public.claim_lab_result_consult_credit is called BEFORE the storage
+ * upload even starts (so an unpaid patient never wastes an upload), and it
+ * atomically finds-and-reserves a paid, unclaimed request or raises; a
+ * network-billed (fulfilment='partner') order is exempt and skips this
+ * entirely (claim returns null, nothing to do). This does NOT change what
+ * gates a doctor actually READING the upload — that stays
+ * private.patient_has_feature_access("result_document_review")'s call
+ * (subscription-plan gated), an unrelated, orthogonal rule: this fee gates
+ * whether the upload is allowed to happen at all, not whether it gets read.
  */
 export async function uploadResultDocumentAsPatient(
   formData: FormData,
@@ -223,6 +271,28 @@ export async function uploadResultDocumentAsPatient(
     if (!order) return { error: "That test request isn't on your record." };
   }
 
+  // The consultation-fee gate — called BEFORE the storage upload so an
+  // unpaid patient never wastes one. Returns the claimed request id (settle
+  // it once the document exists, below), or null when the linked order is
+  // network-billed and the fee doesn't apply, or raises when there is no
+  // paid credit to claim.
+  let claimedRequestId: string | null = null;
+  const { data: claimed, error: claimError } = await supabase.rpc(
+    "claim_lab_result_consult_credit",
+    { p_patient_id: user.id, p_lab_order_id: (labOrderId ?? null) as unknown as string },
+  );
+  if (claimError) {
+    if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
+      return {
+        error:
+          "Pay the ₦10,000 lab-result consultation fee to upload this result — it also books you a 15-minute call with a doctor to walk through it.",
+        requiresConsultFeePayment: true,
+      };
+    }
+    return { error: claimError.message };
+  }
+  claimedRequestId = claimed ?? null;
+
   const ext = EXT_BY_MIME[file.type] ?? "bin";
   // The leading folder MUST be the caller's uid: that is exactly what the
   // storage own-folder policy checks.
@@ -231,7 +301,18 @@ export async function uploadResultDocumentAsPatient(
   const { error: uploadError } = await supabase.storage
     .from(RESULT_DOC_BUCKET)
     .upload(path, file, { contentType: file.type, upsert: false });
-  if (uploadError) return { error: uploadError.message };
+  if (uploadError) {
+    // A claimed credit must not be stranded by a storage failure — release
+    // it back to payment_confirmed so the patient can retry without paying
+    // again.
+    if (claimedRequestId) {
+      await supabase.rpc("settle_lab_result_consult_claim", {
+        p_request_id: claimedRequestId,
+        p_document_id: null as unknown as string,
+      });
+    }
+    return { error: uploadError.message };
+  }
 
   const { data: inserted, error: insertError } = await supabase
     .from("lab_result_documents")
@@ -250,9 +331,26 @@ export async function uploadResultDocumentAsPatient(
     .select("id")
     .single();
   if (insertError || !inserted) {
-    // Roll back the orphaned object so a failed insert leaves no stray file.
+    // Roll back the orphaned object so a failed insert leaves no stray file,
+    // and release the claimed credit (see above) for the same reason.
     await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    if (claimedRequestId) {
+      await supabase.rpc("settle_lab_result_consult_claim", {
+        p_request_id: claimedRequestId,
+        p_document_id: null as unknown as string,
+      });
+    }
     return { error: insertError?.message ?? "Could not save that upload." };
+  }
+
+  // Link the claimed credit to the document that just landed — best-effort;
+  // the credit is already consumed (claim flipped its status), this only
+  // affects traceability, never whether the upload itself succeeded.
+  if (claimedRequestId) {
+    await supabase.rpc("settle_lab_result_consult_claim", {
+      p_request_id: claimedRequestId,
+      p_document_id: inserted.id,
+    });
   }
 
   // Read the document into structured values so the clinician opening the alert

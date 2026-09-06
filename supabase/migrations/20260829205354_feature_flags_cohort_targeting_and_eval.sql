@@ -149,7 +149,7 @@ comment on function private.is_feature_flag_enabled(text, uuid, uuid) is
   'Deployment/rollout gate — distinct from private.patient_has_feature_access() (billing-tier '
   'entitlement). See 20260829205220_feature_flags_cohort_targeting_and_eval.sql.';
 
-revoke all on function private.is_feature_flag_enabled(text, uuid, uuid) from public;
+revoke all on function private.is_feature_flag_enabled(text, uuid, uuid) from public, anon;
 grant execute on function private.is_feature_flag_enabled(text, uuid, uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------

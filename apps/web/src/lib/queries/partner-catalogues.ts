@@ -559,6 +559,9 @@ export function useCreateSpecialistProvider() {
         name: string;
         specialistType: SpecialistType;
         state: string | null;
+        city: string | null;
+        contactEmail: string | null;
+        contactPhone: string | null;
         consultationFeeKobo: number;
         supportsTelemedicine: boolean;
         isActive: boolean;
@@ -569,6 +572,9 @@ export function useCreateSpecialistProvider() {
         name: input.name,
         specialist_type: input.specialistType,
         state: input.state,
+        city: input.city,
+        contact_email: input.contactEmail,
+        contact_phone: input.contactPhone,
         consultation_fee_kobo: input.consultationFeeKobo,
         supports_telemedicine: input.supportsTelemedicine,
         is_active: input.isActive,

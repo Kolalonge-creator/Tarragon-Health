@@ -120,7 +120,7 @@ $$;
 comment on function private.notify_clinical_staff_indemnity_lapses() is
   'Notify-only sweep (never deactivates): flags an active Director/Tier 4/5 clinical_staff record whose indemnity is expired or expiring within 30 days and carries no individual or org/tier/director exemption. Deduplicated to once per record per calendar day, always audit-logged.';
 
-revoke all on function private.notify_clinical_staff_indemnity_lapses() from public;
+revoke all on function private.notify_clinical_staff_indemnity_lapses() from public, anon;
 
 select cron.schedule(
   'clinical-staff-indemnity-lapse-notify',

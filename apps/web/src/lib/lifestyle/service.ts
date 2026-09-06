@@ -280,7 +280,14 @@ export async function enrollPatient(
       p.id === firstPhaseId
         ? (goalRows ?? []).map((g) => ({
             id: g.id,
-            module: g.module,
+            // lpe_goal_templates.module is typed off the DB's public.lpe_module
+            // enum, which 20260829222454_lpe_module_smoking.sql widened to 6
+            // values for the unrelated patient-set personalised-goal feature
+            // (see lib/lpe/module-labels.ts). No lpe_goal_template row is ever
+            // 'smoking' — the clinical Lifestyle Programme Engine's own Module
+            // type (@tarragon/lifestyle-engine) deliberately stays the
+            // original 5 per guideline/LIFESTYLE_ENGINE_SPEC.md §2.
+            module: g.module as Exclude<typeof g.module, "smoking">,
             title: g.title,
             metricKey: g.metric_key,
             target: g.target,

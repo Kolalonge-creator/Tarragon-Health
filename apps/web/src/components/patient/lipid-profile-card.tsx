@@ -18,7 +18,7 @@ const DISPLAY_ORDER: LipidAnalyteCode[] = [
 ];
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", {
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -62,11 +62,11 @@ export function LipidProfileCard({
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <p className="text-sm text-charcoal-ink/60">Loading lipid history…</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading lipid history…</p>
         ) : error ? (
-          <p className="text-sm text-charcoal-ink/60">Couldn’t load lipid results.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Couldn’t load lipid results.</p>
         ) : !data?.latestDrawnAt ? (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             {emptyMessage ??
               "No lipid results recorded yet. A full lipid panel (Total, LDL, HDL, triglycerides) is part of the preventive screening and the hypertension and diabetes reviews."}
           </p>
@@ -81,27 +81,27 @@ export function LipidProfileCard({
                   (code === "non_hdl_cholesterol" ? nonHdlFallback : null);
                 return (
                   <div key={code} className="rounded-md bg-mist-grey/40 p-2">
-                    <dt className="text-xs text-charcoal-ink/60">
+                    <dt className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {meta.short}
                       {meta.computed ? " (computed)" : ""}
                     </dt>
-                    <dd className="font-heading text-lg font-semibold text-charcoal-ink">
+                    <dd className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink">
                       {value !== null && value !== undefined ? (
                         <>
                           {value}
-                          <span className="ml-1 text-xs font-normal text-charcoal-ink/50">
+                          <span className="ml-1 text-xs font-normal text-charcoal-ink/50 dark:text-night-ink/55">
                             {meta.unit}
                           </span>
                         </>
                       ) : (
-                        <span className="text-sm font-normal text-charcoal-ink/40">—</span>
+                        <span className="text-sm font-normal text-charcoal-ink/40 dark:text-night-ink/50">—</span>
                       )}
                     </dd>
                   </div>
                 );
               })}
             </dl>
-            <p className="text-xs text-charcoal-ink/50">
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
               Last drawn {formatDate(data.latestDrawnAt)}. Non-HDL (Total − HDL)
               is the atherogenic-cholesterol summary your care team tracks against
               your overall cardiovascular risk.

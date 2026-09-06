@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useAddMedication } from "@/lib/queries/medications";
+import { checkMedicationSafetyAfterAdd } from "./actions";
 import { medicationSchema, type MedicationInput } from "@/lib/validation/medications";
 import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
@@ -9,12 +10,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 const SEVERITY_STYLE: Record<DrugSafetySeverity, string> = {
-  contraindicated: "text-red-700",
-  caution: "text-amber-700",
-  info: "text-charcoal-ink/70",
+  contraindicated: "text-red-700 dark:text-red-300",
+  caution: "text-amber-700 dark:text-amber-300",
+  info: "text-charcoal-ink/70 dark:text-night-ink/70",
 };
+
+/** Medication safety pathway 64.7 — Morning/Afternoon/Evening, so a patient doesn't need to translate "morning" into a clock time themselves. Custom entry (below) covers everything else. */
+const DOSE_TIME_PRESETS: { label: string; time: string }[] = [
+  { label: "Morning", time: "08:00" },
+  { label: "Afternoon", time: "13:00" },
+  { label: "Evening", time: "20:00" },
+];
 
 export function AddMedicationForm({
   patientId,
@@ -65,9 +74,14 @@ export function AddMedicationForm({
   const [controlledAcknowledged, setControlledAcknowledged] = useState(false);
 
   function addTime() {
-    if (newTime && !scheduleTimes.includes(newTime)) {
-      setScheduleTimes((prev) => [...prev, newTime].sort());
-      setNewTime("");
+    addScheduleTime(newTime);
+    setNewTime("");
+  }
+
+  /** Medication safety pathway 64.7 — Morning/Afternoon/Evening presets, alongside the free-entry "custom" time above. */
+  function addScheduleTime(time: string) {
+    if (time && !scheduleTimes.includes(time)) {
+      setScheduleTimes((prev) => [...prev, time].sort());
     }
   }
 
@@ -104,6 +118,14 @@ export function AddMedicationForm({
         onSuccess: () => {
           setSuccess(true);
           resetForm();
+          // Medication safety pathway 64.16-64.18: only a clinician actually
+          // driving this form satisfies the underlying RPC's org-staff check
+          // (see checkMedicationSafetyAfterAdd) — never fired for a patient's
+          // own self-add, even one attributed to a specialist. Fire-and-forget:
+          // never awaited, never blocks or affects the success state above.
+          if (source === "clinician") {
+            void checkMedicationSafetyAfterAdd(patientId);
+          }
         },
       }
     );
@@ -151,8 +173,17 @@ export function AddMedicationForm({
     submitMedication(pendingData);
   }
 
-  const mutationError = (addMedication.error as Error | null)?.message ?? null;
+  // The mutation throws Supabase's own PostgrestError, so printing its
+  // `.message` put strings like "new row violates row-level security policy
+  // for table \"medications\"" in front of a patient. The validation message
+  // above is ours and is worth showing; a failed insert gets one human
+  // sentence instead.
+  const mutationError = addMedication.isError
+    ? "We could not save this medication just then. Please try again."
+    : null;
   const displayError = validationError ?? mutationError;
+  const errorId = fieldErrorId("add-medication");
+  const errorProps = fieldErrorProps(errorId, Boolean(displayError));
 
   // Clinician-facing prescribe-time drug-safety cautions (§13.5). Advisory only
   // — the platform never blocks a prescription; the doctor decides. Shown for
@@ -168,7 +199,7 @@ export function AddMedicationForm({
           <CardTitle>Review &amp; sign prescription</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-charcoal-ink/10 p-3 text-sm">
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3 text-sm">
             <ReviewRow label="Drug" value={pendingData.drug_name} />
             <ReviewRow label="Dose" value={pendingData.dose} />
             <ReviewRow label="Frequency" value={pendingData.frequency} />
@@ -192,8 +223,8 @@ export function AddMedicationForm({
           </dl>
 
           {safetyNotes.length > 0 && (
-            <div className="space-y-1 rounded-md border border-amber-200 bg-amber-50/50 p-2.5">
-              <p className="text-xs font-medium text-charcoal-ink/80">Prescribing notes (advisory)</p>
+            <div className="space-y-1 rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 p-2.5">
+              <p className="text-xs font-medium text-charcoal-ink/80 dark:text-night-ink/80">Prescribing notes (advisory)</p>
               <ul className="space-y-0.5">
                 {safetyNotes.map((n, i) => (
                   <li key={i} className={`text-xs ${SEVERITY_STYLE[n.severity]}`}>
@@ -206,12 +237,12 @@ export function AddMedicationForm({
           )}
 
           {controlledInfo && (
-            <div className="space-y-2 rounded-md border border-red-200 bg-red-50/60 p-2.5">
-              <p className="text-xs font-medium text-red-800">
-                Controlled/restricted medicine — {controlledInfo.label}
+            <div className="space-y-2 rounded-md border border-red-200 dark:border-red-500/30 bg-red-50/60 dark:bg-red-500/10 p-2.5">
+              <p className="text-xs font-medium text-red-800 dark:text-red-300">
+                Controlled/restricted medicine: {controlledInfo.label}
               </p>
-              <p className="text-xs text-red-800/80">{controlledInfo.note}</p>
-              <label className="flex items-start gap-2 text-sm text-charcoal-ink">
+              <p className="text-xs text-red-800/80 dark:text-red-300/80">{controlledInfo.note}</p>
+              <label className="flex items-start gap-2 text-sm text-charcoal-ink dark:text-night-ink">
                 <input
                   type="checkbox"
                   className="mt-0.5 h-4 w-4"
@@ -223,7 +254,7 @@ export function AddMedicationForm({
             </div>
           )}
 
-          <label className="flex items-start gap-2 text-sm text-charcoal-ink">
+          <label className="flex items-start gap-2 text-sm text-charcoal-ink dark:text-night-ink">
             <input
               type="checkbox"
               className="mt-0.5 h-4 w-4"
@@ -234,7 +265,7 @@ export function AddMedicationForm({
             patient, and confirm this prescription is correct.
           </label>
 
-          {displayError && <p className="text-sm text-red-600">{displayError}</p>}
+          <FormError id={errorId} message={displayError} />
 
           <div className="flex flex-wrap gap-2">
             <Button
@@ -272,10 +303,11 @@ export function AddMedicationForm({
               value={drugName}
               onChange={(event) => setDrugName(event.target.value)}
               required
+              {...errorProps}
             />
             {safetyNotes.length > 0 && (
-              <div className="mt-1 space-y-1 rounded-md border border-amber-200 bg-amber-50/50 p-2.5">
-                <p className="text-xs font-medium text-charcoal-ink/80">
+              <div className="mt-1 space-y-1 rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50/50 dark:bg-amber-500/10 p-2.5">
+                <p className="text-xs font-medium text-charcoal-ink/80 dark:text-night-ink/80">
                   Prescribing notes (advisory)
                 </p>
                 <ul className="space-y-0.5">
@@ -297,6 +329,7 @@ export function AddMedicationForm({
                 placeholder="e.g. 10mg"
                 value={dose}
                 onChange={(event) => setDose(event.target.value)}
+                {...errorProps}
               />
             </div>
             <div className="space-y-1.5">
@@ -306,12 +339,13 @@ export function AddMedicationForm({
                 placeholder="e.g. Twice daily"
                 value={frequency}
                 onChange={(event) => setFrequency(event.target.value)}
+                {...errorProps}
               />
             </div>
           </div>
           {source === "clinician" && (
-            <div className="space-y-3 rounded-md border border-charcoal-ink/10 p-3">
-              <p className="text-xs font-medium text-charcoal-ink/70">Prescription detail</p>
+            <div className="space-y-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+              <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">Prescription detail</p>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="route">Route</Label>
@@ -386,6 +420,19 @@ export function AddMedicationForm({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="new_time">Dose times</Label>
+            <div className="flex flex-wrap gap-2">
+              {DOSE_TIME_PRESETS.map((preset) => (
+                <Button
+                  key={preset.label}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => addScheduleTime(preset.time)}
+                >
+                  {preset.label}
+                </Button>
+              ))}
+            </div>
             <div className="flex gap-2">
               <Input
                 id="new_time"
@@ -395,7 +442,7 @@ export function AddMedicationForm({
                 className="w-32"
               />
               <Button type="button" variant="outline" size="sm" onClick={addTime}>
-                Add time
+                Add custom time
               </Button>
             </div>
             {scheduleTimes.length > 0 && (
@@ -403,14 +450,14 @@ export function AddMedicationForm({
                 {scheduleTimes.map((time) => (
                   <span
                     key={time}
-                    className="inline-flex items-center gap-1 rounded-full bg-charcoal-ink/10 px-2.5 py-1 text-xs text-charcoal-ink/80"
+                    className="inline-flex items-center gap-1 rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15 px-2.5 py-1 text-xs text-charcoal-ink/80 dark:text-night-ink/80"
                   >
                     {time}
                     <button
                       type="button"
                       onClick={() => removeTime(time)}
                       aria-label={`Remove ${time}`}
-                      className="text-charcoal-ink/50 hover:text-charcoal-ink"
+                      className="text-charcoal-ink/50 dark:text-night-ink/55 hover:text-charcoal-ink dark:hover:text-night-ink"
                     >
                       ×
                     </button>
@@ -420,8 +467,8 @@ export function AddMedicationForm({
             )}
           </div>
           {source === "patient" && (
-            <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
-              <label className="flex items-center gap-2 text-sm text-charcoal-ink">
+            <div className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+              <label className="flex items-center gap-2 text-sm text-charcoal-ink dark:text-night-ink">
                 <input
                   type="checkbox"
                   checked={startedBySpecialist}
@@ -457,8 +504,8 @@ export function AddMedicationForm({
               )}
             </div>
           )}
-          {displayError && <p className="text-sm text-red-600">{displayError}</p>}
-          {success && <p className="text-sm text-brand-green">Medication added.</p>}
+          <FormError id={errorId} message={displayError} />
+          <FormSuccess message={success && "Medication added."} />
           <Button type="submit" disabled={addMedication.isPending}>
             {source === "clinician"
               ? "Continue to review"
@@ -476,8 +523,8 @@ function ReviewRow({ label, value }: { label: string; value: string | null | und
   if (!value) return null;
   return (
     <div>
-      <dt className="text-xs text-charcoal-ink/50">{label}</dt>
-      <dd className="text-charcoal-ink">{value}</dd>
+      <dt className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{label}</dt>
+      <dd className="text-charcoal-ink dark:text-night-ink">{value}</dd>
     </div>
   );
 }

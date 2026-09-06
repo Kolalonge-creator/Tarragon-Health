@@ -5,4 +5,5 @@ export const URGENCY_BADGE: Record<ReferralUrgency, { variant: BadgeProps["varia
   routine: { variant: "grey", label: "Routine — within weeks" },
   priority: { variant: "amber", label: "Priority — within days" },
   urgent: { variant: "red", label: "Urgent — same day" },
+  emergency: { variant: "red", label: "Emergency — immediate" },
 };

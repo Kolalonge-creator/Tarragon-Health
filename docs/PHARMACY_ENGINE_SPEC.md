@@ -235,8 +235,9 @@ today: there is no ranking algorithm of any kind, only a plain catalogue list �
 filter-not-rank posture `docs/CLINICAL_NETWORK_SPEC.md` §3 holds specialists to.
 
 ### 12.9 Payment — 🟢, built 2026-08-28
-`payment_transactions` (Paystack primary, Stripe for diaspora) is real, shared, idempotent
-(`unique(provider, provider_event_id)`) infrastructure used platform-wide, not pharmacy-specific.
+`payment_transactions` (Paystack only, as of the 2026-09-03 Stripe removal — see `CLAUDE.md`) is real,
+shared, idempotent (`unique(provider, provider_event_id)`) infrastructure used platform-wide, not
+pharmacy-specific. Diaspora payment is now the sponsor/Care Voucher model, not a second processor.
 `pharmacy_orders.payment_provider`/`payment_provider_ref`/`pending_payment_provider_ref` plus the
 `pharmacy_order_status` enum's `pending_payment` → `payment_confirmed` states cover the spec's
 pending/paid. **Corrected 2026-08-28:** `refund_status`

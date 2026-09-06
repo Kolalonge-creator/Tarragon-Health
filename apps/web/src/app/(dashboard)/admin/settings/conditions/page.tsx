@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { ConditionsManager } from "./conditions-manager";
 
 export default async function ConditionsSettingsPage() {
@@ -12,18 +13,10 @@ export default async function ConditionsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Chronic conditions
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Every chronic-disease programme lives here. All seven are built; each is dormant until a
-          Clinical Director signs its WHO-based protocol and you switch it on. No redeploy. The
-          platform launches with hypertension and diabetes; activate the rest (asthma, COPD, heart
-          failure, CKD, obesity) as the programme scales. A dormant condition cannot be enrolled,
-          enforced at the database.
-        </p>
-      </div>
+      <PageHeader
+        title="Chronic conditions"
+        description="Every chronic-disease programme lives here. All seven are built; each is dormant until a Clinical Director signs its WHO-based protocol and you switch it on. No redeploy. The platform launches with hypertension and diabetes; activate the rest (asthma, COPD, heart failure, CKD, obesity) as the programme scales. A dormant condition cannot be enrolled, enforced at the database."
+      />
       <ConditionsManager organisationId={profile.organisation_id} />
     </div>
   );

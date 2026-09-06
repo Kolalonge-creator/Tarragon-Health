@@ -96,6 +96,10 @@ export async function GET(
     access_token: exchange.accessToken,
     refresh_token: exchange.refreshToken,
     token_expires_at: tokenExpiresAt,
+    consent_activity: verified.consent.activity,
+    consent_heart_rate: verified.consent.heart_rate,
+    consent_sleep: verified.consent.sleep,
+    consent_weight: verified.consent.weight,
   });
   if (insertError) {
     return NextResponse.redirect(

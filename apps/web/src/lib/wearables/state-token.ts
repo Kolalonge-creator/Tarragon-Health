@@ -1,6 +1,7 @@
 import "server-only";
 import { createHmac, timingSafeEqual } from "crypto";
 import type { CloudOAuthWearableProvider } from "./oauth-providers";
+import { FULL_WEARABLE_CONSENT, type WearableConsent } from "./normalise";
 
 const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes — just long enough for the redirect round-trip.
 
@@ -8,6 +9,10 @@ interface StatePayload {
   patientId: string;
   provider: CloudOAuthWearableProvider;
   issuedAt: number;
+  /** The per-category grants the patient chose on the Connect card before
+   * being redirected — carried through the OAuth round-trip so the callback
+   * can write them onto the new connection row without a second write. */
+  consent: WearableConsent;
 }
 
 function signingSecret(): string {
@@ -28,9 +33,10 @@ function sign(value: string): string {
  * getWearableOAuthUrl's own docstring calls out as the caller's job). */
 export function createWearableOAuthState(
   patientId: string,
-  provider: CloudOAuthWearableProvider
+  provider: CloudOAuthWearableProvider,
+  consent: WearableConsent = FULL_WEARABLE_CONSENT
 ): string {
-  const payload: StatePayload = { patientId, provider, issuedAt: Date.now() };
+  const payload: StatePayload = { patientId, provider, issuedAt: Date.now(), consent };
   const encoded = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = sign(encoded);
   return `${encoded}.${signature}`;
@@ -39,7 +45,7 @@ export function createWearableOAuthState(
 export function verifyWearableOAuthState(
   state: string,
   expectedProvider: CloudOAuthWearableProvider
-): { ok: true; patientId: string } | { ok: false; error: string } {
+): { ok: true; patientId: string; consent: WearableConsent } | { ok: false; error: string } {
   const [encoded, signature] = state.split(".");
   if (!encoded || !signature) return { ok: false, error: "Malformed state" };
 
@@ -63,5 +69,9 @@ export function verifyWearableOAuthState(
   if (payload.provider !== expectedProvider) return { ok: false, error: "Provider mismatch" };
   if (Date.now() - payload.issuedAt > STATE_TTL_MS) return { ok: false, error: "State expired" };
 
-  return { ok: true, patientId: payload.patientId };
+  // Defensive fallback, not the common case: a state token minted by an
+  // older deploy (in flight across a redeploy mid-redirect) predates the
+  // consent field. Falling back to full consent matches what that in-flight
+  // request would have gotten anyway before this feature existed.
+  return { ok: true, patientId: payload.patientId, consent: payload.consent ?? FULL_WEARABLE_CONSENT };
 }

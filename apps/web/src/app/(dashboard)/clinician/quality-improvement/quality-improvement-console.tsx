@@ -81,7 +81,7 @@ function CycleCard({ cycle }: { cycle: QualityImprovementCycle }) {
           <p className="text-sm text-charcoal-ink/80">
             <span className="font-medium">Re-measured: </span>
             {cycle.remeasure_value} on {cycle.remeasured_at}
-            {cycle.outcome_note && ` — ${cycle.outcome_note}`}
+            {cycle.outcome_note && `: ${cycle.outcome_note}`}
           </p>
         )}
 
@@ -265,6 +265,10 @@ export function QualityImprovementConsole() {
           </Button>
         </CardContent>
       </Card>
+
+      {open.length === 0 && closed.length === 0 && (
+        <p className="text-sm text-charcoal-ink/60">No quality-improvement cycles yet.</p>
+      )}
 
       {open.length > 0 && (
         <div className="space-y-3">
