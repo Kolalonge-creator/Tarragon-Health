@@ -11,6 +11,9 @@ import {
   businessSummarySchema,
   clinicalOutcomesSchema,
   deliverabilitySchema,
+  diagnosticGovernanceAnalyticsSchema,
+  diagnosticPathwayAnalyticsSchema,
+  diagnosticSafetyDashboardSchema,
   doctorPerformanceSchema,
   engagementSummarySchema,
   escalationQualitySchema,
@@ -275,6 +278,46 @@ export function useEscalationQuality() {
       const { data, error } = await createClient().rpc("analytics_escalation_quality", {});
       if (error) throw error;
       return escalationQualitySchema.parse(data);
+    },
+  });
+}
+
+// ---- Diagnostic Safety Pathway (spec modules 56-60) ------------------------
+export function useDiagnosticSafetyDashboard() {
+  return useQuery({
+    queryKey: ["analytics", "diagnostic-safety-dashboard"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("diagnostic_safety_dashboard");
+      if (error) throw error;
+      return diagnosticSafetyDashboardSchema.parse(data);
+    },
+  });
+}
+
+export function useDiagnosticPathwayAnalytics(from?: string | null, to?: string | null) {
+  return useQuery({
+    queryKey: ["analytics", "diagnostic-pathway-analytics", from, to],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("diagnostic_pathway_analytics", {
+        p_from: from ?? undefined,
+        p_to: to ?? undefined,
+      });
+      if (error) throw error;
+      return diagnosticPathwayAnalyticsSchema.parse(data);
+    },
+  });
+}
+
+export function useDiagnosticGovernanceAnalytics(from?: string | null, to?: string | null) {
+  return useQuery({
+    queryKey: ["analytics", "diagnostic-governance-analytics", from, to],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("diagnostic_governance_analytics", {
+        p_from: from ?? undefined,
+        p_to: to ?? undefined,
+      });
+      if (error) throw error;
+      return diagnosticGovernanceAnalyticsSchema.parse(data);
     },
   });
 }

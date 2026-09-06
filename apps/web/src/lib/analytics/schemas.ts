@@ -250,6 +250,54 @@ export const escalationQualitySchema = z.object({
 });
 export type EscalationQuality = z.infer<typeof escalationQualitySchema>;
 
+// ---- Diagnostic Safety Pathway (spec modules 56-60) ------------------------
+export const diagnosticSafetyDashboardSchema = z.object({
+  critical_results: z.number().default(0),
+  awaiting_acknowledgement: z.number().default(0),
+  abnormal_results: z.number().default(0),
+  overdue_clinical_review: z.number().default(0),
+  pending_specialist_follow_up: z.number().default(0),
+  pending_repeat_tests: z.number().default(0),
+  alerts: z
+    .object({
+      critical_unacknowledged: z.number().default(0),
+      abnormal_without_action: z.number().default(0),
+      specialist_referral_incomplete: z.number().default(0),
+      repeat_investigation_overdue: z.number().default(0),
+    })
+    .default({
+      critical_unacknowledged: 0,
+      abnormal_without_action: 0,
+      specialist_referral_incomplete: 0,
+      repeat_investigation_overdue: 0,
+    }),
+});
+export type DiagnosticSafetyDashboard = z.infer<typeof diagnosticSafetyDashboardSchema>;
+
+export const diagnosticPathwayAnalyticsSchema = z.object({
+  episodes_opened: z.number().default(0),
+  closed_count: z.number().default(0),
+  still_open_count: z.number().default(0),
+  avg_review_time_hours: z.number().nullable().default(null),
+  avg_critical_response_time_hours: z.number().nullable().default(null),
+  avg_closure_time_hours: z.number().nullable().default(null),
+  avg_result_turnaround_hours: z.number().nullable().default(null),
+  patient_notification_rate_pct: z.number().nullable().default(null),
+  referral_completion_rate_pct: z.number().nullable().default(null),
+  repeat_test_completion_rate_pct: z.number().nullable().default(null),
+});
+export type DiagnosticPathwayAnalytics = z.infer<typeof diagnosticPathwayAnalyticsSchema>;
+
+export const diagnosticGovernanceAnalyticsSchema = z.object({
+  critical_results_received: z.number().default(0),
+  critical_reviewed: z.number().default(0),
+  critical_reviewed_within_sla: z.number().default(0),
+  near_miss_count: z.number().default(0),
+  harm_count: z.number().default(0),
+  follow_up_failure_by_condition: z.record(z.string(), z.number().nullable()).default({}),
+});
+export type DiagnosticGovernanceAnalytics = z.infer<typeof diagnosticGovernanceAnalyticsSchema>;
+
 // ---- Operations & deliverability ------------------------------------------
 const orderStat = z.object({
   total: z.number().default(0),

@@ -3,6 +3,9 @@ import {
   auditLogSchema,
   businessSummarySchema,
   clinicalOutcomesSchema,
+  diagnosticGovernanceAnalyticsSchema,
+  diagnosticPathwayAnalyticsSchema,
+  diagnosticSafetyDashboardSchema,
   financialSummarySchema,
   operationsSummarySchema,
   populationSummarySchema,
@@ -92,5 +95,33 @@ describe("analytics schemas", () => {
     });
     expect(audit.total).toBe(1);
     expect(audit.rows[0].actor_name).toBeNull();
+  });
+
+  it("parses gated-empty diagnostic safety pathway responses", () => {
+    const dashboard = diagnosticSafetyDashboardSchema.parse({});
+    expect(dashboard.critical_results).toBe(0);
+    expect(dashboard.alerts.critical_unacknowledged).toBe(0);
+
+    const pathway = diagnosticPathwayAnalyticsSchema.parse({});
+    expect(pathway.episodes_opened).toBe(0);
+    expect(pathway.avg_review_time_hours).toBeNull();
+
+    const governance = diagnosticGovernanceAnalyticsSchema.parse({});
+    expect(governance.near_miss_count).toBe(0);
+    expect(governance.follow_up_failure_by_condition).toEqual({});
+  });
+
+  it("parses a real diagnostic pathway analytics payload with null rates", () => {
+    const pathway = diagnosticPathwayAnalyticsSchema.parse({
+      episodes_opened: 12,
+      closed_count: 5,
+      still_open_count: 7,
+      avg_review_time_hours: 3.2,
+      referral_completion_rate_pct: null,
+      repeat_test_completion_rate_pct: 80,
+    });
+    expect(pathway.episodes_opened).toBe(12);
+    expect(pathway.referral_completion_rate_pct).toBeNull();
+    expect(pathway.repeat_test_completion_rate_pct).toBe(80);
   });
 });

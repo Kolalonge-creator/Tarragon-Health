@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangle, Send, Stethoscope, Truck } from "lucide-react";
+import { AlertTriangle, Clock, Repeat2, Send, Stethoscope, Truck } from "lucide-react";
 import { StatTile } from "@/components/ui/stat-tile";
-import { useDeliverability, useOperationsSummary } from "@/lib/analytics/queries";
+import { useDeliverability, useDiagnosticSafetyDashboard, useOperationsSummary } from "@/lib/analytics/queries";
 import { formatNumber, formatPercent } from "@/lib/analytics/format";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
@@ -10,9 +10,11 @@ import { ExportButton } from "./export-button";
 export function OperationsDashboard() {
   const ops = useOperationsSummary();
   const deliver = useDeliverability();
+  const diagSafety = useDiagnosticSafetyDashboard();
 
   const o = ops.data;
   const d = deliver.data;
+  const ds = diagSafety.data;
   const openAlerts = (o?.escalation_queue ?? []).reduce((sum, q) => sum + q.open, 0);
   const orders = o?.orders;
 
@@ -72,6 +74,30 @@ export function OperationsDashboard() {
           />
         </SectionCard>
       </div>
+
+      <SectionCard
+        title="Diagnostic safety pathway"
+        description="Abnormal result → clinical review → follow-up → close. Live worklist counts, not a historical window."
+      >
+        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+          <StatTile icon={AlertTriangle} tintClassName="bg-red-100" iconClassName="text-red-700" label="Critical results" value={formatNumber(ds?.critical_results ?? 0)} />
+          <StatTile icon={Clock} label="Awaiting acknowledgement" value={formatNumber(ds?.awaiting_acknowledgement ?? 0)} />
+          <StatTile icon={Stethoscope} label="Abnormal results (open)" value={formatNumber(ds?.abnormal_results ?? 0)} />
+          <StatTile icon={AlertTriangle} label="Overdue clinical review" value={formatNumber(ds?.overdue_clinical_review ?? 0)} />
+          <StatTile icon={Send} label="Pending specialist follow-up" value={formatNumber(ds?.pending_specialist_follow_up ?? 0)} />
+          <StatTile icon={Repeat2} label="Pending repeat tests" value={formatNumber(ds?.pending_repeat_tests ?? 0)} />
+        </div>
+        {diagSafety.isLoading ? (
+          <CenterNote>Loading…</CenterNote>
+        ) : (
+          <div className="mt-4 grid gap-3 border-t border-charcoal-ink/10 pt-4 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <div className="flex justify-between"><span className="text-charcoal-ink/60">Critical, unacknowledged</span><span className="font-medium tabular-nums text-red-700">{formatNumber(ds?.alerts.critical_unacknowledged ?? 0)}</span></div>
+            <div className="flex justify-between"><span className="text-charcoal-ink/60">Abnormal, no action 7d+</span><span className="font-medium tabular-nums">{formatNumber(ds?.alerts.abnormal_without_action ?? 0)}</span></div>
+            <div className="flex justify-between"><span className="text-charcoal-ink/60">Referral appointment missed</span><span className="font-medium tabular-nums">{formatNumber(ds?.alerts.specialist_referral_incomplete ?? 0)}</span></div>
+            <div className="flex justify-between"><span className="text-charcoal-ink/60">Repeat investigation overdue</span><span className="font-medium tabular-nums">{formatNumber(ds?.alerts.repeat_investigation_overdue ?? 0)}</span></div>
+          </div>
+        )}
+      </SectionCard>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile icon={Stethoscope} label="Lab orders" value={formatNumber(orders?.lab.total ?? 0)} unit={`· ${orders?.lab.avg_turnaround_hours ?? 0}h avg`} />
