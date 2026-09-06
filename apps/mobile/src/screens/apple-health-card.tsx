@@ -9,7 +9,8 @@ import { Card, ErrorText, MutedText, PrimaryButton } from "@/ui/components";
 /**
  * Apple Health card, shown above the Bluetooth device list.
  *
- * It sits on the Devices tab rather than in the WebView because HealthKit is
+ * It sits on the Devices section (opened from the nav drawer) rather than in
+ * the WebView because HealthKit is
  * device-local: the web platform cannot reach it at all, which is the same
  * reason BLE pairing lives here. The card hides itself entirely on Android
  * and on any iOS device where HealthKit is unavailable, rather than showing
@@ -25,9 +26,15 @@ export function AppleHealthCard() {
 
   useEffect(() => {
     let active = true;
-    isHealthKitAvailable().then((value) => {
-      if (active) setAvailable(value);
-    });
+    isHealthKitAvailable()
+      .then((value) => {
+        if (active) setAvailable(value);
+      })
+      .catch(() => {
+        // Treat "couldn't even check" as unavailable — hiding the card is
+        // the same rule as any device where HealthKit can't work.
+        if (active) setAvailable(false);
+      });
     return () => {
       active = false;
     };
@@ -53,7 +60,7 @@ export function AppleHealthCard() {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: "#E8F3EE",
+            backgroundColor: colors.brandTintAlt,
             alignItems: "center",
             justifyContent: "center",
           }}
@@ -128,7 +135,7 @@ function SyncMessage({ result }: { result: HealthSyncResult }) {
  * sync still ran and a later attempt (manual or the background task) simply
  * retries the same delta. */
 function PartialSyncNote() {
-  return <MutedText>Some readings couldn&apos;t be checked this time — we&apos;ll try again.</MutedText>;
+  return <MutedText>Some readings couldn&apos;t be checked this time. We&apos;ll try again.</MutedText>;
 }
 
 /** Shown when this sync's offline-queue flush (offline-queue.ts) uploaded

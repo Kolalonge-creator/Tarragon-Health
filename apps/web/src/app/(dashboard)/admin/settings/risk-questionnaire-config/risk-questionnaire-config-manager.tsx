@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
 import {
   signRiskQuestionnaireConfigAction,
   type SignRiskQuestionnaireConfigState,
@@ -53,7 +54,8 @@ export function RiskQuestionnaireConfigManager({ configs }: { configs: RiskQuest
   }
   return (
     <div className="space-y-4">
-      {configs.map((c) => {
+      <VersionHistoryList>
+        {configs.map((c) => {
         const counts = questionAndConditionCounts(c.config);
         return (
           <Card key={c.id}>
@@ -100,7 +102,8 @@ export function RiskQuestionnaireConfigManager({ configs }: { configs: RiskQuest
             </CardContent>
           </Card>
         );
-      })}
+        })}
+      </VersionHistoryList>
     </div>
   );
 }

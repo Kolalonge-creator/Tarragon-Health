@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   consentCategoryFor,
+  consentDecisionFor,
+  feedsSafetyPipeline,
   FULL_WEARABLE_CONSENT,
   isConsentedTo,
   isPlausible,
@@ -25,7 +27,17 @@ describe("routing rule", () => {
   it("sends every metric with a vitals equivalent to vitals_readings", () => {
     // CLAUDE.md's ingestion-boundary rule, asserted rather than assumed:
     // these four (plus BP) must never end up in the parallel table.
-    for (const type of ["resting_heart_rate", "weight", "spo2", "glucose", "blood_pressure"] as const) {
+    for (const type of [
+      "resting_heart_rate",
+      "weight",
+      "spo2",
+      "glucose",
+      "blood_pressure",
+      // respiratory_rate was missing here for as long as
+      // vitals_readings.respiratory_rate_bpm has existed, so Oura's and
+      // WHOOP's breaths/min landed in wearable_readings only.
+      "respiratory_rate",
+    ] as const) {
       expect(isVitalsEquivalent(type)).toBe(true);
     }
   });
@@ -147,6 +159,15 @@ describe("consent categories (53.3/53.4)", () => {
     expect(isConsentedTo(reading("steps"), consent)).toBe(true);
   });
 
+  it("routes respiratory rate to the integer respiratory_rate_bpm column", () => {
+    const equivalent = vitalsEquivalentFor("respiratory_rate");
+    expect(equivalent).toMatchObject({
+      vitalType: "respiratory_rate",
+      column: "respiratory_rate_bpm",
+      integer: true,
+    });
+  });
+
   it("always permits an ungated metric regardless of consent", () => {
     const consent: WearableConsent = {
       activity: false,
@@ -155,5 +176,65 @@ describe("consent categories (53.3/53.4)", () => {
       weight: false,
     };
     expect(isConsentedTo(reading("glucose"), consent)).toBe(true);
+  });
+});
+
+describe("consent never switches off a safety classifier", () => {
+  const denyAll: WearableConsent = {
+    activity: false,
+    heart_rate: false,
+    sleep: false,
+    weight: false,
+  };
+
+  function reading(readingType: NormalisedReading["readingType"]): NormalisedReading {
+    return build({ readingType, value: 1 });
+  }
+
+  it("names exactly the reading types that arm a red-flag trigger", () => {
+    // Verified against the live triggers on vitals_readings:
+    // vitals_readings_pulse_red_flag and
+    // vitals_readings_heart_failure_weight_gain. Glucose, blood pressure and
+    // SpO2 are in the same class and are already outside the consent model
+    // entirely, so they need no exemption.
+    expect(feedsSafetyPipeline("resting_heart_rate")).toBe(true);
+    expect(feedsSafetyPipeline("weight")).toBe(true);
+    for (const type of ["steps", "calories", "sleep_minutes", "sleep_efficiency", "hrv_ms"] as const) {
+      expect(feedsSafetyPipeline(type)).toBe(false);
+    }
+  });
+
+  it("does not exempt respiratory rate, which no classifier reads", () => {
+    // It routes to vitals_readings now, but nothing on the platform bands
+    // it — so gating it costs no safety signal and the heart_rate toggle
+    // keeps a real effect.
+    expect(feedsSafetyPipeline("respiratory_rate")).toBe(false);
+    expect(consentDecisionFor(reading("respiratory_rate"), denyAll)).toBe("denied");
+  });
+
+  it("retains a denied pulse or weight reading instead of dropping it", () => {
+    expect(consentDecisionFor(reading("resting_heart_rate"), denyAll)).toBe(
+      "denied_safety_retained"
+    );
+    expect(consentDecisionFor(reading("weight"), denyAll)).toBe("denied_safety_retained");
+  });
+
+  it("drops a denied passive metric outright", () => {
+    for (const type of ["steps", "sleep_minutes", "hrv_ms"] as const) {
+      expect(consentDecisionFor(reading(type), denyAll)).toBe("denied");
+    }
+  });
+
+  it("allows everything when consent is full", () => {
+    for (const type of WEARABLE_READING_TYPES) {
+      expect(consentDecisionFor(reading(type), FULL_WEARABLE_CONSENT)).toBe("allowed");
+    }
+  });
+
+  it("keeps the patient's stated preference recorded even where it is overridden", () => {
+    // The exemption is about what gets stored, not about pretending the
+    // patient said yes: isConsentedTo still reports the denial, which is
+    // what makes the deniedByConsent count honest.
+    expect(isConsentedTo(reading("resting_heart_rate"), denyAll)).toBe(false);
   });
 });

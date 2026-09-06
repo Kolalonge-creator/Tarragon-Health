@@ -79,7 +79,7 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
         <p className="mt-4 text-sm text-charcoal-ink/70">
           {state.orgName} works with Tarragon, but this number isn&apos;t on their list yet;
           ask your HR or plan administrator to add you, or{" "}
-          <Link href="/contact" className="text-brand-green hover:underline">
+          <Link href="/contact" className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             contact us
           </Link>
           .
@@ -88,7 +88,7 @@ export function EligibilityChecker({ source }: { source: "corporate" | "hmo" }) 
       {state && "status" in state && state.status === "no_partner" && (
         <p className="mt-4 text-sm text-charcoal-ink/70">
           We don&apos;t work with them yet; we&apos;ve noted the interest. Want it sooner?{" "}
-          <Link href="/contact" className="text-brand-green hover:underline">
+          <Link href="/contact" className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Introduce us to your {noun}
           </Link>
           . Most partnerships start exactly this way.

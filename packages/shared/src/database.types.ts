@@ -13825,6 +13825,76 @@ export type Database = {
           },
         ]
       }
+      finance_posting_failures: {
+        Row: {
+          amount_minor: number | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"] | null
+          error_code: string | null
+          error_message: string
+          id: string
+          organisation_id: string | null
+          payment_transaction_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          status: string
+          trigger_name: string
+        }
+        Insert: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          error_code?: string | null
+          error_message: string
+          id?: string
+          organisation_id?: string | null
+          payment_transaction_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          status?: string
+          trigger_name: string
+        }
+        Update: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          error_code?: string | null
+          error_message?: string
+          id?: string
+          organisation_id?: string | null
+          payment_transaction_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          status?: string
+          trigger_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_posting_failures_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_posting_failures_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_posting_failures_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_settlement_matches: {
         Row: {
           amount_minor: number
@@ -21616,8 +21686,8 @@ export type Database = {
         Row: {
           channel_sequence_exhausted: Database["public"]["Enums"]["notification_channel"][]
           created_at: string
-          escalation_alert_tier: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway: string
+          escalation_alert_tier: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway: string | null
           id: string
           notification_id: string
           organisation_id: string | null
@@ -21627,8 +21697,8 @@ export type Database = {
         Insert: {
           channel_sequence_exhausted: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
-          escalation_alert_tier: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway: string
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway?: string | null
           id?: string
           notification_id: string
           organisation_id?: string | null
@@ -21638,8 +21708,8 @@ export type Database = {
         Update: {
           channel_sequence_exhausted?: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
-          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway?: string
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway?: string | null
           id?: string
           notification_id?: string
           organisation_id?: string | null
@@ -22538,6 +22608,80 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      outcome_measure_specs: {
+        Row: {
+          code: string
+          compute_key: string
+          created_at: string
+          created_by: string | null
+          data_sources: string[]
+          denominator_definition: string
+          direction: Database["public"]["Enums"]["measure_direction"]
+          domain: string
+          effective_from: string
+          exclusion_definition: string
+          id: string
+          limitations: string
+          min_denominator: number
+          numerator_definition: string
+          rationale: string
+          retired_at: string | null
+          spec_version: number
+          title: string
+          unit: string
+        }
+        Insert: {
+          code: string
+          compute_key: string
+          created_at?: string
+          created_by?: string | null
+          data_sources: string[]
+          denominator_definition: string
+          direction: Database["public"]["Enums"]["measure_direction"]
+          domain: string
+          effective_from?: string
+          exclusion_definition: string
+          id?: string
+          limitations: string
+          min_denominator?: number
+          numerator_definition: string
+          rationale: string
+          retired_at?: string | null
+          spec_version: number
+          title: string
+          unit?: string
+        }
+        Update: {
+          code?: string
+          compute_key?: string
+          created_at?: string
+          created_by?: string | null
+          data_sources?: string[]
+          denominator_definition?: string
+          direction?: Database["public"]["Enums"]["measure_direction"]
+          domain?: string
+          effective_from?: string
+          exclusion_definition?: string
+          id?: string
+          limitations?: string
+          min_denominator?: number
+          numerator_definition?: string
+          rationale?: string
+          retired_at?: string | null
+          spec_version?: number
+          title?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "outcome_measure_specs_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       outcome_reports: {
         Row: {
@@ -25944,6 +26088,111 @@ export type Database = {
           {
             foreignKeyName: "payer_administrators_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payer_board_reports: {
+        Row: {
+          attestation_statement: string | null
+          attested_at: string | null
+          attested_by: string | null
+          attester_role_title: string | null
+          content_hash: string
+          engine_version: string
+          generated_at: string
+          generated_by: string | null
+          id: string
+          insurer_id: string
+          period_end: string
+          period_start: string
+          report_number: string
+          sequence_no: number
+          snapshot: Json
+          status: Database["public"]["Enums"]["board_report_status"]
+          superseded_by: string | null
+          withdrawal_reason: string | null
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+        }
+        Insert: {
+          attestation_statement?: string | null
+          attested_at?: string | null
+          attested_by?: string | null
+          attester_role_title?: string | null
+          content_hash: string
+          engine_version: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          insurer_id: string
+          period_end: string
+          period_start: string
+          report_number: string
+          sequence_no: number
+          snapshot: Json
+          status?: Database["public"]["Enums"]["board_report_status"]
+          superseded_by?: string | null
+          withdrawal_reason?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Update: {
+          attestation_statement?: string | null
+          attested_at?: string | null
+          attested_by?: string | null
+          attester_role_title?: string | null
+          content_hash?: string
+          engine_version?: string
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          insurer_id?: string
+          period_end?: string
+          period_start?: string
+          report_number?: string
+          sequence_no?: number
+          snapshot?: Json
+          status?: Database["public"]["Enums"]["board_report_status"]
+          superseded_by?: string | null
+          withdrawal_reason?: string | null
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payer_board_reports_attested_by_fkey"
+            columns: ["attested_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_board_reports_generated_by_fkey"
+            columns: ["generated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_board_reports_insurer_id_fkey"
+            columns: ["insurer_id"]
+            isOneToOne: false
+            referencedRelation: "insurers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_board_reports_superseded_by_fkey"
+            columns: ["superseded_by"]
+            isOneToOne: false
+            referencedRelation: "payer_board_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payer_board_reports_withdrawn_by_fkey"
+            columns: ["withdrawn_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -30899,6 +31148,7 @@ export type Database = {
       }
       revenue_recognition_schedules: {
         Row: {
+          cancelled_reason: string | null
           created_at: string
           currency: Database["public"]["Enums"]["currency"]
           deferred_account_code: string
@@ -30916,6 +31166,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancelled_reason?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
           deferred_account_code?: string
@@ -30933,6 +31184,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancelled_reason?: string | null
           created_at?: string
           currency?: Database["public"]["Enums"]["currency"]
           deferred_account_code?: string
@@ -37827,7 +38079,7 @@ export type Database = {
       analytics_provider_capacity: { Args: never; Returns: Json }
       analytics_referral_turnaround: { Args: never; Returns: Json }
       analytics_retention_cohorts: { Args: never; Returns: Json }
-      analytics_revenue_by_plan: { Args: never; Returns: Json }
+      analytics_revenue_by_product: { Args: never; Returns: Json }
       analytics_revenue_timeseries: {
         Args: { p_period?: string }
         Returns: Json
@@ -37991,6 +38243,10 @@ export type Database = {
       attest_health_passport_request: {
         Args: { p_request_id: string; p_statement?: string }
         Returns: string
+      }
+      attest_payer_board_report: {
+        Args: { p_report_id: string; p_role_title: string; p_statement: string }
+        Returns: Json
       }
       attest_population_data_governance_gate: {
         Args: {
@@ -39019,6 +39275,10 @@ export type Database = {
         Args: { p_occurrence_id: string }
         Returns: string
       }
+      generate_payer_board_report: {
+        Args: { p_insurer_id: string; p_period_end: string; p_period_start: string }
+        Returns: Json
+      }
       get_ai_coach_daily_limit: { Args: never; Returns: number }
       get_available_appointment_slots: {
         Args: {
@@ -39619,6 +39879,10 @@ export type Database = {
       patient_exists_cross_org: {
         Args: { p_patient_id: string }
         Returns: Json
+      }
+      patient_has_feature_access: {
+        Args: { p_feature: string; p_patient_id: string }
+        Returns: boolean
       }
       patient_health_reset_progress: {
         Args: never
@@ -40430,6 +40694,37 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      request_care_access: {
+        Args: {
+          p_direction: string
+          p_expires_at?: string | null
+          p_permission_level: Database["public"]["Enums"]["profile_access_level"]
+          p_permissions?:
+            | Database["public"]["Enums"]["caregiver_permission"][]
+            | null
+          p_phone: string
+          p_relationship?: string | null
+        }
+        Returns: {
+          counterparty_user_id: string
+          created_at: string
+          id: string
+          initiated_by: string
+          permission_level: Database["public"]["Enums"]["profile_access_level"]
+          profile_id: string
+          relationship: string | null
+          responded_at: string | null
+          responded_by: string | null
+          status: Database["public"]["Enums"]["care_access_request_status"]
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "care_access_requests"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       resolve_source_precedence: {
         Args: { p_domain: string; p_source_a: string; p_source_b: string }
         Returns: string
@@ -40894,6 +41189,10 @@ export type Database = {
         Args: { p_clinical_staff_id: string }
         Returns: undefined
       }
+      verify_payer_board_report: {
+        Args: { p_content_hash: string; p_report_number: string }
+        Returns: Json
+      }
       verify_prescription: {
         Args: { p_rx_number: string; p_verification_code: string }
         Returns: {
@@ -40918,6 +41217,10 @@ export type Database = {
       video_visit_acceptance_stats: { Args: never; Returns: Json }
       wellness_challenge_progress: {
         Args: { p_enrolment_id: string }
+        Returns: Json
+      }
+      withdraw_payer_board_report: {
+        Args: { p_reason: string; p_report_id: string }
         Returns: Json
       }
       withdraw_health_passport_attestation: {
@@ -41141,6 +41444,7 @@ export type Database = {
         | "not_eligible"
       billing_interval: "monthly" | "yearly"
       blood_group: "O+" | "O-" | "A+" | "A-" | "B+" | "B-" | "AB+" | "AB-"
+      board_report_status: "draft" | "attested" | "superseded" | "withdrawn"
       booking_origin: "patient_initiated" | "clinically_triggered"
       booking_request_status:
         | "requested"
@@ -42072,6 +42376,7 @@ export type Database = {
         | "expired"
         | "failed"
       meal_type: "breakfast" | "lunch" | "dinner" | "snack"
+      measure_direction: "higher_is_better" | "lower_is_better"
       med_adherence_alert_level: "coach" | "doctor"
       med_adherence_alert_status: "open" | "acknowledged" | "resolved"
       medication_access_barrier_reason:
@@ -42408,6 +42713,12 @@ export type Database = {
         | "customer.subscription.deleted"
         | "charge.dispute.create"
         | "charge.dispute.created"
+        | "refund.pending"
+        | "refund.processed"
+        | "refund.failed"
+        | "transfer.success"
+        | "transfer.failed"
+        | "transfer.reversed"
       pharmacy_fulfilment_method: "pickup" | "delivery"
       pharmacy_medication_stock_status: "in_stock" | "low_stock" | "unavailable"
       pharmacy_order_status:
@@ -43319,6 +43630,7 @@ export const Constants = {
       ],
       billing_interval: ["monthly", "yearly"],
       blood_group: ["O+", "O-", "A+", "A-", "B+", "B-", "AB+", "AB-"],
+      board_report_status: ["draft", "attested", "superseded", "withdrawn"],
       booking_origin: ["patient_initiated", "clinically_triggered"],
       booking_request_status: [
         "requested",
@@ -44370,6 +44682,7 @@ export const Constants = {
         "failed",
       ],
       meal_type: ["breakfast", "lunch", "dinner", "snack"],
+      measure_direction: ["higher_is_better", "lower_is_better"],
       med_adherence_alert_level: ["coach", "doctor"],
       med_adherence_alert_status: ["open", "acknowledged", "resolved"],
       medication_access_barrier_reason: [
@@ -44741,6 +45054,12 @@ export const Constants = {
         "customer.subscription.deleted",
         "charge.dispute.create",
         "charge.dispute.created",
+        "refund.pending",
+        "refund.processed",
+        "refund.failed",
+        "transfer.success",
+        "transfer.failed",
+        "transfer.reversed",
       ],
       pharmacy_fulfilment_method: ["pickup", "delivery"],
       pharmacy_medication_stock_status: [

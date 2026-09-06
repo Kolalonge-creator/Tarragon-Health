@@ -79,12 +79,12 @@ export function NutritionSupportCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {referral ? (
-          <p className="text-sm text-charcoal-ink/80">
+          <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             {STATUS_COPY[referral.status] ?? "Your care team is coordinating this."}
           </p>
         ) : (
           <>
-            <p className="text-sm text-charcoal-ink/80">
+            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {risk.atRisk
                 ? risk.reasons.map((r) => RISK_REASON_LABELS[r]).join(" ")
                 : "Want extra support with your nutrition? Your care team can connect you with a dietitian for a plan built around you."}
@@ -95,7 +95,7 @@ export function NutritionSupportCard({
               </Button>
             </form>
             {state && "error" in state && state.error && (
-              <p className="text-sm text-red-600">{state.error}</p>
+              <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>
             )}
           </>
         )}

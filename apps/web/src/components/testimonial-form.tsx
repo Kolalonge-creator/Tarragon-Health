@@ -22,21 +22,21 @@ export function TestimonialForm() {
       </CardHeader>
       <CardContent>
         {state?.message ? (
-          <p className="text-sm text-brand-green">{state.message}</p>
+          <p className="text-sm text-brand-green dark:text-brand-green-bright">{state.message}</p>
         ) : (
           <form action={formAction} className="space-y-3">
-            <p className="text-xs text-charcoal-ink/60">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               A short quote about your Tarragon experience. With your permission, we may share it
               on our website (never your medical details, just your words).
             </p>
             <div>
-              <label className="block text-xs font-medium text-charcoal-ink" htmlFor="display_name">
+              <label className="block text-xs font-medium text-charcoal-ink dark:text-night-ink" htmlFor="display_name">
                 How should we credit you?
               </label>
               <Input id="display_name" name="display_name" placeholder="e.g. Amina O." maxLength={80} required />
             </div>
             <div>
-              <label className="block text-xs font-medium text-charcoal-ink" htmlFor="quote">
+              <label className="block text-xs font-medium text-charcoal-ink dark:text-night-ink" htmlFor="quote">
                 Your words
               </label>
               <textarea
@@ -46,14 +46,14 @@ export function TestimonialForm() {
                 maxLength={500}
                 required
                 rows={3}
-                className="flex w-full rounded-md border border-charcoal-ink/20 bg-white px-3 py-2 text-sm text-charcoal-ink placeholder:text-charcoal-ink/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
+                className="flex w-full rounded-md border border-charcoal-ink/20 bg-white dark:bg-night-card px-3 py-2 text-sm text-charcoal-ink dark:text-night-ink placeholder:text-charcoal-ink/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green"
                 placeholder="What made a difference for you?"
               />
             </div>
             <Button type="submit" size="sm" disabled={pending}>
               {pending ? "Sending…" : "Submit for review"}
             </Button>
-            {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
+            {state?.error && <p className="text-xs text-red-600 dark:text-red-300">{state.error}</p>}
           </form>
         )}
       </CardContent>

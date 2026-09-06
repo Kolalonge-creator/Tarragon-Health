@@ -17,14 +17,58 @@ do $$
 declare
   v_org uuid;
   v_patient uuid;
+  v_product uuid;
   v_reading_id uuid;
   v_alert record;
   v_event_count integer;
   v_bp_alert_id uuid;
   v_bp_alert_after record;
 begin
-  select organisation_id, id into v_org, v_patient
-  from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+  -- Fixtures are minted here, not borrowed. On a fresh `supabase db reset`
+  -- there is no patient at all, and on a populated project an arbitrary
+  -- `limit 1` patient carries whatever entitlements and open alerts it
+  -- happens to have -- which is how this file used to report a failure that
+  -- was really a fixture accident.
+  select id into v_org from public.organisations limit 1;
+  if v_org is null then
+    insert into public.organisations (name, type)
+    values ('SpO2 Test Org', 'clinic')
+    returning id into v_org;
+  end if;
+
+  v_patient := gen_random_uuid();
+  insert into auth.users (id, email)
+  values (v_patient, 'spo2-test-patient@example.invalid');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, v_org, 'patient', 'SpO2 Test Patient')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name;
+
+  -- The RED band raises a clinician_alerts row only for a patient holding
+  -- 'vitals_red_flag_doctor_escalation' (20260810120000). Resolve the granting
+  -- product by that FEATURE, never by a product code: complete_pack -- the code
+  -- a sibling proof still names -- is is_active = false since the
+  -- pay-per-service pivot, so a by-code lookup would entitle nobody and turn
+  -- the RED case below into a silent no-op.
+  select id into v_product
+  from public.service_products
+  where is_active and 'vitals_red_flag_doctor_escalation' = any(features)
+  order by code limit 1;
+  if v_product is null then
+    raise exception 'VACUOUS: no active service_product grants vitals_red_flag_doctor_escalation -- the RED-band case below could not fire for anybody';
+  end if;
+
+  -- payable_kobo is a GENERATED column: naming it here fails with 428C9.
+  insert into public.service_purchases
+    (organisation_id, patient_id, purchaser_profile_id, service_product_id,
+     status, amount_kobo, currency, purchased_at, expires_at)
+  values (v_org, v_patient, v_patient, v_product, 'active',
+          1000000, 'NGN', now(), now() + interval '30 days');
+
+  if not private.patient_has_feature_access(v_patient, 'vitals_red_flag_doctor_escalation') then
+    raise exception 'VACUOUS: the minted purchase did not grant vitals_red_flag_doctor_escalation';
+  end if;
 
   -- 1) EMERGENCY: spo2_pct = 88 -> emergency_events(source='spo2_red_flag').
   insert into public.vitals_readings (id, organisation_id, patient_id, vital_type, spo2_pct, taken_at, source)

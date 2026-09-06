@@ -25,8 +25,8 @@ export async function SocialDeterminantsSection({ patientId }: { patientId: stri
       </CardHeader>
       <CardContent className="space-y-3">
         {latest?.needsNavigationSupport && (
-          <div className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 p-3">
-            <p className="text-sm text-charcoal-ink">
+          <div className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
               {latest.followUpStatus === "resolved" ? "Follow-up completed" : "A care coordinator will follow up"}
             </p>
             <Badge variant={latest.followUpStatus === "resolved" ? "green" : "amber"}>

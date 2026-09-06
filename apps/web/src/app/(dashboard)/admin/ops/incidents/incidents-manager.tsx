@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -187,9 +188,13 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: OpsIncidentRow) => vo
 export function IncidentsManager({
   initialIncidents,
   canManage,
+  loadFailed = false,
 }: {
   initialIncidents: OpsIncidentRow[];
   canManage: boolean;
+  /** The register read failed. Logging a new incident stays available: an
+   * unreadable register is itself a reason somebody may need to log one. */
+  loadFailed?: boolean;
 }) {
   const [incidents, setIncidents] = useState(initialIncidents);
   const open = incidents.filter((i) => i.status !== "closed");
@@ -201,11 +206,19 @@ export function IncidentsManager({
         <CardHeader>
           <CardTitle>Incidents</CardTitle>
           <CardDescription>
-            {open.length} open or in progress · {open.filter(isPastSla).length} past their SLA
+            {loadFailed
+              ? "The register could not be read, so no count here would be true."
+              : `${open.length} open or in progress · ${open.filter(isPastSla).length} past their SLA`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {incidents.length === 0 ? (
+          {loadFailed ? (
+            <LoadFailure>
+              The incident register could not be loaded. This is not a report that nothing is open,
+              and any incident already past its SLA is not visible here. Reload to try again. You
+              can still log a new incident above.
+            </LoadFailure>
+          ) : incidents.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No incidents logged. That&apos;s the goal.</p>
           ) : (
             incidents.map((incident) => (

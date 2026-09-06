@@ -82,12 +82,12 @@ function RequestForm() {
             <Label htmlFor="notes">Anything else we should know?</Label>
             <Textarea id="notes" name="notes" rows={2} />
           </div>
-          {state?.error ? <p className="text-sm text-red-600">{state.error}</p> : null}
-          {state?.message ? <p className="text-sm text-brand-green">{state.message}</p> : null}
+          {state?.error ? <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p> : null}
+          {state?.message ? <p className="text-sm text-brand-green dark:text-brand-green-bright">{state.message}</p> : null}
           <Button type="submit" disabled={pending}>
             {pending ? "Sending…" : "Request a discounted rate"}
           </Button>
-          <p className="text-xs text-charcoal-ink/50">
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             This reserves nothing and costs nothing yet. Our team confirms the discounted price and
             headcount with you before any payment is needed.
           </p>
@@ -117,7 +117,7 @@ function PayForm({ day }: { day: ScreeningDay }) {
           className="w-40"
         />
       </div>
-      {state?.error ? <p className="w-full text-sm text-red-600">{state.error}</p> : null}
+      {state?.error ? <p className="w-full text-sm text-red-600 dark:text-red-400">{state.error}</p> : null}
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Redirecting…" : "Pay"}
       </Button>
@@ -134,11 +134,11 @@ function AddSlotForm({ day }: { day: ScreeningDay }) {
   if (!fullyPaid) return null;
 
   return (
-    <div className="mt-4 space-y-3 border-t border-charcoal-ink/10 pt-4">
-      <p className="text-sm text-charcoal-ink/70">
+    <div className="mt-4 space-y-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         {slots?.length ?? 0} of {day.slots_confirmed} slots registered ({remaining} left).
       </p>
-      <ul className="space-y-1 text-sm text-charcoal-ink/70">
+      <ul className="space-y-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         {(slots ?? []).map((slot) => (
           <li key={slot.id} className="flex items-center gap-2">
             <span>{slot.full_name ?? "Unnamed"}</span>
@@ -159,8 +159,8 @@ function AddSlotForm({ day }: { day: ScreeningDay }) {
             <Label htmlFor={`phone-${day.id}`}>Phone (optional)</Label>
             <Input id={`phone-${day.id}`} name="phone" placeholder="+234..." className="w-48" />
           </div>
-          {state?.error ? <p className="w-full text-sm text-red-600">{state.error}</p> : null}
-          {state?.message ? <p className="w-full text-sm text-brand-green">{state.message}</p> : null}
+          {state?.error ? <p className="w-full text-sm text-red-600 dark:text-red-400">{state.error}</p> : null}
+          {state?.message ? <p className="w-full text-sm text-brand-green dark:text-brand-green-bright">{state.message}</p> : null}
           <Button type="submit" size="sm" variant="outline" disabled={pending}>
             {pending ? "Adding…" : "Add to the list"}
           </Button>
@@ -176,23 +176,23 @@ function ScreeningDayCard({ day }: { day: ScreeningDay }) {
     <Card>
       <CardContent className="space-y-2 pt-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h3 className="font-heading text-base font-semibold text-charcoal-ink">{day.host_name}</h3>
+          <h3 className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">{day.host_name}</h3>
           <Badge variant={badge.variant}>{badge.label}</Badge>
         </div>
-        <p className="text-sm text-charcoal-ink/60">
-          {day.location} · {new Date(day.event_date).toLocaleDateString("en-GB", {
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+          {day.location} · {new Date(day.event_date).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
             day: "numeric",
             month: "long",
             year: "numeric",
           })}
         </p>
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           {day.slots_requested} people requested
           {day.slots_confirmed ? ` · ${day.slots_confirmed} confirmed` : ""}
           {day.price_per_head_kobo ? ` at ${naira(day.price_per_head_kobo)} each` : ""}
         </p>
         {day.status === "confirmed" ? (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             {naira(day.amount_paid_kobo)} paid of {naira(day.total_kobo ?? 0)}
           </p>
         ) : null}
@@ -216,9 +216,9 @@ export function ScreeningDaysPanel() {
           ))}
         </div>
       ) : isLoading ? (
-        <p className="text-sm text-charcoal-ink/60">Loading…</p>
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>
       ) : (
-        <p className="text-sm text-charcoal-ink/60">
+        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
           No screening days yet. Request one below and our team will confirm a discounted rate.
         </p>
       )}

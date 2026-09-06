@@ -1,6 +1,19 @@
 -- Tarragon Health — reconcile PR #401 (§91 Payments/Billing gap closure)
 -- against the 2026-08-31 pay-per-service cutover.
 --
+-- AMENDED 2026-09-05, self-test cleanup only. The behavioural proof at the
+-- foot of this file inserted a real charge.success payment_transactions row
+-- and then deleted only the two rows it had inserted by hand, leaving the
+-- journal entry and the revenue recognition schedule the platform posted in
+-- response pointing at rows that no longer existed. Live, that is the
+-- ₦10,000 phantom PR #492 had to reverse (journal entry #171 and schedule
+-- c890ef77, both stamped 2026-09-02 20:02:56 — this migration's own applied
+-- version, 20260902200256); on a fresh `supabase db reset` it is the
+-- orphaned schedule that made 20260905204245's closing assertion fail. That
+-- migration cancels the orphan; this amendment stops it being created. No
+-- schema object defined by this file changed, and the migration has long
+-- since been applied to production, so this is a replay-only correction.
+--
 -- private.resolve_payment_payer() and private.payment_transaction_service_
 -- label() (20260830101217_finance_unified_ledger.sql, §91.12) predate the
 -- cutover (20260831140512_service_products_and_purchases_core.sql onward)
@@ -119,6 +132,8 @@ declare
   v_txn public.payment_transactions%rowtype;
   v_resolved uuid;
   v_label text;
+  v_entry_id uuid;
+  v_schedule_id uuid;
 begin
   v_def := pg_get_functiondef('private.resolve_payment_payer(public.payment_transactions)'::regprocedure);
   if v_def not like '%service_purchases%' then
@@ -178,8 +193,54 @@ begin
       raise exception 'FAIL: payment_transaction_service_label returned % instead of ''Service purchase''', v_label;
     end if;
 
+    -- Clean up every row this proof created, LEDGER ROWS INCLUDED.
+    --
+    -- This block used to delete only the two rows it inserted by hand, and
+    -- that was the whole defect. essential_pack carries
+    -- access_duration_days = 30, so the charge.success INSERT above is a real
+    -- service_purchase payment as far as the platform is concerned: the
+    -- finance_post_service_purchase_payment trigger (added by
+    -- 20260902103712) posts Dr 1020 / Cr 2000 for the full ₦10,000 and opens
+    -- a revenue_recognition_schedules row over the pack's 30-day window.
+    -- Deleting the purchase and the transaction underneath them left both
+    -- behind, pointing at rows that no longer existed —
+    -- revenue_recognition_schedules.source_id is polymorphic across three
+    -- tables so it carries no foreign key, and payment_transaction_id is
+    -- ON DELETE SET NULL, so nothing cascaded and nothing complained.
+    --
+    -- In production that orphan pair was real money on the books: journal
+    -- entry #171 was the entire balance of both account 1020 and account
+    -- 2000, and the schedule was queued to recognise ₦10,000 of revenue that
+    -- never happened on 1 October 2026. It was reversed and cancelled by
+    -- 20260905204245; this is the same fix at the source, so a fresh replay
+    -- of the migration history stops producing it in the first place.
+    --
+    -- Same order as the sibling proofs in 20260902103712 and
+    -- 20260902192530: schedule and ledger rows first, while they can still
+    -- be found by the transaction id, then the transaction, then the
+    -- purchase.
+    select je.id into v_entry_id from public.finance_journal_entries je
+      where je.source = 'payment' and je.source_ref = v_txn.id::text;
+    select id into v_schedule_id from public.revenue_recognition_schedules
+      where payment_transaction_id = v_txn.id;
+
+    delete from public.revenue_recognition_schedules where id = v_schedule_id;
+    delete from public.finance_journal_lines where entry_id = v_entry_id;
+    delete from public.finance_journal_entries where id = v_entry_id;
     delete from public.payment_transactions where id = v_txn.id;
     delete from public.service_purchases where id = v_purchase_id;
+
+    -- Prove the cleanup actually cleaned up, rather than trusting that the
+    -- two lookups above found the right rows. Anything this proof leaves
+    -- behind is a phantom on a real ledger.
+    if exists (select 1 from public.finance_journal_entries
+                where source = 'payment' and source_ref = v_txn.id::text) then
+      raise exception 'FAIL: this proof left a journal entry behind for its own deleted test transaction %', v_txn.id;
+    end if;
+    if exists (select 1 from public.revenue_recognition_schedules
+                where source_kind = 'service_purchase' and source_id = v_purchase_id) then
+      raise exception 'FAIL: this proof left a revenue recognition schedule behind for its own deleted test purchase %', v_purchase_id;
+    end if;
   end if;
 
   raise notice 'PASS: resolve_payment_payer/payment_transaction_service_label now recognise service_purchase transactions, every pre-existing branch intact, anon still locked out';

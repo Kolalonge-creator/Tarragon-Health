@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { updateConditionLanguagePreference } from "./condition-language-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormError, FormSuccess, fieldErrorId } from "@/components/ui/form-error";
 import { NAV_ICON } from "@/lib/icons";
 
 /**
@@ -22,12 +23,13 @@ export function ConditionLanguageForm({
     updateConditionLanguagePreference,
     undefined,
   );
+  const errorId = fieldErrorId("condition_language_preference");
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <NAV_ICON.messages className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <NAV_ICON.messages className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           How we talk about your weight
         </CardTitle>
         <CardDescription>
@@ -39,10 +41,15 @@ export function ConditionLanguageForm({
       </CardHeader>
       <CardContent>
         <form action={formAction} className="space-y-3">
-          {state?.success && <p className="text-sm text-brand-green">Saved.</p>}
-          {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+          <FormSuccess message={state?.success && "Saved."} />
+          <FormError id={errorId} message={state?.error} />
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:gap-6">
+          <div
+            role="radiogroup"
+            aria-label="How we talk about your weight"
+            aria-describedby={state?.error ? errorId : undefined}
+            className="flex flex-col gap-2 sm:flex-row sm:gap-6"
+          >
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="radio"

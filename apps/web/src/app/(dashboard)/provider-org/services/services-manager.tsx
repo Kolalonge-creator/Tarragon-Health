@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { formatKobo, nairaInputToKobo } from "@/lib/format-money";
 import { createServiceAction, deactivateServiceAction } from "./actions";
 
 type Service = {
@@ -46,6 +47,10 @@ export function ServicesManager({ organisationId, services }: { organisationId: 
             onSubmit={(e) => {
               e.preventDefault();
               const fd = new FormData(e.currentTarget);
+              // Naira in, kobo out: the single conversion for this form.
+              const kobo = nairaInputToKobo(fd.get("priceNaira"));
+              fd.delete("priceNaira");
+              if (kobo !== null) fd.set("priceKobo", String(kobo));
               fd.set("organisationId", organisationId);
               run((f) => createServiceAction(undefined, f), fd);
               e.currentTarget.reset();
@@ -60,8 +65,8 @@ export function ServicesManager({ organisationId, services }: { organisationId: 
               <Input id="durationMinutes" name="durationMinutes" type="number" min={1} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="priceKobo">Price (kobo)</Label>
-              <Input id="priceKobo" name="priceKobo" type="number" min={0} />
+              <Label htmlFor="priceNaira">Price (₦)</Label>
+              <Input id="priceNaira" name="priceNaira" type="number" min={0} step="0.01" inputMode="decimal" />
             </div>
             <Button type="submit" disabled={pending}>
               Add service
@@ -85,7 +90,7 @@ export function ServicesManager({ organisationId, services }: { organisationId: 
                     <p className="font-medium text-charcoal-ink">{s.name}</p>
                     <p className="text-sm text-charcoal-ink/60">
                       {s.duration_minutes ? `${s.duration_minutes} min` : "—"}
-                      {s.price_kobo !== null ? ` · ₦${(s.price_kobo / 100).toLocaleString()}` : ""}
+                      {s.price_kobo !== null ? ` · ${formatKobo(s.price_kobo)}` : ""}
                     </p>
                   </div>
                   <form

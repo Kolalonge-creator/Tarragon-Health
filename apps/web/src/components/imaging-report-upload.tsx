@@ -87,7 +87,7 @@ export function ImagingReportUpload({
             setSuccess(null);
           }}
         />
-        <p className="text-xs text-charcoal-ink/50">
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           A photo or scan of the report is fine. PDF or image, up to 20 MB.
         </p>
       </div>
@@ -102,8 +102,8 @@ export function ImagingReportUpload({
         <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
           {upload.isPending ? "Sending…" : "Send to my care team"}
         </Button>
-        {success && <p className="text-xs font-medium text-brand-green">{success}</p>}
-        {displayError && <p className="text-xs text-red-600">{displayError}</p>}
+        {success && <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">{success}</p>}
+        {displayError && <p className="text-xs text-red-600 dark:text-red-300">{displayError}</p>}
       </div>
     </form>
   );

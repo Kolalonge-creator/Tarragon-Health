@@ -15,6 +15,7 @@ import {
 } from "@/lib/queries/device-operations";
 import { createClient } from "@/lib/supabase/client";
 import { SectionCard, CenterNote, MiniBarList } from "@/app/(dashboard)/analytics/_components/primitives";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 const HEALTH_BADGE: Record<string, BadgeProps["variant"]> = {
   operational: "green",
@@ -175,7 +176,16 @@ export function DeviceOperationsDashboard({ organisationId }: { organisationId: 
       </div>
 
       <SectionCard title="Data quality by connection" description="55.10: missing data, abnormal transmission, duplicates, latency, errors.">
-        {quality.isLoading ? (
+        {/* A device-operations board that cannot read its own data quality
+            must not report clean data. "No wearable connections or paired
+            devices" is exactly what a broken read produced. */}
+        {quality.isError ? (
+          <LoadFailure>
+            Device data quality could not be loaded. This is not a report that no devices are
+            connected, and a connection that has stopped transmitting is not visible here. Reload
+            to try again.
+          </LoadFailure>
+        ) : quality.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : q.length === 0 ? (
           <CenterNote>No wearable connections or paired devices in this organisation yet.</CenterNote>

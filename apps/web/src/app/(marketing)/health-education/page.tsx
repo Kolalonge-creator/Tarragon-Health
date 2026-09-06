@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Health Education",
   description:
-    "Learning built around your own conditions and risk, with clinically reviewed content clearly marked and short knowledge checks so you can see what's actually sticking.",
+    "Free learning built around your own conditions and risk, with clinically reviewed content clearly marked and short checks so you see what is sticking.",
   path: MARKETING_ROUTES.healthEducation,
 });
 
@@ -81,8 +81,8 @@ export default function HealthEducationPage() {
             </Button>
           </div>
           <p className="mt-4 text-sm text-charcoal-ink/60">
-            Personalised to your own conditions and risk on every paid plan, Tarragon Prevent and
-            above. Tarragon Free still gets the full general education library at no cost, forever.
+            Personalised to your own conditions and risk, and free, like the rest of the library.
+            No card, no time limit, no catch.
           </p>
         </div>
       </Section>
@@ -141,8 +141,8 @@ export default function HealthEducationPage() {
             Managing hypertension, diabetes, or your weight? You&apos;ll see the practical detail
             that turns a reading into an understanding: why a target matters, what a trend means,
             what to watch for. Healthy and using{" "}
-            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
-              Tarragon Prevent
+            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
+              your screening calendar
             </Link>
             ? You&apos;ll see what your screenings and vaccinations are actually for, so a clear
             result means something and not just a form filled in.
@@ -157,7 +157,7 @@ export default function HealthEducationPage() {
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Curious how you&apos;re really doing beyond the numbers? Try the free, anonymous{" "}
-            <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Mental Well-being Check
             </Link>
             : two minutes, ten questions, no sign-up required.

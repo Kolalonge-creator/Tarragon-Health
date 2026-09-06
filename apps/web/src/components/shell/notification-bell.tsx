@@ -33,6 +33,15 @@ const ALWAYS_CRITICAL_TEMPLATES = new Set<string>([
   "free_tier_reading_self_care_suggestion",
   "emergency_followup",
   "critical_notification_escalation_exhausted",
+  // The unacknowledged-alert escalation ladder. Live rows arrive with
+  // priority 'routine' as often as 'critical' (the escalation engine sets it
+  // per hop), and an alert nobody has picked up is exactly the thing that
+  // must not read as an ordinary update.
+  "clinician_alert_ack_timeout_backup",
+  "clinician_alert_ack_timeout_senior",
+  "clinician_alert_ack_timeout_admin",
+  "clinician_alert_sla_breach",
+  "abnormal_result_patient_followup",
 ]);
 
 const ROUTINE_TEMPLATES = new Set<string>([
@@ -53,9 +62,19 @@ const ROUTINE_TEMPLATES = new Set<string>([
 type DisplayTier = "critical" | "important" | "routine";
 
 const TIER_STYLE: Record<DisplayTier, { label: string; className: string }> = {
-  critical: { label: "Critical", className: "bg-red-100 text-red-800" },
-  important: { label: "Important", className: "bg-amber-100 text-amber-800" },
-  routine: { label: "Routine", className: "bg-charcoal-ink/10 text-charcoal-ink/60" },
+  critical: {
+    label: "Critical",
+    className: "bg-red-100 text-red-800 dark:bg-red-500/25 dark:text-red-300",
+  },
+  important: {
+    label: "Important",
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-500/25 dark:text-amber-300",
+  },
+  routine: {
+    label: "Routine",
+    className:
+      "bg-charcoal-ink/10 text-charcoal-ink/60 dark:bg-night-ink/10 dark:text-night-ink/70",
+  },
 };
 
 function displayTier(n: InAppNotification): DisplayTier {
@@ -125,9 +144,15 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     // every other clinician_alerts-backed notification, rather than
     // straight into Messages — resolving the underlying clinician_alerts
     // row is the accountable action, opening the thread is just step one.
+    // That worklist is /clinician (<Worklist />, reads clinician_alerts),
+    // NOT /clinician/escalations (EscalationWorklist, reads public.
+    // escalations — a row that only exists once a human clicks "escalate",
+    // so this alert can never appear there). Verified against the live
+    // function definition: raise_unread_clinical_message_alerts writes
+    // clinician_alerts and never touches escalations.
     return {
       text: "A patient's clinical message has gone unread",
-      href: "/clinician/escalations",
+      href: "/clinician",
     };
   }
   if (n.template === "clinician_new_referral") {
@@ -168,7 +193,8 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "health_reset_complete") {
     return {
-      text: "Your 90-Day Health Reset is complete: claim your free trial",
+      // Plans were retired 2026-09-02; the completed Reset is its own win now.
+      text: "Your 90-Day Health Reset is complete. Well done",
       href: "/patient",
     };
   }
@@ -321,10 +347,13 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     // patient/sponsor care message matched the deterministic danger-phrase
     // safety screen. Always clinical content, always in_app-first per
     // private.notify_clinician_alert() — this is the proactive page, the
-    // clinician_alerts worklist entry is the record of it.
+    // clinician_alerts worklist entry is the record of it, and that worklist
+    // is /clinician. (after_care_message_insert_safety_screen writes
+    // clinician_alerts only — confirmed against the live definition — so
+    // /clinician/escalations would be a structurally empty queue.)
     return {
       text: "Priority 1: a care message may describe an emergency, needs review now",
-      href: "/clinician/escalations",
+      href: "/clinician",
     };
   }
   if (n.template === "critical_notification_escalation_exhausted") {
@@ -336,7 +365,21 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     const sourceTable = String(payload.source_table ?? "");
     return {
       text: "A critical alert went unconfirmed on every channel: needs a look",
-      href: sourceTable === "clinician_alerts" ? "/clinician/escalations" : "/admin",
+      // source_table 'clinician_alerts' means the underlying row is in
+      // clinician_alerts, which the /clinician worklist renders — not
+      // public.escalations, which /clinician/escalations renders.
+      href: sourceTable === "clinician_alerts" ? "/clinician" : "/admin",
+    };
+  }
+  if (n.template === "abnormal_result_patient_followup") {
+    // From supabase/functions/abnormal-result-handler — the in-app copy of
+    // the patient follow-up message, always written for a NON-sensitive
+    // abnormal/critical result (a sensitive positive is never auto-messaged
+    // at all; a doctor breaks that news). Deliberately says only that a
+    // follow-up is needed, never the finding.
+    return {
+      text: "Your result needs a follow-up. Your care team will be in touch",
+      href: "/patient/labs",
     };
   }
   if (n.template === "result_interpretation_ready") {
@@ -392,11 +435,14 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "pharmacy_order_patient_confirmation") {
     const items = String(payload.items_summary ?? "your medication");
-    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/pharmacy" };
+    // /patient/pharmacy has no page — Medications is where a patient's
+    // pharmacy orders and refills actually live.
+    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/medications" };
   }
   if (n.template === "referral_patient_confirmation") {
     const specialist = String(payload.specialist_name ?? "your specialist");
-    return { text: `Your referral to ${specialist} is confirmed`, href: "/patient/referrals" };
+    // /patient/referrals has no page — YourReferrals renders on Care & support.
+    return { text: `Your referral to ${specialist} is confirmed`, href: "/patient/care" };
   }
   if (n.template === "result_document_available") {
     return { text: "A new lab result document is available", href: "/patient/labs" };
@@ -464,8 +510,11 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     // a block: the condition itself, and any urgent escalation on it, are
     // never gated — only its own scheduled review cadence is.
     const condition = String(payload.condition ?? "a condition").replace(/_/g, " ");
+    // "Complete Care" (the retired plan) used to be named here; the
+    // doctor-supported programme is the pay-per-service successor that
+    // carries a scheduled review.
     return {
-      text: `We're now tracking ${condition} for you too. Complete Care adds a scheduled review for it`,
+      text: `We're now tracking ${condition} for you too. A doctor-supported programme adds a scheduled review for it`,
       href: "/patient/subscription",
     };
   }
@@ -505,10 +554,31 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "clinician_alert_sla_breach") {
     // From clinician_alert_sla_breach_escalation.sql. Same pre-resolved
-    // payload.message shape.
+    // payload.message shape. The breached row is a clinician_alerts row, so
+    // it is worked on /clinician, not in the escalations queue.
     return {
       text: String(payload.message ?? "An open clinician alert breached its resolution SLA"),
-      href: "/clinician/escalations",
+      href: "/clinician",
+    };
+  }
+  if (
+    n.template === "clinician_alert_ack_timeout_backup" ||
+    n.template === "clinician_alert_ack_timeout_senior" ||
+    n.template === "clinician_alert_ack_timeout_admin"
+  ) {
+    // From private.escalate_unacknowledged_clinician_alerts() — the
+    // abnormal-screening-result pipeline's strongest backstop: an alert
+    // nobody acknowledged is re-pointed at a backup clinician, then a senior,
+    // then an admin. These three had no case at all, so they fell to the
+    // generic fallback below and rendered to a doctor as "You have an update"
+    // linking to /patient — discarding a payload.message that already reads
+    // 'Alert "Priority 1: abnormal screening result" (severity 4) has been
+    // open 90 minutes, past its 30-minute acknowledgement target.' Same
+    // pre-resolved payload.message shape as clinician_alert_sla_breach; the
+    // underlying row is a clinician_alerts row, worked on /clinician.
+    return {
+      text: String(payload.message ?? "An unacknowledged clinician alert needs picking up"),
+      href: "/clinician",
     };
   }
   if (n.template === "data_breach_deadline") {
@@ -584,6 +654,47 @@ export function describe(n: InAppNotification): { text: string; href: string } {
           : `Your period is ${days} days later than expected. Cycles shift for all sorts of reasons.`;
     return { text, href: "/patient/cycle" };
   }
+  if (n.template === "finance_posting_failed") {
+    // From private.finance_record_posting_failure(). A payment landed but its
+    // general-ledger entry did not post, most often because the accounting
+    // period had already been closed. The money is real and the purchase is
+    // active; only the books are short, so this needs an accountant today,
+    // not a clinician now.
+    const code = String(payload.error_code ?? "");
+    return {
+      text:
+        code === "23514"
+          ? "A payment could not be posted to the ledger: its accounting period is closed"
+          : "A payment could not be posted to the ledger and needs a look",
+      href: "/finance/ledger",
+    };
+  }
+  if (n.template === "payment_integrity_flag_raised") {
+    // From private.record_payment_integrity_flag(). An activation was REFUSED
+    // because what was charged did not match what was owed, or because the
+    // event carried no provider reference. The purchase is deliberately still
+    // unactivated, so somebody has paid and is waiting.
+    const flagType = String(payload.flag_type ?? "");
+    return {
+      text:
+        flagType === "amount_mismatch"
+          ? "A payment was refused because the amount did not match what was owed"
+          : "A payment could not be matched to what it was paying for",
+      href: "/finance/reconciliation",
+    };
+  }
+  if (n.template === "payment_reconciliation_flags_open") {
+    // From the daily reconcile-payment-providers cron. Paystack and this
+    // platform disagree about something and nobody has resolved it yet.
+    const count = Number(payload.open_count ?? 0);
+    return {
+      text:
+        count === 1
+          ? "1 payment discrepancy is waiting to be reviewed"
+          : `${count} payment discrepancies are waiting to be reviewed`,
+      href: "/finance/reconciliation",
+    };
+  }
   return { text: "You have an update", href: "/patient" };
 }
 
@@ -633,7 +744,7 @@ export function NotificationBell() {
         type="button"
         variant="ghost"
         size="sm"
-        className="relative h-9 w-9 p-0 text-charcoal-ink/60 hover:text-charcoal-ink"
+        className="relative h-9 w-9 p-0 text-charcoal-ink/60 hover:text-charcoal-ink dark:text-night-ink/60 dark:hover:text-night-ink"
         aria-label={unread.length > 0 ? `Notifications, ${unread.length} unread` : "Notifications"}
         onClick={() => setOpen((v) => !v)}
       >
@@ -648,13 +759,13 @@ export function NotificationBell() {
         )}
       </Button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-charcoal-ink/10 bg-white shadow-lg">
-          <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-4 py-2.5">
-            <p className="text-sm font-semibold text-charcoal-ink">Notifications</p>
+        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-charcoal-ink/10 bg-white shadow-lg dark:border-night-ink/15 dark:bg-night-card dark:shadow-none">
+          <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-4 py-2.5 dark:border-night-ink/15">
+            <p className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Notifications</p>
             {unread.length > 0 && (
               <button
                 type="button"
-                className="text-xs font-medium text-brand-green hover:underline"
+                className="text-xs font-medium text-brand-green hover:underline dark:text-brand-green-bright"
                 onClick={() => markAllRead.mutate(unread.map((n) => n.id))}
               >
                 Mark all read
@@ -663,11 +774,11 @@ export function NotificationBell() {
           </div>
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-charcoal-ink/50">
+              <p className="px-4 py-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
                 No notifications yet.
               </p>
             ) : (
-              <ul className="divide-y divide-charcoal-ink/10">
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {items.map((n) => {
                   const { text } = describe(n);
                   const tier = TIER_STYLE[displayTier(n)];
@@ -685,7 +796,7 @@ export function NotificationBell() {
                         type="button"
                         onClick={() => openItem(n)}
                         className={cn(
-                          "flex w-full items-start gap-2 px-4 py-3 text-left text-sm hover:bg-charcoal-ink/[0.03]",
+                          "flex w-full items-start gap-2 px-4 py-3 text-left text-sm hover:bg-charcoal-ink/[0.03] dark:hover:bg-night-ink/10",
                           n.status === "pending" && "bg-brand-green/[0.04]"
                         )}
                       >
@@ -704,8 +815,8 @@ export function NotificationBell() {
                           >
                             {tier.label}
                           </span>
-                          <span className="block text-charcoal-ink">{text}</span>
-                          <span className="mt-0.5 block text-xs text-charcoal-ink/50">
+                          <span className="block text-charcoal-ink dark:text-night-ink">{text}</span>
+                          <span className="mt-0.5 block text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                             {timeAgo(n.created_at)}
                           </span>
                         </span>
@@ -731,7 +842,7 @@ export function NotificationBell() {
                                   },
                                 );
                               }}
-                              className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-xs font-medium text-charcoal-ink hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+                              className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-xs font-medium text-charcoal-ink hover:border-brand-green hover:text-brand-green disabled:opacity-50 dark:border-night-ink/20 dark:text-night-ink dark:hover:text-brand-green-bright"
                             >
                               {o.label}
                             </button>
@@ -739,7 +850,7 @@ export function NotificationBell() {
                         </div>
                       )}
                       {n.responded_at && options.length > 0 && (
-                        <p className="px-4 pb-3 text-xs text-charcoal-ink/50">
+                        <p className="px-4 pb-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                           You responded: {options.find((o) => o.value === n.response_value)?.label ?? n.response_value}
                         </p>
                       )}

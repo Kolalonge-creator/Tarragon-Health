@@ -134,12 +134,41 @@ export function ResourceThumbnail({
   category,
   icon,
   className,
+  variant = "photo",
 }: {
   category: ResourceArticle["category"];
   icon: ResourceThumbnailIconId;
   className?: string;
+  /**
+   * "photo" is the category photograph with a small icon badge. "icon" is an
+   * icon-dominant tile in the brand illustration style (BRAND_GUIDE §8).
+   * Within a single-category grid every card shares the same category photo,
+   * which reads as accidental duplication — callers showing several cards
+   * from one category keep the photo on the first card and use "icon" for
+   * the rest, so each article keeps its own visual identity.
+   */
+  variant?: "photo" | "icon";
 }) {
   const photo = CATEGORY_PHOTO[category];
+  if (variant === "icon") {
+    return (
+      <div
+        className={cn(
+          "relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden bg-soft-sage",
+          className
+        )}
+      >
+        <span
+          className="flex h-20 w-20 items-center justify-center rounded-full bg-white/85 text-brand-green shadow-sm"
+          aria-hidden
+        >
+          <svg viewBox="0 0 24 24" className="h-10 w-10" fill="none">
+            <ResourceIconPath id={icon} />
+          </svg>
+        </span>
+      </div>
+    );
+  }
   return (
     <div className={cn("relative aspect-[4/3] w-full overflow-hidden bg-soft-sage", className)}>
       <Image

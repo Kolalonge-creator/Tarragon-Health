@@ -1087,31 +1087,38 @@ const TEMPLATE_MAP: Record<
   // No clinical content, for the same reason as the spend receipt above:
   // "nothing logged in 20 days" is a statement about activity, not health.
   sponsor_monthly_report: (payload) => {
-    const people = Array.isArray(payload.people)
-      ? (payload.people as Record<string, unknown>[])
-      : [];
-    const money = (kobo: unknown) => (Number(kobo ?? 0) / 100).toLocaleString("en-NG");
-    const totalSpent = people.reduce((sum, p) => sum + Number(p?.spent_kobo ?? 0), 0);
-    const headline = `₦${money(totalSpent)} became care last month`;
+    // CORRECTED 2026-09-05. This builder read `people[]`, `spent_kobo` and
+    // `balance_kobo` — a Health-Wallet-era payload shape retired by
+    // 20260731215735_retire_health_wallet.sql. The live producer,
+    // private.queue_sponsor_monthly_reports(), emits FLAT keys for ONE
+    // person: beneficiary_name, ready_count, saving_count, used_this_month
+    // and spent_naira. So every sponsor report that has ever been sent said
+    // "₦0 became care last month" over an empty table.
+    //
+    // spent_naira is ALREADY IN NAIRA (the producer divides by 100). The old
+    // money() helper divided by 100 again, so simply reconnecting the new key
+    // to it would have rendered ₦500 as ₦5. There is no kobo value in this
+    // payload at all, and nothing here divides.
+    //
+    // The in-app copy of this same notification (notification-bell.tsx) was
+    // migrated to the flat shape when the producer changed; only this edge
+    // function was left behind.
+    const naira = (value: unknown) => {
+      const amount = Number(value ?? 0);
+      return Number.isFinite(amount) ? amount.toLocaleString("en-NG") : "0";
+    };
+    const name = String(payload.beneficiary_name ?? "someone you support");
+    const spent = naira(payload.spent_naira);
+    const used = Number(payload.used_this_month ?? 0);
+    const ready = Number(payload.ready_count ?? 0);
+    const saving = Number(payload.saving_count ?? 0);
 
-    const rows = people
-      .map((person) => {
-        const name = String(person?.name ?? "someone you support");
-        const bills = Number(person?.awaiting_payment ?? 0);
-        const quiet = person?.quiet_days === null ? null : Number(person?.quiet_days ?? 0);
-        const notes: string[] = [];
-        if (bills > 0) {
-          notes.push(`${bills} ${bills === 1 ? "bill is" : "bills are"} waiting to be paid for`);
-        }
-        if (quiet !== null && quiet >= 21) notes.push(`nothing logged in ${quiet} days`);
-        return (
-          `<tr><td style="padding:6px 12px 6px 0"><strong>${name}</strong></td>` +
-          `<td style="padding:6px 12px 6px 0">&#8358;${money(person?.spent_kobo)} spent</td>` +
-          `<td style="padding:6px 12px 6px 0">&#8358;${money(person?.balance_kobo)} left</td>` +
-          `<td style="padding:6px 0;color:#5b6b78">${notes.join("; ") || "nothing outstanding"}</td></tr>`
-        );
-      })
-      .join("");
+    const headline = `₦${spent} became care for ${name} last month`;
+    const usedLine =
+      used === 1 ? "1 thing you bought was used" : `${used} things you bought were used`;
+    const readyLine =
+      ready === 1 ? "1 is ready and waiting to be used" : `${ready} are ready and waiting to be used`;
+    const savingLine = saving > 0 ? `${saving} more is being saved towards.` : "";
 
     return {
       metaTemplateName: "sponsor_monthly_report",
@@ -1123,8 +1130,13 @@ const TEMPLATE_MAP: Record<
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Here is what happened last month with the care you are paying for.</p>` +
-          `<table style="border-collapse:collapse;margin:16px 0">${rows}</table>` +
-          `<p style="color:#5b6b78;font-size:13px">Anything marked as waiting to be paid for can be settled from their Health Wallet under People you support.</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:6px 12px 6px 0">Person</td><td style="padding:6px 0"><strong>${name}</strong></td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Paid last month</td><td style="padding:6px 0"><strong>&#8358;${spent}</strong></td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Used</td><td style="padding:6px 0">${usedLine}</td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Ready</td><td style="padding:6px 0">${readyLine}${savingLine ? ` ${savingLine}` : ""}</td></tr>` +
+          `</table>` +
+          `<p style="color:#5b6b78;font-size:13px">You can see everything you have funded, and what it paid for, under People you support in your dashboard.</p>` +
           `<p style="color:#5b6b78;font-size:13px">This summary covers money and activity only. Their readings, results and notes stay between them and their care team.</p>` +
           `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
           `</div>`,

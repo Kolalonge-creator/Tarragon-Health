@@ -23,15 +23,56 @@ create temp table ids(k text primary key, v uuid) on commit drop;
 grant all on results to authenticated;
 grant all on ids to authenticated;
 
-insert into ids
-select 'patient_a', id from public.profiles
- where id in (select id from auth.users where email = 'patient.complete.test@tarragon.test');
-insert into ids
-select 'patient_b', id from public.profiles
- where id in (select id from auth.users where email = 'patient.diaspora.test@tarragon.test');
-insert into ids
-select 'clinician', id from public.profiles
- where organisation_id = '00000000-0000-0000-0000-000000000001' and role = 'clinician' limit 1;
+
+-- --------------------------------------------------------------------------
+-- Fixtures. Every party below is MINTED here rather than selected out of the
+-- @tarragon.test QA accounts this file used to borrow. Those accounts exist
+-- only on the populated project: on a fresh `supabase db reset` the lookups
+-- returned nothing, `ids` came back empty, and every check below ran against
+-- NULL and reported a confident pass. On the populated project they carry
+-- months of accumulated rows of their own, which is the other half of the
+-- problem -- an assertion phrased as "no row like this exists" can be failed
+-- by somebody else's data rather than by the code under test.
+--
+-- Each key gets its own distinct account: sharing one profile between two
+-- roles in a script like this makes a later count fold in an earlier,
+-- legitimate action and reads exactly like the behaviour under test breaking.
+-- --------------------------------------------------------------------------
+do $$
+declare
+  r     record;
+  v_org uuid := '00000000-0000-0000-0000-000000000001';
+  v_id  uuid;
+begin
+  -- The direct-consumer org is seeded by migration 20260706084837, and is the
+  -- same org id this file's own INSERTs name further down.
+  if not exists (select 1 from public.organisations where id = v_org) then
+    insert into public.organisations (id, name, type)
+    values (v_org, 'Fertility Gate Test Org', 'direct_consumer');
+  end if;
+  insert into ids(k, v) values ('org', v_org);
+
+  for r in select * from (values
+      ('patient_a', 'patient'),
+      ('patient_b', 'patient'),
+      ('clinician', 'clinician')
+    ) as t(key_name, role_name)
+  loop
+    v_id := gen_random_uuid();
+    insert into ids(k, v) values (r.key_name, v_id);
+
+    insert into auth.users (id, email)
+    values (v_id, format('fertilitygate-%s@example.invalid', r.key_name));
+
+    insert into public.profiles (id, organisation_id, role, full_name)
+    values (v_id, v_org, r.role_name::public.user_role,
+            format('Fertility Gate %s', r.key_name))
+    on conflict (id) do update
+      set organisation_id = excluded.organisation_id,
+          role            = excluded.role,
+          full_name       = excluded.full_name;
+  end loop;
+end $$;
 
 ------------------------------------------------------------------
 -- Case 1: a patient can create an ordinary 'requested' row for herself

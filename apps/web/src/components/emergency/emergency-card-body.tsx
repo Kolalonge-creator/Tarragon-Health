@@ -168,7 +168,7 @@ function formatDob(dob: string | null): string {
   const date = new Date(dob);
   if (Number.isNaN(date.getTime())) return "Not recorded";
   const age = Math.floor((Date.now() - date.getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-  return `${date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} (age ${age})`;
+  return `${date.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })} (age ${age})`;
 }
 
 function Section({

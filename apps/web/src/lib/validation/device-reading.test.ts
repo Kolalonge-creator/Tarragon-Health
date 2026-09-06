@@ -23,6 +23,27 @@ describe("deviceReadingSchema — blood_pressure", () => {
 
   it("rejects systolic out of range", () => {
     expect(deviceReadingSchema.safeParse({ ...valid, systolic: 59 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, systolic: 261 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, diastolic: 29 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, diastolic: 161 }).success).toBe(false);
+  });
+
+  // private.classify_bp_level: emergency at SBP >= 200 or DBP >= 120. A cuff
+  // reporting a real hypertensive crisis must get past validation so the
+  // red-flag engine can see it.
+  it("accepts a hypertensive-crisis reading from a device", () => {
+    expect(deviceReadingSchema.safeParse({ ...valid, systolic: 210, diastolic: 125 }).success).toBe(true);
+    expect(deviceReadingSchema.safeParse({ ...valid, systolic: 260, diastolic: 160 }).success).toBe(true);
+  });
+
+  it("accepts an emergency-band pulse alongside the reading", () => {
+    for (const pulse_bpm of [20, 30, 35, 150, 220, 300]) {
+      expect(deviceReadingSchema.safeParse({ ...valid, pulse_bpm }).success).toBe(true);
+    }
+    expect(deviceReadingSchema.safeParse({ ...valid, pulse_bpm: 19 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, pulse_bpm: 301 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, pulse_bpm: 0 }).success).toBe(false);
+    expect(deviceReadingSchema.safeParse({ ...valid, pulse_bpm: -72 }).success).toBe(false);
   });
 
   it("rejects a non-uuid device_id", () => {
@@ -97,7 +118,7 @@ describe("deviceReadingSchema — temperature", () => {
     temperature_c: 38.4,
   };
 
-  it("accepts a valid reading, including clinically severe values the manual form caps", () => {
+  it("accepts a valid reading, including clinically severe hypothermia/hyperpyrexia", () => {
     expect(deviceReadingSchema.safeParse(valid).success).toBe(true);
     expect(deviceReadingSchema.safeParse({ ...valid, temperature_c: 33.5 }).success).toBe(true);
     expect(deviceReadingSchema.safeParse({ ...valid, temperature_c: 43 }).success).toBe(true);

@@ -4,8 +4,10 @@ import { useConditions } from "@/lib/queries/conditions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { ResultExplainer } from "@/components/result-explainer";
+import { EmptyHint } from "@/components/ui/empty-hint";
 import type { Enums } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 const STATUS_BADGE_VARIANT: Record<
   Enums<"condition_clinical_status">,
   NonNullable<BadgeProps["variant"]>
@@ -39,15 +41,20 @@ const SEVERITY_LABEL: Record<Enums<"clinical_severity">, string> = {
  * Patient's problem list (spec §76.3) -- the first place `patient_conditions`
  * is ever shown to a patient. Read-only here: only org clinical staff can
  * add or change a condition (see patient_conditions RLS), so unlike
- * AllergiesList there is no add/edit affordance on this card. Self-hides
- * entirely once loaded with nothing on file -- a summary page composing many
- * sections shouldn't carry an empty-state card for every one of them.
+ * AllergiesList there is no add/edit affordance on this card.
+ *
+ * Self-hides once loaded with nothing on file, UNLESS the caller passes
+ * `emptyHint`. Health summary introduces this with its own "Conditions"
+ * heading, so hiding left the heading standing over nothing; a caller that
+ * has already labelled the section passes the line to show instead. Nothing
+ * renders while the query is still in flight either way, so the hint appears
+ * only once "nothing on file" is actually known.
  */
-export function ConditionsList({ patientId }: { patientId: string }) {
+export function ConditionsList({ patientId, emptyHint }: { patientId: string; emptyHint?: string }) {
   const { data, isLoading } = useConditions(patientId);
 
   if (isLoading) return null;
-  if (!data || data.length === 0) return null;
+  if (!data || data.length === 0) return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
 
   return (
     <Card>
@@ -58,20 +65,20 @@ export function ConditionsList({ patientId }: { patientId: string }) {
         {data.map((condition) => (
           <div
             key={condition.id}
-            className="space-y-1 border-b border-charcoal-ink/10 pb-3 last:border-0 last:pb-0"
+            className="space-y-1 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-3 last:border-0 last:pb-0"
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium text-charcoal-ink">{condition.condition_name}</p>
+              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{condition.condition_name}</p>
               <Badge variant={STATUS_BADGE_VARIANT[condition.status]}>
                 {STATUS_LABEL[condition.status]}
               </Badge>
             </div>
             {(condition.severity || condition.date_identified) && (
-              <p className="text-xs text-charcoal-ink/60">
+              <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                 {condition.severity && `${SEVERITY_LABEL[condition.severity]} severity`}
                 {condition.severity && condition.date_identified && " · "}
                 {condition.date_identified &&
-                  `Identified ${new Date(condition.date_identified).toLocaleDateString()}`}
+                  `Identified ${formatPatientDate(condition.date_identified)}`}
               </p>
             )}
             <ResultExplainer

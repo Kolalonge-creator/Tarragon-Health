@@ -8,11 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useCompanyProfile } from "@/lib/finance/queries";
+import { lagosToday, lagosYear, lagosYearStart } from "@/lib/format-date";
 
 const CURRENCIES = ["NGN", "GBP", "USD"];
-const today = () => new Date().toISOString().slice(0, 10);
-const yearStart = (y: number) => `${y}-01-01`;
-const thisYear = new Date().getFullYear();
+const thisYear = lagosYear();
 const YEARS = [thisYear, thisYear - 1, thisYear - 2];
 
 function PackCard({
@@ -48,10 +47,10 @@ export function ReportsHub() {
   const profile = useCompanyProfile();
   const [govYear, setGovYear] = useState(thisYear);
   const [currency, setCurrency] = useState("NGN");
-  const [invFrom, setInvFrom] = useState(yearStart(thisYear));
-  const [invTo, setInvTo] = useState(today());
-  const [audFrom, setAudFrom] = useState(yearStart(thisYear));
-  const [audTo, setAudTo] = useState(today());
+  const [invFrom, setInvFrom] = useState(lagosYearStart(thisYear));
+  const [invTo, setInvTo] = useState(lagosToday());
+  const [audFrom, setAudFrom] = useState(lagosYearStart(thisYear));
+  const [audTo, setAudTo] = useState(lagosToday());
 
   const profileIncomplete = useMemo(() => {
     if (!profile.data) return false;

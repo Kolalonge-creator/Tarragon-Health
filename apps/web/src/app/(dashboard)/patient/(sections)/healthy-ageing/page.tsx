@@ -47,9 +47,9 @@ export default async function HealthyAgeingPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <HomeCareRequestSection patientId={subjectId} />
 
-        <div className="rounded-lg border border-charcoal-ink/10 p-4">
-          <p className="text-sm font-medium text-charcoal-ink">Related</p>
-          <ul className="mt-2 space-y-1.5 text-sm text-brand-green">
+        <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Related</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-brand-green dark:text-brand-green-bright">
             <li>
               <Link href="/patient/emergency-card" className="hover:underline">
                 Emergency card: allergies, medicines, and contacts for a stranger to find →

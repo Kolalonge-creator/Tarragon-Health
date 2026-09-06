@@ -14,7 +14,7 @@ export function PartnerLogoStrip() {
 
   return (
     <Section className="py-10 sm:py-12">
-      <p className="text-center text-sm font-medium uppercase tracking-wide text-charcoal-ink/50">
+      <p className="text-center text-sm font-medium uppercase tracking-wide text-charcoal-ink/65">
         Who we work with
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-6">

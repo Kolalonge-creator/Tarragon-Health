@@ -39,13 +39,16 @@ declare
   v_org uuid;
   r     record;
 begin
-  select organisation_id into v_org
-  from public.profiles
-  where role = 'patient' and organisation_id is not null
-  group by organisation_id order by count(*) desc limit 1;
-
+  -- The organisation is resolved from public.organisations, not from an
+  -- existing patient: a migration (20260706084837) seeds the direct-consumer
+  -- org, so this holds on a bare `supabase db reset` where no patient exists
+  -- yet. Every party below is minted here rather than borrowed, so the proof
+  -- never silently rides on whatever a populated project happens to contain.
+  select id into v_org from public.organisations limit 1;
   if v_org is null then
-    raise exception 'no organisation has patient profiles -- cannot run this test';
+    insert into public.organisations (name, type)
+    values ('RHP Test Org', 'clinic')
+    returning id into v_org;
   end if;
 
   insert into rhp_fixture(k, v) values ('org', v_org);

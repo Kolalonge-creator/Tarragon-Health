@@ -35,7 +35,7 @@ export default async function EmergencyCardPrintPage() {
   const supabase = await createClient();
   const facts = await loadEmergencyDatasetForPatient(supabase, user.id);
 
-  const printedOn = new Date().toLocaleDateString("en-GB", {
+  const printedOn = new Date().toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -47,7 +47,7 @@ export default async function EmergencyCardPrintPage() {
     <div>
       <div className="mx-auto max-w-2xl p-4 print:hidden">
         <PrintButton />
-        <p className="mt-2 text-xs text-charcoal-ink/60">
+        <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Print this, fold it into your wallet, and keep it with you. There is nothing to consent
           to here. You are printing your own record, the same as your Health Passport.
         </p>

@@ -49,8 +49,8 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
           </CardHeader>
           <CardContent className="space-y-2">
             {(enrollments.data ?? []).map((e) => (
-              <div key={e.id} className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 p-3">
-                <p className="text-sm font-medium text-charcoal-ink">{e.programme?.title}</p>
+              <div key={e.id} className="flex items-center justify-between rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{e.programme?.title}</p>
                 <Badge variant={e.status === "active" ? "green" : "grey"}>{e.status}</Badge>
               </div>
             ))}
@@ -63,7 +63,7 @@ export function ExerciseClient({ patientId }: { patientId: string }) {
           <CardTitle>Programme catalogue</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {programmes.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+          {programmes.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {(programmes.data ?? []).map((p) => (
             <ProgrammeRow
               key={p.id}
@@ -109,7 +109,7 @@ function ReadinessCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {screen && !open && (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             {screen.cleared_for_intensive
               ? "Your care team has cleared you for a more intensive programme."
               : screen.any_flag
@@ -118,7 +118,7 @@ function ReadinessCard({
           </p>
         )}
         {!screen && !open && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             A beginner programme (walking, mobility) needs no screen. Anything more intensive asks a
             few quick safety questions first.
           </p>
@@ -132,7 +132,7 @@ function ReadinessCard({
               </label>
             ))}
             <Textarea name="other_concern" placeholder="Anything else your care team should know? (optional)" rows={2} />
-            {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+            {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
             <Button type="submit" disabled={pending}>
               {pending ? "Saving…" : "Submit"}
             </Button>
@@ -165,11 +165,11 @@ function ProgrammeRow({
   );
 
   return (
-    <div className="rounded-lg border border-charcoal-ink/10 p-4">
+    <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-medium text-charcoal-ink">{programme.title}</p>
-          <p className="text-xs text-charcoal-ink/60">{programme.summary}</p>
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{programme.title}</p>
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{programme.summary}</p>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Badge variant="grey">{INTENSITY_LABEL[programme.intensity_level]}</Badge>
             {!programme.clinician_reviewed && <Badge variant="grey">Not yet clinically reviewed</Badge>}
@@ -182,8 +182,8 @@ function ProgrammeRow({
           </Button>
         </form>
       </div>
-      {state?.error && <p className="mt-2 text-xs text-destructive">{state.error}</p>}
-      {state?.success && <p className="mt-2 text-xs text-brand-green">Started.</p>}
+      {state?.error && <p className="mt-2 text-xs text-destructive dark:text-red-400">{state.error}</p>}
+      {state?.success && <p className="mt-2 text-xs text-brand-green dark:text-brand-green-bright">Started.</p>}
     </div>
   );
 }

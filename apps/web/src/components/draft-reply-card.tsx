@@ -57,21 +57,21 @@ export function DraftReplyCard({ threadId }: { threadId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
 
         {!isLoading && !draft && (
           <div className="space-y-2">
-            <p className="text-sm text-charcoal-ink/60">No suggestion generated yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No suggestion generated yet.</p>
             <Button size="sm" variant="outline" disabled={isBusy} onClick={onGenerate}>
               {isBusy ? "Drafting…" : "Draft reply"}
             </Button>
-            {error && <p className="text-sm text-red-600">{error}</p>}
+            {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
           </div>
         )}
 
         {!isLoading && draft?.status === "failed" && (
           <div className="space-y-2">
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               Couldn&apos;t draft a suggestion. Write your own reply below.
             </p>
             <Button size="sm" variant="outline" disabled={isBusy} onClick={onGenerate}>
@@ -107,24 +107,24 @@ function DraftReplyBody({
         </Badge>
       )}
 
-      <p className="whitespace-pre-wrap rounded-md bg-charcoal-ink/[0.03] p-3 text-sm text-charcoal-ink">
+      <p className="whitespace-pre-wrap rounded-md bg-charcoal-ink/[0.03] dark:bg-night-ink/10 p-3 text-sm text-charcoal-ink dark:text-night-ink">
         {draft.draft_text}
       </p>
 
       {draft.needs_clinical_review && (
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           This only covers a short holding reply. If this needs a doctor&apos;s attention, raise it
           through the escalation worklist rather than replying here alone.
         </p>
       )}
 
       <div className="flex items-center justify-between">
-        <p className="text-xs text-charcoal-ink/50">Generated {formatGeneratedAt(draft.generated_at)}</p>
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Generated {formatGeneratedAt(draft.generated_at)}</p>
         <Button size="sm" variant="outline" disabled={isBusy} onClick={onRegenerate}>
           {isBusy ? "Regenerating…" : "Regenerate"}
         </Button>
       </div>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
     </div>
   );
 }

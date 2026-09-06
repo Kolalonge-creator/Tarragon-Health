@@ -5,8 +5,9 @@
 // instant a screening_results row lands with result_status abnormal|critical
 // (see 20260711130000_abnormal_result_handler_trigger.sql). That trigger
 // already wrote the screening_upgrades audit row and the clinician_alerts
-// row with its two-tier contact SLA (120 min for a critical result, 24 h for
-// a non-critical abnormal result — escalation_slas config) in the same
+// row with its two-tier contact SLA (both tiers live in the escalation_slas
+// config row and are editable by an admin — never restate a number for them
+// here, read it, see tightestSlaMinutes below) in the same
 // transaction — that DB-level safety
 // net is unconditional and does not depend on this function running at all.
 // This function owns the rest of the flow: draft a care_plan or
@@ -21,8 +22,17 @@
 // (see critical_notification_engine.sql). This closes the exact gap this
 // pathway used to have: nothing previously confirmed a clinician actually
 // received or opened the alert, and nothing re-tried on a different channel
-// if the WhatsApp send silently failed. The patient follow-up message below
-// is unchanged — a simple reassurance send, not a safety-critical alert.
+// if the WhatsApp send silently failed.
+//
+// 2026-09-05: two further ways this function could page nobody at all were
+// closed. (1) The clinician recipient query filtered on `phone is not null`,
+// so on a platform where no clinician profile carries a phone it enqueued
+// nothing — even though the tracked path starts on push/in-app and needs no
+// phone. (2) The patient follow-up message was external-only, and both
+// external channels are blocked on third-party approvals, so the patient was
+// told nothing and no notifications row recorded the attempt; a `clinical`
+// in_app row is now always written for a non-sensitive result. The
+// sensitive-screen suppression is untouched and still absolute.
 //
 // ML /interpret/screening is deliberately not called here — Sprint 4 (the ML
 // microservice) is on hold (CLAUDE.md "Current Sprint") and ml-client.ts has
@@ -154,6 +164,81 @@ async function sendTermiiSms(toPhone: string, text: string): Promise<SendResult>
   );
 }
 
+/** The service-role client this function runs everything through. */
+type ServiceClient = ReturnType<typeof createClient>;
+
+type AlertTier = "clinician_review" | "urgent_escalation" | "emergency" | "routine";
+
+/** The two tiers `handle_abnormal_screening_result` can raise for this
+ * pathway: 'emergency' for a critical result, 'urgent_escalation' for a
+ * non-critical abnormal one. */
+const SCREENING_PATHWAY = "screening_abnormal_result";
+const SCREENING_TIERS: AlertTier[] = ["emergency", "urgent_escalation"];
+
+interface EscalationSlaEntry {
+  pathway?: string;
+  tier?: string;
+  sla_minutes?: number;
+}
+
+/**
+ * The contact SLA, read from the same `escalation_slas` config row the
+ * trigger itself uses via private.escalation_sla_minutes — never hardcoded.
+ * The 2-hour literal this replaced was correct when written and silently
+ * wrong from the founder's 2026-09-04 change onward (screening_abnormal_
+ * result/emergency is 720 minutes now, not 120); an SLA that lives in
+ * editable config must be read from config everywhere it is quoted.
+ *
+ * Returns the TIGHTEST of the tiers asked for, because the callers that
+ * quote a number here do not know the result_status: promising early contact
+ * on a non-critical result costs nothing, the reverse breaches the SLA.
+ * Null when the config cannot be read — the caller then omits the sentence
+ * rather than inventing a number.
+ */
+async function tightestSlaMinutes(
+  supabase: ServiceClient,
+  pathway: string,
+  tiers: AlertTier[],
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from("escalation_slas")
+      .select("config")
+      .eq("is_active", true)
+      .limit(1)
+      .maybeSingle();
+    if (error || !data) return null;
+    const entries = (data.config ?? []) as EscalationSlaEntry[];
+    const minutes = entries
+      .filter(
+        (e) =>
+          e.pathway === pathway &&
+          typeof e.tier === "string" &&
+          tiers.includes(e.tier as AlertTier) &&
+          typeof e.sla_minutes === "number",
+      )
+      .map((e) => e.sla_minutes as number);
+    if (minutes.length === 0) return null;
+    return Math.min(...minutes);
+  } catch {
+    return null;
+  }
+}
+
+/** "within 90 minutes" / "within 12 hours" / "within 2 days" — plain enough
+ * for an SMS, exact enough not to overstate the window. */
+function formatContactWindow(minutes: number): string {
+  if (minutes < 60) return `within ${minutes} minute${minutes === 1 ? "" : "s"}`;
+  if (minutes < 60 * 24) {
+    const hours = minutes / 60;
+    const rounded = Number.isInteger(hours) ? hours : Math.round(hours * 10) / 10;
+    return `within ${rounded} hour${rounded === 1 ? "" : "s"}`;
+  }
+  const days = minutes / (60 * 24);
+  const rounded = Number.isInteger(days) ? days : Math.round(days * 10) / 10;
+  return `within ${rounded} day${rounded === 1 ? "" : "s"}`;
+}
+
 /** WhatsApp first, Termii SMS fallback on failure — same order as send-pending-notifications. */
 async function sendWithFallback(
   toPhone: string,
@@ -211,13 +296,23 @@ Deno.serve(async (req) => {
       .eq("id", patientId)
       .single()
       .returns<{ full_name: string | null; phone: string | null }>(),
+    // NO phone filter. The tracked path below
+    // (private.enqueue_critical_notification) starts every clinician's alert
+    // on escalation_slas' first channel — push/in-app — which needs no phone
+    // at all, and send-pending-notifications already skips a phone-less hop
+    // per channel. Filtering on `phone is not null` here meant that on a
+    // platform where no clinician profile carries a phone (live, 2026-09-05:
+    // 7 clinicians, 0 with a phone) this function enqueued NOTHING and wrote
+    // an `abnormal_result.no_clinician_available` audit row instead — pageing
+    // nobody about a Priority 1 result over channels that never needed a
+    // phone number. Only the legacy direct-send fallback genuinely requires
+    // one, and it filters for itself.
     supabase
       .from("profiles")
       .select("id, phone")
       .eq("organisation_id", organisationId)
       .eq("role", "clinician")
-      .not("phone", "is", null)
-      .returns<Array<{ id: string; phone: string }>>(),
+      .returns<Array<{ id: string; phone: string | null }>>(),
     // The trigger already inserted exactly one clinician_alerts row for this
     // screening result, synchronously, in the same transaction — its `level`
     // (emergency|urgent_escalation) is what selects the right escalation_slas
@@ -313,6 +408,10 @@ Deno.serve(async (req) => {
   let clinicianAlertsFailed = 0;
 
   if (clinicianList.length === 0) {
+    // Genuinely nobody to page: this org has no clinician profile at all.
+    // (Before 2026-09-05 this branch also caught the far more common case of
+    // clinicians who simply have no phone number on file — see the recipient
+    // query above.)
     await auditEvent("abnormal_result.no_clinician_available", "screening_results", screeningResultId, {
       organisation_id: organisationId,
     });
@@ -320,29 +419,51 @@ Deno.serve(async (req) => {
     // Should be structurally impossible — the trigger inserts this row in
     // the same transaction that invokes this function — but never silently
     // drop a Priority 1 alert on an unexpected gap; fall back to the direct
-    // send this pathway used before the tracked pipeline existed.
-    const results = await Promise.all(
-      clinicianList.map((clinician) =>
-        sendWithFallback(
-          clinician.phone,
-          "abnormal_result_clinician_alert",
-          [patientName, conditionLabel],
-          // The payload does not carry result_status, so this fallback cannot
-          // tell a critical result (120 min SLA) from a non-critical abnormal
-          // one (24 h). State the tighter bound: early contact on a
-          // non-critical result costs nothing; the reverse breaches the SLA.
-          `New Priority 1 alert: ${patientName}'s screening result needs review (${conditionLabel}). ` +
-            `Contact within 2 hours. See your Tarragon Health worklist. Tarragon Health`,
-        )
-      ),
+    // send this pathway used before the tracked pipeline existed. This is
+    // the ONE leg that genuinely needs a phone number, so it filters for
+    // itself rather than narrowing the recipient query for everyone.
+    const reachable = clinicianList.filter(
+      (c): c is { id: string; phone: string } => typeof c.phone === "string" && c.phone.length > 0,
     );
-    clinicianAlertsQueued = results.filter((r) => r.ok).length;
-    clinicianAlertsFailed = results.length - clinicianAlertsQueued;
-    await auditEvent("abnormal_result.clinician_alert_row_missing_fallback_direct_send", "screening_results", screeningResultId, {
-      sent: clinicianAlertsQueued,
-      failed: clinicianAlertsFailed,
-      recipients: clinicianList.length,
-    });
+    if (reachable.length === 0) {
+      await auditEvent(
+        "abnormal_result.clinician_alert_row_missing_no_reachable_phone",
+        "screening_results",
+        screeningResultId,
+        { recipients: clinicianList.length, with_phone: 0 },
+      );
+    } else {
+      // The payload does not carry result_status, so this fallback cannot
+      // tell a critical result from a non-critical abnormal one. State the
+      // tighter of the two configured bounds — early contact on a
+      // non-critical result costs nothing; the reverse breaches the SLA —
+      // and read it from escalation_slas rather than hardcoding a number
+      // that a founder config change can silently invalidate.
+      const slaMinutes = await tightestSlaMinutes(supabase, SCREENING_PATHWAY, SCREENING_TIERS);
+      const contactSentence = slaMinutes === null
+        ? ""
+        : `Contact ${formatContactWindow(slaMinutes)}. `;
+      const results = await Promise.all(
+        reachable.map((clinician) =>
+          sendWithFallback(
+            clinician.phone,
+            "abnormal_result_clinician_alert",
+            [patientName, conditionLabel],
+            `New Priority 1 alert: ${patientName}'s screening result needs review (${conditionLabel}). ` +
+              `${contactSentence}See your Tarragon Health worklist. Tarragon Health`,
+          )
+        ),
+      );
+      clinicianAlertsQueued = results.filter((r) => r.ok).length;
+      clinicianAlertsFailed = results.length - clinicianAlertsQueued;
+      await auditEvent("abnormal_result.clinician_alert_row_missing_fallback_direct_send", "screening_results", screeningResultId, {
+        sent: clinicianAlertsQueued,
+        failed: clinicianAlertsFailed,
+        recipients: reachable.length,
+        recipients_without_phone: clinicianList.length - reachable.length,
+        sla_minutes: slaMinutes,
+      });
+    }
   } else {
     const results = await Promise.all(
       clinicianList.map((clinician) =>
@@ -376,25 +497,64 @@ Deno.serve(async (req) => {
   // result is never lost — it just waits for a human. This gate is the whole
   // point of the `sensitive` flag; do not "helpfully" send a generic message
   // here on the assumption it's harmless.
+  //
+  // For every NON-sensitive result the message now always lands in-app as
+  // well as being attempted externally. Both external legs are blocked on
+  // someone else's approval process (Meta WhatsApp template approval, Termii
+  // sender-ID carrier approval — see CLAUDE.md), so before 2026-09-05 the
+  // WhatsApp call failed, the SMS fallback failed, no `notifications` row was
+  // ever written, and this function still returned ok: the patient was told
+  // nothing at all and nothing recorded that. In-app is this platform's
+  // documented fallback while those channels are pending, and it is written
+  // FIRST so the patient's copy does not depend on an external send.
   let patientNotified = false;
+  let patientInAppQueued = false;
   if (sensitive) {
     await auditEvent("abnormal_result.patient_notification_suppressed_sensitive", "profiles", patientId, {
       reason: "sensitive result — doctor-delivered per AHC pathway §23",
       condition,
     });
-  } else if (patient?.phone) {
-    const result = await sendWithFallback(
-      patient.phone,
-      "abnormal_result_patient_followup",
-      [],
-      "Your result needs a follow-up. Your care team will call you today. — Tarragon Health",
-    );
-    patientNotified = result.ok;
-    await auditEvent("abnormal_result.patient_notified", "profiles", patientId, { sent: patientNotified });
   } else {
-    await auditEvent("abnormal_result.patient_notification_skipped", "profiles", patientId, {
-      reason: "no phone number on file",
+    const { error: inAppError } = await supabase.from("notifications").insert({
+      organisation_id: organisationId,
+      recipient_id: patientId,
+      channel: "in_app",
+      // Deliberately `clinical`: it says a result needs follow-up. The
+      // notifications_no_clinical_on_open_rail CHECK allows clinical content
+      // on in_app (it only bars it from whatsapp/sms/email), which is exactly
+      // why in_app is the right fallback rail for this message.
+      content_class: "clinical",
+      priority: "critical",
+      template: "abnormal_result_patient_followup",
+      payload: { condition, condition_label: conditionLabel },
+      source_table: "screening_results",
+      source_id: screeningResultId,
     });
+    patientInAppQueued = !inAppError;
+    if (inAppError) {
+      await auditEvent("abnormal_result.patient_in_app_failed", "profiles", patientId, {
+        error: inAppError.message,
+      });
+    }
+
+    if (patient?.phone) {
+      const result = await sendWithFallback(
+        patient.phone,
+        "abnormal_result_patient_followup",
+        [],
+        "Your result needs a follow-up. Your care team will call you today. — Tarragon Health",
+      );
+      patientNotified = result.ok;
+      await auditEvent("abnormal_result.patient_notified", "profiles", patientId, {
+        sent: patientNotified,
+        in_app_queued: patientInAppQueued,
+      });
+    } else {
+      await auditEvent("abnormal_result.patient_notification_skipped", "profiles", patientId, {
+        reason: "no phone number on file",
+        in_app_queued: patientInAppQueued,
+      });
+    }
   }
 
   return Response.json({
@@ -404,6 +564,7 @@ Deno.serve(async (req) => {
     clinician_alerts_queued: clinicianAlertsQueued,
     clinician_alerts_failed: clinicianAlertsFailed,
     patient_notified: patientNotified,
+    patient_in_app_queued: patientInAppQueued,
     patient_notification_suppressed_sensitive: Boolean(sensitive),
   });
 });

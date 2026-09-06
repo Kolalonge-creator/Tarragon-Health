@@ -63,7 +63,7 @@ export function PartnerMap({
               <Marker
                 key={location.id}
                 position={{ lat: location.latitude, lng: location.longitude }}
-                title={`${location.name}: ${TYPE_LABEL[location.type]}`}
+                title={`${location.name} · ${TYPE_LABEL[location.type]}`}
                 label={{
                   text: TYPE_LETTER[location.type],
                   color: "#ffffff",

@@ -2,27 +2,39 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 /**
- * TypeScript counterpart to private.patient_has_feature_access(), for the one
- * red-flag pathway that isn't a DB trigger: glucose RED/AMBER bands
- * (apps/web/src/lib/vitals/assess-glucose.ts) stay app-layer because they need
- * a 14-day trailing window and a per-patient target override that don't fit a
- * pure IMMUTABLE SQL classifier (see glucose_emergency_db_backstop.sql's own
- * header). private.patient_has_feature_access isn't PostgREST-exposed (lives
- * in `private`, no anon/authenticated grant — see
- * 20260804232022_gate_result_document_review_to_paid_plans.sql's own note on
- * why), so this mirrors its exact resolution logic using a service-role
- * client, which already bypasses RLS the same way the SQL function's
- * SECURITY DEFINER does.
+ * Doctor-escalation entitlement for the one red-flag pathway that isn't a DB
+ * trigger: glucose RED/AMBER bands (apps/web/src/lib/vitals/assess-glucose.ts)
+ * stay app-layer because they need a 14-day trailing window and a per-patient
+ * target override that don't fit a pure IMMUTABLE SQL classifier (see
+ * glucose_emergency_db_backstop.sql's own header).
  *
- * Repointed 2026-08-31 at service_purchases/service_products (the
- * pay-per-service replacement for subscriptions/subscription_plans/
- * subscription_add_ons/add_ons) — this is a SAFETY-CRITICAL path (the
- * dangerous-glucose-reading doctor escalation gate) that was found still
- * querying the retiring tables after they'd already been cut off from all
- * new writes, which would have silently stopped every real patient's
- * glucose emergency escalation from firing. Never duplicate this logic a
- * third time — if another gate like this turns up, call
- * private.patient_has_feature_access via an RPC instead of re-deriving it.
+ * This used to re-derive private.patient_has_feature_access's resolution logic
+ * in TypeScript, because that function lives in `private` and isn't
+ * PostgREST-exposed. Its own header already warned "never duplicate this logic
+ * a third time — call it via an RPC instead of re-deriving it", and the
+ * duplicate went on to prove the point: it queried service_purchases only, with
+ * no programme_purchases branch, so it drifted away from the SQL function it
+ * was mirroring and dead-ended by a second, independent route while the SQL
+ * side dead-ended by its own.
+ *
+ * It now calls public.patient_has_feature_access(p_patient_id, p_feature) —
+ * added by 20260904235834_doctor_time_features_grantable_by_the_purchasable_
+ * programme.sql — so the six doctor-time gates and this one resolve through the
+ * SAME code path. The RPC authorises the caller (the patient themselves, staff
+ * of their organisation, or service_role) and RAISES 42501 rather than
+ * returning a quiet false, so an unauthorised caller can never be mistaken for
+ * an unentitled patient inside the database.
+ *
+ * This function nevertheless converts that raise — and any other RPC error —
+ * into `false`, and that is deliberate: it is a gate, and a gate whose answer
+ * is unknown must withhold rather than grant. Returning false here does NOT
+ * silence the reading. The patient still gets the deterministic self-care
+ * guidance below, and the full, plan-independent emergency safety net
+ * (emergency_events, the acknowledge-gated hospital guidance, emergency-contact
+ * notify) never depended on this call at all. What the raise buys us over a
+ * DB-side quiet false is diagnosability, so the error is logged here rather
+ * than dropped: a permissions mistake shows up in the server log as itself
+ * instead of looking like a patient who simply has not paid.
  */
 const VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE = "vitals_red_flag_doctor_escalation";
 
@@ -30,24 +42,21 @@ export async function patientHasVitalsEscalationAccess(
   serviceRole: SupabaseClient<Database>,
   patientId: string,
 ): Promise<boolean> {
-  const { data: profile } = await serviceRole
-    .from("profiles")
-    .select("role")
-    .eq("id", patientId)
-    .maybeSingle();
-  if (profile?.role === "admin") return true;
-
-  const { data: purchases } = await serviceRole
-    .from("service_purchases")
-    .select("expires_at, service_product:service_products(features)")
-    .eq("patient_id", patientId)
-    .eq("status", "active");
-
-  const now = Date.now();
-  return (purchases ?? []).some((p) => {
-    if (p.expires_at && new Date(p.expires_at).getTime() <= now) return false;
-    return (p.service_product?.features ?? []).includes(VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE);
+  const { data, error } = await serviceRole.rpc("patient_has_feature_access", {
+    p_patient_id: patientId,
+    p_feature: VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE,
   });
+  if (error) {
+    // Fail closed, loudly. See the header: the RPC raises so that "not
+    // allowed to ask" is distinguishable from "asked, answer is no" — that
+    // distinction is worth nothing if it is discarded here without a trace.
+    console.error(
+      "vitals-escalation-access: patient_has_feature_access failed; withholding doctor escalation for this reading",
+      { patientId, feature: VITALS_RED_FLAG_DOCTOR_ESCALATION_FEATURE, error },
+    );
+    return false;
+  }
+  return data === true;
 }
 
 /** Deterministic self-care copy per glucose flag kind — same discipline as the

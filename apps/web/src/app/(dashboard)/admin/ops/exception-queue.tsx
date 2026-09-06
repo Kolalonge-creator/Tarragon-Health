@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 export type OpsExceptionRow = {
   domain:
@@ -62,9 +63,20 @@ function ageText(hours: number): string {
  * RPC client-side on domain change (cheap — it is the same jsonb function
  * the server already called for "all").
  */
-export function ExceptionQueue({ initialRows }: { initialRows: OpsExceptionRow[] }) {
+export function ExceptionQueue({
+  initialRows,
+  loadFailed = false,
+}: {
+  initialRows: OpsExceptionRow[];
+  /** True when the server's own ops_exception_queue read errored. Without it
+   * an empty `initialRows` is ambiguous, and this component resolves that
+   * ambiguity as "You're caught up" — the wrong answer for an operations
+   * triage queue nobody else is watching. */
+  loadFailed?: boolean;
+}) {
   const [domain, setDomain] = useState<string>("all");
   const [rows, setRows] = useState(initialRows);
+  const [refetchFailed, setRefetchFailed] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const counts = useMemo(() => {
@@ -84,12 +96,24 @@ export function ExceptionQueue({ initialRows }: { initialRows: OpsExceptionRow[]
     setDomain(next);
     startTransition(async () => {
       const supabase = createClient();
-      const { data } = await supabase.rpc("ops_exception_queue", {
+      const { data, error } = await supabase.rpc("ops_exception_queue", {
         p_domain: next === "all" ? undefined : next,
         p_limit: 200,
       });
-      setRows((data ?? []) as OpsExceptionRow[]);
+      // Same rule as the initial read: a failed filter must empty the table
+      // AND say so, never quietly leave an empty table reading as "clear".
+      setRefetchFailed(error !== null);
+      setRows(error ? [] : ((data ?? []) as OpsExceptionRow[]));
     });
+  }
+
+  if (loadFailed) {
+    return (
+      <LoadFailure>
+        The exception queue could not be loaded, so nothing here is caught up: it is simply
+        unknown. Reload the page before treating the board as clear.
+      </LoadFailure>
+    );
   }
 
   if (initialRows.length === 0) {
@@ -121,6 +145,13 @@ export function ExceptionQueue({ initialRows }: { initialRows: OpsExceptionRow[]
           </Button>
         ))}
       </div>
+
+      {refetchFailed && (
+        <LoadFailure>
+          That filter could not be loaded. The list below is empty because the query failed, not
+          because the domain is clear. Pick a domain again or reload the page.
+        </LoadFailure>
+      )}
 
       <div className="overflow-x-auto">
         <table className="w-full min-w-[640px] text-sm">

@@ -15,7 +15,20 @@ export const BP_THRESHOLDS = {
   amber: { systolic: 135, diastolic: 85 },
 } as const;
 
-export type BpThresholds = typeof BP_THRESHOLDS;
+/**
+ * Structural, not `typeof BP_THRESHOLDS`. The bundled constant is `as const`,
+ * so `typeof` it is a set of LITERAL types (systolic: 200, ...) — which made
+ * the `thresholds` parameter below nominally un-overridable: the only value
+ * the compiler would accept was the bundled constant itself. It only worked
+ * at runtime because threshold-sync.ts's cache is typed, not checked. The
+ * whole point of that parameter is to carry server-synced values, so the
+ * type says numbers.
+ */
+export interface BpThresholds {
+  emergency: { systolic: number; diastolic: number };
+  red: { systolic: number; diastolic: number };
+  amber: { systolic: number; diastolic: number };
+}
 
 export function classifyBpLevel(
   systolic: number | null | undefined,
@@ -32,11 +45,14 @@ export function classifyBpLevel(
 export const BP_LEVEL_LABEL: Record<BpLevel, string> = {
   green: "At target",
   amber: "Above target",
-  red: "High — urgent review",
+  red: "High (urgent review)",
   emergency: "Crisis range",
   unknown: "—",
 };
 
+/** Deliberately literal hexes, not ui/theme.ts tokens: this palette mirrors
+ * the web badge colours verbatim (see the lock-step note above), so it stays
+ * a copy of the web values rather than adopting the native token set. */
 export const BP_LEVEL_COLORS: Record<BpLevel, { bg: string; text: string }> = {
   green: { bg: "#DCFCE7", text: "#15803D" },
   amber: { bg: "#FEF3C7", text: "#B45309" },
