@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { LoadFailure } from "@/components/ui/load-failure";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
 import { slaFieldName } from "./sla-field";
 import {
   createEscalationSlaDraftAction,
@@ -272,37 +273,39 @@ export function EscalationSlasManager({
       {versions.length > 0 && (
         <div className="space-y-4">
           <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Version history</h2>
-          {versions.map((v) => (
-            <Card key={v.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  Version {v.version}
-                  {v.is_active ? (
-                    <Badge variant="green">Active</Badge>
-                  ) : (
-                    <Badge variant="grey">Draft, not in force</Badge>
+          <VersionHistoryList>
+            {versions.map((v) => (
+              <Card key={v.id}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    Version {v.version}
+                    {v.is_active ? (
+                      <Badge variant="green">Active</Badge>
+                    ) : (
+                      <Badge variant="grey">Draft, not in force</Badge>
+                    )}
+                    {v.approved_at && <Badge variant="green">Signed</Badge>}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {v.notes && <p className="text-sm text-charcoal-ink/70">{v.notes}</p>}
+                  <p className="text-xs text-charcoal-ink/50">
+                    Drafted {new Date(v.created_at).toLocaleString("en-GB")} ·{" "}
+                    {Array.isArray(v.config) ? v.config.length : 0} entries
+                  </p>
+                  {!v.is_active && (
+                    <>
+                      <p className="text-xs text-charcoal-ink/60">
+                        Signing requires an active Clinical Director account and brings this version
+                        into force, retiring whichever version is currently active.
+                      </p>
+                      <SignButton versionId={v.id} />
+                    </>
                   )}
-                  {v.approved_at && <Badge variant="green">Signed</Badge>}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {v.notes && <p className="text-sm text-charcoal-ink/70">{v.notes}</p>}
-                <p className="text-xs text-charcoal-ink/50">
-                  Drafted {new Date(v.created_at).toLocaleString("en-GB")} ·{" "}
-                  {Array.isArray(v.config) ? v.config.length : 0} entries
-                </p>
-                {!v.is_active && (
-                  <>
-                    <p className="text-xs text-charcoal-ink/60">
-                      Signing requires an active Clinical Director account and brings this version
-                      into force, retiring whichever version is currently active.
-                    </p>
-                    <SignButton versionId={v.id} />
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))}
+          </VersionHistoryList>
         </div>
       )}
     </div>

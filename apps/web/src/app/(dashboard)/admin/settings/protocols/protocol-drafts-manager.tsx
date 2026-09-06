@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { protocolContentText } from "./protocol-content-text";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
 
 const STATUS_BADGE: Record<string, { variant: BadgeProps["variant"]; label: string }> = {
   draft: { variant: "grey", label: "Draft" },
@@ -287,9 +288,11 @@ export function ProtocolDraftsManager() {
       {closed.length > 0 && (
         <div className="space-y-3">
           <h3 className="font-heading text-base font-semibold text-charcoal-ink">Promoted / rejected</h3>
-          {closed.map((d) => (
-            <DraftCard key={d.id} draft={d} />
-          ))}
+          <VersionHistoryList itemNoun="draft" defaultVisibleCount={5}>
+            {closed.map((d) => (
+              <DraftCard key={d.id} draft={d} />
+            ))}
+          </VersionHistoryList>
         </div>
       )}
     </div>

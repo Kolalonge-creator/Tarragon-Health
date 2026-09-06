@@ -80,6 +80,76 @@ export async function retireClinicalRuleAction(
   return { success: "Retired." };
 }
 
+export type DraftNextVersionState = { error?: string; success?: string } | undefined;
+
+/**
+ * Duplicates one rule version's full clinical content into a new `draft`
+ * row at rule_key/version+1 — the only way to give a rule an owner and a
+ * protocol link once it has left `draft`, because
+ * private.guard_clinical_rule_immutable refuses to let those two columns
+ * (or any of the clinical content) change on a row whose OLD status is not
+ * draft. That guard is deliberate (see its migration comment) and is not
+ * something this action works around — it works WITH it, by creating a
+ * fresh draft rather than editing the existing shadow/active row. RLS
+ * (clinical_rules_insert) is the real gate on this insert: admin-only, and
+ * only while approved_by/approved_at stay null.
+ */
+export async function draftNextClinicalRuleVersionAction(
+  _prev: DraftNextVersionState,
+  formData: FormData
+): Promise<DraftNextVersionState> {
+  const supabase = await createClient();
+  const sourceId = String(formData.get("source_id"));
+  const ownerStaffId = String(formData.get("owner_clinical_staff_id") ?? "").trim();
+  const protocolVersionId = String(formData.get("protocol_version_id") ?? "").trim();
+  const notes = String(formData.get("notes") ?? "").trim();
+
+  const { data: source, error: sourceError } = await supabase
+    .from("clinical_rules")
+    .select(
+      `rule_key, version, name, description, category, domain, event_type,
+       population, conditions, actions, priority, specificity, escalation,
+       suppression, explanation_template, effective_from, organisation_id, patient_id`
+    )
+    .eq("id", sourceId)
+    .single();
+  if (sourceError || !source) {
+    return { error: sourceError?.message ?? "Source rule version not found." };
+  }
+
+  const nextVersion = source.version + 1;
+  const { error } = await supabase.from("clinical_rules").insert({
+    rule_key: source.rule_key,
+    version: nextVersion,
+    name: source.name,
+    description: source.description,
+    category: source.category,
+    domain: source.domain,
+    event_type: source.event_type,
+    population: source.population,
+    conditions: source.conditions,
+    actions: source.actions,
+    priority: source.priority,
+    specificity: source.specificity,
+    escalation: source.escalation,
+    suppression: source.suppression,
+    explanation_template: source.explanation_template,
+    effective_from: source.effective_from,
+    organisation_id: source.organisation_id,
+    patient_id: source.patient_id,
+    owner_clinical_staff_id: ownerStaffId || null,
+    protocol_version_id: protocolVersionId || null,
+    supersedes_id: sourceId,
+    notes:
+      notes ||
+      `Version ${nextVersion} of ${source.rule_key}, duplicated from v${source.version} with governance fields set. Sign to activate.`,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(REVALIDATE_PATH);
+  return { success: `Draft v${nextVersion} created for ${source.rule_key}.` };
+}
+
 export type ShadowReportState =
   | { error: string; report?: undefined }
   | { error?: undefined; report: Record<string, unknown> }

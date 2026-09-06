@@ -43,6 +43,23 @@ export default async function ClinicalRulesSettingsPage() {
 
   const rows = (rules as ClinicalRuleVersionRow[] | null) ?? [];
 
+  // Every seeded rule shipped in shadow with no owner and no protocol link
+  // (§32.13's "shadow needs no signature" carve-out), which also means the
+  // Sign button can never render for them — private.guard_clinical_rule_immutable
+  // refuses to let those two fields be added once a row leaves draft. Fixing
+  // that needs a fresh draft version, which needs these two pickers.
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("id, full_name, doctor_tier")
+    .eq("active", true)
+    .order("full_name", { ascending: true });
+  const { data: protocols } = await supabase
+    .from("protocol_versions")
+    .select("id, protocol_id, title, version_number")
+    .not("approved_by", "is", null)
+    .order("protocol_id", { ascending: true })
+    .order("version_number", { ascending: false });
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -58,7 +75,11 @@ export default async function ClinicalRulesSettingsPage() {
           none are active. Do not draft or activate a rule from here until it loads.
         </LoadFailure>
       ) : (
-        <ClinicalRulesManager rules={rows} />
+        <ClinicalRulesManager
+          rules={rows}
+          clinicalStaff={staff ?? []}
+          signedProtocols={protocols ?? []}
+        />
       )}
     </div>
   );
