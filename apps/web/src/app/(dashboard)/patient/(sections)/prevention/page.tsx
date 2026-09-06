@@ -159,7 +159,7 @@ export default async function PreventionHubPage() {
         <div className="space-y-6">
           <PreventionCampaignsCard patientId={subjectId} />
           <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
-          <CancerScreeningCard patientId={subjectId} sex={profile.sex} />
+          <CancerScreeningCard sex={profile.sex} />
           {/* Permissive on an unrecorded sex, deliberately: see
               shouldOfferCycleTracking. The strict `=== "female"` test this
               replaces left the cycle tracker with no entry point at all for
