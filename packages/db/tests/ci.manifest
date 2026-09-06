@@ -55,12 +55,12 @@ revenue_recognition_orphan_source_guard.sql
 migration_replay_leaves_no_orphaned_finance_rows.sql
 
 # --- Added while merging main-dev into PR #479 (mobile truncated_types) ----
-# Three proofs that predate or landed alongside this manifest's own creation
+# Two proofs that predate or landed alongside this manifest's own creation
 # (#489/#491) and were missed: abnormal_screening_result_upgrade.sql (older
-# Cat2->1 regression test), payer_board_outcomes_report.sql (#462), and
-# support_centre.sql (#471, merged the same day this manifest was checked).
-# All three build their own fixtures and are wrapped in BEGIN/ROLLBACK with a
-# raise-exception-on-FAIL closing block, matching every other entry here.
+# Cat2->1 regression test) and payer_board_outcomes_report.sql (#462). Both
+# build their own fixtures, are wrapped in BEGIN/ROLLBACK with a
+# raise-exception-on-FAIL closing block, and were confirmed to PASS against a
+# fresh `supabase db reset` in CI (run 34038141135). support_centre.sql from
+# the same sweep (#471) is excluded instead -- see ci.excluded.
 abnormal_screening_result_upgrade.sql
 payer_board_outcomes_report.sql
-support_centre.sql

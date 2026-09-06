@@ -193,6 +193,16 @@ sponsor_pay_booking_order.sql
 sponsor_spend_receipts.sql
 subscription_care_vouchers.sql
 subsidy_split_engine.sql
+# --- Added while merging main-dev into PR #479 (mobile truncated_types) ----
+# support_centre.sql (#471): its own header says it resolves fixtures at
+# runtime -- "an org with 2+ patients, a Care Coordinator, a clinical-tier
+# staff member, a Clinical Director, and an admin, same shape as
+# appointment_engine_core.sql" -- and its Run: line is
+# `npx supabase db query --linked`, i.e. written for the LIVE project on
+# purpose, not a fresh reset. Confirmed failing in CI (run 34038141135) with
+# exactly that fixture error, not a real regression. Move to ci.manifest once
+# it builds its own org/staff fixtures instead of selecting existing ones.
+support_centre.sql
 supporter_accounts.sql
 supporter_reporting.sql
 symptom_triage_assessment_engine.sql
