@@ -234,11 +234,23 @@ begin
   -- Any OTHER active schedule whose source is already gone gets the same
   -- treatment now, rather than waiting for the guard above to catch it on the
   -- next cron run. In production there are none -- the phantom was the only row
-  -- in the entire table -- but a fresh replay of the migration history leaves at
-  -- least one behind from an earlier migration's self-test cleanup, which is the
-  -- same defect in miniature: three of the finance migrations delete the
-  -- schedule before deleting the purchase that created it, and at least one does
-  -- not. Each is named in the output rather than silently swept up.
+  -- in the entire table.
+  --
+  -- The culprit this sweep was originally written blind against has since been
+  -- identified and fixed at source: 20260902200003_rewire_finance_ledger_payer
+  -- _resolution_to_service_purchases.sql's behavioural proof deleted the
+  -- service_purchase and payment_transactions rows it had inserted but not the
+  -- journal entry and recognition schedule the platform posted in response.
+  -- That is the same migration that produced the production phantom above --
+  -- its applied version, 20260902200256, is stamped on journal entry #171 and
+  -- on schedule c890ef77 to the second. Its cleanup now matches the pattern the
+  -- sibling finance proofs (20260902103712, 20260902192530) already used, so a
+  -- fresh replay reaches this loop with nothing to sweep.
+  --
+  -- The sweep stays anyway: it is the backstop for the next migration to make
+  -- the same mistake, and it is cheap. Each row it finds is named at WARNING
+  -- rather than NOTICE, because `supabase db reset` swallows NOTICE -- which is
+  -- precisely why the original culprit could not be read out of a CI log.
   for v_orphan in
     select s.id, s.source_kind, s.source_id, s.total_minor, s.recognized_minor
       from public.revenue_recognition_schedules s
@@ -252,7 +264,7 @@ begin
              v_orphan.source_kind || ' ' || coalesce(v_orphan.source_id::text, '<null>') ||
              ' no longer exists, so there is nothing to recognise revenue against.'
      where id = v_orphan.id;
-    raise notice 'cancelled orphaned schedule % (source % %, % of % minor units recognised)',
+    raise warning 'cancelled orphaned schedule % (source % %, % of % minor units recognised)',
       v_orphan.id, v_orphan.source_kind, v_orphan.source_id,
       v_orphan.recognized_minor, v_orphan.total_minor;
   end loop;
