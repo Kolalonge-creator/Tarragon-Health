@@ -19,6 +19,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { protocolContentText } from "./protocol-content-text";
 import { VersionHistoryList } from "@/components/shell/version-history-list";
+import { KNOWN_UNPROMOTED_PROTOCOL_DRAFTS } from "@/lib/protocol-draft-manifest";
 
 const STATUS_BADGE: Record<string, { variant: BadgeProps["variant"]; label: string }> = {
   draft: { variant: "grey", label: "Draft" },
@@ -209,8 +210,61 @@ export function ProtocolDraftsManager() {
   const open = drafts.filter((d) => d.status === "draft" || d.status === "in_review");
   const closed = drafts.filter((d) => d.status === "promoted" || d.status === "rejected");
 
+  const startedProtocolIds = new Set(drafts.map((d) => d.protocol_id));
+  const notYetStarted = KNOWN_UNPROMOTED_PROTOCOL_DRAFTS.filter(
+    (known) => !startedProtocolIds.has(known.protocolId)
+  );
+
   return (
     <div className="space-y-6">
+      {/* The sign-off queue on the settings hub links here for these — the
+          text has already been reviewed and lives in a source markdown file
+          under docs/protocol-drafts/, but until now reaching this page from
+          that link showed two blank forms with no visible connection to
+          what the queue said was "ready to sign". This loads the known
+          text into the form below (still nothing but a filled-in textarea
+          — a Director still has to read it, edit it, save it, and promote
+          it themselves). */}
+      {notYetStarted.length > 0 && (
+        <Card className="border-amber-400/50 bg-amber-50/50">
+          <CardHeader>
+            <CardTitle className="text-base">Known draft{notYetStarted.length === 1 ? "" : "s"} not started yet</CardTitle>
+            <CardDescription>
+              Reviewed text exists for {notYetStarted.length === 1 ? "this protocol" : "these protocols"} but no
+              draft row has been created here yet — that&apos;s why it looked like there was nothing to sign.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {notYetStarted.map((known) => (
+              <div
+                key={known.protocolId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-400/40 bg-white p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-charcoal-ink">{known.title}</p>
+                  <p className="text-xs text-charcoal-ink/60">{known.sourceHint}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setProtocolId(known.protocolId);
+                    setTitle(known.title);
+                    setChangeSummary(known.changeSummary);
+                    setContentText(known.content);
+                    document
+                      .getElementById("draft-content")
+                      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                >
+                  Load into form below
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Draft a protocol for review</CardTitle>

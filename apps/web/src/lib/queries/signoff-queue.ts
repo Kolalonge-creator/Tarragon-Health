@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
+import { KNOWN_UNPROMOTED_PROTOCOL_DRAFTS } from "@/lib/protocol-draft-manifest";
 
 export type SignoffQueueItem = {
   key: string;
@@ -56,24 +57,6 @@ const VERSIONED_TABLES: { table: VersionedTableName; title: string; href: string
     href: "/admin/settings/risk-questionnaire-config",
   },
   { table: "vaccination_schedule_signoffs", title: "Vaccination schedule", href: "/admin/settings/vaccination-schedule" },
-];
-
-/**
- * Protocol content that has a written, reviewable draft but no row anywhere
- * in `protocol_versions` yet — the direct-sign ledger has no "unsigned
- * draft" state of its own (every insert there IS a signature), so a pending
- * one can't be discovered by querying that table the way every other item
- * on this page can. This is the one manifest entry, not a query, and it is
- * deliberately small: each entry should be removed the moment its
- * protocol_id gets a real protocol_versions row (this function does that
- * automatically — it only lists an entry if the row still doesn't exist).
- */
-const KNOWN_UNPROMOTED_PROTOCOL_DRAFTS: { protocolId: string; title: string; sourceHint: string }[] = [
-  {
-    protocolId: "vitals_red_flag_thresholds",
-    title: "Vitals red-flag thresholds (BP/glucose/SpO2/temperature/pulse)",
-    sourceHint: "Draft text ready in docs/protocol-drafts/vitals-red-flag-thresholds.md (PR #486)",
-  },
 ];
 
 export async function getSignoffQueue(supabase: SupabaseClient<Database>): Promise<SignoffQueueItem[]> {

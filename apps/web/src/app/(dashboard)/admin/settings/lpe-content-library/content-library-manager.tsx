@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { NAV_ICON } from "@/lib/icons";
 import { editContentBlockAction, signContentBlockAction, type ContentActionState } from "./actions";
 
 export type ContentBlockRow = {
@@ -57,15 +58,25 @@ function ContentBlockCard({ block }: { block: ContentBlockRow }) {
         className="cursor-pointer select-none"
         onClick={() => setOpen((v) => !v)}
       >
-        <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium">
-          {block.title}
-          {block.clinician_reviewed ? (
-            <Badge variant="green">Approved</Badge>
-          ) : (
-            <Badge variant="grey">Draft</Badge>
-          )}
-          {block.reading_level && <Badge variant="blue">{block.reading_level}</Badge>}
-        </CardTitle>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="flex flex-wrap items-center gap-2 text-sm font-medium">
+            {block.title}
+            {block.clinician_reviewed ? (
+              <Badge variant="green">Approved</Badge>
+            ) : (
+              <Badge variant="grey">Draft</Badge>
+            )}
+            {block.reading_level && <Badge variant="blue">{block.reading_level}</Badge>}
+          </CardTitle>
+          <div className="flex shrink-0 items-center gap-1.5 text-xs text-charcoal-ink/50">
+            {!open && !block.clinician_reviewed && <span>Click to review &amp; sign</span>}
+            <NAV_ICON.chevronRight
+              className={`h-4 w-4 transition-transform ${open ? "rotate-90" : ""}`}
+              strokeWidth={2}
+              aria-hidden
+            />
+          </div>
+        </div>
       </CardHeader>
       {open && (
         <CardContent className="space-y-3">
@@ -112,6 +123,13 @@ export function ContentLibraryManager({ blocks }: { blocks: ContentBlockRow[] })
     const key = block.condition ? humanize(block.condition) : block.module ? humanize(block.module) : "General";
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key)!.push(block);
+  }
+  // Unreviewed blocks first in each group — otherwise the handful still
+  // needing a signature get lost alphabetically among dozens already
+  // approved, and nothing on the collapsed card distinguishes them at a
+  // glance beyond a small grey badge.
+  for (const groupBlocks of groups.values()) {
+    groupBlocks.sort((a, b) => Number(a.clinician_reviewed) - Number(b.clinician_reviewed));
   }
 
   const reviewedCount = blocks.filter((b) => b.clinician_reviewed).length;
