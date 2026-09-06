@@ -201,6 +201,18 @@ i1_notifications_content_class.sql
 i5_emergency_escalation_synchronous_contact.sql
 imaging_platform_rls_and_pathway.sql
 individual_enrolment_and_next_of_kin.sql
+#
+# lab_network_specimen_rls.sql (PR #321, Laboratory Network platform): a real
+# and valuable proof -- it is what caught the three-valued-logic bug where an
+# ownership check written as `x is null or x <> lab_partner_provider()` never
+# raised for a caller who is not a lab partner at all, i.e. it silently let
+# through exactly the caller it exists to refuse. Excluded only because it
+# resolves its fixtures from existing rows (`select id into v_patient from
+# public.profiles ...`, raising 'fixtures unavailable: need 1 patient and 1
+# clinician in org 0001' otherwise), which a fresh `supabase db reset` does not
+# provide -- seed.sql seeds catalogues only. Move to ci.manifest once it builds
+# its own patient/clinician/lab-partner fixtures.
+lab_network_specimen_rls.sql
 lab_partner_readiness.sql
 lab_partner_rls.sql
 lab_result_consult_accept.sql

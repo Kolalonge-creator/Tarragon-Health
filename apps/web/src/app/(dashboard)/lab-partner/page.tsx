@@ -9,6 +9,8 @@ import { LabPartnerWorklist } from "./lab-partner-worklist";
 import { LabPartnerTurnaroundCard } from "./lab-partner-turnaround-card";
 import { LabPartnerFacilities } from "./lab-partner-facilities";
 import { LabPartnerServices } from "./lab-partner-services";
+import { LabPartnerSpecimenBoard } from "./lab-partner-specimen-board";
+import { LabPartnerDashboardStatsRow } from "./lab-partner-dashboard-stats-row";
 import { PartnerStaffInviteForm } from "@/components/partner-admin/partner-staff-invite-form";
 
 type OrderRow = { status: string; resulted_at: string | null };
@@ -92,7 +94,15 @@ export default async function LabPartnerPage() {
         />
       </div>
 
+      {/* §56.13 — orders today / samples received / processing / completed /
+          rejected / delayed. A client component (its own RPC call) rather
+          than folded into the server-rendered tiles above: it needs no
+          server-side data this page already fetched, and keeping it
+          self-contained means it can revalidate independently as specimens
+          move through lab_partner_update_specimen_status/reject. */}
+      <LabPartnerDashboardStatsRow />
       <LabPartnerTurnaroundCard />
+      <LabPartnerSpecimenBoard />
       <LabPartnerWorklist />
       <LabPartnerFacilities />
       <LabPartnerServices />
