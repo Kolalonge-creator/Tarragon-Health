@@ -35,7 +35,7 @@ export default async function EmergencyCardPrintPage() {
   const supabase = await createClient();
   const facts = await loadEmergencyDatasetForPatient(supabase, user.id);
 
-  const printedOn = new Date().toLocaleDateString("en-GB", {
+  const printedOn = new Date().toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",
@@ -47,9 +47,9 @@ export default async function EmergencyCardPrintPage() {
     <div>
       <div className="mx-auto max-w-2xl p-4 print:hidden">
         <PrintButton />
-        <p className="mt-2 text-xs text-charcoal-ink/60">
+        <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Print this, fold it into your wallet, and keep it with you. There is nothing to consent
-          to here — you are printing your own record, the same as your Health Passport.
+          to here. You are printing your own record, the same as your Health Passport.
         </p>
       </div>
 
@@ -63,7 +63,7 @@ export default async function EmergencyCardPrintPage() {
             <div dangerouslySetInnerHTML={{ __html: qrSvg }} />
           ) : (
             <p className="text-sm text-charcoal-ink/60">
-              A QR code could not be generated. Every fact above is already printed in full — this
+              A QR code could not be generated. Every fact above is already printed in full. This
               only affects a machine-readable duplicate.
             </p>
           )
@@ -72,7 +72,7 @@ export default async function EmergencyCardPrintPage() {
           <>
             <p>
               This is a summary you chose to keep with you, not your complete medical record, and
-              it will not update itself once printed — reprint after anything on it changes.
+              it will not update itself once printed. Reprint after anything on it changes.
             </p>
             <p className="mt-1">
               Not a substitute for clinical assessment. Always confirm blood group by testing

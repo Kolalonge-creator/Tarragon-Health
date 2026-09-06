@@ -9,6 +9,7 @@ import { ECG_REPORT_BUCKET } from "./documents";
 import { extractEcgReport, isEcgReportExtractionConfigured } from "./extract";
 import { isReadableDocumentType, normaliseForVision } from "@/lib/lab-reports/heic";
 import { confirmEcgReportExtractionSchema } from "@/lib/validation/ecg-report-extraction";
+import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
 
 export type EcgExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -138,6 +139,32 @@ export async function runEcgReportExtraction(
     return fail("Could not open the stored ECG file.", "Download failed.");
   }
 
+  // -- AI-006 governance gate -----------------------------------------------
+  // Same shape and the same reasoning as the lab pipeline's gate: the kill
+  // switch is honoured before the model is reached, every outcome reaches
+  // ai_interaction_log, and the fallback is the manual entry form this
+  // function already fell back to for every other failure.
+  const governance = await decideAiGovernance(service, AI_SYSTEMS.ecgReportExtraction.code);
+  if (!governance.allow) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.ecgReportExtraction.code,
+      modelIdentifier: "none:fallback",
+      inputCategory: "ecg_report_document",
+      status: "fallback",
+      subjectProfileId: patientId,
+      fallbackReason: governance.message,
+      resultingAction: "manual_entry_required",
+      resultingEntityType: "ecg_report_documents",
+      resultingEntityId: documentId,
+    });
+    return fail(
+      "Automatic reading is switched off just now. Enter the parameters by hand.",
+      `AI governance: ${governance.reason}`,
+    );
+  }
+
+  const startedAt = Date.now();
+
   const result = await extractEcgReport({
     fileBase64,
     mediaType: visionMediaType,
@@ -145,6 +172,18 @@ export async function runEcgReportExtraction(
   });
 
   if (!result.ok) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.ecgReportExtraction.code,
+      modelIdentifier: EXTRACTION_MODEL_ID,
+      inputCategory: "ecg_report_document",
+      status: "failed",
+      subjectProfileId: patientId,
+      errorMessage: `Extraction failed: ${result.reason}`,
+      latencyMs: Date.now() - startedAt,
+      resultingAction: "manual_entry_required",
+      resultingEntityType: "ecg_report_documents",
+      resultingEntityId: documentId,
+    });
     return fail(
       result.reason === "unsupported_type"
         ? "This file type cannot be read automatically. Enter the parameters by hand."
@@ -182,6 +221,23 @@ export async function runEcgReportExtraction(
   if (upsertError) {
     return fail("Could not save the draft.", upsertError.message);
   }
+
+  // 40.11. Counts and provenance only -- the measured parameters stay in
+  // ecg_report_extractions under the patient's own RLS.
+  await recordAiInteraction(service, {
+    systemCode: AI_SYSTEMS.ecgReportExtraction.code,
+    modelIdentifier: EXTRACTION_MODEL_ID,
+    inputCategory: "ecg_report_document",
+    status: "completed",
+    subjectProfileId: patientId,
+    outputSummary: `${parameters.length} parameter(s) read, ${readyCount} ready for confirmation${
+      extraction.facilityName ? `, facility: ${extraction.facilityName}` : ""
+    }${extraction.unreadableReason ? `, unreadable: ${extraction.unreadableReason}` : ""}`,
+    latencyMs: Date.now() - startedAt,
+    resultingAction: "draft_awaiting_clinician_confirmation",
+    resultingEntityType: "ecg_report_documents",
+    resultingEntityId: documentId,
+  });
 
   // Deliberately no escalation bridge here — unlike the lab pipeline's
   // raise_lab_extraction_alert on a critical lab value, nothing about this

@@ -27,8 +27,15 @@ export interface SymptomCluster {
   minMatches: number;
   /** Selecting any of these suppresses this cluster's suggestion outright. */
   excludeSymptomIds: string[];
-  /** public.screen_types.code this cluster suggests. */
-  screenTypeCode: string;
+  /**
+   * public.panel_bundles.code for the single-test bundle this cluster
+   * suggests — resolved by exact bundle code, NOT by screen_types.code, since
+   * a screen_type doesn't reliably map to one bundle 1:1 (e.g. the 2026-09
+   * catalogue rebuild split "tft" into two component test_codes,
+   * ["tsh","free_t4"], under the same single_tft bundle — matching by a
+   * single screen_type code would have silently stopped resolving it).
+   */
+  panelBundleCode: string;
   /** One or two sentences explaining the suggestion, warm and non-alarming. */
   patientExplanation: string;
   /**
@@ -102,7 +109,7 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     anchorSymptomIds: ["neck_swelling", "heat_cold_intolerance", "palpitations", "unexplained_weight_change"],
     minMatches: 2,
     excludeSymptomIds: [],
-    screenTypeCode: "tft",
+    panelBundleCode: "single_tft",
     patientExplanation:
       "These can be signs your thyroid is working too hard or not hard enough. A thyroid function test (TSH, Free T4) is the usual first step to check.",
     textTriggers: [
@@ -118,7 +125,7 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     anchorSymptomIds: ["increased_thirst", "frequent_urination", "fatigue", "blurred_vision"],
     minMatches: 2,
     excludeSymptomIds: [],
-    screenTypeCode: "hba1c",
+    panelBundleCode: "single_hba1c",
     patientExplanation:
       "Feeling thirsty more than usual, urinating more often, tiredness, and blurred vision together are worth checking with a blood sugar test (HbA1c), one of the most common early signs of diabetes.",
     textTriggers: [
@@ -133,7 +140,7 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     anchorSymptomIds: ["fatigue", "pale_skin", "breathlessness_on_exertion"],
     minMatches: 2,
     excludeSymptomIds: [],
-    screenTypeCode: "fbc",
+    panelBundleCode: "single_fbc",
     patientExplanation:
       "Ongoing tiredness, looking pale, and getting breathless with mild activity can point to low iron levels. A full blood count (FBC) checks for this.",
     textTriggers: [/(always|so|really) tired/i, /(look|looking|feel) pale/i, /(short of breath|breathless).{0,20}(stairs|walking|mild)/i],
@@ -144,7 +151,7 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     anchorSymptomIds: ["burning_urination", "frequent_urination", "lower_abdomen_discomfort"],
     minMatches: 2,
     excludeSymptomIds: ["fever", "flank_pain", "blood_in_urine"],
-    screenTypeCode: "urinalysis",
+    panelBundleCode: "single_urinalysis",
     patientExplanation:
       "Burning when you urinate, needing to go more often, and mild lower-abdomen discomfort are common signs of a urinary tract infection. A urinalysis is the usual way to confirm it.",
     textTriggers: [/burn(s|ing)?.{0,15}(when i|to) (pee|urinate)/i, /(pain|sting).{0,10}(peeing|urination)/i],
@@ -155,7 +162,7 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     anchorSymptomIds: ["swelling_ankles_feet", "foamy_urine", "reduced_urination", "fatigue"],
     minMatches: 2,
     excludeSymptomIds: [],
-    screenTypeCode: "kft",
+    panelBundleCode: "single_kft",
     patientExplanation:
       "Swelling in your ankles or feet, foamy urine, and urinating less than usual together can point to how well your kidneys are filtering. A kidney function test (U&E, creatinine, eGFR) is the usual first step to check.",
     textTriggers: [
@@ -175,7 +182,7 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     anchorSymptomIds: ["dark_urine", "right_upper_abdomen_discomfort", "fatigue"],
     minMatches: 2,
     excludeSymptomIds: ["jaundice"],
-    screenTypeCode: "lft",
+    panelBundleCode: "single_lft",
     patientExplanation:
       "Dark urine, discomfort on the upper right side of your abdomen, and ongoing tiredness together are worth checking with a liver function test.",
     textTriggers: [/dark.{0,10}urine/i, /(pain|discomfort).{0,20}(upper right|right side).{0,15}(abdomen|stomach|belly)/i],

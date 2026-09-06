@@ -39,7 +39,7 @@ as $$
   order by o.requested_at desc;
 $$;
 
-revoke execute on function public.pharmacist_orders() from public;
+revoke execute on function public.pharmacist_orders() from public, anon;
 revoke execute on function public.pharmacist_orders() from anon;
 grant execute on function public.pharmacist_orders() to authenticated;
 

@@ -7,8 +7,11 @@ import type { Enums } from "@tarragon/shared";
  * render. A nudge is a suggestion for the patient to act on or discuss with
  * their care team — never a diagnosis, never fed into risk/escalation
  * scoring (same discipline as mental_health_screens' "engagement telemetry,
- * not clinical" rule). The next-period estimate is explicitly labelled an
- * estimate, not a prediction.
+ * not clinical" rule).
+ *
+ * Cycle PREDICTION is not here: it lives in cycle-prediction.ts, which reads
+ * the patient's logged period history. This file only turns a self-reported
+ * life stage into a nudge.
  */
 
 export type ReproductiveLifeStage = Enums<"reproductive_life_stage">;
@@ -24,25 +27,22 @@ export interface CycleNudge {
   label: string;
 }
 
-function addDays(isoDate: string, days: number): string {
-  const date = new Date(`${isoDate}T00:00:00.000Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 export function computeCycleNudges(input: CycleNudgeInput): CycleNudge[] {
   const nudges: CycleNudge[] = [];
 
   switch (input.lifeStage) {
     case "menstruating": {
-      if (input.lastPeriodDate) {
-        const cycleLength = input.averageCycleLengthDays ?? 28;
-        const estimate = addDays(input.lastPeriodDate, cycleLength);
-        nudges.push({
-          id: "next_period_estimate",
-          label: `Estimated next period around ${new Date(estimate).toLocaleDateString()} (based on your average cycle — not a prediction).`,
-        });
-      }
+      // The next-period estimate that used to live here has moved to the
+      // cycle tracker (/patient/cycle), which derives it from the patient's
+      // OBSERVED period history rather than a self-reported average, and
+      // carries a confidence level and an uncertainty window. Keeping a
+      // second, cruder estimate here would have meant two places on the
+      // platform quietly disagreeing about the same date.
+      nudges.push({
+        id: "open_cycle_tracker",
+        label:
+          "Track your period in the cycle tracker to see what to expect next, and log how you feel day to day.",
+      });
       break;
     }
     case "trying_to_conceive": {

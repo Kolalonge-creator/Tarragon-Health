@@ -6,14 +6,20 @@ import {
   activeUsersTimeseriesSchema,
   alertBurdenSchema,
   alertQualitySchema,
+  appointmentCapacitySchema,
   auditLogSchema,
   auditSummarySchema,
   businessSummarySchema,
+  careEngagementSummarySchema,
   clinicalOutcomesSchema,
+  complaintsSummarySchema,
   deliverabilitySchema,
+  diseaseSurveillanceSchema,
   doctorPerformanceSchema,
+  engagementOutcomeCorrelationSchema,
   engagementSummarySchema,
   escalationQualitySchema,
+  executiveSummarySchema,
   facilityEngagementSchema,
   featureAdoptionSchema,
   financeInputsSchema,
@@ -26,13 +32,19 @@ import {
   patientActivitySchema,
   patientSearchSchema,
   populationSummarySchema,
+  programmeFunnelSchema,
   providerCapacitySchema,
+  referralTurnaroundSchema,
   retentionCohortsSchema,
   riskRegisterSchema,
   safetyDashboardSummarySchema,
+  screeningReferralFunnelSchema,
+  serviceCoverageSchema,
   staffActivitySchema,
+  supportResponseTimeSchema,
+  supportTicketSummarySchema,
   userSegmentsSchema,
-  revenueByPlanSchema,
+  revenueByProductSchema,
   revenueTimeseriesSchema,
   trafficSummarySchema,
   trafficTimeseriesSchema,
@@ -96,13 +108,13 @@ export function useRevenueTimeseries(period: GrowthPeriod = "month") {
   });
 }
 
-export function useRevenueByPlan() {
+export function useRevenueByProduct() {
   return useQuery({
-    queryKey: ["analytics", "revenue-by-plan"],
+    queryKey: ["analytics", "revenue-by-product"],
     queryFn: async () => {
-      const { data, error } = await createClient().rpc("analytics_revenue_by_plan");
+      const { data, error } = await createClient().rpc("analytics_revenue_by_product");
       if (error) throw error;
-      return revenueByPlanSchema.parse(data);
+      return revenueByProductSchema.parse(data);
     },
   });
 }
@@ -126,6 +138,32 @@ export function useGeoHealthAggregates() {
       const { data, error } = await createClient().rpc("get_geo_health_aggregates");
       if (error) throw error;
       return geoHealthAggregatesSchema.parse(data);
+    },
+  });
+}
+
+/** Trend-over-time surveillance (spec §12.4) — new enrollments, risk scoring, screening results. */
+export function useDiseaseSurveillance(period: GrowthPeriod = "month") {
+  return useQuery({
+    queryKey: ["analytics", "disease-surveillance", period],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_disease_surveillance", {
+        p_period: period,
+      });
+      if (error) throw error;
+      return diseaseSurveillanceSchema.parse(data);
+    },
+  });
+}
+
+/** Per-condition Enrolled -> Monitoring -> Controlled/Uncontrolled -> Lost-to-follow-up (spec §12.8/§12.10). */
+export function useProgrammeFunnel() {
+  return useQuery({
+    queryKey: ["analytics", "programme-funnel"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_programme_funnel");
+      if (error) throw error;
+      return programmeFunnelSchema.parse(data);
     },
   });
 }
@@ -221,6 +259,17 @@ export function useEngagementSummary() {
   });
 }
 
+export function useCareEngagementSummary() {
+  return useQuery({
+    queryKey: ["analytics", "care-engagement-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_care_engagement_summary");
+      if (error) throw error;
+      return careEngagementSummarySchema.parse(data);
+    },
+  });
+}
+
 export function useActiveUsersTimeseries(period: GrowthPeriod = "day") {
   return useQuery({
     queryKey: ["analytics", "active-users", period],
@@ -252,6 +301,17 @@ export function useRetentionCohorts() {
       const { data, error } = await createClient().rpc("analytics_retention_cohorts");
       if (error) throw error;
       return retentionCohortsSchema.parse(data);
+    },
+  });
+}
+
+export function useEngagementOutcomeCorrelation() {
+  return useQuery({
+    queryKey: ["analytics", "engagement-outcome-correlation"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_engagement_outcome_correlation");
+      if (error) throw error;
+      return engagementOutcomeCorrelationSchema.parse(data);
     },
   });
 }
@@ -298,6 +358,29 @@ export function useDeliverability() {
       const { data, error } = await createClient().rpc("analytics_deliverability", {});
       if (error) throw error;
       return deliverabilitySchema.parse(data);
+    },
+  });
+}
+
+// ---- Patient Support & Service Centre (spec §24, technical support only) --
+export function useSupportTicketSummary() {
+  return useQuery({
+    queryKey: ["analytics", "support-ticket-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_support_ticket_summary", {});
+      if (error) throw error;
+      return supportTicketSummarySchema.parse(data);
+    },
+  });
+}
+
+export function useComplaintsSummary() {
+  return useQuery({
+    queryKey: ["analytics", "complaints-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_complaints_summary", {});
+      if (error) throw error;
+      return complaintsSummarySchema.parse(data);
     },
   });
 }
@@ -438,17 +521,6 @@ export function useAlertBurden() {
   });
 }
 
-export function useAlertQuality() {
-  return useQuery({
-    queryKey: ["analytics", "alert-quality"],
-    queryFn: async () => {
-      const { data, error } = await createClient().rpc("analytics_alert_quality");
-      if (error) throw error;
-      return alertQualitySchema.parse(data);
-    },
-  });
-}
-
 export function useRiskRegister() {
   return useQuery({
     queryKey: ["analytics", "risk-register"],
@@ -559,6 +631,98 @@ export function useAccountingSummary() {
       const { data, error } = await createClient().rpc("analytics_accounting_summary");
       if (error) throw error;
       return accountingSummarySchema.parse(data);
+    },
+  });
+}
+
+// ---- Executive dashboard (Operations & Command Centre §96.3) --------------
+export function useExecutiveSummary() {
+  return useQuery({
+    queryKey: ["analytics", "executive-summary"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_executive_summary");
+      if (error) throw error;
+      return executiveSummarySchema.parse(data);
+    },
+  });
+}
+
+// ---- Screening -> referral -> treatment funnel (§96.4) ---------------------
+export function useScreeningReferralFunnel(from?: string | null, to?: string | null) {
+  return useQuery({
+    queryKey: ["analytics", "screening-referral-funnel", from, to],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_screening_referral_funnel", {
+        p_from: from ?? undefined,
+        p_to: to ?? undefined,
+      });
+      if (error) throw error;
+      return screeningReferralFunnelSchema.parse(data);
+    },
+  });
+}
+
+// ---- Service levels (§96.8) -------------------------------------------------
+export function useAppointmentCapacity() {
+  return useQuery({
+    queryKey: ["analytics", "appointment-capacity"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_appointment_capacity");
+      if (error) throw error;
+      return appointmentCapacitySchema.parse(data);
+    },
+  });
+}
+
+export function useAlertQuality(from?: string | null, to?: string | null) {
+  return useQuery({
+    queryKey: ["analytics", "alert-quality", from, to],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_alert_quality", {
+        p_from: from ?? undefined,
+        p_to: to ?? undefined,
+      });
+      if (error) throw error;
+      return alertQualitySchema.parse(data);
+    },
+  });
+}
+
+export function useReferralTurnaround() {
+  return useQuery({
+    queryKey: ["analytics", "referral-turnaround"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_referral_turnaround");
+      if (error) throw error;
+      return referralTurnaroundSchema.parse(data);
+    },
+  });
+}
+
+export function useSupportResponseTime() {
+  return useQuery({
+    queryKey: ["analytics", "support-response-time"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("analytics_support_response_time");
+      if (error) throw error;
+      return supportResponseTimeSchema.parse(data);
+    },
+  });
+}
+
+// ---- Geographic capacity (§96.9) -------------------------------------------
+/** Reads the same anon-callable public.public_service_coverage() the marketing
+ * /coverage page uses (apps/web/src/lib/marketing/coverage-data.ts), but through
+ * the platform's authenticated client like every other analytics hook here —
+ * the marketing tree's bare-anon-client rule exists to keep that tree free of
+ * platform/auth imports, which doesn't apply inside the analytics console. */
+export function useServiceCoverage() {
+  return useQuery({
+    queryKey: ["analytics", "service-coverage"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("public_service_coverage");
+      if (error) throw error;
+      return serviceCoverageSchema.parse(data);
     },
   });
 }

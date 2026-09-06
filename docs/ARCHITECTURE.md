@@ -14,7 +14,7 @@ These derive directly from `CLAUDE.md` and shape every decision below.
 2. **Multi-tenant by construction.** Every domain table carries `organisation_id`. Tenant isolation is enforced by **Postgres Row-Level Security (RLS)** — never in application code, never bypassed "just for this query".
 3. **App/web is the interface for signup, every core action, and all patient↔care-team messaging; WhatsApp is notifications only.** *(Superseded 2026-07-11, then 2026-07-30 — see CLAUDE.md.)* Signup, onboarding, and every core patient/clinician transaction (vitals/meds/screening/booking, etc.) happen via app or web — no feature may depend on a WhatsApp send succeeding, and there is no WhatsApp-initiated signup or bot-driven data entry. Two-way patient↔care-team conversation is in-app only (`care_messages`), never WhatsApp — WhatsApp/SMS carry reminders/alerts/confirmations only.
 4. **The abnormal-result event is sacred.** A screening result of `abnormal|critical` triggering a Category 1 upgrade is the highest-priority event in the system. It must be immediate, reliable, and auditable — never lost, never silently swallowed.
-5. **Money is exact.** All NGN stored in **kobo** (integer). Diaspora billing in GBP (primary) / USD (secondary) via Stripe.
+5. **Money is exact.** All NGN stored in **kobo** (integer). **Paystack (NGN) is the only live payment provider** — Stripe was removed entirely 2026-09-03 (no UK entity was ever registered to use it; `isStripeConfigured()` always failed closed). Diaspora billing is no longer a GBP/USD subscription tier — a diaspora buyer sponsors an NGN purchase (Care Voucher / gift-a-health-check) for a patient in Nigeria. See `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s 2026-08-31 to 2026-09-03 entry.
 6. **Data residency + compliance first.** Supabase Postgres in **`eu-west-1`** (Supabase has no Africa region; closest available to Nigeria, NDPR residency gap accepted for now). Immutable audit log for every clinical, billing, and ML event.
 7. **Everything typed.** TypeScript strict, no `any`, Zod at every API boundary. Python 3.12, Pydantic v2 at every ML endpoint.
 
@@ -33,7 +33,7 @@ These derive directly from `CLAUDE.md` and shape every decision below.
 | AI orchestration | **LangGraph.js + Claude API** | Clinical workflows, summaries, triage support |
 | ML microservice | **Python 3.12 + FastAPI 0.115+**, uv | `services/ml` — stateless, standalone |
 | Comms | **WhatsApp Cloud API** + **Termii SMS** (fallback) | Notifications + human doctor↔patient support chat only — never a transactional/signup interface (§1.3) — E.164 numbers, `Africa/Lagos` tz |
-| Payments | **Paystack** (NGN), **Stripe** (GBP/USD) | Kobo storage, webhook-driven |
+| Payments | **Paystack** (NGN) — the only live provider, Stripe removed 2026-09-03 | Kobo storage, webhook-driven |
 | Hosting | **Vercel** (web + Edge), **Railway/Render** (ML — TBD), **Cloudflare** (DNS/edge) | ML host not yet provisioned |
 | Shared types/client | `packages/shared` | Zod schemas, DB types, typed `ml-client.ts` |
 
@@ -78,7 +78,7 @@ graph TB
     LAB[Labs]
     PHARM[Pharmacies]
     SPEC[Specialists / Hospitals]
-    PAY[Paystack / Stripe]
+    PAY[Paystack]
   end
 
   P & F --> WA & WEB & MOB
@@ -198,7 +198,7 @@ erDiagram
 ### 6.3 Money & Units
 
 - NGN amounts: `bigint` kobo. Never floats. Formatting to ₦ happens only at the presentation edge.
-- Diaspora: Stripe in GBP (primary) / USD; store minor units + currency code.
+- Diaspora: no longer a separate GBP/USD path (Stripe removed 2026-09-03) — a diaspora buyer pays Paystack NGN as a sponsor/gift purchase, same minor-unit/currency-code storage as any other purchase.
 - Phone: E.164 text, validated by Zod. Timestamps stored UTC, presented `Africa/Lagos`.
 
 ---
@@ -299,20 +299,14 @@ Models loaded once at startup (lifespan), never per request. Pydantic v2 in/out.
 
 ```mermaid
 graph LR
-  subgraph NGN
-    PS[Paystack] -- webhooks --> PWH[Edge Fn: paystack-webhook]
-    PWH --> BILL[(subscriptions / commissions)]
-  end
-  subgraph Diaspora
-    ST[Stripe GBP/USD] -- webhooks --> SWH[Edge Fn: stripe-webhook]
-    SWH --> BILL
-  end
-  BILL --> DASH[Financial dashboard: MRR/ARR/churn/receivables]
+  PS[Paystack] -- webhooks --> PWH[Edge Fn: paystack-webhook]
+  PWH --> BILL[(service_purchases / care_vouchers)]
+  BILL --> DASH[Financial dashboard: revenue/receivables]
 ```
 
-- Paystack: recurring NGN; handle `charge.success`, `charge.failure`, `subscription.disable`; 7-day grace + dunning. **Webhook signature validation** tested against replay.
-- Stripe: GBP diaspora, Customer Portal for self-serve.
-- HMO capitation (₦/member/month) and corporate per-employee-per-year billing are contract tables with monthly invoice/claim generation (NHIA-format for HMO).
+- Paystack: the only live payment provider (Stripe was removed entirely 2026-09-03 — no UK entity was ever registered to use it). Handles `charge.success`, `charge.failure`; pay-per-service checkout, not recurring subscriptions (retired 2026-08-31/2026-09-02 — see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`). **Webhook signature validation** tested against replay.
+- Diaspora billing is the sponsor/Care Voucher model — a diaspora buyer pays Paystack NGN to sponsor a purchase for a patient in Nigeria, not a separate GBP/USD product.
+- HMO capitation was removed as a shipped guardrail 2026-07-29 ("no capitation, ever" — see `CLAUDE.md`'s Non-Negotiable Business Rules, I8). Corporate/employer billing runs through `service_purchases`/employer roster billing, not a capitation contract table.
 
 ---
 
@@ -347,7 +341,7 @@ graph LR
 
 Environments: `local` → `preview` (Vercel per-PR) → `production`. Supabase branches/migrations gate schema changes.
 
-**Provisioning status:** Supabase, Vercel, Upstash, WhatsApp Cloud API, Paystack, Stripe are set up. **Action item:** choose + provision the ML host (Railway or Render) before Sprint 4.
+**Provisioning status:** Supabase, Vercel, Upstash, WhatsApp Cloud API, Paystack are set up (Stripe was provisioned but never usable, then removed entirely 2026-09-03). **Action item:** choose + provision the ML host (Railway or Render) — still undecided, ML microservice sprint has been paused since 2026-07-09.
 
 ---
 
@@ -363,9 +357,10 @@ Environments: `local` → `preview` (Vercel per-PR) → `production`. Supabase b
 | `UPSTASH_REDIS_REST_URL` / `_TOKEN` | server | Redis / conversation state |
 | `WHATSAPP_*` (token, phone id, verify token) | server | WhatsApp Cloud API |
 | `TERMII_API_KEY` | server | SMS fallback |
-| `PAYSTACK_SECRET_KEY` / `PAYSTACK_WEBHOOK_SECRET` | server | NGN payments |
-| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | server | Diaspora payments |
+| `PAYSTACK_SECRET_KEY` / `PAYSTACK_WEBHOOK_SECRET` | server | NGN payments — the only live provider |
 | `ANTHROPIC_API_KEY` | server | Claude / LangGraph |
+
+(`STRIPE_SECRET_KEY`/`STRIPE_WEBHOOK_SECRET` are gone — Stripe was removed entirely 2026-09-03, `.env.example` no longer references it.)
 
 Only `NEXT_PUBLIC_`-prefixed vars are client-exposed.
 
@@ -388,8 +383,8 @@ Only `NEXT_PUBLIC_`-prefixed vars are client-exposed.
 | **2** | Core Patient OS — vitals, care plans, prevention scheduler, **AbnormalResultHandler**, patient + clinician dashboards |
 | **3** | WhatsApp/SMS outbound notification engine (reminders/alerts/confirmations for vitals/meds/screening/lab-booking — app/web remains the interface) + inbound human support chat (webhook → clinician inbox, no automation), LangGraph clinical flow, family portal, SMS fallback |
 | **4** | ML service — SCORE2, HbA1c trajectory, BP control, lab/screening interpretation, cohort analytics, batch; deploy to Railway/Render; wire `ml-client` with 5s timeout + fallback |
-| **5** | Lab & pharmacy network — catalogues, bundle pricing, screening-specific booking, commission tracking |
-| **6** | Billing/revenue — plans, Paystack subscriptions, Stripe diaspora, HMO capitation, corporate billing, financial dashboard |
+| **5** | Lab & pharmacy network — superseded 2026-08-03 by self-arranged fulfilment (patient pays the lab/pharmacy directly, uploads results); Tarragon no longer books, bills, or takes a commission on either |
+| **6** | Billing/revenue — pay-per-service (`service_products`) via Paystack only; subscriptions and HMO capitation were both retired/removed as products (2026-09-02, 2026-07-29 respectively); financial dashboard |
 | **7** | Corporate/HMO dashboards, outcomes reporting, admin, referral programme, audit trail + NDPR tools |
 | **16 (wk)** | Security audit, load test (100 concurrent vitals), launch gates |
 

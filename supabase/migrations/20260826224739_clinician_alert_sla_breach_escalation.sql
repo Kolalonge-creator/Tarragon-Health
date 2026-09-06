@@ -124,7 +124,7 @@ $$;
 comment on function private.escalate_overdue_clinician_alerts() is
   'Nightly-plus sweep: any open clinician_alerts row past sla_due_at gets its org Clinical Director notified (and, past 24h overdue, every platform admin too), deduplicated to once per calendar day, and always audit-logged. Never mutates the alert''s own level/escalation_level -- see migration header for why.';
 
-revoke all on function private.escalate_overdue_clinician_alerts() from public;
+revoke all on function private.escalate_overdue_clinician_alerts() from public, anon;
 
 select cron.schedule(
   'clinician-alert-sla-breach-escalation',

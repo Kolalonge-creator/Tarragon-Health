@@ -6,6 +6,7 @@ import { DIABETES_TYPES, DIABETES_TYPE_LABEL } from "@/lib/validation/diabetes-t
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 /**
@@ -24,6 +25,7 @@ export function DiabetesTypeSelector({
   confirmed: string | null;
 }) {
   const [state, action, pending] = useActionState(setPatientReportedDiabetesType, undefined);
+  const errorId = fieldErrorId("diabetes_type");
 
   return (
     <Card>
@@ -32,14 +34,14 @@ export function DiabetesTypeSelector({
       </CardHeader>
       <CardContent className="space-y-2">
       {confirmed ? (
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           Your care team has confirmed:{" "}
-          <span className="font-medium text-deep-forest">
+          <span className="font-medium text-deep-forest dark:text-brand-green-bright">
             {DIABETES_TYPE_LABEL[confirmed as keyof typeof DIABETES_TYPE_LABEL] ?? confirmed}
           </span>
         </p>
       ) : (
-        <p className="text-xs text-charcoal-ink/60">
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           This helps your care team give you the right guidance (for example, insulin should
           never be stopped in type 1). Tell us what you were told at diagnosis; your care team
           will confirm it.
@@ -48,7 +50,7 @@ export function DiabetesTypeSelector({
       <form action={action} className="flex flex-wrap items-end gap-3">
         <div className="space-y-1.5">
           <Label htmlFor="diabetes_type">Type</Label>
-          <Select id="diabetes_type" name="diabetes_type" defaultValue={currentReported ?? ""} required>
+          <Select id="diabetes_type" name="diabetes_type" defaultValue={currentReported ?? ""} required {...fieldErrorProps(errorId, Boolean(state?.error))}>
             <option value="" disabled>
               Select a type
             </option>
@@ -63,8 +65,8 @@ export function DiabetesTypeSelector({
           {pending ? "Saving…" : "Save"}
         </Button>
       </form>
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Saved.</p>}
+      <FormError id={errorId} message={state?.error} />
+      <FormSuccess message={state?.success && "Saved."} />
       </CardContent>
     </Card>
   );

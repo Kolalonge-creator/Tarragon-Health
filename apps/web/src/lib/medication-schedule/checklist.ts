@@ -1,6 +1,6 @@
 import type { Tables } from "@tarragon/shared";
 
-export type DoseStatus = "pending" | "taken" | "missed" | "skipped";
+export type DoseStatus = "pending" | "taken" | "missed" | "skipped" | "delayed" | "not_available";
 
 export type DoseChecklistItem = {
   medicationId: string;
@@ -10,7 +10,13 @@ export type DoseChecklistItem = {
 };
 
 type MedicationForChecklist = Pick<Tables<"medications">, "id" | "drug_name" | "schedule_times">;
-type LogForChecklist = Pick<Tables<"medication_logs">, "medication_id" | "scheduled_time" | "status">;
+// Sourced from medication_logs_latest_per_slot (20260830224528), not the raw
+// append-only table — a view's columns are nullable regardless of the
+// underlying column, hence the broader types here versus medication_logs'.
+type LogForChecklist = Pick<
+  Tables<"medication_logs_latest_per_slot">,
+  "medication_id" | "scheduled_time" | "status"
+>;
 
 /** `logs` is expected to already be scoped to today's date by the caller. */
 export function buildTodaysDoseChecklist(

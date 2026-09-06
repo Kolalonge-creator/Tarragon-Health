@@ -16,13 +16,14 @@ import "server-only";
  * and runCoachingLoop always routes the result through applyGuardrails, so
  * this is additive to the existing safety contract, not a change to it.
  */
-import { createMlClientFromEnv } from "@tarragon/shared";
+
 import { runCoachingLoop, type ProgrammeSignals } from "@tarragon/lifestyle-engine";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createLifestyleMessagingGateway } from "./messaging-gateway";
 import { createLifestyleCoachingProposer } from "./coaching-proposer";
 import { CONDITION_LABEL, getLifestyleState } from "./service";
 import { createVoyageEmbedderFromEnv } from "./voyage-embedder";
+import { createGovernedMlClient } from "@/lib/ml/governed-ml-client";
 
 export interface CoachingRunResult {
   processed: number;
@@ -34,7 +35,6 @@ const WINDOW_MS = 30 * 86_400_000;
 
 export async function runLifestyleCoaching(): Promise<CoachingRunResult> {
   const svc = createServiceRoleClient();
-  const ml = createMlClientFromEnv();
   // Built once, reused for every patient this run — `null` when
   // VOYAGE_API_KEY is unset, so reference-material retrieval is skipped
   // gracefully for the whole run rather than per-patient.
@@ -59,6 +59,15 @@ export async function runLifestyleCoaching(): Promise<CoachingRunResult> {
 
     const logs = (meas ?? []).map((m) => m.taken_at);
     const asOf = new Date().toISOString();
+
+    // AI-010, per patient: the governed wrapper needs the subject to attribute
+    // the audit row, so the client is built inside the loop rather than once
+    // for the run. Governance itself is cached in-process, so this costs one
+    // extra lookup per minute across the whole sweep, not one per patient.
+    const ml = createGovernedMlClient(svc, {
+      subjectProfileId: e.patient_id,
+      inputCategory: "lifestyle_coaching_signals",
+    });
 
     let disengagementRisk = 0;
     let daysSinceLastLog: number | null = null;
@@ -127,7 +136,7 @@ export async function runLifestyleCoaching(): Promise<CoachingRunResult> {
         goalTitles: view?.goals.map((g) => g.title) ?? [],
         recentWeightKg,
       },
-      { supabase: svc, embedder },
+      { supabase: svc, embedder, patientId: e.patient_id },
     );
 
     const { action } = await runCoachingLoop(signals, { proposer });

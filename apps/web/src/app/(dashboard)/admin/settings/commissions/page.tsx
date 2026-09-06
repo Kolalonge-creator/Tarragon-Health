@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { CommissionsDashboard } from "./commissions-dashboard";
 
 export default async function CommissionsSettingsPage() {
@@ -13,13 +14,10 @@ export default async function CommissionsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Commission tracking</h1>
-        <p className="text-charcoal-ink/60">
-          Every lab, pharmacy, and specialist-referral commission Tarragon has earned from its
-          partner network, auto-recorded the moment an order&apos;s payment is confirmed.
-        </p>
-      </div>
+      <PageHeader
+        title="Commission tracking"
+        description="Every lab, pharmacy, and specialist-referral commission Tarragon has earned from its partner network, auto-recorded the moment an order's payment is confirmed."
+      />
       <CommissionsDashboard />
     </div>
   );

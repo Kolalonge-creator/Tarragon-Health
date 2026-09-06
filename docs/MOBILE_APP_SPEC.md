@@ -7,9 +7,25 @@ current — see `CLAUDE.md`'s Device & Wearable Integration section, corrected 2
 
 ## 0. Architecture decision: hybrid, not a full native rewrite
 
-`apps/mobile` today is a two-tab Expo shell (`apps/mobile/App.tsx`): a WebView of the live web
-deployment ("Home") plus a genuinely native "Devices" tab (BLE pairing + Apple Health). That split is
-the right shape to build on, not a stopgap to replace.
+**Corrected 2026-09-03 — the app has grown well past the "one WebView tab + one native tab" shape
+described below.** `App.tsx`'s own comment now describes: Home (a full native app shell + per-section
+WebViews, see `home-shell.tsx`) and Devices — "the two tabs from the Claude Design prototype's iOS
+frame." `home-shell.tsx` implements a real native shell (`TopBar`, `NavDrawer`, `BottomTabBar`,
+`ActingForBanner`) routing between **9 native section screens** (`overview-screen.tsx`,
+`vitals-screen.tsx`, `medications-screen.tsx`, `labs-screen.tsx`, `messages-screen.tsx`,
+`health-passport-screen.tsx`, `emergency-card-screen.tsx`, `settings-screen.tsx`,
+`supporting-screen.tsx` — ~2,000 lines total) plus WebView fallback for the rest, per
+`apps/mobile/src/lib/sections.ts`'s 18-section registry (its own header comment names the 5 sections
+that were WebView-backed specifically because they were previously missing entirely: Learn library,
+Lifestyle coaching, Wellness rewards, the yearly Health Check, buying a service). The §2 predictions
+below (Overview as a lightweight summary card only, Labs mostly WebView, Settings mostly WebView) are
+now wrong for the sections that got native screens — read `apps/mobile/src/lib/sections.ts` as the
+current source of truth for what's native vs. WebView, not this document's §2 table.
+
+`apps/mobile` originally shipped (2026-08-08) as a two-tab Expo shell (`apps/mobile/App.tsx`): a
+WebView of the live web deployment ("Home") plus a genuinely native "Devices" tab (BLE pairing + Apple
+Health). That split was the right shape to build on, not a stopgap to replace — it has since grown
+into the native-shell-plus-WebView-fallback shape described in the correction above.
 
 **Decision: go native only for the ~10 screens a patient touches weekly. WebView everything else.**
 Rewriting prevention, labs, wellness, family, referrals, or any admin/staff surface natively buys
@@ -31,7 +47,7 @@ hybrid split.
 | Screen | Backend |
 |---|---|
 | Splash / session restore | Supabase session via `expo-secure-store` (already built: `apps/mobile/src/lib/supabase.ts`); route by `profiles.user_role` |
-| Login | `login-screen.tsx` exists but is currently only reachable from the Devices tab — promote to an app-level gate in front of both tabs |
+| Login | ~~`login-screen.tsx` exists but is currently only reachable from the Devices tab — promote to an app-level gate in front of both tabs~~ — **DONE.** `App.tsx` now renders `LoginScreen` as the top-level gate whenever the session is null, in front of both tabs. |
 | Sign up | Mirrors `/signup`. Never WhatsApp-initiated — platform-wide rule, unchanged for mobile |
 | Forgot / reset password | Mirrors `/forgot-password`, `/reset-password`. The web reset flow uses a URL-fragment + PKCE token exchange (`@supabase/ssr`) that broke once before (see `project_finance_tooling_shipped_reset_password_fragment_bug` memory) — native needs its own deep-link handler for the recovery link, don't assume the web flow ports as-is |
 | Consent gate | Telehealth + data consent, blocks dashboard access until accepted — same server-side gate as web, called via a Route Handler |
@@ -144,6 +160,18 @@ Android devices before any of this can be called confirmed-working.
 
 ## 4. Push notifications — unify web + native (biggest backend change)
 
+**STATUS: SHIPPED 2026-08-09, one day after this proposal was written — rewrite below is historical
+design rationale, not a pending task.** `push_subscriptions` gained the exact `platform`/
+`expo_push_token` columns and constraints proposed here in
+`supabase/migrations/20260809195100_push_subscriptions_native_platforms.sql`. `sendExpoPush()` exists
+in `supabase/functions/send-pending-notifications/index.ts` exactly as specced, called from the same
+fan-out as `sendWebPush()`. The mobile client registers via `apps/mobile/src/lib/push-registration.ts`
+(`getExpoPushTokenAsync()` → upserts into `push_subscriptions`), wired into `App.tsx` on login
+(`registerPushToken(...)`). The one still-open item from this section is deep-link routing on
+notification tap — see Open Item #5 in §10, unchanged.
+
+**Original proposal text, kept for design rationale:**
+
 **Current state, verified against the live deployment (2026-08-08):** `push_subscriptions`
 (`supabase/migrations/20260730153214_push_subscriptions.sql`) stores **Web Push only** —
 `endpoint`, `p256dh_key`, `auth_key`, no platform/token-type column. `send-pending-notifications`
@@ -232,10 +260,30 @@ equivalent.
 This matters more for Nigeria than any single feature above. Three screens must work with zero
 signal and sync later:
 
-- **Quick vitals log** and **today's doses**: write to a local SQLite/AsyncStorage outbox first,
-  render optimistically, sync in the background (`expo-task-manager` or a foreground retry-on-reconnect
-  queue) with idempotency keys so a retried sync can't double-insert. Conflict resolution is simple
-  here — these are append-only event logs, not editable records, so last-write-wins isn't a concern.
+- **Quick vitals log — built (2026-09-01).** `lib/offline-vitals-queue.ts` writes to a local
+  `expo-sqlite` outbox first (`enqueueVitalReading`), rendering optimistically with a "N readings
+  waiting to sync" indicator on the Vitals screen; `flushPendingVitals()` drains it — called
+  opportunistically after every save, on app foreground (`App.tsx`), and from the shared periodic
+  `expo-background-task` (`background-sync.ts`). Idempotency key: a client-generated
+  `client_reading_id` UUID, deduped server-side by `vitals_readings_client_dedupe_idx` — a retried
+  flush after a dropped connection is a no-op, not a duplicate. Append-only event log, so
+  last-write-wins isn't a concern, same as this section originally assumed.
+  - **BP + glucose additionally get an on-device red-flag check and a native, bundled-copy
+    "go to the nearest hospital now" guidance modal** (`lib/glucose-red-flags.ts`,
+    `lib/bp-classification.ts`'s `BP_THRESHOLDS`, `screens/emergency-guidance-modal.tsx`) — the pre-
+    build survey for this found that the web `EmergencyAlert`/danger-symptom-check flow (§2.2) only
+    reaches mobile through the WebView, which itself needs network, so a red-flagged reading logged
+    natively while offline previously had no safety-net UI at all. The modal never creates or
+    acknowledges a server-side `emergency_events` row itself — that stays server-side, driven by the
+    same pipeline once the reading actually syncs; the modal is a client-only rendering layer with a
+    tap-to-dial fallback (bundled `lib/nigeria-emergency-numbers.ts` + the cached emergency contact
+    from `lib/emergency.ts`) for while it hasn't yet. Weight/temperature/SpO2/pulse get the same
+    offline queue but no on-device classification or modal.
+  - Thresholds are bundled in the binary as the default, with a periodic best-effort version check
+    against `/api/mobile/vitals-thresholds` (`lib/threshold-sync.ts`) so a stale build doesn't
+    silently drift from the server's `GLUCOSE_THRESHOLDS`/`BP_THRESHOLDS` if either changes.
+- **Today's doses**: still open — same outbox/idempotency-key shape as vitals logging above, not yet
+  built for the dose-marking screen.
 - **Emergency card**: cache the full rendered card (blood group, allergies, conditions, emergency
   contact, the `/emergency/[token]` share link/QR) on every successful app open, so it renders from
   cache with no network at all. This is the one screen where offline isn't a nice-to-have.
@@ -291,10 +339,13 @@ separate app-store listing and a separate spec, not an extension of this one.
 
 ## 10. Open items / risks
 
-1. **Health Connect (Android) is unbuilt** — see §3. Blocks calling Android health-sync "at parity"
-   with iOS until it exists.
-2. **HealthKit bridge has never run on real hardware** — confirm on a physical iPhone via an EAS dev
-   build before shipping.
+1. ~~**Health Connect (Android) is unbuilt**~~ — **built 2026-08-12**, self-contradicts §3 above
+   (`android-health-connect-card.tsx`, `lib/health-connect.ts` both confirmed to exist). Same open
+   item as #2 below: never run on real hardware, and Health Connect specifically requires a real
+   EAS/prebuild native binary (TurboModule, throws on import in Expo Go) — cannot be exercised at all
+   without one.
+2. **Neither HealthKit nor Health Connect has ever run on real hardware** — confirm on physical
+   iPhone and Android devices via an EAS dev build before shipping either.
 3. **`send-pending-notifications` has drifted from source before (repeatedly)** — this spec's push
    design assumes today's confirmed-in-sync state (v27, verified 2026-08-08); re-check
    `deployed sha256` vs. source before building the Expo-push branch on top of it, don't assume it's

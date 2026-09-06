@@ -74,10 +74,10 @@ export function ReviewPrice({
 
   return (
     <div className={className}>
-      <p className="text-2xl font-semibold tabular-nums text-charcoal-ink">
+      <p className="text-2xl font-semibold tabular-nums text-charcoal-ink dark:text-night-ink">
         ₦{koboToNaira(display.totalKobo).toLocaleString("en-NG")}
       </p>
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         {display.testCount === 1
           ? "One test, priced for you. You'll see this number and confirm before anything is charged."
           : `All ${display.testCount} checks in this review, priced for you rather than as a standard package. You'll see this number and confirm before anything is charged.`}

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { LifestyleFlagsClient, type OpenFlag } from "./lifestyle-flags-client";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 /**
  * Clinician worklist for open LPE safety red flags. Org-staff gated (defense in
@@ -21,7 +22,7 @@ export default async function LifestyleFlagsPage() {
     .single();
   if (!profile?.organisation_id) redirect("/");
 
-  const { data: flags } = await supabase
+  const { data: flags, error: flagsError } = await supabase
     .from("lpe_red_flag_events")
     .select("id, patient_id, rule_key, severity, escalation_level, action, opened_at")
     .eq("status", "open")
@@ -57,7 +58,16 @@ export default async function LifestyleFlagsPage() {
           each one down with a reason once the patient has been contacted.
         </p>
       </div>
-      <LifestyleFlagsClient flags={open} />
+      {/* An unread query is not an empty worklist: without this the client
+          below renders its "no open flags" empty state off a failed read. */}
+      {flagsError ? (
+        <LoadFailure>
+          Open lifestyle safety flags could not be loaded, so this page cannot be read as clear.
+          Reload it before assuming there is nothing to review.
+        </LoadFailure>
+      ) : (
+        <LifestyleFlagsClient flags={open} />
+      )}
     </div>
   );
 }

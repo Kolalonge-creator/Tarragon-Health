@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { Enums } from "@tarragon/shared";
+import { FOOD_COST_TIERS } from "@/lib/nutrition/food-catalogue";
 
 /** Meal types — mirror the DB enum public.meal_type. */
 export const MEAL_TYPES = ["breakfast", "lunch", "dinner", "snack"] as const;
@@ -35,3 +36,26 @@ export const nutritionConfirmSchema = z.object({
   confirmed_carbs_g: z.coerce.number().min(0).max(2000).nullish(),
 });
 export type NutritionConfirmInput = z.infer<typeof nutritionConfirmSchema>;
+
+/** Patient self-requests nutrition professional support (spec 19.11). No
+ * required fields — the reason/risk factors are computed server-side from
+ * the patient's own conditions and recent logs, never trusted from the
+ * client (see requestNutritionReferralAction). */
+export const nutritionReferralRequestSchema = z.object({
+  note: z.string().trim().max(500).nullish(),
+});
+export type NutritionReferralRequestInput = z.infer<typeof nutritionReferralRequestSchema>;
+
+/** Budget-aware substitution ask (spec 19.9), e.g. "I cannot afford salmon". */
+export const budgetAlternativeQuerySchema = z.object({
+  food_query: z.string().trim().min(1).max(200),
+});
+export type BudgetAlternativeQueryInput = z.infer<typeof budgetAlternativeQuerySchema>;
+
+/** Generate/regenerate a 7-day meal plan (spec 19.8). Both fields optional —
+ * a patient can generate a plan with no stated budget or preference at all. */
+export const mealPlanRequestSchema = z.object({
+  budget_tier: z.enum(FOOD_COST_TIERS).nullish(),
+  preferences_note: z.string().trim().max(300).nullish(),
+});
+export type MealPlanRequestInput = z.infer<typeof mealPlanRequestSchema>;

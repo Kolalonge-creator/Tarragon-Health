@@ -43,46 +43,27 @@ WhatsApp/SMS notification engine + human doctor↔patient support chat (app/web 
 
 ## 2. Revenue Streams & Pricing
 
-### 2.1 Direct Patient Revenue — Recurring Subscriptions (Categories 1+2)
-| Product | Price/Terms | Includes |
-|---|---|---|
-| Free Health Tracker | Free forever | Self-monitoring, logging, reminders, education, Health Passport |
-| 90-Day Health Reset | Free, guided | Activation/habit-building programme, converts to paid at day 90 |
-| Basic monitoring | ₦8,000/month | BP + glucose tracking, medication reminders, doctor WhatsApp support |
-| Prevention add-on | ₦25,000/year | Screening reminders, result tracking, referral coordination (upsell from Basic) |
-| Annual Health Check | ₦60,000/year | Full metabolic panel + gender-specific cancer screens + year-round monitoring |
-| Family plan | ₦150,000/year | 4–6 members; antenatal, elder care, adult screening combined — highest LTV |
-| Premium ParentCare | Premium tier | Dedicated clinician coordinator, scheduled review, quarterly report, priority escalation |
-| Diaspora — Essential | £15/month (Stripe) | 1 condition monitored remotely, WhatsApp updates, monthly doctor call |
-| Diaspora — Premium | £45/month (Stripe) | Full monitoring + family portal access |
+**Corrected 2026-09-03 — everything below this line except §2.6 describes a business model that no
+longer exists.** All of it was retired or removed by four separate founder decisions, each already
+documented in `CLAUDE.md`/`docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, and none of it was updated here at
+the time:
+- **No subscriptions, no plan tiers.** The app is free; Tarragon charges only for a doctor's time,
+  priced per piece of work (`service_products`), plus the 12-week doctor-supported chronic-care
+  programme as the one recurring paid product (2026-08-31/2026-09-02 pay-per-service cutover).
+- **No family plans, no ParentCare, ever.** Individual enrolment only (founder decision 2026-07-29,
+  `family_plan_members` dropped).
+- **No HMO capitation, ever.** Removed as a shipped guardrail 2026-07-29 (`hmo_contracts`/the
+  `capitation` enum value dropped) — see CLAUDE.md's Non-Negotiable Business Rules, item I8.
+- **No lab/pharmacy commissions, no Tarragon-booked fulfilment.** Self-arranged fulfilment
+  (2026-08-03): patients arrange and pay their own lab/pharmacy directly and upload results/receipts;
+  Tarragon never routes, books, or bills a partner on a patient's behalf, and takes no commission.
+- **No Stripe, no diaspora GBP/USD tier.** Removed entirely 2026-09-03 — Paystack (NGN) is the only
+  live payment provider; a diaspora buyer sponsors an NGN purchase (Care Voucher / gift-a-health-check)
+  for a patient in Nigeria rather than buying a subscription themselves.
 
-*(Alternate/legacy tier bands from earlier planning, reconcile with above at pricing-lock: Basic ₦3K–8K/mo, Prevention add-on ₦15K–25K/yr, Annual Health Check ₦45K–120K/yr, Family Plan ₦120K–250K/yr.)*
-
-### 2.2 Care Coordination Commissions — Transaction-Based (Category 3)
-| Stream | Rate | Notes |
-|---|---|---|
-| Lab commissions | 15–25% per test referral | PSA, smear, lipids, HbA1c, hepatitis B, FIT — all commissionable; ₦800M–2B/yr potential at 20,000 tests/month |
-| Pharmacy margin | 10–20% per fulfilment | Antihypertensives, antidiabetics, antivirals; recurring monthly reorder |
-| Specialist referral fees | ₦5,000–15,000 per confirmed booking | Scales with patient volume |
-
-### 2.3 B2B & Institutional — High ACV (Category 4)
-| Stream | Rate | Target |
-|---|---|---|
-| Corporate wellness | ₦120,000–300,000/employee/year | 50 large employers at scale |
-| HMO capitation | ₦2,000–6,000/member/month | Reliance, Avon, Wellahealth |
-| Government contracts | ₦500M–5B per programme | NHIA, FMOH, State Ministries of Health |
-| Hospital discharge contracts | Per-programme | Readmission reduction, post-discharge follow-up |
-| Data insights (future) | TBD, royalty/licence | Anonymised population data — pharma, insurance actuaries, public health bodies |
-
-### 2.4 Service Packages (patient/family facing naming)
-Essential Monitoring · Hypertension Care · Diabetes Care · ParentCare · Chronic Care Plus · Family Plan · Premium ParentCare. Business: Corporate Plan · HMO Plan · Hospital Discharge Plan · Pharmacy Partner Plan · Lab Partner Plan.
-
-### 2.5 Free Tier — What's In / What's Never Free
-**Free, no clinician required:** health profile setup, BP/glucose/weight logging, medication + refill + appointment reminders, lab reminder calendar, preventive screening calendar, education library (incl. Nigerian food guidance), weekly non-diagnostic health score, family health vault (unreviewed), downloadable Health Passport PDF, emergency warning education, device setup guides, automated nudges.
-
-**Never free:** clinician review of readings, clinician monitoring, medication changes, interpretation of lab results, personalised diagnosis, any "we are monitoring you" wording, emergency triage promises, lab booking, pharmacy fulfilment, family clinical update from a clinician, "your BP is controlled/uncontrolled" as a clinical judgement (phrase as general threshold education + advice to seek medical review instead).
-
-**90-Day Health Reset structure:** Month 1 (Awareness/Setup) → Month 2 (Habit/Risk Visibility) → Month 3 (Conversion to Paid Care, clinician onboarding call *after* payment only).
+**Do not hardcode any specific price here** — per CLAUDE.md, pricing churns constantly; check the live
+`service_products` table or the current running code. For the actual current pricing/entitlement
+model, read `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s 2026-08-31 to 2026-09-03 entry.
 
 ### 2.6 Preventive Screening Frequency (product logic input)
 | Group | Frequency | Core checks |
@@ -106,7 +87,7 @@ Simple rule: **hypertensive → yearly; diabetic → yearly + HbA1c 2–4×/yr; 
 - `organisations` — type enum: `clinic │ hmo │ corporate │ lab │ pharmacy │ direct_consumer`; `profiles.organisation_id` FK
 - A seeded `direct_consumer` organisation ("Tarragon Health Direct") is the default for self-serve signups with no `organisation_id` in signup metadata, so every domain table's `organisation_id NOT NULL` invariant holds even for an org-less consumer (see §10)
 - All tables carry `organisation_id`; RLS policies: patient sees own rows only, clinician sees org patients, HMO admin sees their member patients, corporate admin sees their enrolled employees, super-admin sees all
-- `profile_access` — login-level delegation (profile_id, grantee_user_id, permission_level: view/manage) so an adult dependent can log in independently while an owner/parent retains access, additive to `family_plan_members` (org/subscription bundling, unchanged)
+- `profile_access` — login-level delegation (profile_id, grantee_user_id, permission_level: view/manage, plus a `care_access_category`-scoped consent model added 2026-08-30) so an adult dependent/caregiver can log in independently while an owner retains access. `family_plan_members` was dropped 2026-07-29 (no family plans, ever — individual enrolment only) and is no longer part of this model.
 
 ### 3.2 Chronic Disease Core (Category 1)
 - `vitals_readings` — BP (systolic/diastolic), glucose (fasting/random/post-meal), weight, pulse, timestamp
@@ -127,7 +108,8 @@ Simple rule: **hypertensive → yearly; diabetic → yearly + HbA1c 2–4×/yr; 
 | `screening_upgrades` | Audit log of every abnormal result → Cat 1 upgrade event | patient_id, screening_result_id, condition_triggered (hypertension/diabetes/cancer_referral/other), upgrade_at, handled_by_clinician_id, action_taken |
 | `annual_health_checks` | Full AHC record — highest-LTV Cat 2 product | patient_id, year, status, completion_pct, total_cost_ngn, tests_completed (JSON), gender_screens_completed (JSON) |
 | `specialist_referrals` | Referrals from abnormal screens to specialists | patient_id, specialist_type, referral_reason, status, referral_fee_ngn, booking_confirmed_at, appointment_date |
-| `family_plan_members` | Members under a family plan | plan_id, member_id, relationship, plan_owner_id, conditions (text[]), onboarded_at |
+
+(`family_plan_members` — dropped 2026-07-29, no family plans ever, individual enrolment only.)
 
 Seed `screen_types` with 12 types at minimum: PSA (male, 40+, 1yr), cervical smear (female, 25–64, 3yr), mammography, FIT, HbA1c, lipid panel, hepatitis B, HIV, TB, malaria RDT, PCOS panel, antenatal booking. Plus 6 more from the V1 consumer-spec catalog: hepatitis C, sickle cell genotype, vision check, clinical breast exam, bone density, colonoscopy (see §10).
 
@@ -157,7 +139,7 @@ Seed `screen_types` with 12 types at minimum: PSA (male, 40+, 1yr), cervical sme
 - `notifications` — channel: email/SMS/in-app/WhatsApp
 - `conversation_state` (Upstash Redis, not Postgres) — per phone number; tracks outbound WhatsApp/SMS notification/delivery state (dedup, retries); there is no bot/intent-routing automation — inbound WhatsApp is human doctor↔patient support chat only, routed to a clinician inbox (see §10 note 1 and CLAUDE.md's 2026-07-11 WhatsApp policy)
 - `referrals` — patient_refers_patient (₦2,000 airtime), doctor_refers_patient (₦3,500/enrolled, max 20/mo), corporate_champion
-- `ai_conversations` — AI Health Coach scaffold (profile_id, messages jsonb[]); LangGraph.js + Claude API wiring, disclaimer/guardrail logic, and chat UI are a separate future phase (see §10)
+- The AI Health Coach is built and live (LangGraph.js + Claude API, tool-calling, audit trail, escalation handoff) — see `docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md` for current status, not this scaffold description
 
 ### 3.7 Critical Business Logic — Abnormal Result → Upgrade Flow
 This is the highest-priority business event in the platform:
@@ -218,7 +200,7 @@ Supabase Auth (phone OTP + email) → `profiles` with full role enum → `organi
 Patient · Family member · Clinician (reviews readings, calls patients, checks adherence, flags concerns, reviews escalated cases, advises clinical action) · Lab partner · Pharmacy partner · Admin · Employer · HMO · AI assistant (summaries, education, triage support, clinician prioritisation).
 
 ### 5.2 Clinician-to-Patient Ratio & Escalation
-- **Ratio target: 1 clinician : 120 patients.**
+- **Ratio target: under review, do not cite a fixed number.** Per CLAUDE.md's Non-Negotiable Business Rules: 1:120 was the working Tier 1–3 figure, now under review since 2026-07-30, with 1:2000 an aspiration (not a committed number) pending real time-per-case pilot data. Describe the mechanism — protocol-driven triage before a doctor sees a case — not a ratio.
 - **Four-level escalation:** (1) Routine — within normal range, no action · (2) Clinician review — flagged reading or care-gap, clinician follows up · (3) Urgent escalation — clinician cannot resolve routinely, escalates per protocol · (4) Emergency/urgent care advice — red-flag symptom, immediate safety instruction + urgent care direction.
 
 ### 5.3 Protocols to Build
@@ -315,10 +297,10 @@ Use this as a build tracker — check off per sprint. (Originally scoped against
 | ~~Device suppliers~~ | ~~BP monitors, glucometers, scales, pulse oximeters~~ — **SHELVED 2026-08-02**, patient self-sources, see CLAUDE.md |
 | Employers | Staff enrolment, corporate chronic disease care |
 | HMOs (Reliance, Avon, Ronsberger, Wellahealth) | Member monitoring, chronic risk control |
-| Diaspora groups | ParentCare distribution, overseas payment |
+| Diaspora groups | ~~ParentCare distribution~~ — ParentCare deleted 2026-07-29; diaspora is now a sponsor of a patient's Paystack purchase (Care Voucher / gift-a-health-check), not a distribution channel for a tier |
 | Specialist clinics | Cardiology, endocrinology, nephrology, ophthalmology, dietetics, podiatry |
 
-**Workflow chain:** lab booking → lab fulfilment → result upload → abnormal flagging → clinical review → (pharmacy refill → fulfilment → family update if consented) → commission tracking → partner QA (turnaround time, rejected requests, failed deliveries, complaints).
+**Workflow chain — superseded 2026-08-03 by self-arranged fulfilment.** Tarragon no longer books, bills, or takes a commission on labs/pharmacies/specialists. Real chain: platform calculates due dates and reminds → patient books/pays the lab or pharmacy directly (any provider, not just a partner) → patient (or, for a contracted partner like Synlab, the partner directly) uploads results → abnormal flagging → clinical review → pharmacy refill is the same self-arranged pattern. No commission tracking exists; partner QA is limited to the handful of contracted partners with a real billing relationship (e.g. Synlab).
 
 Each partner needs: onboarding criteria, SLAs, pricing, quality standards, reporting requirements, complaint escalation route.
 
@@ -341,16 +323,16 @@ Each partner needs: onboarding criteria, SLAs, pricing, quality standards, repor
 
 **Resolved decisions:**
 1. **Reminders** build for WhatsApp+SMS first as the notification channel, per CLAUDE.md's non-negotiable rule (updated 2026-07-11) that app/web is the required interface for every feature and WhatsApp/SMS is follow-up-only, never the primary interaction path — push/email are additive alongside WhatsApp/SMS. (Send integration itself is not yet built — `notifications` is still write-only.)
-2. **Family/multi-profile model**: `profile_access` (§3.1) delivers the "adult dependent can log in independently, owner retains access" model, additive to `family_plan_members`. Open item: `profiles` is still strictly 1:1 with `auth.users`, so a dependent still needs an auth account provisioned before they can be granted/hold access — the "add a family member before they sign up" onboarding flow is not yet resolved.
-3. **B2B/institutional work is paused** — no new HMO/corporate features until this consumer track ships. The existing `hmo_contracts`/`corporate_contracts`/`subscription_plans` schema already satisfies "architecturally represented from Sprint 1."
-4. **AI Health Coach** will be LangGraph.js + Claude API (matches §5 above), not a bare standalone Claude chat — `ai_conversations` is schema-only for now.
+2. **Family/multi-profile model**: `profile_access` (§3.1) delivers the "adult dependent/caregiver can log in independently, owner retains access" model. `family_plan_members` was dropped 2026-07-29 (no family plans, ever) — it is no longer "additive to" this model, it's gone. `profiles` is still strictly 1:1 with `auth.users`.
+3. **B2B/institutional work resumed and shipped.** `hmo_contracts`/`corporate_contracts` are historical — HMO capitation was removed as a product 2026-07-29 (I8); `subscription_plans` was retired 2026-09-02 for pay-per-service. Employer/HMO dashboards were pulled forward and built 2026-07-16 on explicit founder ask — see CLAUDE.md's Clinical Tier Ladder section.
+4. **AI Health Coach is built and live** — LangGraph.js + Claude API, tool-calling, audit trail. See `docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md`.
 
 **Term mapping** (V1 spec name → actual table):
 - `screening_catalog` / `screening_recommendations` → `screen_types` / `screening_schedules` (already existed, no new tables)
 - `risk_scores` → `prevention_risk_scores` (renamed to avoid colliding with the existing chronic-disease `patient_risk_scores`)
 - `health_records` (polymorphic) → **not built**; the existing typed tables (`vitals_readings`, `screening_results`, lab results) cover it, and a unified "Health Passport" view should be a read-side query, not a new write table — flagged for explicit sign-off before building
 - `reminders` → `notifications` (channel/status/template/payload already covers it; `push` added to the channel enum)
-- `profiles` (V1 spec's account-owner-plus-dependents shape) → the existing `profiles` (1:1 with `auth.users`) plus `profile_access` plus `family_plan_members` — there is no second `profiles`-like table
+- `profiles` (V1 spec's account-owner-plus-dependents shape) → the existing `profiles` (1:1 with `auth.users`) plus `profile_access` — there is no second `profiles`-like table (`family_plan_members` no longer exists, dropped 2026-07-29)
 - `facilities` / `booking_requests` → new tables, global directory + org-scoped request, same trust model as `lab_providers`/`lab_orders`
 
 ---

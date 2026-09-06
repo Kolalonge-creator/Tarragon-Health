@@ -6,11 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import {
-  useLabCatalogue,
-  useCreateLabOrder,
-  findSingleTestBundle,
-} from "@/lib/queries/lab-orders";
+import { useLabCatalogue, useCreateLabOrder, type PanelBundle } from "@/lib/queries/lab-orders";
 import {
   matchSymptomClusters,
   SYMPTOM_OPTIONS,
@@ -57,7 +53,7 @@ export function SymptomToTestCheck({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Symptom Checker</CardTitle>
+        <CardTitle>Symptom-to-Test Suggestions</CardTitle>
       </CardHeader>
       <CardContent className="space-y-6">
         {!result && (
@@ -134,7 +130,7 @@ export function SymptomToTestCheck({
                 <ClusterSuggestion
                   key={cluster.id}
                   cluster={cluster}
-                  bundle={findSingleTestBundle(bundles ?? [], cluster.screenTypeCode)}
+                  bundle={(bundles ?? []).find((b) => b.code === cluster.panelBundleCode) ?? null}
                   patientId={patientId}
                   organisationId={organisationId}
                   onRequest={(panelBundleId) =>
@@ -165,7 +161,7 @@ function ClusterSuggestion({
   requesting,
 }: {
   cluster: SymptomCluster;
-  bundle: ReturnType<typeof findSingleTestBundle>;
+  bundle: PanelBundle | null;
   patientId: string;
   organisationId: string | null;
   onRequest: (panelBundleId: string) => void;

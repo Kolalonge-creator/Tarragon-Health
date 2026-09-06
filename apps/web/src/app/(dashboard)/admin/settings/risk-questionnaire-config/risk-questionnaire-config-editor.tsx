@@ -107,7 +107,7 @@ export function RiskQuestionnaireConfigEditor({ defaultConfigJson }: { defaultCo
         return {
           questions: [],
           conditionsJson: "[]",
-          parseError: "Could not parse the current configuration as JSON — falling back is not available.",
+          parseError: "Could not parse the current configuration as JSON. Falling back is not available.",
         };
       }
     }
@@ -265,7 +265,7 @@ export function RiskQuestionnaireConfigEditor({ defaultConfigJson }: { defaultCo
                   {(q.input_type === "single_select" || q.input_type === "multi_select") && (
                     <div className="space-y-1">
                       <Label htmlFor={`q_options_${i}`} className="text-xs">
-                        Options — one per line, <code>value:label</code>
+                        Options: one per line, <code>value:label</code>
                       </Label>
                       <Textarea
                         id={`q_options_${i}`}
@@ -317,7 +317,7 @@ export function RiskQuestionnaireConfigEditor({ defaultConfigJson }: { defaultCo
 
           <div className="space-y-1">
             <Label htmlFor="conditionsJson">
-              Scoring rules (JSON) — per-condition factors, thresholds, and branching predicates.
+              Scoring rules (JSON): per-condition factors, thresholds, and branching predicates.
               Not yet a structured editor; validated the same way on save.
             </Label>
             <Textarea
@@ -336,7 +336,7 @@ export function RiskQuestionnaireConfigEditor({ defaultConfigJson }: { defaultCo
           </Button>
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && (
-            <p className="text-sm text-brand-green">Saved as a new draft — sign it below to bring it into force.</p>
+            <p className="text-sm text-brand-green">Saved as a new draft. Sign it below to bring it into force.</p>
           )}
         </form>
       </CardContent>

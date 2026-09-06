@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { PLATFORM_URL } from "./platform-url";
 import type { HealthSample } from "./healthkit";
 import type { HealthProvider } from "./health-sync";
 
@@ -7,8 +8,13 @@ import type { HealthProvider } from "./health-sync";
  * platform's Route Handlers over plain HTTPS, authenticated with the mobile
  * session's own JWT — see apps/web/src/app/api/mobile/device-readings/route.ts
  * and apps/web/src/app/api/mobile/health-samples/route.ts.
+ *
+ * Falls back to PLATFORM_URL (the same host the WebView bridge already
+ * defaults to) when EXPO_PUBLIC_API_BASE_URL is unset — an unset env var
+ * used to interpolate as the literal string "undefined/api/…", which failed
+ * every request with an unhelpful error rather than an obvious config gap.
  */
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL;
+export const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? PLATFORM_URL;
 
 export interface PostDeviceReadingResult {
   success: boolean;
@@ -49,14 +55,38 @@ export type VitalReadingPayload =
  * beneficiaryProfileId is the mobile equivalent of web's acting-for cookie
  * (see lib/acting.ts) — set when the signed-in user currently has a
  * supported person's account open, so the reading is logged for them, not
- * for the caller. The route re-checks the live 'manage' grant itself. */
+ * for the caller. The route re-checks the live 'manage' grant itself.
+ *
+ * clientReadingId, when set, is the offline queue's idempotency key (see
+ * offline-vitals-queue.ts) — the route treats a replay of the same id as a
+ * successful no-op rather than a duplicate insert, so a queued reading can
+ * retry blind after a dropped connection. */
 export async function postVitalReading(
   payload: VitalReadingPayload,
-  beneficiaryProfileId?: string
+  beneficiaryProfileId?: string,
+  clientReadingId?: string
 ): Promise<PostVitalReadingResult> {
-  const body = beneficiaryProfileId ? { ...payload, beneficiary_profile_id: beneficiaryProfileId } : payload;
+  const body = {
+    ...payload,
+    ...(beneficiaryProfileId ? { beneficiary_profile_id: beneficiaryProfileId } : {}),
+    ...(clientReadingId ? { client_reading_id: clientReadingId } : {}),
+  };
   const result = await request<Record<string, never>>("/api/mobile/vitals", "POST", body);
   return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
+export interface MobileThresholds {
+  version: string;
+  glucose: Record<string, number>;
+  bp: Record<string, { systolic: number; diastolic: number }>;
+}
+
+/** Best-effort fetch for threshold-sync.ts — the caller always has a bundled
+ * default to fall back to, so this never throws, it just returns null on any
+ * failure (offline, auth, or server error alike). */
+export async function fetchVitalsThresholds(): Promise<MobileThresholds | null> {
+  const result = await request<MobileThresholds>("/api/mobile/vitals-thresholds", "GET");
+  return result.ok ? result.data : null;
 }
 
 export interface HealthSyncCursor {
@@ -93,6 +123,17 @@ export async function postHealthSamples(
   });
 }
 
+/**
+ * The one error message request() returns when it never got a usable
+ * response from the server (network drop, timeout, or an unparseable
+ * body). offline-vitals-queue.ts compares against this exact value to
+ * decide "the device is offline, stop draining the queue" — which is why
+ * it is a shared constant rather than a literal repeated in both files: a
+ * copy edit to the patient-facing wording must not silently break that
+ * retry classification.
+ */
+export const NETWORK_ERROR_MESSAGE = "Couldn't reach the server. Check your connection and try again.";
+
 type RequestResult<T> = { ok: true; data: T } | { ok: false; error: string };
 
 /** Nigerian mobile networks routinely go slow-but-not-dead rather than
@@ -125,6 +166,23 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * The timeout + single-retry-on-no-response policy above, exported for the
+ * one caller that can't go through request() because its body isn't JSON
+ * (labs.ts's multipart photo upload). Rejects only when neither attempt got
+ * a response at all — an HTTP error status still resolves, exactly like
+ * request()'s own behaviour, since a request that reached the server may
+ * already have taken effect and must not be retried blind.
+ */
+export async function fetchWithTimeoutAndRetry(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetchWithTimeout(url, init);
+  } catch {
+    await sleep(RETRY_DELAY_MS);
+    return fetchWithTimeout(url, init);
+  }
+}
+
 async function request<T>(
   path: string,
   method: "GET" | "POST",
@@ -149,15 +207,9 @@ async function request<T>(
 
   let response: Response;
   try {
-    response = await fetchWithTimeout(url, init);
+    response = await fetchWithTimeoutAndRetry(url, init);
   } catch {
-    // First attempt never got a response — worth one retry before giving up.
-    try {
-      await sleep(RETRY_DELAY_MS);
-      response = await fetchWithTimeout(url, init);
-    } catch {
-      return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
-    }
+    return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
 
   try {
@@ -167,6 +219,6 @@ async function request<T>(
     }
     return { ok: true, data: json };
   } catch {
-    return { ok: false, error: "Couldn't reach the server. Check your connection and try again." };
+    return { ok: false, error: NETWORK_ERROR_MESSAGE };
   }
 }
