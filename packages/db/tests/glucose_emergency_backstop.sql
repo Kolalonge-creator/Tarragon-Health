@@ -12,6 +12,41 @@
 
 begin;
 
+-- Both patients below are minted here rather than picked out of whatever the
+-- project happens to contain. On a fresh `supabase db reset` there are no
+-- patient profiles at all, and the second block's old `offset 1` lookup then
+-- took its SKIP branch -- the DKA-fires-cleanly case, the whole reason that
+-- block exists, would have reported nothing and looked green.
+create temporary table gbs_fixture(k text primary key, v uuid) on commit drop;
+
+do $$
+declare
+  v_org uuid;
+  v_p   uuid;
+  r     record;
+begin
+  select id into v_org from public.organisations limit 1;
+  if v_org is null then
+    insert into public.organisations (name, type)
+    values ('Glucose Backstop Test Org', 'clinic')
+    returning id into v_org;
+  end if;
+  insert into gbs_fixture(k, v) values ('org', v_org);
+
+  for r in select * from (values ('patient_a'), ('patient_b')) as t(key_name)
+  loop
+    v_p := gen_random_uuid();
+    insert into gbs_fixture(k, v) values (r.key_name, v_p);
+    insert into auth.users (id, email)
+    values (v_p, format('gbs-test-%s@example.invalid', r.key_name));
+    insert into public.profiles (id, organisation_id, role, full_name)
+    values (v_p, v_org, 'patient', format('GBS Test %s', r.key_name))
+    on conflict (id) do update
+      set organisation_id = excluded.organisation_id, role = excluded.role,
+          full_name = excluded.full_name;
+  end loop;
+end $$;
+
 do $$
 declare
   v_org uuid;
@@ -19,8 +54,8 @@ declare
   v_reading_id uuid;
   v_event_count integer;
 begin
-  select organisation_id, id into v_org, v_patient
-  from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+  v_org     := (select v from gbs_fixture where k = 'org');
+  v_patient := (select v from gbs_fixture where k = 'patient_a');
 
   -- 1) Severe hypo: glucose_mmol_l = 2.1 -> emergency_events(source='glucose_red_flag').
   insert into public.vitals_readings (id, organisation_id, patient_id, vital_type, glucose_mmol_l, taken_at, source)
@@ -100,14 +135,14 @@ declare
   v_reading_id uuid;
   v_event_count integer;
 begin
-  select organisation_id, id into v_org, v_patient
-  from public.profiles
-  where role = 'patient' and organisation_id is not null
-  offset 1 limit 1;
-
+  -- A second, distinct minted patient with no prior emergency_events row. The
+  -- old SKIP branch here is deliberately gone: a check that quietly opts out
+  -- when a fixture is missing is exactly the vacuous pass this suite exists to
+  -- prevent.
+  v_org     := (select v from gbs_fixture where k = 'org');
+  v_patient := (select v from gbs_fixture where k = 'patient_b');
   if v_patient is null then
-    raise notice 'SKIP: only one patient fixture row available — DKA-fires-cleanly check needs a second patient, covered indirectly by PASS 2 above instead';
-    return;
+    raise exception 'VACUOUS: the patient_b fixture was not minted';
   end if;
 
   insert into public.vitals_readings (id, organisation_id, patient_id, vital_type, glucose_mmol_l, taken_at, source)

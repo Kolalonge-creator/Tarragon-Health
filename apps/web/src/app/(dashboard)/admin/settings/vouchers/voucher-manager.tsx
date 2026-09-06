@@ -37,7 +37,9 @@ function useConfig() {
 
 /** Vouchers that a human is most likely to be asked about: expiring soon,
  * already expired, or still being paid off. Deliberately not a full browse of
- * every voucher ever issued. */
+ * every voucher ever issued — a healthy, unredeemed 'active' voucher (the
+ * common case) has no reason to appear here; that one is found by number via
+ * the lookup tool below when a cancellation is actually needed. */
 function useVouchersNeedingAttention() {
   return useQuery({
     queryKey: ["admin", "vouchers-attention"],
@@ -55,12 +57,31 @@ function useVouchersNeedingAttention() {
   });
 }
 
+function useVoucherLookup(voucherNumber: string) {
+  return useQuery({
+    queryKey: ["admin", "voucher-lookup", voucherNumber],
+    enabled: voucherNumber.trim().length > 0,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("care_vouchers")
+        .select("*")
+        .eq("voucher_number", voucherNumber.trim())
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 export function VoucherManager() {
   const queryClient = useQueryClient();
   const { data: config } = useConfig();
   const { data: vouchers } = useVouchersNeedingAttention();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [lookupNumber, setLookupNumber] = useState("");
+  const { data: lookedUpVoucher, isFetching: lookingUp } = useVoucherLookup(lookupNumber);
 
   const saveConfig = useMutation({
     mutationFn: async (input: {
@@ -99,6 +120,28 @@ export function VoucherManager() {
     onError: (e) => setError(e instanceof Error ? e.message : "Could not extend"),
   });
 
+  const cancel = useMutation({
+    mutationFn: async (input: { voucherId: string; reason: string }) => {
+      const supabase = createClient();
+      const { data, error: err } = await supabase.rpc("cancel_care_voucher", {
+        p_voucher: input.voucherId,
+        p_reason: input.reason,
+      });
+      if (err) throw err;
+      return data as { refunds_queued?: number } | null;
+    },
+    onSuccess: (data) => {
+      const n = data?.refunds_queued ?? 0;
+      setMessage(
+        n > 0
+          ? `Cancelled. ${n} refund${n === 1 ? "" : "s"} queued, processed overnight.`
+          : "Cancelled. Nothing was paid, so no refund is owed.",
+      );
+      queryClient.invalidateQueries({ queryKey: ["admin", "vouchers-attention"] });
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : "Could not cancel"),
+  });
+
   return (
     <div className="space-y-6">
       <Card>
@@ -121,7 +164,9 @@ export function VoucherManager() {
                 validity_months: Number(form.get("validity_months")),
                 max_extensions: Number(form.get("max_extensions")),
                 extension_months: Number(form.get("extension_months")),
-                min_instalment_kobo: Number(form.get("min_instalment_naira")) * 100,
+                // Kobo columns are integers; naira input can be fractional and
+                // float multiplication drifts (e.g. 1500.55 * 100), so round.
+                min_instalment_kobo: Math.round(Number(form.get("min_instalment_naira")) * 100),
               });
             }}
           >
@@ -142,6 +187,7 @@ export function VoucherManager() {
                 name="min_instalment_naira"
                 type="number"
                 min={1}
+                step={0.01}
                 defaultValue={koboToNaira(config?.min_instalment_kobo ?? 100000)}
                 className="mt-1"
               />
@@ -222,10 +268,84 @@ export function VoucherManager() {
                       Put it back
                     </Button>
                   )}
+                  {v.status !== "expired" && v.status !== "cancelled" && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={cancel.isPending}
+                      onClick={() => {
+                        const reason = window.prompt("Reason for cancelling this voucher?");
+                        if (!reason?.trim()) return;
+                        setMessage(null);
+                        setError(null);
+                        cancel.mutate({ voucherId: v.id, reason: reason.trim() });
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  )}
                 </span>
               </li>
             ))}
           </ul>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cancel a voucher</CardTitle>
+          <CardDescription>
+            Look up any voucher by number to cancel it. A paid, un-redeemed voucher queues a real
+            refund to the original card — nothing is ever paid out as cash. A voucher that has
+            already been redeemed cannot be cancelled here.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Input
+            placeholder="Voucher number"
+            value={lookupNumber}
+            onChange={(e) => setLookupNumber(e.target.value)}
+            className="max-w-xs"
+          />
+          {lookingUp && <p className="text-sm text-charcoal-ink/50">Looking up…</p>}
+          {!lookingUp && lookupNumber.trim() && !lookedUpVoucher && (
+            <p className="text-sm text-charcoal-ink/50">No voucher with that number.</p>
+          )}
+          {lookedUpVoucher && (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-charcoal-ink/10 p-3 text-sm">
+              <span>
+                {lookedUpVoucher.sku_name ?? "Care voucher"}{" "}
+                <span className="text-charcoal-ink/40">{lookedUpVoucher.voucher_number}</span>
+                <span className="text-charcoal-ink/40">
+                  {" "}
+                  · {naira(lookedUpVoucher.amount_paid_kobo)} of {naira(lookedUpVoucher.face_value_kobo)} paid
+                </span>
+              </span>
+              <span className="flex items-center gap-2">
+                <Badge variant={STATUS_VARIANT[lookedUpVoucher.status] ?? "grey"}>
+                  {lookedUpVoucher.status}
+                </Badge>
+                {lookedUpVoucher.status !== "redeemed" && lookedUpVoucher.status !== "cancelled" && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={cancel.isPending}
+                    onClick={() => {
+                      const reason = window.prompt("Reason for cancelling this voucher?");
+                      if (!reason?.trim()) return;
+                      setMessage(null);
+                      setError(null);
+                      cancel.mutate({ voucherId: lookedUpVoucher.id, reason: reason.trim() });
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

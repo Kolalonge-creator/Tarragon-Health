@@ -223,7 +223,7 @@ create trigger provider_time_off_cascade
   after insert on public.provider_time_off
   for each row execute function private.cascade_provider_time_off();
 
-revoke all on function private.cascade_provider_time_off() from public;
+revoke all on function private.cascade_provider_time_off() from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- 10.4/10.5 slot generation — computed on demand, not pre-materialised, so

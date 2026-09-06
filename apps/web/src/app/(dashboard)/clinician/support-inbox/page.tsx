@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useSupportThreads } from "@/lib/queries/support-messages";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import { Badge } from "@/components/ui/badge";
 
 function formatDate(createdAt: string): string {
@@ -11,6 +13,11 @@ function formatDate(createdAt: string): string {
 
 export default function SupportInboxPage() {
   const { data: threads, isLoading, isError } = useSupportThreads();
+  // React Query keeps the previous `data` when a refetch fails, so the old
+  // shape could render the red line AND "No support messages yet." together,
+  // which is the partial state the shared pattern exists to forbid. One
+  // branch, error first.
+  const state = listQueryState({ isLoading, isError, count: threads?.length });
 
   return (
     <div className="space-y-6">
@@ -24,14 +31,19 @@ export default function SupportInboxPage() {
         </p>
       </div>
 
-      {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-      {isError && <p className="text-sm text-red-600">Could not load the support inbox.</p>}
+      {state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {state === "error" && (
+        <LoadFailure>
+          The support inbox could not be loaded. This is not a report that nobody has written in.
+          Reload to try again.
+        </LoadFailure>
+      )}
 
-      {threads && threads.length === 0 && (
+      {state === "empty" && (
         <p className="text-sm text-charcoal-ink/60">No support messages yet.</p>
       )}
 
-      {threads && threads.length > 0 && (
+      {state === "ready" && threads && (
         <Card>
           <CardHeader>
             <CardTitle>Conversations</CardTitle>

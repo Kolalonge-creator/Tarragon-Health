@@ -10,7 +10,7 @@ import {
   type BroadcastAudienceFilter,
   type NotificationChannel,
 } from "@/lib/queries/broadcasts";
-import { useAllSubscriptionPlansAdmin } from "@/lib/queries/subscription-plans";
+import { useActiveServiceProducts } from "@/lib/queries/service-products";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,11 +18,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
 
 const AUDIENCES: { value: BroadcastAudience; label: string }[] = [
   { value: "all_patients", label: "All patients" },
   { value: "patients_by_state", label: "Patients in a state" },
-  { value: "subscribers_by_plan", label: "Subscribers on a plan" },
+  { value: "subscribers_by_plan", label: "Patients with an active service" },
   { value: "all_partners", label: "All partners" },
   { value: "partners_by_type", label: "A partner group" },
 ];
@@ -44,8 +45,12 @@ export function BroadcastComposer() {
   const [attested, setAttested] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [sentCount, setSentCount] = useState<number | null>(null);
+  // A broadcast cannot be recalled once queued: WhatsApp/SMS/email leave the
+  // platform. Submit now validates and opens a recap of exactly what goes to
+  // exactly whom; only the dialog's own button sends.
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const plans = useAllSubscriptionPlansAdmin();
+  const serviceProducts = useActiveServiceProducts();
   const send = useSendBroadcast();
   const history = useBroadcastHistory();
   const contentCheck = useBroadcastContentCheck();
@@ -75,6 +80,7 @@ export function BroadcastComposer() {
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setSentCount(null);
+    setConfirmOpen(false);
     if (!title.trim() || !body.trim()) {
       setValidationError("Add a subject and a message.");
       return;
@@ -107,6 +113,11 @@ export function BroadcastComposer() {
       // enforces the same rule server-side as a backstop.
     }
 
+    setConfirmOpen(true);
+  }
+
+  function sendNow() {
+    setConfirmOpen(false);
     send.mutate(
       { title: title.trim(), body: body.trim(), audience, filter, channels },
       {
@@ -120,12 +131,13 @@ export function BroadcastComposer() {
     );
   }
 
-  // Distinct plan codes for the dropdown (plans repeat per currency/interval).
-  const planCodes = useMemo(() => {
+  // Distinct service product codes for the dropdown (products repeat per
+  // currency/interval).
+  const serviceProductCodes = useMemo(() => {
     const seen = new Map<string, string>();
-    for (const p of plans.data ?? []) if (!seen.has(p.code)) seen.set(p.code, p.name);
+    for (const p of serviceProducts.data ?? []) if (!seen.has(p.code)) seen.set(p.code, p.name);
     return [...seen.entries()];
-  }, [plans.data]);
+  }, [serviceProducts.data]);
 
   const sendError = (send.error as Error | null)?.message ?? null;
 
@@ -195,10 +207,10 @@ export function BroadcastComposer() {
 
             {audience === "subscribers_by_plan" && (
               <div className="space-y-1.5">
-                <Label htmlFor="plan">Plan (optional, any plan if blank)</Label>
+                <Label htmlFor="plan">Service (optional, any active service if blank)</Label>
                 <Select id="plan" value={planCode} onChange={(e) => setPlanCode(e.target.value)}>
-                  <option value="">Any plan</option>
-                  {planCodes.map(([code, name]) => (
+                  <option value="">Any active service</option>
+                  {serviceProductCodes.map(([code, name]) => (
                     <option key={code} value={code}>
                       {name} ({code})
                     </option>
@@ -284,11 +296,54 @@ export function BroadcastComposer() {
                 send.isPending || contentCheck.isPending || !attested || (count.data ?? 0) === 0
               }
             >
-              {send.isPending || contentCheck.isPending ? "Sending…" : "Send broadcast"}
+              {send.isPending
+                ? "Sending…"
+                : contentCheck.isPending
+                  ? "Checking…"
+                  : "Review and send"}
             </Button>
           </form>
         </CardContent>
       </Card>
+
+      <ConfirmDialog
+        open={confirmOpen}
+        title="Send this broadcast?"
+        description="This leaves the platform over WhatsApp, SMS and email. It cannot be recalled, edited or unsent once queued."
+        confirmLabel={`Send to ${count.data ?? 0} recipient${count.data === 1 ? "" : "s"}`}
+        cancelLabel="Keep editing"
+        destructive
+        onConfirm={sendNow}
+        onCancel={() => setConfirmOpen(false)}
+      >
+        <ConfirmDialogFacts
+          rows={[
+            {
+              label: "Going to",
+              value: `${count.data ?? 0} ${isPartnerAudience ? "partner" : "patient"}${count.data === 1 ? "" : "s"}`,
+            },
+            {
+              label: "Audience",
+              value: AUDIENCES.find((a) => a.value === audience)?.label ?? audience,
+            },
+            {
+              label: "Channels",
+              value: channels.map((c) => CHANNELS.find((x) => x.value === c)?.label ?? c).join(", "),
+            },
+          ]}
+        />
+        {/* The preview is the point: an operator should read the exact words
+            every recipient will read before they become unrecallable. */}
+        <div className="space-y-1 rounded-lg border border-charcoal-ink/10 p-3 dark:border-night-ink/15">
+          <p className="text-xs uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/50">
+            What each recipient will see
+          </p>
+          <p className="text-sm font-medium">{title.trim()}</p>
+          <p className="whitespace-pre-wrap text-sm text-charcoal-ink/80 dark:text-night-ink/80">
+            {body.trim()}
+          </p>
+        </div>
+      </ConfirmDialog>
 
       <Card>
         <CardHeader>

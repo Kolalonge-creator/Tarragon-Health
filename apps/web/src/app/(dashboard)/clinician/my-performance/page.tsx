@@ -13,7 +13,7 @@ export default function ClinicianMyPerformancePage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">My performance</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Your own clinical activity — never compared against colleagues, and never a substitute
+          Your own clinical activity, never compared against colleagues, and never a substitute
           for clinical judgement.
         </p>
       </div>

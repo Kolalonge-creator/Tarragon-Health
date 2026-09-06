@@ -65,7 +65,7 @@ begin
 end;
 $$;
 
-revoke all on function public.sponsor_payable_orders(uuid) from public;
+revoke all on function public.sponsor_payable_orders(uuid) from public, anon;
 revoke all on function public.sponsor_payable_orders(uuid) from anon;
 grant execute on function public.sponsor_payable_orders(uuid) to authenticated;
 

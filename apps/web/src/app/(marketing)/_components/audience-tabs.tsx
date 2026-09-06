@@ -5,26 +5,48 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { AnimatedNumber } from "./animated-number";
 import type { AudienceTab } from "../_content/services";
-
-const PILL_TONE = {
-  green: "bg-soft-sage text-deep-forest",
-  amber: "bg-sprout-gold/15 text-charcoal-ink",
-  red: "bg-[#F8E4E1] text-[#B0453B]",
-} as const;
+import { PILL_TONE } from "../_content/pill-tone";
 
 export function AudienceTabs({ tabs }: { tabs: AudienceTab[] }) {
   const [active, setActive] = useState(tabs[0].key);
   const tab = tabs.find((t) => t.key === active) ?? tabs[0];
 
+  // Complete the ARIA tabs contract: tabs and panel reference each other,
+  // arrow keys move between tabs, and only the active tab is in the tab
+  // order (roving tabindex). Without these, role="tab" announces a control
+  // the screen-reader user can't actually navigate.
+  const onTablistKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    event.preventDefault();
+    const currentIndex = tabs.findIndex((t) => t.key === active);
+    const nextIndex =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? tabs.length - 1
+          : (currentIndex + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+    const next = tabs[nextIndex];
+    setActive(next.key);
+    document.getElementById(`audience-tab-${next.key}`)?.focus();
+  };
+
   return (
     <div>
-      <div role="tablist" aria-label="Choose your audience" className="mb-10 flex flex-wrap justify-center gap-2">
+      <div
+        role="tablist"
+        aria-label="Choose your audience"
+        className="mb-10 flex flex-wrap justify-center gap-2"
+        onKeyDown={onTablistKeyDown}
+      >
         {tabs.map((t) => (
           <button
             key={t.key}
             type="button"
             role="tab"
+            id={`audience-tab-${t.key}`}
+            aria-controls={`audience-panel-${t.key}`}
             aria-selected={t.key === active}
+            tabIndex={t.key === active ? 0 : -1}
             onClick={() => setActive(t.key)}
             className={cn(
               "rounded-full border px-5 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2",
@@ -38,7 +60,12 @@ export function AudienceTabs({ tabs }: { tabs: AudienceTab[] }) {
         ))}
       </div>
 
-      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14">
+      <div
+        role="tabpanel"
+        id={`audience-panel-${tab.key}`}
+        aria-labelledby={`audience-tab-${tab.key}`}
+        className="grid items-center gap-10 lg:grid-cols-2 lg:gap-14"
+      >
         <div key={`${tab.key}-content`} className="motion-safe:opacity-0 motion-safe:[animation:marketing-fade-in_0.45s_ease-out_forwards]">
           <h3 className="font-heading text-2xl font-semibold leading-snug text-charcoal-ink sm:text-3xl">
             {tab.title}
@@ -67,7 +94,7 @@ export function AudienceTabs({ tabs }: { tabs: AudienceTab[] }) {
               href={tab.cta.source ? `${tab.cta.href}?source=${tab.cta.source}` : tab.cta.href}
               className="mt-6 inline-flex text-sm font-medium text-brand-green hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2 rounded-sm"
             >
-              {tab.cta.label} →
+              {tab.cta.label} <span aria-hidden>→</span>
             </Link>
           ) : null}
         </div>

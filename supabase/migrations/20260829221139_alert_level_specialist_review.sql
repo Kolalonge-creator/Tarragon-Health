@@ -1,0 +1,26 @@
+-- Tarragon Health
+-- Clinical Governance gap-closure, item 3 of 6 (§88.16 "clinical escalation
+-- matrix" — completing a PARTIAL item). Confirmed live before writing this:
+-- alert_level is exactly routine/clinician_review/urgent_escalation/
+-- emergency -- no rung between "a doctor should review this" and "this is
+-- serious enough to escalate now" for "this genuinely needs a specialist's
+-- input, not just a senior generalist's." docs spec §89.16's ladder names
+-- Normal/Concern/Significant/Specialist/Emergency explicitly.
+--
+-- SCOPE, deliberately narrow: adds the enum value and its ranking so the
+-- taxonomy is complete and assignable, and confirms nothing currently reads
+-- it as a magic string that would break. Does NOT add new logic deciding
+-- WHEN a case should escalate to a specialist -- that is a clinical
+-- judgment call (which conditions, which findings) with no existing
+-- trigger or evidence base to build from here, the same class of "don't
+-- author new clinical content" boundary this gap-closure pass has kept to
+-- throughout (see the cvd-risk-afro.ts and safeguarding_concerns
+-- migrations' own notes). A human clinician can set level='specialist_review'
+-- directly today, the same way any alert_level value is settable now; a
+-- future rule/trigger can assign it once the clinical criteria exist.
+--
+-- Split into its own migration: Postgres cannot use a newly-added enum
+-- value in the same transaction that added it, same reason as
+-- 20260829213000_alert_type_code_safeguarding_concern.sql.
+
+alter type public.alert_level add value if not exists 'specialist_review' after 'clinician_review';

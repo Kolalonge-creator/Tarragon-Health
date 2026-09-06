@@ -68,7 +68,7 @@ $$;
 
 -- Deliberately anon-callable. Clear the inherited PUBLIC grant first, then grant
 -- back by name, so the access is explicit rather than accidental.
-revoke all on function public.public_response_commitments() from public;
+revoke all on function public.public_response_commitments() from public, anon;
 grant execute on function public.public_response_commitments() to anon, authenticated;
 
 do $$

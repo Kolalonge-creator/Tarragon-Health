@@ -31,4 +31,19 @@ describe("symptomLogSchema", () => {
   it("rejects a non-integer severity", () => {
     expect(symptomLogSchema.safeParse({ ...valid, severity: "5.5" }).success).toBe(false);
   });
+
+  it("accepts an optional medication_id for a side-effect report", () => {
+    expect(
+      symptomLogSchema.safeParse({
+        ...valid,
+        medication_id: "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      }).success
+    ).toBe(true);
+  });
+
+  it("rejects a malformed medication_id", () => {
+    expect(symptomLogSchema.safeParse({ ...valid, medication_id: "not-a-uuid" }).success).toBe(
+      false
+    );
+  });
 });

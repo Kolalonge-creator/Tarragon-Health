@@ -50,7 +50,7 @@ as $$
 $$;
 
 grant execute on function public.lab_partner_own_provider_id() to authenticated;
-revoke execute on function public.lab_partner_own_provider_id() from public;
+revoke execute on function public.lab_partner_own_provider_id() from public, anon;
 revoke execute on function public.lab_partner_own_provider_id() from anon;
 
 -- Assertion: confirm the isolation shape lands as intended — a lab partner's
