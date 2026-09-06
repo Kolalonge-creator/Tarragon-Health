@@ -19,6 +19,30 @@
 # still the same backlog, minus the three below, which are a different thing.
 #
 # ===========================================================================
+# Added 2026-09-06, PR #414 (symptom-to-test-recommendation) merge: three
+# proof scripts merged into main-dev on 2026-09-05 (abnormal_screening_result_
+# upgrade.sql, payer_board_outcomes_report.sql, support_centre.sql) were never
+# triaged into either list, which fails run-db-proofs.sh's file-accounting
+# check (the "in neither ci.manifest nor ci.excluded" error) for every PR
+# regardless of that PR's own content -- this merge is not what added them,
+# only what first surfaced the gap by needing a green required check.
+#
+# Filed here rather than ci.manifest because this session has no local
+# Supabase/Docker stack available to confirm each script's fixtures resolve
+# against a clean `supabase db reset` (the same bar every other file in this
+# list is held to) -- payer_board_outcomes_report.sql and support_centre.sql's
+# own headers say "Run via `npx supabase db query --linked`", i.e. written
+# against the live project, matching this file's standing fixture-availability
+# concern exactly. abnormal_screening_result_upgrade.sql's header suggests it
+# builds its own fixtures in a rolled-back transaction and may not have the
+# same problem, but it hasn't been confirmed against a fresh reset either, so
+# it stays alongside the other two rather than being guessed into ci.manifest.
+# This is the backlog case the header above describes, not the "genuinely
+# absent behaviour" case below it -- do not read this note as ci.manifest
+# clearance. Whoever picks these up next: move each to ci.manifest only after
+# actually running it against a fresh `supabase db reset` and confirming its
+# fixtures resolve there.
+# ===========================================================================
 # NOT A FIXTURE PROBLEM: three scripts here now FAIL for real. They stay
 # excluded only because the behaviour they assert is genuinely absent, and
 # closing each gap needs a migration, which is not this file's to write.
@@ -62,6 +86,7 @@
 #     between profiles and clinical_staff, where the wrong join returns NULL
 #     silently. One column, and the fix is a COMMENT ON in a migration.
 # ===========================================================================
+abnormal_screening_result_upgrade.sql
 actor_column_fk_documentation.sql
 adherence_escalation_not_available.sql
 ai_assistant_turns_rls.sql
@@ -156,6 +181,7 @@ patient_health_record_round3.sql
 patient_serology_status_extraction.sql
 patient_stopped_medication_raises_review.sql
 patient_timeline_gap_closure.sql
+payer_board_outcomes_report.sql
 payer_provider_org_platform.sql
 pharmacy_engine_end_to_end.sql
 polypharmacy_review_signal.sql
@@ -193,6 +219,7 @@ sponsor_pay_booking_order.sql
 sponsor_spend_receipts.sql
 subscription_care_vouchers.sql
 subsidy_split_engine.sql
+support_centre.sql
 supporter_accounts.sql
 supporter_reporting.sql
 symptom_triage_assessment_engine.sql
