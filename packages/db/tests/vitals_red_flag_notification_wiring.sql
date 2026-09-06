@@ -19,12 +19,53 @@ do $$
 declare
   v_org uuid;
   v_patient uuid;
+  v_product uuid;
   v_clinician uuid := gen_random_uuid();
   v_reading_id uuid;
   v_notif record;
 begin
-  select organisation_id, id into v_org, v_patient
-  from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+  -- Org from public.organisations (seeded by migration 20260706084837), and a
+  -- MINTED patient. The old `limit 1` patient was whoever the project happened
+  -- to hold, and whether they carried the doctor-escalation entitlement was
+  -- pure luck: without it, a hypertensive-crisis reading still raises the
+  -- emergency_events safety net but deliberately pages nobody
+  -- (20260810120000), so this file reported "raised no notifications row for a
+  -- pageable clinician" -- reading as a broken pathway when it was a fixture
+  -- with no entitlement.
+  select id into v_org from public.organisations limit 1;
+  if v_org is null then
+    insert into public.organisations (name, type)
+    values ('Vitals Paging Test Org', 'clinic')
+    returning id into v_org;
+  end if;
+
+  v_patient := gen_random_uuid();
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_patient, 'vitals-red-flag-test-patient@example.invalid', 'x', now(), '{}', '{}');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, v_org, 'patient', 'Vitals Red Flag Test Patient')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name;
+
+  -- Entitlement resolved by FEATURE, never by product code: the packs that
+  -- used to carry it are is_active = false since the pay-per-service pivot, so
+  -- a by-code fixture would entitle nobody and silently re-create the failure
+  -- above.
+  select id into v_product
+  from public.service_products
+  where is_active and 'vitals_red_flag_doctor_escalation' = any(features)
+  order by code limit 1;
+  if v_product is null then
+    raise exception 'VACUOUS: no active service_product grants vitals_red_flag_doctor_escalation — no patient on the platform can reach the paging path being proved here';
+  end if;
+
+  -- payable_kobo is GENERATED; naming it fails with 428C9.
+  insert into public.service_purchases
+    (organisation_id, patient_id, purchaser_profile_id, service_product_id,
+     status, amount_kobo, currency, purchased_at, expires_at)
+  values (v_org, v_patient, v_patient, v_product, 'active',
+          1000000, 'NGN', now(), now() + interval '30 days');
 
   -- Create a throwaway clinician fixture with a phone on file, scoped to the
   -- patient's org — as verified live against production 2026-08-07, none of

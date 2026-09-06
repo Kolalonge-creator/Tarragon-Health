@@ -15,6 +15,7 @@ import {
 } from "@/lib/queries/device-operations";
 import { createClient } from "@/lib/supabase/client";
 import { SectionCard, CenterNote, MiniBarList } from "@/app/(dashboard)/analytics/_components/primitives";
+import { LoadFailure } from "@/components/ui/load-failure";
 
 const HEALTH_BADGE: Record<string, BadgeProps["variant"]> = {
   operational: "green",
@@ -75,7 +76,7 @@ export function DeviceOperationsDashboard({ organisationId }: { organisationId: 
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Device operations</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Connection fleet health — which patient has which device/connection, is it working, and are
+          Connection fleet health: which patient has which device/connection, is it working, and are
           measurements arriving.
         </p>
       </div>
@@ -98,7 +99,7 @@ export function DeviceOperationsDashboard({ organisationId }: { organisationId: 
         />
       </div>
 
-      <SectionCard title="Integration health" description="55.11 — one row per ingestion component.">
+      <SectionCard title="Integration health" description="55.11: one row per ingestion component.">
         {health.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : (
@@ -122,7 +123,7 @@ export function DeviceOperationsDashboard({ organisationId }: { organisationId: 
                 <ul className="space-y-1 text-xs text-red-700/90">
                   {health.data!.openIncidents.map((i) => (
                     <li key={i.id}>
-                      <span className="font-medium capitalize">{i.component.replace(/_/g, " ")}</span> —{" "}
+                      <span className="font-medium capitalize">{i.component.replace(/_/g, " ")}</span>:{" "}
                       {i.state} since {formatTimeAgo(i.started_at)}
                       {i.detail ? `: ${i.detail}` : ""}
                     </li>
@@ -174,8 +175,17 @@ export function DeviceOperationsDashboard({ organisationId }: { organisationId: 
         </SectionCard>
       </div>
 
-      <SectionCard title="Data quality by connection" description="55.10 — missing data, abnormal transmission, duplicates, latency, errors.">
-        {quality.isLoading ? (
+      <SectionCard title="Data quality by connection" description="55.10: missing data, abnormal transmission, duplicates, latency, errors.">
+        {/* A device-operations board that cannot read its own data quality
+            must not report clean data. "No wearable connections or paired
+            devices" is exactly what a broken read produced. */}
+        {quality.isError ? (
+          <LoadFailure>
+            Device data quality could not be loaded. This is not a report that no devices are
+            connected, and a connection that has stopped transmitting is not visible here. Reload
+            to try again.
+          </LoadFailure>
+        ) : quality.isLoading ? (
           <CenterNote>Loading…</CenterNote>
         ) : q.length === 0 ? (
           <CenterNote>No wearable connections or paired devices in this organisation yet.</CenterNote>

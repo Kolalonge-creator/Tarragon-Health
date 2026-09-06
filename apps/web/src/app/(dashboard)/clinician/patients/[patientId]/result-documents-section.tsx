@@ -149,7 +149,7 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                 </p>
                 {doc.supersededByDocumentId && doc.supersededAt && (
                   <p className="text-xs text-amber-700">
-                    Corrected {formatDate(doc.supersededAt)} — see the newer document below.
+                    Corrected {formatDate(doc.supersededAt)}. See the newer document below.
                   </p>
                 )}
                 {doc.signedUrl ? (
@@ -194,6 +194,7 @@ export async function ResultDocumentsSection({ patientId }: { patientId: string 
                 ) : (
                   <MarkResultReviewed
                     documentId={doc.id}
+                    patientName={patient?.full_name ?? null}
                     extraction={extractionByDocument.get(doc.id) ?? null}
                     patientSex={patient?.sex ?? null}
                     patientAgeYears={patientAgeYears}

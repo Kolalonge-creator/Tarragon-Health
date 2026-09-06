@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 /** Thrown by the upload mutation specifically when the DB-enforced
@@ -68,14 +69,14 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
   if (requests.length === 0) return null;
 
   return (
-    <ul className="space-y-1.5 border-t border-charcoal-ink/10 pt-2">
+    <ul className="space-y-1.5 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-2">
       {requests.map((req) => {
         const status = STATUS_LABEL[req.status] ?? { label: req.status, tone: "grey" as const };
         const cancellable = !["cancelled", "refunded", "expired"].includes(req.status);
         return (
           <li key={req.id} className="flex flex-wrap items-center gap-2 text-xs">
             <Badge variant={status.tone}>{status.label}</Badge>
-            <span className="text-charcoal-ink/50">
+            <span className="text-charcoal-ink/50 dark:text-night-ink/55">
               {formatPrice(req.amount_minor, req.currency)} consultation fee
             </span>
             {cancellable && (
@@ -83,7 +84,7 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
                 type="button"
                 size="sm"
                 variant="ghost"
-                className="h-6 px-2 text-xs text-red-600"
+                className="h-6 px-2 text-xs text-red-600 dark:text-red-300"
                 disabled={cancel.isPending}
                 onClick={() => cancel.mutate(req.id)}
               >
@@ -181,6 +182,8 @@ export function PatientResultUpload({
   const uploadErrorInstance = upload.error as Error | null;
   const requiresPayment = uploadErrorInstance instanceof ConsultFeeRequiredError;
   const displayError = validationError ?? uploadErrorInstance?.message ?? null;
+  const errorId = fieldErrorId(`${fieldId}-file`);
+  const hintId = `${fieldId}-file-hint`;
 
   return (
     <div className="space-y-2">
@@ -199,8 +202,9 @@ export function PatientResultUpload({
               setValidationError(null);
               setSuccess(null);
             }}
+            {...fieldErrorProps(errorId, Boolean(displayError) && !requiresPayment, hintId)}
           />
-          <p className="text-xs text-charcoal-ink/50">
+          <p id={hintId} className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             A photo of the printout is fine. PDF or image, up to 10 MB.
           </p>
         </div>
@@ -215,16 +219,18 @@ export function PatientResultUpload({
           <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
             {upload.isPending ? "Sending…" : "Send to my care team"}
           </Button>
-          {success && <p className="text-xs font-medium text-brand-green">{success}</p>}
-          {displayError && !requiresPayment && (
-            <p className="text-xs text-red-600">{displayError}</p>
-          )}
+          <FormSuccess message={success} className="text-xs font-medium" />
+          <FormError
+            id={errorId}
+            message={!requiresPayment && displayError}
+            className="text-xs"
+          />
         </div>
       </form>
 
       {requiresPayment && (
-        <div className="rounded-md border border-amber-200 bg-amber-50 p-3 space-y-2">
-          <p className="text-xs text-charcoal-ink/80">
+        <div className="rounded-md border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/15 p-3 space-y-2">
+          <p className="text-xs text-charcoal-ink/80 dark:text-night-ink/80">
             {displayError}
             {price.data && (
               <>
@@ -238,7 +244,11 @@ export function PatientResultUpload({
               {payPending ? "Redirecting to payment…" : "Pay & continue"}
             </Button>
           </form>
-          {payState?.error && <p className="text-xs text-red-600">{payState.error}</p>}
+          <FormError
+            id={fieldErrorId(`${fieldId}-pay`)}
+            message={payState?.error}
+            className="text-xs"
+          />
         </div>
       )}
 

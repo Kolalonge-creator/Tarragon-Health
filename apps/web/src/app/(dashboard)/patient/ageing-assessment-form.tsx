@@ -4,6 +4,7 @@ import { useActionState, useState } from "react";
 import { submitAgeingAssessmentDomains } from "./healthy-ageing-actions";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { FormError, FormSuccess, fieldErrorId } from "@/components/ui/form-error";
 import { DOMAIN_LABEL, type AgeingAssessmentDomain, type AgeingAssessmentOutcome } from "@/lib/healthy-ageing/types";
 
 const OUTCOME_OPTIONS: { value: AgeingAssessmentOutcome; label: string }[] = [
@@ -16,6 +17,7 @@ type Answers = Record<AgeingAssessmentDomain, { outcome: AgeingAssessmentOutcome
 
 export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDomain[] }) {
   const [state, formAction, pending] = useActionState(submitAgeingAssessmentDomains, undefined);
+  const errorId = fieldErrorId("ageing-assessment");
   const [answers, setAnswers] = useState<Answers>(
     () =>
       Object.fromEntries(domains.map((d) => [d, { outcome: null, note: "" }])) as Answers,
@@ -34,11 +36,11 @@ export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDom
   return (
     <form action={submit} className="space-y-5">
       {domains.map((domain) => (
-        <fieldset key={domain} className="space-y-2 border-t border-charcoal-ink/10 pt-3 first:border-t-0 first:pt-0">
-          <legend className="text-sm font-medium text-charcoal-ink">{DOMAIN_LABEL[domain]}</legend>
+        <fieldset key={domain} className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 first:border-t-0 first:pt-0">
+          <legend className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{DOMAIN_LABEL[domain]}</legend>
           <div className="flex flex-wrap gap-x-4 gap-y-1">
             {OUTCOME_OPTIONS.map((opt) => (
-              <label key={opt.value} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80">
+              <label key={opt.value} className="flex items-center gap-1.5 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
                 <input
                   type="radio"
                   name={`domain-${domain}`}
@@ -54,6 +56,7 @@ export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDom
           </div>
           {answers[domain]?.outcome && answers[domain]?.outcome !== "no_concern" && (
             <Textarea
+              aria-label={`Anything you'd like your care team to know about ${DOMAIN_LABEL[domain]} (optional)`}
               placeholder="Anything you'd like your care team to know (optional)"
               maxLength={500}
               value={answers[domain]?.note ?? ""}
@@ -65,8 +68,8 @@ export function AgeingAssessmentForm({ domains }: { domains: AgeingAssessmentDom
         </fieldset>
       ))}
 
-      {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-      {state?.success && <p className="text-sm text-brand-green">Saved. Thank you.</p>}
+      <FormError id={errorId} message={state?.error} />
+      <FormSuccess message={state?.success && "Saved. Thank you."} />
 
       <Button type="submit" disabled={pending || answeredCount === 0}>
         {pending ? "Saving…" : `Save ${answeredCount || ""} answer${answeredCount === 1 ? "" : "s"}`}

@@ -87,7 +87,7 @@ function ConfirmForm({ day }: { day: ScreeningDay }) {
         </p>
       ) : null}
       {confirm.isError ? <p className="text-sm text-red-600">{(confirm.error as Error).message}</p> : null}
-      {confirm.isSuccess ? <p className="text-sm text-brand-green">Confirmed — ready for payment.</p> : null}
+      {confirm.isSuccess ? <p className="text-sm text-brand-green">Confirmed. Ready for payment.</p> : null}
     </form>
   );
 }
@@ -154,7 +154,7 @@ function SlotsList({ day }: { day: ScreeningDay }) {
     <div className="mt-3 space-y-3 border-t border-charcoal-ink/10 pt-3">
       <p className="text-sm text-charcoal-ink/70">
         {naira(day.amount_paid_kobo)} paid of {naira(day.total_kobo ?? 0)}
-        {fullyPaid ? " — paid in full" : ""}
+        {fullyPaid ? " (paid in full)" : ""}
       </p>
       <ul className="space-y-2">
         {(slots ?? []).map((slot) => (

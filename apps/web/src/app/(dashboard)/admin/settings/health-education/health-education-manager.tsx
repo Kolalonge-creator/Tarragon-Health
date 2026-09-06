@@ -178,7 +178,7 @@ function ContentForm({
           </Select>
         </div>
         <div className="space-y-1">
-          <Label htmlFor="content_condition">Condition (optional — blank = everyone)</Label>
+          <Label htmlFor="content_condition">Condition (optional, blank = everyone)</Label>
           <Select
             id="content_condition"
             value={form.condition ?? ""}
@@ -300,7 +300,7 @@ function HistoryAndTranslations({ item }: { item: HealthEducationContent }) {
 
       <div className="space-y-2">
         <p className="text-xs font-medium text-charcoal-ink/60">
-          Translations (§79.9) — human-authored only, never auto-generated
+          Translations (§79.9): human-authored only, never auto-generated
         </p>
         {translations && translations.length > 0 && (
           <ul className="text-xs text-charcoal-ink/60">
@@ -487,7 +487,7 @@ export function HealthEducationManager() {
               <CardDescription>
                 {liveCount} of {content?.length ?? 0} items live across {HEALTH_EDUCATION_CATEGORIES.length}{" "}
                 categories. New content starts as a draft and only reaches patients once it&apos;s been
-                sent through clinical review, approved, and published — there is no direct
+                sent through clinical review, approved, and published. There is no direct
                 publish shortcut.
               </CardDescription>
               <div className="mt-1 flex gap-3 text-xs">

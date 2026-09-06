@@ -79,7 +79,7 @@ export async function HealthyAgeingClinicianPanel({ patientId }: { patientId: st
       {(pendingDomains?.length ?? 0) > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Ageing check-in — flagged sections</CardTitle>
+            <CardTitle>Ageing check-in: flagged sections</CardTitle>
             <CardDescription>
               Answers that suggest a closer look. Reviewing records that a clinician looked at it, not a
               diagnosis.

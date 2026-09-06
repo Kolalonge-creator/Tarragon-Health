@@ -29,7 +29,7 @@ export function ReferToSpecialistForm({ patientId }: { patientId: string }) {
       <CardContent>
         <p className="mb-4 text-sm text-charcoal-ink/70">
           Issues a referral letter the patient can take to a specialist of their choosing
-          (self-arranged — Tarragon does not book or match a provider on their behalf).
+          (self-arranged: Tarragon does not book or match a provider on their behalf).
         </p>
         <form action={formAction} className="space-y-4">
           <div className="space-y-1.5">

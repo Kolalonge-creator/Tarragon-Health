@@ -9,9 +9,8 @@ import { Select } from "@/components/ui/select";
 import { useEmployerBillingSummary, financeKeys } from "@/lib/finance/queries";
 import { upsertEmployerBillingConfigAction, deleteEmployerBillingConfigAction } from "@/lib/finance/actions";
 import type { EmployerBillingSummaryRow } from "@/lib/finance/schemas";
+import { lagosToday } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 /**
  * docs/FULL_SPECIFICATION_V4.md §94.12 — "Eligible employees x Price per
@@ -27,7 +26,7 @@ export function EmployerBilling() {
   const summary = useEmployerBillingSummary();
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [editingOrgId, setEditingOrgId] = useState<string | null>(null);
-  const [f, setF] = useState({ price: "", currency: "NGN", effective_from: today(), notes: "" });
+  const [f, setF] = useState({ price: "", currency: "NGN", effective_from: lagosToday(), notes: "" });
 
   const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.all });
 
@@ -36,7 +35,7 @@ export function EmployerBilling() {
     setF({
       price: row.price_per_member_minor ? String(row.price_per_member_minor / 100) : "",
       currency: row.currency ?? "NGN",
-      effective_from: row.effective_from ?? today(),
+      effective_from: row.effective_from ?? lagosToday(),
       notes: row.notes ?? "",
     });
     setMsg(null);
@@ -71,7 +70,7 @@ export function EmployerBilling() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         Per-member platform pricing for employer/HMO organisations. Eligible/activated counts come
-        straight from each org&apos;s roster. This is an internal estimate for finance review — it
+        straight from each org&apos;s roster. This is an internal estimate for finance review. It
         does not send an invoice.
       </p>
 

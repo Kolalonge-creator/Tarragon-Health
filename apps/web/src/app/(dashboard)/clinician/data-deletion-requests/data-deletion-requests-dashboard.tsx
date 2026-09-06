@@ -13,6 +13,8 @@ import {
   DATA_DELETION_STATUS_BADGE_VARIANT,
 } from "@/lib/device-data-deletion-labels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { listQueryState } from "@/lib/queries/list-query-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,7 +48,7 @@ function RequestRow({ request }: { request: DataDeletionRequestWithPatient }) {
             {request.patient?.patient_number ? ` · ${request.patient.patient_number}` : ""}
           </p>
           <p className="text-xs text-charcoal-ink/60">
-            {DATA_DELETION_SCOPE_LABEL[request.scope]} — requested {formatDate(request.requested_at)}
+            {DATA_DELETION_SCOPE_LABEL[request.scope]}, requested {formatDate(request.requested_at)}
           </p>
           {request.reason && (
             <p className="mt-1 text-xs text-charcoal-ink/70">Reason: {request.reason}</p>
@@ -135,6 +137,11 @@ function RequestRow({ request }: { request: DataDeletionRequestWithPatient }) {
  */
 export function DataDeletionRequestsDashboard({ organisationId }: { organisationId: string }) {
   const requests = useOrgDeletionRequests(organisationId);
+  const requestsState = listQueryState({
+    isLoading: requests.isLoading,
+    isError: requests.isError,
+    count: requests.data?.length,
+  });
 
   const all = requests.data ?? [];
   const open = all.filter((r) => OPEN_STATUSES.has(r.status));
@@ -147,18 +154,25 @@ export function DataDeletionRequestsDashboard({ organisationId }: { organisation
           Data deletion requests
         </h1>
         <p className="text-sm text-charcoal-ink/60">
-          55.19 — patient-initiated requests to delete device/wearable data. Processing deletes
+          55.19: patient-initiated requests to delete device/wearable data. Processing deletes
           wearable readings and, depending on scope, disconnects wearables or unpairs Bluetooth
           devices. This never touches a patient&apos;s vitals or medical record.
         </p>
       </div>
 
-      {requests.isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-      {requests.isError && (
-        <p className="text-sm text-red-600">Couldn&apos;t load deletion requests.</p>
+      {/* `requests.data &&` alone let a failed refetch render the red line and
+          "No open requests." at the same time. One branch, error first: a
+          patient's request to have their device data deleted is a data-rights
+          obligation with a clock on it, not a to-do. */}
+      {requestsState === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {requestsState === "error" && (
+        <LoadFailure>
+          Deletion requests could not be loaded. This is not a report that none are open, and a
+          request already waiting on a response is not visible here. Reload to try again.
+        </LoadFailure>
       )}
 
-      {requests.data && (
+      {requestsState !== "loading" && requestsState !== "error" && requests.data && (
         <>
           <Card>
             <CardHeader>

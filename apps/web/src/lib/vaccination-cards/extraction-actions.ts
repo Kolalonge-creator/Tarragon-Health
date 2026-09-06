@@ -15,6 +15,7 @@ import {
   type VaccinationCatalogueEntry,
 } from "./extract";
 import { confirmVaccinationCardExtractionSchema } from "@/lib/validation/vaccination";
+import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
 
 export type CardExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -118,6 +119,33 @@ export async function runVaccinationCardExtraction(
     .select("id, code, name")
     .eq("is_active", true);
 
+  // -- AI-012 governance gate -----------------------------------------------
+  // Same shape and the same reasoning as the lab/ECG pipelines' gates: the
+  // kill switch is honoured before the model is reached, every outcome
+  // reaches ai_interaction_log, and the fallback is the manual entry form
+  // (LogVaccinationForm) this function already fell back to for every other
+  // failure.
+  const governance = await decideAiGovernance(service, AI_SYSTEMS.vaccinationCardOcr.code);
+  if (!governance.allow) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.vaccinationCardOcr.code,
+      modelIdentifier: "none:fallback",
+      inputCategory: "vaccination_card_document",
+      status: "fallback",
+      subjectProfileId: row.patient_id,
+      fallbackReason: governance.message,
+      resultingAction: "manual_entry_required",
+      resultingEntityType: "vaccination_card_extractions",
+      resultingEntityId: extractionId,
+    });
+    return fail(
+      "Automatic reading is switched off just now. Enter the doses by hand.",
+      `AI governance: ${governance.reason}`
+    );
+  }
+
+  const startedAt = Date.now();
+
   const result = await extractVaccinationCard({
     fileBase64,
     mediaType: visionMediaType,
@@ -125,6 +153,18 @@ export async function runVaccinationCardExtraction(
   });
 
   if (!result.ok) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.vaccinationCardOcr.code,
+      modelIdentifier: EXTRACTION_MODEL_ID,
+      inputCategory: "vaccination_card_document",
+      status: "failed",
+      subjectProfileId: row.patient_id,
+      errorMessage: `Extraction failed: ${result.reason}`,
+      latencyMs: Date.now() - startedAt,
+      resultingAction: "manual_entry_required",
+      resultingEntityType: "vaccination_card_extractions",
+      resultingEntityId: extractionId,
+    });
     return fail(
       result.reason === "unsupported_type"
         ? "This file type cannot be read automatically. Enter the doses by hand."
@@ -152,6 +192,23 @@ export async function runVaccinationCardExtraction(
   if (updateError) {
     return fail("Could not save the draft.", updateError.message);
   }
+
+  // Counts and provenance only -- the transcribed doses stay in
+  // vaccination_card_extractions under the patient's own RLS.
+  await recordAiInteraction(service, {
+    systemCode: AI_SYSTEMS.vaccinationCardOcr.code,
+    modelIdentifier: EXTRACTION_MODEL_ID,
+    inputCategory: "vaccination_card_document",
+    status: "completed",
+    subjectProfileId: row.patient_id,
+    outputSummary: `${extraction.rows.length} dose row(s) read, ${readyCount} ready for confirmation${
+      extraction.unreadableReason ? `, unreadable: ${extraction.unreadableReason}` : ""
+    }`,
+    latencyMs: Date.now() - startedAt,
+    resultingAction: "draft_awaiting_patient_confirmation",
+    resultingEntityType: "vaccination_card_extractions",
+    resultingEntityId: extractionId,
+  });
 
   return {
     status: "extracted",

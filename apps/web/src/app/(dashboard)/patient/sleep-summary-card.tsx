@@ -13,7 +13,7 @@ function formatDuration(minutes: number): string {
 const CONSISTENCY_LABEL: Record<SleepSummary["consistency"], string> = {
   consistent: "Fairly consistent night to night",
   somewhat_variable: "Somewhat variable night to night",
-  irregular: "Irregular — duration swings a lot night to night",
+  irregular: "Irregular: duration swings a lot night to night",
   unknown: "Not enough nights yet to tell",
 };
 
@@ -48,26 +48,26 @@ export function SleepSummaryCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.sleep className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.sleep className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Sleep
         </CardTitle>
         <CardDescription>
-          Estimate from your connected wearable — not a clinically validated sleep study.
+          Estimate from your connected wearable, not a clinically validated sleep study.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        <p className="font-heading text-2xl font-semibold text-charcoal-ink">
+        <p className="font-heading text-2xl font-semibold text-charcoal-ink dark:text-night-ink">
           {data.lastNightMinutes !== null ? formatDuration(data.lastNightMinutes) : "—"}
-          <span className="ml-2 text-sm font-normal text-charcoal-ink/60">last night</span>
+          <span className="ml-2 text-sm font-normal text-charcoal-ink/60 dark:text-night-ink/60">last night</span>
         </p>
         {data.averageMinutes !== null && (
-          <p className="text-sm text-charcoal-ink/70">
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             {formatDuration(data.averageMinutes)} average over the last {data.nightsInWindow}{" "}
             {data.nightsInWindow === 1 ? "night" : "nights"}
           </p>
         )}
-        <p className="text-xs text-charcoal-ink/50">{CONSISTENCY_LABEL[data.consistency]}</p>
-        <p className="text-xs text-charcoal-ink/50">{TREND_LABEL[data.trend]}</p>
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{CONSISTENCY_LABEL[data.consistency]}</p>
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{TREND_LABEL[data.trend]}</p>
       </CardContent>
     </Card>
   );

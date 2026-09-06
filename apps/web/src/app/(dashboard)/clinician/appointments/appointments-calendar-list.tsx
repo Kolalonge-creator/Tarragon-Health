@@ -69,7 +69,7 @@ export function AppointmentsCalendarList({ clinicianId }: { clinicianId: string 
       const result = await ensureVideo.mutateAsync(appointmentId);
       router.push(`/clinician/video-visit/${result.videoConsultationId}`);
     } catch (e) {
-      setError((e as Error).message || "Could not open the video visit — try again in a moment.");
+      setError((e as Error).message || "Could not open the video visit. Try again in a moment.");
     }
   }
 
@@ -92,7 +92,7 @@ export function AppointmentsCalendarList({ clinicianId }: { clinicianId: string 
                 <li key={appt.id} className="flex flex-wrap items-center gap-2 py-2">
                   <div>
                     <p className="text-sm text-charcoal-ink">
-                      {APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type} —{" "}
+                      {APPOINTMENT_TYPE_LABELS[appt.appointment_type] ?? appt.appointment_type},{" "}
                       {formatSlot(appt.scheduled_for)}
                     </p>
                     <p className="text-xs text-charcoal-ink/60">

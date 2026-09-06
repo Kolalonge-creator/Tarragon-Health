@@ -7,6 +7,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
+import { lagosToday } from "@/lib/format-date";
+import type { FinanceBill } from "@/lib/finance/schemas";
 import {
   useVendors,
   useBills,
@@ -23,7 +26,10 @@ import {
 } from "@/lib/finance/actions";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
-const today = () => new Date().toISOString().slice(0, 10);
+/** Approving posts the expense; paying books the cash out. Neither is
+ * reversible from this screen (a mistake has to be corrected with a journal
+ * reversal), so both go through a confirmation carrying the real amounts. */
+type PendingBillAction = { kind: "approve" | "pay"; bill: FinanceBill };
 
 const STATUS_VARIANT: Record<string, "grey" | "amber" | "green" | "red"> = {
   draft: "grey",
@@ -42,6 +48,13 @@ export function PayablesAndVendors() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: financeKeys.all });
   const expenseAccounts = (accounts.data ?? []).filter((a) => a.type === "expense");
+  // The bank the cash leaves from is a real choice, not a constant: a non-NGN
+  // bill must not be settled out of the NGN account by default.
+  const bankAccounts = (accounts.data ?? []).filter((a) => a.type === "asset" && a.name.startsWith("Bank"));
+
+  const [confirming, setConfirming] = useState<PendingBillAction | null>(null);
+  const [payBankCode, setPayBankCode] = useState("");
+  const [busy, setBusy] = useState(false);
 
   const [showVendorForm, setShowVendorForm] = useState(false);
   const [vf, setVf] = useState({ name: "", vendor_type: "", wht_applicable: false, wht_rate_pct: "" });
@@ -69,7 +82,7 @@ export function PayablesAndVendors() {
   const [showBillForm, setShowBillForm] = useState(false);
   const [bf, setBf] = useState({
     vendor_id: "",
-    bill_date: today(),
+    bill_date: lagosToday(),
     due_date: "",
     currency: "NGN",
     amount: "",
@@ -92,20 +105,41 @@ export function PayablesAndVendors() {
     });
     if (!res.ok) return setMsg({ ok: false, text: res.error ?? "Could not create bill." });
     setMsg({ ok: true, text: "Bill created as a draft." });
-    setBf({ vendor_id: "", bill_date: today(), due_date: "", currency: "NGN", amount: "", expense_account_code: "", description: "" });
+    setBf({ vendor_id: "", bill_date: lagosToday(), due_date: "", currency: "NGN", amount: "", expense_account_code: "", description: "" });
     setShowBillForm(false);
     invalidate();
   }
 
-  async function approve(id: string) {
-    const res = await approveBillAction(id);
-    if (res.ok) { setMsg({ ok: true, text: "Bill approved and posted." }); invalidate(); }
-    else setMsg({ ok: false, text: res.error ?? "Could not approve." });
+  function askToApprove(bill: FinanceBill) {
+    setMsg(null);
+    setConfirming({ kind: "approve", bill });
   }
-  async function pay(id: string) {
-    const res = await payBillAction(id, "1000", today());
-    if (res.ok) { setMsg({ ok: true, text: "Bill paid and posted." }); invalidate(); }
-    else setMsg({ ok: false, text: res.error ?? "Could not mark paid." });
+  function askToPay(bill: FinanceBill) {
+    setMsg(null);
+    // Preselect a bank only when exactly one matches the bill's currency;
+    // otherwise the operator picks, so nothing is credited by accident.
+    const sameCurrency = bankAccounts.filter((a) => a.name.includes(bill.currency));
+    setPayBankCode(sameCurrency.length === 1 ? sameCurrency[0].code : "");
+    setConfirming({ kind: "pay", bill });
+  }
+
+  async function runConfirmed() {
+    if (!confirming) return;
+    const { kind, bill } = confirming;
+    if (kind === "pay" && !payBankCode) return;
+    setBusy(true);
+    const res =
+      kind === "approve"
+        ? await approveBillAction(bill.id)
+        : await payBillAction(bill.id, payBankCode, lagosToday());
+    setBusy(false);
+    setConfirming(null);
+    if (res.ok) {
+      setMsg({ ok: true, text: kind === "approve" ? "Bill approved and posted." : "Bill paid and posted." });
+      invalidate();
+    } else {
+      setMsg({ ok: false, text: res.error ?? (kind === "approve" ? "Could not approve." : "Could not mark paid.") });
+    }
   }
   async function voidDraft(id: string) {
     const reason = window.prompt("Reason for voiding?") ?? "";
@@ -125,6 +159,71 @@ export function PayablesAndVendors() {
       </p>
 
       {msg && <p className={`text-sm ${msg.ok ? "text-brand-green" : "text-red-600"}`}>{msg.text}</p>}
+
+      <ConfirmDialog
+        open={confirming !== null}
+        title={confirming?.kind === "pay" ? "Pay this bill?" : "Approve this bill?"}
+        description={
+          confirming?.kind === "pay"
+            ? "This books the cash out of the bank account you choose. Correct a mistake with a journal reversal, not by editing the bill."
+            : "This posts the expense and the payable, including withholding tax if the vendor is WHT-applicable."
+        }
+        confirmLabel={confirming?.kind === "pay" ? "Pay bill" : "Approve and post"}
+        confirmDisabled={busy || (confirming?.kind === "pay" && !payBankCode)}
+        onCancel={() => setConfirming(null)}
+        onConfirm={runConfirmed}
+      >
+        {confirming && (
+          <div className="space-y-3">
+            <ConfirmDialogFacts
+              rows={[
+                { label: "Vendor", value: confirming.bill.vendor_name },
+                { label: "Bill", value: `#${confirming.bill.bill_no}` },
+                { label: "Amount", value: formatMinor(confirming.bill.amount_minor, confirming.bill.currency) },
+                {
+                  label: "Withholding tax",
+                  value: confirming.bill.wht_minor
+                    ? formatMinor(confirming.bill.wht_minor, confirming.bill.currency)
+                    : "None",
+                },
+                {
+                  label: confirming.kind === "pay" ? "Cash leaving" : "Net to vendor",
+                  value: formatMinor(
+                    confirming.bill.amount_minor - (confirming.bill.wht_minor ?? 0),
+                    confirming.bill.currency,
+                  ),
+                },
+              ]}
+            />
+            {confirming.kind === "pay" && (
+              <div className="space-y-1">
+                <Label htmlFor="pay-bank">Pay from</Label>
+                <Select
+                  id="pay-bank"
+                  value={payBankCode}
+                  onChange={(e) => setPayBankCode(e.target.value)}
+                >
+                  <option value="">Choose a bank account…</option>
+                  {bankAccounts.map((a) => (
+                    <option key={a.code} value={a.code}>
+                      {a.code} · {a.name}
+                    </option>
+                  ))}
+                </Select>
+                {bankAccounts.length === 0 ? (
+                  <p className="text-xs text-charcoal-ink/60">Loading bank accounts…</p>
+                ) : (
+                  !payBankCode && (
+                    <p className="text-xs text-charcoal-ink/60">
+                      Pick the account the money actually leaves. Bill currency: {confirming.bill.currency}.
+                    </p>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </ConfirmDialog>
 
       <SectionCard
         title="Vendors"
@@ -262,12 +361,12 @@ export function PayablesAndVendors() {
                     <div className="inline-flex gap-2">
                       {b.status === "draft" && (
                         <>
-                          <Button size="sm" variant="outline" onClick={() => approve(b.id)}>Approve</Button>
+                          <Button size="sm" variant="outline" onClick={() => askToApprove(b)}>Approve</Button>
                           <button type="button" className="text-xs text-charcoal-ink/50 hover:text-red-600" onClick={() => voidDraft(b.id)}>Void</button>
                         </>
                       )}
                       {b.status === "approved" && (
-                        <Button size="sm" variant="outline" onClick={() => pay(b.id)}>Mark paid</Button>
+                        <Button size="sm" variant="outline" onClick={() => askToPay(b)}>Mark paid</Button>
                       )}
                     </div>
                   </td>

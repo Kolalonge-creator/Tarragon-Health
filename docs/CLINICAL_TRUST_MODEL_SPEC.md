@@ -13,7 +13,22 @@
 
 Read this spec's own §7 build-sequencing table against these Sprint numbers, not the literal Stage/§ numbers.
 
-**Superseded 2026-07-15 — Tarragon now directly employs its own doctors.** The day-to-day care-team role (Tier 2 below) is staffed by Tarragon-employed, MDCN-licensed doctors, not contracted nurses/clinicians, and is branded to patients as "your doctor," not "your clinician." This is a deliberate business-model change, not a copy typo: the earlier "clinician is the default face, doctor attribution is earned per-case" framing (§9, previously carried into CLAUDE.md's "Never" list) is retired. What's preserved from the original model: the underlying `clinical_staff.role` DB value for this tier remains `clinician` for schema/backward-compatibility reasons only — that is an internal identifier, not something a patient ever sees, and it does not need to match the customer-facing word. The three-tier structure, the null-gated `ReviewedByDoctor` attribution component, and the escalation SLA machinery are all still real and still required; only the brand word for Tier 2 changes.
+**Superseded 2026-07-15, then largely replaced 2026-07-15 by the 5-tier ladder — this §1's "Three
+Tiers" role architecture and schema are no longer current.** `clinical_staff.role` (the
+`clinical_director`/`clinician`/`escalation_doctor` value described below) was fully retired the same
+day by migration `20260715175909_retire_clinical_staff_role.sql` — it does not exist as a column any
+more, contrary to the "preserved... for schema/backward-compatibility reasons" claim immediately below
+(confirmed live: `clinical_staff` has no `role` column; it has `doctor_tier`/`is_clinical_director`
+instead). Clinical seniority is now carried by `clinical_staff.doctor_tier` (Care Coordinator + Tiers
+1–5), and every tier uses the single `clinician` account role — see `CLAUDE.md`'s "Clinical Tier
+Ladder" section and `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §4/§7/§8, both authoritative
+over this section. **What is still current and unchanged from this doc:** §2's per-touchpoint
+Attribution Rules, the null-gated `ReviewedByDoctor` component principle, and §9's "never promise one
+continuous named doctor" non-negotiable (see the 2026-07-30 note below) — those survive the role-model
+change intact. The original three-tier table below is kept for historical context only; do not build
+against it.
+
+**Superseded 2026-07-15 — Tarragon now directly employs its own doctors.** The day-to-day care-team role (Tier 2 below) is staffed by Tarragon-employed, MDCN-licensed doctors, not contracted nurses/clinicians, and is branded to patients as "your doctor," not "your clinician." This is a deliberate business-model change, not a copy typo: the earlier "clinician is the default face, doctor attribution is earned per-case" framing (§9, previously carried into CLAUDE.md's "Never" list) is retired.
 
 **Superseded 2026-07-30 — never promise ONE continuous named doctor; the Tier 2 relationship is a team, not an individual.** Patient feedback flagged the original framing below (a single named, photographed doctor as "the primary relationship the patient has") as something the platform can't honestly deliver at real scale with shift-based staffing — a real team covers day-to-day review across shifts, and promising one fixed person either becomes a lie or overloads one doctor. §1's Tier 2 table row and §9's non-negotiable are rewritten below to match. **Unchanged:** per-case attribution stays mandatory and real — whichever Tier 2 doctor actually reviewed a specific reading/case is still named on that case, with a timestamp (the one-line principle immediately below is fully intact); the Clinical Director's protocol authorship stays named; the Escalation Doctor pool's per-case attribution is untouched. **Changed:** patient-facing copy (onboarding, dashboard, marketing) says "your care team," never "your doctor" as a singular continuous person, and every "doctor" reference in this section that used to mean one fixed individual now means "whichever doctor on the team actually did the reviewing."
 
@@ -73,7 +88,7 @@ New or extended tables, on top of what's already scoped in the Build Guide:
 
 | Table | Key fields | Purpose |
 | --- | --- | --- |
-| `clinical_staff` | id, role (`clinical_director` / `clinician` / `escalation_doctor`), full_name, photo_url, credential_type, credential_number (MDCN/NMCN), specialty, bio, active, license_verified_at | Single source of truth for every named clinician shown anywhere in the product |
+| `clinical_staff` | **Stale — no `role` column exists live**, replaced by `doctor_tier`/`is_clinical_director` (2026-07-15); real live columns also include `indemnity_insurer/policy_number/expires_at/exempt/exempt_by`, `staff_number`, `red_flag_attested_at`, `credential_verified_at/by`, `license_expires_at`, `offers_therapy_sessions`. See `docs/Tarragon_Health_Master_Operating_Plan_v4.md` for the current schema. | Single source of truth for every named clinician shown anywhere in the product |
 | `care_team_assignment` | patient_id, clinician_id, clinical_director_id, assigned_at | Powers the onboarding "Your Care Team" screen and dashboard clinician identity |
 | `protocol_versions` | protocol_id, version_number, approved_by (→ clinical_staff), approved_at, change_summary | Makes "protocols supervised by Dr. X" literally auditable, not just a claim |
 | `escalations` (extends existing escalation queue from Stage 5) | ...existing fields..., assigned_doctor_id, reviewed_by, reviewed_at, review_note, sla_target_at, sla_met (bool) | Gates all doctor-attribution UI; also feeds SLA reporting |
@@ -98,14 +113,20 @@ This slots into the existing Stage 3 (Patient Profile), Stage 5 (Risk Scoring/Es
 | Role | Ratio / structure | Payment model | Notes |
 | --- | --- | --- | --- |
 | Clinical Director | 1 (founder/clinical lead for pilot, per Master Plan §26 Early Team) | Founder equity / salary once funded | Formal external hire only when protocol volume or credibility needs exceed founder bandwidth — consistent with the capital-efficiency principle already locked in |
-| Clinician | 1 : 120 patients (existing ratio) | Salary or per-caseload | Primary trust surface — invest in professionalizing this role's presentation (real photos, titles, structured call scripts) rather than routing trust through borrowed doctor credit |
+| Clinician | Placeholder, under review — do not cite 1:120 as current. Per CLAUDE.md's Non-Negotiable Business Rules: 1:120 was the working Tier 1–3 figure, now under review since 2026-07-30, with 1:2000 an aspiration (not a committed number) pending real time-per-case pilot data. Describe the mechanism (protocol-driven triage before a doctor sees a case), not a ratio. | Salary or per-caseload | Primary trust surface — invest in professionalizing this role's presentation (real photos, titles, structured call scripts) rather than routing trust through borrowed doctor credit |
 | Escalation Doctor Pool | Sized to escalation *volume*, not patient count — start with minimum 2 doctors for pilot so there's rota backup from day one | Per-case-reviewed or per on-call shift, not FTE salary | Matches the "backend logistics" cost logic from the original idea — doctors are paid for actual clinical work, not for appearing on every screen |
 
 **Sizing the doctor pool (to tune during pilot, no reliable Nigeria-specific benchmark to assume yet):** track actual Amber/Red/Emergency escalation rate per 100 active patients during the 100-patient pilot, multiply by average review time, and back into required doctor-hours per week. Rebuild this ratio with real pilot data before scaling past pilot size — don't guess a fixed ratio now and lock it into the cost model.
 
-**Escalation SLA targets** (tie to Stage 5/7 build and the Outcome Evidence Engine, §25 of Master Plan, which already tracks "time to doctor review"):
+**Stale table, kept for historical context only — the live SLA model is per-pathway, not a flat
+3-tier table.** The live, versioned `escalation_slas` config has ~20 distinct (pathway, tier) SLA
+entries ranging from 15 minutes to 24 hours, not a flat Amber/Red/Emergency table. The one hard
+platform-wide number that IS current: an abnormal screening result carries a two-tier SLA — 120
+minutes for a critical result, 1440 minutes (24h) for a non-critical abnormal result (CLAUDE.md's
+Non-Negotiable Business Rules). For any other pathway's SLA, check `/admin/settings/escalation-slas`
+or `private.escalation_sla_minutes(pathway, tier)` directly rather than this table.
 
-| Tier | Target review time |
+| Tier | Target review time (historical, do not build against) |
 | --- | --- |
 | Amber | Within 24 hours |
 | Red | Within 2 hours |

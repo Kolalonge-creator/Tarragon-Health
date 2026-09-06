@@ -191,10 +191,19 @@ export const MARKETING_MEDIA = {
       imageAlt: "A hand holding a phone beside a blood pressure cuff on a table",
       imageFocus: "center 45%",
     } as MarketingMediaSlot,
+    /**
+     * Illustration, not a photograph, on purpose. who-its-for.jpg was a
+     * BYTE-IDENTICAL copy of homepage-family-phone.jpg (same md5), which
+     * /pricing/how-it-works also borrowed, so one photograph fronted three
+     * pages. The file is gone; the homepage keeps the photograph, and this
+     * page (an audience router, not a story) gets the network illustration
+     * that actually describes what it is about. Give it its own photograph
+     * once one is genuinely sourced.
+     */
     whoItsFor: {
-      imageSrc: "/marketing/photos/hero/who-its-for.jpg",
-      imageAlt: "An adult daughter and her mother smiling together at a phone",
-      imageFocus: "center 26%",
+      illustration: "care-network",
+      imageAlt:
+        "One health record connected to an individual, their family, their employer, and their HMO",
     } as MarketingMediaSlot,
     chronicCare: {
       imageSrc: "/marketing/photos/hero/chronic-care.jpg",

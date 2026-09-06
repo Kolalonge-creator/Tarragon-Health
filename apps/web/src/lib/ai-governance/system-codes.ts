@@ -21,9 +21,11 @@
  * trade than running it ungoverned for a minute.
  *
  * The rule: every system at risk_class `high` or `very_high` fails closed.
- * AI-003 is the one entry stricter than that: it is only moderate risk, but
- * it renders clinical content straight to a patient, and its fallback (the
- * result shown without a plain-language explanation) costs nothing.
+ * AI-003 and AI-012 are the two entries stricter than that: both are only
+ * moderate risk, but each writes or renders clinical content on a patient's
+ * record path, and each fallback (AI-003: the result shown without a
+ * plain-language explanation; AI-012: manual dose entry, which is the
+ * pre-existing path anyway) costs nothing.
  *
  * packages/db/tests/ai_governance.sql case 8 asserts the direction that
  * matters -- that no high or very-high risk system has drifted to fail-open
@@ -68,6 +70,10 @@ export const AI_SYSTEMS = {
   },
   clinicalRiskScoring: {
     code: "AI-010",
+    failClosedIfGovernanceUnavailable: true,
+  },
+  vaccinationCardOcr: {
+    code: "AI-012",
     failClosedIfGovernanceUnavailable: true,
   },
 } as const;

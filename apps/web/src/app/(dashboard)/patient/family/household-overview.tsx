@@ -5,6 +5,8 @@ import { useSupportedPersonHealth } from "@/lib/queries/sponsorship";
 import { useVaccinationSchedules } from "@/lib/queries/vaccination";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
 
 const CONDITION_LABEL: Record<string, string> = {
   hypertension: "High blood pressure",
@@ -36,9 +38,19 @@ function humanCondition(condition: string): string {
  */
 export function HouseholdOverview() {
   const { data: members, isLoading, isError } = useHouseholdCareCircle();
+  const state = listQueryState({ isLoading, isError, count: members?.length });
 
-  if (isLoading) return null;
-  if (isError || !members || members.length === 0) return null;
+  // The whole card used to vanish on a failed read, so a patient who follows
+  // a parent's care would see no sign that the section exists at all.
+  if (state === "error")
+    return (
+      <LoadErrorCard
+        title="Family health"
+        what="the people whose care you follow"
+        detail="Nobody has been removed from your circle. This is only what we could show just now."
+      />
+    );
+  if (state !== "ready" || !members) return null;
 
   return (
     <Card>
@@ -49,7 +61,7 @@ export function HouseholdOverview() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {members.map((member) => (
             <HouseholdMemberRow key={member.profileId} member={member} />
           ))}
@@ -73,7 +85,7 @@ function HouseholdMemberRow({ member }: { member: HouseholdMember }) {
     <li className="flex flex-wrap items-start justify-between gap-3 py-3">
       <div>
         <div className="flex flex-wrap items-center gap-2">
-          <p className="text-sm font-medium text-charcoal-ink">{name}</p>
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{name}</p>
           {member.dependentKind === "minor_child" && <Badge variant="grey">Child</Badge>}
         </div>
 
@@ -86,12 +98,12 @@ function HouseholdMemberRow({ member }: { member: HouseholdMember }) {
                 </Badge>
               ))
             ) : (
-              <p className="text-xs text-charcoal-ink/50">No active condition on file.</p>
+              <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">No active condition on file.</p>
             )}
           </div>
         ) : (
-          <p className="text-xs text-charcoal-ink/50">
-            Following logistics only — ask them to share their health information from their own
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+            Following logistics only. Ask them to share their health information from their own
             account to see more here.
           </p>
         )}

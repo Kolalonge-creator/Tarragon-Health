@@ -5,6 +5,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -91,7 +92,7 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: OpsIncidentRow) => vo
       <CardHeader>
         <CardTitle>Raise a new incident</CardTitle>
         <CardDescription>
-          Log it now, even before the full picture is clear — the SLA clock is set from the
+          Log it now, even before the full picture is clear. The SLA clock is set from the
           severity you pick and starts immediately. You can add detail, a root cause and
           corrective action as the incident progresses.
         </CardDescription>
@@ -122,10 +123,10 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: OpsIncidentRow) => vo
             value={severity}
             onChange={(e) => setSeverity(e.target.value as OpsIncidentSeverity)}
           >
-            <option value="sev1">Sev1 — patient safety / platform down / confirmed breach</option>
-            <option value="sev2">Sev2 — core journey broken, or money moving wrongly</option>
-            <option value="sev3">Sev3 — degraded, workaround in place</option>
-            <option value="sev4">Sev4 — cosmetic / low impact</option>
+            <option value="sev1">Sev1: patient safety / platform down / confirmed breach</option>
+            <option value="sev2">Sev2: core journey broken, or money moving wrongly</option>
+            <option value="sev3">Sev3: degraded, workaround in place</option>
+            <option value="sev4">Sev4: cosmetic / low impact</option>
           </Select>
         </div>
         <div className="space-y-1 sm:col-span-2">
@@ -187,9 +188,13 @@ function NewIncidentForm({ onCreated }: { onCreated: (row: OpsIncidentRow) => vo
 export function IncidentsManager({
   initialIncidents,
   canManage,
+  loadFailed = false,
 }: {
   initialIncidents: OpsIncidentRow[];
   canManage: boolean;
+  /** The register read failed. Logging a new incident stays available: an
+   * unreadable register is itself a reason somebody may need to log one. */
+  loadFailed?: boolean;
 }) {
   const [incidents, setIncidents] = useState(initialIncidents);
   const open = incidents.filter((i) => i.status !== "closed");
@@ -201,11 +206,19 @@ export function IncidentsManager({
         <CardHeader>
           <CardTitle>Incidents</CardTitle>
           <CardDescription>
-            {open.length} open or in progress · {open.filter(isPastSla).length} past their SLA
+            {loadFailed
+              ? "The register could not be read, so no count here would be true."
+              : `${open.length} open or in progress · ${open.filter(isPastSla).length} past their SLA`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-2">
-          {incidents.length === 0 ? (
+          {loadFailed ? (
+            <LoadFailure>
+              The incident register could not be loaded. This is not a report that nothing is open,
+              and any incident already past its SLA is not visible here. Reload to try again. You
+              can still log a new incident above.
+            </LoadFailure>
+          ) : incidents.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">No incidents logged. That&apos;s the goal.</p>
           ) : (
             incidents.map((incident) => (

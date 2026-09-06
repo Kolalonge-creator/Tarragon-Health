@@ -30,7 +30,7 @@ export function SettingsTabs({ tabs }: { tabs: SettingsTabDef[] }) {
   const pathname = usePathname();
 
   return (
-    <div className="border-b border-charcoal-ink/10">
+    <div className="border-b border-charcoal-ink/10 dark:border-night-ink/15">
       <nav aria-label="Settings sections" className="-mb-px flex gap-6 overflow-x-auto">
         {tabs.map((tab) => {
           const active = isTabActive(pathname, tab.matchHrefs);
@@ -43,8 +43,8 @@ export function SettingsTabs({ tabs }: { tabs: SettingsTabDef[] }) {
               className={cn(
                 "shrink-0 whitespace-nowrap border-b-2 px-1 pb-3 text-sm font-medium transition-colors",
                 active
-                  ? "border-brand-green text-deep-forest"
-                  : "border-transparent text-charcoal-ink/55 hover:border-charcoal-ink/20 hover:text-charcoal-ink"
+                  ? "border-brand-green text-deep-forest dark:text-brand-green-bright"
+                  : "border-transparent text-charcoal-ink/55 hover:border-charcoal-ink/20 hover:text-charcoal-ink dark:text-night-ink/60 dark:hover:border-night-ink/25 dark:hover:text-night-ink"
               )}
             >
               {tab.label}

@@ -224,7 +224,7 @@ export function SpecialistCalendarManager({ specialistProviderId }: { specialist
                 <span>
                   <Badge variant={t.kind === "emergency_unavailable" ? "red" : "amber"}>{t.kind.replace(/_/g, " ")}</Badge>{" "}
                   {new Date(t.starts_at).toLocaleString()} – {new Date(t.ends_at).toLocaleString()}
-                  {t.reason ? ` — ${t.reason}` : ""}
+                  {t.reason ? ` (${t.reason})` : ""}
                 </span>
                 <Button
                   size="sm"

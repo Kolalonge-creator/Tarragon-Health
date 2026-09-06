@@ -26,7 +26,7 @@ export function SharingCard() {
   if (isError) {
     return (
       <Card>
-        <CardContent className="py-4 text-sm text-red-600">
+        <CardContent className="py-4 text-sm text-red-600 dark:text-red-400">
           Could not load your sharing settings.
         </CardContent>
       </Card>
@@ -40,18 +40,18 @@ export function SharingCard() {
         <CardTitle className="text-base">Sharing your sexual &amp; reproductive health info</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           This is off by default and stays that way unless you turn it on. You can change your
           mind at any time.
         </p>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {grantees.map((grantee) => {
             const isShared = grantee.waiverId !== null;
             const pending = grant.isPending || revoke.isPending;
             return (
               <li key={grantee.profileId} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-charcoal-ink">{grantee.fullName ?? "Someone with access to your record"}</span>
+                  <span className="text-sm text-charcoal-ink dark:text-night-ink">{grantee.fullName ?? "Someone with access to your record"}</span>
                   <Badge variant={isShared ? "green" : "grey"}>{isShared ? "Sharing" : "Not shared"}</Badge>
                 </div>
                 {isShared ? (

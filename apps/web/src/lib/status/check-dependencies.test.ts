@@ -111,7 +111,6 @@ describe("checkDependencies", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
     delete process.env.ML_SERVICE_URL;
     process.env.WHATSAPP_TOKEN = "set";
-    delete process.env.STRIPE_SECRET_KEY;
     stubFetch({ "/auth/v1/health": { ok: true } });
 
     const report = await checkDependencies();

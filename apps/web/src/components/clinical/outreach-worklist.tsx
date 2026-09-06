@@ -48,7 +48,7 @@ export function triggerContext(task: OutreachTaskWithPatient): string | null {
     const scheduledFor = typeof detail.scheduled_for === "string" ? detail.scheduled_for : null;
     const reason = typeof detail.reason === "string" ? detail.reason : null;
     return (
-      [scheduledFor ? `was due ${new Date(scheduledFor).toLocaleDateString("en-GB")}` : null, reason]
+      [scheduledFor ? `was due ${new Date(scheduledFor).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos" })}` : null, reason]
         .filter(Boolean)
         .join(" · ") || null
     );

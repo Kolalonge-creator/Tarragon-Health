@@ -4,6 +4,8 @@ import { useActionState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
 import {
   createTriageProtocolDraftAction,
   signTriageProtocolsAction,
@@ -124,11 +126,27 @@ export function TriageProtocolsManager({
   versions,
   activeVersion,
   nextVersion,
+  loadFailed = false,
 }: {
   versions: TriageProtocolVersionRow[];
   activeVersion: TriageProtocolVersionRow | null;
   nextVersion: number;
+  /** The triage_protocols read failed, so neither the signed/unsigned state
+   * nor the next version number is known. Both are governance facts and
+   * neither may be asserted from an unread table. */
+  loadFailed?: boolean;
 }) {
+  if (loadFailed) {
+    return (
+      <LoadFailure>
+        The triage protocol versions could not be loaded. This page cannot say whether a version is
+        signed, whether the patient-facing symptom checker is on or off, or what the next version
+        number should be. Do not draft a new version from here until it loads, and check
+        docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md if you need the current position.
+      </LoadFailure>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {activeVersion ? (
@@ -147,10 +165,10 @@ export function TriageProtocolsManager({
       ) : (
         <Card>
           <CardContent className="space-y-2 pt-6">
-            <Badge variant="amber">No signed configuration — symptom checker is OFF for patients</Badge>
+            <Badge variant="amber">No signed configuration: symptom checker is OFF for patients</Badge>
             <p className="text-sm text-charcoal-ink/70">
               The Symptom Assessment &amp; Triage Engine (platform brief §37) stays hidden from patients
-              until a Clinical Director reviews and signs a version below. This is deliberate — see
+              until a Clinical Director reviews and signs a version below. This is deliberate. See
               docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md.
             </p>
           </CardContent>
@@ -170,35 +188,37 @@ export function TriageProtocolsManager({
       {versions.length > 0 && (
         <div className="space-y-4">
           <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Version history</h2>
-          {versions.map((v) => (
-            <Card key={v.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  Version {v.version}
-                  {v.is_active ? <Badge variant="green">Active</Badge> : <Badge variant="grey">Draft, not in force</Badge>}
-                  {v.approved_at && <Badge variant="green">Signed</Badge>}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {v.notes && <p className="text-sm text-charcoal-ink/70">{v.notes}</p>}
-                <p className="text-xs text-charcoal-ink/50">
-                  Drafted {new Date(v.created_at).toLocaleString("en-GB")} ·{" "}
-                  {Array.isArray(v.config?.pathways) ? v.config.pathways.length : 0} pathway
-                  {Array.isArray(v.config?.pathways) && v.config.pathways.length === 1 ? "" : "s"}
-                </p>
-                {!v.is_active && (
-                  <>
-                    <p className="text-xs text-charcoal-ink/60">
-                      Signing requires an active Clinical Director account and brings this version into
-                      force, retiring whichever version is currently active — and turns the patient-facing
-                      symptom checker on if nothing was signed before.
-                    </p>
-                    <SignButton versionId={v.id} />
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+          <VersionHistoryList>
+            {versions.map((v) => (
+              <Card key={v.id}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    Version {v.version}
+                    {v.is_active ? <Badge variant="green">Active</Badge> : <Badge variant="grey">Draft, not in force</Badge>}
+                    {v.approved_at && <Badge variant="green">Signed</Badge>}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {v.notes && <p className="text-sm text-charcoal-ink/70">{v.notes}</p>}
+                  <p className="text-xs text-charcoal-ink/50">
+                    Drafted {new Date(v.created_at).toLocaleString("en-GB")} ·{" "}
+                    {Array.isArray(v.config?.pathways) ? v.config.pathways.length : 0} pathway
+                    {Array.isArray(v.config?.pathways) && v.config.pathways.length === 1 ? "" : "s"}
+                  </p>
+                  {!v.is_active && (
+                    <>
+                      <p className="text-xs text-charcoal-ink/60">
+                        Signing requires an active Clinical Director account and brings this version into
+                        force, retiring whichever version is currently active, and turns the patient-facing
+                        symptom checker on if nothing was signed before.
+                      </p>
+                      <SignButton versionId={v.id} />
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </VersionHistoryList>
         </div>
       )}
     </div>

@@ -30,7 +30,7 @@ export default async function ProviderOrgStaffPage({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name} — Staff</h1>
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">{selected.name}: Staff</h1>
         <OrgPicker options={options} selectedId={selected.id} />
       </div>
       <StaffManager

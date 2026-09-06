@@ -70,7 +70,7 @@ function EnrolmentReview({
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle className="text-base">{programmeName} — 12-week programme</CardTitle>
+          <CardTitle className="text-base">{programmeName}: 12-week programme</CardTitle>
           <Badge variant={enrolment.track === "doctor_supported" ? "green" : "grey"}>
             {enrolment.track === "doctor_supported" ? "Doctor-supported" : "Self-monitoring"}
           </Badge>
@@ -119,7 +119,7 @@ function EnrolmentReview({
             <ul className="mt-1 space-y-1">
               {doseHistory.map((row) => (
                 <li key={row.id} className="text-xs text-charcoal-ink/70">
-                  {row.medication?.drug_name ?? "Medication"} — {formatDate(row.created_at)}
+                  {row.medication?.drug_name ?? "Medication"}, {formatDate(row.created_at)}
                   {row.changed_reason ? `: ${row.changed_reason}` : ""}
                 </li>
               ))}

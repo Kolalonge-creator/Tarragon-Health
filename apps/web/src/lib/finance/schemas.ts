@@ -480,7 +480,7 @@ export const riskFlagsSchema = z.object({
 export type RiskFlags = z.infer<typeof riskFlagsSchema>;
 
 /**
- * payment_reconciliation_flags — automated Paystack/Stripe drift detection
+ * payment_reconciliation_flags — automated Paystack drift detection
  * (20260812023750_payment_reconciliation_flags.sql). Detection only; see
  * that migration and apps/web/src/lib/finance/reconciliation-sweep.ts for
  * how a flag gets written.

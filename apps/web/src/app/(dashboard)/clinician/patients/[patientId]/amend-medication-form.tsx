@@ -75,7 +75,7 @@ export function AmendMedicationForm({
       className="mt-2 space-y-3 rounded-md border border-charcoal-ink/10 bg-charcoal-ink/5 p-3"
     >
       <p className="text-xs font-medium text-charcoal-ink/70">
-        Amend this prescription — creates {medication.rx_number ? "a new Rx number as " : ""}v
+        Amend this prescription: creates {medication.rx_number ? "a new Rx number as " : ""}v
         {medication.version + 1}; this version is kept, not deleted.
       </p>
       <div className="grid grid-cols-2 gap-3">

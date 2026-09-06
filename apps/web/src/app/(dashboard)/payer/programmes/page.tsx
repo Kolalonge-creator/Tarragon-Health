@@ -35,10 +35,10 @@ export default async function PayerProgrammesPage({
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-            {selected.name} — Care programmes
+            {selected.name}: Care programmes
           </h1>
           <p className="text-sm text-charcoal-ink/60">
-            27.9 — &ldquo;All members with hypertension receive BP monitoring and structured follow-up.&rdquo;
+            27.9: &ldquo;All members with hypertension receive BP monitoring and structured follow-up.&rdquo;
             Applying a directive only enrols members whose condition a Tarragon clinician already diagnosed.
           </p>
         </div>

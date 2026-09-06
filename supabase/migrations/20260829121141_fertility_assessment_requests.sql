@@ -47,17 +47,20 @@ create trigger fertility_assessment_requests_set_updated_at
 
 alter table public.fertility_assessment_requests enable row level security;
 
+-- Access-control correction (2026-09-02, pre-launch security review): removed
+-- the caregiver EXISTS branch that originally sat here -- ANY profile_access
+-- grantee could read a patient's fertility assessment request regardless of
+-- category. This table was never applied live, so the fix is made directly
+-- rather than shipped-then-patched. Matches PR #330's own fertility_
+-- assessments table, which shipped with patient + org staff only from the
+-- start -- this table is the same domain (fertility) and should not be less
+-- protected than its sibling.
 drop policy if exists fertility_assessment_requests_select on public.fertility_assessment_requests;
 create policy fertility_assessment_requests_select on public.fertility_assessment_requests
   for select to authenticated
   using (
     patient_id = (select auth.uid())
     or private.is_org_staff(organisation_id)
-    or exists (
-      select 1 from public.profile_access pa
-      where pa.profile_id = fertility_assessment_requests.patient_id
-        and pa.grantee_user_id = (select auth.uid())
-    )
   );
 
 -- Patient can only ever create the initial request at status 'requested' —
@@ -94,6 +97,13 @@ begin
   end if;
   if has_table_privilege('anon', 'public.fertility_assessment_requests', 'SELECT') then
     raise exception 'anon must not have access to fertility_assessment_requests';
+  end if;
+  if exists (
+    select 1 from pg_policies
+    where schemaname = 'public' and tablename = 'fertility_assessment_requests'
+      and policyname = 'fertility_assessment_requests_select' and coalesce(qual,'') ilike '%profile_access%'
+  ) then
+    raise exception 'fertility_assessment_requests_select must not reference profile_access -- patient + org staff only';
   end if;
   raise notice 'PASS: fertility_assessment_requests installed';
 end $$;

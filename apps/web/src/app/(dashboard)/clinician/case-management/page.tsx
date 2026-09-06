@@ -16,7 +16,7 @@ export default async function CaseManagementPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Case management</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Intensive management for patients whose conditions need ongoing coordination — multiple
+          Intensive management for patients whose conditions need ongoing coordination: multiple
           conditions, uncontrolled disease, repeated hospitalisation, high predicted risk, complex
           medication, or significant barriers.
         </p>

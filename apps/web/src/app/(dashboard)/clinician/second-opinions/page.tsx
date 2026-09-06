@@ -87,7 +87,7 @@ export default function SecondOpinionsPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Second opinions</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Paid second-opinion requests awaiting your review — each one already carries a redeemed
+          Paid second-opinion requests awaiting your review. Each one already carries a redeemed
           credit, no billing action needed here.
         </p>
       </div>

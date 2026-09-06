@@ -108,7 +108,7 @@ export function NetworkManager({ insurerId, rows }: { insurerId: string; rows: R
         </CardHeader>
         <CardContent>
           {rows.length === 0 ? (
-            <p className="text-sm text-charcoal-ink/60">No exceptions — every provider defaults to in-network.</p>
+            <p className="text-sm text-charcoal-ink/60">No exceptions. Every provider defaults to in-network.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">

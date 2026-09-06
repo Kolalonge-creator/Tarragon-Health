@@ -92,7 +92,7 @@ export default function PrescriptionRenewalsPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Prescription renewals</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Patient-requested renewal reviews. Approving here records your decision only — issue the
+          Patient-requested renewal reviews. Approving here records your decision only. Issue the
           actual renewed prescription through the patient&apos;s chart, as usual.
         </p>
       </div>

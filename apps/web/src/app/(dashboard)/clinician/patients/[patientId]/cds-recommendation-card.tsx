@@ -54,7 +54,7 @@ export function CdsRecommendationCard({
   if (state?.success) {
     return (
       <div className="rounded-lg border border-brand-green/30 bg-brand-green/5 p-3 text-sm text-charcoal-ink/70">
-        Recorded: {DECISION_LABEL[decision]} — {recommendation.title}
+        Recorded: {DECISION_LABEL[decision]} ({recommendation.title})
       </div>
     );
   }

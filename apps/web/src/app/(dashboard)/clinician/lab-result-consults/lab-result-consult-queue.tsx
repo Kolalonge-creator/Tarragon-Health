@@ -235,7 +235,7 @@ export function LabResultConsultQueue() {
         <CardContent>
           <p className="mb-3 text-xs text-charcoal-ink/60">
             Patients have paid the consultation fee for a walkthrough of a self-arranged lab
-            result. Pick a time that works for you — a video link is generated automatically
+            result. Pick a time that works for you. A video link is generated automatically
             and the patient is told.
           </p>
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
@@ -260,7 +260,7 @@ export function LabResultConsultQueue() {
         <CardContent>
           <p className="mb-3 text-xs text-charcoal-ink/60">
             Reschedule if a better time works, or release it back to the queue if you can no
-            longer make it — the patient&apos;s paid fee is untouched either way.
+            longer make it. The patient&apos;s paid fee is untouched either way.
           </p>
           {mineLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
           {mine && mine.length === 0 && (

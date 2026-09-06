@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 const STATUS_COPY: Record<string, string> = {
   requested: "You've asked for nutrition support. Your care team will follow up to arrange a consultation.",
   scheduled: "Your dietitian consultation is scheduled.",
-  consultation_complete: "Your consultation is complete — a personalised plan is being prepared.",
+  consultation_complete: "Your consultation is complete. A personalised plan is being prepared.",
   plan_issued: "Your personalised nutrition plan is ready. Ask your care team to walk you through it.",
   declined: "This request wasn't taken forward right now.",
   not_applicable: "Nutrition support wasn't needed for this request.",
@@ -79,12 +79,12 @@ export function NutritionSupportCard({
       </CardHeader>
       <CardContent className="space-y-3">
         {referral ? (
-          <p className="text-sm text-charcoal-ink/80">
+          <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
             {STATUS_COPY[referral.status] ?? "Your care team is coordinating this."}
           </p>
         ) : (
           <>
-            <p className="text-sm text-charcoal-ink/80">
+            <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
               {risk.atRisk
                 ? risk.reasons.map((r) => RISK_REASON_LABELS[r]).join(" ")
                 : "Want extra support with your nutrition? Your care team can connect you with a dietitian for a plan built around you."}
@@ -95,7 +95,7 @@ export function NutritionSupportCard({
               </Button>
             </form>
             {state && "error" in state && state.error && (
-              <p className="text-sm text-red-600">{state.error}</p>
+              <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>
             )}
           </>
         )}

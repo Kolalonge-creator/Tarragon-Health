@@ -113,7 +113,7 @@ export async function splitBillWithThem(
 
   if (!result.ok) return { error: result.error };
   if (!result.sponsorCheckoutUrl) {
-    return { message: "Nothing configured to split here — pay the full bill on your card instead." };
+    return { message: "Nothing configured to split here. Pay the full bill on your card instead." };
   }
   redirect(result.sponsorCheckoutUrl);
 }

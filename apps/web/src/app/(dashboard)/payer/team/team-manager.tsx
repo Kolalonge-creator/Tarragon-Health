@@ -43,7 +43,7 @@ export function TeamManager({ insurerId, seats }: { insurerId: string; seats: Se
         <CardHeader>
           <CardTitle>Add a team member</CardTitle>
           <CardDescription>
-            27.14 — a seat only ever holds the powers its job needs. &ldquo;Owner&rdquo; can also manage other
+            27.14: a seat only ever holds the powers its job needs. &ldquo;Owner&rdquo; can also manage other
             seats.
           </CardDescription>
         </CardHeader>

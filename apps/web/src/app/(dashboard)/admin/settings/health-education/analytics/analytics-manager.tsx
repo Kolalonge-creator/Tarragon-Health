@@ -14,7 +14,7 @@ export function AnalyticsManager() {
         <CardTitle>Content performance</CardTitle>
         <CardDescription>
           Per-item view/completion/quiz/feedback counts, most-viewed first. Correlating this with
-          care-plan adherence is deliberately not attempted here — see the migration&apos;s
+          care-plan adherence is deliberately not attempted here. See the migration&apos;s
           comment for why.
         </CardDescription>
       </CardHeader>

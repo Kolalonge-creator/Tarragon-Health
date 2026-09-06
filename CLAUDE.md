@@ -119,10 +119,47 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   a remote project, so anything data-only silently survives there and resurrects on a fresh
   environment); and check the payment/partner-provider side as well as the database (Paystack has no
   delete for a Plan, so "removed" there means "no live row references it anymore," not "gone").
+- **`reproductive_health` is one of eight values in the `care_access_category` enum, and
+  `private.has_emergency_access` deliberately excludes it from break-glass** — every other category
+  allows an emergency read-through, this one never does (verified live 2026-09-05: every policy
+  calling it passes an explicit category, so no call site relies on a permissive NULL default).
+  **Corrected 2026-09-05: the claim that `can_read_clinical` also excludes it from the
+  DEPENDENT-ACCOUNT bypass is STALE.** That exclusion was deliberately removed, with reasoning, in
+  `20260902231348_fix_can_read_clinical_dependent_bypass_drift.sql`. Do not "restore" it. What
+  actually protects an adolescent is the separate `private.guardian_may_view_confidential_domain()`
+  gate, which blocks a guardian of a 10-17-year-old without a waiver — and as of 2026-09-05 that
+  gate was layered on only ONE of the three reproductive tables (`reproductive_health_profiles`),
+  leaving `menstrual_cycles` and `menstrual_daily_logs` readable by that guardian while their WRITE
+  policies correctly demanded a category grant, i.e. reads were looser than writes. Fixed on
+  branch `fix/platform-audit-20260905`; verify it landed before relying on it. Recurred at least three times in three
+  days (2026-08-31 to 2026-09-03: a caregiver-proxy migration regression, a Women's-Health-platform
+  table that copied an older sibling's pre-category-model RLS shape, a still-missing write-side
+  policy, and six tables stuck on a legacy 1-arg `can_read_clinical` overload — see the archive's
+  2026-08-31/2026-09-03 entries) because a new table's author copied an existing table's policy
+  text without checking whether that table predates the category-scoped access model
+  (`20260830103251_category_scoped_clinical_access_and_emergency_access.sql`). **Never copy an RLS
+  shape from an older sibling table for anything touching menstrual/pregnancy/fertility/contraception
+  data — write the category-scoped check fresh, and prove with a simulated caregiver/emergency
+  session that access is actually refused, not just that the policy compiles.**
+- **Before trusting anything in this file or the archive as "current," confirm the working tree's
+  checked-out branch actually is (or is caught up with) `origin/main-dev`.** The main checkout
+  routinely sits on an unrelated feature branch, sometimes dozens of commits behind — comparing
+  local docs, migrations, or schema against a stale branch has produced wrong conclusions more than
+  once (a migration-drift audit once showed 62 "genuinely unmatched" files that were actually 4,
+  purely from diffing against the wrong branch). `git rev-list --count HEAD..origin/main-dev` before
+  trusting any local-vs-live or local-vs-"current docs" comparison; do edits to shared docs
+  (`CLAUDE.md`, the archive) from a fresh worktree off `origin/main-dev`, not an old branch, so you
+  don't silently clobber another session's concurrent edits to the same files.
 
 **Pricing, entitlements, and what's shipped churn constantly.** Diaspora pricing alone was reworked
 at least four times after 2026-07-29 before diaspora subscriptions were replaced entirely by a
-sponsor + Care Voucher model (2026-07-31). **Do not treat any specific price, rate, plan name, or
+sponsor + Care Voucher model (2026-07-31). **A second, bigger pivot landed 2026-09-02: subscription
+plans (`subscription_plans`, `prevent`/`essential`/`complete`, the diaspora USD tier) were retired
+outright — the app is free, Tarragon charges only for a doctor's time, priced per piece of work
+(`service_products`), plus the 12-week doctor-supported chronic-care programme as the one recurring
+paid product.** Stripe was removed from the codebase entirely (no UK entity ever registered to use
+it) — Paystack (NGN) is now the only live payment provider. See the archive's
+2026-08-31/2026-09-03 entry. **Do not treat any specific price, rate, plan name, or
 feature-availability claim in this file's archive as current** — check the live database or the
 actual running code. The archive is a record of decisions and reasoning, not a source of current
 facts.
@@ -149,7 +186,7 @@ Prevention and chronic management **share the same patient record** — design e
 
 ### Primary Platform — TypeScript
 - Web: Next.js 16, TypeScript, Tailwind, shadcn/ui (`apps/web`) — this Next.js has breaking changes vs. training data; read `node_modules/next/dist/docs/` before writing framework code
-- **Marketing site:** public pages live in `apps/web/src/app/(marketing)/` as a route group inside the same Next.js app — not a separate package yet. `middleware.ts` routes by hostname: root domain → marketing, `app.` subdomain → platform. Full spec, page copy, and design direction in `docs/MARKETING_SITE_SPEC.md` — read it before building any marketing page. Split into `apps/marketing` only when marketing needs its own CMS/team/deploy velocity — not yet. Marketing pages must not import platform/auth modules; Contact/Join is the only page that writes to Supabase (`leads` table).
+- **Marketing site:** public pages live in `apps/web/src/app/(marketing)/` as a route group inside the same Next.js app — not a separate package yet. `apps/web/src/proxy.ts` routes by hostname: root domain → marketing, `app.` subdomain → platform (Next 16 renamed `middleware.ts` to `proxy.ts`; there is no `middleware.ts` in this repo, and `isAppHost` also accepts `app.localhost` for local work). Full spec, page copy, and design direction in `docs/MARKETING_SITE_SPEC.md` — read it before building any marketing page. Split into `apps/marketing` only when marketing needs its own CMS/team/deploy velocity — not yet. Marketing pages must not import platform/auth modules; Contact/Join is the only page that writes to Supabase (`leads` table).
 - Mobile: React Native Expo (`apps/mobile`)
 - DB/Auth/Storage/Realtime: Supabase Postgres, **eu-west-1** region (Supabase has no Africa region; closest available to Nigeria — NDPR residency gap accepted for now), pgvector
 - Cache/queues: Upstash Redis
@@ -175,7 +212,7 @@ Prevention and chronic management **share the same patient record** — design e
 - Phone numbers always E.164 (`+234XXXXXXXXX`). Timezone always `Africa/Lagos`.
 - Every table has `organisation_id` — always filter by it. **RLS enforced at the Postgres level for every multi-tenant table — never bypass, never filter in application code instead.**
 - **Doctor:patient ratio target — under review as of 2026-07-30, do not cite 1:120 as current.** It was the working figure for Tier 1–3 staffing (see Clinical Tier Ladder below); founder is now exploring how far protocol/automation design can responsibly stretch one doctor's coverage, with **1:2000 as an aspiration, not a committed number** ("where possible with good design"). No new fixed ratio is confirmed yet — don't put a specific ratio in marketing copy, UI, or business-rule text until the founder settles on one; where a ratio claim is needed, describe the mechanism (protocol-driven review, triage before a doctor sees a case) instead of a number.
-- Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → doctor WhatsApp alert **immediate, not scheduled** → contact SLA is two-tier, not a flat number — 120 minutes for a critical result, 1440 minutes (24h) for a non-critical abnormal result (`escalation_slas` config, `20260730105131_v3_port_escalation_sla_config.sql`) → surfaces as Priority 1 (red) on doctor dashboard.
+- Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → doctor WhatsApp alert **immediate, not scheduled** → contact SLA is two-tier, not a flat number, and **`escalation_slas` is the source of truth, not this file** — as of 2026-09-05 the live active config (v7, signed 2026-09-04) is **720 minutes (12h) for a critical result and 1440 minutes (24h) for a non-critical abnormal result**. This file previously asserted 120 minutes, which was 6x tighter than production actually enforced; anyone reasoning from a number written here rather than read from `escalation_slas` is reasoning about the wrong SLA. Read the active row before quoting a figure anywhere → surfaces as Priority 1 (red) on doctor dashboard.
 - **Corrected 2026-08-10 — Tarragon Free consumes no doctor time; doctor time is a paid-plan feature.** A dangerous vitals/symptom reading (BP, SpO2, temperature, glucose, pulse/heart rate, a red-flag symptom, the one-touch danger-symptom check) is still detected by the same deterministic thresholds on every plan, and the patient still gets the full emergency safety net (the acknowledge-gated "go to the nearest hospital now" guidance, emergency-contact auto-notify, follow-up-after-discharge check-in — none of that depends on a doctor ever seeing it) plus an immediate, specific self-care suggestion — but on Free, it no longer creates a `clinician_alerts` row or pages a clinician. Doctor escalation on a dangerous reading is gated to Prevent/Essential/Complete via the `vitals_red_flag_doctor_escalation` feature flag (`private.patient_has_feature_access`), see `20260810120000_gate_vitals_red_flag_escalation_to_paid_plans.sql`. **This explicitly does NOT touch the abnormal screening result pipeline above** — Category 2→1 still fires regardless of plan; that rule stands, this is a different, narrower carve-out for patient-logged vitals/symptoms only.
 - **Gap closed 2026-08-29 — a dangerously abnormal heart rate had no single-reading detection anywhere on the platform, wearable or otherwise.** The only heart-rate logic before this was `assess-heart-rate.ts`'s 30-day *pattern* check (needs ≥3 readings, ≥50% outside 60-100 bpm over a month, and even then only writes a silent `clinician_alerts` row with no patient-facing message) — a single acute 180 bpm or 35 bpm reading raised nothing at all, on any plan, from any source. `private.classify_pulse_level` + the `vitals_readings_pulse_red_flag` trigger (migration `20260829140000_pulse_red_flag_engine.sql`) close this the same way BP/SpO2/temperature already work: EMERGENCY (≤35 or ≥150 bpm) routes through `emergency_events` (full patient-facing safety net on every plan); RED (36-39/121-149) and AMBER (40-49/101-120) raise `clinician_alerts` on paid plans or the same Free-tier self-care suggestion otherwise (now naming the reading and suggesting the patient recheck with a proper device rather than relying on the wearable alone). Deliberately extreme-value triage only — not arrhythmia/AF detection, which needs raw waveform data this platform doesn't collect — and deliberately NOT the cross-metric "digital biomarker" pattern detection still deferred per the wearables entry below; a single dangerous heart-rate value is the same kind of fact a dangerous BP or SpO2 reading already is, not a trend.
 
@@ -248,23 +285,62 @@ rules and let the git history / PR descriptions be the record of what shipped wh
 
 **Known standing follow-ups, as last recorded — verify each before acting, none of these should be
 taken on faith:**
-- **`main-dev` branch protection has no required status checks at all** (confirmed 2026-09-02 via
-  the GitHub API — `required_status_checks` is absent from the protection object). The "Supabase
-  migration replay" CI job (`.github/workflows/ci.yml`) is correctly configured and genuinely runs a
-  fresh `supabase db reset` in GHA — it was not the problem — but because nothing requires it to pass,
-  it failed on essentially every PR merged 2026-08-30 through 2026-09-02 (a run of version collisions
-  and the anon-default-privilege gap described above) without blocking a single one of those merges.
-  All of that specific backlog is now fixed and the check is green on the current tip, but the
-  structural gap — a red required check still can't block a merge — is unresolved and needs the
-  founder's go-ahead before an agent changes branch protection settings.
+- **RESOLVED 2026-09-02, confirmed live 2026-09-03** — `main-dev` branch protection now lists all
+  three CI jobs (`Supabase migration replay`, `Python ML service`, `TypeScript (web + shared)`) under
+  `required_status_checks.contexts`, `enforce_admins` is `true`, and `gh pr merge` genuinely refuses a
+  merge (`mergeStateStatus: BLOCKED`) until they pass — confirmed directly via the GitHub API, not
+  inferred. This closes a gap that stood open since at least 2026-08-30 (during which the "Supabase
+  migration replay" job failed on essentially every PR merged 2026-08-30 through 2026-09-02 — a run of
+  migration-version collisions and the anon-default-privilege gap described above — without blocking a
+  single one). Re-verify with `gh api repos/.../branches/main-dev/protection` before assuming a red
+  check is cosmetic — it now genuinely blocks. Note a `Vercel` status context can still show `FAILURE`
+  on a PR (often just the account's daily deploy-rate cap) without blocking merge — it is not in
+  `required_status_checks.contexts`.
 - The Diabetes (`guideline/Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md`) and Hypertension
   (`guideline/Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md`) clinical pathways each had
   a handful of items still open the last time they were reviewed — mostly Clinical Director
   sign-off/protocol activation and ops/founder localisation facts (real emergency numbers, partner
   formulary, device models, panel prices), not engineering work. Check those two files directly for
   the current checklist; they track real outstanding items and aren't otherwise linked from here.
-- Two Supabase projects (`rjsxbhgqdudowlvarmzq`, `jpdwbnvrgvpntcmfefeu`) were flagged 2026-07-29 for
-  owner-side deletion — confirm whether that's happened.
+- **RESOLVED, confirmed 2026-09-03** — the two Supabase projects flagged 2026-07-29 for owner-side
+  deletion (`rjsxbhgqdudowlvarmzq`, `jpdwbnvrgvpntcmfefeu`) are gone. `list_projects` now returns
+  exactly one project: `koiplnmbgnqnbywhpjlf` ("Tarragon Health").
+- **Migration drift between `main-dev` and the live `koiplnmbgnqnbywhpjlf` database is large and
+  actively growing, not a one-time cleanup.** As of 2026-09-03 ~01:00: 124 migration files on
+  `main-dev` have no matching live `schema_migrations` row (mostly a live row exists under a
+  *different* recorded version than the git filename — the recurring "hand-typed timestamp" root
+  cause above), and 148 live rows have no matching file (mostly the mirror image of the same 124,
+  plus a double-digit handful with genuinely no git record anywhere). **Two PRs already attempt this
+  exact reconciliation and have sat open since 2026-08-29: #341 (`claude/repo-migration-drift-y1d4tt`)
+  and #313 (`claude/objective-heisenberg-25e173`, recovered 165 migrations from
+  `schema_migrations.statements`).** Both are now stale relative to current drift. Before starting a
+  third parallel reconciliation effort, rebase one of these onto current `main-dev`/current live
+  state, or close both as superseded once a fresh one lands — don't let a fourth duplicate spin up.
+  One item flagged as genuinely concerning, not just process noise: two migrations
+  (`20260831125450`/`20260831125511`, a "since you were last here" summary feature +
+  engagement-decline notification) are live in production with **zero git record on any branch** —
+  the full SQL is recoverable losslessly from `schema_migrations.statements` per the PR #313
+  pattern, but nobody has backfilled a migration file for it yet. **Update, 2026-09-03 audit-fix
+  pass: the loss-risk core of this is closed** — all 9 zero-git-record live migrations (those two
+  included) were recovered verbatim from `schema_migrations.statements` into committed files pinned
+  at their live versions, 5 `main-dev` files whose content was verified already live were
+  repair-marked applied, and the unpushed doctor-retention-pool branch was pushed. The
+  release-integrity migration-drift job was also rewritten so it can actually run in CI
+  (management-API auth instead of a DB password it never had) and now fails only on loss-risk
+  classes (UNTRACED / UNPUSHED / LOCAL-NOT-APPLIED) while listing branch-owned drift as a warning
+  inventory — the remaining bulk of the 124/148 is that branch-owned class, which merges away with
+  the open-PR backlog rather than needing a reconciliation PR of its own.
+- **2026-09-02 — a single day, ~70 previously-built feature branches merged into `main-dev` at once**,
+  closing most of the outstanding spec-module backlog this file's "Where to Look" section still
+  describes as design/reconciliation-only (product of the deliberate large concurrent-worktree
+  practice this project runs — see the archive). Before treating any "design doc, not a build order"
+  or "Phase 2/3, needs an explicit ask" caveat in this file as still accurate, check whether that
+  spec's own doc already carries a 2026-09-02 reconciliation note and whether the corresponding PR
+  actually merged — several already do (e.g. Family Care Circle, above). The standing
+  specialist-matching/ranking-engine guardrail was explicitly re-checked against this batch (the
+  Referral Management Engine and Specialist Network PRs) and confirmed still holding — see the
+  archive's 2026-08-31/2026-09-03 entry — but the remaining ~65 PRs in that merge were not
+  individually re-audited against every guardrail in this file as part of this documentation pass.
 - `reference/tarragon-control/`'s git bundle is still the only backup of the separate v3 repo's
   history, sitting on one disk with no remote — worth pushing somewhere if that hasn't happened
   since.
@@ -272,6 +348,9 @@ taken on faith:**
   source across this project's history (found stale and redeployed at least half a dozen separate
   times). Before assuming any notification template works in production, check its deployed version
   against source rather than trusting a past changelog entry that says it was "just redeployed."
+  (Redeployed again from `main-dev` on 2026-09-03, v39, after being found ~344 lines stale; the
+  release-integrity edge-drift job diffs every deployed function against `origin/main-dev` on each
+  push and every 6 hours — trust that job's current status over any dated claim, this line included.)
 - Several regulatory/compliance items were still open the last time they were touched: MDCN/NMCN
   confirmation that the five-tier doctor-authority split is compliant; a Nigerian fintech counsel
   opinion on the Care Voucher structuring; NDPC registration and a DPO appointment; Meta WhatsApp
@@ -296,10 +375,12 @@ taken on faith:**
   `.github/workflows/mobile-ota-publish.yml`: auto-publishes JS-only pushes to `main-dev` (that
   touch `apps/mobile`) to the `preview` channel, skips publishing (rather than guessing) when a push
   touches anything native-affecting — that still needs a manual `eas build` — and never auto-publishes
-  to `production`. **It will fail closed until an `EXPO_TOKEN` repo secret is added** (Settings ->
-  Secrets and variables -> Actions; generate at expo.dev/accounts/[account]/settings/access-tokens)
-  — no agent in this sandbox has EAS/Expo credentials to add it. Confirm the secret has actually been
-  added before assuming this workflow is doing anything.
+  to `production`. **RESOLVED — the `EXPO_TOKEN` secret exists (added 2026-08-27) and the workflow
+  has been publishing green since.** The live caution is now `runtimeVersion`: it was bumped to
+  `0.2.0` on 2026-09-03 after three native deps (expo-crypto, expo-sqlite, async-storage) had landed
+  against the never-bumped `0.1.0` — a fresh manual `eas build` for 0.2.0 must exist before the next
+  OTA publish reaches devices, and any future native-affecting change needs the same bump-then-build
+  before the auto-publisher's next JS-only run.
 
 ### 2026-08-04 — Second occurrence: a push to `main` built on Vercel but was never promoted to production
 Founder reported the live site still showed retired partner-lab/booking copy (prices for lab tests and
@@ -368,4 +449,4 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - Shipped-feature build-plan docs, superseded by the running code and by `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, kept for historical design rationale only → `docs/archive/`
 - Diaspora growth-pitch reconciliation (gift-a-health-check, standalone video consult, group screening days, instalment payment, screening→chronic conversion, referral commissions) against what's actually shipped, plus the two gaps it found (diaspora gift flow, group screening days) built and verified → `docs/DIASPORA_HEALTH_CHECK_BUSINESS_MODEL_RECONCILIATION.md`. `screen_core`'s dead video-consult trigger branch is vestigial, not a broken promise — its real doctor-review mechanism is the async `annual_health_checks` review pipeline, already live. **`public.purchase_care_voucher` was deliberately stubbed to always fail by the 2026-08-03 self-arranged-fulfilment sweep (an explicit `⚠️ FOUNDER` comment, not an oversight) and stayed that way for 8 days after Synlab's Aug 21 partner-billing switch removed the reason — re-enabled 2026-08-29 with region/priceable guards mirroring the real order-creation path. A reminder this file has made before in other words: a migration file's committed body is not proof of what a live function does — check `pg_get_functiondef` before building on top of an RPC.**
 - Incident-command runbooks (lab outage, pharmacy network disruption, video/Zoom platform failure, major clinical incident, suspected cybersecurity incident) → `docs/runbooks/` — operational, not legal; `docs/legal/breach-notification-runbook.md` remains authoritative for the NDPA-notification process once a suspected incident is confirmed as a reportable personal-data breach
-- Symptom Assessment & Triage Engine — red-flag screening + dynamic questionnaire, governed/signed protocol config, escalation wiring into the existing `emergency_events`/`clinician_alerts` machinery, safety monitoring, scope decisions (which presenting complaints exist, which entry points have a UI, why there's no AI layer), go-live checklist → `docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md` — the patient-facing symptom checker stays OFF until a Clinical Director signs `triage_protocols`, see that file before assuming it's live
+- Symptom Assessment & Triage Engine — red-flag screening + dynamic questionnaire, governed/signed protocol config, escalation wiring into the existing `emergency_events`/`clinician_alerts` machinery, safety monitoring, scope decisions (which presenting complaints exist, which entry points have a UI, why there's no AI layer), go-live checklist → `docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md` — the gate is real and fail-closed (no UPDATE policy on `triage_protocols`; only the SECURITY DEFINER `sign_triage_protocols`, which demands an active `is_clinical_director`, can set `is_active`) — but **the checker is now LIVE**: v1 was signed and activated 2026-09-04 20:04 UTC. Do not repeat the old claim that it is off; check `triage_protocols` for the current state

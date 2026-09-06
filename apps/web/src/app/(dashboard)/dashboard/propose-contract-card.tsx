@@ -26,7 +26,7 @@ export function ProposeContractCard({ organisationId }: { organisationId: string
       <CardHeader>
         <CardTitle>Propose contract terms</CardTitle>
         <CardDescription>
-          Sent to Tarragon for review — a superadmin approves or rejects it before it takes effect.
+          Sent to Tarragon for review. A superadmin approves or rejects it before it takes effect.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -74,7 +74,7 @@ export function ProposeContractCard({ organisationId }: { organisationId: string
             </div>
           </div>
           <p className="text-xs text-charcoal-ink/50">
-            Leave a target blank to skip that metric — these are the only two Tarragon currently
+            Leave a target blank to skip that metric. These are the only two Tarragon currently
             tracks automatically.
           </p>
 

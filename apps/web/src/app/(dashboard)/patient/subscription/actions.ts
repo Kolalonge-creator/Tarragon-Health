@@ -32,7 +32,7 @@ export async function buyServiceProduct(
   });
 
   if (result?.error) return { error: result.error };
-  if (result?.activated) return { message: "Added — this is active now." };
+  if (result?.activated) return { message: "Added. This is active now." };
   if (result?.checkoutUrl) redirect(result.checkoutUrl);
   return { error: "Could not start checkout" };
 }

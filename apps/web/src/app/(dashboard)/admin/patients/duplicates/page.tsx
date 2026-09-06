@@ -4,6 +4,8 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { LoadFailure } from "@/components/ui/load-failure";
+import { PageHeader } from "@/components/ui/page-header";
 import { DuplicateFlagActions } from "./duplicate-flag-actions";
 import { RunSweepButton } from "./run-sweep-button";
 
@@ -27,7 +29,7 @@ export default async function AdminPatientDuplicatesPage() {
   }
 
   const supabase = await createClient();
-  const { data: flags } = await supabase
+  const { data: flags, error: flagsError } = await supabase
     .from("patient_duplicate_flags")
     .select("*")
     .order("confidence", { ascending: false });
@@ -65,24 +67,31 @@ export default async function AdminPatientDuplicatesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Duplicate patients</h1>
-          <p className="text-charcoal-ink/60">
-            Possible duplicate patient records, flagged by name/DOB/phone/email similarity. Flagging
-            never merges anything — review each pair and either dismiss it or hand it to the merge
-            tool.
-          </p>
-        </div>
-        <RunSweepButton />
-      </div>
+      <PageHeader
+        title="Duplicate patients"
+        description="Possible duplicate patient records, flagged by name/DOB/phone/email similarity. Flagging never merges anything. Review each pair and either dismiss it or hand it to the merge tool."
+        actions={<RunSweepButton />}
+      />
 
       <Card>
         <CardHeader>
-          <CardTitle>Awaiting review ({open.length})</CardTitle>
+          <CardTitle>Awaiting review{flagsError ? "" : ` (${open.length})`}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {open.length === 0 && <p className="text-sm text-charcoal-ink/60">Nothing waiting.</p>}
+          {/* Two patient records for the same person split that person's
+              history in half, so "Nothing waiting." from a failed read is a
+              clinical-safety claim, not a housekeeping one. The nightly sweep
+              keeps running either way; what this page owes the reviewer is an
+              honest statement about whether it could read the results. */}
+          {flagsError && (
+            <LoadFailure>
+              The duplicate-patient queue could not be loaded. This is not a report that nothing is
+              waiting. Reload the page, and raise it with the platform team if it keeps failing.
+            </LoadFailure>
+          )}
+          {!flagsError && open.length === 0 && (
+            <p className="text-sm text-charcoal-ink/60">Nothing waiting.</p>
+          )}
           {open.map((f) => (
             <div key={f.id} className="rounded-md border border-charcoal-ink/10 p-3">
               <div className="mb-2 flex items-center gap-2">
@@ -100,7 +109,14 @@ export default async function AdminPatientDuplicatesPage() {
                 )}
               </div>
               {renderPair(f.profile_id_a, f.profile_id_b)}
-              <DuplicateFlagActions flagId={f.id} profileIdA={f.profile_id_a} profileIdB={f.profile_id_b} />
+              <DuplicateFlagActions
+                flagId={f.id}
+                profileIdA={f.profile_id_a}
+                profileIdB={f.profile_id_b}
+                nameA={profileById.get(f.profile_id_a)?.full_name ?? "Unnamed patient"}
+                nameB={profileById.get(f.profile_id_b)?.full_name ?? "Unnamed patient"}
+                confidencePct={Math.round(f.confidence * 100)}
+              />
             </div>
           ))}
         </CardContent>
@@ -111,7 +127,15 @@ export default async function AdminPatientDuplicatesPage() {
           <CardTitle>Reviewed</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {reviewed.length === 0 && <p className="text-sm text-charcoal-ink/60">Nothing reviewed yet.</p>}
+          {flagsError && (
+            <LoadFailure>
+              The reviewed register could not be loaded either. It comes from the same read as the
+              queue above.
+            </LoadFailure>
+          )}
+          {!flagsError && reviewed.length === 0 && (
+            <p className="text-sm text-charcoal-ink/60">Nothing reviewed yet.</p>
+          )}
           {reviewed.map((f) => (
             <div key={f.id} className="flex items-start justify-between gap-3 rounded-md border border-charcoal-ink/10 p-3">
               {renderPair(f.profile_id_a, f.profile_id_b)}

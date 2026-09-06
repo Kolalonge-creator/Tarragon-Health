@@ -43,7 +43,7 @@ const schema = z
       ctx.addIssue({
         code: "custom",
         path: ["overrideReason"],
-        message: "Say why — an override or a deferral needs a reason.",
+        message: "Say why: an override or a deferral needs a reason.",
       });
     }
     if (data.decision === "deferred" && !data.suppressUntil) {

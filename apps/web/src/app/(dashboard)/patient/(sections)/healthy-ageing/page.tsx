@@ -28,8 +28,8 @@ export default async function HealthyAgeingPage() {
       title="Healthy ageing"
       description={
         isOlderAdult
-          ? "Independence, prevention, and coordinated care — not just a list of conditions."
-          : "Built with older adults and the people who care for them in mind — still useful for anyone tracking mobility, falls risk, or support at home."
+          ? "Independence, prevention, and coordinated care, not just a list of conditions."
+          : "Built with older adults and the people who care for them in mind, and still useful for anyone tracking mobility, falls risk, or support at home."
       }
       icon={NAV_ICON.healthyAgeing}
     >
@@ -47,12 +47,12 @@ export default async function HealthyAgeingPage() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <HomeCareRequestSection patientId={subjectId} />
 
-        <div className="rounded-lg border border-charcoal-ink/10 p-4">
-          <p className="text-sm font-medium text-charcoal-ink">Related</p>
-          <ul className="mt-2 space-y-1.5 text-sm text-brand-green">
+        <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-4">
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Related</p>
+          <ul className="mt-2 space-y-1.5 text-sm text-brand-green dark:text-brand-green-bright">
             <li>
               <Link href="/patient/emergency-card" className="hover:underline">
-                Emergency card — allergies, medicines, and contacts for a stranger to find →
+                Emergency card: allergies, medicines, and contacts for a stranger to find →
               </Link>
             </li>
             <li>

@@ -188,7 +188,7 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
       <CardHeader>
         <CardTitle>Benefit packages</CardTitle>
         <CardDescription>
-          What your plan includes (Module 26 §26.6/§26.7) — a plan tier plus a per-year allowance and a
+          What your plan includes (Module 26 §26.6/§26.7): a plan tier plus a per-year allowance and a
           diagnostics discount. Assign a package to a roster member from the Overview tab.
         </CardDescription>
       </CardHeader>
@@ -249,7 +249,7 @@ function BenefitPackagesCard({ organisationId }: { organisationId: string }) {
             </li>
           ))}
           {packages.data?.length === 0 && (
-            <li className="py-2 text-sm text-charcoal-ink/50">No benefit packages yet — create one above.</li>
+            <li className="py-2 text-sm text-charcoal-ink/50">No benefit packages yet. Create one above.</li>
           )}
         </ul>
       </CardContent>
@@ -269,7 +269,7 @@ function JoinCodeCard({ organisationId }: { organisationId: string }) {
           <Badge variant="grey">Self-serve joining</Badge>
         </CardTitle>
         <CardDescription>
-          Share this code so staff can join themselves from the app (Module 26 §26.4) — only works once your
+          Share this code so staff can join themselves from the app (Module 26 §26.4). It only works once your
           account has gone live. Rotating it invalidates the old code immediately.
         </CardDescription>
       </CardHeader>

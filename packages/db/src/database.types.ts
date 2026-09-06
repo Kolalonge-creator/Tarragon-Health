@@ -13396,6 +13396,76 @@ export type Database = {
           },
         ]
       }
+      finance_posting_failures: {
+        Row: {
+          amount_minor: number | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"] | null
+          error_code: string | null
+          error_message: string
+          id: string
+          organisation_id: string | null
+          payment_transaction_id: string
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          status: string
+          trigger_name: string
+        }
+        Insert: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          error_code?: string | null
+          error_message: string
+          id?: string
+          organisation_id?: string | null
+          payment_transaction_id: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          status?: string
+          trigger_name: string
+        }
+        Update: {
+          amount_minor?: number | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"] | null
+          error_code?: string | null
+          error_message?: string
+          id?: string
+          organisation_id?: string | null
+          payment_transaction_id?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          status?: string
+          trigger_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "finance_posting_failures_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_posting_failures_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "finance_posting_failures_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       finance_settlement_matches: {
         Row: {
           amount_minor: number
@@ -20976,8 +21046,8 @@ export type Database = {
         Row: {
           channel_sequence_exhausted: Database["public"]["Enums"]["notification_channel"][]
           created_at: string
-          escalation_alert_tier: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway: string
+          escalation_alert_tier: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway: string | null
           id: string
           notification_id: string
           organisation_id: string | null
@@ -20987,8 +21057,8 @@ export type Database = {
         Insert: {
           channel_sequence_exhausted: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
-          escalation_alert_tier: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway: string
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway?: string | null
           id?: string
           notification_id: string
           organisation_id?: string | null
@@ -20998,8 +21068,8 @@ export type Database = {
         Update: {
           channel_sequence_exhausted?: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
-          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"]
-          escalation_pathway?: string
+          escalation_alert_tier?: Database["public"]["Enums"]["alert_level"] | null
+          escalation_pathway?: string | null
           id?: string
           notification_id?: string
           organisation_id?: string | null
@@ -37043,7 +37113,7 @@ export type Database = {
       analytics_provider_capacity: { Args: never; Returns: Json }
       analytics_referral_turnaround: { Args: never; Returns: Json }
       analytics_retention_cohorts: { Args: never; Returns: Json }
-      analytics_revenue_by_plan: { Args: never; Returns: Json }
+      analytics_revenue_by_product: { Args: never; Returns: Json }
       analytics_revenue_timeseries: {
         Args: { p_period?: string }
         Returns: Json

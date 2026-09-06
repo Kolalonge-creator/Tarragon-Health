@@ -20,8 +20,8 @@ export async function CdsPanel({ patientId, organisationId }: { patientId: strin
       <CardHeader>
         <CardTitle>Clinical decision support</CardTitle>
         <CardDescription>
-          Relevant context drawn from this patient&apos;s own record — medication safety, BP control,
-          referral criteria, and due monitoring — each with its source shown and a place to record what
+          Relevant context drawn from this patient&apos;s own record (medication safety, BP control,
+          referral criteria, and due monitoring), each with its source shown and a place to record what
           you decided. Advisory: nothing here changes the record on its own.
         </CardDescription>
       </CardHeader>
@@ -44,7 +44,7 @@ export async function CdsPanel({ patientId, organisationId }: { patientId: strin
           <p className="text-xs text-charcoal-ink/50">
             {settled.length > 0 && `${settled.length} already decided and unchanged since. `}
             {overflow.length > 0 &&
-              `${overflow.length} more, lower priority than what's shown above — not dropped, just not shown all at once (§38.11).`}
+              `${overflow.length} more, lower priority than what's shown above: not dropped, just not shown all at once (§38.11).`}
           </p>
         )}
       </CardContent>

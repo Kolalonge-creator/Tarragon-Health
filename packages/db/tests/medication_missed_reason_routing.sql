@@ -23,8 +23,25 @@ declare
   v_notif record;
   v_task record;
 begin
-  select organisation_id, id into v_org, v_patient
-  from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+  -- Minted, not borrowed: a bare `supabase db reset` has no patient profile at
+  -- all, and a borrowed one drags in whatever notifications and outreach tasks
+  -- it already owns, which the `order by created_at desc limit 1` reads below
+  -- would happily pick up instead of the rows this file just caused.
+  select id into v_org from public.organisations limit 1;
+  if v_org is null then
+    insert into public.organisations (name, type)
+    values ('Missed Reason Routing Test Org', 'clinic')
+    returning id into v_org;
+  end if;
+
+  v_patient := gen_random_uuid();
+  insert into auth.users (id, email)
+  values (v_patient, 'missedreason-test-patient@example.invalid');
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, v_org, 'patient', 'Missed Reason Test Patient')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role,
+        full_name = excluded.full_name;
 
   insert into public.medications (id, organisation_id, patient_id, drug_name, schedule_times, source, added_by)
   values (gen_random_uuid(), v_org, v_patient, 'Test Amlodipine', '["08:00","20:00"]'::jsonb, 'patient', v_patient)

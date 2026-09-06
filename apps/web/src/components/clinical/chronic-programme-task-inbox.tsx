@@ -17,7 +17,7 @@ const TASK_LABEL: Record<string, string> = {
 };
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**
@@ -42,7 +42,7 @@ export function ChronicProgrammeTaskInbox() {
       <CardContent>
         <p className="mb-3 text-xs text-charcoal-ink/60">
           Patients whose scheduled lab panel or doctor check-in went past due without being
-          booked or actioned. Chase, help them book, or generate the order — clinical questions
+          booked or actioned. Chase, help them book, or generate the order. Clinical questions
           still route through escalations.
         </p>
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

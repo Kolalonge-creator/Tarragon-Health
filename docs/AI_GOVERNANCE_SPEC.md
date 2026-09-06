@@ -22,6 +22,19 @@ Every design decision below follows from that.
 | Patient/clinician incident report | `apps/web/src/components/ai/report-ai-answer.tsx` |
 | Live proof | `packages/db/tests/ai_governance.sql` (8 cases, run against the linked project) |
 
+**Flag for the founder, added 2026-09-03 — the registry, `main-dev`, and this document currently
+disagree on the count.** The live `ai_systems` table has **11** rows (`AI-001`–`AI-011`), not the
+ten this document describes throughout. `AI-011` ("Nigerian meal plan generation",
+`apps/web/src/lib/nutrition/meal-plan-generate.ts`, a real `ChatAnthropic` call site) was registered
+by commit `a775ae79` on branch `claude/wizardly-dubinsky-28a66c` — **not merged into `main-dev`** —
+whose commit message states its migration was "applied live... with the version pinned to the
+filename." The migration file itself does not exist on any branch. This is the exact "live-but-
+ungitted migration" pattern `CLAUDE.md`'s standing lessons warn about, layered on top of the broader
+124-missing/148-orphaned migration-drift backlog it also documents. **Do not update the "ten"/"all
+ten" language below to "eleven" until the founder decides whether `claude/wizardly-dubinsky-28a66c`
+should actually be merged** — right now the doc, `main-dev`'s git history, and the live database all
+disagree with each other, and picking one to match would just pick a different wrong answer.
+
 ---
 
 ## What each part of the module maps to

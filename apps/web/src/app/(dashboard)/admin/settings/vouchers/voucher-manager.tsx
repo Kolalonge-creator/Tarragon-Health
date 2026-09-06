@@ -134,7 +134,7 @@ export function VoucherManager() {
       const n = data?.refunds_queued ?? 0;
       setMessage(
         n > 0
-          ? `Cancelled — ${n} refund${n === 1 ? "" : "s"} queued, processed overnight.`
+          ? `Cancelled. ${n} refund${n === 1 ? "" : "s"} queued, processed overnight.`
           : "Cancelled. Nothing was paid, so no refund is owed.",
       );
       queryClient.invalidateQueries({ queryKey: ["admin", "vouchers-attention"] });
@@ -164,7 +164,9 @@ export function VoucherManager() {
                 validity_months: Number(form.get("validity_months")),
                 max_extensions: Number(form.get("max_extensions")),
                 extension_months: Number(form.get("extension_months")),
-                min_instalment_kobo: Number(form.get("min_instalment_naira")) * 100,
+                // Kobo columns are integers; naira input can be fractional and
+                // float multiplication drifts (e.g. 1500.55 * 100), so round.
+                min_instalment_kobo: Math.round(Number(form.get("min_instalment_naira")) * 100),
               });
             }}
           >
@@ -185,6 +187,7 @@ export function VoucherManager() {
                 name="min_instalment_naira"
                 type="number"
                 min={1}
+                step={0.01}
                 defaultValue={koboToNaira(config?.min_instalment_kobo ?? 100000)}
                 className="mt-1"
               />

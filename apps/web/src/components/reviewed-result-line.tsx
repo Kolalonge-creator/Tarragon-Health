@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 
 function formatReviewedDate(reviewedAt: string): string {
-  return new Date(reviewedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return new Date(reviewedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short" });
 }
 
 /**
@@ -43,7 +43,7 @@ export async function ReviewedResultLine({
 
   if (!doctor) {
     return (
-      <p className="text-sm text-charcoal-ink/70">Reviewed by your care team · {reviewedDate}</p>
+      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">Reviewed by your care team · {reviewedDate}</p>
     );
   }
 
@@ -53,10 +53,10 @@ export async function ReviewedResultLine({
       : null;
 
   return (
-    <p className="text-sm text-charcoal-ink">
+    <p className="text-sm text-charcoal-ink dark:text-night-ink">
       Reviewed by <span className="font-medium">Dr. {doctor.full_name}</span>
-      {credential && <span className="text-charcoal-ink/60"> · {credential}</span>}
-      <span className="text-charcoal-ink/60"> · {reviewedDate}</span>
+      {credential && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {credential}</span>}
+      <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · {reviewedDate}</span>
     </p>
   );
 }

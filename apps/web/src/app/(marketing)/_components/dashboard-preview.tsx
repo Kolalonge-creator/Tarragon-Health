@@ -35,7 +35,7 @@ export function DashboardPreview() {
         </h2>
         <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
           Tarragon brings readings, reminders, preventive checks, and doctor
-          review into one shared record, so the next step is clear. On
+          review into one shared record, so the next step is clear. Once
           named as next of kin, someone close to you can follow your care too.
         </p>
       </div>

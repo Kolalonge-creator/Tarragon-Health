@@ -44,7 +44,7 @@ export async function SubsidySpendSummary({ organisationId }: { organisationId: 
       <CardHeader>
         <CardTitle>Care you&apos;ve helped fund</CardTitle>
         <CardDescription>
-          Totals only — the same platform-wide rule that keeps your other reporting aggregate-only
+          Totals only: the same platform-wide rule that keeps your other reporting aggregate-only
           applies here too.
         </CardDescription>
       </CardHeader>

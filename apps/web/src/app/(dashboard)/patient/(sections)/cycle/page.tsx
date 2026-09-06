@@ -62,15 +62,15 @@ export default async function CyclePage() {
           selfReportedCycleLengthDays={reproductiveProfile?.average_cycle_length_days ?? null}
         />
       ) : (
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           We need to finish setting up your account before you can track your cycle. Please
           contact your care team.
         </p>
       )}
 
-      <p className="text-sm text-charcoal-ink/70">
+      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Trying to conceive, pregnant, postpartum or approaching menopause?{" "}
-        <Link href="/patient/prevention#cycle" className="font-medium text-brand-green underline">
+        <Link href="/patient/prevention#cycle" className="font-medium text-brand-green dark:text-brand-green-bright underline">
           Set your life stage in Prevention
         </Link>{" "}
         so the guidance here matches where you are.

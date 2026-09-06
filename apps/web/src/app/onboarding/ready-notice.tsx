@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { completeOnboarding } from "./actions";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 
 /**
  * Replaces the old "Choose your plan" step. The app has no plan to choose —
@@ -20,7 +21,7 @@ export function ReadyNotice() {
   return (
     <div className="space-y-4 rounded-xl border border-brand-green/25 bg-brand-green/[0.04] p-6 shadow-sm">
       <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
-        You&apos;re all set — the app is free
+        You&apos;re all set, and the app is free
       </h2>
       <p className="text-sm text-charcoal-ink">
         Tracking your readings, your screening calendar, the education library, lifestyle
@@ -28,7 +29,7 @@ export function ReadyNotice() {
         and no card required.
       </p>
       <p className="text-sm text-charcoal-ink">
-        The only thing that costs money is a doctor&apos;s time, and only when you ask for it —
+        The only thing that costs money is a doctor&apos;s time, and only when you ask for it:
         a written question, a video visit, or the 12-week programme where a doctor manages a
         condition with you. You can see prices and buy any of that any time from your
         dashboard&apos;s My services page; nothing here signs you up for anything.
@@ -58,7 +59,7 @@ export function ReadyNotice() {
           {pending ? "Finishing…" : "Continue to my dashboard"}
         </Button>
       </form>
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <FormError id={fieldErrorId("onboarding-finish")} message={error} />
     </div>
   );
 }

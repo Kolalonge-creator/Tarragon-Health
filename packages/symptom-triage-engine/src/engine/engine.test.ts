@@ -48,13 +48,30 @@ describe("red-flag screen — acceptance scenarios", () => {
     expect(r.topCategory).toBe("emergency");
   });
 
-  it("breathlessness with SpO2 < 92 fires emergency even at low reported severity", () => {
-    const r = screenRedFlags(
-      capture({ presentingComplaintKey: "breathlessness", severity: 2, measurements: { spo2_pct: 88 } }),
-      pathway("breathlessness").redFlagScreen,
-    );
-    expect(r.hasFlag).toBe(true);
-    expect(r.topCategory).toBe("emergency");
+  // measurementBelow is INCLUSIVE — the live private.classify_spo2_level
+  // classes exactly 92 as RED, and evaluated strictly the boundary value
+  // fired nothing at all here.
+  it.each([88, 90, 91, 92])(
+    "breathlessness with SpO2 %s fires emergency even at low reported severity",
+    (spo2_pct) => {
+      const r = screenRedFlags(
+        capture({ presentingComplaintKey: "breathlessness", severity: 2, measurements: { spo2_pct } }),
+        pathway("breathlessness").redFlagScreen,
+      );
+      expect(r.hasFlag).toBe(true);
+      expect(r.topCategory).toBe("emergency");
+      expect(r.fired.some((f) => f.key === "breathlessness.spo2_low")).toBe(true);
+    },
+  );
+
+  it("breathlessness with a normal SpO2 does not fire the low-oxygen flag", () => {
+    for (const spo2_pct of [93, 97]) {
+      const r = screenRedFlags(
+        capture({ presentingComplaintKey: "breathlessness", severity: 2, measurements: { spo2_pct } }),
+        pathway("breathlessness").redFlagScreen,
+      );
+      expect(r.fired.some((f) => f.key === "breathlessness.spo2_low")).toBe(false);
+    }
   });
 
   it("mild, unremarkable headache fires no red flag", () => {

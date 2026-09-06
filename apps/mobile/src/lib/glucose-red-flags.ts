@@ -23,7 +23,11 @@ export const GLUCOSE_THRESHOLDS = {
   ketoneModerate: 1.5,
 } as const;
 
-export type GlucoseThresholds = typeof GLUCOSE_THRESHOLDS;
+/** Structural rather than `typeof GLUCOSE_THRESHOLDS` — see the same note on
+ * bp-classification.ts's BpThresholds: the `as const` constant's literal
+ * types made the overridable parameter below accept only the bundled values,
+ * defeating threshold-sync.ts. */
+export type GlucoseThresholds = { -readonly [K in keyof typeof GLUCOSE_THRESHOLDS]: number };
 
 export type GlucoseFlagTier = "emergency" | "urgent" | "amber" | "none";
 
@@ -61,28 +65,28 @@ export function classifyGlucoseOffline(
     return {
       tier: "emergency",
       kind: "severe_hypo",
-      detail: `Severe hypoglycaemia — glucose ${glucose} mmol/L (< ${thresholds.severeHypo}).`,
+      detail: `Severe hypoglycaemia: glucose ${glucose} mmol/L (below ${thresholds.severeHypo}).`,
     };
   }
   if (glucose >= thresholds.highForDka && ketHigh) {
     return {
       tier: "emergency",
       kind: "suspected_dka",
-      detail: `Suspected DKA — glucose ${glucose} mmol/L with raised ketones.`,
+      detail: `Suspected DKA: glucose ${glucose} mmol/L with raised ketones.`,
     };
   }
   if (glucose >= thresholds.severeHypo && glucose < thresholds.hypoAlert) {
     return {
       tier: "urgent",
       kind: "hypo_alert",
-      detail: `Hypoglycaemia — glucose ${glucose} mmol/L.`,
+      detail: `Hypoglycaemia: glucose ${glucose} mmol/L.`,
     };
   }
   if (glucose >= thresholds.veryHigh) {
     return {
       tier: "urgent",
       kind: "very_high",
-      detail: `Very high glucose — ${glucose} mmol/L.`,
+      detail: `Very high glucose: ${glucose} mmol/L.`,
     };
   }
   if (ketHigh) {

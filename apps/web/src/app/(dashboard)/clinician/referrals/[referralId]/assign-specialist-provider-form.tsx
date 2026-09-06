@@ -28,7 +28,7 @@ export function AssignSpecialistProviderForm({
   return (
     <div className="space-y-2 border-t border-charcoal-ink/10 pt-3">
       <p className="text-xs font-medium text-charcoal-ink">
-        Assign a partner specialist (optional — this referral stays self-arranged until you do)
+        Assign a partner specialist (optional, this referral stays self-arranged until you do)
       </p>
       {isLoading && <p className="text-xs text-charcoal-ink/60">Loading specialists…</p>}
       {!isLoading && (!providers || providers.length === 0) && (
@@ -43,7 +43,7 @@ export function AssignSpecialistProviderForm({
               <div>
                 <p className="text-sm text-charcoal-ink">{provider.name}</p>
                 <p className="text-xs text-charcoal-ink/60">
-                  {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"} — ₦
+                  {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"}, ₦
                   {koboToNaira(provider.consultation_fee_kobo).toLocaleString()}
                 </p>
               </div>

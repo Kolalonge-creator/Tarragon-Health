@@ -52,6 +52,30 @@ describe("red-flag evaluator — acceptance scenarios", () => {
     expect(r.fired.some((f) => f.key === "dm.severe_hypo")).toBe(true);
   });
 
+  // Threshold parity with the platform source of truth,
+  // GLUCOSE_THRESHOLDS.veryHigh in apps/web/src/lib/vitals/glucose-red-flags.ts
+  // ("≥ 20 → urgent, screen for DKA/HHS"). This adapter used to sit at 25.0,
+  // so 20.0-24.9 mmol/L was urgent in the main pipeline and silent here.
+  it.each([20.0, 22.4, 24.9, 30])("DM glucose %s fires severe-hyper red", (valueNum) => {
+    const r = evaluateRedFlags(
+      m({ type: "glucose", valueNum, unit: "mmol/L" }),
+      getAdapter("diabetes").redFlags,
+      CALM,
+    );
+    expect(r.hasFlag).toBe(true);
+    expect(r.fired.some((f) => f.key === "dm.severe_hyper")).toBe(true);
+    expect(r.topSeverity).toBe("red");
+  });
+
+  it("DM glucose just under the very-high threshold does not fire severe-hyper", () => {
+    const r = evaluateRedFlags(
+      m({ type: "glucose", valueNum: 19.9, unit: "mmol/L" }),
+      getAdapter("diabetes").redFlags,
+      CALM,
+    );
+    expect(r.fired.some((f) => f.key === "dm.severe_hyper")).toBe(false);
+  });
+
   it("Obesity self-harm mood item ⇒ emergency, page, AND auto-pause weight-loss", () => {
     const r = evaluateRedFlags(
       m({ type: "mood", valueJson: { selfHarm: true }, unit: "score" }),
