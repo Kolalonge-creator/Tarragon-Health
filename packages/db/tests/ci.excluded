@@ -62,6 +62,7 @@
 #     between profiles and clinical_staff, where the wrong join returns NULL
 #     silently. One column, and the fix is a COMMENT ON in a migration.
 # ===========================================================================
+abnormal_screening_result_upgrade.sql
 actor_column_fk_documentation.sql
 adherence_escalation_not_available.sql
 ai_assistant_turns_rls.sql
@@ -156,6 +157,7 @@ patient_health_record_round3.sql
 patient_serology_status_extraction.sql
 patient_stopped_medication_raises_review.sql
 patient_timeline_gap_closure.sql
+payer_board_outcomes_report.sql
 payer_provider_org_platform.sql
 pharmacy_engine_end_to_end.sql
 polypharmacy_review_signal.sql
@@ -193,6 +195,7 @@ sponsor_pay_booking_order.sql
 sponsor_spend_receipts.sql
 subscription_care_vouchers.sql
 subsidy_split_engine.sql
+support_centre.sql
 supporter_accounts.sql
 supporter_reporting.sql
 symptom_triage_assessment_engine.sql
