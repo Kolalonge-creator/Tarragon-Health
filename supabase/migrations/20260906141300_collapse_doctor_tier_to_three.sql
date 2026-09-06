@@ -3142,6 +3142,313 @@ begin
   return p_signoff_id;
 end $function$;
 
+-- --- functions added to main-dev after this migration's original 2026-08-31
+--     draft (adolescent transition, imaging orders, senior case review,
+--     payer board attestation, risk models, notification templates) --
+--     found via a fresh live pg_get_functiondef sweep on 2026-09-06, not
+--     assumed from the original branch's function list. Same tier-literal +
+--     is_clinical_director-removal treatment as every function above.
+
+create or replace function private.can_advance_adolescent_transition_stage(org uuid)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to ''
+as $function$
+  select exists (
+    select 1 from public.clinical_staff
+    where profile_id = (select auth.uid())
+      and organisation_id = org
+      and active
+      and doctor_tier is not null
+      and doctor_tier <> 'care_coordinator'
+  );
+$function$;
+
+create or replace function private.enforce_cds_decision_attribution()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_staff_id     uuid;
+  v_tier         public.doctor_tier;
+  v_patient_org  uuid;
+begin
+  select organisation_id into v_patient_org
+  from public.profiles
+  where id = new.patient_id;
+
+  if v_patient_org is null or v_patient_org <> new.organisation_id then
+    raise exception 'This patient is not in that organisation.' using errcode = '42501';
+  end if;
+
+  select id, doctor_tier
+    into v_staff_id, v_tier
+  from public.clinical_staff
+  where profile_id = (select auth.uid())
+    and organisation_id = new.organisation_id
+    and active
+  limit 1;
+
+  if v_staff_id is null then
+    raise exception 'Only an active clinical staff member in this organisation can decide on a recommendation.'
+      using errcode = '42501';
+  end if;
+
+  if v_tier = 'care_coordinator' then
+    raise exception 'A Care Coordinator can see decision support but cannot accept or override a clinical recommendation.'
+      using errcode = '42501';
+  end if;
+
+  if v_tier is null then
+    raise exception 'Your clinical record has no tier assigned yet, so deciding on a recommendation is unavailable. Ask an administrator to set your tier.'
+      using errcode = '42501';
+  end if;
+
+  new.decided_by := v_staff_id;
+  new.decided_by_profile := (select auth.uid());
+  new.decided_at := now();
+
+  if new.decision <> 'deferred' then
+    new.suppress_until := null;
+  end if;
+
+  return new;
+end;
+$function$;
+
+create or replace function private.handle_imaging_order_insert()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_provider_id uuid;
+  v_price_kobo  bigint;
+begin
+  if new.ordering_clinician_id is null then
+    select id into new.ordering_clinician_id
+    from public.clinical_staff
+    where profile_id = (select auth.uid())
+      and organisation_id = new.organisation_id
+      and active
+      and doctor_tier in ('medical_officer', 'senior_medical_officer', 'chief_medical_officer')
+    limit 1;
+  end if;
+
+  if new.ordering_clinician_id is null then
+    raise exception 'An imaging order requires an active ordering clinician (Medical Officer, Senior Medical Officer, or Chief Medical Officer)';
+  end if;
+
+  select provider_id, price_kobo into v_provider_id, v_price_kobo
+  from public.imaging_studies where id = new.study_id;
+
+  new.provider_id := coalesce(new.provider_id, v_provider_id);
+  if new.total_kobo = 0 then
+    new.total_kobo := coalesce(v_price_kobo, 0);
+  end if;
+
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+  values (
+    new.organisation_id, (select auth.uid()), 'imaging_order.created', 'imaging_orders', new.id,
+    jsonb_build_object('study_id', new.study_id, 'urgency', new.urgency::text)
+  );
+
+  return new;
+end;
+$function$;
+
+create or replace function private.has_imaging_ordering_authority(org uuid)
+ returns boolean
+ language sql
+ stable security definer
+ set search_path to ''
+as $function$
+  select exists (
+    select 1 from public.clinical_staff
+    where profile_id = (select auth.uid())
+      and organisation_id = org
+      and active
+      and doctor_tier in ('medical_officer', 'senior_medical_officer', 'chief_medical_officer')
+  );
+$function$;
+
+create or replace function private.stamp_senior_case_review()
+ returns trigger
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_staff uuid;
+begin
+  if new.status in ('completed', 'declined') and old.status not in ('completed', 'declined') then
+    select cs.id into v_staff
+    from public.clinical_staff cs
+    where cs.profile_id = (select auth.uid())
+      and cs.organisation_id = new.organisation_id
+      and cs.active
+      and cs.doctor_tier in ('senior_medical_officer', 'chief_medical_officer');
+    if v_staff is null then
+      raise exception 'only a Senior Medical Officer or the Chief Medical Officer may complete a senior case review'
+        using errcode = '42501';
+    end if;
+    new.reviewed_by := v_staff;
+    new.reviewed_at := now();
+  elsif new.status not in ('completed', 'declined') and old.status not in ('completed', 'declined') then
+    new.reviewed_by := null;
+    new.reviewed_at := null;
+  else
+    new.reviewed_by := old.reviewed_by;
+    new.reviewed_at := old.reviewed_at;
+  end if;
+  return new;
+end;
+$function$;
+
+create or replace function public.activate_risk_model(p_model_id uuid)
+ returns uuid
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_org    uuid;
+  v_domain public.risk_domain;
+  v_status public.risk_model_status;
+  v_staff  uuid;
+begin
+  select organisation_id, domain, status into v_org, v_domain, v_status
+  from public.risk_models where id = p_model_id;
+
+  if v_org is null then
+    raise exception 'risk model not found';
+  end if;
+  if v_status not in ('draft', 'shadow') then
+    raise exception 'model must be draft or shadow to activate (currently %)', v_status;
+  end if;
+
+  select cs.id into v_staff
+  from public.clinical_staff cs
+  where cs.profile_id = (select auth.uid())
+    and cs.organisation_id = v_org
+    and cs.active
+    and cs.doctor_tier = 'chief_medical_officer'
+  limit 1;
+
+  if v_staff is null then
+    raise exception 'not authorised: only an active Chief Medical Officer can activate a risk model';
+  end if;
+
+  update public.risk_models
+    set status = 'retired'
+    where organisation_id = v_org and domain = v_domain and status = 'active' and id <> p_model_id;
+
+  update public.risk_models
+    set status = 'active', approved_by = v_staff, approved_at = now()
+    where id = p_model_id;
+
+  insert into public.audit_log (organisation_id, actor_id, action, entity_type, entity_id, event)
+  values (v_org, (select auth.uid()), 'risk_model.activated', 'risk_models', p_model_id,
+    jsonb_build_object('signed_by_clinical_staff', v_staff, 'domain', v_domain));
+
+  return p_model_id;
+end $function$;
+
+create or replace function public.approve_notification_template(p_key text)
+ returns void
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_staff uuid;
+begin
+  select cs.id into v_staff
+  from public.clinical_staff cs
+  where cs.profile_id = (select auth.uid())
+    and cs.active
+    and cs.doctor_tier = 'chief_medical_officer'
+  limit 1;
+
+  if v_staff is null then
+    raise exception 'not authorised: only an active Chief Medical Officer can approve a notification template';
+  end if;
+
+  if not exists (select 1 from public.notification_templates where key = p_key) then
+    raise exception 'notification template % not found', p_key;
+  end if;
+
+  update public.notification_templates
+  set clinical_approved_by = v_staff, clinical_approved_at = now()
+  where key = p_key;
+end;
+$function$;
+
+create or replace function public.attest_payer_board_report(p_report_id uuid, p_statement text, p_role_title text)
+ returns jsonb
+ language plpgsql
+ security definer
+ set search_path to ''
+as $function$
+declare
+  v_r      public.payer_board_reports%rowtype;
+  v_actual text;
+begin
+  perform private.assert_module_enabled('payer_platform');
+
+  if not (
+    private.is_admin()
+    or exists (
+      select 1 from public.clinical_staff cs
+      where cs.profile_id = (select auth.uid())
+        and cs.doctor_tier = 'chief_medical_officer' and cs.active
+    )
+  ) then
+    raise exception 'only a Tarragon superadmin or an active Chief Medical Officer may attest an outcomes report'
+      using errcode = '42501';
+  end if;
+
+  if length(btrim(coalesce(p_statement, ''))) < 20 then
+    raise exception 'an attestation needs a statement of what is being attested to' using errcode = '23514';
+  end if;
+  if length(btrim(coalesce(p_role_title, ''))) < 2 then
+    raise exception 'an attestation needs the signatory''s role' using errcode = '23514';
+  end if;
+
+  select * into v_r from public.payer_board_reports where id = p_report_id;
+  if v_r.id is null then
+    raise exception 'no such report' using errcode = '42501';
+  end if;
+  if v_r.status <> 'draft' then
+    raise exception 'only a draft report can be attested — this one is %', v_r.status using errcode = '23514';
+  end if;
+
+  v_actual := private.board_report_hash(v_r.report_number, v_r.period_start, v_r.period_end, v_r.snapshot);
+  if v_actual <> v_r.content_hash then
+    raise exception 'this report''s stored figures no longer match its content hash — it cannot be attested. Generate a fresh report.'
+      using errcode = '23514';
+  end if;
+
+  update public.payer_board_reports
+     set status = 'attested',
+         attested_by = (select auth.uid()),
+         attested_at = now(),
+         attestation_statement = btrim(p_statement),
+         attester_role_title = btrim(p_role_title)
+   where id = p_report_id;
+
+  perform private.log_audit('payer.board_report.attested', 'payer_board_report', p_report_id,
+    jsonb_build_object('insurer_id', v_r.insurer_id, 'report_number', v_r.report_number,
+                       'content_hash', v_r.content_hash, 'role_title', btrim(p_role_title)));
+
+  return jsonb_build_object('ok', true, 'status', 'attested');
+end;
+$function$;
+
 -- ---------------------------------------------------------------------------
 -- 4. Drop is_clinical_director -- safe now, every function above that used
 --    to reference it has been redefined without it.

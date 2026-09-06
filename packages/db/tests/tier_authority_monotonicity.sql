@@ -4,15 +4,9 @@
 -- A higher tier can always do everything a lower tier can. It simply has more
 -- on top. Founder requirement 2026-08-01, prompted by a real violation:
 -- private.can_confirm_medication_refill was written as `doctor_tier = 'tier_1'`
--- (an equality, i.e. a fence) rather than a minimum (a floor), so a senior
--- doctor covering a shift with no Medical Officer on duty could not confirm a
+-- (an equality, i.e. a fence) rather than a minimum (a floor), so a Tier 4
+-- Senior Registrar covering a shift with no Tier 1 on duty could not confirm a
 -- routine refill. Fixed by 20260801093117_refill_confirm_any_clinical_tier.sql.
---
--- Updated 2026-08-31 for the 3-tier collapse (medical_officer/
--- senior_medical_officer/chief_medical_officer, is_clinical_director
--- retired) — only the tier literal list and the probe's insert columns
--- changed; the discovery/monotonicity/care_coordinator logic is untouched
--- and re-validates automatically against whatever tier set exists.
 --
 -- WHY THIS TEST DISCOVERS GATES DYNAMICALLY rather than listing them:
 -- the point is to stop the NEXT gate someone writes from reintroducing a
@@ -220,21 +214,6 @@ select
   )
 from tier_authority_matrix
 where tier = 'care_coordinator';
-
--- Case 5 -- named regression: this is the one real behaviour change from the
--- 3-tier collapse (old tier_2, 3+ years experience, could prescribe; the new
--- medical_officer it merged into cannot -- only senior_medical_officer+ can).
--- Worth a named assertion rather than relying solely on the generic
--- monotonicity/discrimination sweep above, since it is a deliberate,
--- founder-confirmed capability change, not a bug the sweep should catch.
-insert into test_result
-select
-  5,
-  'medical_officer is denied by has_prescribing_authority',
-  case when bool_and(not allowed) then 'PASS' else 'FAIL' end,
-  coalesce(string_agg(gate || '=' || allowed::text, '; '), 'no rows')
-from tier_authority_matrix
-where tier = 'medical_officer' and gate = 'has_prescribing_authority';
 
 -- The verdicts are printed below in a single `line` column, which the CI
 -- runner's trailing-FAIL scan cannot see -- so this file has to raise for

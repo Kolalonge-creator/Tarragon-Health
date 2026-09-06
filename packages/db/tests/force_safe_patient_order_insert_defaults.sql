@@ -89,7 +89,7 @@ begin
   -- licence verification timestamp.
   insert into public.clinical_staff
     (profile_id, organisation_id, active, doctor_tier, full_name, license_verified_at)
-  values (v_staff, v_org, true, 'tier_2', 'FSPOI Clinician', now())
+  values (v_staff, v_org, true, 'medical_officer', 'FSPOI Clinician', now())
   returning id into v_staff_row;
 
   -- Find a self-bookable bundle this patient can actually be billed for.
