@@ -347,6 +347,23 @@ async function readBloodPressure(since: Date, until: Date): Promise<ReaderResult
       {
         filter: { date: { startDate: since, endDate: until } },
         limit: PER_TYPE_LIMIT,
+        // Every other reader in this file passes this explicitly (see
+        // readQuantity above) because the native default is descending
+        // (newest-first) — confirmed against the vendored library's
+        // Helpers.swift `getSortDescriptors(ascending:)`, which returns
+        // `ascending ?? false`. Omitting it here broke the truncation
+        // clamp's core assumption: a truncated page must be the OLDEST N
+        // rows so clamping the cursor to the page's newest sample safely
+        // holds back the unfetched backlog. With the default (newest-first),
+        // a truncated BP read instead returned the newest 200 correlations,
+        // the clamp computed the true overall-newest as "the held-back
+        // point," and the cursor advanced as if nothing were missing —
+        // silently and permanently skipping the older, un-transmitted BP
+        // history for any patient with >200 correlations in one sync
+        // window. Blood pressure is the platform's most clinically
+        // load-bearing vital (hypertension pathway, Category escalation),
+        // so this default was never safe to leave implicit.
+        ascending: true,
       }
     );
 
