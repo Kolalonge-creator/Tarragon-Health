@@ -6,6 +6,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { NextBestAction } from "@/app/(dashboard)/patient/next-best-action";
+import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-last-here-card";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
 import { VitalsTrendChart } from "@/components/vitals-trend-chart";
@@ -82,6 +83,13 @@ export default async function PatientOverviewPage() {
           presentation moved from an inline card to this banner (Tarragon
           Health Web Dashboard design, 2026-08-09). */}
       <NextBestAction patientId={subjectId} />
+
+      {/* A short, honest "while you were away" highlight reel — only renders
+          when the patient is returning after a real gap and something
+          actually happened (engagement/retention gap #6, 2026-08-31). Below
+          the hero deliberately: NextBestAction is the one actionable thing
+          the page leads with, this is informational context. */}
+      <SinceYouWereLastHere patientId={subjectId} acting={!!acting} />
 
       {/* The everyday jobs, one tap from the top of the page — including the
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).

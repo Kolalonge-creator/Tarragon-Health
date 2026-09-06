@@ -21985,6 +21985,10 @@ export type Database = {
         }[]
       }
       get_or_create_my_referral_code: { Args: never; Returns: string }
+      get_since_last_visit_summary: {
+        Args: { p_patient_id: string }
+        Returns: Json
+      }
       hand_over_care: {
         Args: {
           p_new_profile_id: string

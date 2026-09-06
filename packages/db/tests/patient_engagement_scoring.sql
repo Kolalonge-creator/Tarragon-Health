@@ -7,7 +7,10 @@
 -- for a patient newly degrading from highly_engaged into disengaged; does
 -- NOT re-fire a duplicate task for a patient who was already disengaged the
 -- day before (only a genuine degradation should notify a coordinator); and
--- is idempotent if run twice on the same day (the daily unique index).
+-- is idempotent if run twice on the same day (the daily unique index); and
+-- pairs each genuinely new engagement_decline task with exactly one
+-- companion in_app 'engagement_reengagement_nudge' notification (see
+-- 20260831125039_engagement_decline_patient_notification.sql).
 --
 -- Run inside a transaction that is always rolled back — nothing here should
 -- ever be committed. Fixture patients use throwaway @example.invalid
@@ -25,6 +28,7 @@ declare
   v_low uuid := gen_random_uuid();
   v_row record;
   v_task_count int;
+  v_notif_count int;
 begin
   select organisation_id into v_org from public.profiles where role = 'patient' and organisation_id is not null limit 1;
 
@@ -64,6 +68,13 @@ begin
   end if;
   raise notice 'PASS: patient A degrading from highly_engaged -> disengaged raised exactly 1 outreach task';
 
+  select count(*) into v_notif_count from public.notifications
+    where recipient_id = v_high and template = 'engagement_reengagement_nudge' and channel = 'in_app';
+  if v_notif_count <> 1 then
+    raise exception 'FAIL: expected exactly 1 engagement_reengagement_nudge in_app notification for patient A, got %', v_notif_count;
+  end if;
+  raise notice 'PASS: patient A also got exactly 1 in_app engagement_reengagement_nudge notification';
+
   -- Patient B: today's row should also be 'disengaged', but NO new task (was already disengaged yesterday).
   select tier into v_row from public.patient_engagement_scores
     where patient_id = v_low and computed_at >= date_trunc('day', now() at time zone 'Africa/Lagos') at time zone 'Africa/Lagos'
@@ -79,6 +90,13 @@ begin
   end if;
   raise notice 'PASS: patient B (already disengaged yesterday) did not re-fire a duplicate task';
 
+  select count(*) into v_notif_count from public.notifications
+    where recipient_id = v_low and template = 'engagement_reengagement_nudge';
+  if v_notif_count <> 0 then
+    raise exception 'FAIL: patient B should NOT get a nudge notification (no new task fired), got %', v_notif_count;
+  end if;
+  raise notice 'PASS: patient B (no new task) got no nudge notification either';
+
   -- Re-running the same day must be a no-op (idempotent daily unique index).
   perform private.compute_patient_engagement_tiers();
   select count(*) into v_task_count from public.care_outreach_tasks
@@ -86,7 +104,12 @@ begin
   if v_task_count <> 1 then
     raise exception 'FAIL: re-running same day should not duplicate patient A''s task, got count %', v_task_count;
   end if;
-  raise notice 'PASS: re-running the same day is idempotent';
+  select count(*) into v_notif_count from public.notifications
+    where recipient_id = v_high and template = 'engagement_reengagement_nudge';
+  if v_notif_count <> 1 then
+    raise exception 'FAIL: re-running same day should not duplicate patient A''s nudge notification, got count %', v_notif_count;
+  end if;
+  raise notice 'PASS: re-running the same day is idempotent (task and notification both)';
 
   raise notice 'ALL PATIENT_ENGAGEMENT_SCORING CHECKS PASSED';
 end $$;

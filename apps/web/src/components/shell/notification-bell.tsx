@@ -311,6 +311,11 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   if (n.template === "care_outreach_checkin") {
     return { text: "Your care team wants to check in with you", href: "/patient" };
   }
+  if (n.template === "engagement_reengagement_nudge") {
+    // From private.compute_patient_engagement_tiers(). No clinical claim here —
+    // just an honest "we noticed" nudge back to the dashboard.
+    return { text: "We've missed seeing you around", href: "/patient" };
+  }
   if (n.template === "diabetes_complication_check_due") {
     const checkType = String(payload.check_type ?? "complication");
     return { text: `Your ${checkType} check is due`, href: "/patient/care" };
