@@ -20,7 +20,7 @@ export const colors = {
   muted: "#57534E",
   faint: "#A8A29E",
   border: "#E7E5E4",
-  background: "#FAF7F2",
+  background: "#FAFAFA",
   card: "#FFFFFF",
   /** Pressed-state fill for white/bordered controls (SecondaryButton, the
    * acting-for banner's button) — one step down from `card`. */

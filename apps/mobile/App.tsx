@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, AppState, Image, SafeAreaView, StatusBar } from "react-native";
+import { ActivityIndicator, AppState, Image, StatusBar } from "react-native";
+import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
@@ -26,8 +27,13 @@ type LockState = "unknown" | "locked" | "unlocked";
  * shell's sections, reachable from the drawer; the legacy two-tab
  * Home/Devices bar this file used to render on top of the shell's own tab
  * bar (the "two stacked bars" bug) is gone.
+ *
+ * Wrapped in SafeAreaProvider (below) so every SafeAreaView in this file and
+ * TopBar's own useSafeAreaInsets() read real inset values on Android instead
+ * of RN's built-in SafeAreaView, which is an iOS-only shim that no-ops (falls
+ * back to a plain View) everywhere else — see react-native-safe-area-context.
  */
-export default function App() {
+function AppContent() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [identity, setIdentity] = useState<PatientIdentity | null | undefined>(undefined);
   const [lockState, setLockState] = useState<LockState>("unknown");
@@ -135,7 +141,9 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }}>
+    // Bottom excluded: BottomTabBar (inside HomeShell) insets its own bottom
+    // edge, so a bottom inset here would double up the gesture-area padding.
+    <SafeAreaView style={{ flex: 1, backgroundColor: colors.card }} edges={["top", "left", "right"]}>
       <StatusBar barStyle="dark-content" />
       <HomeShell
         userId={session.user.id}
@@ -145,5 +153,13 @@ export default function App() {
         initials={identity.initials}
       />
     </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
   );
 }
