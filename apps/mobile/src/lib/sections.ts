@@ -155,7 +155,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Healthy ageing",
     icon: "accessibility-outline",
     group: "Your health",
-    webviewPath: "/patient/healthy-ageing",
   },
 
   {

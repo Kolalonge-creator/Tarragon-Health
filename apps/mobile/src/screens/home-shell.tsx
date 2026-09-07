@@ -35,6 +35,7 @@ import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
 import { WeightManagementScreen } from "@/screens/sections/weight-management-screen";
 import { WellbeingScreen } from "@/screens/sections/wellbeing-screen";
+import { HealthyAgeingScreen } from "@/screens/sections/healthy-ageing-screen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -117,6 +118,15 @@ interface HomeShellProps {
  *   record data, and Emergency card is meant to represent whoever is
  *   physically holding the phone for a first responder — neither should
  *   ever track a transient acting-for state.
+ * - Healthy ageing uses subjectId: ageing_assessments/domain_results,
+ *   falls_risk_assessments, and social_determinant_screenings are all
+ *   can_act_for-gated for read (and insert, where patient/caregiver-
+ *   writable at all) — same group as Overview/Vitals/Medications/Health
+ *   Passport/My actions. One caveat inherited from web, not introduced
+ *   here: patient_conditions' SELECT policy has no can_act_for clause, so
+ *   the coordinated-care summary's active-condition count reads 0 for a
+ *   caregiver acting for someone with real active conditions — see
+ *   lib/healthy-ageing.ts's own comment on loadCoordinatedCareSummary.
  */
 export function HomeShell({ userId, organisationId, patientName, patientNumber, initials }: HomeShellProps) {
   const [section, setSection] = useState<SectionId>("overview");
@@ -260,13 +270,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           />
         )}
         {section === "findASpecialist" && <FindASpecialistScreen patientId={userId} />}
-        {section === "healthyAgeing" && webviewPath && (
-          <WebViewHubScreen
-            title="Healthy ageing"
-            description="Independence, prevention, and coordinated care, not just a list of conditions."
-            icon="accessibility-outline"
-            webviewPath={webviewPath}
-          />
+        {section === "healthyAgeing" && (
+          <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
         {section === "lifestyle" && webviewPath && (
           <WebViewHubScreen
