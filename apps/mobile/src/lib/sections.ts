@@ -207,7 +207,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Your people",
     icon: "people-outline",
     group: "Support",
-    webviewPath: "/patient/family",
   },
   { id: "supporting", label: "People you support", icon: "hand-left-outline", group: "Support" },
   {
