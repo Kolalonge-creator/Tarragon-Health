@@ -247,6 +247,51 @@ export async function postConfirmHealthCheckVideoSlot(
   return result.ok ? result.data : { error: result.error };
 }
 
+/** Mirrors apps/web/.../patient/sexual-health/sti-actions.ts's
+ * submitStiRiskCheck (the mobile equivalent) — scoring and the service-role
+ * insert (+ conditional clinician_alerts insert) happen server-side; this
+ * is a thin passthrough, never a second implementation of that scoring. */
+export async function postStiRiskCheck(
+  answers: Record<string, unknown>
+): Promise<{ success?: boolean; riskLevel?: string; recommendedScreenCodes?: string[]; error?: string }> {
+  const result = await request<{ success?: boolean; riskLevel?: string; recommendedScreenCodes?: string[] }>(
+    "/api/mobile/sexual-health/sti-risk-check",
+    "POST",
+    answers
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** Mirrors fertility-actions.ts's submitFertilityAssessment — age lookup,
+ * scoring, and the service-role insert (+ conditional specialist_referrals
+ * insert) all happen server-side. */
+export async function postFertilityAssessment(input: {
+  trying_duration_months: number;
+  menstrual_cycle_regular?: boolean;
+  known_risk_factors: string[];
+}): Promise<{ success?: boolean; recommendedAction?: string; error?: string }> {
+  const result = await request<{ success?: boolean; recommendedAction?: string }>(
+    "/api/mobile/sexual-health/fertility-assessment",
+    "POST",
+    input
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** Mirrors sexual-wellness-actions.ts's submitSexualHealthScreen — scoring
+ * and the service-role insert happen server-side, never client-trusted. */
+export async function postSexualWellnessScreen(
+  instrument: string,
+  items: number[]
+): Promise<{ success?: boolean; totalScore?: number; severityBand?: string; cardiometabolicFlag?: boolean; error?: string }> {
+  const result = await request<{ success?: boolean; totalScore?: number; severityBand?: string; cardiometabolicFlag?: boolean }>(
+    "/api/mobile/sexual-health/sexual-wellness-screen",
+    "POST",
+    { instrument, items }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable

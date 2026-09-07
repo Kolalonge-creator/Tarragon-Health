@@ -40,6 +40,7 @@ import { WellnessScreen } from "@/screens/sections/wellness-screen";
 import { HealthCheckScreen } from "@/screens/sections/health-check-screen";
 import { WomensHealthScreen } from "@/screens/sections/womens-health-screen";
 import { FamilyScreen } from "@/screens/sections/family-screen";
+import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -114,6 +115,13 @@ interface HomeShellProps {
  *   doctor and a navigation request are both first-person ("my question",
  *   "I need help"), not something exercised on a supported person's behalf
  *   from this screen.
+ * - Sexual & reproductive health stays on userId: every table this module
+ *   touches (sti_risk_checks, sti_case_episodes, fertility_assessments,
+ *   sexual_health_screens, contraception_plans, emergency_contraception_
+ *   requests, sexual_health_privacy_settings) is patient-self-or-org-staff
+ *   only by construction, with no profile_access/supporter/can_act_for path
+ *   at all — there is nothing for an acting-for resolution to route to even
+ *   if implemented here.
  * - My actions uses subjectId: every source table it reads (medication_
  *   reviews, screening_schedules, vaccination_schedules, etc.) is already
  *   can_read_clinical-gated per the Overview/Vitals reasoning above.
@@ -249,13 +257,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {section === "womensHealth" && (
           <WomensHealthScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
-        {section === "sexualHealth" && webviewPath && (
-          <WebViewHubScreen
-            title="Sexual & reproductive health"
-            description="STI testing, contraception, fertility, and sexual wellness — private, and always in your control."
-            icon="heart-outline"
-            webviewPath={webviewPath}
-          />
+        {section === "sexualHealth" && (
+          <SexualHealthScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
         {section === "wellbeing" && (
           <WellbeingScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />

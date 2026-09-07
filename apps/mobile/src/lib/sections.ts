@@ -128,7 +128,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Sexual & reproductive health",
     icon: "heart-outline",
     group: "Your health",
-    webviewPath: "/patient/sexual-health",
   },
   {
     id: "wellbeing",
