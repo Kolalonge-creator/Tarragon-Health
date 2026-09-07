@@ -778,7 +778,11 @@ export function NotificationBell() {
             aria-hidden
             className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-green px-1 text-[10px] font-semibold text-white"
           >
-            {unread.length > 9 ? "9+" : unread.length}
+            {/* Was capped at "9+" — with any double-digit unread count, opening
+                one notification (say 12 -> 11) still showed "9+", reading as
+                the badge not updating at all even though it was. 99 gives
+                real headroom for the count to visibly move before capping. */}
+            {unread.length > 99 ? "99+" : unread.length}
           </span>
         )}
       </Button>

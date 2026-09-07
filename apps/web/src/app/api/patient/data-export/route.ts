@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { hasFulfilledExportRequest } from "@/lib/data-export/require-fulfilled-export-request";
 
 /**
  * DSAR self-export, docs spec §87.8 — a patient downloads a machine-readable
@@ -13,6 +14,12 @@ import { createClient } from "@/lib/supabase/server";
  * which deliberately skips a patient acting on their own record — see that
  * migration's comment) so the export itself shows up in the patient's own
  * care_access_events trail as a data_exported event.
+ *
+ * Gated behind an admin-fulfilled data_export_requests row (2026-09-07
+ * patient UX fix pass) — the founder wants a patient to request their data
+ * from admin rather than self-serve download it directly. This route no
+ * longer has a UI link at all; it now only serves the file once an admin has
+ * reviewed and fulfilled a request, see require-fulfilled-export-request.ts.
  */
 export async function GET(): Promise<Response> {
   const supabase = await createClient();
@@ -30,6 +37,13 @@ export async function GET(): Promise<Response> {
     .single();
   if (!profile || profile.role !== "patient") {
     return new Response("Not found", { status: 404 });
+  }
+
+  if (!(await hasFulfilledExportRequest(supabase, user.id))) {
+    return new Response(
+      "Request your data from Privacy & data first — an admin needs to review and approve it before it's available here.",
+      { status: 403 }
+    );
   }
 
   const [

@@ -1,4 +1,8 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
+import { registerPdfFonts, PDF_FONT_FAMILY } from "@/lib/pdf/register-fonts";
+import { PDF_LOGO_URL, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
+
+registerPdfFonts();
 
 export interface LabRequestData {
   patientName: string;
@@ -25,8 +29,10 @@ export interface LabRequestData {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 32, fontSize: 10, color: "#12324B" },
-  brand: { fontSize: 12, fontWeight: 700, color: "#0E7C52", marginBottom: 2 },
+  page: { padding: 32, fontSize: 10, color: "#12324B", fontFamily: PDF_FONT_FAMILY },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 2 },
+  logo: { width: 20, height: 20 },
+  brand: { fontSize: 12, fontWeight: 700, color: "#0E7C52" },
   title: { fontSize: 18, fontWeight: 700, marginBottom: 4 },
   subtitle: { fontSize: 10, color: "#555", marginBottom: 16 },
   section: { marginBottom: 14 },
@@ -73,7 +79,12 @@ export function LabRequestDocument({ data }: { data: LabRequestData }) {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.brand}>TarragonHealth</Text>
+        <View style={styles.brandRow}>
+          {/* react-pdf's Image is not an HTML <img> — no alt prop exists */}
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image style={styles.logo} src={PDF_LOGO_URL} />
+          <Text style={styles.brand}>TarragonHealth</Text>
+        </View>
         <Text style={styles.title}>Laboratory test request</Text>
         <Text style={styles.subtitle}>
           {data.orderNumber ? `Request ${data.orderNumber} · ` : ""}
@@ -153,7 +164,7 @@ export function LabRequestDocument({ data }: { data: LabRequestData }) {
         <Text style={styles.footer}>
           This request lists the tests recommended for this person on the date shown. It is not a
           prescription, a diagnosis, or a guarantee of any laboratory&apos;s price or availability.
-          Questions about the tests should go to the TarragonHealth care team in the app.
+          Questions about the tests should go to the TarragonHealth care team in the app, or {PDF_CONTACT_EMAIL}.
         </Text>
       </Page>
     </Document>

@@ -83,12 +83,6 @@ export default async function HealthPassportPage() {
             >
               Download PDF
             </Link>
-            <Link
-              href="/api/patient/data-export/json"
-              className="rounded-md border border-brand-green px-4 py-2 text-sm font-medium text-brand-green dark:text-brand-green-bright hover:bg-brand-green/5 dark:hover:bg-brand-green/10"
-            >
-              Download your complete record
-            </Link>
           </div>
         }
       />

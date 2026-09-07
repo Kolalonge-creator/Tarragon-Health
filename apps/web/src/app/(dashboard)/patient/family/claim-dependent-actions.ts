@@ -101,8 +101,15 @@ export async function claimDependentAccountAction(
     status: "pending",
     content_class: "non_clinical",
     payload: {
+      // Deliberately not "download the app" — there is no app-store listing
+      // yet (apps/mobile/eas.json has an empty production submit config), and
+      // pointing a patient at "download the app" instead sent them to the
+      // browser PWA (Add to Home Screen), a second, differently-styled icon
+      // alongside the real native app once one exists. app.tarragonhealth.ng
+      // is the one real place to log in today, on any phone, no install
+      // required.
       message:
-        "You're 18. Your Tarragon record is now your own. Download the app and use this number to set up your own login.",
+        "You're 18. Your Tarragon record is now your own. Go to app.tarragonhealth.ng and use this number to set up your own login.",
     },
   });
 

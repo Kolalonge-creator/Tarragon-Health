@@ -66,7 +66,12 @@ export default async function PatientVitalsPage() {
       {/* Renders nothing until a connected wearable has synced at least one
           night — see sleep-summary-card.tsx. */}
       <SleepSummaryCard patientId={subjectId} />
-      <WearableConnectSection patientId={subjectId} />
+      {/* id target for the Privacy Centre's "Manage device connections" link
+          (/patient/vitals#connect-devices) — that link used to land here at
+          the top of Vitals with no scroll-to, which read as broken. */}
+      <div id="connect-devices">
+        <WearableConnectSection patientId={subjectId} />
+      </div>
       <DeviceSyncSupportCard patientId={subjectId} />
     </DashboardSection>
   );

@@ -1,6 +1,10 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
+import { registerPdfFonts, PDF_FONT_FAMILY } from "@/lib/pdf/register-fonts";
+import { PDF_LOGO_URL, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
 import type { HealthPassportData } from "./get-health-passport-data";
+
+registerPdfFonts();
 
 const VITAL_LABEL: Record<string, string> = {
   blood_pressure: "Blood pressure",
@@ -31,14 +35,26 @@ function formatVitalValue(vitalType: string, latest: Record<string, unknown>): s
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 32, fontSize: 10, color: "#12324B" },
+  page: { padding: 32, fontSize: 10, color: "#12324B", fontFamily: PDF_FONT_FAMILY },
+  letterhead: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#0E7C52",
+    paddingBottom: 10,
+  },
+  logo: { width: 30, height: 30 },
+  brand: { fontSize: 14, fontWeight: 700, color: "#0E7C52" },
+  tagline: { fontSize: 8, color: "#666" },
   title: { fontSize: 18, fontWeight: 700, marginBottom: 4 },
   subtitle: { fontSize: 10, color: "#555", marginBottom: 16 },
   section: { marginBottom: 16 },
   sectionTitle: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#0E7C52" },
   row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3, borderBottomWidth: 0.5, borderBottomColor: "#ddd" },
   muted: { color: "#666" },
-  footer: { marginTop: 24, fontSize: 8, color: "#666" },
+  footer: { marginTop: 24, fontSize: 8, color: "#666", borderTopWidth: 0.5, borderTopColor: "#ddd", paddingTop: 8 },
 });
 
 export function HealthPassportDocument({
@@ -62,6 +78,16 @@ export function HealthPassportDocument({
   return (
     <Document title={`${documentTitle} - ${patientName}`}>
       <Page size="A4" style={styles.page}>
+        <View style={styles.letterhead}>
+          {/* react-pdf's Image is not an HTML <img> — no alt prop exists */}
+          {/* eslint-disable-next-line jsx-a11y/alt-text */}
+          <Image style={styles.logo} src={PDF_LOGO_URL} />
+          <View>
+            <Text style={styles.brand}>TarragonHealth</Text>
+            <Text style={styles.tagline}>Care that stays with you.</Text>
+          </View>
+        </View>
+
         <Text style={styles.title}>{documentTitle}</Text>
         <Text style={styles.subtitle}>
           {patientName} · {periodLabel} · TarragonHealth
@@ -143,6 +169,7 @@ export function HealthPassportDocument({
               }.`
             : "Protocols supervised by your care team's Clinical Director."}
           {"  "}This is an educational summary, not a complete medical record.
+          {"  "}TarragonHealth — {PDF_CONTACT_EMAIL}
         </Text>
       </Page>
     </Document>

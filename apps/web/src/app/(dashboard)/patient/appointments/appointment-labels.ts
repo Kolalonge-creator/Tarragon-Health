@@ -1,5 +1,11 @@
 /** Human labels for the 10.1 appointment types, shared by the patient
- * booking picker and the clinician calendar. */
+ * booking picker and the clinician calendar. The full enum stays for
+ * clinician/internal scheduling use, but the patient-facing picker
+ * (PATIENT_BOOKABLE_APPOINTMENT_TYPES below) only ever offers telemedicine
+ * and result-interpretation — Tarragon has no owned clinics and offers no
+ * in-person appointment right now; second opinion is a separate, already-
+ * built flow (second_opinion_requests), not a slot-booking appointment
+ * type. */
 export const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
   gp: "GP",
   specialist: "Specialist",
@@ -16,6 +22,14 @@ export const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
   therapy: "Therapy session",
   result_interpretation: "Result interpretation session",
 };
+
+/** The only appointment types a patient can currently book for themselves,
+ * all with a Tarragon-employed doctor, all telemedicine — see the note on
+ * APPOINTMENT_TYPE_LABELS above. */
+export const PATIENT_BOOKABLE_APPOINTMENT_TYPES = [
+  "telemedicine",
+  "result_interpretation",
+] as const;
 
 export const APPOINTMENT_STATUS_LABELS: Record<
   string,

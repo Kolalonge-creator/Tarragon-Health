@@ -100,12 +100,12 @@ export function BloodAttestationForm({
                 upload your lab result
               </Link>
               , and your care team will confirm it. If you do not have the report to hand, you can
-              tell us yourself instead.
+              enter it yourself instead.
             </p>
 
             {!open ? (
               <Button type="button" variant="outline" size="sm" onClick={() => setOpen(true)}>
-                Tell us myself
+                Enter it myself
               </Button>
             ) : (
               <div className="space-y-3 rounded-lg border border-charcoal-ink/15 dark:border-night-ink/20 p-3">

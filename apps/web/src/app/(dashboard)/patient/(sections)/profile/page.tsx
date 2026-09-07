@@ -1,7 +1,6 @@
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { NAV_ICON } from "@/lib/icons";
-import { IdentityVerificationCard } from "@/app/onboarding/identity-verification-card";
 import { ConditionLanguageForm } from "@/app/(dashboard)/patient/condition-language-form";
 import { EmergencyContactForm } from "@/app/(dashboard)/patient/emergency-contact-form";
 import { HeightForm } from "@/app/(dashboard)/patient/height-form";
@@ -11,7 +10,7 @@ import { CommunicationPreferencesForm } from "@/app/(dashboard)/patient/communic
 import { CommunicationHistoryCard } from "@/app/(dashboard)/patient/communication-history-card";
 
 export default async function PatientProfilePage() {
-  const { profile, subjectId } = await getPatientDashboardContext();
+  const { profile } = await getPatientDashboardContext();
 
   return (
     <DashboardSection
@@ -31,13 +30,6 @@ export default async function PatientProfilePage() {
             fullName={profile.full_name ?? "Account"}
             avatarUrl={profile.avatar_url}
           />
-          {/* Identity verification lives here rather than in onboarding: it is
-              optional and non-blocking, and asking a first-time visitor for a
-              government ID before they have done anything is the single most
-              off-putting step in the signup path. Location moved to the
-              shared /account page (see account/page.tsx) so it isn't edited
-              in two places. */}
-          <IdentityVerificationCard patientId={subjectId} />
           <EmergencyContactForm
             initial={{
               emergency_contact_name: profile.emergency_contact_name,

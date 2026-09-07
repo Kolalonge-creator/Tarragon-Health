@@ -4,23 +4,11 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { BookAppointment } from "./book-appointment";
 import { MyAppointmentsList } from "./my-appointments-list";
+import { SecondOpinionRequestCard } from "@/app/(dashboard)/patient/second-opinion-request";
+import { PATIENT_BOOKABLE_APPOINTMENT_TYPES } from "./appointment-labels";
 import type { AppointmentType } from "@/lib/queries/appointments";
 
-const VALID_APPOINTMENT_TYPES: AppointmentType[] = [
-  "gp",
-  "specialist",
-  "nurse",
-  "dietitian",
-  "physiotherapist",
-  "laboratory",
-  "imaging",
-  "vaccination",
-  "physical_clinic",
-  "telemedicine",
-  "follow_up",
-  "procedure",
-  "therapy",
-];
+const VALID_APPOINTMENT_TYPES: readonly AppointmentType[] = PATIENT_BOOKABLE_APPOINTMENT_TYPES;
 
 /**
  * subjectId, not profile.id: a caregiver who has opened the account of the
@@ -52,7 +40,7 @@ export default async function PatientAppointmentsPage({
       <PageHeader
         title="Appointments"
         icon={SEMANTIC_ICON.booking}
-        description="Book a GP, specialist, nurse, or other visit, and manage your upcoming appointments."
+        description="Book a telemedicine visit or a result interpretation session with a Tarragon doctor, request a second opinion, and manage your upcoming appointments."
       />
       <MyAppointmentsList patientId={subjectId} />
       <BookAppointment
@@ -60,6 +48,7 @@ export default async function PatientAppointmentsPage({
         patientId={subjectId}
         initialAppointmentType={initialAppointmentType}
       />
+      <SecondOpinionRequestCard patientId={subjectId} organisationId={profile.organisation_id} />
     </div>
   );
 }

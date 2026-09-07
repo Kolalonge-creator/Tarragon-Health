@@ -1,7 +1,8 @@
 "use client";
 
-import { useVitalsReadings } from "@/lib/queries/vitals";
+import { useVitalsReadingsPage } from "@/lib/queries/vitals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { mmolLToMgDl, type Tables } from "@tarragon/shared";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
@@ -120,7 +121,9 @@ function formatReading(reading: Tables<"vitals_readings">): string {
 }
 
 export function VitalsHistory({ patientId }: { patientId: string }) {
-  const { data, isLoading, isError } = useVitalsReadings(patientId);
+  const { data, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useVitalsReadingsPage(patientId);
+  const readings = data?.pages.flatMap((p) => p.rows) ?? [];
 
   return (
     <Card>
@@ -135,12 +138,12 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
         {isError && (
           <p className="text-sm text-red-600 dark:text-red-300">Could not load your readings.</p>
         )}
-        {data && data.length === 0 && (
+        {!isLoading && readings.length === 0 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No readings logged yet.</p>
         )}
-        {data && data.length > 0 && (
+        {readings.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-            {data.map((reading) => (
+            {readings.map((reading) => (
               <li key={reading.id} className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
@@ -165,6 +168,19 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
               </li>
             ))}
           </ul>
+        )}
+        {hasNextPage && (
+          <div className="mt-3 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isFetchingNextPage}
+              onClick={() => fetchNextPage()}
+            >
+              {isFetchingNextPage ? "Loading…" : "See more"}
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

@@ -10,7 +10,7 @@ import {
   useEnsureAppointmentVideoConsultation,
   type AppointmentType,
 } from "@/lib/queries/appointments";
-import { APPOINTMENT_TYPE_LABELS } from "./appointment-labels";
+import { APPOINTMENT_TYPE_LABELS, PATIENT_BOOKABLE_APPOINTMENT_TYPES } from "./appointment-labels";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,8 +58,13 @@ export function BookAppointment({
   initialAppointmentType?: AppointmentType;
 }) {
   const router = useRouter();
-  const [appointmentType, setAppointmentType] = useState<AppointmentType>(initialAppointmentType ?? "gp");
-  const [consultationMethod, setConsultationMethod] = useState<"telemedicine" | "in_person" | "">("");
+  const [appointmentType, setAppointmentType] = useState<AppointmentType>(
+    initialAppointmentType ?? "telemedicine"
+  );
+  // Tarragon has no owned clinics and offers no in-person appointment right
+  // now — every bookable type here is telemedicine, so there is no "how"
+  // choice to make.
+  const consultationMethod = "telemedicine" as const;
   const [message, setMessage] = useState<{ tone: "success" | "error"; text: string } | null>(null);
   const [pendingPaymentAppointment, setPendingPaymentAppointment] = useState<{
     id: string;
@@ -224,27 +229,16 @@ export function BookAppointment({
               value={appointmentType}
               onChange={(e) => setAppointmentType(e.target.value as AppointmentType)}
             >
-              {Object.entries(APPOINTMENT_TYPE_LABELS).map(([value, label]) => (
+              {PATIENT_BOOKABLE_APPOINTMENT_TYPES.map((value) => (
                 <option key={value} value={value}>
-                  {label}
+                  {APPOINTMENT_TYPE_LABELS[value]}
                 </option>
               ))}
             </Select>
           </div>
-          <div className="space-y-1">
-            <label className="text-xs text-charcoal-ink/60 dark:text-night-ink/60" htmlFor="consultation-method">
-              How
-            </label>
-            <Select
-              id="consultation-method"
-              value={consultationMethod}
-              onChange={(e) => setConsultationMethod(e.target.value as "telemedicine" | "in_person" | "")}
-            >
-              <option value="">Any</option>
-              <option value="telemedicine">Telemedicine</option>
-              <option value="in_person">In person</option>
-            </Select>
-          </div>
+          <p className="self-end pb-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            Telemedicine, with a Tarragon doctor.
+          </p>
         </div>
 
         {message && (

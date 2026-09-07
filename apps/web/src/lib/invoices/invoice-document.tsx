@@ -1,5 +1,9 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
+import { registerPdfFonts, PDF_FONT_FAMILY } from "@/lib/pdf/register-fonts";
+import { PDF_LOGO_URL, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
+
+registerPdfFonts();
 
 export interface InvoiceDocumentData {
   invoice_number: string;
@@ -33,8 +37,10 @@ export interface InvoiceBillTo {
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 36, fontSize: 10, color: "#12324B" },
+  page: { padding: 36, fontSize: 10, color: "#12324B", fontFamily: PDF_FONT_FAMILY },
   header: { flexDirection: "row", justifyContent: "space-between", marginBottom: 28 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  logo: { width: 28, height: 28 },
   brand: { fontSize: 18, fontWeight: 700, color: "#0E7C52" },
   tagline: { fontSize: 8, color: "#666", marginTop: 2 },
   companyBlock: { fontSize: 8, color: "#666", textAlign: "right", maxWidth: 220 },
@@ -104,7 +110,12 @@ export function InvoiceDocument({
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.brand}>TarragonHealth</Text>
+            <View style={styles.brandRow}>
+              {/* react-pdf's Image is not an HTML <img> — no alt prop exists */}
+              {/* eslint-disable-next-line jsx-a11y/alt-text */}
+              <Image style={styles.logo} src={PDF_LOGO_URL} />
+              <Text style={styles.brand}>TarragonHealth</Text>
+            </View>
             <Text style={styles.tagline}>Care that stays with you.</Text>
           </View>
           <View style={styles.companyBlock}>
@@ -171,6 +182,7 @@ export function InvoiceDocument({
             </Text>
           )}
           <Text style={styles.footerLine}>{companyName} — {invoice.reference}</Text>
+          <Text style={styles.footerLine}>{PDF_CONTACT_EMAIL}</Text>
         </View>
       </Page>
     </Document>

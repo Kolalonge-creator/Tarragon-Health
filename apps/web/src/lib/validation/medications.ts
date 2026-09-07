@@ -84,3 +84,27 @@ export const reviewMedicationRepeatRequestSchema = z
 export type ReviewMedicationRepeatRequestInput = z.infer<
   typeof reviewMedicationRepeatRequestSchema
 >;
+
+/** A patient's request to change an existing medication — what they want
+ * changed, and why. Never applies the change itself; see
+ * 20260907131424_medication_change_requests.sql. */
+export const requestMedicationChangeSchema = z.object({
+  requested_change: z.string().trim().min(1, "Say what you'd like changed").max(500),
+  reason: z.string().trim().min(1, "A reason is required").max(500),
+});
+export type RequestMedicationChangeInput = z.infer<typeof requestMedicationChangeSchema>;
+
+/** Clinical review of a patient's medication change request. */
+export const reviewMedicationChangeRequestSchema = z
+  .object({
+    status: z.enum(["approved", "denied"]),
+    denial_reason: z.string().trim().max(500).optional(),
+    review_note: z.string().trim().max(500).optional(),
+  })
+  .refine((data) => data.status !== "denied" || !!data.denial_reason, {
+    message: "A reason is required to deny a change request",
+    path: ["denial_reason"],
+  });
+export type ReviewMedicationChangeRequestInput = z.infer<
+  typeof reviewMedicationChangeRequestSchema
+>;
