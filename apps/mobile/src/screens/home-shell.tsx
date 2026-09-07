@@ -17,6 +17,7 @@ import { LabsScreen } from "@/screens/sections/labs-screen";
 import { AppointmentsScreen } from "@/screens/sections/appointments-screen";
 import { PreventionScreen } from "@/screens/sections/prevention-screen";
 import { CareSupportScreen } from "@/screens/sections/care-support-screen";
+import { ActionsScreen } from "@/screens/sections/actions-screen";
 import { DevicesScreen } from "@/screens/devices-screen";
 import { SyncScreen } from "@/screens/sync-screen";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
@@ -24,6 +25,16 @@ import { HealthPassportScreen } from "@/screens/sections/health-passport-screen"
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
+import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
+import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
+import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
+import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
+import { WebViewHubScreen } from "@/screens/sections/webview-hub-screen";
+import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
+import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
+import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
+import { WeightManagementScreen } from "@/screens/sections/weight-management-screen";
+import { WellbeingScreen } from "@/screens/sections/wellbeing-screen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -98,6 +109,9 @@ interface HomeShellProps {
  *   doctor and a navigation request are both first-person ("my question",
  *   "I need help"), not something exercised on a supported person's behalf
  *   from this screen.
+ * - My actions uses subjectId: every source table it reads (medication_
+ *   reviews, screening_schedules, vaccination_schedules, etc.) is already
+ *   can_read_clinical-gated per the Overview/Vitals reasoning above.
  * - Settings and Emergency card stay on userId on purpose, not because of
  *   an RLS gap: Settings is device/account configuration, not patient
  *   record data, and Emergency card is meant to represent whoever is
@@ -182,6 +196,10 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {section === "care" && (
           <CareSupportScreen patientId={userId} organisationId={organisationId} />
         )}
+        {section === "myActions" && <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />}
+        {section === "healthSummary" && (
+          <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />
+        )}
         {section === "devices" &&
           (openDevice ? (
             <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />
@@ -203,11 +221,104 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
             subjectName={acting?.fullName ?? undefined}
           />
         )}
+        {section === "receipts" && <ReceiptsScreen />}
+        {section === "notificationSettings" && (
+          <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
+        )}
+        {section === "technicalSupport" && (
+          <TechnicalSupportScreen patientId={userId} organisationId={organisationId} />
+        )}
         {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
         {section === "settings" && (
           <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
         )}
-        {webviewPath && <WebViewScreen key={webviewPath} path={webviewPath} />}
+        {section === "womensHealth" && webviewPath && (
+          <WebViewHubScreen
+            title="Women's Health"
+            description="Prevention, reproductive health, pregnancy, postnatal care and long-term health, in one place."
+            icon="female-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {section === "sexualHealth" && webviewPath && (
+          <WebViewHubScreen
+            title="Sexual & reproductive health"
+            description="STI testing, contraception, fertility, and sexual wellness — private, and always in your control."
+            icon="heart-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {section === "wellbeing" && (
+          <WellbeingScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+        )}
+        {section === "healthCheck" && webviewPath && (
+          <WebViewHubScreen
+            title="Health Check"
+            description="A yearly, whole-body check: the right checks for you, and a plan to keep you well."
+            icon="clipboard-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {section === "findASpecialist" && <FindASpecialistScreen patientId={userId} />}
+        {section === "healthyAgeing" && webviewPath && (
+          <WebViewHubScreen
+            title="Healthy ageing"
+            description="Independence, prevention, and coordinated care, not just a list of conditions."
+            icon="accessibility-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {section === "lifestyle" && webviewPath && (
+          <WebViewHubScreen
+            title="Lifestyle coaching"
+            description="Nutrition, activity, and everyday habits — coaching built around your own goals."
+            icon="leaf-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {section === "weightManagement" && (
+          <WeightManagementScreen userId={userId} onNavigate={handleSelect} />
+        )}
+        {section === "learn" && webviewPath && (
+          <WebViewHubScreen
+            title="Learn"
+            description="Clear, plain-language reading on your conditions and on staying healthy generally."
+            icon="school-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {section === "wellness" && webviewPath && (
+          <WebViewHubScreen
+            title="Wellness rewards"
+            description="Earn points for logging, learning, and finishing challenges — redeem them for a real reward toward your care."
+            icon="trophy-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {section === "family" && webviewPath && (
+          <WebViewHubScreen
+            title="Your people"
+            description="Who we contact if something urgent comes up, who can follow your care, and the children whose records you keep."
+            icon="people-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {section === "screeningDays" && <ScreeningDaysScreen />}
+        {section === "financialProfile" && <FinancialProfileScreen userId={userId} />}
+        {section === "privacy" && webviewPath && (
+          <WebViewHubScreen
+            title="Privacy & your data"
+            description="What you've agreed to, who can see your record, and how to request, correct, or delete your data."
+            icon="lock-closed-outline"
+            webviewPath={webviewPath}
+          />
+        )}
+        {/* "services" (subscription/checkout) is the one remaining
+            webviewPath-only section, kept as a direct full embed rather than
+            a native-chrome hub: it's a Paystack checkout flow, not a
+            browsable page, and wrapping it in another Close-button layer on
+            top of the WebView's own would be two exits for one screen. */}
+        {section === "services" && webviewPath && <WebViewScreen key={webviewPath} path={webviewPath} />}
       </View>
 
       {/* handleSelect, not setSection: switching tabs must also close the

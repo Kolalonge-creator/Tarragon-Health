@@ -85,7 +85,6 @@ export const SECTIONS: SectionDef[] = [
     label: "My actions",
     icon: "checkmark-done-outline",
     group: "top",
-    webviewPath: "/patient/actions",
   },
 
   {
@@ -117,7 +116,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Health summary",
     icon: "document-text-outline",
     group: "Your health",
-    webviewPath: "/patient/health-summary",
   },
   {
     id: "womensHealth",
@@ -138,7 +136,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Wellbeing",
     icon: "happy-outline",
     group: "Your health",
-    webviewPath: "/patient/wellbeing",
   },
   {
     id: "healthCheck",
@@ -152,7 +149,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Find a specialist",
     icon: "search-outline",
     group: "Your health",
-    webviewPath: "/patient/find-a-specialist",
   },
   {
     id: "healthyAgeing",
@@ -174,7 +170,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Weight management",
     icon: "speedometer-outline",
     group: "Stay well",
-    webviewPath: "/patient/weight-management",
   },
   {
     id: "learn",
@@ -224,7 +219,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Group screening days",
     icon: "people-circle-outline",
     group: "Support",
-    webviewPath: "/patient/screening-days",
   },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
@@ -233,7 +227,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Your finances",
     icon: "wallet-outline",
     group: "Your account",
-    webviewPath: "/patient/financial-profile",
   },
   {
     id: "services",
@@ -247,21 +240,18 @@ export const SECTIONS: SectionDef[] = [
     label: "Receipts",
     icon: "receipt-outline",
     group: "Your account",
-    webviewPath: "/patient/receipts",
   },
   {
     id: "notificationSettings",
     label: "Notification settings",
     icon: "notifications-outline",
     group: "Your account",
-    webviewPath: "/patient/notification-settings",
   },
   {
     id: "technicalSupport",
     label: "Technical support",
     icon: "construct-outline",
     group: "Your account",
-    webviewPath: "/patient/support",
   },
   {
     id: "privacy",

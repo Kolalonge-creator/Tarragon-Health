@@ -158,6 +158,79 @@ export async function postDeviceFaultReport(
     : { success: false, error: result.error };
 }
 
+export interface LifestyleActionResult {
+  success?: boolean;
+  message?: string;
+  needsEdScreen?: boolean;
+  error?: string;
+}
+
+/** Mirrors apps/web/src/app/api/mobile/lifestyle/enroll/route.ts (the
+ * mobile equivalent of enrollAction — see that route's own comment for why
+ * this needs a server round-trip rather than a direct client insert). */
+export async function postLifestyleEnroll(
+  conditionKey: "htn" | "diabetes" | "obesity",
+  consent: boolean
+): Promise<LifestyleActionResult> {
+  const result = await request<LifestyleActionResult>("/api/mobile/lifestyle/enroll", "POST", {
+    conditionKey,
+    consent,
+  });
+  return result.ok ? result.data : { error: result.error };
+}
+
+export interface ObesityEdScreenInput {
+  consent: boolean;
+  scoff_sick?: boolean;
+  scoff_control?: boolean;
+  scoff_one_stone?: boolean;
+  scoff_fat?: boolean;
+  scoff_food_dominates?: boolean;
+  self_harm_risk?: boolean;
+  low_mood?: boolean;
+  disordered_behaviours: string[];
+  notes?: string;
+}
+
+/** Mirrors apps/web/src/app/api/mobile/lifestyle/ed-screen-enroll/route.ts. */
+export async function postObesityEdScreenAndEnroll(input: ObesityEdScreenInput): Promise<LifestyleActionResult> {
+  const result = await request<LifestyleActionResult>("/api/mobile/lifestyle/ed-screen-enroll", "POST", input);
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** Mirrors apps/web/src/app/api/mobile/lifestyle/log/route.ts (the mobile
+ * equivalent of logReadingAction — see that route's own comment for why
+ * this needs a server round-trip: red-flag evaluation must not be
+ * duplicated client-side). */
+export async function postLifestyleLog(input: {
+  enrollmentId: string;
+  conditionKey: "htn" | "diabetes" | "obesity";
+  type: "weight" | "activity_minutes" | "mood";
+  value?: number;
+  strugglingWithFood?: boolean;
+}): Promise<LifestyleActionResult> {
+  const result = await request<LifestyleActionResult>("/api/mobile/lifestyle/log", "POST", input);
+  return result.ok ? result.data : { error: result.error };
+}
+
+export type MentalHealthScreenAnswers = Record<string, number | boolean>;
+
+/** Mirrors apps/web/src/app/api/mobile/mental-health-screen/route.ts (the
+ * mobile equivalent of submitMentalHealthScreen). Scoring, the
+ * service-role insert, and the self-harm → emergency_events crisis pathway
+ * all happen server-side — this is a thin, unmodified passthrough, not a
+ * second implementation of any of that logic. */
+export async function postMentalHealthScreen(
+  answers: MentalHealthScreenAnswers
+): Promise<{ success?: boolean; crisis?: boolean; error?: string }> {
+  const result = await request<{ success?: boolean; crisis?: boolean }>(
+    "/api/mobile/mental-health-screen",
+    "POST",
+    answers
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable
