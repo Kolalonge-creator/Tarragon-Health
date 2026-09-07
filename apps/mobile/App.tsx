@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, AppState, Image, StatusBar } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import logoMarkWhite from "./assets/logo-mark-white.png";
@@ -156,7 +157,37 @@ function AppContent() {
   );
 }
 
+/**
+ * Root gate: the very first Ionicons render anywhere in the app (TopBar's
+ * menu/notification icons, since TopBar mounts before anything else) threw
+ * "Cannot call a class as a function" and crashed the whole app — every
+ * subsequent icon render (BottomTabBar etc.) worked fine, isolating this to
+ * a one-time initialization issue in the icon font's own loading path
+ * (createIconSet's underlying class only lazily calls Font.loadAsync on
+ * first render — see @expo/vector-icons/build/createIconSet.js). Explicitly
+ * loading the font here, before anything in the real app tree ever renders
+ * an icon, avoids that first-render path entirely.
+ */
 export default function App() {
+  const [iconsReady, setIconsReady] = useState(false);
+
+  useEffect(() => {
+    Ionicons.loadFont()
+      .catch(() => {})
+      .finally(() => setIconsReady(true));
+  }, []);
+
+  if (!iconsReady) {
+    return (
+      <SafeAreaProvider>
+        <SafeAreaView style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.brand }}>
+          <StatusBar barStyle="light-content" />
+          <ActivityIndicator color="#FFFFFF" />
+        </SafeAreaView>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <AppContent />
