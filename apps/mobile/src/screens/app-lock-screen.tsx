@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Image, Pressable, SafeAreaView, StatusBar, Text, View } from "react-native";
+import { Image, Pressable, StatusBar, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { authenticate } from "@/lib/app-lock";
 import { supabase } from "@/lib/supabase";
 import { colors, radius, spacing } from "@/ui/theme";
