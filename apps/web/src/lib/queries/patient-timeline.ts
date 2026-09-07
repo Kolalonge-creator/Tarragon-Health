@@ -10,9 +10,9 @@ export type TimelineEventType = Enums<"timeline_event_type">;
  * real row is NOT the same as a real doctor: a Care Coordinator carries an
  * active clinical_staff row too (doctor_tier = 'care_coordinator'), so
  * rendering "Dr. X" from a non-null actor alone is not attribution-safe by
- * itself. doctor_tier + is_clinical_director are included so the UI can run
- * isClinicalTier (lib/clinical/doctor-tier.ts) before ever showing "Dr." —
- * see ActorAttribution in components/patient-timeline.tsx.
+ * itself. doctor_tier is included so the UI can run isClinicalTier
+ * (lib/clinical/doctor-tier.ts) before ever showing "Dr." — see
+ * ActorAttribution in components/patient-timeline.tsx.
  */
 export type TimelineEvent = Tables<"patient_timeline"> & {
   actor: {
@@ -20,12 +20,11 @@ export type TimelineEvent = Tables<"patient_timeline"> & {
     credential_type: string | null;
     credential_number: string | null;
     doctor_tier: Enums<"doctor_tier"> | null;
-    is_clinical_director: boolean;
   } | null;
 };
 
 const TIMELINE_SELECT =
-  "*, actor:clinical_staff!patient_timeline_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier, is_clinical_director)";
+  "*, actor:clinical_staff!patient_timeline_actor_clinical_staff_id_fkey(full_name, credential_type, credential_number, doctor_tier)";
 
 /**
  * The unified activity feed for a single patient, newest first. Read by the

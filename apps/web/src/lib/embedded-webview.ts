@@ -1,10 +1,7 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { EMBEDDED_APP_COOKIE, EMBEDDED_UA_TOKEN } from "./embedded-webview-constants";
 
-/**
- * The token the Expo app appends to its WebView User-Agent
- * (apps/mobile/src/screens/webview-screen.tsx). Keep the two in sync.
- */
-export const EMBEDDED_UA_TOKEN = "TarragonHealthApp";
+export { EMBEDDED_APP_COOKIE, EMBEDDED_UA_TOKEN };
 
 /**
  * True when this request is being rendered inside the native app's WebView
@@ -17,11 +14,14 @@ export const EMBEDDED_UA_TOKEN = "TarragonHealthApp";
  * directly above the other. Embedded requests render the page content on its
  * own and let the native shell do the navigating.
  *
- * Read from the User-Agent rather than a query parameter so it survives every
- * link the patient follows inside the WebView without having to thread a
- * parameter through each one.
+ * Checks the User-Agent first (works from the very first byte, before any
+ * cookie could exist) and falls back to the cookie above — belt and braces,
+ * since either signal alone has a real gap: the UA can lose the Android race
+ * described on EMBEDDED_APP_COOKIE, and the cookie doesn't exist yet on a
+ * WebView's true first-ever request (before mobile-bridge has run once).
  */
 export async function isEmbeddedInApp(): Promise<boolean> {
   const userAgent = (await headers()).get("user-agent") ?? "";
-  return userAgent.includes(EMBEDDED_UA_TOKEN);
+  if (userAgent.includes(EMBEDDED_UA_TOKEN)) return true;
+  return (await cookies()).get(EMBEDDED_APP_COOKIE)?.value === "1";
 }

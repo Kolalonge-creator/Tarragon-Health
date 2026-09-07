@@ -15,7 +15,7 @@ export default async function ProviderQualityPage() {
   if (!profile) redirect("/login");
 
   const staff = await getCurrentClinicalStaff();
-  const isHandler = profile.role === "admin" || staff?.is_clinical_director === true;
+  const isHandler = profile.role === "admin" || staff?.doctor_tier === "chief_medical_officer";
   if (!isHandler) redirect("/admin");
 
   return (

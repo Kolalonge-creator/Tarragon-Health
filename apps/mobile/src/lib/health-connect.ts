@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import Constants, { ExecutionEnvironment } from "expo-constants";
 import type * as HealthConnectPackage from "react-native-health-connect";
-import type { HealthSample } from "./healthkit";
+import type { HealthReadingType, HealthReadResult, HealthSample } from "./healthkit";
 import { recordSyncError } from "./sync-diagnostics";
 
 /**
@@ -91,6 +91,14 @@ const RECORD_TYPES = [
  * sync's read of a single type. */
 const PER_TYPE_LIMIT = 200;
 
+/** Mirrors healthkit.ts's own internal ReaderResult — see its doc comment.
+ * `truncatedType` is judged on the raw readRecords row count hitting
+ * PER_TYPE_LIMIT, and stays null on a failed read. */
+interface ReaderResult {
+  samples: HealthSample[];
+  truncatedType: HealthReadingType | null;
+}
+
 /** Mirrors healthkit.ts's INITIAL_WINDOW_DAYS exactly — kept as a separate
  * export rather than importing theirs so the two bridges stay decoupled. */
 export const INITIAL_WINDOW_DAYS = 30;
@@ -141,10 +149,10 @@ export async function requestHealthConnectPermissions(): Promise<boolean> {
   }
 }
 
-export async function readHealthConnectSamples(since: Date, until: Date): Promise<HealthSample[]> {
-  if (!(await isHealthConnectAvailable())) return [];
+export async function readHealthConnectSamples(since: Date, until: Date): Promise<HealthReadResult> {
+  if (!(await isHealthConnectAvailable())) return { samples: [], truncatedTypes: [] };
   const hc = loadHealthConnect();
-  if (!hc) return [];
+  if (!hc) return { samples: [], truncatedTypes: [] };
 
   // Each reader is independent and self-contained, same rationale as
   // healthkit.ts's readHealthSamples: one denied permission or one
@@ -159,7 +167,12 @@ export async function readHealthConnectSamples(since: Date, until: Date): Promis
     readRestingHeartRate(hc, since, until),
   ]);
 
-  return groups.flat();
+  return {
+    samples: groups.flatMap((group) => group.samples),
+    truncatedTypes: groups
+      .map((group) => group.truncatedType)
+      .filter((readingType): readingType is HealthReadingType => readingType !== null),
+  };
 }
 
 function timeRangeFilter(since: Date, until: Date) {
@@ -187,7 +200,7 @@ async function readDailySteps(
   hc: typeof HealthConnectPackage,
   since: Date,
   until: Date
-): Promise<HealthSample[]> {
+): Promise<ReaderResult> {
   try {
     const buckets = await hc.aggregateGroupByPeriod({
       recordType: "Steps",
@@ -210,10 +223,12 @@ async function readDailySteps(
         external_reading_id: `steps:${bucket.startTime.slice(0, 10)}`,
       });
     }
-    return samples;
+    // One bucket per day of the window, no row cap — same as healthkit.ts's
+    // readDailySteps, this reader can never leave data behind.
+    return { samples, truncatedType: null };
   } catch (error) {
     recordSyncError("android_health_connect", "steps", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 
@@ -226,7 +241,7 @@ async function readBloodPressure(
   hc: typeof HealthConnectPackage,
   since: Date,
   until: Date
-): Promise<HealthSample[]> {
+): Promise<ReaderResult> {
   try {
     const { records } = await hc.readRecords("BloodPressure", {
       timeRangeFilter: timeRangeFilter(since, until),
@@ -234,17 +249,20 @@ async function readBloodPressure(
       pageSize: PER_TYPE_LIMIT,
     });
 
-    return records.map((record) => ({
-      reading_type: "blood_pressure",
-      value: Math.round(record.systolic.inMillimetersOfMercury),
-      secondary_value: Math.round(record.diastolic.inMillimetersOfMercury),
-      unit: "mmHg",
-      recorded_at: record.time,
-      external_reading_id: externalId(record.metadata?.id, `bp:${record.time}`),
-    }));
+    return {
+      samples: records.map((record) => ({
+        reading_type: "blood_pressure" as const,
+        value: Math.round(record.systolic.inMillimetersOfMercury),
+        secondary_value: Math.round(record.diastolic.inMillimetersOfMercury),
+        unit: "mmHg",
+        recorded_at: record.time,
+        external_reading_id: externalId(record.metadata?.id, `bp:${record.time}`),
+      })),
+      truncatedType: records.length === PER_TYPE_LIMIT ? "blood_pressure" : null,
+    };
   } catch (error) {
     recordSyncError("android_health_connect", "blood_pressure", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 
@@ -255,7 +273,7 @@ async function readBloodGlucose(
   hc: typeof HealthConnectPackage,
   since: Date,
   until: Date
-): Promise<HealthSample[]> {
+): Promise<ReaderResult> {
   try {
     const { records } = await hc.readRecords("BloodGlucose", {
       timeRangeFilter: timeRangeFilter(since, until),
@@ -263,16 +281,19 @@ async function readBloodGlucose(
       pageSize: PER_TYPE_LIMIT,
     });
 
-    return records.map((record) => ({
-      reading_type: "glucose",
-      value: record.level.inMillimolesPerLiter,
-      unit: "mmol/L",
-      recorded_at: record.time,
-      external_reading_id: externalId(record.metadata?.id, `glucose:${record.time}`),
-    }));
+    return {
+      samples: records.map((record) => ({
+        reading_type: "glucose" as const,
+        value: record.level.inMillimolesPerLiter,
+        unit: "mmol/L",
+        recorded_at: record.time,
+        external_reading_id: externalId(record.metadata?.id, `glucose:${record.time}`),
+      })),
+      truncatedType: records.length === PER_TYPE_LIMIT ? "glucose" : null,
+    };
   } catch (error) {
     recordSyncError("android_health_connect", "glucose", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 
@@ -280,7 +301,7 @@ async function readWeight(
   hc: typeof HealthConnectPackage,
   since: Date,
   until: Date
-): Promise<HealthSample[]> {
+): Promise<ReaderResult> {
   try {
     const { records } = await hc.readRecords("Weight", {
       timeRangeFilter: timeRangeFilter(since, until),
@@ -288,16 +309,19 @@ async function readWeight(
       pageSize: PER_TYPE_LIMIT,
     });
 
-    return records.map((record) => ({
-      reading_type: "weight",
-      value: record.weight.inKilograms,
-      unit: "kg",
-      recorded_at: record.time,
-      external_reading_id: externalId(record.metadata?.id, `weight:${record.time}`),
-    }));
+    return {
+      samples: records.map((record) => ({
+        reading_type: "weight" as const,
+        value: record.weight.inKilograms,
+        unit: "kg",
+        recorded_at: record.time,
+        external_reading_id: externalId(record.metadata?.id, `weight:${record.time}`),
+      })),
+      truncatedType: records.length === PER_TYPE_LIMIT ? "weight" : null,
+    };
   } catch (error) {
     recordSyncError("android_health_connect", "weight", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 
@@ -313,7 +337,7 @@ async function readOxygenSaturation(
   hc: typeof HealthConnectPackage,
   since: Date,
   until: Date
-): Promise<HealthSample[]> {
+): Promise<ReaderResult> {
   try {
     const { records } = await hc.readRecords("OxygenSaturation", {
       timeRangeFilter: timeRangeFilter(since, until),
@@ -321,16 +345,19 @@ async function readOxygenSaturation(
       pageSize: PER_TYPE_LIMIT,
     });
 
-    return records.map((record) => ({
-      reading_type: "spo2",
-      value: Math.round(record.percentage),
-      unit: "%",
-      recorded_at: record.time,
-      external_reading_id: externalId(record.metadata?.id, `spo2:${record.time}`),
-    }));
+    return {
+      samples: records.map((record) => ({
+        reading_type: "spo2" as const,
+        value: Math.round(record.percentage),
+        unit: "%",
+        recorded_at: record.time,
+        external_reading_id: externalId(record.metadata?.id, `spo2:${record.time}`),
+      })),
+      truncatedType: records.length === PER_TYPE_LIMIT ? "spo2" : null,
+    };
   } catch (error) {
     recordSyncError("android_health_connect", "spo2", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 
@@ -338,7 +365,7 @@ async function readHeartRateVariability(
   hc: typeof HealthConnectPackage,
   since: Date,
   until: Date
-): Promise<HealthSample[]> {
+): Promise<ReaderResult> {
   try {
     const { records } = await hc.readRecords("HeartRateVariabilityRmssd", {
       timeRangeFilter: timeRangeFilter(since, until),
@@ -346,16 +373,19 @@ async function readHeartRateVariability(
       pageSize: PER_TYPE_LIMIT,
     });
 
-    return records.map((record) => ({
-      reading_type: "hrv_ms",
-      value: record.heartRateVariabilityMillis,
-      unit: "ms",
-      recorded_at: record.time,
-      external_reading_id: externalId(record.metadata?.id, `hrv:${record.time}`),
-    }));
+    return {
+      samples: records.map((record) => ({
+        reading_type: "hrv_ms" as const,
+        value: record.heartRateVariabilityMillis,
+        unit: "ms",
+        recorded_at: record.time,
+        external_reading_id: externalId(record.metadata?.id, `hrv:${record.time}`),
+      })),
+      truncatedType: records.length === PER_TYPE_LIMIT ? "hrv_ms" : null,
+    };
   } catch (error) {
     recordSyncError("android_health_connect", "hrv_ms", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }
 
@@ -363,7 +393,7 @@ async function readRestingHeartRate(
   hc: typeof HealthConnectPackage,
   since: Date,
   until: Date
-): Promise<HealthSample[]> {
+): Promise<ReaderResult> {
   try {
     const { records } = await hc.readRecords("RestingHeartRate", {
       timeRangeFilter: timeRangeFilter(since, until),
@@ -371,15 +401,18 @@ async function readRestingHeartRate(
       pageSize: PER_TYPE_LIMIT,
     });
 
-    return records.map((record) => ({
-      reading_type: "resting_heart_rate",
-      value: record.beatsPerMinute,
-      unit: "bpm",
-      recorded_at: record.time,
-      external_reading_id: externalId(record.metadata?.id, `rhr:${record.time}`),
-    }));
+    return {
+      samples: records.map((record) => ({
+        reading_type: "resting_heart_rate" as const,
+        value: record.beatsPerMinute,
+        unit: "bpm",
+        recorded_at: record.time,
+        external_reading_id: externalId(record.metadata?.id, `rhr:${record.time}`),
+      })),
+      truncatedType: records.length === PER_TYPE_LIMIT ? "resting_heart_rate" : null,
+    };
   } catch (error) {
     recordSyncError("android_health_connect", "resting_heart_rate", error);
-    return [];
+    return { samples: [], truncatedType: null };
   }
 }

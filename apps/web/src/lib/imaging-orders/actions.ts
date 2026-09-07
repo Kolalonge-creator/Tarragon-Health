@@ -52,7 +52,7 @@ export async function createImagingOrder(
 
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("id, doctor_tier, is_clinical_director")
+    .select("id, doctor_tier")
     .eq("profile_id", user.id)
     .eq("organisation_id", patient.organisation_id)
     .eq("active", true)

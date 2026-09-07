@@ -24,7 +24,7 @@ export default async function PreventionCampaignsSettingsPage() {
   const [{ data: campaigns }, { data: requested }] = await Promise.all([
     supabase
       .from("prevention_campaigns")
-      .select("id, code, name, description, starts_on, ends_on, status, actions")
+      .select("id, code, name, description, starts_on, ends_on, status, actions, population_id")
       .eq("organisation_id", profile.organisation_id ?? "")
       .order("created_at", { ascending: false }),
     // Cross-org on purpose — an employer's request needs a superadmin to see
@@ -35,11 +35,30 @@ export default async function PreventionCampaignsSettingsPage() {
     supabase
       .from("prevention_campaigns")
       .select(
-        "id, code, name, description, starts_on, ends_on, status, actions, organisations(name), requested_by_profile:profiles!prevention_campaigns_requested_by_fkey(full_name)"
+        "id, code, name, description, starts_on, ends_on, status, actions, population_id, organisations(name), requested_by_profile:profiles!prevention_campaigns_requested_by_fkey(full_name)"
       )
       .not("requested_by", "is", null)
       .order("created_at", { ascending: false }),
   ]);
+
+  const { data: populations } = await supabase
+    .from("population_definitions")
+    .select("id, name")
+    .eq("organisation_id", profile.organisation_id ?? "")
+    .eq("status", "active")
+    .order("name");
+
+  const rows = (campaigns as PreventionCampaignRow[] | null) ?? [];
+  const requestedRows = (requested as unknown as RequestedCampaignRow[] | null) ?? [];
+  const effectivenessByCampaign: Record<string, unknown> = {};
+  await Promise.all(
+    [...rows, ...requestedRows]
+      .filter((c) => c.population_id)
+      .map(async (c) => {
+        const { data } = await supabase.rpc("get_campaign_effectiveness", { p_campaign_id: c.id });
+        effectivenessByCampaign[c.id] = data;
+      })
+  );
 
   return (
     <div className="space-y-6">
@@ -47,10 +66,11 @@ export default async function PreventionCampaignsSettingsPage() {
         title="Prevention campaigns"
         description="Time-boxed, population-level initiatives: education, screening invitations, extra assessments, partner offers, and challenges targeted at an eligible subset of patients based on their own risk profile."
       />
-      <CampaignForm />
+      <CampaignForm populations={populations ?? []} />
       <CampaignManager
-        campaigns={(campaigns as PreventionCampaignRow[] | null) ?? []}
-        requestedCampaigns={(requested as unknown as RequestedCampaignRow[] | null) ?? []}
+        campaigns={rows}
+        requestedCampaigns={requestedRows}
+        effectivenessByCampaign={effectivenessByCampaign}
       />
     </div>
   );

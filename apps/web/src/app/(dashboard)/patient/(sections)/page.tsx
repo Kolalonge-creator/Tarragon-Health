@@ -10,6 +10,7 @@ import { statTileValue } from "@/components/ui/stat-tile-value";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { getLagosGreetingWord } from "@/lib/greeting";
 import { OverviewHero } from "@/app/(dashboard)/patient/overview-hero";
+import { SinceYouWereLastHere } from "@/app/(dashboard)/patient/since-you-were-last-here-card";
 import { PaymentFailureBanner } from "@/app/(dashboard)/patient/payment-failure-banner";
 import { QuickActions } from "@/app/(dashboard)/patient/quick-actions";
 import { TodaysDoses } from "@/app/(dashboard)/patient/todays-doses";
@@ -106,6 +107,13 @@ export default async function PatientOverviewPage() {
           still warm, still Lagos-time-aware, without repeating the name
           DashboardPlaceholder's "Hi, {name}" already gave a moment ago. */}
       <OverviewHero patientId={subjectId} eyebrow={weekSummaryLine} />
+
+      {/* A short, honest "while you were away" highlight reel — only renders
+          when the patient is returning after a real gap and something
+          actually happened (engagement/retention gap #6, 2026-08-31). Below
+          the hero deliberately: OverviewHero is the one actionable/status
+          thing the page leads with, this is informational context. */}
+      <SinceYouWereLastHere patientId={subjectId} acting={!!acting} />
 
       {/* Age-aware framing (spec §49.3/§49.4) — a single soft line, never an
           urgent banner: a self-harm/safety-adjacent check-in doesn't belong

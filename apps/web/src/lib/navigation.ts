@@ -408,6 +408,7 @@ export function getNavSections(
                 { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication", countKey: "adherenceAlerts" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages", countKey: "outreach" },
+                { label: "Population health", href: "/clinician/populations", icon: "population" },
                 { label: "Recommendations", href: "/clinician/recommendations", icon: "carePlan", countKey: "recommendations" },
                 { label: "Device operations", href: "/clinician/device-operations", icon: "devices" },
                 { label: "Data deletion requests", href: "/clinician/data-deletion-requests", icon: "compliance" },
@@ -424,6 +425,11 @@ export function getNavSections(
                   icon: "labs",
                 },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
+                // Chief Medical Officer only (canAssignCases in
+                // lib/clinical/doctor-tier.ts) — shown to every clinician tier
+                // per this file's own gating philosophy above; the page
+                // itself redirects/shows a friendly message for anyone else.
+                { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
               ],
             },
             // Only reachable for a clinician holding a delegated

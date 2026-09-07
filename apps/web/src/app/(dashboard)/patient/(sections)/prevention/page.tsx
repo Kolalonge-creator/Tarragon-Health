@@ -20,6 +20,7 @@ import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-
 import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
 import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-campaigns-card";
 import { DevelopmentalScreeningCard } from "@/app/(dashboard)/patient/developmental-screening-card";
+import { SymptomToTestCheck } from "@/app/(dashboard)/patient/symptom-to-test-check";
 
 /**
  * The prevention hub — one destination for everything that keeps a healthy
@@ -153,6 +154,16 @@ export default async function PreventionHubPage() {
           } satisfies PreventionTab,
         ]
       : []),
+    {
+      id: "symptom-checker",
+      label: "Test Suggestions",
+      anchorIds: ["symptom-checker"],
+      content: (
+        <div id="symptom-checker" className="scroll-mt-24">
+          <SymptomToTestCheck patientId={subjectId} organisationId={profile.organisation_id} />
+        </div>
+      ),
+    },
     {
       id: "programmes",
       label: "Programmes",

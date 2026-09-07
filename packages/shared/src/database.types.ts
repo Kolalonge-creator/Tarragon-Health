@@ -7690,6 +7690,7 @@ export type Database = {
           credential_verified_at: string | null
           credential_verified_by: string | null
           doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
+          employment_type: Database["public"]["Enums"]["staff_employment_type"]
           full_name: string
           id: string
           indemnity_exempt: boolean
@@ -7697,7 +7698,6 @@ export type Database = {
           indemnity_expires_at: string | null
           indemnity_insurer: string | null
           indemnity_policy_number: string | null
-          is_clinical_director: boolean
           license_expires_at: string | null
           license_verified_at: string | null
           offers_therapy_sessions: boolean
@@ -7705,6 +7705,7 @@ export type Database = {
           photo_url: string | null
           profile_id: string | null
           red_flag_attested_at: string | null
+          specialist_type: Database["public"]["Enums"]["specialist_type"] | null
           specialty: string | null
           staff_number: string | null
           updated_at: string
@@ -7719,6 +7720,7 @@ export type Database = {
           credential_verified_at?: string | null
           credential_verified_by?: string | null
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          employment_type?: Database["public"]["Enums"]["staff_employment_type"]
           full_name: string
           id?: string
           indemnity_exempt?: boolean
@@ -7726,7 +7728,6 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
-          is_clinical_director?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
           offers_therapy_sessions?: boolean
@@ -7734,6 +7735,7 @@ export type Database = {
           photo_url?: string | null
           profile_id?: string | null
           red_flag_attested_at?: string | null
+          specialist_type?: Database["public"]["Enums"]["specialist_type"] | null
           specialty?: string | null
           staff_number?: string | null
           updated_at?: string
@@ -7748,6 +7750,7 @@ export type Database = {
           credential_verified_at?: string | null
           credential_verified_by?: string | null
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
+          employment_type?: Database["public"]["Enums"]["staff_employment_type"]
           full_name?: string
           id?: string
           indemnity_exempt?: boolean
@@ -7755,7 +7758,6 @@ export type Database = {
           indemnity_expires_at?: string | null
           indemnity_insurer?: string | null
           indemnity_policy_number?: string | null
-          is_clinical_director?: boolean
           license_expires_at?: string | null
           license_verified_at?: string | null
           offers_therapy_sessions?: boolean
@@ -7763,6 +7765,7 @@ export type Database = {
           photo_url?: string | null
           profile_id?: string | null
           red_flag_attested_at?: string | null
+          specialist_type?: Database["public"]["Enums"]["specialist_type"] | null
           specialty?: string | null
           staff_number?: string | null
           updated_at?: string
@@ -7853,7 +7856,6 @@ export type Database = {
       }
       clinical_staff_indemnity_exemptions: {
         Row: {
-          applies_to_director: boolean
           created_at: string
           doctor_tier: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by: string
@@ -7862,7 +7864,6 @@ export type Database = {
           reason: string | null
         }
         Insert: {
-          applies_to_director?: boolean
           created_at?: string
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by: string
@@ -7871,7 +7872,6 @@ export type Database = {
           reason?: string | null
         }
         Update: {
-          applies_to_director?: boolean
           created_at?: string
           doctor_tier?: Database["public"]["Enums"]["doctor_tier"] | null
           exempted_by?: string
@@ -17628,6 +17628,8 @@ export type Database = {
           home_visit_scheduled_at: string | null
           id: string
           investigation_tier: number
+          phlebotomist_name: string | null
+          phlebotomist_phone: string | null
           order_number: string | null
           ordered_at: string
           ordered_by: string | null
@@ -17681,6 +17683,8 @@ export type Database = {
           home_visit_scheduled_at?: string | null
           id?: string
           investigation_tier?: number
+          phlebotomist_name?: string | null
+          phlebotomist_phone?: string | null
           order_number?: string | null
           ordered_at?: string
           ordered_by?: string | null
@@ -17734,6 +17738,8 @@ export type Database = {
           home_visit_scheduled_at?: string | null
           id?: string
           investigation_tier?: number
+          phlebotomist_name?: string | null
+          phlebotomist_phone?: string | null
           order_number?: string | null
           ordered_at?: string
           ordered_by?: string | null
@@ -17857,6 +17863,7 @@ export type Database = {
       lab_provider_locations: {
         Row: {
           address: string
+          capabilities: string[]
           contact_phone: string | null
           created_at: string
           id: string
@@ -17865,10 +17872,12 @@ export type Database = {
           latitude: number | null
           longitude: number | null
           name: string
+          opening_hours: Json | null
           state: string
         }
         Insert: {
           address: string
+          capabilities?: string[]
           contact_phone?: string | null
           created_at?: string
           id?: string
@@ -17877,10 +17886,12 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           name: string
+          opening_hours?: Json | null
           state: string
         }
         Update: {
           address?: string
+          capabilities?: string[]
           contact_phone?: string | null
           created_at?: string
           id?: string
@@ -17889,6 +17900,7 @@ export type Database = {
           latitude?: number | null
           longitude?: number | null
           name?: string
+          opening_hours?: Json | null
           state?: string
         }
         Relationships: [
@@ -17903,12 +17915,14 @@ export type Database = {
       }
       lab_providers: {
         Row: {
+          accreditation: string | null
           compliance_owner_profile_id: string | null
           contact_email: string | null
           contact_phone: string | null
           created_at: string
           home_collection: boolean
           id: string
+          integration_status: Database["public"]["Enums"]["lab_integration_status"]
           is_active: boolean
           license_expires_at: string | null
           license_number: string | null
@@ -17918,14 +17932,17 @@ export type Database = {
           name: string
           organisation_id: string | null
           regions: string[]
+          status_notes: string | null
         }
         Insert: {
+          accreditation?: string | null
           compliance_owner_profile_id?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
           home_collection?: boolean
           id?: string
+          integration_status?: Database["public"]["Enums"]["lab_integration_status"]
           is_active?: boolean
           license_expires_at?: string | null
           license_number?: string | null
@@ -17935,14 +17952,17 @@ export type Database = {
           name: string
           organisation_id?: string | null
           regions?: string[]
+          status_notes?: string | null
         }
         Update: {
+          accreditation?: string | null
           compliance_owner_profile_id?: string | null
           contact_email?: string | null
           contact_phone?: string | null
           created_at?: string
           home_collection?: boolean
           id?: string
+          integration_status?: Database["public"]["Enums"]["lab_integration_status"]
           is_active?: boolean
           license_expires_at?: string | null
           license_number?: string | null
@@ -17952,6 +17972,7 @@ export type Database = {
           name?: string
           organisation_id?: string | null
           regions?: string[]
+          status_notes?: string | null
         }
         Relationships: [
           {
@@ -18554,6 +18575,198 @@ export type Database = {
           },
         ]
       }
+      lab_specimens: {
+        Row: {
+          collected_at: string | null
+          collection_method: Database["public"]["Enums"]["lab_specimen_collection_method"]
+          completed_at: string | null
+          courier_reference: string | null
+          created_at: string
+          id: string
+          in_transit_at: string | null
+          lab_order_id: string
+          organisation_id: string
+          patient_id: string
+          processing_at: string | null
+          provider_id: string | null
+          received_at: string | null
+          recollection_of: string | null
+          rejected_at: string | null
+          rejection_notes: string | null
+          rejection_reason: Database["public"]["Enums"]["lab_specimen_rejection_reason"] | null
+          specimen_number: string
+          status: Database["public"]["Enums"]["lab_specimen_status"]
+          updated_at: string
+        }
+        Insert: {
+          collected_at?: string | null
+          collection_method?: Database["public"]["Enums"]["lab_specimen_collection_method"]
+          completed_at?: string | null
+          courier_reference?: string | null
+          created_at?: string
+          id?: string
+          in_transit_at?: string | null
+          lab_order_id: string
+          organisation_id: string
+          patient_id: string
+          processing_at?: string | null
+          provider_id?: string | null
+          received_at?: string | null
+          recollection_of?: string | null
+          rejected_at?: string | null
+          rejection_notes?: string | null
+          rejection_reason?: Database["public"]["Enums"]["lab_specimen_rejection_reason"] | null
+          specimen_number?: string
+          status?: Database["public"]["Enums"]["lab_specimen_status"]
+          updated_at?: string
+        }
+        Update: {
+          collected_at?: string | null
+          collection_method?: Database["public"]["Enums"]["lab_specimen_collection_method"]
+          completed_at?: string | null
+          courier_reference?: string | null
+          created_at?: string
+          id?: string
+          in_transit_at?: string | null
+          lab_order_id?: string
+          organisation_id?: string
+          patient_id?: string
+          processing_at?: string | null
+          provider_id?: string | null
+          received_at?: string | null
+          recollection_of?: string | null
+          rejected_at?: string | null
+          rejection_notes?: string | null
+          rejection_reason?: Database["public"]["Enums"]["lab_specimen_rejection_reason"] | null
+          specimen_number?: string
+          status?: Database["public"]["Enums"]["lab_specimen_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_specimens_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_specimens_provider_id_fkey"
+            columns: ["provider_id"]
+            isOneToOne: false
+            referencedRelation: "lab_providers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_specimens_recollection_of_fkey"
+            columns: ["recollection_of"]
+            isOneToOne: false
+            referencedRelation: "lab_specimens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_test_price_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          price_kobo: number
+          price_type: Database["public"]["Enums"]["lab_price_type"]
+          provider_id: string
+          test_code: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          price_kobo: number
+          price_type: Database["public"]["Enums"]["lab_price_type"]
+          provider_id: string
+          test_code: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          price_kobo?: number
+          price_type?: Database["public"]["Enums"]["lab_price_type"]
+          provider_id?: string
+          test_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_test_price_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lab_turnaround_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          created_at: string
+          elapsed_hours: number
+          expected_hours: number
+          id: string
+          lab_order_id: string
+          organisation_id: string
+          provider_id: string | null
+          severity: string
+          specimen_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          elapsed_hours: number
+          expected_hours: number
+          id?: string
+          lab_order_id: string
+          organisation_id: string
+          provider_id?: string | null
+          severity?: string
+          specimen_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          created_at?: string
+          elapsed_hours?: number
+          expected_hours?: number
+          id?: string
+          lab_order_id?: string
+          organisation_id?: string
+          provider_id?: string | null
+          severity?: string
+          specimen_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_turnaround_alerts_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_turnaround_alerts_specimen_id_fkey"
+            columns: ["specimen_id"]
+            isOneToOne: false
+            referencedRelation: "lab_specimens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_tests: {
         Row: {
           code: string
@@ -18714,6 +18927,7 @@ export type Database = {
           longitude: number | null
           name: string
           regions: string[]
+          supports_cold_chain: boolean
         }
         Insert: {
           address?: string | null
@@ -18731,6 +18945,7 @@ export type Database = {
           license_verified_by?: string | null
           longitude?: number | null
           name: string
+          supports_cold_chain?: boolean
           regions?: string[]
         }
         Update: {
@@ -18748,6 +18963,7 @@ export type Database = {
           license_verified_at?: string | null
           license_verified_by?: string | null
           longitude?: number | null
+          supports_cold_chain?: boolean
           name?: string
           regions?: string[]
         }
@@ -23151,6 +23367,8 @@ export type Database = {
       }
       panel_bundles: {
         Row: {
+          category: Database["public"]["Enums"]["panel_bundle_category"]
+          clinical_protocol_ref: string | null
           code: string
           commission_flat_kobo: number | null
           commission_rate: number | null
@@ -23168,6 +23386,8 @@ export type Database = {
           test_codes: string[]
         }
         Insert: {
+          category?: Database["public"]["Enums"]["panel_bundle_category"]
+          clinical_protocol_ref?: string | null
           code: string
           commission_flat_kobo?: number | null
           commission_rate?: number | null
@@ -23185,6 +23405,8 @@ export type Database = {
           test_codes?: string[]
         }
         Update: {
+          category?: Database["public"]["Enums"]["panel_bundle_category"]
+          clinical_protocol_ref?: string | null
           code?: string
           commission_flat_kobo?: number | null
           commission_rate?: number | null
@@ -26973,6 +27195,7 @@ export type Database = {
           pack_size: string | null
           pharmacy_partner_id: string
           price_kobo: number
+          requires_cold_chain: boolean
           stock_status:
             | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
             | null
@@ -26993,6 +27216,7 @@ export type Database = {
           pack_size?: string | null
           pharmacy_partner_id: string
           price_kobo?: number
+          requires_cold_chain?: boolean
           stock_status?:
             | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
             | null
@@ -27013,6 +27237,7 @@ export type Database = {
           pack_size?: string | null
           pharmacy_partner_id?: string
           price_kobo?: number
+          requires_cold_chain?: boolean
           stock_status?:
             | Database["public"]["Enums"]["pharmacy_medication_stock_status"]
             | null
@@ -27029,59 +27254,160 @@ export type Database = {
           },
         ]
       }
+      pharmacy_order_delivery_attempts: {
+        Row: {
+          attempt_number: number
+          attempted_at: string
+          created_at: string
+          failure_reason:
+            | Database["public"]["Enums"]["delivery_failure_reason"]
+            | null
+          id: string
+          notes: string | null
+          organisation_id: string
+          patient_id: string
+          pharmacy_order_id: string
+          recorded_by: string | null
+          result: Database["public"]["Enums"]["delivery_attempt_result"]
+        }
+        Insert: {
+          attempt_number?: number
+          attempted_at?: string
+          created_at?: string
+          failure_reason?:
+            | Database["public"]["Enums"]["delivery_failure_reason"]
+            | null
+          id?: string
+          notes?: string | null
+          organisation_id: string
+          patient_id: string
+          pharmacy_order_id: string
+          recorded_by?: string | null
+          result: Database["public"]["Enums"]["delivery_attempt_result"]
+        }
+        Update: {
+          attempt_number?: number
+          attempted_at?: string
+          created_at?: string
+          failure_reason?:
+            | Database["public"]["Enums"]["delivery_failure_reason"]
+            | null
+          id?: string
+          notes?: string | null
+          organisation_id?: string
+          patient_id?: string
+          pharmacy_order_id?: string
+          recorded_by?: string | null
+          result?: Database["public"]["Enums"]["delivery_attempt_result"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pharmacy_order_delivery_attempts_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_delivery_attempts_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_delivery_attempts_pharmacy_order_id_fkey"
+            columns: ["pharmacy_order_id"]
+            isOneToOne: false
+            referencedRelation: "pharmacy_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pharmacy_order_delivery_attempts_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pharmacy_order_dispenses: {
         Row: {
           batch_lot: string | null
+          batch_number: string | null
+          controlled_tier: string | null
           created_at: string
           dispensed_on: string
           drug_name: string
+          enhanced_verification_confirmed: boolean
           expiry_date: string | null
           id: string
+          is_partial: boolean
           medication_id: string | null
           organisation_id: string
+          outstanding_note: string | null
           patient_id: string
           pharmacy_name: string | null
           pharmacy_order_id: string | null
           quantity: string | null
+          quantity_prescribed: string | null
           recorded_by: string | null
           source: Database["public"]["Enums"]["dispense_source"]
           strength: string | null
+          substituted_for: string | null
+          substitution_reason: string | null
           updated_at: string
         }
         Insert: {
           batch_lot?: string | null
+          batch_number?: string | null
+          controlled_tier?: string | null
           created_at?: string
           dispensed_on?: string
           drug_name: string
+          enhanced_verification_confirmed?: boolean
           expiry_date?: string | null
           id?: string
+          is_partial?: boolean
           medication_id?: string | null
           organisation_id: string
+          outstanding_note?: string | null
           patient_id: string
           pharmacy_name?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
+          quantity_prescribed?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           strength?: string | null
+          substituted_for?: string | null
+          substitution_reason?: string | null
           updated_at?: string
         }
         Update: {
           batch_lot?: string | null
+          batch_number?: string | null
+          controlled_tier?: string | null
           created_at?: string
           dispensed_on?: string
           drug_name?: string
+          enhanced_verification_confirmed?: boolean
           expiry_date?: string | null
           id?: string
+          is_partial?: boolean
           medication_id?: string | null
           organisation_id?: string
+          outstanding_note?: string | null
           patient_id?: string
           pharmacy_name?: string | null
           pharmacy_order_id?: string | null
           quantity?: string | null
+          quantity_prescribed?: string | null
           recorded_by?: string | null
           source?: Database["public"]["Enums"]["dispense_source"]
           strength?: string | null
+          substituted_for?: string | null
+          substitution_reason?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -27230,6 +27556,7 @@ export type Database = {
           cancellation_reason: string | null
           confirmed_price_kobo: number | null
           confirmed_quantity: string | null
+          courier_assigned_at: string | null
           courier_reference: string | null
           created_at: string
           declined_at: string | null
@@ -27262,8 +27589,11 @@ export type Database = {
           refund_ref: string | null
           refund_status: string | null
           requested_at: string
+          requires_cold_chain: boolean
           status: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo: number
+          unavailable_at: string | null
+          unavailable_reason: string | null
           updated_at: string
           voucher_covered_kobo: number
         }
@@ -27274,6 +27604,7 @@ export type Database = {
           cancellation_reason?: string | null
           confirmed_price_kobo?: number | null
           confirmed_quantity?: string | null
+          courier_assigned_at?: string | null
           courier_reference?: string | null
           created_at?: string
           declined_at?: string | null
@@ -27306,8 +27637,11 @@ export type Database = {
           refund_ref?: string | null
           refund_status?: string | null
           requested_at?: string
+          requires_cold_chain?: boolean
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
+          unavailable_at?: string | null
+          unavailable_reason?: string | null
           updated_at?: string
           voucher_covered_kobo?: number
         }
@@ -27318,6 +27652,7 @@ export type Database = {
           cancellation_reason?: string | null
           confirmed_price_kobo?: number | null
           confirmed_quantity?: string | null
+          courier_assigned_at?: string | null
           courier_reference?: string | null
           created_at?: string
           declined_at?: string | null
@@ -27350,8 +27685,11 @@ export type Database = {
           refund_ref?: string | null
           refund_status?: string | null
           requested_at?: string
+          requires_cold_chain?: boolean
           status?: Database["public"]["Enums"]["pharmacy_order_status"]
           total_kobo?: number
+          unavailable_at?: string | null
+          unavailable_reason?: string | null
           updated_at?: string
           voucher_covered_kobo?: number
         }
@@ -32025,6 +32363,11 @@ export type Database = {
           reopens_on_exposure: boolean
           sensitive: boolean
           sex_applicability: Database["public"]["Enums"]["screen_applicability"]
+          specimen_type: string | null
+          preparation_instructions: string | null
+          units: string | null
+          reference_range_text: string | null
+          patient_explainer: string | null
         }
         Insert: {
           age_from?: number | null
@@ -32052,6 +32395,11 @@ export type Database = {
           reopens_on_exposure?: boolean
           sensitive?: boolean
           sex_applicability?: Database["public"]["Enums"]["screen_applicability"]
+          specimen_type?: string | null
+          preparation_instructions?: string | null
+          units?: string | null
+          reference_range_text?: string | null
+          patient_explainer?: string | null
         }
         Update: {
           age_from?: number | null
@@ -32079,6 +32427,11 @@ export type Database = {
           reopens_on_exposure?: boolean
           sensitive?: boolean
           sex_applicability?: Database["public"]["Enums"]["screen_applicability"]
+          specimen_type?: string | null
+          preparation_instructions?: string | null
+          units?: string | null
+          reference_range_text?: string | null
+          patient_explainer?: string | null
         }
         Relationships: []
       }
@@ -33914,6 +34267,7 @@ export type Database = {
           applied_voucher_id: string | null
           appointment_date: string | null
           appropriateness_flags: Json
+          assigned_specialist_id: string | null
           booking_confirmed_at: string | null
           care_plan_update_note: string | null
           clinical_summary: Json | null
@@ -33964,6 +34318,7 @@ export type Database = {
           applied_voucher_id?: string | null
           appointment_date?: string | null
           appropriateness_flags?: Json
+          assigned_specialist_id?: string | null
           booking_confirmed_at?: string | null
           care_plan_update_note?: string | null
           clinical_summary?: Json | null
@@ -34014,6 +34369,7 @@ export type Database = {
           applied_voucher_id?: string | null
           appointment_date?: string | null
           appropriateness_flags?: Json
+          assigned_specialist_id?: string | null
           booking_confirmed_at?: string | null
           care_plan_update_note?: string | null
           clinical_summary?: Json | null
@@ -37833,6 +38189,25 @@ export type Database = {
           },
         ]
       }
+      lab_test_current_prices: {
+        Row: {
+          created_by: string | null
+          effective_from: string | null
+          price_kobo: number | null
+          price_type: Database["public"]["Enums"]["lab_price_type"] | null
+          provider_id: string | null
+          test_code: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_test_price_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lpe_programme_outcomes: {
         Row: {
           active: number | null
@@ -40138,6 +40513,103 @@ export type Database = {
         }
         Returns: string
       }
+      lab_partner_dashboard_stats: {
+        Args: never
+        Returns: {
+          orders_today: number
+          samples_completed_today: number
+          samples_delayed: number
+          samples_processing: number
+          samples_received_today: number
+          samples_rejected_today: number
+        }[]
+      }
+      lab_partner_reject_specimen: {
+        Args: {
+          p_notes?: string
+          p_reason: Database["public"]["Enums"]["lab_specimen_rejection_reason"]
+          p_specimen_id: string
+        }
+        Returns: {
+          collected_at: string | null
+          collection_method: Database["public"]["Enums"]["lab_specimen_collection_method"]
+          completed_at: string | null
+          courier_reference: string | null
+          created_at: string
+          id: string
+          in_transit_at: string | null
+          lab_order_id: string
+          organisation_id: string
+          patient_id: string
+          processing_at: string | null
+          provider_id: string | null
+          received_at: string | null
+          recollection_of: string | null
+          rejected_at: string | null
+          rejection_notes: string | null
+          rejection_reason: Database["public"]["Enums"]["lab_specimen_rejection_reason"] | null
+          specimen_number: string
+          status: Database["public"]["Enums"]["lab_specimen_status"]
+          updated_at: string
+        }
+      }
+      lab_partner_update_specimen_status: {
+        Args: {
+          p_courier_reference?: string
+          p_specimen_id: string
+          p_status: Database["public"]["Enums"]["lab_specimen_status"]
+        }
+        Returns: {
+          collected_at: string | null
+          collection_method: Database["public"]["Enums"]["lab_specimen_collection_method"]
+          completed_at: string | null
+          courier_reference: string | null
+          created_at: string
+          id: string
+          in_transit_at: string | null
+          lab_order_id: string
+          organisation_id: string
+          patient_id: string
+          processing_at: string | null
+          provider_id: string | null
+          received_at: string | null
+          recollection_of: string | null
+          rejected_at: string | null
+          rejection_notes: string | null
+          rejection_reason: Database["public"]["Enums"]["lab_specimen_rejection_reason"] | null
+          specimen_number: string
+          status: Database["public"]["Enums"]["lab_specimen_status"]
+          updated_at: string
+        }
+      }
+      list_lab_test_locations: {
+        Args: { p_state?: string; p_test_code?: string }
+        Returns: {
+          accreditation: string | null
+          capabilities: string[]
+          contact_phone: string | null
+          integration_status: Database["public"]["Enums"]["lab_integration_status"]
+          location_address: string
+          location_id: string
+          location_name: string
+          location_state: string
+          opening_hours: Json | null
+          price_kobo: number | null
+          provider_id: string
+          provider_name: string
+          turnaround_hours: number | null
+        }[]
+      }
+      assign_home_phlebotomist: {
+        Args: {
+          p_home_visit_provider_id: string
+          p_order_id: string
+          p_phlebotomist_name: string
+          p_phlebotomist_phone: string
+          p_scheduled_at: string
+        }
+        Returns: Database["public"]["Tables"]["lab_orders"]["Row"]
+      }
       lab_provider_turnaround_stats: {
         Args: { p_days?: number }
         Returns: {
@@ -40450,6 +40922,10 @@ export type Database = {
         }
         Returns: string
       }
+      pharmacist_flag_unavailable: {
+        Args: { p_order_id: string; p_reason: string }
+        Returns: undefined
+      }
       pharmacist_order_allergies: {
         Args: { p_order_id: string }
         Returns: {
@@ -40755,6 +41231,15 @@ export type Database = {
           p_user_agent: string
         }
         Returns: boolean
+      }
+      record_pharmacy_delivery_attempt: {
+        Args: {
+          p_failure_reason?: string
+          p_notes?: string
+          p_order_id: string
+          p_result: string
+        }
+        Returns: undefined
       }
       record_result_correction: {
         Args: {
@@ -41388,6 +41873,7 @@ export type Database = {
           applied_voucher_id: string | null
           appointment_date: string | null
           appropriateness_flags: Json
+          assigned_specialist_id: string | null
           booking_confirmed_at: string | null
           care_plan_update_note: string | null
           clinical_summary: Json | null
@@ -41673,6 +42159,33 @@ export type Database = {
       }
     }
     Enums: {
+      lab_integration_status: "api" | "hl7_fhir" | "file_exchange" | "structured_upload" | "manual"
+      lab_price_type: "cash" | "payer" | "employer" | "tarragon_negotiated"
+      lab_specimen_collection_method: "facility_visit" | "home_collection"
+      lab_specimen_rejection_reason:
+        | "insufficient_sample"
+        | "incorrect_container"
+        | "wrong_labelling"
+        | "delayed_transport"
+        | "damaged_specimen"
+      lab_specimen_status:
+        | "pending_collection"
+        | "collected"
+        | "in_transit"
+        | "received"
+        | "processing"
+        | "completed"
+        | "rejected"
+      panel_bundle_category:
+        | "wellness_baseline"
+        | "annual_core"
+        | "diabetes"
+        | "cardiovascular"
+        | "kidney"
+        | "cancer_screening"
+        | "sexual_health"
+        | "single_test"
+        | "other"
       activity_entry_type: "steps" | "workout"
       adolescent_transition_milestone:
         | "shared_access_nudge_13"
@@ -42301,6 +42814,13 @@ export type Database = {
         | "impossible_measurement"
       data_quality_finding_status: "open" | "resolved" | "dismissed"
       data_quality_severity: "info" | "warning" | "critical"
+      delivery_attempt_result: "failed" | "delivered"
+      delivery_failure_reason:
+        | "patient_unavailable"
+        | "incorrect_address"
+        | "courier_failure"
+        | "security_access_issue"
+        | "other"
       dependent_transition_state: "child" | "adolescent" | "transition_prep" | "independent"
       developmental_domain: "motor" | "language" | "social" | "cognitive" | "behavioural"
       developmental_item_answer: "yes" | "sometimes" | "not_yet"
@@ -42341,11 +42861,9 @@ export type Database = {
       dispense_source: "patient" | "pharmacy"
       doctor_tier:
         | "care_coordinator"
-        | "tier_1"
-        | "tier_2"
-        | "tier_3"
-        | "tier_4_senior_registrar"
-        | "tier_5_partner_specialist"
+        | "medical_officer"
+        | "senior_medical_officer"
+        | "chief_medical_officer"
       ec_request_status:
         | "pending"
         | "reviewed"
@@ -43189,8 +43707,10 @@ export type Database = {
         | "payment_confirmed"
         | "requested"
         | "confirmed"
+        | "unavailable"
         | "dispensed"
         | "out_for_delivery"
+        | "delivery_failed"
         | "delivered"
         | "cancelled"
       pharmacy_partner_onboarding_status:
@@ -43546,6 +44066,7 @@ export type Database = {
         | "onboarding"
         | "clinical_approval"
         | "active"
+      staff_employment_type: "employed" | "contracted"
       sti_case_status:
         | "result_received"
         | "clinical_review"
@@ -44568,6 +45089,14 @@ export const Constants = {
       ],
       data_quality_finding_status: ["open", "resolved", "dismissed"],
       data_quality_severity: ["info", "warning", "critical"],
+      delivery_attempt_result: ["failed", "delivered"],
+      delivery_failure_reason: [
+        "patient_unavailable",
+        "incorrect_address",
+        "courier_failure",
+        "security_access_issue",
+        "other",
+      ],
       dependent_transition_state: ["child", "adolescent", "transition_prep", "independent"],
       developmental_domain: ["motor", "language", "social", "cognitive", "behavioural"],
       developmental_item_answer: ["yes", "sometimes", "not_yet"],
@@ -44618,11 +45147,9 @@ export const Constants = {
       dispense_source: ["patient", "pharmacy"],
       doctor_tier: [
         "care_coordinator",
-        "tier_1",
-        "tier_2",
-        "tier_3",
-        "tier_4_senior_registrar",
-        "tier_5_partner_specialist",
+        "medical_officer",
+        "senior_medical_officer",
+        "chief_medical_officer",
       ],
       ec_request_status: [
         "pending",
@@ -45566,8 +46093,10 @@ export const Constants = {
         "payment_confirmed",
         "requested",
         "confirmed",
+        "unavailable",
         "dispensed",
         "out_for_delivery",
+        "delivery_failed",
         "delivered",
         "cancelled",
       ],
@@ -45970,6 +46499,7 @@ export const Constants = {
         "clinical_approval",
         "active",
       ],
+      staff_employment_type: ["employed", "contracted"],
       sti_case_status: [
         "result_received",
         "clinical_review",

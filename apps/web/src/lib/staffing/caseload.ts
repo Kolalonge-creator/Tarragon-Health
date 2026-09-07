@@ -6,7 +6,6 @@ export type StaffLoadInput = {
   profileId: string;
   fullName: string;
   doctorTier: DoctorTier | null;
-  isClinicalDirector: boolean;
   /** Standing patients (care_team_assignment.clinician_id). */
   panelSize: number;
   /** Escalations this person has claimed and is actively working (status = under_review). */

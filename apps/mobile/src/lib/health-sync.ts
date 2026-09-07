@@ -4,6 +4,7 @@ import {
   isHealthKitAvailable,
   readHealthSamples,
   requestHealthKitPermissions,
+  type HealthReadResult,
   type HealthSample,
 } from "./healthkit";
 import {
@@ -109,7 +110,7 @@ function withRecovered(result: HealthSyncResult, recovered: number): HealthSyncR
 async function syncHealthReadings(
   provider: HealthProvider,
   initialWindowDays: number,
-  readSamples: (since: Date, until: Date) => Promise<HealthSample[]>
+  readSamples: (since: Date, until: Date) => Promise<HealthReadResult>
 ): Promise<HealthSyncResult> {
   const cursor = await getHealthSyncCursor(provider);
   if (cursor === null) {
@@ -130,7 +131,7 @@ async function syncHealthReadings(
   // into sync-diagnostics per reader rather than throwing, so this is the
   // only way this function learns a read was incomplete.
   const startedAt = new Date().toISOString();
-  const samples = await readSamples(since, until);
+  const { samples, truncatedTypes } = await readSamples(since, until);
   const readerErrors = countSyncErrorsSince(provider, startedAt);
 
   if (samples.length === 0) {
@@ -143,7 +144,11 @@ async function syncHealthReadings(
   const pages = paginate(samples, UPLOAD_PAGE_SIZE);
   for (let index = 0; index < pages.length; index++) {
     const page = pages[index];
-    const result = await postHealthSamples(page, provider);
+    // truncatedTypes goes on EVERY page of this read, not just the last:
+    // the server clamps its shared sync cursor per request, so any page
+    // missing the declaration would advance the cursor past a truncated
+    // type's unsent backlog before the next page could hold it back.
+    const result = await postHealthSamples(page, provider, truncatedTypes);
     if (!result.ok) {
       // This page, and every page after it, would fail the same way against
       // a connection that just dropped — no point spending a ~20s timeout
@@ -155,7 +160,14 @@ async function syncHealthReadings(
       // next sync attempt or background run, not lost.
       recordSyncError(provider, "postHealthSamples", result.error);
       for (const remaining of pages.slice(index)) {
-        await enqueueHealthSamplesPage({ provider, samples: remaining });
+        // The queued page keeps its truncated_types so the eventual replay
+        // (offline-queue.ts's flush) makes the same cursor declaration this
+        // live upload would have — see the comment on postHealthSamples above.
+        await enqueueHealthSamplesPage({
+          provider,
+          samples: remaining,
+          ...(truncatedTypes.length > 0 ? { truncated_types: truncatedTypes } : {}),
+        });
         queued += remaining.length;
       }
       break;

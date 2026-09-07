@@ -60,11 +60,30 @@ export function usePharmacistRecordDispense() {
       drugName,
       quantity,
       dispensedOn,
+      quantityPrescribed,
+      isPartial,
+      outstandingNote,
+      batchNumber,
+      substitutedFor,
+      substitutionReason,
+      controlledTier,
+      enhancedVerificationConfirmed,
     }: {
       orderId: string;
       drugName: string;
       quantity: string;
       dispensedOn: string;
+      /** Snapshot of what was prescribed, so a partial fill records "Prescribed: 30 / Dispensed: 20" (spec §63.5). */
+      quantityPrescribed?: string;
+      isPartial?: boolean;
+      outstandingNote?: string;
+      batchNumber?: string;
+      /** Set when dispensing a substitute for the originally prescribed drug (spec §63.13). */
+      substitutedFor?: string;
+      substitutionReason?: string;
+      /** Advisory classification from controlled-substances.ts, snapshotted for audit (spec §63.12). */
+      controlledTier?: "narcotic" | "restricted" | null;
+      enhancedVerificationConfirmed?: boolean;
     }) => {
       const supabase = createClient();
       const { error } = await supabase.rpc("pharmacist_record_dispense", {
@@ -72,6 +91,14 @@ export function usePharmacistRecordDispense() {
         p_drug_name: drugName,
         p_quantity: quantity,
         p_dispensed_on: dispensedOn,
+        p_quantity_prescribed: quantityPrescribed || undefined,
+        p_is_partial: isPartial ?? false,
+        p_outstanding_note: outstandingNote || undefined,
+        p_batch_number: batchNumber || undefined,
+        p_substituted_for: substitutedFor || undefined,
+        p_substitution_reason: substitutionReason || undefined,
+        p_controlled_tier: controlledTier || undefined,
+        p_enhanced_verification_confirmed: enhancedVerificationConfirmed ?? false,
       });
       if (error) throw error;
     },
@@ -127,6 +154,33 @@ export function usePharmacistDeclineOrder() {
     mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
       const supabase = createClient();
       const { error } = await supabase.rpc("pharmacist_decline_order", {
+        p_order_id: orderId,
+        p_reason: reason,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pharmacist-orders"] });
+    },
+  });
+}
+
+/**
+ * Pharmacy flags a confirmed order as unavailable-as-prescribed (spec §63.4)
+ * — deliberately NOT the same as decline. This is a checkpoint, not a
+ * cancellation: 'unavailable' sits between 'confirmed' and 'dispensed' so a
+ * substitution (pharmacist_record_dispense's substituted_for/
+ * substitution_reason) can still move the order forward. If no substitution
+ * works out, pharmacist_decline_order also accepts an 'unavailable' order
+ * (see the migration extending its status check), so the refund path this
+ * status started from is never a dead end.
+ */
+export function usePharmacistFlagUnavailable() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, reason }: { orderId: string; reason: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("pharmacist_flag_unavailable", {
         p_order_id: orderId,
         p_reason: reason,
       });

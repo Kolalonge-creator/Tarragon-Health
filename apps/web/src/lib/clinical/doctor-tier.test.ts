@@ -1,4 +1,5 @@
 import {
+  canAssignCases,
   canConfirmMedicationRefill,
   canHandleEmergencyEscalation,
   canReviewSafeguardingConcern,
@@ -7,34 +8,27 @@ import {
 
 type Staff = Parameters<typeof hasPrescribingAuthority>[0];
 
-const staff = (
-  doctor_tier: NonNullable<Staff>["doctor_tier"],
-  is_clinical_director = false,
-): Staff => ({ doctor_tier, is_clinical_director });
+const staff = (doctor_tier: NonNullable<Staff>["doctor_tier"]): Staff => ({ doctor_tier });
 
 /**
  * The ladder in order, so the monotonicity assertion below reads as the real
  * invariant rather than a hand-written list of expected booleans. Mirrors
  * packages/db/tests/tier_authority_monotonicity.sql, which enforces the same
- * property against the database itself.
+ * property against the database itself. `is_clinical_director` no longer
+ * exists as a separate flag — Chief Medical Officer is the top rung, not an
+ * orthogonal governance layer.
  */
 const CLINICAL_LADDER = [
-  "tier_1",
-  "tier_2",
-  "tier_3",
-  "tier_4_senior_registrar",
-  "tier_5_partner_specialist",
+  "medical_officer",
+  "senior_medical_officer",
+  "chief_medical_officer",
 ] as const;
 
 describe("hasPrescribingAuthority", () => {
-  it("denies Tier 1 and admits Tier 2 and above", () => {
-    expect(hasPrescribingAuthority(staff("tier_1"))).toBe(false);
-    expect(hasPrescribingAuthority(staff("tier_2"))).toBe(true);
-    expect(hasPrescribingAuthority(staff("tier_5_partner_specialist"))).toBe(true);
-  });
-
-  it("admits a Clinical Director with no tier at all", () => {
-    expect(hasPrescribingAuthority(staff(null, true))).toBe(true);
+  it("denies Medical Officer and admits Senior Medical Officer and above", () => {
+    expect(hasPrescribingAuthority(staff("medical_officer"))).toBe(false);
+    expect(hasPrescribingAuthority(staff("senior_medical_officer"))).toBe(true);
+    expect(hasPrescribingAuthority(staff("chief_medical_officer"))).toBe(true);
   });
 
   it("denies a care coordinator and a null record", () => {
@@ -44,17 +38,14 @@ describe("hasPrescribingAuthority", () => {
 });
 
 describe("canConfirmMedicationRefill", () => {
-  it("admits every clinical tier, not just Tier 1", () => {
+  it("admits every clinical tier, not just Medical Officer", () => {
     // The regression this exists to prevent: written as an equality
-    // (`doctor_tier === 'tier_1'`), a senior doctor covering a shift with no
-    // Tier 1 on duty could not confirm a routine refill.
+    // (`doctor_tier === 'medical_officer'`), a senior doctor covering a
+    // shift with no Medical Officer on duty could not confirm a routine
+    // refill.
     for (const tier of CLINICAL_LADDER) {
       expect(canConfirmMedicationRefill(staff(tier))).toBe(true);
     }
-  });
-
-  it("admits a Clinical Director with no tier at all", () => {
-    expect(canConfirmMedicationRefill(staff(null, true))).toBe(true);
   });
 
   it("denies a care coordinator", () => {
@@ -70,40 +61,28 @@ describe("canConfirmMedicationRefill", () => {
 });
 
 /**
- * Mirrors private.can_handle_emergency_escalation
- * (20260731021500_emergency_escalation_tier_gate.sql) — an emergency-level
- * escalation can only be CLAIMED or RESOLVED by Tier 2+ or the org's
- * Clinical Director. Introduced alongside the doctor->clinician account role
- * merge (20260731020000): before that merge only a Tier 4/5 'doctor'-role
- * account could reach the escalation queue at all, so the account-role split
- * was gating this by accident. Unifying page access without this check would
- * have newly let a Tier 1 close an emergency.
+ * Mirrors private.can_handle_emergency_escalation (updated by the
+ * tier-collapse migration) — an emergency-level escalation can only be
+ * CLAIMED or RESOLVED by Senior Medical Officer+. Introduced alongside the
+ * doctor->clinician account role merge (20260731020000): before that merge
+ * only a Tier 4/5 'doctor'-role account could reach the escalation queue at
+ * all, so the account-role split was gating this by accident. Unifying page
+ * access without this check would have newly let a Medical Officer close an
+ * emergency.
  */
 describe("canHandleEmergencyEscalation", () => {
-  it("refuses Tier 1 — the case the doctor->clinician role merge created", () => {
-    expect(canHandleEmergencyEscalation(staff("tier_1"))).toBe(false);
+  it("refuses Medical Officer — the case the doctor->clinician role merge created", () => {
+    expect(canHandleEmergencyEscalation(staff("medical_officer"))).toBe(false);
   });
 
   it("refuses a Care Coordinator outright", () => {
     expect(canHandleEmergencyEscalation(staff("care_coordinator"))).toBe(false);
   });
 
-  it("allows Tier 2 through Tier 5", () => {
-    for (const tier of [
-      "tier_2",
-      "tier_3",
-      "tier_4_senior_registrar",
-      "tier_5_partner_specialist",
-    ] as const) {
+  it("allows Senior Medical Officer and Chief Medical Officer", () => {
+    for (const tier of ["senior_medical_officer", "chief_medical_officer"] as const) {
       expect(canHandleEmergencyEscalation(staff(tier))).toBe(true);
     }
-  });
-
-  it("allows a Clinical Director with no tier recorded at all", () => {
-    // is_clinical_director is an orthogonal governance flag, not a rung on
-    // the ladder (CLAUDE.md's Clinical Tier Ladder note) — a Director can sit
-    // at any tier, or none.
-    expect(canHandleEmergencyEscalation(staff(null, true))).toBe(true);
   });
 
   it("refuses an account with no clinical_staff row at all, never inferring a tier", () => {
@@ -117,33 +96,46 @@ describe("canHandleEmergencyEscalation", () => {
  * Mirrors private.can_review_safeguarding_concern
  * (20260829213100_safeguarding_concerns.sql, the general Patient Safety
  * table this module's own concerns are filed into) — resolving or closing a
- * safeguarding_concerns row needs Tier 3+/Clinical Director, one rung above
- * an emergency escalation's threshold.
+ * safeguarding_concerns row needs Senior Medical Officer+, one rung above
+ * an emergency escalation's threshold. is_clinical_director is retired:
+ * governance authority is now intrinsic to chief_medical_officer.
  */
 describe("canReviewSafeguardingConcern", () => {
-  it("refuses Tier 1, Tier 2, and Care Coordinator", () => {
-    expect(canReviewSafeguardingConcern(staff("tier_1"))).toBe(false);
-    expect(canReviewSafeguardingConcern(staff("tier_2"))).toBe(false);
+  it("refuses Medical Officer and Care Coordinator", () => {
+    expect(canReviewSafeguardingConcern(staff("medical_officer"))).toBe(false);
     expect(canReviewSafeguardingConcern(staff("care_coordinator"))).toBe(false);
   });
 
-  it("allows Tier 3 through Tier 5", () => {
-    for (const tier of [
-      "tier_3",
-      "tier_4_senior_registrar",
-      "tier_5_partner_specialist",
-    ] as const) {
+  it("allows Senior Medical Officer and Chief Medical Officer", () => {
+    for (const tier of ["senior_medical_officer", "chief_medical_officer"] as const) {
       expect(canReviewSafeguardingConcern(staff(tier))).toBe(true);
     }
-  });
-
-  it("allows a Clinical Director with no tier recorded at all", () => {
-    expect(canReviewSafeguardingConcern(staff(null, true))).toBe(true);
   });
 
   it("refuses an account with no clinical_staff row at all, never inferring a tier", () => {
     expect(canReviewSafeguardingConcern(null)).toBe(false);
     expect(canReviewSafeguardingConcern(staff(null))).toBe(false);
+  });
+});
+
+/**
+ * canAssignCases is intentionally the narrowest gate on the ladder — Chief
+ * Medical Officer only, not "Senior Medical Officer and above" like the
+ * other three. It governs reassigning a case to someone OTHER than yourself;
+ * self-claim stays open to any clinical tier via isClinicalTier/
+ * canHandleEmergencyEscalation.
+ */
+describe("canAssignCases", () => {
+  it("admits only Chief Medical Officer", () => {
+    expect(canAssignCases(staff("chief_medical_officer"))).toBe(true);
+    expect(canAssignCases(staff("senior_medical_officer"))).toBe(false);
+    expect(canAssignCases(staff("medical_officer"))).toBe(false);
+    expect(canAssignCases(staff("care_coordinator"))).toBe(false);
+  });
+
+  it("refuses a null record and a record with no tier", () => {
+    expect(canAssignCases(null)).toBe(false);
+    expect(canAssignCases(staff(null))).toBe(false);
   });
 });
 
@@ -154,6 +146,7 @@ describe("tier authority is monotonic", () => {
       canConfirmMedicationRefill,
       canHandleEmergencyEscalation,
       canReviewSafeguardingConcern,
+      canAssignCases,
     };
 
     for (const [name, gate] of Object.entries(gates)) {

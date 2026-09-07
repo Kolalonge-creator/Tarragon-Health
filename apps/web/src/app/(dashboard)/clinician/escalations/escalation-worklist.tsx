@@ -1,7 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useDoctorEscalations, useClaimEscalation } from "@/lib/queries/escalations";
+import {
+  useDoctorEscalations,
+  useClaimEscalation,
+  useStartEscalationReview,
+  useAssignEscalation,
+} from "@/lib/queries/escalations";
+import { useAssignableDoctors } from "@/lib/queries/clinical-staff";
+import { DOCTOR_TIER_LABEL } from "@/lib/clinical/doctor-tier";
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,28 +29,56 @@ const STATUS_FILTERS: { value: EscalationStatus | "all"; label: string }[] = [
 ];
 
 /**
+ * Every case is auto-assigned to a specific doctor's queue at creation
+ * (private.auto_assign_escalation, 20260831001458) — this worklist reflects
+ * three states per row, not the old binary claimed/unclaimed: assigned to
+ * ME and not yet started (Start review), assigned to SOMEONE ELSE (just
+ * their name — not mine to pick up), or unassigned (the rare case
+ * auto-assignment couldn't route, open to any qualifying doctor's Claim).
+ *
  * `canHandleEmergency` mirrors private.can_handle_emergency_escalation --
  * resolved server-side from the caller's own clinical_staff row and passed
  * down, the same shape as MedicationsList's canConfirmRefill. It only
- * decides whether a row shows a Claim button or a plain-language
- * explanation; the DB trigger is what actually enforces the rule.
+ * decides whether a row shows a Start review/Claim button or a
+ * plain-language explanation; the DB trigger is what actually enforces the
+ * rule.
  *
  * `canClaim` mirrors isClinicalTier(staff) — false for a Care Coordinator,
  * who may raise an escalation but must never claim/resolve one (see the
  * page-level comment). Checked first, ahead of canHandleEmergency, so a
  * non-clinical caller always sees the same "only a doctor" explanation
  * regardless of the case's severity.
+ *
+ * `canAssign` mirrors canAssignCases(staff) — true only for the Chief
+ * Medical Officer / Clinical Director. Renders an "Assign to…" picker on
+ * every row, an override on top of automatic routing (rebalancing, or
+ * routing something to a specific doctor's expertise) rather than the
+ * everyday way work gets assigned. The DB trigger on
+ * escalations.assigned_doctor_id is the real enforcement boundary; this only
+ * decides whether to render the control.
+ *
+ * `currentProfileId` is the caller's own profiles.id, used purely to decide
+ * which row shows "Start review" (assigned to me) vs. just a name (assigned
+ * to someone else) — never trusted for authority, that's the DB trigger's
+ * job.
  */
 export function EscalationWorklist({
   canHandleEmergency,
   canClaim,
+  canAssign,
+  currentProfileId,
 }: {
   canHandleEmergency: boolean;
   canClaim: boolean;
+  canAssign: boolean;
+  currentProfileId: string | null;
 }) {
   const { data, isLoading, isError } = useDoctorEscalations();
   const claim = useClaimEscalation();
   const [statusFilter, setStatusFilter] = useState<EscalationStatus | "all">("all");
+  const startReview = useStartEscalationReview();
+  const assign = useAssignEscalation();
+  const { data: assignableDoctors } = useAssignableDoctors({ enabled: canAssign });
 
   const countsByStatus = (data ?? []).reduce(
     (acc, escalation) => {
@@ -186,30 +221,71 @@ export function EscalationWorklist({
                       {caseOwnerName}
                     </p>
                   </div>
-                  {escalation.assigned_doctor_id === null ? (
-                    !canClaim ? (
-                      <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
-                        Only a doctor can claim this case
-                      </span>
-                    ) : isEmergencyLocked ? (
-                      <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
-                        Needs a Tier 2+ doctor or the Clinical Director to claim
-                      </span>
+                  <div className="flex flex-col items-end gap-1">
+                    {escalation.assigned_doctor_id === null ? (
+                      // The rare case auto-assignment couldn't route (no
+                      // qualifying doctor was active in the org at the
+                      // moment it was raised) -- open to any qualifying
+                      // doctor's self-claim, same as the old open-pool model.
+                      !canClaim ? (
+                        <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
+                          Only a doctor can claim this case
+                        </span>
+                      ) : isEmergencyLocked ? (
+                        <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
+                          Needs a Senior Medical Officer or the Chief Medical Officer to claim
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={claim.isPending}
+                          onClick={() => claim.mutate(escalation.id)}
+                        >
+                          Claim
+                        </Button>
+                      )
+                    ) : escalation.status === "open" && escalation.assigned_doctor_id === currentProfileId ? (
+                      // Routed to me, not yet started.
+                      isEmergencyLocked ? (
+                        <span className="max-w-[14rem] text-right text-xs text-charcoal-ink/60">
+                          Needs a Senior Medical Officer or the Chief Medical Officer to start
+                        </span>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={startReview.isPending}
+                          onClick={() => startReview.mutate(escalation.id)}
+                        >
+                          Start review
+                        </Button>
+                      )
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={claim.isPending}
-                        onClick={() => claim.mutate(escalation.id)}
+                      <span className="text-xs text-charcoal-ink/60">
+                        {escalation.assigned_doctor?.full_name ?? "Assigned"}
+                        {escalation.status === "open" && " — pending"}
+                      </span>
+                    )}
+                    {canAssign && (
+                      <select
+                        className="rounded border border-charcoal-ink/20 bg-white px-1.5 py-0.5 text-xs text-charcoal-ink/70"
+                        disabled={assign.isPending}
+                        value=""
+                        onChange={(e) => {
+                          if (!e.target.value) return;
+                          assign.mutate({ escalationId: escalation.id, doctorProfileId: e.target.value });
+                        }}
                       >
-                        Claim
-                      </Button>
-                    )
-                  ) : (
-                    <span className="text-xs text-charcoal-ink/60">
-                      Claimed by: {escalation.assigned_doctor?.full_name ?? "Claimed"}
-                    </span>
-                  )}
+                        <option value="">Assign to…</option>
+                        {(assignableDoctors ?? []).map((d) => (
+                          <option key={d.profile_id} value={d.profile_id ?? ""}>
+                            {d.full_name} — {d.doctor_tier ? DOCTOR_TIER_LABEL[d.doctor_tier] : "Unassigned tier"}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </li>
               );
             })}

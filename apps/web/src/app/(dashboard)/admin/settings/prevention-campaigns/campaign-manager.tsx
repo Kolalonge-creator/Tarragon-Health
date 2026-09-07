@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { setCampaignStatusAction, type SetCampaignStatusState } from "./actions";
+import { campaignEffectivenessSchema } from "@/lib/populations/schemas";
 
 export type PreventionCampaignRow = {
   id: string;
@@ -15,7 +16,22 @@ export type PreventionCampaignRow = {
   ends_on: string | null;
   status: "draft" | "active" | "ended";
   actions: unknown;
+  population_id: string | null;
 };
+
+/** Spec §41.13 — the campaign's own enrolment funnel IS the before/after measurement. */
+function EffectivenessRow({ raw }: { raw: unknown }) {
+  const parsed = campaignEffectivenessSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const e = parsed.data;
+  return (
+    <p className="text-xs text-charcoal-ink/60">
+      {e.population_size != null && <>Population: {e.population_size} · </>}
+      Invited {e.invited} · Joined {e.joined} · Completed {e.completed}
+      {e.completion_rate != null && <> ({e.completion_rate}% completion)</>} · Declined {e.declined}
+    </p>
+  );
+}
 
 /** Cross-org rows where an employer corporate_admin requested a template —
  * see dashboard/corporate/programmes/actions.ts. */
@@ -45,7 +61,17 @@ function StatusButton({ campaignId, status }: { campaignId: string; status: "act
   );
 }
 
-function CampaignCard({ c, subtitle }: { c: PreventionCampaignRow; subtitle?: string }) {
+function CampaignCard({
+  c,
+  subtitle,
+  effectiveness,
+}: {
+  c: PreventionCampaignRow;
+  subtitle?: string;
+  /** Spec §41.13 — the campaign's own enrolment funnel, only rendered when
+   * this campaign targets a population_id (see PreventionCampaignsSettingsPage). */
+  effectiveness?: unknown;
+}) {
   const actions = Array.isArray(c.actions) ? (c.actions as { type: string; detail: string }[]) : [];
   return (
     <Card key={c.id}>
@@ -71,6 +97,7 @@ function CampaignCard({ c, subtitle }: { c: PreventionCampaignRow; subtitle?: st
             ))}
           </ul>
         )}
+        {c.population_id && <EffectivenessRow raw={effectiveness} />}
         {c.status === "draft" && <StatusButton campaignId={c.id} status="active" />}
         {c.status === "active" && <StatusButton campaignId={c.id} status="ended" />}
       </CardContent>
@@ -81,11 +108,15 @@ function CampaignCard({ c, subtitle }: { c: PreventionCampaignRow; subtitle?: st
 export function CampaignManager({
   campaigns,
   requestedCampaigns = [],
+  effectivenessByCampaign = {},
 }: {
   campaigns: PreventionCampaignRow[];
   /** Cross-org rows an employer requested from a template — reviewed and
    * activated the same way as any other draft, see actions.ts. */
   requestedCampaigns?: RequestedCampaignRow[];
+  /** Spec §41.13 keyed by campaign id, populated only for population-targeted
+   * campaigns — see PreventionCampaignsSettingsPage. */
+  effectivenessByCampaign?: Record<string, unknown>;
 }) {
   return (
     <div className="space-y-6">
@@ -99,6 +130,7 @@ export function CampaignManager({
               subtitle={`${c.organisations?.name ?? "Unknown organisation"} · requested by ${
                 c.requested_by_profile?.full_name ?? "unknown"
               }`}
+              effectiveness={effectivenessByCampaign[c.id]}
             />
           ))}
         </div>
@@ -110,7 +142,9 @@ export function CampaignManager({
         {campaigns.length === 0 ? (
           <p className="text-sm text-charcoal-ink/60">No campaigns yet.</p>
         ) : (
-          campaigns.map((c) => <CampaignCard key={c.id} c={c} />)
+          campaigns.map((c) => (
+            <CampaignCard key={c.id} c={c} effectiveness={effectivenessByCampaign[c.id]} />
+          ))
         )}
       </div>
     </div>
