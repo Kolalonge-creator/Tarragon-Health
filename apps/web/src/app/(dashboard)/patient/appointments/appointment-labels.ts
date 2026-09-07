@@ -31,12 +31,27 @@ export const PATIENT_BOOKABLE_APPOINTMENT_TYPES = [
   "result_interpretation",
 ] as const;
 
+/** Appointment types that carry a direct charge, satisfied by a pre-bought
+ * single-use service_purchases credit — see the redemption logic inside
+ * confirm_appointment_booking (20260831163838). Everything else stays free
+ * (payment_status defaults 'not_required'). Shared by the booking flow
+ * (book-appointment.tsx) and the upcoming-appointments list
+ * (my-appointments-list.tsx), which both need to know which product code to
+ * charge for a given appointment type. */
+export const PAID_APPOINTMENT_PRODUCT_CODE: Partial<Record<string, string>> = {
+  telemedicine: "video_visit_credit",
+  result_interpretation: "result_interpretation_credit",
+};
+
 export const APPOINTMENT_STATUS_LABELS: Record<
   string,
   { label: string; tone: "blue" | "amber" | "green" | "red" | "grey" }
 > = {
   held: { label: "Holding your slot…", tone: "amber" },
-  booked: { label: "Booked", tone: "blue" },
+  // Only reached by a paid appointment type with no credit yet — a free type
+  // resolves straight to 'confirmed' (see book-appointment.tsx). "Booked"
+  // read as done when it actually meant payment still pending.
+  booked: { label: "Awaiting payment", tone: "amber" },
   confirmed: { label: "Confirmed", tone: "green" },
   checked_in: { label: "Checked in", tone: "blue" },
   in_progress: { label: "In progress", tone: "blue" },

@@ -10,7 +10,11 @@ import {
   useEnsureAppointmentVideoConsultation,
   type AppointmentType,
 } from "@/lib/queries/appointments";
-import { APPOINTMENT_TYPE_LABELS, PATIENT_BOOKABLE_APPOINTMENT_TYPES } from "./appointment-labels";
+import {
+  APPOINTMENT_TYPE_LABELS,
+  PATIENT_BOOKABLE_APPOINTMENT_TYPES,
+  PAID_APPOINTMENT_PRODUCT_CODE,
+} from "./appointment-labels";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,15 +30,6 @@ function formatSlot(iso: string): string {
     minute: "2-digit",
   });
 }
-
-/** Appointment types that carry a direct charge, satisfied by a pre-bought
- * single-use service_purchases credit — see the redemption logic inside
- * confirm_appointment_booking (20260831163838). Everything else stays free
- * (payment_status defaults 'not_required'). */
-const PAID_APPOINTMENT_PRODUCT_CODE: Partial<Record<AppointmentType, string>> = {
-  telemedicine: "video_visit_credit",
-  result_interpretation: "result_interpretation_credit",
-};
 
 /**
  * Patient-facing search + book flow (10.11): pick an appointment type,

@@ -11,7 +11,12 @@ import {
   useAcceptWaitingListOffer,
   useEnsureAppointmentVideoConsultation,
 } from "@/lib/queries/appointments";
-import { APPOINTMENT_TYPE_LABELS, APPOINTMENT_STATUS_LABELS } from "./appointment-labels";
+import {
+  APPOINTMENT_TYPE_LABELS,
+  APPOINTMENT_STATUS_LABELS,
+  PAID_APPOINTMENT_PRODUCT_CODE,
+} from "./appointment-labels";
+import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +47,41 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
   const ensureVideo = useEnsureAppointmentVideoConsultation();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [payingId, setPayingId] = useState<string | null>(null);
+
+  /**
+   * A paid appointment type (telemedicine/result_interpretation) with no
+   * credit available at booking time is left at status 'booked', not
+   * 'confirmed' — see book-appointment.tsx's own comment. That component's
+   * "Pay to confirm" button only ever appeared for the rest of the same
+   * browser session (pendingPaymentAppointment is local state, set right
+   * after a bookSlot() call) — reload the page, or book from a different
+   * device/session (e.g. the native app), and a 'booked'-awaiting-payment
+   * appointment had NO way to pay at all, anywhere. Reuses the exact same
+   * resume mechanism: book-appointment.tsx already watches for
+   * ?resume_appointment=<id> on this page and auto-confirms once the
+   * purchase succeeds.
+   */
+  async function payToConfirm(appointmentId: string, productCode: string) {
+    setError(null);
+    setPayingId(appointmentId);
+    const result = await purchaseServiceProduct({
+      serviceProductCode: productCode,
+      callbackPath: `/patient/appointments?resume_appointment=${appointmentId}`,
+    });
+    if (result?.error) {
+      setError(result.error);
+      setPayingId(null);
+      return;
+    }
+    if (result?.checkoutUrl) {
+      window.location.href = result.checkoutUrl;
+      return;
+    }
+    if (result?.activated) {
+      router.replace(`/patient/appointments?resume_appointment=${appointmentId}`);
+    }
+  }
 
   async function handleCancel(appointmentId: string) {
     setError(null);
@@ -98,6 +138,17 @@ export function MyAppointmentsList({ patientId }: { patientId: string }) {
                     {appt.status === "held" && (
                       <Button size="sm" variant="outline" disabled={confirm.isPending} onClick={() => confirm.mutate(appt.id)}>
                         Confirm
+                      </Button>
+                    )}
+                    {appt.status === "booked" && PAID_APPOINTMENT_PRODUCT_CODE[appt.appointment_type] && (
+                      <Button
+                        size="sm"
+                        disabled={payingId === appt.id}
+                        onClick={() =>
+                          payToConfirm(appt.id, PAID_APPOINTMENT_PRODUCT_CODE[appt.appointment_type]!)
+                        }
+                      >
+                        {payingId === appt.id ? "Redirecting to payment…" : "Pay to confirm"}
                       </Button>
                     )}
                     {appt.consultation_method === "telemedicine" && JOINABLE_STATUSES.includes(appt.status) && (

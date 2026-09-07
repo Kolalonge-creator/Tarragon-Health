@@ -14,6 +14,9 @@ import { OverviewScreen } from "@/screens/sections/overview-screen";
 import { VitalsScreen } from "@/screens/sections/vitals-screen";
 import { MedicationsScreen } from "@/screens/sections/medications-screen";
 import { LabsScreen } from "@/screens/sections/labs-screen";
+import { AppointmentsScreen } from "@/screens/sections/appointments-screen";
+import { PreventionScreen } from "@/screens/sections/prevention-screen";
+import { CareSupportScreen } from "@/screens/sections/care-support-screen";
 import { DevicesScreen } from "@/screens/devices-screen";
 import { SyncScreen } from "@/screens/sync-screen";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
@@ -87,6 +90,14 @@ interface HomeShellProps {
  *   paired to this handset — pairing "for" a supported person from the
  *   supporter's own phone isn't a scenario the RLS or the BLE flow accounts
  *   for yet.
+ * - Appointments stays on userId, same reasoning as Labs/Devices:
+ *   hold_appointment_slot/confirm_appointment_booking have no verified
+ *   acting-for path exercised from this screen yet — budget separately if a
+ *   supporter needs to book on someone else's behalf from their own phone.
+ * - Care & support stays on userId, same reasoning as Messages: Ask a
+ *   doctor and a navigation request are both first-person ("my question",
+ *   "I need help"), not something exercised on a supported person's behalf
+ *   from this screen.
  * - Settings and Emergency card stay on userId on purpose, not because of
  *   an RLS gap: Settings is device/account configuration, not patient
  *   record data, and Emergency card is meant to represent whoever is
@@ -162,6 +173,15 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           />
         )}
         {section === "labs" && <LabsScreen />}
+        {section === "appointments" && (
+          <AppointmentsScreen patientId={userId} organisationId={organisationId} />
+        )}
+        {section === "prevention" && (
+          <PreventionScreen patientId={subjectId} organisationId={organisationId} />
+        )}
+        {section === "care" && (
+          <CareSupportScreen patientId={userId} organisationId={organisationId} />
+        )}
         {section === "devices" &&
           (openDevice ? (
             <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />

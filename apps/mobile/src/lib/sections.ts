@@ -111,7 +111,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Prevention",
     icon: "shield-checkmark-outline",
     group: "Your health",
-    webviewPath: "/patient/prevention",
   },
   {
     id: "healthSummary",
@@ -205,14 +204,12 @@ export const SECTIONS: SectionDef[] = [
     label: "Care & support",
     icon: "help-buoy-outline",
     group: "Support",
-    webviewPath: "/patient/care",
   },
   {
     id: "appointments",
     label: "Appointments",
     icon: "calendar-outline",
     group: "Support",
-    webviewPath: "/patient/appointments",
   },
   {
     id: "family",
