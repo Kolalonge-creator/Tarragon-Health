@@ -37,6 +37,7 @@ import { WeightManagementScreen } from "@/screens/sections/weight-management-scr
 import { WellbeingScreen } from "@/screens/sections/wellbeing-screen";
 import { HealthyAgeingScreen } from "@/screens/sections/healthy-ageing-screen";
 import { WellnessScreen } from "@/screens/sections/wellness-screen";
+import { HealthCheckScreen } from "@/screens/sections/health-check-screen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -262,14 +263,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {section === "wellbeing" && (
           <WellbeingScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
-        {section === "healthCheck" && webviewPath && (
-          <WebViewHubScreen
-            title="Health Check"
-            description="A yearly, whole-body check: the right checks for you, and a plan to keep you well."
-            icon="clipboard-outline"
-            webviewPath={webviewPath}
-          />
-        )}
+        {section === "healthCheck" && <HealthCheckScreen patientId={userId} onNavigate={handleSelect} />}
         {section === "findASpecialist" && <FindASpecialistScreen patientId={userId} />}
         {section === "healthyAgeing" && (
           <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />

@@ -142,7 +142,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Health Check",
     icon: "clipboard-outline",
     group: "Your health",
-    webviewPath: "/patient/health-check",
   },
   {
     id: "findASpecialist",

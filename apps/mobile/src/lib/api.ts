@@ -231,6 +231,22 @@ export async function postMentalHealthScreen(
   return result.ok ? result.data : { error: result.error };
 }
 
+/** Mirrors apps/web/.../patient/health-check-video-consult-actions.ts's
+ * confirmHealthCheckVideoConsultSlot (the mobile equivalent) — a real Zoom
+ * meeting + service-role write + notification all happen server-side, so
+ * this is a thin passthrough, not a second implementation of that side
+ * effect. See apps/web/src/app/api/mobile/health-check/confirm-video-slot/route.ts. */
+export async function postConfirmHealthCheckVideoSlot(
+  consultId: string,
+  slot: string
+): Promise<{ success?: boolean; error?: string }> {
+  const result = await request<{ success?: boolean }>("/api/mobile/health-check/confirm-video-slot", "POST", {
+    consultId,
+    slot,
+  });
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable
