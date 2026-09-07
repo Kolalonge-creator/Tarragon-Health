@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { computeBmi } from "@/lib/obesity/classify";
 import { fetchHeightStatus, type HeightStatus } from "@/lib/health-metrics/height";
@@ -17,6 +17,33 @@ export function useVitalsReadings(patientId: string) {
       if (error) throw error;
       return data;
     },
+    enabled: !!patientId,
+  });
+}
+
+const VITALS_HISTORY_PAGE_SIZE = 10;
+
+/** Paginated "Recent readings" list (10 at a time, "Load more" per click) —
+ * distinct from useVitalsReadings above (a fixed top-20 snapshot other
+ * callers, like the risk-assessment form, read as a plain array). */
+export function useVitalsReadingsPage(patientId: string) {
+  return useInfiniteQuery({
+    queryKey: ["vitals-readings-page", patientId],
+    queryFn: async ({ pageParam }) => {
+      const supabase = createClient();
+      const from = pageParam * VITALS_HISTORY_PAGE_SIZE;
+      const to = from + VITALS_HISTORY_PAGE_SIZE - 1;
+      const { data, error } = await supabase
+        .from("vitals_readings")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("taken_at", { ascending: false })
+        .range(from, to);
+      if (error) throw error;
+      return { rows: data ?? [], hasMore: (data?.length ?? 0) === VITALS_HISTORY_PAGE_SIZE };
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, pages) => (lastPage.hasMore ? pages.length : undefined),
     enabled: !!patientId,
   });
 }

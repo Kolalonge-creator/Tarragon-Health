@@ -9700,6 +9700,83 @@ export type Database = {
           },
         ]
       }
+      data_export_requests: {
+        Row: {
+          created_at: string
+          decision_note: string | null
+          fulfilled_at: string | null
+          fulfilled_by: string | null
+          id: string
+          note: string | null
+          organisation_id: string
+          patient_id: string
+          requested_at: string
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decision_note?: string | null
+          fulfilled_at?: string | null
+          fulfilled_by?: string | null
+          id?: string
+          note?: string | null
+          organisation_id: string
+          patient_id: string
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decision_note?: string | null
+          fulfilled_at?: string | null
+          fulfilled_by?: string | null
+          id?: string
+          note?: string | null
+          organisation_id?: string
+          patient_id?: string
+          requested_at?: string
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "data_export_requests_fulfilled_by_fkey"
+            columns: ["fulfilled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_export_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_export_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "data_export_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       data_quality_findings: {
         Row: {
           category: Database["public"]["Enums"]["data_quality_category"]
@@ -20354,6 +20431,86 @@ export type Database = {
             columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_change_requests: {
+        Row: {
+          created_at: string
+          denial_reason: string | null
+          id: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          requested_at: string
+          requested_change: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["medication_change_request_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          medication_id: string
+          organisation_id: string
+          patient_id: string
+          reason: string
+          requested_at?: string
+          requested_change: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_change_request_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          denial_reason?: string | null
+          id?: string
+          medication_id?: string
+          organisation_id?: string
+          patient_id?: string
+          reason?: string
+          requested_at?: string
+          requested_change?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["medication_change_request_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_change_requests_medication_id_fkey"
+            columns: ["medication_id"]
+            isOneToOne: false
+            referencedRelation: "medications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_change_requests_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_change_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "medication_change_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
             referencedColumns: ["id"]
           },
         ]
@@ -43366,6 +43523,7 @@ export type Database = {
         | "forgot"
         | "side_effects"
         | "didnt_understand_instructions"
+      medication_change_request_status: "pending" | "approved" | "denied"
       medication_checkin_status: "pending" | "responded" | "skipped"
       medication_checkin_type:
         | "started"
@@ -45713,6 +45871,7 @@ export const Constants = {
         "side_effects",
         "didnt_understand_instructions",
       ],
+      medication_change_request_status: ["pending", "approved", "denied"],
       medication_checkin_status: ["pending", "responded", "skipped"],
       medication_checkin_type: [
         "started",

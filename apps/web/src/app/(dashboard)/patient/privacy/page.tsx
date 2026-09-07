@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
@@ -29,15 +28,7 @@ export default async function PrivacyCentrePage() {
       <PageHeader
         title="Privacy & your data"
         icon={SEMANTIC_ICON.privacy}
-        description="What you've agreed to, who can see your record, and how to export, correct, or delete your data."
-        actions={
-          <Link
-            href="/api/patient/data-export"
-            className="rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            Download your data
-          </Link>
-        }
+        description="What you've agreed to, who can see your record, and how to request, correct, or delete your data."
       />
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">

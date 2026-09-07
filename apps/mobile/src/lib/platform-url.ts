@@ -1,5 +1,9 @@
+// Falls back to the real production domain, never the Vercel preview URL —
+// a build with EXPO_PUBLIC_PLATFORM_URL unset previously fell back to
+// tarragon-health-web.vercel.app, which is what patients were seeing inside
+// every WebView section instead of tarragonhealth.ng.
 export const PLATFORM_URL =
-  process.env.EXPO_PUBLIC_PLATFORM_URL ?? "https://tarragon-health-web.vercel.app";
+  process.env.EXPO_PUBLIC_PLATFORM_URL ?? "https://app.tarragonhealth.ng";
 
 export const PLATFORM_HOST = new URL(PLATFORM_URL).host;
 

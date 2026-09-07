@@ -48,6 +48,34 @@ const EVENT_STYLE: Record<TimelineEventType, { dot: string; label: string }> = {
   dependent_account_transitioned: { dot: "bg-clinical-navy dark:bg-blue-400", label: "Account access" },
 };
 
+// Where each event type's "open it" destination lives, relative to
+// `linkBasePath`. Deliberately partial: an event type with no obvious single
+// destination (e.g. a care-plan update, a clinical summary validation) stays
+// unlinked rather than guessing a wrong one.
+const EVENT_LINK_SUBPATH: Partial<Record<TimelineEventType, string>> = {
+  lab_abnormal: "/labs",
+  lab_completed: "/labs",
+  imaging_report_uploaded: "/labs",
+  screening_due: "/prevention",
+  screening_completed: "/prevention",
+  vaccination_recorded: "/prevention",
+  medication_missed: "/medications",
+  medication_started: "/medications",
+  medication_stopped: "/medications",
+  medication_dispensed: "/medications",
+  medication_received: "/medications",
+  referral_status_changed: "/care",
+  referral_created: "/care",
+  referral_outcome_recorded: "/care",
+  escalation_raised: "/care",
+  escalation_resolved: "/care",
+  message_posted: "/messages",
+  care_plan_updated: "/health-summary",
+  condition_recorded: "/health-summary",
+  condition_status_changed: "/health-summary",
+  document_uploaded: "/health-summary",
+};
+
 // Belt-and-braces only — private.record_timeline_event() now strips
 // underscores from summary at write time (2026-07-30 v3 port, proof_log gap
 // closure), so every current and future writer gets this for free at the DB
@@ -93,14 +121,13 @@ function ActorAttribution({ actor }: { actor: TimelineEvent["actor"] }) {
 
 // The single per-event row, shared by both flat and grouped-by-month
 // rendering below so the two modes can never visually drift apart.
-function TimelineEventRow({ event }: { event: TimelineEvent }) {
+function TimelineEventRow({ event, linkBasePath }: { event: TimelineEvent; linkBasePath?: string }) {
   const style = EVENT_STYLE[event.event_type];
-  return (
-    <li className="relative">
-      <span
-        className={`absolute -left-[1.4375rem] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${style.dot}`}
-        aria-hidden
-      />
+  const subpath = EVENT_LINK_SUBPATH[event.event_type];
+  const href = linkBasePath && subpath ? `${linkBasePath}${subpath}` : null;
+
+  const body = (
+    <>
       <div className="flex items-baseline justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[0.6875rem] font-medium uppercase tracking-wide text-charcoal-ink/40 dark:text-night-ink/50">
@@ -112,6 +139,22 @@ function TimelineEventRow({ event }: { event: TimelineEvent }) {
       </div>
       {event.summary && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{humaniseSummary(event.summary)}</p>}
       <ActorAttribution actor={event.actor} />
+    </>
+  );
+
+  return (
+    <li className="relative">
+      <span
+        className={`absolute -left-[1.4375rem] top-1.5 h-2.5 w-2.5 rounded-full ring-2 ring-white ${style.dot}`}
+        aria-hidden
+      />
+      {href ? (
+        <Link href={href} className="-m-1 block rounded p-1 hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10">
+          {body}
+        </Link>
+      ) : (
+        body
+      )}
     </li>
   );
 }
@@ -147,6 +190,7 @@ export function PatientTimeline({
   limit,
   groupByMonth = false,
   viewAllHref,
+  linkBasePath,
   onLoadMore,
   hasMore = false,
   isLoadingMore = false,
@@ -161,6 +205,11 @@ export function PatientTimeline({
   /** Shows a "View full timeline" link in the card header, pointing at the
    * full-history page. Omit to keep the header exactly as it was. */
   viewAllHref?: string;
+  /** Makes each row clickable, linking to `${linkBasePath}${subpath}` for
+   * event types with an obvious destination (see EVENT_LINK_SUBPATH).
+   * Omitted by the clinician callers, whose per-patient routes this map
+   * doesn't know how to build — rows there stay exactly as before. */
+  linkBasePath?: string;
   /** Renders a "Load more" button below the list when provided — the
    * full-history page's pagination control. Omit to render no button at all. */
   onLoadMore?: () => void;
@@ -208,7 +257,7 @@ export function PatientTimeline({
                     <h3 className="mb-3 text-sm font-semibold text-charcoal-ink dark:text-night-ink">{group.label}</h3>
                     <ol className="relative space-y-5 border-l border-charcoal-ink/10 dark:border-night-ink/15 pl-5">
                       {group.events.map((event) => (
-                        <TimelineEventRow key={event.id} event={event} />
+                        <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} />
                       ))}
                     </ol>
                   </div>
@@ -217,7 +266,7 @@ export function PatientTimeline({
             ) : (
               <ol className="relative space-y-5 border-l border-charcoal-ink/10 dark:border-night-ink/15 pl-5">
                 {data.map((event) => (
-                  <TimelineEventRow key={event.id} event={event} />
+                  <TimelineEventRow key={event.id} event={event} linkBasePath={linkBasePath} />
                 ))}
               </ol>
             )}

@@ -289,7 +289,7 @@ export default async function PatientOverviewPage() {
         <Suspense fallback={<CardSkeleton className="h-56" />}>
           <CareScheduleCard patientId={subjectId} />
         </Suspense>
-        <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" />
+        <PatientTimeline patientId={subjectId} limit={6} viewAllHref="/patient/timeline" linkBasePath="/patient" />
       </div>
 
       {/* Conditional clinical cards — each self-hides when the patient has no

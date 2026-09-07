@@ -2,21 +2,36 @@ import type { Ionicons } from "@expo/vector-icons";
 
 export type SectionId =
   | "overview"
+  | "myActions"
   | "vitals"
   | "medications"
   | "labs"
   | "devices"
   | "prevention"
+  | "healthSummary"
+  | "womensHealth"
+  | "sexualHealth"
+  | "wellbeing"
   | "healthCheck"
+  | "findASpecialist"
+  | "healthyAgeing"
   | "lifestyle"
+  | "weightManagement"
   | "learn"
   | "wellness"
   | "care"
   | "messages"
   | "family"
   | "supporting"
+  | "appointments"
+  | "screeningDays"
   | "passport"
+  | "financialProfile"
   | "services"
+  | "receipts"
+  | "notificationSettings"
+  | "technicalSupport"
+  | "privacy"
   | "emergency"
   | "settings";
 
@@ -65,6 +80,13 @@ export const SECTIONS: SectionDef[] = [
     primary: true,
     shortLabel: "Home",
   },
+  {
+    id: "myActions",
+    label: "My actions",
+    icon: "checkmark-done-outline",
+    group: "top",
+    webviewPath: "/patient/actions",
+  },
 
   {
     id: "vitals",
@@ -89,7 +111,34 @@ export const SECTIONS: SectionDef[] = [
     label: "Prevention",
     icon: "shield-checkmark-outline",
     group: "Your health",
-    webviewPath: "/patient/prevention",
+  },
+  {
+    id: "healthSummary",
+    label: "Health summary",
+    icon: "document-text-outline",
+    group: "Your health",
+    webviewPath: "/patient/health-summary",
+  },
+  {
+    id: "womensHealth",
+    label: "Women's Health",
+    icon: "female-outline",
+    group: "Your health",
+    webviewPath: "/patient/womens-health",
+  },
+  {
+    id: "sexualHealth",
+    label: "Sexual & reproductive health",
+    icon: "heart-outline",
+    group: "Your health",
+    webviewPath: "/patient/sexual-health",
+  },
+  {
+    id: "wellbeing",
+    label: "Wellbeing",
+    icon: "happy-outline",
+    group: "Your health",
+    webviewPath: "/patient/wellbeing",
   },
   {
     id: "healthCheck",
@@ -98,6 +147,20 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
     webviewPath: "/patient/health-check",
   },
+  {
+    id: "findASpecialist",
+    label: "Find a specialist",
+    icon: "search-outline",
+    group: "Your health",
+    webviewPath: "/patient/find-a-specialist",
+  },
+  {
+    id: "healthyAgeing",
+    label: "Healthy ageing",
+    icon: "accessibility-outline",
+    group: "Your health",
+    webviewPath: "/patient/healthy-ageing",
+  },
 
   {
     id: "lifestyle",
@@ -105,6 +168,13 @@ export const SECTIONS: SectionDef[] = [
     icon: "leaf-outline",
     group: "Stay well",
     webviewPath: "/patient/lifestyle",
+  },
+  {
+    id: "weightManagement",
+    label: "Weight management",
+    icon: "speedometer-outline",
+    group: "Stay well",
+    webviewPath: "/patient/weight-management",
   },
   {
     id: "learn",
@@ -134,7 +204,12 @@ export const SECTIONS: SectionDef[] = [
     label: "Care & support",
     icon: "help-buoy-outline",
     group: "Support",
-    webviewPath: "/patient/care",
+  },
+  {
+    id: "appointments",
+    label: "Appointments",
+    icon: "calendar-outline",
+    group: "Support",
   },
   {
     id: "family",
@@ -144,14 +219,56 @@ export const SECTIONS: SectionDef[] = [
     webviewPath: "/patient/family",
   },
   { id: "supporting", label: "People you support", icon: "hand-left-outline", group: "Support" },
+  {
+    id: "screeningDays",
+    label: "Group screening days",
+    icon: "people-circle-outline",
+    group: "Support",
+    webviewPath: "/patient/screening-days",
+  },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
+  {
+    id: "financialProfile",
+    label: "Your finances",
+    icon: "wallet-outline",
+    group: "Your account",
+    webviewPath: "/patient/financial-profile",
+  },
   {
     id: "services",
     label: "My services",
     icon: "card-outline",
     group: "Your account",
     webviewPath: "/patient/subscription",
+  },
+  {
+    id: "receipts",
+    label: "Receipts",
+    icon: "receipt-outline",
+    group: "Your account",
+    webviewPath: "/patient/receipts",
+  },
+  {
+    id: "notificationSettings",
+    label: "Notification settings",
+    icon: "notifications-outline",
+    group: "Your account",
+    webviewPath: "/patient/notification-settings",
+  },
+  {
+    id: "technicalSupport",
+    label: "Technical support",
+    icon: "construct-outline",
+    group: "Your account",
+    webviewPath: "/patient/support",
+  },
+  {
+    id: "privacy",
+    label: "Privacy & data",
+    icon: "lock-closed-outline",
+    group: "Your account",
+    webviewPath: "/patient/privacy",
   },
   { id: "emergency", label: "Emergency card", icon: "alert-circle-outline", group: "Your account" },
   { id: "settings", label: "Settings", icon: "settings-outline", group: "Your account" },

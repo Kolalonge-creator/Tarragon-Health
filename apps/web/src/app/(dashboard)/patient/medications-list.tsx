@@ -15,6 +15,13 @@ import {
   useRequestMedicationRepeat,
   type MedicationRepeatRequest,
 } from "@/lib/queries/medication-repeat-requests";
+import {
+  useMedicationChangeRequests,
+  useRequestMedicationChange,
+  type MedicationChangeRequest,
+} from "@/lib/queries/medication-change-requests";
+import { requestMedicationChangeSchema } from "@/lib/validation/medications";
+import { Textarea } from "@/components/ui/textarea";
 import { MedicationCollectionForm } from "./medication-collection-form";
 import { AmendMedicationForm } from "@/app/(dashboard)/clinician/patients/[patientId]/amend-medication-form";
 import { MedicationIssueReportForm } from "./medication-issue-report-form";
@@ -99,6 +106,7 @@ export function MedicationsList({
   // patientId keeps the query disabled (see `enabled: !!patientId`) on the
   // clinician view.
   const { data: repeatRequests } = useMedicationRepeatRequests(!isClinicianView ? patientId : "");
+  const { data: changeRequests } = useMedicationChangeRequests(!isClinicianView ? patientId : "");
 
   return (
     <Card>
@@ -224,6 +232,11 @@ export function MedicationsList({
                       />
                       <MedicationCollectionForm medication={medication} patientId={patientId} />
                       <MedicationIssueReportForm medication={medication} patientId={patientId} />
+                      <RequestChangeButton
+                        medication={medication}
+                        patientId={patientId}
+                        requests={changeRequests ?? []}
+                      />
                       <RequestRenewalButton
                         medication={medication}
                         patientId={patientId}
@@ -647,6 +660,133 @@ function RepeatRequestControl({
           {(requestRepeat.error as Error).message || "Could not request a repeat."}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * Patient-initiated "this needs to change" — dose changed, switching brand,
+ * whatever the reason. Never edits the medication itself: a clinician
+ * reviews the request and, if they agree, makes the actual change through
+ * the existing Amend control. See
+ * 20260907131424_medication_change_requests.sql for the full rationale.
+ */
+function RequestChangeButton({
+  medication,
+  patientId,
+  requests,
+}: {
+  medication: MedicationWithCarePlan;
+  patientId: string;
+  requests: MedicationChangeRequest[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [requestedChange, setRequestedChange] = useState("");
+  const [reason, setReason] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const requestChange = useRequestMedicationChange();
+
+  const latest = requests
+    .filter((r) => r.medication_id === medication.id)
+    .sort((a, b) => (a.requested_at < b.requested_at ? 1 : -1))[0];
+
+  if (latest?.status === "pending") {
+    return (
+      <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        Change requested {formatPatientDate(latest.requested_at)} · awaiting review
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="mt-1 space-y-1">
+        {latest?.status === "denied" && (
+          <p className="text-xs text-red-700 dark:text-red-300">
+            Your last request wasn&apos;t approved{latest.denial_reason ? `: ${latest.denial_reason}` : ""}
+          </p>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+          onClick={() => setOpen(true)}
+        >
+          Request a change
+        </Button>
+      </div>
+    );
+  }
+
+  function submit() {
+    const parsed = requestMedicationChangeSchema.safeParse({
+      requested_change: requestedChange,
+      reason,
+    });
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
+      return;
+    }
+    setValidationError(null);
+    requestChange.mutate(
+      { medicationId: medication.id, patientId, input: parsed.data },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          setRequestedChange("");
+          setReason("");
+        },
+      }
+    );
+  }
+
+  const displayError = validationError ?? ((requestChange.error as Error | null)?.message || null);
+
+  return (
+    <div className="mt-1 space-y-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-2">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        A doctor reviews every request before anything on your prescription actually changes.
+      </p>
+      <div className="space-y-1">
+        <Label htmlFor={`requested_change_${medication.id}`} className="text-xs">
+          What would you like changed?
+        </Label>
+        <Input
+          id={`requested_change_${medication.id}`}
+          placeholder="e.g. reduce to once daily, switch to a different brand"
+          value={requestedChange}
+          onChange={(event) => setRequestedChange(event.target.value)}
+          className="h-8 text-xs"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`change_reason_${medication.id}`} className="text-xs">
+          Why?
+        </Label>
+        <Textarea
+          id={`change_reason_${medication.id}`}
+          rows={2}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          className="text-xs"
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={requestChange.isPending}
+          onClick={submit}
+        >
+          {requestChange.isPending ? "Sending…" : "Send request"}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+      {displayError && <p className="text-xs text-red-600 dark:text-red-300">{displayError}</p>}
     </div>
   );
 }

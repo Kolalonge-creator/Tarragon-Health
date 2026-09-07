@@ -4,7 +4,7 @@ import { useState } from "react";
 import { usePatientTimeline } from "@/lib/queries/patient-timeline";
 import { PatientTimeline } from "@/components/patient-timeline";
 
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 10;
 
 /**
  * Owns the "Load more" pagination state for the full-history timeline page
@@ -41,6 +41,7 @@ export function TimelineClient({ patientId }: { patientId: string }) {
       patientId={patientId}
       limit={limit}
       groupByMonth
+      linkBasePath="/patient"
       onLoadMore={() => setPagesLoaded((n) => n + 1)}
       hasMore={hasMore}
       isLoadingMore={isFetching}

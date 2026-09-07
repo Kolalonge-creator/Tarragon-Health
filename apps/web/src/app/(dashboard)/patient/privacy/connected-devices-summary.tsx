@@ -43,7 +43,7 @@ export function ConnectedDevicesSummary({ patientId }: { patientId: string }) {
             ))}
           </ul>
         )}
-        <Link href="/patient/vitals" className="text-sm text-brand-green dark:text-brand-green-bright hover:underline">
+        <Link href="/patient/vitals#connect-devices" className="text-sm text-brand-green dark:text-brand-green-bright hover:underline">
           Manage device connections
         </Link>
       </CardContent>

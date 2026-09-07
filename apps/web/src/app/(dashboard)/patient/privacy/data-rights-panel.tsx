@@ -6,6 +6,8 @@ import {
   useCreateDeletionRequest,
   usePatientCorrectionRequests,
   useCreateCorrectionRequest,
+  usePatientExportRequests,
+  useCreateExportRequest,
 } from "@/lib/queries/data-rights";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -21,6 +23,7 @@ const STATUS_BADGE: Record<string, NonNullable<BadgeProps["variant"]>> = {
   approved_full: "blue",
   applied: "green",
   completed: "green",
+  fulfilled: "green",
   denied: "red",
 };
 
@@ -43,6 +46,8 @@ export function DataRightsPanel({
   const createDeletionRequest = useCreateDeletionRequest(organisationId, patientId);
   const correctionRequests = usePatientCorrectionRequests(patientId);
   const createCorrectionRequest = useCreateCorrectionRequest(organisationId, patientId);
+  const exportRequests = usePatientExportRequests(patientId);
+  const createExportRequest = useCreateExportRequest(organisationId, patientId);
 
   const [deletionOpen, setDeletionOpen] = useState(false);
   const [deletionReason, setDeletionReason] = useState("");
@@ -52,8 +57,82 @@ export function DataRightsPanel({
   const [whatIsWrong, setWhatIsWrong] = useState("");
   const [requestedChange, setRequestedChange] = useState("");
 
+  const [exportOpen, setExportOpen] = useState(false);
+  const [exportNote, setExportNote] = useState("");
+
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Card>
+        <CardHeader>
+          <CardTitle>Request a copy of your data</CardTitle>
+          <CardDescription>
+            Ask us for a copy of the data we hold about you. A member of our team reviews and
+            prepares it, then sends it to you securely — it isn&apos;t a direct download.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {exportOpen ? (
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="export-note">Anything specific you need? (optional)</Label>
+                <Textarea
+                  id="export-note"
+                  rows={2}
+                  placeholder="e.g. just my lab results, or everything"
+                  value={exportNote}
+                  onChange={(e) => setExportNote(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  disabled={createExportRequest.isPending}
+                  onClick={() => {
+                    createExportRequest.mutate(
+                      { note: exportNote || undefined },
+                      {
+                        onSuccess: () => {
+                          setExportOpen(false);
+                          setExportNote("");
+                        },
+                      }
+                    );
+                  }}
+                >
+                  {createExportRequest.isPending ? "Submitting…" : "Submit request"}
+                </Button>
+                <Button variant="ghost" onClick={() => setExportOpen(false)}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <Button variant="outline" onClick={() => setExportOpen(true)}>
+              Request my data
+            </Button>
+          )}
+
+          {(exportRequests.data ?? []).length > 0 ? (
+            <ul className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-sm">
+              {(exportRequests.data ?? []).map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-2">
+                  <span className="truncate text-charcoal-ink/80 dark:text-night-ink/80">
+                    {r.note || "Data export request"}
+                  </span>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                      {formatDate(r.requested_at)}
+                    </span>
+                    <Badge variant={STATUS_BADGE[r.status] ?? "grey"}>
+                      {r.status.replace(/_/g, " ")}
+                    </Badge>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle>Request a correction</CardTitle>

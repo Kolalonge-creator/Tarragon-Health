@@ -19,6 +19,9 @@ import { FertilityAssessmentForm } from "./fertility-assessment-form";
 import { SexualWellnessPanel } from "./sexual-wellness-panel";
 import { startConfidentialSrhThread } from "./confidential-message-action";
 import { SexualHealthPrivacySettingsCard } from "./sexual-health-privacy-settings-card";
+import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+
+const CONFIDENTIAL_MESSAGE_CREDIT_CODE = "confidential_message_credit";
 
 const TABS = [
   { key: "testing", label: "Risk check & testing" },
@@ -76,13 +79,23 @@ function ConfidentialMessageCta() {
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [needsCredit, setNeedsCredit] = useState(false);
+  const [isBuying, setIsBuying] = useState(false);
 
   function send() {
     setError(null);
+    setNeedsCredit(false);
     startTransition(async () => {
       const result = await startConfidentialSrhThread(subject, body);
       if ("error" in result) {
         setError(result.error);
+        // A confidential/clinical thread needs a doctor's time — 20260907132010
+        // gates it behind one confidential_message_credit (₦2,500). Offer to
+        // buy it right here rather than leaving the patient stuck on a raw
+        // DB error with a subject/message already typed.
+        if (result.error.includes("confidential message credit")) {
+          setNeedsCredit(true);
+        }
         return;
       }
       setSubject("");
@@ -90,6 +103,29 @@ function ConfidentialMessageCta() {
       setOpen(false);
       setSent(true);
     });
+  }
+
+  async function buyCreditThenSend() {
+    setIsBuying(true);
+    setError(null);
+    const result = await purchaseServiceProduct({
+      serviceProductCode: CONFIDENTIAL_MESSAGE_CREDIT_CODE,
+      callbackPath: "/patient/sexual-health",
+    });
+    if (result?.error) {
+      setError(result.error);
+      setIsBuying(false);
+      return;
+    }
+    if (result?.checkoutUrl) {
+      window.location.href = result.checkoutUrl;
+      return;
+    }
+    // Activated with no charge to run — retry immediately with the same
+    // subject/message the patient already typed.
+    setIsBuying(false);
+    setNeedsCredit(false);
+    send();
   }
 
   return (
@@ -102,6 +138,7 @@ function ConfidentialMessageCta() {
         <CardDescription>
           For anything here you&apos;d rather write than say out loud. This thread is hidden from
           anyone else who supports your care, even someone with their usual access to your record.
+          A doctor reads and replies, so this is a paid message (₦2,500).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -146,20 +183,26 @@ function ConfidentialMessageCta() {
             </div>
             {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
             <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                disabled={pending || subject.trim().length < 3 || body.trim().length === 0}
-                onClick={send}
-              >
-                {pending ? "Sending…" : "Send"}
-              </Button>
+              {needsCredit ? (
+                <Button type="button" size="sm" disabled={isBuying} onClick={buyCreditThenSend}>
+                  {isBuying ? "Redirecting to payment…" : "Pay ₦2,500 and send"}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={pending || subject.trim().length < 3 || body.trim().length === 0}
+                  onClick={send}
+                >
+                  {pending ? "Sending…" : "Send"}
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"
                 variant="ghost"
                 onClick={() => setOpen(false)}
-                disabled={pending}
+                disabled={pending || isBuying}
               >
                 Cancel
               </Button>

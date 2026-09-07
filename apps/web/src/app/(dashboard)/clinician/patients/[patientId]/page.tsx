@@ -27,6 +27,7 @@ import { MedicationAdherenceHistory } from "./medication-adherence-history";
 import { MedicationReconciliationPanel } from "./medication-reconciliation-panel";
 import { MedicationEffectivenessCard } from "@/components/medication-effectiveness-card";
 import { MedicationRepeatRequestsPanel } from "./medication-repeat-requests-panel";
+import { MedicationChangeRequestsPanel } from "./medication-change-requests-panel";
 import { BloodProfileForm } from "./blood-profile-form";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareTeamForm } from "./care-team-form";
@@ -266,6 +267,11 @@ export default async function ClinicianPatientPage({
                     clinical tier, never a Care Coordinator) since approving a
                     routine repeat is that same class of act. */}
                 <MedicationRepeatRequestsPanel patientId={patient.id} canReview={canConfirmRefill} />
+                {/* A patient's proposed medication change never auto-applies —
+                    canReview mirrors canPrescribe/canAmend below, since
+                    reviewing this is the same class of act as amending a
+                    prescription. */}
+                <MedicationChangeRequestsPanel patientId={patient.id} canReview={canPrescribe} />
                 <MedicationsList
                   patientId={patient.id}
                   refillCoordinationEnabled

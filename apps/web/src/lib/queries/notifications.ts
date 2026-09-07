@@ -77,7 +77,7 @@ export type CommunicationHistoryRow = Pick<
   | "response_value"
 >;
 
-const HISTORY_PAGE_SIZE = 25;
+const HISTORY_PAGE_SIZE = 5;
 
 /** Communication history (17.8) — every notification ever sent to the
  * signed-in patient, across every channel (not just in_app), with its full
