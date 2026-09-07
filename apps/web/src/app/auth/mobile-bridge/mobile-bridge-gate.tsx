@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { sanitizeRedirect } from "@/lib/auth/redirect";
-import { EMBEDDED_APP_COOKIE } from "@/lib/embedded-webview";
+import { EMBEDDED_APP_COOKIE } from "@/lib/embedded-webview-constants";
 
 /**
  * Closes the native/WebView SSO gap documented in
