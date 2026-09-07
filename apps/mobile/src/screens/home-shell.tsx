@@ -36,6 +36,7 @@ import { FinancialProfileScreen } from "@/screens/sections/financial-profile-scr
 import { WeightManagementScreen } from "@/screens/sections/weight-management-screen";
 import { WellbeingScreen } from "@/screens/sections/wellbeing-screen";
 import { HealthyAgeingScreen } from "@/screens/sections/healthy-ageing-screen";
+import { WellnessScreen } from "@/screens/sections/wellness-screen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -292,13 +293,8 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
             webviewPath={webviewPath}
           />
         )}
-        {section === "wellness" && webviewPath && (
-          <WebViewHubScreen
-            title="Wellness rewards"
-            description="Earn points for logging, learning, and finishing challenges — redeem them for a real reward toward your care."
-            icon="trophy-outline"
-            webviewPath={webviewPath}
-          />
+        {section === "wellness" && (
+          <WellnessScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
         {section === "family" && webviewPath && (
           <WebViewHubScreen

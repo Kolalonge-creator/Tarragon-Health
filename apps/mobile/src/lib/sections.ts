@@ -182,7 +182,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Wellness rewards",
     icon: "trophy-outline",
     group: "Stay well",
-    webviewPath: "/patient/wellness",
   },
 
   {
