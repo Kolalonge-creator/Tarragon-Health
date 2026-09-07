@@ -1,7 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { registerPdfFonts, PDF_FONT_FAMILY } from "@/lib/pdf/register-fonts";
-import { PDF_LOGO_URL, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
+import { PDF_LOGO_SRC, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
 import type { HealthPassportData } from "./get-health-passport-data";
 
 registerPdfFonts();
@@ -35,26 +35,60 @@ function formatVitalValue(vitalType: string, latest: Record<string, unknown>): s
 }
 
 const styles = StyleSheet.create({
-  page: { padding: 32, fontSize: 10, color: "#12324B", fontFamily: PDF_FONT_FAMILY },
+  page: { paddingTop: 40, paddingBottom: 64, paddingHorizontal: 44, fontSize: 10, color: "#12324B", fontFamily: PDF_FONT_FAMILY },
   letterhead: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
-    marginBottom: 16,
-    borderBottomWidth: 1,
+    justifyContent: "space-between",
+    marginBottom: 20,
+    borderBottomWidth: 1.5,
     borderBottomColor: "#0E7C52",
-    paddingBottom: 10,
+    paddingBottom: 12,
   },
-  logo: { width: 30, height: 30 },
-  brand: { fontSize: 14, fontWeight: 700, color: "#0E7C52" },
-  tagline: { fontSize: 8, color: "#666" },
-  title: { fontSize: 18, fontWeight: 700, marginBottom: 4 },
-  subtitle: { fontSize: 10, color: "#555", marginBottom: 16 },
-  section: { marginBottom: 16 },
-  sectionTitle: { fontSize: 13, fontWeight: 700, marginBottom: 6, color: "#0E7C52" },
-  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 3, borderBottomWidth: 0.5, borderBottomColor: "#ddd" },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  logo: { width: 32, height: 32 },
+  brand: { fontSize: 15, fontWeight: 700, color: "#0E7C52" },
+  tagline: { fontSize: 8, color: "#666", marginTop: 1 },
+  metaBlock: { alignItems: "flex-end" },
+  metaLabel: { fontSize: 7, color: "#8a8a8a", textTransform: "uppercase" },
+  metaValue: { fontSize: 9, color: "#12324B", marginBottom: 3 },
+  title: { fontSize: 19, fontWeight: 700, marginBottom: 4, color: "#12324B" },
+  subtitle: { fontSize: 10, color: "#555", marginBottom: 22 },
+  section: { marginBottom: 18 },
+  sectionTitle: {
+    fontSize: 11,
+    fontWeight: 700,
+    marginBottom: 8,
+    color: "#0E7C52",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    borderBottomWidth: 0.75,
+    borderBottomColor: "#0E7C52",
+    paddingBottom: 4,
+  },
+  row: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4, borderBottomWidth: 0.5, borderBottomColor: "#e2e2e2" },
   muted: { color: "#666" },
-  footer: { marginTop: 24, fontSize: 8, color: "#666", borderTopWidth: 0.5, borderTopColor: "#ddd", paddingTop: 8 },
+  confidential: {
+    fontSize: 7,
+    color: "#8a8a8a",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginBottom: 16,
+  },
+  footer: {
+    position: "absolute",
+    bottom: 0,
+    left: 44,
+    right: 44,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    borderTopWidth: 0.75,
+    borderTopColor: "#0E7C52",
+    paddingTop: 8,
+  },
+  footerText: { fontSize: 8, color: "#666", lineHeight: 1.4, maxWidth: 430 },
+  pageNumber: { fontSize: 8, color: "#8a8a8a" },
 });
 
 export function HealthPassportDocument({
@@ -79,12 +113,20 @@ export function HealthPassportDocument({
     <Document title={`${documentTitle} - ${patientName}`}>
       <Page size="A4" style={styles.page}>
         <View style={styles.letterhead}>
-          {/* react-pdf's Image is not an HTML <img> — no alt prop exists */}
-          {/* eslint-disable-next-line jsx-a11y/alt-text */}
-          <Image style={styles.logo} src={PDF_LOGO_URL} />
-          <View>
-            <Text style={styles.brand}>TarragonHealth</Text>
-            <Text style={styles.tagline}>Care that stays with you.</Text>
+          <View style={styles.brandRow}>
+            {/* react-pdf's Image is not an HTML <img> — no alt prop exists */}
+            {/* eslint-disable-next-line jsx-a11y/alt-text */}
+            <Image style={styles.logo} src={PDF_LOGO_SRC} />
+            <View>
+              <Text style={styles.brand}>TarragonHealth</Text>
+              <Text style={styles.tagline}>Care that stays with you.</Text>
+            </View>
+          </View>
+          <View style={styles.metaBlock}>
+            <Text style={styles.metaLabel}>Generated</Text>
+            <Text style={styles.metaValue}>{new Date().toLocaleDateString()}</Text>
+            <Text style={styles.metaLabel}>Contact</Text>
+            <Text style={[styles.metaValue, { marginBottom: 0 }]}>{PDF_CONTACT_EMAIL}</Text>
           </View>
         </View>
 
@@ -92,6 +134,7 @@ export function HealthPassportDocument({
         <Text style={styles.subtitle}>
           {patientName} · {periodLabel} · TarragonHealth
         </Text>
+        <Text style={styles.confidential}>Confidential health record — for the named patient only</Text>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Vitals</Text>
@@ -160,17 +203,20 @@ export function HealthPassportDocument({
           </View>
         )}
 
-        <Text style={styles.footer}>
-          {data.protocolAuthor
-            ? `Protocols supervised by Dr. ${data.protocolAuthor.fullName}${
-                data.protocolAuthor.credentialType && data.protocolAuthor.credentialNumber
-                  ? ` (${data.protocolAuthor.credentialType} ${data.protocolAuthor.credentialNumber})`
-                  : ""
-              }.`
-            : "Protocols supervised by your care team's Clinical Director."}
-          {"  "}This is an educational summary, not a complete medical record.
-          {"  "}TarragonHealth — {PDF_CONTACT_EMAIL}
-        </Text>
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerText}>
+            {data.protocolAuthor
+              ? `Protocols supervised by Dr. ${data.protocolAuthor.fullName}${
+                  data.protocolAuthor.credentialType && data.protocolAuthor.credentialNumber
+                    ? ` (${data.protocolAuthor.credentialType} ${data.protocolAuthor.credentialNumber})`
+                    : ""
+                }.`
+              : "Protocols supervised by your care team's Clinical Director."}
+            {"  "}This is an educational summary, not a complete medical record.
+            {"\n"}TarragonHealth · Care that stays with you. · {PDF_CONTACT_EMAIL}
+          </Text>
+          <Text style={styles.pageNumber} render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages}`} />
+        </View>
       </Page>
     </Document>
   );

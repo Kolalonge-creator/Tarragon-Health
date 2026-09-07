@@ -1,7 +1,7 @@
 import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/renderer";
 import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 import { registerPdfFonts, PDF_FONT_FAMILY } from "@/lib/pdf/register-fonts";
-import { PDF_LOGO_URL, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
+import { PDF_LOGO_SRC, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
 
 registerPdfFonts();
 
@@ -113,7 +113,7 @@ export function InvoiceDocument({
             <View style={styles.brandRow}>
               {/* react-pdf's Image is not an HTML <img> — no alt prop exists */}
               {/* eslint-disable-next-line jsx-a11y/alt-text */}
-              <Image style={styles.logo} src={PDF_LOGO_URL} />
+              <Image style={styles.logo} src={PDF_LOGO_SRC} />
               <Text style={styles.brand}>TarragonHealth</Text>
             </View>
             <Text style={styles.tagline}>Care that stays with you.</Text>
