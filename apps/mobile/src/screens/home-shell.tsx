@@ -41,6 +41,7 @@ import { WomensHealthScreen } from "@/screens/sections/womens-health-screen";
 import { FamilyScreen } from "@/screens/sections/family-screen";
 import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
 import { ServicesScreen } from "@/screens/sections/services-screen";
+import { LifestyleScreen } from "@/screens/sections/lifestyle-screen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -268,14 +269,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {section === "healthyAgeing" && (
           <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
-        {section === "lifestyle" && webviewPath && (
-          <WebViewHubScreen
-            title="Lifestyle coaching"
-            description="Nutrition, activity, and everyday habits — coaching built around your own goals."
-            icon="leaf-outline"
-            webviewPath={webviewPath}
-          />
-        )}
+        {section === "lifestyle" && <LifestyleScreen userId={userId} />}
         {section === "weightManagement" && (
           <WeightManagementScreen userId={userId} onNavigate={handleSelect} />
         )}

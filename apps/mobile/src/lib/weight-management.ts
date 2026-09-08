@@ -160,6 +160,51 @@ export async function createPersonalisedGoal(input: {
   return { ok: true, data: null };
 }
 
+const CONDITION_LABEL: Record<string, string> = {
+  hypertension: "Blood pressure care",
+  diabetes: "Diabetes care",
+  obesity: "Weight & lifestyle",
+};
+
+export interface PastLifestyleGoal {
+  id: string;
+  module: string;
+  title: string;
+  status: string;
+  conditionLabel: string;
+  updatedAt: string;
+}
+
+/** Mirrors apps/web/src/lib/lifestyle/service.ts's getPastLifestyleGoals —
+ * RLS already scopes lpe_goal_instances to the caller's own enrolments, so
+ * the patient_id filter below is belt-and-braces, not the real guard. */
+export async function loadPastLifestyleGoals(patientId: string): Promise<PastLifestyleGoal[]> {
+  const { data } = await supabase
+    .from("lpe_goal_instances")
+    .select("id, module, title, status, updated_at, lpe_programme_instances(lpe_enrollments(condition, patient_id))")
+    .neq("status", "active")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  return (data ?? [])
+    .filter((g) => {
+      const inst = g.lpe_programme_instances as { lpe_enrollments: { patient_id: string } | null } | null;
+      return inst?.lpe_enrollments?.patient_id === patientId;
+    })
+    .map((g) => {
+      const inst = g.lpe_programme_instances as { lpe_enrollments: { condition: string } | null } | null;
+      const condition = inst?.lpe_enrollments?.condition;
+      return {
+        id: g.id,
+        module: g.module,
+        title: g.title,
+        status: g.status,
+        conditionLabel: (condition && CONDITION_LABEL[condition]) || "Lifestyle",
+        updatedAt: g.updated_at,
+      };
+    });
+}
+
 /** Mirrors apps/web/.../lifestyle/actions.ts's resolveGoalAction. The
  * smoking/risk_assessment_responses side effect there is a UI-adjacent
  * convenience write, not a safety check — porting it here is a reasonable

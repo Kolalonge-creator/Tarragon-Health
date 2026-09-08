@@ -159,7 +159,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Lifestyle coaching",
     icon: "leaf-outline",
     group: "Stay well",
-    webviewPath: "/patient/lifestyle",
   },
   {
     id: "weightManagement",
