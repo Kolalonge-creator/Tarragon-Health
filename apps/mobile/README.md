@@ -1,18 +1,44 @@
 # TarragonHealth mobile app (`@tarragon/mobile`)
 
-Expo (SDK 51) app with two tabs:
+Expo (SDK 54) app, fully native screens (the embedded WebView was removed
+2026-09-07; every patient section is a React Native screen talking to
+Supabase directly or to the bearer-authenticated `/api/mobile/*` routes):
 
-- **Home** — the live web platform rendered in a WebView
-  (`EXPO_PUBLIC_PLATFORM_URL`, defaults to the production Vercel
-  deployment). Every web deploy updates this tab automatically — no app
-  store release needed for platform features.
-- **Devices** — the native Bluetooth layer (the one thing web can't do):
-  pair a BP cuff or glucometer, live-decode readings via the shared GATT
-  parsers, and POST them to `/api/mobile/device-readings` on the platform.
+- **Home / Vitals / Meds / Messages / More** — the patient platform, native.
+- **Devices** (under More) — the Bluetooth layer (the one thing web can't
+  do): pair a BP cuff, glucometer, scale, thermometer, or pulse oximeter,
+  live-decode readings via the shared GATT parsers, and POST them to
+  `/api/mobile/device-readings`. Apple Health (iOS) syncs through the
+  HealthKit bridge. **Android Health Connect is built but switched off for
+  the first Play release** — see `src/lib/health-connect.ts`'s
+  `HEALTH_CONNECT_ENABLED` comment for why and how to turn it back on.
 
 Because `react-native-ble-plx` is a native module, this app **cannot run in
 Expo Go** — it needs a real build via EAS. Everything below is already
 configured; the only prerequisites are the accounts.
+
+## Versions: `version` vs `runtimeVersion` (read before bumping either)
+
+- `expo.version` in `app.json` is the store-facing number (Play Console /
+  App Store). It was reset to **0.1.0** on 2026-09-08 for the first public
+  release; earlier "0.2.0"/"0.3.0" builds were internal only.
+- `expo.runtimeVersion` is the **native-compatibility label** for OTA
+  updates, not a marketing number. An OTA update only reaches binaries with
+  the exact same runtimeVersion, so it must change on every native-affecting
+  change (new native module, plugin, permission) and must **never be reused**
+  for a binary with a different native set: plain "0.1.0" was already used by
+  the August internal APKs (a different native set), so the store release
+  uses "0.1.0-native2". Publishing JS built for one native set to a runtime
+  shared with an older binary crashes that binary on launch.
+- `versionCode` (Android) / build number (iOS) is managed remotely by EAS
+  (`appVersionSource: remote`, `autoIncrement` on the production profile).
+
+## Google Play submission
+
+`store-assets/android-submission/` holds the listing assets;
+`docs/PLAY_STORE_SUBMISSION.md` (repo root `docs/`) holds the Data safety
+form answers, the category, the account-deletion URL, and the pre-upload
+checklist.
 
 ## One-time account setup (owner)
 
@@ -55,11 +81,13 @@ Commit the `app.json` changes `eas init` makes.
 
 ## Day-to-day
 
-- **Platform features** ship with normal web deploys — the Home tab is the
-  live site; nothing to do on mobile.
 - **JS-only changes to this app** (screens, styling, logic) ship
-  over-the-air with `pnpm update:prod "<message>"` — installed apps pick
-  them up on next launch, no store review.
+  over-the-air: pushes to `main-dev` auto-publish to the `preview` channel
+  (`.github/workflows/mobile-ota-publish.yml`); `production` is published
+  manually with `pnpm update:prod "<message>"` — installed apps pick it up
+  on next launch, no store review.
+- **Server-side changes** (`/api/mobile/*` routes, RLS, RPCs) ship with
+  normal web deploys; the native screens read from them live.
 - **Native changes** (new native modules, permissions, app icons) need a
   new `eas build` (+ store submission for production).
 
@@ -71,8 +99,10 @@ Commit the `app.json` changes `eas init` makes.
   see CLAUDE.md). Real secrets must never go in `eas.json`.
 - For local development against a dev server instead, put overrides in
   `apps/mobile/.env.local` (see the root `.env.example` catalogue).
-- Store identity is already set: `com.tarragonhealth.mobile` (iOS bundle id
-  and Android package), Guard Leaf icon/adaptive-icon/splash in `assets/`.
+- Store identity: iOS bundle id `com.tarragonhealth.mobile`; Android package
+  `com.tarragonhealth.app` (it must match the app already created in the Play
+  Console, which rejects a first upload under any other package name). Guard
+  Leaf icon/adaptive-icon/splash in `assets/`.
 
 ## Tests
 
