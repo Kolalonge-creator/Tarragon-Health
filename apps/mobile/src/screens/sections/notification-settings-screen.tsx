@@ -21,12 +21,21 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
   billing: "Billing & payments",
 };
 
+/**
+ * `sms`/`whatsapp` stay real, settable columns on `patient_notification_preferences`
+ * (the shared table `notification-preferences.ts` reads/writes) — this app just
+ * stopped rendering a toggle for them 2026-09-08, on explicit founder ask, once
+ * push registration actually went live (see push-registration.ts). Whatever value
+ * those two columns already held keeps flowing to send-pending-notifications
+ * unchanged; this is a UI-only narrowing, not a data wipe, and not a change to the
+ * platform-wide WhatsApp/SMS notification channel (CLAUDE.md's Non-Negotiable
+ * Business Rules) — that stays live for the web app and for delivery-provider
+ * fallback. Displayed channels here are just Email and Push now.
+ */
 type Channel = "email" | "sms" | "push" | "whatsapp";
-const CHANNELS: { key: Channel; label: string }[] = [
+const DISPLAYED_CHANNELS: { key: Channel; label: string }[] = [
   { key: "email", label: "Email" },
-  { key: "sms", label: "SMS" },
   { key: "push", label: "Push" },
-  { key: "whatsapp", label: "WhatsApp" },
 ];
 
 const ALL_CHANNELS_ON: Record<Channel, boolean> = { email: true, sms: true, push: true, whatsapp: true };
@@ -136,7 +145,7 @@ export function NotificationSettingsScreen({ patientId, organisationId }: Notifi
                 {isSaving && <MutedText>Saving…</MutedText>}
               </View>
               <SectionDivider />
-              {CHANNELS.map(({ key, label }) => (
+              {DISPLAYED_CHANNELS.map(({ key, label }) => (
                 <View
                   key={key}
                   style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}

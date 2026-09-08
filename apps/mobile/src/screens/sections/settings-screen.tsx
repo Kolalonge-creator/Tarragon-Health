@@ -136,8 +136,8 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
       <View style={{ gap: 10 }}>
         <SectionLabel>Security &amp; notifications</SectionLabel>
         <MutedText>
-          App lock, and what we notify you about. These choices are saved on this device for now, and
-          full push delivery for these categories is still being built.
+          App lock, and what we notify you about. Push notifications now reach this device;
+          choose which categories send you one under Notification settings.
         </MutedText>
         <GroupedList>
           {biometricAvailable ? (
