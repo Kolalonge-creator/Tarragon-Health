@@ -39,8 +39,8 @@ import { HealthCheckScreen } from "@/screens/sections/health-check-screen";
 import { WomensHealthScreen } from "@/screens/sections/womens-health-screen";
 import { FamilyScreen } from "@/screens/sections/family-screen";
 import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
-import { ServicesScreen } from "@/screens/sections/services-screen";
 import { LifestyleScreen } from "@/screens/sections/lifestyle-screen";
+import { ServicesScreen } from "@/screens/sections/services-screen";
 import { LearnScreen } from "@/screens/sections/learn-screen";
 import { PrivacyScreen } from "@/screens/sections/privacy-screen";
 
@@ -264,7 +264,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {section === "healthyAgeing" && (
           <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
-        {section === "lifestyle" && <LifestyleScreen userId={userId} />}
+        {section === "lifestyle" && <LifestyleScreen patientId={userId} onNavigate={handleSelect} />}
         {section === "weightManagement" && (
           <WeightManagementScreen userId={userId} onNavigate={handleSelect} />
         )}
