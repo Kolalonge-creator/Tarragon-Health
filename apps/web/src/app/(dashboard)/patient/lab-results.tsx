@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RESULT_STATUS_BADGE } from "@/lib/worklist/result-status-badge";
@@ -7,10 +8,6 @@ import type { ScreeningResultStatus } from "@tarragon/shared";
 interface StoredInterpretation {
   result_status?: ScreeningResultStatus;
   summary?: string;
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
 
 /**

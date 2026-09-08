@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getHealthPassportData } from "@/lib/health-passport/get-health-passport-data";
 import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { LIPID_ANALYTE_META, isLipidAnalyteCode } from "@/lib/lipids/analytes";
+import { formatDate } from "@/lib/format-date";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -64,9 +65,7 @@ export default async function HealthPassportPage() {
   const supabase = await createClient();
   const data = await getHealthPassportData(supabase, profile.id, profile.organisation_id);
 
-  const periodLabel = `${new Date(data.periodStart).toLocaleDateString()} – ${new Date(
-    data.periodEnd
-  ).toLocaleDateString()}`;
+  const periodLabel = `${formatDate(data.periodStart)} – ${formatDate(data.periodEnd)}`;
 
   return (
     <div className="space-y-6">
@@ -112,7 +111,7 @@ export default async function HealthPassportPage() {
                     </span>
                     <span className="text-sm text-charcoal-ink/60">
                       {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
-                      period · last logged {new Date(v.takenAt).toLocaleDateString()}
+                      period · last logged {formatDate(v.takenAt)}
                     </span>
                   </li>
                 ))}
@@ -165,7 +164,7 @@ export default async function HealthPassportPage() {
                   <span className="font-medium text-charcoal-ink">{labResultLabel(r.code)}</span>
                   <span className="text-charcoal-ink/60">
                     {r.code === "hba1c" ? formatHba1cWithBracket(r.value) : `${r.value} ${r.unit}`} ·{" "}
-                    {new Date(r.takenAt).toLocaleDateString()}
+                    {formatDate(r.takenAt)}
                   </span>
                 </li>
               ))}

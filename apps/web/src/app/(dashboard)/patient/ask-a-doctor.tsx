@@ -10,6 +10,7 @@ import {
   asyncConsultSchema,
   ASYNC_CONSULT_CATEGORIES,
 } from "@/lib/validation/async-consults";
+import { formatDate, formatDateTime } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,7 +37,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
       </div>
       {!answered && consult.sla_due_at && (
         <p className="text-xs text-charcoal-ink/60">
-          A doctor will respond by {new Date(consult.sla_due_at).toLocaleString()}.
+          A doctor will respond by {formatDateTime(consult.sla_due_at)}.
         </p>
       )}
       {answered && consult.answer && (
@@ -48,7 +49,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
             <p className="mt-1 text-xs text-charcoal-ink/60">
               Answered by Dr. {consult.answerer.full_name}
               {credential ? ` (${credential})` : ""} on{" "}
-              {new Date(consult.answered_at).toLocaleDateString()}
+              {formatDate(consult.answered_at)}
             </p>
           )}
         </div>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { FacilitySelector, type PatientLocation } from "./facility-selector";
 import type { FacilityWithServices } from "@/lib/queries/facilities";
 import { useRequestLabOrderPartnerVisit } from "@/lib/queries/lab-orders";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -53,7 +54,7 @@ export function RequestPartnerLabVisit({
     return (
       <p className="text-xs text-charcoal-ink/60">
         Request sent — the lab will confirm your {timeOfDay} visit on{" "}
-        {new Date(scheduledDate).toLocaleDateString()}.
+        {formatDate(scheduledDate)}.
       </p>
     );
   }

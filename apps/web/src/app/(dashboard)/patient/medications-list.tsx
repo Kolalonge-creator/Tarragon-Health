@@ -14,6 +14,7 @@ import { MedicationCollectionForm } from "./medication-collection-form";
 import { MedicationIssueReportForm } from "./medication-issue-report-form";
 import { usePatientNextReview } from "@/lib/queries/medication-reviews";
 import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -128,7 +129,7 @@ export function MedicationsList({
                   )}
                   {medication.refill_date && refillCoordinationEnabled && (
                     <p className="text-xs text-charcoal-ink/60">
-                      Refill by {new Date(medication.refill_date).toLocaleDateString()} ·{" "}
+                      Refill by {formatDate(medication.refill_date)} ·{" "}
                       {daysLeftLabel(medication.refill_date)}
                     </p>
                   )}
@@ -144,7 +145,7 @@ export function MedicationsList({
                   {medication.last_confirmed_at && (
                     <p className="text-xs text-charcoal-ink/60">
                       Refill checked and still valid ·{" "}
-                      {new Date(medication.last_confirmed_at).toLocaleDateString()}
+                      {formatDate(medication.last_confirmed_at)}
                       <span className="text-charcoal-ink/40">
                         {" "}
                         (an administrative check, not a new dose review)
@@ -214,7 +215,7 @@ function CabinetSummary({ patientId }: { patientId: string }) {
         <div>
           <p className="text-xs text-charcoal-ink/50">Next medication review</p>
           <p className="text-sm text-charcoal-ink">
-            {new Date(nextReview.due_date).toLocaleDateString()}{" "}
+            {formatDate(nextReview.due_date)}{" "}
             <span className="text-charcoal-ink/50">· {daysLeftLabel(nextReview.due_date)}</span>
           </p>
         </div>
@@ -226,7 +227,7 @@ function CabinetSummary({ patientId }: { patientId: string }) {
             {nextLab.monitoring_label}
             <span className="text-charcoal-ink/50">
               {" "}
-              · {new Date(nextLab.due_date).toLocaleDateString()}
+              · {formatDate(nextLab.due_date)}
             </span>
           </p>
         </div>
@@ -474,7 +475,7 @@ function PastMedications({ patientId }: { patientId: string }) {
               <p className="text-xs text-charcoal-ink/50">
                 Stopped
                 {medication.stopped_at
-                  ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
+                  ? ` ${formatDate(medication.stopped_at)}`
                   : ""}
                 {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
               </p>

@@ -16,6 +16,7 @@ import {
   type ProgrammeRiskInput,
   type RiskTier,
 } from "@/lib/rules/preventive-programme-recommendations";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,7 @@ function WomensHealthScreeningStatus({ patientId }: { patientId: string }) {
         <li key={schedule.id} className="text-xs text-charcoal-ink/70">
           <span className="font-medium">{schedule.screen_type?.name}</span>:{" "}
           {SCREENING_STATUS_LABEL[schedule.status]}
-          {schedule.due_date && `, ${new Date(schedule.due_date).toLocaleDateString()}`}
+          {schedule.due_date && `, ${formatDate(schedule.due_date)}`}
         </li>
       ))}
     </ul>
@@ -130,7 +131,7 @@ export function PreventiveProgrammes({
         </p>
         {nextReview.data && (
           <p className="text-xs text-brand-green">
-            Next health review due {new Date(nextReview.data.due_date).toLocaleDateString()}.
+            Next health review due {formatDate(nextReview.data.due_date)}.
           </p>
         )}
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}

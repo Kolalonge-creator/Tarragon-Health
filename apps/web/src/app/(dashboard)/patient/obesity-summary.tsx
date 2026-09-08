@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -44,7 +45,7 @@ export async function ObesitySummary({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/70">
-          Your care team recorded this on {new Date(data.assessed_at).toLocaleDateString()}. Weight is
+          Your care team recorded this on {formatDate(data.assessed_at)}. Weight is
           only one part of the picture, alongside your energy, sleep, blood pressure and how you feel,
           not a number on the scale.
         </p>

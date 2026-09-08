@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -44,7 +45,7 @@ export async function BariatricReferralStatus({ patientId }: { patientId: string
           {STATUS_COPY[data.status] ?? "Your care team is coordinating a specialist assessment."}
         </p>
         <p className="text-xs text-charcoal-ink/60">
-          Raised {new Date(data.referred_at).toLocaleDateString()}. Questions about this are
+          Raised {formatDate(data.referred_at)}. Questions about this are
           welcome, your care team can walk you through what happens next.
         </p>
       </CardContent>

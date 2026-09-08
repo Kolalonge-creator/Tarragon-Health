@@ -4,6 +4,7 @@ import { useScreeningSchedules } from "@/lib/queries/screening";
 import { todayIsoDate } from "@/lib/queries/medications";
 import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
 import { ConfirmScreeningDoneForm } from "./confirm-screening-done-form";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,7 @@ export function PreventiveScreeningCalendar({
                     <Badge variant={badge.variant}>{badge.label}</Badge>
                   </div>
                   <p className="text-xs text-charcoal-ink/60">
-                    Due {new Date(schedule.due_date).toLocaleDateString()}
+                    Due {formatDate(schedule.due_date)}
                   </p>
                   {isDue && canBook && bundle && (
                     <div className="space-y-2">

@@ -7,6 +7,7 @@ import {
   type LifestyleActionState,
 } from "./actions";
 import type { LifestyleEnrollmentView } from "@/lib/lifestyle/service";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -59,7 +60,7 @@ export function ConditionEnrollmentCard({ enrollment }: { enrollment: LifestyleE
             {enrollment.nextReviewDue && (
               <p className="text-muted-foreground text-xs">
                 Next care-team review:{" "}
-                {new Date(enrollment.nextReviewDue).toLocaleDateString()}
+                {formatDate(enrollment.nextReviewDue)}
               </p>
             )}
             {enrollment.conditionKey && (

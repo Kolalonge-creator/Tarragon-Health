@@ -7,6 +7,7 @@ import { useUploadOwnResultDocument } from "@/lib/queries/lab-result-documents";
 import { logScreeningCompletionSchema } from "@/lib/validation/screening-completion";
 import { RESULT_DOC_ACCEPT, validateResultDocFile } from "@/lib/validation/lab-result-documents";
 import { todayIsoDate } from "@/lib/queries/medications";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -119,7 +120,7 @@ export function ConfirmScreeningDoneForm({
     return (
       <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
         <p className="text-sm text-brand-green">
-          Marked as done for {new Date(performedDate).toLocaleDateString()}. We&apos;ve scheduled
+          Marked as done for {formatDate(performedDate)}. We&apos;ve scheduled
           your next {screenTypeName.toLowerCase()} from that date.
         </p>
         {!uploadSuccess ? (

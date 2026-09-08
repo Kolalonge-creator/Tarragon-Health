@@ -4,6 +4,7 @@
 // from the server" and took the whole patient dashboard down with it — the
 // hook below is a client hook, so the file has to declare the boundary.
 import { usePatientRiskSignals } from "@/lib/queries/health-score";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ResultExplainer } from "@/components/result-explainer";
@@ -89,7 +90,7 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
           </>
         )}
         <p className="text-xs text-charcoal-ink/40">
-          Last updated {new Date(lastUpdated).toLocaleDateString()}
+          Last updated {formatDate(lastUpdated)}
         </p>
       </CardContent>
     </Card>

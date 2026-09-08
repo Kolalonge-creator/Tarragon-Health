@@ -4,6 +4,7 @@ import { useActionState, useEffect, useState } from "react";
 import { createGoalAction, type LifestyleActionState } from "./actions";
 import type { LifestyleEnrollmentView, PastLifestyleGoalView } from "@/lib/lifestyle/service";
 import type { ConditionKey } from "@tarragon/lifestyle-engine";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -343,7 +344,7 @@ function PastGoalsList({ goals }: { goals: PastLifestyleGoalView[] }) {
           <div>
             <p className="text-sm font-medium text-charcoal-ink">{g.title}</p>
             <p className="text-xs text-muted-foreground">
-              {g.conditionLabel} · {new Date(g.updatedAt).toLocaleDateString()}
+              {g.conditionLabel} · {formatDate(g.updatedAt)}
             </p>
           </div>
           <Badge variant={g.status === "achieved" ? "green" : "grey"}>{g.status}</Badge>

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const LABEL: Record<string, string> = { retinal: "Eye (retinal) screening", renal: "Kidney check (eGFR + ACR)" };
@@ -32,8 +33,8 @@ export async function ComplicationStatus({ patientId }: { patientId: string }) {
           <div key={row.check_type} className="flex flex-wrap justify-between gap-x-4">
             <span className="text-charcoal-ink">{LABEL[row.check_type] ?? row.check_type}</span>
             <span className="text-charcoal-ink/60">
-              Done {new Date(row.done_at).toLocaleDateString()}
-              {row.next_due_at ? ` · next due ${new Date(row.next_due_at).toLocaleDateString()}` : ""}
+              Done {formatDate(row.done_at)}
+              {row.next_due_at ? ` · next due ${formatDate(row.next_due_at)}` : ""}
             </span>
           </div>
         ))}

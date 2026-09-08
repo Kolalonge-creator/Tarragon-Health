@@ -9,6 +9,7 @@ import {
   type HospitalAdmission,
 } from "@/lib/queries/hospital-admissions";
 import { patientTimelineKey } from "@/lib/queries/hospital-admissions";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,9 +55,9 @@ function AdmissionRow({
         <span className="text-xs text-charcoal-ink/60">{durationLabel(admission)}</span>
       </div>
       <p className="text-xs text-charcoal-ink/70">
-        Admitted {new Date(admission.admitted_on).toLocaleDateString()}
+        Admitted {formatDate(admission.admitted_on)}
         {admission.discharged_on
-          ? ` · discharged ${new Date(admission.discharged_on).toLocaleDateString()}`
+          ? ` · discharged ${formatDate(admission.discharged_on)}`
           : ""}
       </p>
       {admission.self_reported_diagnosis && (

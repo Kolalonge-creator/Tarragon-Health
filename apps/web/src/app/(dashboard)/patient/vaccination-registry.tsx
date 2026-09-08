@@ -12,6 +12,7 @@ import {
   validateCertificateFile,
   CERTIFICATE_ACCEPT,
 } from "@/lib/validation/vaccination";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -88,7 +89,7 @@ function VaccinationRecordRow({
         <Badge variant={badge.variant}>{badge.label}</Badge>
       </div>
       <p className="text-xs text-charcoal-ink/60">
-        Given {new Date(record.date_administered).toLocaleDateString()}
+        Given {formatDate(record.date_administered)}
         {record.provider ? ` · ${record.provider}` : ""}
       </p>
 
@@ -97,7 +98,7 @@ function VaccinationRecordRow({
           <p>
             Verified by your Tarragon care team
             {record.verified_at
-              ? ` · ${new Date(record.verified_at).toLocaleDateString()}`
+              ? ` · ${formatDate(record.verified_at)}`
               : ""}
             {record.tarragon_certificate_serial
               ? ` · ${record.tarragon_certificate_serial}`
@@ -229,7 +230,7 @@ export function VaccinationRegistry({
                   <span className="font-medium">{entry.name}</span>
                   {entry.dosesGiven > 0 ? ` · dose ${entry.dosesGiven + 1}` : ""}
                   {entry.nextDueDate
-                    ? `, due ${new Date(entry.nextDueDate).toLocaleDateString()}`
+                    ? `, due ${formatDate(entry.nextDueDate)}`
                     : ", due now"}
                 </li>
               ))}
@@ -260,10 +261,10 @@ export function VaccinationRegistry({
                     </div>
                     <p className="text-xs text-charcoal-ink/60">
                       {entry.lastDoseDate
-                        ? `Last dose ${new Date(entry.lastDoseDate).toLocaleDateString()} (dose ${entry.dosesGiven})`
+                        ? `Last dose ${formatDate(entry.lastDoseDate)} (dose ${entry.dosesGiven})`
                         : "No doses recorded yet"}
                       {entry.nextDueDate &&
-                        `, next due ${new Date(entry.nextDueDate).toLocaleDateString()}`}
+                        `, next due ${formatDate(entry.nextDueDate)}`}
                     </p>
                   </li>
                 );

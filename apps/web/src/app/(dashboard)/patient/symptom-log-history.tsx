@@ -1,6 +1,7 @@
 "use client";
 
 import { useSymptomLogs } from "@/lib/queries/symptoms";
+import { formatDateTime } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -58,7 +59,7 @@ export function SymptomLogHistory({ patientId }: { patientId: string }) {
                   )}
                 </div>
                 <span className="text-xs text-charcoal-ink/60">
-                  {new Date(symptom.reported_at).toLocaleString()}
+                  {formatDateTime(symptom.reported_at)}
                 </span>
               </li>
             ))}

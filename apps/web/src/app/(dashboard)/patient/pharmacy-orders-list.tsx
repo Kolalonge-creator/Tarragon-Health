@@ -8,6 +8,7 @@ import {
   type PharmacyOrderItem,
   type PharmacyOrderWithLogistics,
 } from "@/lib/queries/pharmacy-orders";
+import { formatDate } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -46,7 +47,7 @@ function OrderDispenses({
           {dispenses.map((d) => (
             <li key={d.id} className="text-xs text-charcoal-ink/60">
               Collected: {d.drug_name}
-              {d.quantity ? ` × ${d.quantity}` : ""} · {new Date(d.dispensed_on).toLocaleDateString()}
+              {d.quantity ? ` × ${d.quantity}` : ""} · {formatDate(d.dispensed_on)}
             </li>
           ))}
         </ul>

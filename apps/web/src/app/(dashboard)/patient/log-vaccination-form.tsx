@@ -15,6 +15,7 @@ import {
   validateCertificateFile,
   CERTIFICATE_ACCEPT,
 } from "@/lib/validation/vaccination";
+import { formatDate } from "@/lib/format-date";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -210,7 +211,7 @@ export function LogVaccinationForm({
                 {vaccinationBookings.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.facilities?.name ?? "Vaccination centre"} ·{" "}
-                    {new Date(b.requested_date).toLocaleDateString()}
+                    {formatDate(b.requested_date)}
                   </option>
                 ))}
               </Select>

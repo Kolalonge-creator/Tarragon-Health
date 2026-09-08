@@ -1,6 +1,7 @@
 "use client";
 
 import { useVitalsReadings } from "@/lib/queries/vitals";
+import { formatDateTime } from "@/lib/format-date";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { mmolLToMgDl, type Tables } from "@tarragon/shared";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -122,7 +123,7 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                   )}
                 </div>
                 <span className="text-xs text-charcoal-ink/60">
-                  {new Date(reading.taken_at).toLocaleString()}
+                  {formatDateTime(reading.taken_at)}
                 </span>
               </li>
             ))}
