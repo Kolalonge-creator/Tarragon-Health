@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
-import { sectionWebviewPath, type SectionId } from "@/lib/sections";
+import type { SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
@@ -28,7 +28,6 @@ import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
-import { WebViewHubScreen } from "@/screens/sections/webview-hub-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
@@ -43,6 +42,7 @@ import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
 import { ServicesScreen } from "@/screens/sections/services-screen";
 import { LifestyleScreen } from "@/screens/sections/lifestyle-screen";
 import { LearnScreen } from "@/screens/sections/learn-screen";
+import { PrivacyScreen } from "@/screens/sections/privacy-screen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -168,12 +168,6 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   }
 
   const subjectId = acting?.profileId ?? userId;
-  // Any section without a native screen renders the matching web page,
-  // signed in through /auth/mobile-bridge. Resolved from the registry rather
-  // than listed here, so adding a section is a one-line change in
-  // lib/sections.ts and cannot leave a drawer entry that routes nowhere.
-  const webviewPath = sectionWebviewPath(section);
-
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <TopBar
@@ -281,14 +275,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {section === "family" && <FamilyScreen userId={userId} onNavigate={handleSelect} />}
         {section === "screeningDays" && <ScreeningDaysScreen />}
         {section === "financialProfile" && <FinancialProfileScreen userId={userId} />}
-        {section === "privacy" && webviewPath && (
-          <WebViewHubScreen
-            title="Privacy & your data"
-            description="What you've agreed to, who can see your record, and how to request, correct, or delete your data."
-            icon="lock-closed-outline"
-            webviewPath={webviewPath}
-          />
-        )}
+        {section === "privacy" && <PrivacyScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />}
         {section === "services" && <ServicesScreen />}
       </View>
 
