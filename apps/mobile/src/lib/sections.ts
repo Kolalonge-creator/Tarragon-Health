@@ -85,7 +85,6 @@ export const SECTIONS: SectionDef[] = [
     label: "My actions",
     icon: "checkmark-done-outline",
     group: "top",
-    webviewPath: "/patient/actions",
   },
 
   {
@@ -117,49 +116,42 @@ export const SECTIONS: SectionDef[] = [
     label: "Health summary",
     icon: "document-text-outline",
     group: "Your health",
-    webviewPath: "/patient/health-summary",
   },
   {
     id: "womensHealth",
     label: "Women's Health",
     icon: "female-outline",
     group: "Your health",
-    webviewPath: "/patient/womens-health",
   },
   {
     id: "sexualHealth",
     label: "Sexual & reproductive health",
     icon: "heart-outline",
     group: "Your health",
-    webviewPath: "/patient/sexual-health",
   },
   {
     id: "wellbeing",
     label: "Wellbeing",
     icon: "happy-outline",
     group: "Your health",
-    webviewPath: "/patient/wellbeing",
   },
   {
     id: "healthCheck",
     label: "Health Check",
     icon: "clipboard-outline",
     group: "Your health",
-    webviewPath: "/patient/health-check",
   },
   {
     id: "findASpecialist",
     label: "Find a specialist",
     icon: "search-outline",
     group: "Your health",
-    webviewPath: "/patient/find-a-specialist",
   },
   {
     id: "healthyAgeing",
     label: "Healthy ageing",
     icon: "accessibility-outline",
     group: "Your health",
-    webviewPath: "/patient/healthy-ageing",
   },
 
   {
@@ -174,7 +166,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Weight management",
     icon: "speedometer-outline",
     group: "Stay well",
-    webviewPath: "/patient/weight-management",
   },
   {
     id: "learn",
@@ -188,7 +179,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Wellness rewards",
     icon: "trophy-outline",
     group: "Stay well",
-    webviewPath: "/patient/wellness",
   },
 
   {
@@ -216,7 +206,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Your people",
     icon: "people-outline",
     group: "Support",
-    webviewPath: "/patient/family",
   },
   { id: "supporting", label: "People you support", icon: "hand-left-outline", group: "Support" },
   {
@@ -224,7 +213,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Group screening days",
     icon: "people-circle-outline",
     group: "Support",
-    webviewPath: "/patient/screening-days",
   },
 
   { id: "passport", label: "Health Passport", icon: "id-card-outline", group: "Your account" },
@@ -233,7 +221,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Your finances",
     icon: "wallet-outline",
     group: "Your account",
-    webviewPath: "/patient/financial-profile",
   },
   {
     id: "services",
@@ -247,21 +234,18 @@ export const SECTIONS: SectionDef[] = [
     label: "Receipts",
     icon: "receipt-outline",
     group: "Your account",
-    webviewPath: "/patient/receipts",
   },
   {
     id: "notificationSettings",
     label: "Notification settings",
     icon: "notifications-outline",
     group: "Your account",
-    webviewPath: "/patient/notification-settings",
   },
   {
     id: "technicalSupport",
     label: "Technical support",
     icon: "construct-outline",
     group: "Your account",
-    webviewPath: "/patient/support",
   },
   {
     id: "privacy",
