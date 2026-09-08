@@ -158,7 +158,7 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
         <ScreenTitle>Your people</ScreenTitle>
         <MutedText>
           Who we contact if something urgent comes up, who can follow your care, and the children whose
-          records you keep. Everyone keeps their own account and their own subscription.
+          records you keep. Everyone keeps their own account, never a shared or family plan.
         </MutedText>
       </View>
 

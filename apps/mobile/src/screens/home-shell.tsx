@@ -4,6 +4,7 @@ import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import type { SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
+import { registerPushToken } from "@/lib/push-registration";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
@@ -158,6 +159,17 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   useEffect(() => {
     refreshActing();
   }, [refreshActing]);
+
+  useEffect(() => {
+    // Once per app session, on the device owner's own userId/organisationId
+    // (never the acting-for subject — a push token belongs to the physical
+    // device/login, not whichever profile is currently being viewed).
+    // registerPushToken() was already fully built (push-registration.ts) but
+    // had no caller anywhere in the app until now — see that file's own
+    // comment for the full mechanism. Best-effort: never blocks or throws
+    // into this render.
+    void registerPushToken(userId, organisationId);
+  }, [userId, organisationId]);
 
   function handleSelect(id: SectionId) {
     setSection(id);

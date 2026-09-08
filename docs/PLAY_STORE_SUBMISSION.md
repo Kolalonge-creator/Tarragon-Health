@@ -120,6 +120,28 @@ No `android.permission.health.*` and no location permission in v0.1.0.
   native build, which is the same UI as v0.1.0).
 - Contact email: `support@tarragonhealth.ng` (confirm the mailbox exists before entering it).
 
+## Push notifications (Android)
+
+A Firebase project (`tarragonhealth-f19b3`, under the Tarragon Gmail account, Spark/free plan)
+was created 2026-09-08 with an Android app registered under `com.tarragonhealth.app`.
+`apps/mobile/google-services.json` is the client config (safe to commit — it carries only a
+Firebase Web API key scoped by package name/SHA fingerprint, the same pattern as the Supabase
+anon key already shipped). The FCM V1 service account key was uploaded to EAS and assigned to
+this project's Push Notifications (FCM V1) slot (`eas credentials -p android`), so
+`registerPushToken()` (`apps/mobile/src/lib/push-registration.ts`, called once per session from
+`home-shell.tsx`) now reaches a real, working push pipeline end to end: device token ->
+`push_subscriptions` -> `send-pending-notifications` Edge Function -> Expo push service -> FCM ->
+device. Verify after the next production build actually installs on a device by checking
+`push_subscriptions` for a fresh `expo_push_token` row, or by triggering a real notification
+category from the clinician side.
+
+SMS and WhatsApp were removed from the *patient-facing toggle* on the mobile Notification
+settings screen (2026-09-08, on explicit founder ask) — Email and Push are now the only channels
+a patient can choose there. This does not touch the underlying `sms_enabled`/`whatsapp_enabled`
+columns (unedited, whatever they already held keeps flowing to `send-pending-notifications`) or
+the platform-wide WhatsApp/SMS notification channel CLAUDE.md's Non-Negotiable Business Rules
+describe — that stays live, including on the web app's own notification settings page.
+
 ## What is deliberately not in v0.1.0
 
 - **Android Health Connect.** Built, never exercised on a device, ten health permissions

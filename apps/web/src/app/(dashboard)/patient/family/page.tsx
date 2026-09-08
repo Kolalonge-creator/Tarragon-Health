@@ -139,7 +139,7 @@ export default async function CareCirclePage() {
       <PageHeader
         title="Your people"
         icon={SEMANTIC_ICON.parentCare}
-        description="Who we contact if something urgent comes up, who can follow your care, and the children whose records you keep. Everyone keeps their own account and their own subscription."
+        description="Who we contact if something urgent comes up, who can follow your care, and the children whose records you keep. Everyone keeps their own account, never a shared or family plan."
       />
 
       <EmergencyAccessBanner />
