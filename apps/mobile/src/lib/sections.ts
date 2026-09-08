@@ -159,7 +159,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Lifestyle coaching",
     icon: "leaf-outline",
     group: "Stay well",
-    webviewPath: "/patient/lifestyle",
   },
   {
     id: "weightManagement",
@@ -227,7 +226,6 @@ export const SECTIONS: SectionDef[] = [
     label: "My services",
     icon: "card-outline",
     group: "Your account",
-    webviewPath: "/patient/subscription",
   },
   {
     id: "receipts",
