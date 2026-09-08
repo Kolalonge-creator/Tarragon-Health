@@ -297,16 +297,14 @@ export async function flushDeviceReadingsQueue(): Promise<FlushResult> {
 // ---------------------------------------------------------------------------
 
 /**
- * Flushes both queues in one call. Not currently wired into any call site —
- * background-sync.ts calls flushDeviceReadingsQueue directly instead and
- * lets syncAppleHealth/syncHealthConnect flush the health-samples queue
- * themselves (see that file), since running both flushes from here too
- * would just mean the health-samples one runs twice back to back for no
- * benefit. Kept as the one-call, drain-everything convenience for a future
- * caller that has no health sync of its own to piggyback on — a debug
- * screen's "flush now" action, or a NetInfo reconnect listener if one is
- * ever added (see background-sync.ts's own doc comment on why there isn't
- * one today).
+ * Flushes both queues in one call. background-sync.ts's periodic task still
+ * calls flushDeviceReadingsQueue directly and lets syncAppleHealth/
+ * syncHealthConnect flush the health-samples queue themselves (running both
+ * flushes from here too on every background tick would just mean the
+ * health-samples one runs twice back to back for no benefit) — this
+ * combined helper is instead the patient-facing "Sync now" action on
+ * DevicesScreen, for someone who's just back online and doesn't want to
+ * wait for the background task's own ~15-minute floor.
  */
 export async function flushOfflineQueues(): Promise<{
   healthSamples: HealthSamplesFlushResult;
@@ -320,11 +318,9 @@ export async function flushOfflineQueues(): Promise<{
 }
 
 /**
- * Total pending items across both queues, for a developer holding the
- * device to check — the offline-queue equivalent of sync-diagnostics.ts's
- * ring buffer, and deliberately just as lightweight (no dedicated debug
- * screen exists in apps/mobile/src/screens today to surface this in; wire
- * it into one if/when one is built).
+ * Total pending items across both queues — surfaced on DevicesScreen as
+ * "N readings saved on this device, waiting to sync," the same visibility
+ * pattern VitalsScreen already gives its own offline queue.
  */
 export async function getPendingCount(): Promise<number> {
   const [healthSamples, deviceReadings] = await Promise.all([

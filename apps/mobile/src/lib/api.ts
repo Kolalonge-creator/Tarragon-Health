@@ -158,6 +158,22 @@ export async function postDeviceFaultReport(
     : { success: false, error: result.error };
 }
 
+/** Gives a just-confirmed telemedicine/result-interpretation appointment its
+ * Zoom join link right away, instead of waiting for the first "Join call"
+ * tap to discover one doesn't exist yet — see
+ * apps/web/src/app/api/mobile/appointments/setup-video/route.ts. Best-effort
+ * by design: appointments.ts's bookAppointment() calls this after the
+ * booking is already confirmed and ignores its result, the same fallback
+ * web itself relies on if Zoom is briefly unreachable — a missing join link
+ * is recovered the next time this (or the web equivalent) runs, never a
+ * reason to fail a booking that already succeeded. */
+export async function postAppointmentVideoSetup(appointmentId: string): Promise<{ success: boolean; error?: string }> {
+  const result = await request<{ ok: boolean }>("/api/mobile/appointments/setup-video", "POST", {
+    appointmentId,
+  });
+  return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
 export interface LifestyleActionResult {
   success?: boolean;
   message?: string;

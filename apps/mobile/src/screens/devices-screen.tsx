@@ -5,6 +5,7 @@ import type { Device } from "react-native-ble-plx";
 import type { Tables } from "@tarragon/shared";
 import { requestBlePermissions, scanForClinicalDevices, type SupportedDeviceType } from "@/lib/ble";
 import { postDeviceFaultReport } from "@/lib/api";
+import { flushOfflineQueues, getPendingCount as getOfflineQueuePendingCount } from "@/lib/offline-queue";
 import { supabase } from "@/lib/supabase";
 import { AppleHealthCard } from "@/screens/apple-health-card";
 import { AndroidHealthConnectCard } from "@/screens/android-health-connect-card";
@@ -70,6 +71,24 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
   const [faultError, setFaultError] = useState<string | null>(null);
   const [faultSuccess, setFaultSuccess] = useState(false);
   const [pairError, setPairError] = useState<string | null>(null);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [syncingNow, setSyncingNow] = useState(false);
+
+  const refreshPendingSync = useCallback(async () => {
+    setPendingSyncCount(await getOfflineQueuePendingCount());
+  }, []);
+
+  /** Manual drain of the same two queues background-sync.ts's periodic task
+   * already retries automatically — a way for a patient who's just back
+   * online to clear a multi-day backlog now rather than wait for the next
+   * ~15-minute background run. Both flushes are safe to replay: the server
+   * routes dedupe on a stable id (see offline-queue.ts's own doc comment). */
+  async function handleSyncNow() {
+    setSyncingNow(true);
+    await flushOfflineQueues();
+    await refreshPendingSync();
+    setSyncingNow(false);
+  }
 
   const loadDevices = useCallback(async () => {
     setLoading(true);
@@ -95,7 +114,8 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
 
   useEffect(() => {
     void loadDevices();
-  }, [loadDevices]);
+    refreshPendingSync().catch(() => {});
+  }, [loadDevices, refreshPendingSync]);
 
   useEffect(() => {
     if (!pairing) return;
@@ -170,6 +190,31 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Devices</Text>
         <MutedText>Everything syncing readings into your record automatically.</MutedText>
       </View>
+
+      {pendingSyncCount > 0 ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            backgroundColor: colors.groupBg,
+            borderRadius: radius.control,
+            paddingVertical: 8,
+            paddingHorizontal: 12,
+          }}
+        >
+          {syncingNow ? <ActivityIndicator size="small" color={colors.muted} /> : null}
+          <Text style={{ fontSize: 12.5, color: colors.muted, flex: 1 }}>
+            {pendingSyncCount} {pendingSyncCount === 1 ? "reading is" : "readings are"} saved on this device,
+            waiting to sync.
+          </Text>
+          <Pressable accessibilityRole="button" onPress={() => void handleSyncNow()} disabled={syncingNow} hitSlop={8}>
+            <Text style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
+              {syncingNow ? "Syncing…" : "Sync now"}
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       <AppleHealthCard />
       <AndroidHealthConnectCard />
