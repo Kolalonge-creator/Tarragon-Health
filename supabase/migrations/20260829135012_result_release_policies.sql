@@ -31,6 +31,36 @@
 -- (20260730105131) / alert_rules (20260828013011) — deliberately NOT a
 -- plain keyed table, to stay consistent with the one pattern this codebase
 -- already uses for "clinical governance can configure X."
+--
+-- Corrected 2026-09-08, applying this migration for the first time: written
+-- 2026-08-29, before the 2026-08-31 doctor-tier collapse
+-- (20260906141300_collapse_doctor_tier_to_three.sql) retired
+-- clinical_staff.is_clinical_director — sign_result_release_policies below
+-- now checks doctor_tier = 'chief_medical_officer' instead, matching every
+-- other sign_* function that migration rewrote (that reference lives inside
+-- a plpgsql function body, only bound when the function is actually called,
+-- long after the enum carries the new value — safe to fix in place).
+--
+-- screening_results_select is a DIFFERENT class of forward reference and is
+-- deliberately NOT fixed in place here, the way lab_specimens_select's own
+-- companion migration (20260906145717_lab_specimens_select_category_scoped.
+-- sql) already had to solve this exact problem: a CREATE POLICY ... USING
+-- clause is parsed and type-checked immediately, unlike a plpgsql function
+-- body, so an explicit cast to public.care_access_category or
+-- public.caregiver_permission in this policy fails with `type
+-- "public.care_access_category" does not exist` (SQLSTATE 42704) on a
+-- from-scratch replay — confirmed by hitting exactly that error in this
+-- migration's own CI run before writing this correction. Those types (and
+-- the 2-arg can_read_clinical/has_emergency_access overloads) are created by
+-- 20260830103251_category_scoped_clinical_access_and_emergency_access.sql,
+-- which sorts AFTER this file. The policy below is therefore installed here
+-- exactly as it would have been written on 2026-08-29 (the then-current
+-- 1-arg can_read_clinical(uuid) form, no emergency-access or caregiver-
+-- permission branches — neither existed yet), with only the new
+-- patient_result_blocked gate added on top of that period-correct shape.
+-- 20260908150500_screening_results_select_release_policy_gate.sql brings it
+-- forward to the shape actually live today (confirmed via pg_policy), once
+-- every dependency it needs actually exists.
 
 create type public.result_release_mode as enum ('immediate', 'after_review', 'restricted');
 
@@ -132,12 +162,18 @@ revoke all on function private.patient_result_blocked(text, public.result_status
 grant execute on function private.patient_result_blocked(text, public.result_status) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- The RLS rewrite. Byte-identical to the live screening_results_select
--- (20260731185243_sponsor_clinical_access_results_and_escalations.sql)
--- except the added block check — org staff are NEVER gated by release
--- policy (a restriction is about what's shown to the PATIENT pending a
--- doctor's delivery, not about hiding a result from the care team that has
--- to deliver it), only the patient-direct and consented-supporter branches.
+-- The RLS rewrite. Byte-identical to the live screening_results_select as of
+-- 2026-08-29 (20260731185243_sponsor_clinical_access_results_and_escalations.
+-- sql — the 1-arg can_read_clinical(uuid) form, no emergency-access or
+-- caregiver-permission branches, neither exists yet at this point in the
+-- migration sequence) except the added block check — org staff are NEVER
+-- gated by release policy (a restriction is about what's shown to the
+-- PATIENT pending a doctor's delivery, not about hiding a result from the
+-- care team that has to deliver it), only the patient-direct and
+-- consented-supporter branches. See the header note above for why this
+-- period-correct shape, not today's live shape, belongs in THIS file —
+-- 20260908150500_screening_results_select_release_policy_gate.sql carries it
+-- forward once its dependencies actually exist.
 -- ---------------------------------------------------------------------------
 drop policy if exists screening_results_select on public.screening_results;
 create policy screening_results_select on public.screening_results
@@ -201,7 +237,7 @@ begin
   from public.clinical_staff cs
   where cs.profile_id = (select auth.uid())
     and cs.active
-    and cs.is_clinical_director
+    and cs.doctor_tier = 'chief_medical_officer'
   limit 1;
 
   if v_staff is null then

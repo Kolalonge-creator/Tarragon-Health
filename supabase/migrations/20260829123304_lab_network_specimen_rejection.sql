@@ -8,6 +8,15 @@
 -- The new specimen is linked via recollection_of so the full chain (how many
 -- attempts, why each failed) stays on the record rather than being
 -- overwritten.
+--
+-- Corrected 2026-09-08, applying this migration for the first time: it was
+-- written 2026-08-29, two days before the 2026-08-31 doctor-tier collapse
+-- (20260906141300_collapse_doctor_tier_to_three.sql) retired the orthogonal
+-- clinical_staff.is_clinical_director column entirely. The staff-notification
+-- fan-out below originally read `cs.is_clinical_director`, which no longer
+-- exists live — replaced with the tier-collapse migration's own equivalent,
+-- `cs.doctor_tier = 'chief_medical_officer'`, same as every other call site
+-- that migration rewrote.
 
 create or replace function public.lab_partner_reject_specimen(
   p_specimen_id uuid,
@@ -94,7 +103,7 @@ begin
     from public.clinical_staff cs
    where cs.organisation_id = v_specimen.organisation_id
      and cs.active
-     and cs.is_clinical_director;
+     and cs.doctor_tier = 'chief_medical_officer';
 
   return v_new;
 end;

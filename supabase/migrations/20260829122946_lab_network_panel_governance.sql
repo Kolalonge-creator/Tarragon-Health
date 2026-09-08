@@ -56,6 +56,28 @@ update public.panel_bundles set category = 'single_test'
   where code like 'single_%' and category = 'other';
 update public.panel_bundles set category = 'other' where code in ('screen_advanced', 'screen_comprehensive');
 
+-- Corrected 2026-09-08, applying this migration for the first time: this
+-- file was written 2026-08-29 against that day's panel_bundles rows. Ten
+-- more active bundles were added by the 2026-09-03 catalogue rebuild
+-- (+30%, PR #469) after this migration was authored but before it was ever
+-- actually run — this migration's own closing assertion (no active bundle
+-- left uncategorised) correctly caught the gap live rather than silently
+-- passing. Categorised here on the same "real clinical theme, not
+-- commercial convenience" basis as every update above, not fabricated:
+update public.panel_bundles set category = 'annual_core'
+  where code = 'screen_essential'; -- "The Core Screen without liver function testing" per its own description — a screen_core variant, same category as its sibling.
+update public.panel_bundles set category = 'sexual_health'
+  where code = 'blood_borne_virus_screen'; -- HIV/Hep B/Hep C — the same blood-borne-infection screen sti_panel_full already covers, just without the bacterial STIs.
+update public.panel_bundles set category = 'cancer_screening'
+  where code in ('cancer_screen_cervical_30plus', 'cancer_screen_cervical_under30',
+                  'cancer_screen_men_45plus', 'cancer_screen_women_45plus');
+update public.panel_bundles set category = 'diabetes'
+  where code = 'diabetes_check'; -- HbA1c + OGTT + lipids: diabetes risk/diagnosis work-up, same theme as diabetes_panel.
+update public.panel_bundles set category = 'cardiovascular'
+  where code = 'heart_health_check'; -- lipids + HbA1c + kidney function: the cardiometabolic risk picture, same theme as hypertension_panel.
+update public.panel_bundles set category = 'wellness_baseline'
+  where code in ('mens_health_check', 'womens_health_check'); -- general age/sex-targeted preventive checks (mixed cancer/cardio/general tests, no single condition focus) — same general-checkup theme as know_your_basics, not any one disease pathway.
+
 -- Kidney assessment: both tests are already real, contracted (Synlab) codes
 -- with real patient prices (urine_acr, kft) — this bundles them as their own
 -- orderable panel rather than requiring two separate single-test orders.
