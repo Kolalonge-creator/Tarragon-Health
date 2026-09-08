@@ -31,6 +31,30 @@
 -- (20260730105131) / alert_rules (20260828013011) — deliberately NOT a
 -- plain keyed table, to stay consistent with the one pattern this codebase
 -- already uses for "clinical governance can configure X."
+--
+-- Corrected 2026-09-08, applying this migration for the first time: written
+-- 2026-08-29, before two later changes this file originally had no way to
+-- know about. (1) The 2026-08-31 doctor-tier collapse
+-- (20260906141300_collapse_doctor_tier_to_three.sql) retired
+-- clinical_staff.is_clinical_director — sign_result_release_policies below
+-- now checks doctor_tier = 'chief_medical_officer' instead, matching every
+-- other sign_* function that migration rewrote. (2) screening_results_select
+-- moved on independently between 2026-08-29 and today: the 2026-09-02
+-- platform-wide fix for six tables still calling the legacy 1-arg
+-- can_read_clinical(uuid) overload (CLAUDE.md's own documented recurring
+-- issue) already touched this exact table, and a later change added an
+-- emergency-access branch (private.has_emergency_access) and a caregiver-
+-- permission branch (can_read_clinical(uuid, caregiver_permission)) neither
+-- of which existed when this migration was written. The policy rewrite below
+-- targets the ACTUAL live shape confirmed via pg_policy immediately before
+-- writing this (not the shape this file originally assumed), adding the new
+-- patient_result_blocked gate only to the patient-direct and delegated-
+-- caregiver branches — org staff and emergency access stay ungated, per this
+-- migration's own original reasoning just below ("org staff are NEVER gated
+-- by release policy... only the patient-direct and consented-supporter
+-- branches"), which applies identically to the emergency-access branch: a
+-- clinician using break-glass access needs the raw result to act on it, the
+-- same as staff.
 
 create type public.result_release_mode as enum ('immediate', 'after_review', 'restricted');
 
@@ -132,23 +156,26 @@ revoke all on function private.patient_result_blocked(text, public.result_status
 grant execute on function private.patient_result_blocked(text, public.result_status) to authenticated;
 
 -- ---------------------------------------------------------------------------
--- The RLS rewrite. Byte-identical to the live screening_results_select
--- (20260731185243_sponsor_clinical_access_results_and_escalations.sql)
--- except the added block check — org staff are NEVER gated by release
--- policy (a restriction is about what's shown to the PATIENT pending a
--- doctor's delivery, not about hiding a result from the care team that has
--- to deliver it), only the patient-direct and consented-supporter branches.
+-- The RLS rewrite. Targets the actual live screening_results_select shape
+-- (confirmed via pg_policy before writing this correction — see the header
+-- note above), not the 2026-08-29 shape this file originally assumed: org
+-- staff and emergency access are NEVER gated by release policy (a
+-- restriction is about what's shown to the PATIENT pending a doctor's
+-- delivery, not about hiding a result from a clinician who has to act on
+-- it), only the patient-direct and delegated-caregiver-access branches.
 -- ---------------------------------------------------------------------------
 drop policy if exists screening_results_select on public.screening_results;
 create policy screening_results_select on public.screening_results
   for select to authenticated
   using (
     private.is_org_staff(organisation_id)
+    or private.has_emergency_access(patient_id, 'labs_results'::public.care_access_category)
     or (
       not private.patient_result_blocked(screen_type_code, result_status)
       and (
         patient_id = (select auth.uid())
-        or private.can_read_clinical(patient_id)
+        or private.can_read_clinical(patient_id, 'labs_results'::public.care_access_category)
+        or private.can_read_clinical(patient_id, 'view_results'::public.caregiver_permission)
       )
     )
   );
@@ -201,7 +228,7 @@ begin
   from public.clinical_staff cs
   where cs.profile_id = (select auth.uid())
     and cs.active
-    and cs.is_clinical_director
+    and cs.doctor_tier = 'chief_medical_officer'
   limit 1;
 
   if v_staff is null then
