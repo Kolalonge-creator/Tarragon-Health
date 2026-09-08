@@ -13,6 +13,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { Worklist } from "./worklist";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
+import { HtnAttestationCard } from "./htn-attestation-card";
 import type { EscalationLevel } from "@tarragon/shared";
 
 type OverviewEscalationRow = {
@@ -71,15 +72,30 @@ export default async function ClinicianPage() {
     .eq("active", true)
     .maybeSingle();
   let attestationExpiresAt: string | null = null;
+  let htnAttestationExpiresAt: string | null = null;
   if (attestationStaff) {
     const { data: latest } = await supabase
       .from("clinical_staff_attestations")
       .select("expires_at")
       .eq("clinical_staff_id", attestationStaff.id)
+      .eq("attestation_version", "AHC-2026-v1")
       .order("expires_at", { ascending: false })
       .limit(1)
       .maybeSingle();
     attestationExpiresAt = latest?.expires_at ?? null;
+
+    // H17 (TH-CP-HTN-001 §14.7/§23) — separate attestation_version row, same
+    // clinical_staff_attestations table. `enforce_htn_alert_attestation`
+    // checks exactly this version string; keep them in sync.
+    const { data: latestHtn } = await supabase
+      .from("clinical_staff_attestations")
+      .select("expires_at")
+      .eq("clinical_staff_id", attestationStaff.id)
+      .eq("attestation_version", "htn-red-flags-v1")
+      .order("expires_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    htnAttestationExpiresAt = latestHtn?.expires_at ?? null;
   }
 
   // Unified doctor dashboard (founder decision 2026-07-31): every doctor,
@@ -170,6 +186,7 @@ export default async function ClinicianPage() {
       )}
       {staff && <RedFlagAttestation />}
       {attestationStaff && <AttestationCard expiresAt={attestationExpiresAt} />}
+      {attestationStaff && <HtnAttestationCard expiresAt={htnAttestationExpiresAt} />}
 
       {anythingFailed && (
         <LoadFailure>
