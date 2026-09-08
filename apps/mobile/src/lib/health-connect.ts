@@ -27,9 +27,31 @@ let cachedModule: typeof HealthConnectPackage | null | undefined;
  */
 const IS_EXPO_GO = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
 
+/**
+ * Health Connect is switched OFF for the first Google Play release
+ * (v0.1.0, 2026-09-08). The whole bridge below has never run against a real
+ * Health Connect payload on any device or emulator, and the ten
+ * `android.permission.health.*` permissions it needs (two of them, background
+ * and history read, being the ones Play scrutinises hardest, plus a
+ * permissions-rationale intent no screen in this app handles yet) would put
+ * the first store review behind Google's Health Connect declaration gate for
+ * a feature nobody has yet exercised. So the first release ships without it.
+ *
+ * This flag is the JS half; the native half is (a) `react-native-health-
+ * connect` listed under `expo.autolinking.exclude` in package.json, so its
+ * native code never links into the binary, and (b) the plugin entries and
+ * health permissions removed from app.json. Re-enabling for 0.4.0 means
+ * reversing those three things, adding the permissions-rationale screen,
+ * bumping runtimeVersion (a native change), and testing on a real Android
+ * phone with Health Connect installed BEFORE resubmitting; the last shipped
+ * version of the full wiring is at git commit 8b41111f (app.json, package.json,
+ * plugins/withHealthConnectMainActivity.js).
+ */
+const HEALTH_CONNECT_ENABLED = false;
+
 function loadHealthConnect(): typeof HealthConnectPackage | null {
   if (cachedModule !== undefined) return cachedModule;
-  if (IS_EXPO_GO) {
+  if (IS_EXPO_GO || !HEALTH_CONNECT_ENABLED) {
     cachedModule = null;
     return cachedModule;
   }

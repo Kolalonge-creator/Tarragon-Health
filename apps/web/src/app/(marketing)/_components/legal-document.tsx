@@ -3,6 +3,15 @@ import { Section } from "./section";
 import type { LegalDocument } from "@/lib/marketing/legal-data";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
+/** "Deleting your account" -> "deleting-your-account"; stable, URL-safe. */
+export function legalSectionId(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 /** All public legal pages, consent-versioned or static, in one cross-link set. */
 const LEGAL_PAGES = [
   { key: "privacy", href: MARKETING_ROUTES.privacy, label: "Data Processing Consent" },
@@ -76,8 +85,11 @@ export function LegalDocumentPage({
             </p>
             <div className="mt-10 space-y-8">
               {document.sections.map((section) => (
-                <section key={section.heading}>
-                  <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
+                // Anchored so a deep link such as /privacy#deleting-your-account
+                // (the account-deletion URL declared in the Google Play Data
+                // safety form) lands on the right section.
+                <section key={section.heading} id={legalSectionId(section.heading)}>
+                  <h2 className="font-heading text-xl font-semibold text-charcoal-ink scroll-mt-24">
                     {section.heading}
                   </h2>
                   {section.paragraphs.map((p, i) => (

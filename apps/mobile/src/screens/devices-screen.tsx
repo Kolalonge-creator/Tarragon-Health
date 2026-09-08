@@ -285,6 +285,26 @@ export function DevicesScreen({ patientId, organisationId, onOpenDevice }: Devic
         )}
       </View>
 
+      {/* Honest framing for the first store release: the BLE pairing path
+          (lib/ble.ts + the shared GATT parsers) is fully built but has never
+          been exercised against a real cuff/glucometer/scale — see CLAUDE.md's
+          Device & Wearable Integration section. Manual entry is the
+          proven path and stays primary; this card says so rather than
+          letting a patient conclude the app is broken when a device that
+          isn't standard-GATT (most Omron/iHealth models) never shows up.
+          Remove this once pairing has passed on real hardware. */}
+      <Card style={{ gap: 6, backgroundColor: colors.groupBg }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Ionicons name="flask-outline" size={16} color={colors.muted} />
+          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink }}>Bluetooth pairing is in early testing</Text>
+        </View>
+        <MutedText>
+          It works with devices that use the standard Bluetooth health profiles. If your device
+          doesn&apos;t appear, or a reading doesn&apos;t come through, typing the reading in from the
+          Vitals tab is quick and reaches your care team in exactly the same way.
+        </MutedText>
+      </Card>
+
       <PrimaryButton title="Pair a new device" onPress={() => setPairing(true)} />
 
       <Modal visible={pairing} animationType="slide" onRequestClose={() => setPairing(false)}>
