@@ -1,11 +1,18 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
-import { loadLifestyleState, type LifestyleEnrollment, type LpeConditionKey } from "@/lib/weight-management";
-import { EnrollCta, EnrollmentCard } from "@/screens/sections/lifestyle-shared";
+import * as WebBrowser from "expo-web-browser";
+import {
+  loadLifestyleState,
+  loadPastLifestyleGoals,
+  type LifestyleEnrollment,
+  type LpeConditionKey,
+  type PastLifestyleGoal,
+} from "@/lib/weight-management";
+import { EnrollCta, EnrollmentCard, when } from "@/screens/sections/lifestyle-shared";
 import type { SectionId } from "@/lib/sections";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, spacing } from "@/ui/theme";
-import { CalloutCard, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { Badge, CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
 
 const STARTABLE: { key: LpeConditionKey; title: string; description: string }[] = [
   {
@@ -47,14 +54,15 @@ interface LifestyleScreenProps {
  * patient reaches it from. Weight management and Wellness rewards already
  * have their own native homes (link-outs, not rebuilds); the five
  * standalone trackers below (meals, exercise, sleep, smoking, alcohol) have
- * no native home yet, so they open the equivalent web page in a WebView
- * modal — same pattern as Health Check's lab-booking card.
+ * no native home yet, so tapping one hands off to the equivalent web page in
+ * the system browser (expo-web-browser) — never an embedded WebView, so the
+ * app never re-wraps a section it just went native on.
  */
 export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps) {
   const [loading, setLoading] = useState(true);
   const [enrollments, setEnrollments] = useState<LifestyleEnrollment[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [trackerPath, setTrackerPath] = useState<string | null>(null);
+  const [pastGoalsOpen, setPastGoalsOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const result = await loadLifestyleState(patientId);
@@ -95,9 +103,14 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
       style={{ flex: 1, backgroundColor: colors.background }}
       contentContainerStyle={{ padding: spacing.screen, gap: 16 }}
     >
-      <View>
-        <ScreenTitle>Lifestyle coaching</ScreenTitle>
-        <MutedText>Small, steady changes, logged here, supported by your care team.</MutedText>
+      <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+        <View style={{ flex: 1 }}>
+          <ScreenTitle>Lifestyle coaching</ScreenTitle>
+          <MutedText>Small, steady changes, logged here, supported by your care team.</MutedText>
+        </View>
+        <Text onPress={() => setPastGoalsOpen(true)} style={{ fontSize: 13, fontWeight: "600", color: colors.brand, paddingTop: 4 }}>
+          Past goals
+        </Text>
       </View>
 
       {STARTABLE.map(({ key, title, description }) => {
@@ -125,21 +138,77 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
             key={tracker.path}
             icon="leaf-outline"
             title={tracker.label}
-            subtitle="Log this in the full patient app."
+            subtitle="Opens in your browser, signed in as you."
             ctaLabel="Open"
-            onPress={() => setTrackerPath(tracker.path)}
+            onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}${tracker.path}`)}
           />
         ))}
       </View>
 
-      <Modal visible={!!trackerPath} animationType="slide" onRequestClose={() => setTrackerPath(null)}>
-        <View style={{ flex: 1 }}>
+      <Modal visible={pastGoalsOpen} animationType="slide" onRequestClose={() => setPastGoalsOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setTrackerPath(null)} />
+            <SecondaryButton title="Close" onPress={() => setPastGoalsOpen(false)} />
           </View>
-          {trackerPath && <WebViewScreen path={trackerPath} />}
+          <PastGoalsList patientId={patientId} />
         </View>
       </Modal>
+    </ScrollView>
+  );
+}
+
+/** "View past goals" — mirrors the Past goals tab in
+ * apps/web/.../lifestyle/goals-dialog.tsx's PastGoalsList: every goal a
+ * patient has marked achieved or let go of, most recent first. Loaded lazily
+ * inside the modal rather than up front on the main screen, since it's a
+ * look-back list nobody needs on first paint. */
+function PastGoalsList({ patientId }: { patientId: string }) {
+  const [loading, setLoading] = useState(true);
+  const [goals, setGoals] = useState<PastLifestyleGoal[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPastLifestyleGoals(patientId)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.ok) setGoals(result.data);
+        else setError(result.error);
+      })
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [patientId]);
+
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+        <ActivityIndicator color={colors.brand} />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={{ padding: spacing.screen, paddingTop: 0, gap: 10 }}>
+      <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink }}>Past goals</Text>
+      {error ? (
+        <ErrorText>{error}</ErrorText>
+      ) : !goals || goals.length === 0 ? (
+        <MutedText>No past goals yet, goals you complete or let go of will show up here.</MutedText>
+      ) : (
+        goals.map((g) => (
+          <Card key={g.id} style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "600", color: colors.ink }}>{g.title}</Text>
+              <MutedText>
+                {g.conditionLabel} · {when(g.updatedAt)}
+              </MutedText>
+            </View>
+            <Badge tone={g.status === "achieved" ? "brand" : "neutral"}>{g.status}</Badge>
+          </Card>
+        ))
+      )}
     </ScrollView>
   );
 }

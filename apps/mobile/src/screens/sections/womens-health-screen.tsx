@@ -49,7 +49,7 @@ import {
   type ReproductiveHealthProfile,
 } from "@/lib/womens-health";
 import type { SectionId } from "@/lib/sections";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { CycleScreen } from "@/screens/sections/cycle-screen";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { colors, radius, spacing } from "@/ui/theme";
 import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
@@ -107,13 +107,17 @@ interface WomensHealthScreenProps {
  * health, pregnancy, postnatal care, and long-term conditions, mirroring
  * apps/web/.../patient/(sections)/womens-health/page.tsx. Only sections
  * relevant to the patient's self-reported life stage/pregnancy status
- * render, same signal as web. The cycle tracker (/patient/cycle) is a
- * large, separate subsystem (~2,660 lines: calendar, prediction engine,
- * insights) deliberately kept WebView-only in this pass — see
- * docs/mobile-native-conversion/womens-health.md's "recommend shipping the
- * life-stage cards page first" guidance; the full native tracker is a
- * follow-up phase. **Read that doc's reproductive-health safety notes
- * before changing anything here or in lib/womens-health.ts.**
+ * render, same signal as web. **The cycle tracker (/patient/cycle) is now a
+ * real native screen (screens/sections/cycle-screen.tsx, lib/cycle.ts,
+ * lib/cycle-prediction.ts)** — converted from the WebView modal this
+ * comment used to describe, per the platform-wide "eliminate every
+ * WebView-wrapped section" effort. Its calendar-grid visual and the
+ * pattern-over-time/thermal-shift insights cards were deliberately left
+ * for a follow-up pass (see cycle-screen.tsx's own header); period
+ * logging, the day log, predictions and clinical flags are fully native.
+ * **Read docs/mobile-native-conversion/womens-health.md's
+ * reproductive-health safety notes before changing anything here, in
+ * lib/womens-health.ts, or in lib/cycle.ts/cycle-screen.tsx.**
  */
 export function WomensHealthScreen({ patientId, organisationId, onNavigate }: WomensHealthScreenProps) {
   const [loading, setLoading] = useState(true);
@@ -261,7 +265,7 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
             <SecondaryButton title="Close" onPress={() => setCycleTrackerOpen(false)} />
           </View>
-          <WebViewScreen path="/patient/cycle" />
+          <CycleScreen patientId={patientId} organisationId={organisationId} onNavigate={onNavigate} />
         </View>
       </Modal>
 

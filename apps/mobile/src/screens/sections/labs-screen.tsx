@@ -4,7 +4,7 @@ import * as ImagePicker from "expo-image-picker";
 import { uploadLabResult } from "@/lib/labs";
 import { colors, radius, spacing } from "@/ui/theme";
 import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { LabOrdersScreen } from "@/screens/sections/lab-orders-screen";
 
 interface CapturedPhoto {
   uri: string;
@@ -14,12 +14,14 @@ interface CapturedPhoto {
 
 /**
  * Native camera-capture lab result upload, the one native win §2.5 of
- * MOBILE_APP_SPEC.md calls out over a web file picker — everything else
- * (orders, results, trends) stays WebView, low weekly-touch frequency,
- * already built once on web. Self-book and facility selection are not part
- * of that WebView — both were suspended platform-wide by the 2026-08-03
+ * MOBILE_APP_SPEC.md calls out over a web file picker. "Orders & results"
+ * used to open a WebView onto /patient/labs; per the founder's decision to
+ * eliminate every WebView-wrapped section from the native app, it now opens
+ * a genuine native screen (LabOrdersScreen) backed by real Supabase queries
+ * instead. Self-book and facility selection are still out of scope for that
+ * screen — both were suspended platform-wide by the 2026-08-03
  * self-arranged-fulfilment decision (no partner labs, no facility
- * directory) — so this screen must not promise either.
+ * directory) — so it must not promise either.
  */
 export function LabsScreen() {
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
@@ -112,7 +114,7 @@ export function LabsScreen() {
       <CalloutCard
         icon="flask-outline"
         title="Orders & results"
-        subtitle="See your past results, active requests, and trends in the full patient app."
+        subtitle="See your past results, active requests, and trends."
         ctaLabel="View orders & results"
         onPress={() => setLabDetailOpen(true)}
       />
@@ -122,7 +124,7 @@ export function LabsScreen() {
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
             <SecondaryButton title="Close" onPress={() => setLabDetailOpen(false)} />
           </View>
-          <WebViewScreen path="/patient/labs" />
+          <LabOrdersScreen />
         </View>
       </Modal>
     </ScrollView>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Modal, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Linking, ScrollView, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
   LIPID_ANALYTE_CODES,
@@ -17,7 +17,6 @@ import {
 } from "@/lib/health-check";
 import type { SectionId } from "@/lib/sections";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { WebViewScreen } from "@/screens/webview-screen";
 import { colors, radius, spacing } from "@/ui/theme";
 import { CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
 
@@ -73,7 +72,6 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
   const [lipids, setLipids] = useState<LipidProfile | null>(null);
   const [riskSignals, setRiskSignals] = useState<RiskSignal[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [labsModalOpen, setLabsModalOpen] = useState(false);
 
   const refresh = useCallback(async () => {
     const [checkResult, lipidProfile, signals] = await Promise.all([
@@ -161,18 +159,15 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
       <CalloutCard
         icon="flask-outline"
         title="Health checks & screenings"
-        subtitle="Book self-arranged or partner-billed lab work, upload results, and use a Care Voucher — in the full patient app."
+        // Partner-billed lab work and Care Voucher redemption are real
+        // Paystack checkout/payment flows — system-browser hand-off, never
+        // an embedded WebView, same reasoning as Subscription elsewhere in
+        // this app. Uploading a result and viewing orders/results already
+        // has a real native home in the Labs section.
+        subtitle="Book self-arranged or partner-billed lab work and use a Care Voucher on the web."
         ctaLabel="Open health checks"
-        onPress={() => setLabsModalOpen(true)}
+        onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/health-check`)}
       />
-      <Modal visible={labsModalOpen} animationType="slide" onRequestClose={() => setLabsModalOpen(false)}>
-        <View style={{ flex: 1 }}>
-          <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setLabsModalOpen(false)} />
-          </View>
-          <WebViewScreen path="/patient/health-check" />
-        </View>
-      </Modal>
 
       {lipids && lipids.latestDrawnAt && <LipidProfileCard lipids={lipids} />}
       {riskSignals.length > 0 && <RiskSignalsCard signals={riskSignals} />}

@@ -5,7 +5,7 @@ import { loadTodaysDoses, logDose, type DoseChecklistItem, type DoseStatus } fro
 import { syncDoseReminders } from "@/lib/dose-reminders";
 import { colors, inkAlpha, spacing } from "@/ui/theme";
 import { CalloutCard, Card, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
 
 interface MedicationsScreenProps {
   patientId: string;
@@ -168,7 +168,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
       <CalloutCard
         icon="medkit-outline"
         title="Your medicines cabinet"
-        subtitle='Active medications, refill status, and "check my pack" open in the full patient app.'
+        subtitle='Active medications, refills, check-ins, and "check my pack".'
         ctaLabel="Open cabinet"
         onPress={() => setCabinetOpen(true)}
       />
@@ -178,7 +178,7 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
             <SecondaryButton title="Close" onPress={() => setCabinetOpen(false)} />
           </View>
-          <WebViewScreen path="/patient/medications" />
+          <MedicineCabinetScreen patientId={patientId} organisationId={organisationId} />
         </View>
       </Modal>
     </ScrollView>

@@ -5,7 +5,7 @@ import appIcon from "../../assets/icon.png";
 import { supabase } from "@/lib/supabase";
 import { colors, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { SignUpScreen } from "@/screens/signup-screen";
 import { ForgotPasswordScreen } from "@/screens/forgot-password-screen";
 
 /** Supabase auth error strings are developer-facing ("Invalid login
@@ -30,11 +30,14 @@ function friendlySignInError(rawMessage: string): string {
 
 /**
  * App-level auth gate in front of the whole signed-in app — every section
- * behind the tab bar and drawer (docs/MOBILE_APP_SPEC.md §1). Sign-in is
- * native; account creation stays app/web-only per CLAUDE.md but doesn't need
- * a native reimplementation of consent/KYC/plan-selection/payment (payment
- * embedding is explicitly banned — see §7) — "Create your account" opens the
- * real web signup flow inline in a WebView instead.
+ * behind the tab bar and drawer (docs/MOBILE_APP_SPEC.md §1). Sign-in and
+ * account creation are both native: "Create your account" opens SignUpScreen
+ * (signup-screen.tsx), a plain app-native form mirroring the web signup flow
+ * field-for-field. Signup involves no payment or plan selection (the
+ * 2026-09-02 "free app, pay-per-service" pivot — see CLAUDE.md), so there
+ * was never a payment-embedding concern here to begin with; that guardrail
+ * lives in the separate settings-screen subscription/payment hand-off to the
+ * system browser, unrelated to this screen.
  */
 export function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -143,12 +146,7 @@ export function LoginScreen() {
       </ScrollView>
 
       <Modal visible={signupOpen} animationType="slide" onRequestClose={() => setSignupOpen(false)}>
-        <View style={{ flex: 1 }}>
-          <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setSignupOpen(false)} />
-          </View>
-          <WebViewScreen path="/signup" />
-        </View>
+        <SignUpScreen onClose={() => setSignupOpen(false)} />
       </Modal>
 
       <Modal visible={forgotOpen} animationType="slide" onRequestClose={() => setForgotOpen(false)}>

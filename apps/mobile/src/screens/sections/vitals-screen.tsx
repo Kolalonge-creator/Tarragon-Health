@@ -25,8 +25,8 @@ import {
   SecondaryButton,
   SectionLabel,
 } from "@/ui/components";
-import { WebViewScreen } from "@/screens/webview-screen";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
+import { SymptomScreen } from "@/screens/sections/symptom-screen";
 
 interface GuidanceState {
   detail: string;
@@ -347,7 +347,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
       <CalloutCard
         icon="clipboard-outline"
         title="Log a symptom"
-        subtitle="Symptom logging opens in the full patient app."
+        subtitle="Check for danger signs, log a symptom, and see your recent history."
         ctaLabel="Log a symptom"
         onPress={() => setSymptomOpen(true)}
       />
@@ -357,7 +357,7 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
             <SecondaryButton title="Close" onPress={() => setSymptomOpen(false)} />
           </View>
-          <WebViewScreen path="/patient/vitals" />
+          <SymptomScreen patientId={patientId} beneficiaryProfileId={beneficiaryProfileId} />
         </View>
       </Modal>
 

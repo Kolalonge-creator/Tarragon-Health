@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import {
   CARE_ACCESS_CATEGORIES,
   NEXT_OF_KIN_RELATIONSHIPS,
   cancelCareAccessRequest,
+  describeCareAccessEvent,
   inverseRelationship,
+  loadCareAccessLog,
   loadCareAccessRequests,
   loadEmergencyGrantsOnMyRecord,
   loadMyCareFollowers,
@@ -15,14 +17,16 @@ import {
   revokeEmergencyAccess,
   setCareAccessCategories,
   type CareAccessCategory,
+  type CareAccessLogRow,
   type CareAccessRequestRow,
   type CareFollower,
   type EmergencyGrantOnMyRecord,
   type NextOfKinRelationship,
   type NextOfKinState,
 } from "@/lib/family-consent";
+import * as WebBrowser from "expo-web-browser";
 import type { SectionId } from "@/lib/sections";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, radius, spacing } from "@/ui/theme";
 import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
 
@@ -104,7 +108,8 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
   const [requests, setRequests] = useState<CareAccessRequestRow[]>([]);
   const [followers, setFollowers] = useState<CareFollower[]>([]);
   const [followersError, setFollowersError] = useState(false);
-  const [dependantsModalOpen, setDependantsModalOpen] = useState(false);
+  const [activityLog, setActivityLog] = useState<CareAccessLogRow[]>([]);
+  const [activityLogError, setActivityLogError] = useState(false);
 
   const refresh = useCallback(async () => {
     const [nokResult, grants, reqs] = await Promise.all([
@@ -125,6 +130,12 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
       setFollowersError(false);
     } catch {
       setFollowersError(true);
+    }
+    try {
+      setActivityLog(await loadCareAccessLog(userId));
+      setActivityLogError(false);
+    } catch {
+      setActivityLogError(true);
     }
   }, [userId]);
 
@@ -190,21 +201,26 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
         followers.length > 0 && <CareVisibilityCard followers={followers} onChanged={refresh} />
       )}
 
+      {activityLogError ? (
+        <Card>
+          <ErrorText>We couldn&apos;t load your access history just now. Refresh to try again.</ErrorText>
+        </Card>
+      ) : (
+        activityLog.length > 0 && <CareAccessLogCard events={activityLog} />
+      )}
+
       <CalloutCard
         icon="people-circle-outline"
         title="Manage children & dependants"
-        subtitle="Keep a child's record, set up eldercare access, and review your access history in the full patient app."
+        // Adding a child/elder-proxy account runs on a service-role client
+        // (auth.admin.createUser/updateUserById) — that credential must
+        // never ship in the mobile bundle, so this stays a system-browser
+        // hand-off (never an embedded WebView) rather than a native rebuild,
+        // same reasoning as Subscription/payment elsewhere in this app.
+        subtitle="Keep a child's record and set up eldercare access on the web."
         ctaLabel="Open dependants & eldercare"
-        onPress={() => setDependantsModalOpen(true)}
+        onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/family`)}
       />
-      <Modal visible={dependantsModalOpen} animationType="slide" onRequestClose={() => setDependantsModalOpen(false)}>
-        <View style={{ flex: 1 }}>
-          <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setDependantsModalOpen(false)} />
-          </View>
-          <WebViewScreen path="/patient/family" />
-        </View>
-      </Modal>
     </ScrollView>
   );
 }
@@ -497,6 +513,31 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
           </View>
         );
       })}
+    </Card>
+  );
+}
+
+/** "What's happened with your access" — every time someone's access to a
+ * record changed, on the caller's own record or one they help look after.
+ * Mirrors care-access-log.tsx's describe() via describeCareAccessEvent, so
+ * the same event reads as the same sentence on both platforms. Read-only,
+ * capped at the same 30 rows web shows. */
+function CareAccessLogCard({ events }: { events: CareAccessLogRow[] }) {
+  return (
+    <Card style={{ gap: 8 }}>
+      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>What&apos;s happened with your access</Text>
+      <MutedText>
+        Every time someone&apos;s access to a record changed, on your record or one you help look after.
+      </MutedText>
+      {events.map((row) => (
+        <View
+          key={row.id}
+          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}
+        >
+          <Text style={{ fontSize: 12.5, color: colors.ink, flex: 1 }}>{describeCareAccessEvent(row)}</Text>
+          <Text style={{ fontSize: 11, color: colors.faint, flexShrink: 0 }}>{shortDate(row.occurredAt)}</Text>
+        </View>
+      ))}
     </Card>
   );
 }
