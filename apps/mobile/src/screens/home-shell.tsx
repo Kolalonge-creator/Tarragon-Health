@@ -9,7 +9,6 @@ import { NavDrawer } from "@/ui/nav-drawer";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
 import { ActingForBanner } from "@/ui/acting-for-banner";
 import { colors } from "@/ui/theme";
-import { WebViewScreen } from "@/screens/webview-screen";
 import { OverviewScreen } from "@/screens/sections/overview-screen";
 import { VitalsScreen } from "@/screens/sections/vitals-screen";
 import { MedicationsScreen } from "@/screens/sections/medications-screen";
@@ -41,6 +40,7 @@ import { HealthCheckScreen } from "@/screens/sections/health-check-screen";
 import { WomensHealthScreen } from "@/screens/sections/womens-health-screen";
 import { FamilyScreen } from "@/screens/sections/family-screen";
 import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
+import { ServicesScreen } from "@/screens/sections/services-screen";
 
 type PatientDevice = Tables<"patient_devices">;
 
@@ -301,12 +301,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
             webviewPath={webviewPath}
           />
         )}
-        {/* "services" (subscription/checkout) is the one remaining
-            webviewPath-only section, kept as a direct full embed rather than
-            a native-chrome hub: it's a Paystack checkout flow, not a
-            browsable page, and wrapping it in another Close-button layer on
-            top of the WebView's own would be two exits for one screen. */}
-        {section === "services" && webviewPath && <WebViewScreen key={webviewPath} path={webviewPath} />}
+        {section === "services" && <ServicesScreen />}
       </View>
 
       {/* handleSelect, not setSection: switching tabs must also close the

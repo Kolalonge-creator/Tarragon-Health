@@ -227,7 +227,6 @@ export const SECTIONS: SectionDef[] = [
     label: "My services",
     icon: "card-outline",
     group: "Your account",
-    webviewPath: "/patient/subscription",
   },
   {
     id: "receipts",

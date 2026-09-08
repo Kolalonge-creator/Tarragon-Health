@@ -292,6 +292,34 @@ export async function postSexualWellnessScreen(
   return result.ok ? result.data : { error: result.error };
 }
 
+export interface ServicesCheckoutResult {
+  activated?: boolean;
+  checkoutUrl?: string | null;
+  error?: string;
+}
+
+/** Mirrors apps/web/src/app/api/mobile/services/checkout/route.ts, the
+ * mobile wrapper around purchaseServiceProduct (see that route and
+ * lib/billing/purchase-service-product.ts's header comments for why this
+ * needs a server round-trip — Paystack's secret key never ships to a
+ * client). callbackUrl is a `tarragonhealth://` deep link the caller opens
+ * via expo-web-browser's openAuthSessionAsync, which is what stands in for
+ * web's same-origin callbackPath. A free product / a promo that fully
+ * covers the price comes back `{ activated: true }` with no checkout to
+ * open at all. */
+export async function postServicesCheckout(
+  serviceProductCode: string,
+  callbackUrl: string,
+  promoCode?: string
+): Promise<ServicesCheckoutResult> {
+  const result = await request<ServicesCheckoutResult>("/api/mobile/services/checkout", "POST", {
+    serviceProductCode,
+    callbackUrl,
+    promoCode: promoCode?.trim() || undefined,
+  });
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable
