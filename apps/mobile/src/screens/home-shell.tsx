@@ -90,11 +90,9 @@ interface HomeShellProps {
  *   UPDATE a medication_logs row — but only one they themselves logged,
  *   never the patient's or another supporter's (same-day dose-toggle
  *   correction is normal here in a way revising a vitals reading isn't).
- *   The "medicines cabinet" WebView button now opens signed in (the general
- *   native/WebView SSO gap was closed via /auth/mobile-bridge — see
- *   webview-screen.tsx) but still as the device owner's own session, not the
- *   beneficiary's — WebViewScreen has no subjectId to hand across the
- *   bridge, unrelated to this fix.
+ *   The medicines cabinet (now native, medicine-cabinet-screen.tsx) still
+ *   reads/writes as the device owner's own session, not the beneficiary's —
+ *   it has no subjectId plumbed through, unrelated to this fix.
  * - Messages stays on userId: the real supporter-facing mechanism is the
  *   three-way conversation (care_messages/care_message_threads' own
  *   can_read_clinical-gated INSERT, 20260731185243), always in the
@@ -168,6 +166,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   }
 
   const subjectId = acting?.profileId ?? userId;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <TopBar

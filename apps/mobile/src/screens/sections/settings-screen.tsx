@@ -6,7 +6,7 @@ import * as SecureStore from "expo-secure-store";
 import * as WebBrowser from "expo-web-browser";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { CalloutCard, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionDivider, SectionLabel } from "@/ui/components";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { ProfileScreen } from "@/screens/sections/profile-screen";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { authenticate, readAppLockEnabled, writeAppLockEnabled } from "@/lib/app-lock";
 import { supabase } from "@/lib/supabase";
@@ -33,7 +33,7 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const [appLockEnabled, setAppLockEnabled] = useState(false);
   const [prefs, setPrefs] = useState<NotifPrefs>(DEFAULT_PREFS);
-  const [webviewPath, setWebviewPath] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   useEffect(() => {
     // Every read here is best-effort: a rejected probe leaves the safe
@@ -119,7 +119,7 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
         <ProfileTile
           icon="person-outline"
           label="Profile data"
-          onPress={() => setWebviewPath("/patient/profile")}
+          onPress={() => setProfileOpen(true)}
         />
         <ProfileTile
           icon="card-outline"
@@ -220,12 +220,12 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>Sign out</Text>
       </Pressable>
 
-      <Modal visible={webviewPath !== null} animationType="slide" onRequestClose={() => setWebviewPath(null)}>
+      <Modal visible={profileOpen} animationType="slide" onRequestClose={() => setProfileOpen(false)}>
         <View style={{ flex: 1 }}>
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setWebviewPath(null)} />
+            <SecondaryButton title="Close" onPress={() => setProfileOpen(false)} />
           </View>
-          {webviewPath ? <WebViewScreen path={webviewPath} /> : null}
+          <ProfileScreen />
         </View>
       </Modal>
     </ScrollView>
@@ -233,8 +233,9 @@ export function SettingsScreen({ patientName, initials, onNavigate }: SettingsSc
 }
 
 /** Larger shortcut tile for the two account-level destinations that live
- * outside this screen (profile data in a webview, services purchasing in the
- * system browser) — "Profile data / Settings" in the reference design. */
+ * outside this screen (profile data as a native full-screen view, services
+ * purchasing in the system browser) — "Profile data / Settings" in the
+ * reference design. */
 function ProfileTile({
   icon,
   label,

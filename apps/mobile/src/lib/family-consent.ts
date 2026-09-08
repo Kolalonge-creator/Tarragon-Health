@@ -355,3 +355,111 @@ export async function setCareAccessCategories(grantId: string, categories: CareA
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
 }
+
+// ---------------------------------------------------------------------------
+// Activity log — "what's happened with your access", both directions at once
+// ---------------------------------------------------------------------------
+
+export type CareAccessEventKind =
+  | "granted"
+  | "permission_changed"
+  | "clinical_access_granted"
+  | "clinical_access_withdrawn"
+  | "revoked"
+  | "record_viewed"
+  | "receipt_generated"
+  | "acted_for"
+  | "expired"
+  | "data_exported"
+  | "category_access_granted"
+  | "category_access_withdrawn";
+
+export interface CareAccessLogRow {
+  id: string;
+  kind: CareAccessEventKind;
+  occurredAt: string;
+  isAboutMe: boolean;
+  actorIsMe: boolean;
+  patientName: string | null;
+  actorName: string | null;
+  subjectName: string | null;
+}
+
+/** Grant-lifecycle events, most recent first, capped at 30 — same cap as
+ * web. RLS already scopes rows to the caller (their own record, or actions
+ * they themselves took), so no extra client-side filter is needed beyond
+ * the isAboutMe/actorIsMe flags used for the copy. Mirrors the
+ * care_access_events read in family/page.tsx + care-access-log.tsx's own
+ * describe(). */
+export async function loadCareAccessLog(patientId: string): Promise<CareAccessLogRow[]> {
+  const { data } = await supabase
+    .from("care_access_events")
+    .select(
+      "id, kind, occurred_at, patient_id, actor_profile_id, patient:profiles!care_access_events_patient_id_fkey(full_name), actor:profiles!care_access_events_actor_profile_id_fkey(full_name), subject:profiles!care_access_events_subject_profile_id_fkey(full_name)"
+    )
+    .order("occurred_at", { ascending: false })
+    .limit(30);
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    kind: row.kind as CareAccessEventKind,
+    occurredAt: row.occurred_at,
+    isAboutMe: row.patient_id === patientId,
+    actorIsMe: row.actor_profile_id === patientId,
+    patientName: row.patient?.full_name ?? null,
+    actorName: row.actor?.full_name ?? null,
+    subjectName: row.subject?.full_name ?? null,
+  }));
+}
+
+/** Ported verbatim from care-access-log.tsx's describe() so the same event
+ * reads as the same sentence on both platforms. */
+export function describeCareAccessEvent(row: CareAccessLogRow): string {
+  const actor = row.actorIsMe ? "You" : (row.actorName ?? "Someone");
+  const subject = row.subjectName ?? "someone";
+  const patient = row.patientName ?? "their record";
+
+  if (row.isAboutMe) {
+    switch (row.kind) {
+      case "granted":
+        return `${actor} gave ${subject} access to your record`;
+      case "revoked":
+        return `${actor} removed ${subject}'s access to your record`;
+      case "clinical_access_granted":
+        return `You let ${subject} see your health information`;
+      case "clinical_access_withdrawn":
+        return `You stopped ${subject} seeing your health information`;
+      case "category_access_granted":
+        return `You shared more of your health information with ${subject}`;
+      case "category_access_withdrawn":
+        return `You shared less of your health information with ${subject}`;
+      case "permission_changed":
+        return `${subject}'s access to your record changed`;
+      case "receipt_generated":
+        return `A care receipt was generated for ${subject}`;
+      case "data_exported":
+        return `${actor} exported data from your record`;
+      case "record_viewed":
+        return `${actor} viewed your record`;
+      case "acted_for":
+        return `${actor} acted on your behalf`;
+      default:
+        return "Something changed on your record";
+    }
+  }
+
+  switch (row.kind) {
+    case "revoked":
+      return row.actorIsMe ? `You removed your own access to ${patient}` : `Your access to ${patient} was removed`;
+    case "receipt_generated":
+      return `You generated a care receipt for ${patient}`;
+    case "data_exported":
+      return `You exported data from ${patient}`;
+    case "record_viewed":
+      return `You viewed ${patient}`;
+    case "acted_for":
+      return `You acted on behalf of ${patient}`;
+    default:
+      return `Something changed on ${patient}`;
+  }
+}

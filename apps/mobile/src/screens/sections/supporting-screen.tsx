@@ -3,7 +3,7 @@ import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "rea
 import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerson } from "@/lib/acting";
 import { colors, spacing } from "@/ui/theme";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/components";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { SupportingManageScreen } from "@/screens/sections/supporting-manage-screen";
 
 interface SupportingScreenProps {
   userId: string;
@@ -19,9 +19,12 @@ interface SupportingScreenProps {
  * WebView: web's "Open their account" writes an httpOnly cookie, which a
  * WebView's own separate cookie jar can't hand back to the native app's
  * session (see webview-screen.tsx) — so the switch itself has to happen in
- * native code, even though the richer billing/voucher management for people
- * you support stays a WebView link out, same low-frequency/form-heavy
- * reasoning as every other WEBVIEW section in the spec.
+ * native code. The richer billing/voucher management for people you support
+ * (the "manage" modal below) is now SupportingManageScreen, a genuine native
+ * read-only summary of vouchers/funding — see that file's own doc comment
+ * for exactly which sub-flows (Paystack checkout, refills, booking,
+ * messaging) still open the real web page in the system browser rather than
+ * being rebuilt natively, and why.
  */
 export function SupportingScreen({ userId, acting, onActingChange }: SupportingScreenProps) {
   const [people, setPeople] = useState<SupportedPerson[]>([]);
@@ -145,7 +148,7 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
             <SecondaryButton title="Close" onPress={() => setManageOpen(false)} />
           </View>
-          <WebViewScreen path="/patient/supporting" />
+          <SupportingManageScreen userId={userId} />
         </View>
       </Modal>
     </ScrollView>

@@ -1,4 +1,6 @@
 PODS:
+  - EASClient (1.0.8):
+    - ExpoModulesCore
   - EXApplication (7.0.8):
     - ExpoModulesCore
   - EXConstants (18.0.13):
@@ -6,6 +8,9 @@ PODS:
   - EXImageLoader (6.0.0):
     - ExpoModulesCore
     - React-Core
+  - EXJSONUtils (0.15.0)
+  - EXManifests (1.0.11):
+    - ExpoModulesCore
   - EXNotifications (0.32.17):
     - ExpoModulesCore
   - Expo (54.0.36):
@@ -34,6 +39,10 @@ PODS:
     - ReactNativeDependencies
     - Yoga
   - ExpoAsset (12.0.13):
+    - ExpoModulesCore
+  - ExpoBackgroundTask (1.0.10):
+    - ExpoModulesCore
+  - ExpoCrypto (15.0.9):
     - ExpoModulesCore
   - ExpoFileSystem (19.0.23):
     - ExpoModulesCore
@@ -70,7 +79,43 @@ PODS:
     - Yoga
   - ExpoSecureStore (15.0.8):
     - ExpoModulesCore
+  - ExpoSQLite (16.0.10):
+    - ExpoModulesCore
   - ExpoWebBrowser (15.0.11):
+    - ExpoModulesCore
+  - EXStructuredHeaders (5.0.0)
+  - EXTaskManager (14.0.9):
+    - ExpoModulesCore
+    - UMAppLoader
+  - EXUpdates (29.0.20):
+    - EASClient
+    - EXManifests
+    - ExpoModulesCore
+    - EXStructuredHeaders
+    - EXUpdatesInterface
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - ReachabilitySwift
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - EXUpdatesInterface (2.0.0):
     - ExpoModulesCore
   - FBLazyVector (0.81.5)
   - hermes-engine (0.81.5):
@@ -106,6 +151,7 @@ PODS:
     - FBLazyVector (= 0.81.5)
     - RCTRequired (= 0.81.5)
     - React-Core (= 0.81.5)
+  - ReachabilitySwift (5.2.4)
   - React (0.81.5):
     - React-Core (= 0.81.5)
     - React-Core/DevSupport (= 0.81.5)
@@ -1402,7 +1448,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - react-native-webview (13.15.0):
+  - react-native-safe-area-context (5.6.2):
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -1414,6 +1460,53 @@ PODS:
     - React-graphics
     - React-ImageManager
     - React-jsi
+    - react-native-safe-area-context/common (= 5.6.2)
+    - react-native-safe-area-context/fabric (= 5.6.2)
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-safe-area-context/common (5.6.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - react-native-safe-area-context/fabric (5.6.2):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - react-native-safe-area-context/common
     - React-NativeModulesApple
     - React-RCTFabric
     - React-renderercss
@@ -1798,359 +1891,432 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
+  - RNCAsyncStorage (2.2.0):
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
+  - UMAppLoader (6.0.8)
   - Yoga (0.0.0)
 
 DEPENDENCIES:
-  - "EXApplication (from `../../../node_modules/.pnpm/expo-application@7.0.8_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webv_211c2e70ac9aa12975518afd64ea955f/node_modules/expo-application/ios`)"
-  - "EXConstants (from `../../../node_modules/.pnpm/expo-constants@18.0.13_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webv_51c17db2f97c5c069588418bbe1a092f/node_modules/expo-constants/ios`)"
-  - "EXImageLoader (from `../../../node_modules/.pnpm/expo-image-loader@6.0.0_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-web_f08d3cd44d6e68c3230fa67354dd8350/node_modules/expo-image-loader/ios`)"
-  - "EXNotifications (from `../../../node_modules/.pnpm/expo-notifications@0.32.17_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-_69a5535bfe3b09f31df79ba32762311b/node_modules/expo-notifications/ios`)"
-  - "Expo (from `../../../node_modules/.pnpm/expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webview@13.15.0_react-nativ_d6dd1ec9dee79d559b934ae5557fdce5/node_modules/expo`)"
-  - "ExpoAsset (from `../../../node_modules/.pnpm/expo-asset@12.0.13_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webview@_9f71d3b8d0aad14fe8e32b5d1a34ced0/node_modules/expo-asset/ios`)"
-  - "ExpoFileSystem (from `../../../node_modules/.pnpm/expo-file-system@19.0.23_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-we_6cec559fa4e95b1c52da80ad5124dc11/node_modules/expo-file-system/ios`)"
-  - "ExpoFont (from `../../../node_modules/.pnpm/expo-font@14.0.12_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webview@1_c2e61fd199b722b45dc6649a15f00cab/node_modules/expo-font/ios`)"
-  - "ExpoImagePicker (from `../../../node_modules/.pnpm/expo-image-picker@17.0.11_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-w_cbff009afd56eb61ec9c278c83d903c2/node_modules/expo-image-picker/ios`)"
-  - "ExpoKeepAwake (from `../../../node_modules/.pnpm/expo-keep-awake@15.0.8_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webv_63f94e02a69a3ceba9114f6344cd8a00/node_modules/expo-keep-awake/ios`)"
-  - "ExpoLocalAuthentication (from `../../../node_modules/.pnpm/expo-local-authentication@17.0.8_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-n_c69868c88f7a486f6acab7660ab90a54/node_modules/expo-local-authentication/ios`)"
-  - "ExpoModulesCore (from `../../../node_modules/.pnpm/expo-modules-core@3.0.30_react-native@0.81.5_@babel+core@7.29.7_@react-native-community_f4103699e465eba5701e0a42499b1dfb/node_modules/expo-modules-core`)"
-  - "ExpoSecureStore (from `../../../node_modules/.pnpm/expo-secure-store@15.0.8_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-we_2d884544b8ba5314540bf88f688da64e/node_modules/expo-secure-store/ios`)"
-  - "ExpoWebBrowser (from `../../../node_modules/.pnpm/expo-web-browser@15.0.11_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-we_753bdbe38e408bb7533c866be006ed29/node_modules/expo-web-browser/ios`)"
-  - "FBLazyVector (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/FBLazyVector`)"
-  - "hermes-engine (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)"
-  - "NitroModules (from `../../../node_modules/.pnpm/react-native-nitro-modules@0.36.5_react-native@0.81.5_@babel+core@7.29.7_@react-native-_d806b4ecce980428ac9e9c6241878005/node_modules/react-native-nitro-modules`)"
-  - "RCTDeprecation (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)"
-  - "RCTRequired (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Required`)"
-  - "RCTTypeSafety (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/TypeSafety`)"
-  - "React (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/`)"
-  - "React-callinvoker (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/callinvoker`)"
-  - "React-Core (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/`)"
-  - "React-Core-prebuilt (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React-Core-prebuilt.podspec`)"
-  - "React-Core/RCTWebSocket (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/`)"
-  - "React-CoreModules (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React/CoreModules`)"
-  - "React-cxxreact (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/cxxreact`)"
-  - "React-debug (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/debug`)"
-  - "React-defaultsnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/defaults`)"
-  - "React-domnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/dom`)"
-  - "React-Fabric (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon`)"
-  - "React-FabricComponents (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon`)"
-  - "React-FabricImage (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon`)"
-  - "React-featureflags (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/featureflags`)"
-  - "React-featureflagsnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/featureflags`)"
-  - "React-graphics (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/graphics`)"
-  - "React-hermes (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/hermes`)"
-  - "React-idlecallbacksnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/idlecallbacks`)"
-  - "React-ImageManager (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/imagemanager/platform/ios`)"
-  - "React-jserrorhandler (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jserrorhandler`)"
-  - "React-jsi (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsi`)"
-  - "React-jsiexecutor (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsiexecutor`)"
-  - "React-jsinspector (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsinspector-modern`)"
-  - "React-jsinspectorcdp (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsinspector-modern/cdp`)"
-  - "React-jsinspectornetwork (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsinspector-modern/network`)"
-  - "React-jsinspectortracing (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsinspector-modern/tracing`)"
-  - "React-jsitooling (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsitooling`)"
-  - "React-jsitracing (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/hermes/executor/`)"
-  - "React-logger (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/logger`)"
-  - "React-Mapbuffer (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon`)"
-  - "React-microtasksnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
-  - "react-native-ble-plx (from `../../../node_modules/.pnpm/react-native-ble-plx@3.5.1_react-native@0.81.5_@babel+core@7.29.7_@react-native-communi_7419c770f3afc96f34d735690e2fe0f4/node_modules/react-native-ble-plx`)"
-  - "react-native-webview (from `../../../node_modules/.pnpm/react-native-webview@13.15.0_react-native@0.81.5_@babel+core@7.29.7_@react-native-commu_54613d4a588077ce28c9f741933b96a5/node_modules/react-native-webview`)"
-  - "React-NativeModulesApple (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)"
-  - "React-oscompat (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/oscompat`)"
-  - "React-perflogger (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/reactperflogger`)"
-  - "React-performancetimeline (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/performance/timeline`)"
-  - "React-RCTActionSheet (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/ActionSheetIOS`)"
-  - "React-RCTAnimation (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/NativeAnimation`)"
-  - "React-RCTAppDelegate (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/AppDelegate`)"
-  - "React-RCTBlob (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Blob`)"
-  - "React-RCTFabric (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React`)"
-  - "React-RCTFBReactNativeSpec (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React`)"
-  - "React-RCTImage (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Image`)"
-  - "React-RCTLinking (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/LinkingIOS`)"
-  - "React-RCTNetwork (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Network`)"
-  - "React-RCTRuntime (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React/Runtime`)"
-  - "React-RCTSettings (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Settings`)"
-  - "React-RCTText (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Text`)"
-  - "React-RCTVibration (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Vibration`)"
-  - "React-rendererconsistency (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/consistency`)"
-  - "React-renderercss (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/css`)"
-  - "React-rendererdebug (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/debug`)"
-  - "React-RuntimeApple (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/runtime/platform/ios`)"
-  - "React-RuntimeCore (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/runtime`)"
-  - "React-runtimeexecutor (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/runtimeexecutor`)"
-  - "React-RuntimeHermes (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/runtime`)"
-  - "React-runtimescheduler (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/runtimescheduler`)"
-  - "React-timing (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/timing`)"
-  - "React-utils (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/utils`)"
+  - "EASClient (from `../../../node_modules/.pnpm/expo-eas-client@1.0.8/node_modules/expo-eas-client/ios`)"
+  - "EXApplication (from `../../../node_modules/.pnpm/expo-application@7.0.8_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16_5f41567affaf942159e3c466e2402a69/node_modules/expo-application/ios`)"
+  - "EXConstants (from `../../../node_modules/.pnpm/expo-constants@18.0.13_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16_eb824c1cedb0d748cb3daa31e3f34ca7/node_modules/expo-constants/ios`)"
+  - "EXImageLoader (from `../../../node_modules/.pnpm/expo-image-loader@6.0.0_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@1_7f4e68d919dd40702bbc7caeb41c1baf/node_modules/expo-image-loader/ios`)"
+  - "EXJSONUtils (from `../../../node_modules/.pnpm/expo-json-utils@0.15.0/node_modules/expo-json-utils/ios`)"
+  - "EXManifests (from `../../../node_modules/.pnpm/expo-manifests@1.0.11_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16._076d60351a095271ba94eeb2a11280bf/node_modules/expo-manifests/ios`)"
+  - "EXNotifications (from `../../../node_modules/.pnpm/expo-notifications@0.32.17_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphq_17bf55fd2187b2488a3525c40dd3967d/node_modules/expo-notifications/ios`)"
+  - "Expo (from `../../../node_modules/.pnpm/expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8.1_react-native-webvi_e4be9344abaca3bb9004a677b8af31f2/node_modules/expo`)"
+  - "ExpoAsset (from `../../../node_modules/.pnpm/expo-asset@12.0.13_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8.1_6a2f41cb44008b4b2fdbdf4d87952e0e/node_modules/expo-asset/ios`)"
+  - "ExpoBackgroundTask (from `../../../node_modules/.pnpm/expo-background-task@1.0.10_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graph_3242aa6c4943c87969bee4c3e554d77a/node_modules/expo-background-task/ios`)"
+  - "ExpoCrypto (from `../../../node_modules/.pnpm/expo-crypto@15.0.9_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8.1_7e11771eabdd454756fc5f87ad15dd31/node_modules/expo-crypto/ios`)"
+  - "ExpoFileSystem (from `../../../node_modules/.pnpm/expo-file-system@19.0.23_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@_2475aa6affdc1febcccdcee3793977e4/node_modules/expo-file-system/ios`)"
+  - "ExpoFont (from `../../../node_modules/.pnpm/expo-font@14.0.12_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8.1__906274ad6d51ba31f69136cf606ea24a/node_modules/expo-font/ios`)"
+  - "ExpoImagePicker (from `../../../node_modules/.pnpm/expo-image-picker@17.0.11_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql_36d073d4482becaec5b92d9d6217f759/node_modules/expo-image-picker/ios`)"
+  - "ExpoKeepAwake (from `../../../node_modules/.pnpm/expo-keep-awake@15.0.8_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16_c8cad5e5a2cf1bdc6170da135284910d/node_modules/expo-keep-awake/ios`)"
+  - "ExpoLocalAuthentication (from `../../../node_modules/.pnpm/expo-local-authentication@17.0.8_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1___4167dfd8ecfb50bc0b6ef97df0e369bf/node_modules/expo-local-authentication/ios`)"
+  - "ExpoModulesCore (from `../../../node_modules/.pnpm/expo-modules-core@3.0.30_react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@_cc0a56fc3fbc0935b34d7ba3d0fc7c41/node_modules/expo-modules-core`)"
+  - "ExpoSecureStore (from `../../../node_modules/.pnpm/expo-secure-store@15.0.8_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@_52c521be286d1962e8330d55242636ad/node_modules/expo-secure-store/ios`)"
+  - "ExpoSQLite (from `../../../node_modules/.pnpm/expo-sqlite@16.0.10_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8._f11e5f4fa918833fb42d7ac3dd867c41/node_modules/expo-sqlite/ios`)"
+  - "ExpoWebBrowser (from `../../../node_modules/.pnpm/expo-web-browser@15.0.11_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@_2fe2f7209003eaef7a03e5b5d4f5f44d/node_modules/expo-web-browser/ios`)"
+  - "EXStructuredHeaders (from `../../../node_modules/.pnpm/expo-structured-headers@5.0.0/node_modules/expo-structured-headers/ios`)"
+  - "EXTaskManager (from `../../../node_modules/.pnpm/expo-task-manager@14.0.9_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@_6c56362a892082ee125cd2b76c5ad1e5/node_modules/expo-task-manager/ios`)"
+  - "EXUpdates (from `../../../node_modules/.pnpm/expo-updates@29.0.20_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8_ed118de558b30a46b8adb847c2cd6ad2/node_modules/expo-updates/ios`)"
+  - "EXUpdatesInterface (from `../../../node_modules/.pnpm/expo-updates-interface@2.0.0_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__grap_9926e123170b76f11add536b34e88432/node_modules/expo-updates-interface/ios`)"
+  - "FBLazyVector (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/FBLazyVector`)"
+  - "hermes-engine (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)"
+  - "NitroModules (from `../../../node_modules/.pnpm/react-native-nitro-modules@0.36.5_react-native@0.81.5_@babel+core@7.29.7_supports-color_24fece331fc5ab6a3da6ef8cf7022a4b/node_modules/react-native-nitro-modules`)"
+  - "RCTDeprecation (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)"
+  - "RCTRequired (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Required`)"
+  - "RCTTypeSafety (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/TypeSafety`)"
+  - "React (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/`)"
+  - "React-callinvoker (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/callinvoker`)"
+  - "React-Core (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/`)"
+  - "React-Core-prebuilt (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React-Core-prebuilt.podspec`)"
+  - "React-Core/RCTWebSocket (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/`)"
+  - "React-CoreModules (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React/CoreModules`)"
+  - "React-cxxreact (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/cxxreact`)"
+  - "React-debug (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/debug`)"
+  - "React-defaultsnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/defaults`)"
+  - "React-domnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/dom`)"
+  - "React-Fabric (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon`)"
+  - "React-FabricComponents (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon`)"
+  - "React-FabricImage (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon`)"
+  - "React-featureflags (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/featureflags`)"
+  - "React-featureflagsnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/featureflags`)"
+  - "React-graphics (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/graphics`)"
+  - "React-hermes (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/hermes`)"
+  - "React-idlecallbacksnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/idlecallbacks`)"
+  - "React-ImageManager (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/imagemanager/platform/ios`)"
+  - "React-jserrorhandler (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jserrorhandler`)"
+  - "React-jsi (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsi`)"
+  - "React-jsiexecutor (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsiexecutor`)"
+  - "React-jsinspector (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsinspector-modern`)"
+  - "React-jsinspectorcdp (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsinspector-modern/cdp`)"
+  - "React-jsinspectornetwork (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsinspector-modern/network`)"
+  - "React-jsinspectortracing (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsinspector-modern/tracing`)"
+  - "React-jsitooling (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsitooling`)"
+  - "React-jsitracing (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/hermes/executor/`)"
+  - "React-logger (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/logger`)"
+  - "React-Mapbuffer (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon`)"
+  - "React-microtasksnativemodule (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/microtasks`)"
+  - "react-native-ble-plx (from `../../../node_modules/.pnpm/react-native-ble-plx@3.5.1_react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__581b15d9d299fd7a216217541ae68559/node_modules/react-native-ble-plx`)"
+  - "react-native-safe-area-context (from `../../../node_modules/.pnpm/react-native-safe-area-context@5.6.2_react-native@0.81.5_@babel+core@7.29.7_supports-co_616bfb2c36e05f5699560cdd183e538f/node_modules/react-native-safe-area-context`)"
+  - "React-NativeModulesApple (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios`)"
+  - "React-oscompat (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/oscompat`)"
+  - "React-perflogger (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/reactperflogger`)"
+  - "React-performancetimeline (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/performance/timeline`)"
+  - "React-RCTActionSheet (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/ActionSheetIOS`)"
+  - "React-RCTAnimation (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/NativeAnimation`)"
+  - "React-RCTAppDelegate (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/AppDelegate`)"
+  - "React-RCTBlob (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Blob`)"
+  - "React-RCTFabric (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React`)"
+  - "React-RCTFBReactNativeSpec (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React`)"
+  - "React-RCTImage (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Image`)"
+  - "React-RCTLinking (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/LinkingIOS`)"
+  - "React-RCTNetwork (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Network`)"
+  - "React-RCTRuntime (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React/Runtime`)"
+  - "React-RCTSettings (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Settings`)"
+  - "React-RCTText (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Text`)"
+  - "React-RCTVibration (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Vibration`)"
+  - "React-rendererconsistency (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/consistency`)"
+  - "React-renderercss (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/css`)"
+  - "React-rendererdebug (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/debug`)"
+  - "React-RuntimeApple (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/runtime/platform/ios`)"
+  - "React-RuntimeCore (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/runtime`)"
+  - "React-runtimeexecutor (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/runtimeexecutor`)"
+  - "React-RuntimeHermes (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/runtime`)"
+  - "React-runtimescheduler (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/runtimescheduler`)"
+  - "React-timing (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/timing`)"
+  - "React-utils (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/utils`)"
   - ReactAppDependencyProvider (from `build/generated/ios`)
   - ReactCodegen (from `build/generated/ios`)
-  - "ReactCommon/turbomodule/core (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon`)"
-  - "ReactNativeDependencies (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)"
-  - "ReactNativeHealthkit (from `../../../node_modules/.pnpm/@kingstinct+react-native-healthkit@14.0.2_react-native-nitro-modules@0.36.5_react-nativ_2d236675fd2c2dd1bae8b4f972a8fb57/node_modules/@kingstinct/react-native-healthkit`)"
-  - "Yoga (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/yoga`)"
+  - "ReactCommon/turbomodule/core (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon`)"
+  - "ReactNativeDependencies (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)"
+  - "ReactNativeHealthkit (from `../../../node_modules/.pnpm/@kingstinct+react-native-healthkit@14.0.2_react-native-nitro-modules@0.36.5_react-nativ_ec8034bf51f7d79ba7dd39465fe22d69/node_modules/@kingstinct/react-native-healthkit`)"
+  - "RNCAsyncStorage (from `../../../node_modules/.pnpm/@react-native-async-storage+async-storage@2.2.0_react-native@0.81.5_@babel+core@7.29.7__79ae8cd9b50f05ab94d6ae8b594fdc4c/node_modules/@react-native-async-storage/async-storage`)"
+  - "UMAppLoader (from `../../../node_modules/.pnpm/unimodules-app-loader@6.0.8/node_modules/unimodules-app-loader/ios`)"
+  - "Yoga (from `../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/yoga`)"
 
 SPEC REPOS:
   trunk:
     - MultiplatformBleAdapter
+    - ReachabilitySwift
 
 EXTERNAL SOURCES:
+  EASClient:
+    :path: "../../../node_modules/.pnpm/expo-eas-client@1.0.8/node_modules/expo-eas-client/ios"
   EXApplication:
-    :path: "../../../node_modules/.pnpm/expo-application@7.0.8_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webv_211c2e70ac9aa12975518afd64ea955f/node_modules/expo-application/ios"
+    :path: "../../../node_modules/.pnpm/expo-application@7.0.8_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16_5f41567affaf942159e3c466e2402a69/node_modules/expo-application/ios"
   EXConstants:
-    :path: "../../../node_modules/.pnpm/expo-constants@18.0.13_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webv_51c17db2f97c5c069588418bbe1a092f/node_modules/expo-constants/ios"
+    :path: "../../../node_modules/.pnpm/expo-constants@18.0.13_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16_eb824c1cedb0d748cb3daa31e3f34ca7/node_modules/expo-constants/ios"
   EXImageLoader:
-    :path: "../../../node_modules/.pnpm/expo-image-loader@6.0.0_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-web_f08d3cd44d6e68c3230fa67354dd8350/node_modules/expo-image-loader/ios"
+    :path: "../../../node_modules/.pnpm/expo-image-loader@6.0.0_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@1_7f4e68d919dd40702bbc7caeb41c1baf/node_modules/expo-image-loader/ios"
+  EXJSONUtils:
+    :path: "../../../node_modules/.pnpm/expo-json-utils@0.15.0/node_modules/expo-json-utils/ios"
+  EXManifests:
+    :path: "../../../node_modules/.pnpm/expo-manifests@1.0.11_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16._076d60351a095271ba94eeb2a11280bf/node_modules/expo-manifests/ios"
   EXNotifications:
-    :path: "../../../node_modules/.pnpm/expo-notifications@0.32.17_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-_69a5535bfe3b09f31df79ba32762311b/node_modules/expo-notifications/ios"
+    :path: "../../../node_modules/.pnpm/expo-notifications@0.32.17_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphq_17bf55fd2187b2488a3525c40dd3967d/node_modules/expo-notifications/ios"
   Expo:
-    :path: "../../../node_modules/.pnpm/expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webview@13.15.0_react-nativ_d6dd1ec9dee79d559b934ae5557fdce5/node_modules/expo"
+    :path: "../../../node_modules/.pnpm/expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8.1_react-native-webvi_e4be9344abaca3bb9004a677b8af31f2/node_modules/expo"
   ExpoAsset:
-    :path: "../../../node_modules/.pnpm/expo-asset@12.0.13_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webview@_9f71d3b8d0aad14fe8e32b5d1a34ced0/node_modules/expo-asset/ios"
+    :path: "../../../node_modules/.pnpm/expo-asset@12.0.13_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8.1_6a2f41cb44008b4b2fdbdf4d87952e0e/node_modules/expo-asset/ios"
+  ExpoBackgroundTask:
+    :path: "../../../node_modules/.pnpm/expo-background-task@1.0.10_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graph_3242aa6c4943c87969bee4c3e554d77a/node_modules/expo-background-task/ios"
+  ExpoCrypto:
+    :path: "../../../node_modules/.pnpm/expo-crypto@15.0.9_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8.1_7e11771eabdd454756fc5f87ad15dd31/node_modules/expo-crypto/ios"
   ExpoFileSystem:
-    :path: "../../../node_modules/.pnpm/expo-file-system@19.0.23_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-we_6cec559fa4e95b1c52da80ad5124dc11/node_modules/expo-file-system/ios"
+    :path: "../../../node_modules/.pnpm/expo-file-system@19.0.23_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@_2475aa6affdc1febcccdcee3793977e4/node_modules/expo-file-system/ios"
   ExpoFont:
-    :path: "../../../node_modules/.pnpm/expo-font@14.0.12_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webview@1_c2e61fd199b722b45dc6649a15f00cab/node_modules/expo-font/ios"
+    :path: "../../../node_modules/.pnpm/expo-font@14.0.12_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8.1__906274ad6d51ba31f69136cf606ea24a/node_modules/expo-font/ios"
   ExpoImagePicker:
-    :path: "../../../node_modules/.pnpm/expo-image-picker@17.0.11_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-w_cbff009afd56eb61ec9c278c83d903c2/node_modules/expo-image-picker/ios"
+    :path: "../../../node_modules/.pnpm/expo-image-picker@17.0.11_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql_36d073d4482becaec5b92d9d6217f759/node_modules/expo-image-picker/ios"
   ExpoKeepAwake:
-    :path: "../../../node_modules/.pnpm/expo-keep-awake@15.0.8_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-webv_63f94e02a69a3ceba9114f6344cd8a00/node_modules/expo-keep-awake/ios"
+    :path: "../../../node_modules/.pnpm/expo-keep-awake@15.0.8_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16_c8cad5e5a2cf1bdc6170da135284910d/node_modules/expo-keep-awake/ios"
   ExpoLocalAuthentication:
-    :path: "../../../node_modules/.pnpm/expo-local-authentication@17.0.8_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-n_c69868c88f7a486f6acab7660ab90a54/node_modules/expo-local-authentication/ios"
+    :path: "../../../node_modules/.pnpm/expo-local-authentication@17.0.8_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1___4167dfd8ecfb50bc0b6ef97df0e369bf/node_modules/expo-local-authentication/ios"
   ExpoModulesCore:
-    :path: "../../../node_modules/.pnpm/expo-modules-core@3.0.30_react-native@0.81.5_@babel+core@7.29.7_@react-native-community_f4103699e465eba5701e0a42499b1dfb/node_modules/expo-modules-core"
+    :path: "../../../node_modules/.pnpm/expo-modules-core@3.0.30_react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@_cc0a56fc3fbc0935b34d7ba3d0fc7c41/node_modules/expo-modules-core"
   ExpoSecureStore:
-    :path: "../../../node_modules/.pnpm/expo-secure-store@15.0.8_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-we_2d884544b8ba5314540bf88f688da64e/node_modules/expo-secure-store/ios"
+    :path: "../../../node_modules/.pnpm/expo-secure-store@15.0.8_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@_52c521be286d1962e8330d55242636ad/node_modules/expo-secure-store/ios"
+  ExpoSQLite:
+    :path: "../../../node_modules/.pnpm/expo-sqlite@16.0.10_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8._f11e5f4fa918833fb42d7ac3dd867c41/node_modules/expo-sqlite/ios"
   ExpoWebBrowser:
-    :path: "../../../node_modules/.pnpm/expo-web-browser@15.0.11_expo@54.0.36_@babel+core@7.29.7_graphql@15.8.0_react-native-we_753bdbe38e408bb7533c866be006ed29/node_modules/expo-web-browser/ios"
+    :path: "../../../node_modules/.pnpm/expo-web-browser@15.0.11_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@_2fe2f7209003eaef7a03e5b5d4f5f44d/node_modules/expo-web-browser/ios"
+  EXStructuredHeaders:
+    :path: "../../../node_modules/.pnpm/expo-structured-headers@5.0.0/node_modules/expo-structured-headers/ios"
+  EXTaskManager:
+    :path: "../../../node_modules/.pnpm/expo-task-manager@14.0.9_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@_6c56362a892082ee125cd2b76c5ad1e5/node_modules/expo-task-manager/ios"
+  EXUpdates:
+    :path: "../../../node_modules/.pnpm/expo-updates@29.0.20_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__graphql@16.8_ed118de558b30a46b8adb847c2cd6ad2/node_modules/expo-updates/ios"
+  EXUpdatesInterface:
+    :path: "../../../node_modules/.pnpm/expo-updates-interface@2.0.0_expo@54.0.36_@babel+core@7.29.7_supports-color@8.1.1__grap_9926e123170b76f11add536b34e88432/node_modules/expo-updates-interface/ios"
   FBLazyVector:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/FBLazyVector"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/FBLazyVector"
   hermes-engine:
-    :podspec: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
+    :podspec: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
     :tag: hermes-2025-07-07-RNv0.81.0-e0fc67142ec0763c6b6153ca2bf96df815539782
   NitroModules:
-    :path: "../../../node_modules/.pnpm/react-native-nitro-modules@0.36.5_react-native@0.81.5_@babel+core@7.29.7_@react-native-_d806b4ecce980428ac9e9c6241878005/node_modules/react-native-nitro-modules"
+    :path: "../../../node_modules/.pnpm/react-native-nitro-modules@0.36.5_react-native@0.81.5_@babel+core@7.29.7_supports-color_24fece331fc5ab6a3da6ef8cf7022a4b/node_modules/react-native-nitro-modules"
   RCTDeprecation:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation"
   RCTRequired:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Required"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Required"
   RCTTypeSafety:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/TypeSafety"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/TypeSafety"
   React:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/"
   React-callinvoker:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/callinvoker"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/callinvoker"
   React-Core:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/"
   React-Core-prebuilt:
-    :podspec: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React-Core-prebuilt.podspec"
+    :podspec: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React-Core-prebuilt.podspec"
   React-CoreModules:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React/CoreModules"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React/CoreModules"
   React-cxxreact:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/cxxreact"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/cxxreact"
   React-debug:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/debug"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/debug"
   React-defaultsnativemodule:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/defaults"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/defaults"
   React-domnativemodule:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/dom"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/dom"
   React-Fabric:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon"
   React-FabricComponents:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon"
   React-FabricImage:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon"
   React-featureflags:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/featureflags"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/featureflags"
   React-featureflagsnativemodule:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/featureflags"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/featureflags"
   React-graphics:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/graphics"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/graphics"
   React-hermes:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/hermes"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/hermes"
   React-idlecallbacksnativemodule:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/idlecallbacks"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/idlecallbacks"
   React-ImageManager:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/imagemanager/platform/ios"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/imagemanager/platform/ios"
   React-jserrorhandler:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jserrorhandler"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jserrorhandler"
   React-jsi:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsi"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsi"
   React-jsiexecutor:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsiexecutor"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsiexecutor"
   React-jsinspector:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsinspector-modern"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsinspector-modern"
   React-jsinspectorcdp:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsinspector-modern/cdp"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsinspector-modern/cdp"
   React-jsinspectornetwork:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsinspector-modern/network"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsinspector-modern/network"
   React-jsinspectortracing:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsinspector-modern/tracing"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsinspector-modern/tracing"
   React-jsitooling:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/jsitooling"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/jsitooling"
   React-jsitracing:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/hermes/executor/"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/hermes/executor/"
   React-logger:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/logger"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/logger"
   React-Mapbuffer:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon"
   React-microtasksnativemodule:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/microtasks"
   react-native-ble-plx:
-    :path: "../../../node_modules/.pnpm/react-native-ble-plx@3.5.1_react-native@0.81.5_@babel+core@7.29.7_@react-native-communi_7419c770f3afc96f34d735690e2fe0f4/node_modules/react-native-ble-plx"
-  react-native-webview:
-    :path: "../../../node_modules/.pnpm/react-native-webview@13.15.0_react-native@0.81.5_@babel+core@7.29.7_@react-native-commu_54613d4a588077ce28c9f741933b96a5/node_modules/react-native-webview"
+    :path: "../../../node_modules/.pnpm/react-native-ble-plx@3.5.1_react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__581b15d9d299fd7a216217541ae68559/node_modules/react-native-ble-plx"
+  react-native-safe-area-context:
+    :path: "../../../node_modules/.pnpm/react-native-safe-area-context@5.6.2_react-native@0.81.5_@babel+core@7.29.7_supports-co_616bfb2c36e05f5699560cdd183e538f/node_modules/react-native-safe-area-context"
   React-NativeModulesApple:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/nativemodule/core/platform/ios"
   React-oscompat:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/oscompat"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/oscompat"
   React-perflogger:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/reactperflogger"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/reactperflogger"
   React-performancetimeline:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/performance/timeline"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/performance/timeline"
   React-RCTActionSheet:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/ActionSheetIOS"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/ActionSheetIOS"
   React-RCTAnimation:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/NativeAnimation"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/NativeAnimation"
   React-RCTAppDelegate:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/AppDelegate"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/AppDelegate"
   React-RCTBlob:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Blob"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Blob"
   React-RCTFabric:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React"
   React-RCTFBReactNativeSpec:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React"
   React-RCTImage:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Image"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Image"
   React-RCTLinking:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/LinkingIOS"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/LinkingIOS"
   React-RCTNetwork:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Network"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Network"
   React-RCTRuntime:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/React/Runtime"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/React/Runtime"
   React-RCTSettings:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Settings"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Settings"
   React-RCTText:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Text"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Text"
   React-RCTVibration:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/Libraries/Vibration"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/Libraries/Vibration"
   React-rendererconsistency:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/consistency"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/consistency"
   React-renderercss:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/css"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/css"
   React-rendererdebug:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/debug"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/debug"
   React-RuntimeApple:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/runtime/platform/ios"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/runtime/platform/ios"
   React-RuntimeCore:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/runtime"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/runtime"
   React-runtimeexecutor:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/runtimeexecutor"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/runtimeexecutor"
   React-RuntimeHermes:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/runtime"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/runtime"
   React-runtimescheduler:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/renderer/runtimescheduler"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/renderer/runtimescheduler"
   React-timing:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/timing"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/timing"
   React-utils:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/react/utils"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/react/utils"
   ReactAppDependencyProvider:
     :path: build/generated/ios
   ReactCodegen:
     :path: build/generated/ios
   ReactCommon:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon"
   ReactNativeDependencies:
-    :podspec: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
+    :podspec: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
   ReactNativeHealthkit:
-    :path: "../../../node_modules/.pnpm/@kingstinct+react-native-healthkit@14.0.2_react-native-nitro-modules@0.36.5_react-nativ_2d236675fd2c2dd1bae8b4f972a8fb57/node_modules/@kingstinct/react-native-healthkit"
+    :path: "../../../node_modules/.pnpm/@kingstinct+react-native-healthkit@14.0.2_react-native-nitro-modules@0.36.5_react-nativ_ec8034bf51f7d79ba7dd39465fe22d69/node_modules/@kingstinct/react-native-healthkit"
+  RNCAsyncStorage:
+    :path: "../../../node_modules/.pnpm/@react-native-async-storage+async-storage@2.2.0_react-native@0.81.5_@babel+core@7.29.7__79ae8cd9b50f05ab94d6ae8b594fdc4c/node_modules/@react-native-async-storage/async-storage"
+  UMAppLoader:
+    :path: "../../../node_modules/.pnpm/unimodules-app-loader@6.0.8/node_modules/unimodules-app-loader/ios"
   Yoga:
-    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_@react-native-community+cli@13.6.9_@types+react@19.2.17_react@19.1.0/node_modules/react-native/ReactCommon/yoga"
+    :path: "../../../node_modules/.pnpm/react-native@0.81.5_@babel+core@7.29.7_supports-color@8.1.1__@react-native-community+cl_25ae9148a980149efa848f532e4b8d9a/node_modules/react-native/ReactCommon/yoga"
 
 SPEC CHECKSUMS:
-  EXApplication: 13420f8139864183f8a04fd6099077bdf8cfb186
-  EXConstants: 3feb66fd1d94202fc1f0946d74e029d8b224b60e
-  EXImageLoader: e501c001bc40b8326605e82e6e80363c80fe06b5
-  EXNotifications: 6b4dced0f3dfd0dfb9d7c5d47a5ccd86764fc73c
-  Expo: 213810830daece4970ccf62cfb3d34e47496cd41
-  ExpoAsset: cc98e16f65a64e58079d9ccad3b5eec2b57b9263
-  ExpoFileSystem: 72c7bedb30b6c8565322f9c6377663a1476d7703
-  ExpoFont: cc2be150f9c107bc8cd072eb0cd15388d6081479
-  ExpoImagePicker: 5d49cb62c78c86ee7945e10338210e69b9266064
-  ExpoKeepAwake: 44bf6715bc1d2ddb17afe19d927cd039cda123f0
-  ExpoLocalAuthentication: a5d1c60718a852faa1852ef76298d8a167dc99f5
-  ExpoModulesCore: 92b8d81c177eb970ee6e01b86e85bf296533c179
-  ExpoSecureStore: decd2943fa19fa6f02c5ef3689f9ba5012ad6a6d
-  ExpoWebBrowser: 93acaae9a851370332e0c1310cbcd1437c0b4377
+  EASClient: 40dd9e740684782610c49becab2643782ea1a20c
+  EXApplication: 1e98d4b1dccdf30627f92917f4b2c5a53c330e5f
+  EXConstants: fce59a631a06c4151602843667f7cfe35f81e271
+  EXImageLoader: 189e3476581efe3ad4d1d3fb4735b7179eb26f05
+  EXJSONUtils: 1d3e4590438c3ee593684186007028a14b3686cd
+  EXManifests: 378c7742de02a8605093b1c82b5774d8f9875cec
+  EXNotifications: c67e92b9fdfe785ff9dbdc5f4c0ff935de357da7
+  Expo: 38ef0f0082a53f9604a48cbab2ab55289c658eaf
+  ExpoAsset: 9e5a7c9c0a9fb83ad5b2bb365141f2bd7f289b66
+  ExpoBackgroundTask: 835449414ab9f0e551de1f6d382fadbfad191dc7
+  ExpoCrypto: e2a2c4c748aac8485e5675f027b7901f511d43ff
+  ExpoFileSystem: a8e7fb1e958471764fb48d281cf9fa81a9e4d77c
+  ExpoFont: dfb7c572372b610da45b41e3b436321fd6a97215
+  ExpoImagePicker: ade85e148f735fc7e6f27dfe3eef28eb3887e90a
+  ExpoKeepAwake: 55f75eca6499bb9e4231ebad6f3e9cb8f99c0296
+  ExpoLocalAuthentication: 8a31808565da7af926dd9b595e98594d8b1553b6
+  ExpoModulesCore: 9e6a5514828e7dd5ded9e99d33557be2d284e660
+  ExpoSecureStore: d32f751874a2ceb5aaeebeb3578e165c1ba2b24a
+  ExpoSQLite: 7eedbe476870a5f18d6b89c817c4ac6f299830ad
+  ExpoWebBrowser: 970dd4c64c29c955c3af664c8058ba768a4c9187
+  EXStructuredHeaders: c951e77f2d936f88637421e9588c976da5827368
+  EXTaskManager: 6f1a66e4c8cc6df6e24c3d90928704bc3013eae5
+  EXUpdates: dca805b4aa04f48a5b1e5d8bcdc572b20c9ddd5f
+  EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734
   FBLazyVector: e95a291ad2dadb88e42b06e0c5fb8262de53ec12
   hermes-engine: 9f4dfe93326146a1c99eb535b1cb0b857a3cd172
   MultiplatformBleAdapter: b1fddd0d499b96b607e00f0faa8e60648343dc1d
-  NitroModules: 4c695026f87b8e8e9b5f24e7a9596f0878731e0c
+  NitroModules: cea4512d24ff3b88b6eef8804783ef8246f94eb0
   RCTDeprecation: 943572d4be82d480a48f4884f670135ae30bf990
   RCTRequired: 8f3cfc90cc25cf6e420ddb3e7caaaabc57df6043
   RCTTypeSafety: 16a4144ca3f959583ab019b57d5633df10b5e97c
+  ReachabilitySwift: 32793e867593cfc1177f5d16491e3a197d2fccda
   React: 914f8695f9bf38e6418228c2ffb70021e559f92f
   React-callinvoker: 1c0808402aee0c6d4a0d8e7220ce6547af9fba71
-  React-Core: 4ae98f9e8135b8ddbd7c98730afb6fdae883db90
-  React-Core-prebuilt: 8f4cca589c14e8cf8fc6db4587ef1c2056b5c151
-  React-CoreModules: e878a90bb19b8f3851818af997dbae3b3b0a27ac
-  React-cxxreact: 28af9844f6dc87be1385ab521fbfb3746f19563c
+  React-Core: c61410ef0ca6055e204a963992e363227e0fd1c5
+  React-Core-prebuilt: 02f0ad625ddd47463c009c2d0c5dd35c0d982599
+  React-CoreModules: 1f6d1744b5f9f2ec684a4bb5ced25370f87e5382
+  React-cxxreact: 3af79478e8187b63ffc22b794cd42d3fc1f1f2da
   React-debug: 6328c2228e268846161f10082e80dc69eac2e90a
-  React-defaultsnativemodule: afc9d809ec75780f39464a6949c07987fbea488c
-  React-domnativemodule: 91a233260411d41f27f67aa1358b7f9f0bfd101d
-  React-Fabric: 21f349b5e93f305a3c38c885902683a9c79cf983
-  React-FabricComponents: 47ac634cc9ecc64b30a9997192f510eebe4177e4
-  React-FabricImage: 21873acd6d4a51a0b97c133141051c7acb11cc86
-  React-featureflags: 653f469f0c3c9dc271d610373e3b6e66a9fd847d
-  React-featureflagsnativemodule: c91a8a3880e0f4838286402241ead47db43aed28
-  React-graphics: b4bdb0f635b8048c652a5d2b73eb8b1ddd950f24
-  React-hermes: fcfad3b917400f49026f3232561e039c9d1c34bf
-  React-idlecallbacksnativemodule: 8cb83207e39f8179ac1d344b6177c6ab3ccebcdc
-  React-ImageManager: 396128004783fc510e629124dce682d38d1088e7
-  React-jserrorhandler: b58b788d788cdbf8bda7db74a88ebfcffc8a0795
-  React-jsi: d2c3f8555175371c02da6dfe7ed1b64b55a9d6c0
-  React-jsiexecutor: ba537434eb45ee018b590ed7d29ee233fddb8669
-  React-jsinspector: f21b6654baf96cb9f71748844a32468a5f73ad51
-  React-jsinspectorcdp: 3f8be4830694c3c1c39442e50f8db877966d43f0
-  React-jsinspectornetwork: 70e41469565712ad60e11d9c8b8f999b9f7f61eb
-  React-jsinspectortracing: eccf9bfa4ec7f130d514f215cfb2222dc3c0e270
-  React-jsitooling: b376a695f5a507627f7934748533b24eed1751ca
-  React-jsitracing: 5c8c3273dda2d95191cc0612fb5e71c4d9018d2a
-  React-logger: c3e2f8a2e284341205f61eef3d4677ab5a309dfd
-  React-Mapbuffer: 603c18db65844bb81dbe62fee8fcc976eaeb7108
-  React-microtasksnativemodule: d77e0c426fce34c23227394c96ca1033b30c813c
-  react-native-ble-plx: 86f4b682a06deaa11c0633f38502b30d2455bed6
-  react-native-webview: a4f0775a31b73cf13cfc3d2d2b119aa94ec76e49
-  React-NativeModulesApple: 1664340b8750d64e0ef3907c5e53d9481f74bcbd
+  React-defaultsnativemodule: d635ef36d755321e5d6fc065bd166b2c5a0e9833
+  React-domnativemodule: dd28f6d96cd21236e020be2eff6fe0b7d4ec3b66
+  React-Fabric: 2e32c3fdbb1fbcf5fde54607e3abe453c6652ce2
+  React-FabricComponents: 5ed0cdb81f6b91656cb4d3be432feaa28a58071a
+  React-FabricImage: 2bc714f818cb24e454f5d3961864373271b2faf8
+  React-featureflags: 847642f41fa71ad4eec5e0351badebcad4fe6171
+  React-featureflagsnativemodule: c868a544b2c626fa337bcbd364b1befe749f0d3f
+  React-graphics: 192ec701def5b3f2a07db2814dfba5a44986cff6
+  React-hermes: e875778b496c86d07ab2ccaa36a9505d248a254b
+  React-idlecallbacksnativemodule: 4d57965cdf82c14ee3b337189836cd8491632b76
+  React-ImageManager: bd0b99e370b13de82c9cd15f0f08144ff3de079e
+  React-jserrorhandler: a2fdef4cbcfdcdf3fa9f5d1f7190f7fd4535248d
+  React-jsi: 89d43d1e7d4d0663f8ba67e0b39eb4e4672c27de
+  React-jsiexecutor: abe4874aaab90dfee5dec480680220b2f8af07e3
+  React-jsinspector: a0b3e051aef842b0b2be2353790ae2b2a5a65a8f
+  React-jsinspectorcdp: 6346013b2247c6263fbf5199adf4a8751e53bd89
+  React-jsinspectornetwork: 26281aa50d49fc1ec93abf981d934698fa95714f
+  React-jsinspectortracing: 55eedf6d57540507570259a778663b90060bbd6e
+  React-jsitooling: 0e001113fa56d8498aa8ac28437ac0d36348e51a
+  React-jsitracing: b713793eb8a5bbc4d86a84e9d9e5023c0f58cbaf
+  React-logger: 50fdb9a8236da90c0b1072da5c32ee03aeb5bf28
+  React-Mapbuffer: 9050ee10c19f4f7fca8963d0211b2854d624973e
+  React-microtasksnativemodule: f775db9e991c6f3b8ccbc02bfcde22770f96e23b
+  react-native-ble-plx: 33232d5b55f5d5393f5f41bf7a30a1eb75280a37
+  react-native-safe-area-context: 37e680fc4cace3c0030ee46e8987d24f5d3bdab2
+  React-NativeModulesApple: 8969913947d5b576de4ed371a939455a8daf28aa
   React-oscompat: ce47230ed20185e91de62d8c6d139ae61763d09c
-  React-perflogger: b1af3cfb3f095f819b2814910000392a8e17ba9f
-  React-performancetimeline: f9ec65b77bcadbc7bd8b47a6f4b4b697da7b1490
+  React-perflogger: 02b010e665772c7dcb859d85d44c1bfc5ac7c0e4
+  React-performancetimeline: 130db956b5a83aa4fb41ddf5ae68da89f3fb1526
   React-RCTActionSheet: 0b14875b3963e9124a5a29a45bd1b22df8803916
-  React-RCTAnimation: 60f6eca214a62b9673f64db6df3830cee902b5af
-  React-RCTAppDelegate: 37734b39bac108af30a0fd9d3e1149ec68b82c28
-  React-RCTBlob: 83fbcbd57755caf021787324aac2fe9b028cc264
-  React-RCTFabric: a05cb1df484008db3753c8b4a71e4c6d9f1e43a6
-  React-RCTFBReactNativeSpec: d58d7ae9447020bbbac651e3b0674422aba18266
-  React-RCTImage: 47aba3be7c6c64f956b7918ab933769602406aac
-  React-RCTLinking: 2dbaa4df2e4523f68baa07936bd8efdfa34d5f31
-  React-RCTNetwork: 1fca7455f9dedf7de2b95bec438da06680f3b000
-  React-RCTRuntime: 17819dd1dfc8613efaf4cbb9d8686baae4a83e5b
-  React-RCTSettings: 01bf91c856862354d3d2f642ccb82f3697a4284a
-  React-RCTText: cb576a3797dcb64933613c522296a07eaafc0461
-  React-RCTVibration: 560af8c086741f3525b8456a482cdbe27f9d098e
+  React-RCTAnimation: a7b90fd2af7bb9c084428867445a1481a8cb112e
+  React-RCTAppDelegate: 3262bedd01263f140ec62b7989f4355f57cec016
+  React-RCTBlob: c17531368702f1ebed5d0ada75a7cf5915072a53
+  React-RCTFabric: 6409edd8cfdc3133b6cc75636d3b858fdb1d11ea
+  React-RCTFBReactNativeSpec: c004b27b4fa3bd85878ad2cf53de3bbec85da797
+  React-RCTImage: c68078a120d0123f4f07a5ac77bea3bb10242f32
+  React-RCTLinking: cf8f9391fe7fe471f96da3a5f0435235eca18c5b
+  React-RCTNetwork: ca31f7c879355760c2d9832a06ee35f517938a20
+  React-RCTRuntime: a6cf4a1e42754fc87f493e538f2ac6b820e45418
+  React-RCTSettings: e0e140b2ff4bf86d34e9637f6316848fc00be035
+  React-RCTText: 75915bace6f7877c03a840cc7b6c622fb62bfa6b
+  React-RCTVibration: 25f26b85e5e432bb3c256f8b384f9269e9529f25
   React-rendererconsistency: 2dac03f448ff337235fd5820b10f81633328870d
-  React-renderercss: c5c6b7a15948dd28facca39a18ac269073718490
-  React-rendererdebug: 3c9d5e1634273f5a24d84cc5669f290ce0bdc812
-  React-RuntimeApple: 887637d1e12ea8262df7d32bc100467df2302613
-  React-RuntimeCore: 91f779835dc4f8f84777fe5dd24f1a22f96454e4
-  React-runtimeexecutor: 8bb6b738f37b0ada4a6269e6f8ab1133dea0285c
-  React-RuntimeHermes: 4cb93de9fa8b1cc753d200dbe61a01b9ec5f5562
-  React-runtimescheduler: 83dc28f530bfbd2fce84ed13aa7feebdc24e5af7
-  React-timing: 03c7217455d2bff459b27a3811be25796b600f47
-  React-utils: 6d46795ae0444ec8a5d9a5f201157b286bf5250a
-  ReactAppDependencyProvider: c277c5b231881ad4f00cd59e3aa0671b99d7ebee
-  ReactCodegen: 99633259b8bc6f5044abeb1c25fb6685e113905b
-  ReactCommon: e6e232202a447d353e5531f2be82f50f47cbaa9a
+  React-renderercss: 477da167bb96b5ac86d30c5d295412fb853f5453
+  React-rendererdebug: 2a1798c6f3ef5f22d466df24c33653edbabb5b89
+  React-RuntimeApple: 28cf4d8eb18432f6a21abbed7d801ab7f6b6f0b4
+  React-RuntimeCore: 41bf0fd56a00de5660f222415af49879fa49c4f0
+  React-runtimeexecutor: 1afb774dde3011348e8334be69d2f57a359ea43e
+  React-RuntimeHermes: f3b158ea40e8212b1a723a68b4315e7a495c5fc6
+  React-runtimescheduler: 3e1e2bec7300bae512533107d8e54c6e5c63fe0f
+  React-timing: 6fa9883de2e41791e5dc4ec404e5e37f3f50e801
+  React-utils: 6e2035b53d087927768649a11a26c4e092448e34
+  ReactAppDependencyProvider: 1bcd3527ac0390a1c898c114f81ff954be35ed79
+  ReactCodegen: 5dc528a502eb2dc9dec4de739bf60c9f1afd1a6e
+  ReactCommon: 08810150b1206cc44aecf5f6ae19af32f29151a8
   ReactNativeDependencies: 71ce9c28beb282aa720ea7b46980fff9669f428a
-  ReactNativeHealthkit: fc23c8b71f6d14e15fc9856065ce9cb5713fa02b
+  ReactNativeHealthkit: efc7b561e33e3494f38c42450c8cd879c91e3a2e
+  RNCAsyncStorage: 3a4f5e2777dae1688b781a487923a08569e27fe4
+  UMAppLoader: 145337733539f9af9b3dd97eeaa7f3bd97cacb23
   Yoga: 5934998fbeaef7845dbf698f698518695ab4cd1a
 
 PODFILE CHECKSUM: 1e3ddfc1e9b2611cfb38731a603173094547b094
