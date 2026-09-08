@@ -1,6 +1,6 @@
 # Google Play submission: TarragonHealth Android app
 
-> First public release: **v0.1.0** (Expo SDK 54, `com.tarragonhealth.mobile`), prepared
+> First public release: **v0.1.0** (Expo SDK 54, Android package `com.tarragonhealth.app`, iOS bundle id `com.tarragonhealth.mobile`), prepared
 > 2026-09-08. Developer account: the Tarragon Gmail account (owner: founder). EAS project
 > `@worldbest/tarragon-health`. This file is the single place the Play Console answers are
 > written down so they can be re-entered consistently on every future release.
@@ -9,19 +9,25 @@
 
 1. Build from `main-dev` with `pnpm build:prod` (production profile, AAB, `versionCode`
    auto-incremented by EAS). Confirm the EAS build's `gitCommitHash` is the commit you mean.
-2. Check the **Production** track in the Play Console for any earlier upload. A stale
-   v0.1.0 binary (pre free-app pivot) was reportedly uploaded manually in August 2026; EAS has
-   no record of it (`eas submit:list` is empty), so it was not sent through EAS. If a release
-   with it exists in any state (draft, in review, rolled out), **discard or replace it** so
-   the new AAB is the only artefact on the track. The new AAB's `versionCode` must be higher
-   than whatever is there; EAS remote versioning is at 4+ so this should already hold.
+2. Play Console state as checked on 2026-09-08 (Tarragon Health organisation account,
+   ID 6966488686634021923, app ID 4974287240920684540): **no app bundle has ever been
+   uploaded** (bundle explorer empty, the "Untitled" production draft has no artefact, no
+   internal-testing releases), so there is no stale binary to replace, and the app-signing key
+   choice is still open. The app record is already bound to the package name
+   **`com.tarragonhealth.app`**, which is why `app.json`'s `android.package` was changed from
+   `.mobile` to `.app` before the first build. Because it is an organisation account, the
+   12-tester / 14-day closed-testing rule for new personal accounts does not apply.
+   App content: 10 of 11 items done (privacy policy, sign-in, ads, content rating, target
+   audience, Data safety, government apps, financial features, category = Medical, store
+   listing, contact email privacy@tarragonhealth.ng). The one open item is the **Health apps**
+   declaration; see the "Health apps declaration" section below before saving it.
 3. Health Connect is **off** in this build (no `android.permission.health.*` in the manifest,
    `react-native-health-connect` excluded from autolinking). If the Play Console still shows a
    Health Connect declaration from an earlier upload, it should disappear once the new AAB
    replaces it; if it still asks, answer that the app does not use Health Connect.
-4. Testers: if the developer account is a personal account created after 13 Nov 2023, Play
-   requires a closed test with at least 12 testers opted in for 14 days before production
-   access is granted. Use the `preview` EAS channel for those testers.
+4. Testers: not required for this organisation account, but an internal-testing release of
+   the same AAB first (up to 100 testers, no review) is still the safest way to confirm the
+   store build installs and signs in before promoting it to production.
 
 ## App content declarations
 
@@ -38,6 +44,29 @@
 | Health apps declaration | Yes, health app: "Medical / health monitoring" (chronic disease monitoring, vitals logging, care-team messaging). No regulated medical-device claims. Not a clinical decision support tool for clinicians |
 | Data safety: data encrypted in transit | Yes (TLS to Supabase and to `app.tarragonhealth.ng`) |
 | Data safety: users can request deletion | Yes |
+
+## Health apps declaration (open item, review before saving)
+
+The form was found part-filled on 2026-09-08 and not saved by this pass. Recommended answers,
+each tied to a feature that actually exists in v0.1.0:
+
+| Feature | Tick? | Why |
+| --- | --- | --- |
+| Diseases and conditions management | Yes | Hypertension/diabetes monitoring is the core |
+| Disease prevention and public health | Yes | Screening journey, vaccinations |
+| Healthcare services and management | Yes | Bookings, care-team messaging, lab orders |
+| Medication and treatment management | Yes | Medication list, dose logging, reminders |
+| Medical reference and education | Yes | "Help me understand this" explanations, health education |
+| Medical device apps | Yes | Pairs with Bluetooth BP cuffs, glucometers, scales, thermometers, oximeters |
+| Period tracking | Yes | Women's health cycle tracking is in the app (it was unticked) |
+| Reproductive and sexual health | Yes | Fertility assessment, STI risk check, sexual wellness screen (unticked) |
+| Mental and behavioural health | Yes | Mental-health screening questionnaire (unticked) |
+| Clinical decision support | **No** | That category is for tools clinicians use to make decisions; the mobile app is patient-facing (it was ticked) |
+| Emergency and first aid | No | The "go to the nearest hospital" safety net is a prompt, not an emergency/first-aid service |
+| Human subjects research, Other | No | |
+
+Step 2 ("Regional requirements") asks about medical-device regulatory status per region; the
+app is not a regulated medical device in Nigeria and should be declared as such.
 
 ## Data safety form: data collected
 

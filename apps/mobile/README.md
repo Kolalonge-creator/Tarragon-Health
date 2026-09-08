@@ -99,8 +99,10 @@ Commit the `app.json` changes `eas init` makes.
   see CLAUDE.md). Real secrets must never go in `eas.json`.
 - For local development against a dev server instead, put overrides in
   `apps/mobile/.env.local` (see the root `.env.example` catalogue).
-- Store identity is already set: `com.tarragonhealth.mobile` (iOS bundle id
-  and Android package), Guard Leaf icon/adaptive-icon/splash in `assets/`.
+- Store identity: iOS bundle id `com.tarragonhealth.mobile`; Android package
+  `com.tarragonhealth.app` (it must match the app already created in the Play
+  Console, which rejects a first upload under any other package name). Guard
+  Leaf icon/adaptive-icon/splash in `assets/`.
 
 ## Tests
 

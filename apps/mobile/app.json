@@ -71,7 +71,7 @@
       }
     },
     "android": {
-      "package": "com.tarragonhealth.mobile",
+      "package": "com.tarragonhealth.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FFFFFF"
