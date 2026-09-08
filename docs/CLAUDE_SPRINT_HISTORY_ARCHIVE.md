@@ -3859,3 +3859,68 @@ guardrail as part of this documentation pass** — treat any specific one as unv
 prefer reading that spec's own doc (several already carry a 2026-09-02 reconciliation note, e.g.
 `FAMILY_CARE_CIRCLE_SPEC.md`) over assuming this file's older "Phase 2/3, needs an explicit ask"
 language still applies.
+
+### 2026-09-08 — Full mobile↔web↔backend integration audit; mobile WebView elimination completed and its own paper trail corrected
+
+A 4-agent parallel audit (medications/vitals/labs/care/settings/family/women's-health; PR #511 +
+lifestyle/services; the pre-existing sync machinery — BLE, HealthKit, Health Connect, offline queues,
+messages, cycle tracking; and the mobile app's Supabase-client/credential/dead-code hygiene) covered
+every one of `apps/mobile`'s 55+ screens and ~75 data-layer files against `apps/web` and the live
+schema, following the same-day completion of the platform-wide mobile WebView elimination (`4ffe7c3b`/
+PR #508, `698dbc24`/PR #511, `041ca1f0`, `b5d236b6` — see `apps/mobile`'s recent git log for the full
+list of what each converted). Verdict: no critical or high-severity finding anywhere — every screen
+checked relies on the same RLS policies, tables, and RPCs as web, safety-critical logic (mental-health
+crisis routing, obesity-enrolment ED-screen gating, danger-symptom escalation) calls the identical
+server functions web uses rather than reimplementing them, and no service-role credential or `auth.admin.*`
+call reaches the mobile bundle. Fixed the handful of real medium/low gaps found:
+- `api.ts`'s `request()` used to surface a bare "Request failed (401)" on a server-rejected token the
+  client still considered valid; it now attempts one `refreshSession()` + retry, then signs the patient
+  out cleanly (routing to login via the existing `onAuthStateChange` listener) if the refresh itself fails.
+- `family-consent.ts`'s `CareAccessCategory` was a hand-typed 8-value union instead of the generated
+  `Enums<"care_access_category">` — the exact copy-drift pattern that has caused real consent bugs on
+  this reproductive-health-adjacent table before (see `reference_reproductive_health_access_category`
+  in memory). Now sourced from `@tarragon/shared`.
+- Removed `apps/web/src/app/api/mobile/services/checkout/route.ts` — a bearer-authenticated,
+  native-Paystack-checkout-capable endpoint with zero callers anywhere in `apps/mobile` (the real "My
+  services" screen hands off to the web page via `WebBrowser` instead). Dead code that was also a
+  standing latent risk against the platform's "checkout never happens natively" rule if ever wired up
+  without revisiting that decision.
+- `lab-orders/checkout`'s `callbackUrl` is now restricted server-side to the `tarragonhealth://` scheme
+  (defense-in-depth — a bearer token alone shouldn't be enough to redirect Paystack's post-payment
+  callback anywhere).
+- Devices screen previously had no visibility into `offline-queue.ts`'s two AsyncStorage-backed queues
+  (health-samples pages, BLE device readings) — the queue mechanism itself worked and was already
+  retried by `background-sync.ts`'s periodic task, but a patient who'd been offline for days had no way
+  to see "N readings still waiting to sync," unlike VitalsScreen, which already had this for its own
+  queue. Wired `getPendingCount()`/`flushOfflineQueues()` (both already existed, documented as "kept for
+  a future caller") into a visible banner + manual "Sync now" action on `DevicesScreen`.
+- A mobile-booked telemedicine/result-interpretation appointment never got an immediate Zoom join
+  link — `bookAppointment()` skipped the video-setup half of web's `confirmAppointmentAndSetupVideo`
+  because that's a cookie-session Next.js server action with no mobile equivalent, so a patient only got
+  a link the first time "Join call" was tapped. Fixed at the root: `confirmAppointmentAndSetupVideo`'s
+  Zoom-setup step was pulled out into a standalone `setupAppointmentVideoMeeting(appointment)` — it
+  can't just be re-invoked by re-calling `confirm_appointment_booking` a second time, since that RPC
+  raises "appointment is not on hold" on anything already confirmed (checked against the RPC's live
+  definition, not the migration file, per this project's own standing lesson on that). A new
+  `POST /api/mobile/appointments/setup-video` reads the appointment through the caller's own bearer-
+  scoped RLS first (so a caller can only trigger this for an appointment they can actually read), then
+  hands it to the same service-role setup function web uses. `bookAppointment()` calls it best-effort
+  right after confirming — a failure there doesn't fail the booking, self-healing the same way web's own
+  fallback already does if Zoom is briefly unreachable.
+- **The #511 commit message itself overclaimed which screens it converted** (it described converting
+  Healthy Ageing, Wellness, Health Check, and Women's Health and adding their 4 API routes — `git show
+  --stat 698dbc24` shows none of those files were touched by that commit; `git log --diff-filter=A`
+  traces all of them to the earlier `4ffe7c3b`/PR #508 instead). Rewriting a merged commit's message
+  was correctly ruled out (destructive history-rewrite on a shared branch, no actual benefit over
+  documenting the correction) — instead: `docs/mobile-native-conversion/` (six now-fully-superseded
+  handoff specs whose own "Files" table and "Already done" list both still implied five sections were
+  pending, plus stale in-code "stays WebView" claims found and fixed in three of the screens themselves
+  — `family-screen.tsx`, `health-check-screen.tsx`) was moved to `docs/archive/mobile-native-conversion/`
+  with a status banner at the top correcting the record and pointing at the actual commits, matching
+  this file's own convention for shipped-and-superseded build-plan docs. `womens-health-screen.tsx`'s
+  own header comment was already accurate and needed no change — a useful contrast showing the drift is
+  specific to individual files, not systemic.
+
+tsc --noEmit and eslint clean on both `apps/web` and `apps/mobile`; full mobile Jest suite (151 tests,
+including 3 new tests covering the 401 refresh/retry/sign-out paths) passes. Committed on
+`claude/mobile-backend-integration-audit`, not yet merged as of this writing.

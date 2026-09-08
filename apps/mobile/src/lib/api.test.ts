@@ -17,10 +17,12 @@ import {
 import { supabase } from "./supabase";
 
 jest.mock("./supabase", () => ({
-  supabase: { auth: { getSession: jest.fn() } },
+  supabase: { auth: { getSession: jest.fn(), refreshSession: jest.fn(), signOut: jest.fn() } },
 }));
 
 const getSession = supabase.auth.getSession as jest.MockedFunction<typeof supabase.auth.getSession>;
+const refreshSession = supabase.auth.refreshSession as jest.MockedFunction<typeof supabase.auth.refreshSession>;
+const signOut = supabase.auth.signOut as jest.MockedFunction<typeof supabase.auth.signOut>;
 const mockFetch = jest.fn();
 
 function signedIn(token = "jwt-abc"): void {
@@ -42,6 +44,11 @@ beforeEach(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
   mockFetch.mockReset();
   signedIn();
+  refreshSession.mockResolvedValue({
+    data: { session: null, user: null },
+    error: { message: "refresh failed" },
+  } as unknown as Awaited<ReturnType<typeof supabase.auth.refreshSession>>);
+  signOut.mockResolvedValue({ error: null } as unknown as Awaited<ReturnType<typeof supabase.auth.signOut>>);
 });
 
 describe("authentication", () => {
@@ -101,6 +108,50 @@ describe("error handling", () => {
       success: false,
       error: NETWORK_ERROR_MESSAGE,
     });
+  });
+});
+
+describe("401 handling", () => {
+  it("refreshes the session and retries once, transparently, when the token was just stale", async () => {
+    mockFetch.mockResolvedValueOnce(jsonResponse(401, { error: "Invalid or expired session" }));
+    mockFetch.mockResolvedValueOnce(jsonResponse(200, {}));
+    refreshSession.mockResolvedValue({
+      data: { session: { access_token: "jwt-refreshed" }, user: {} },
+      error: null,
+    } as unknown as Awaited<ReturnType<typeof supabase.auth.refreshSession>>);
+
+    await expect(postDeviceReading({ systolic: 120 })).resolves.toEqual({ success: true });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(signOut).not.toHaveBeenCalled();
+  });
+
+  it("signs the patient out and surfaces a friendly message when the refresh itself fails", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(401, { error: "Invalid or expired session" }));
+
+    await expect(postDeviceReading({ systolic: 120 })).resolves.toEqual({
+      success: false,
+      error: "Your session expired — please sign in again.",
+    });
+
+    expect(signOut).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not loop forever if the refreshed session still gets a 401 back", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(401, { error: "Invalid or expired session" }));
+    refreshSession.mockResolvedValue({
+      data: { session: { access_token: "jwt-refreshed" }, user: {} },
+      error: null,
+    } as unknown as Awaited<ReturnType<typeof supabase.auth.refreshSession>>);
+
+    await expect(postDeviceReading({ systolic: 120 })).resolves.toEqual({
+      success: false,
+      error: "Invalid or expired session",
+    });
+
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+    expect(refreshSession).toHaveBeenCalledTimes(1);
   });
 });
 

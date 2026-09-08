@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
+import type { Enums } from "@tarragon/shared";
 
 /**
  * Family's `profile_id = me` direction — who can see/act on the caller's OWN
@@ -288,15 +289,7 @@ export async function revokeEmergencyAccess(grantId: string, patientId: string):
 // toggle, per CLAUDE.md's standing rule on this access category.
 // ---------------------------------------------------------------------------
 
-export type CareAccessCategory =
-  | "appointments_care_plan"
-  | "vitals_readings"
-  | "medications"
-  | "labs_results"
-  | "vaccinations"
-  | "messaging"
-  | "reproductive_health"
-  | "medical_history";
+export type CareAccessCategory = Enums<"care_access_category">;
 
 export const CARE_ACCESS_CATEGORIES: { value: CareAccessCategory; label: string }[] = [
   { value: "appointments_care_plan", label: "Appointments and care plan" },

@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { postAppointmentVideoSetup } from "./api";
 import type { QueryResult } from "./medications";
 import type { Tables, Enums } from "@tarragon/shared";
 
@@ -71,11 +72,16 @@ export async function loadAvailableSlots(
 
 /**
  * Hold then confirm a slot — the same two-step RPC sequence as
- * book-appointment.tsx's bookSlot(), minus the Zoom-meeting setup step
- * (confirmAppointmentAndSetupVideo is a Next.js server action with no mobile
- * equivalent; a telemedicine appointment still gets its join link the first
- * time "Join call" is used from the web appointments page, same as any
- * appointment confirmed there without immediately joining).
+ * book-appointment.tsx's bookSlot(), plus a best-effort call to
+ * /api/mobile/appointments/setup-video (postAppointmentVideoSetup) so a
+ * telemedicine/result-interpretation booking gets its Zoom join link right
+ * away rather than waiting for the first "Join call" tap. Can't call
+ * confirm_appointment_booking a second time to get web's
+ * confirmAppointmentAndSetupVideo behaviour for free — that RPC refuses
+ * anything already confirmed — so this hits the narrower setup-only route
+ * instead. Errors from that call are swallowed on purpose: the booking
+ * itself already succeeded, and a missing join link self-heals the next
+ * time either platform's setup path runs for this appointment.
  */
 export async function bookAppointment(input: {
   organisationId: string;
@@ -103,6 +109,7 @@ export async function bookAppointment(input: {
   if (confirmError || !confirmed) {
     return { ok: false, error: confirmError?.message ?? "Could not confirm this booking" };
   }
+  void postAppointmentVideoSetup((confirmed as Appointment).id);
   return { ok: true, data: confirmed as Appointment };
 }
 

@@ -60,11 +60,13 @@ const STAGE_NAV: SectionId[] = ["prevention", "wellbeing", "vitals", "prevention
  * "Your Health Check" — the yearly Annual Health Check's 5-stage dashboard,
  * doctor review/report card, and video-consult slot picker, mirroring
  * apps/web/.../patient/health-check/page.tsx's orchestration layer.
- * Everything with an existing native/WebView home elsewhere is a link-out,
- * not a rebuild: mental wellbeing (already native, `wellbeing`), lab
- * ordering/booking (WebView modal, same pattern as labs-screen.tsx), and
- * the risk-assessment/screening/vaccination questionnaires (Prevention's
- * WebView fallback) — see docs/mobile-native-conversion/health-check.md.
+ * Everything with an existing native home elsewhere is a link-out, not a
+ * rebuild: mental wellbeing (`wellbeing`), risk-assessment/screening/
+ * vaccination questionnaires (`prevention`), and viewing/uploading lab
+ * orders & results (Labs) are all native screens today. The one thing that
+ * stays a system-browser hand-off, below, is booking partner-billed lab
+ * work or redeeming a Care Voucher — real Paystack checkout/payment,
+ * same reasoning as Subscription elsewhere in this app.
  */
 export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenProps) {
   const [loading, setLoading] = useState(true);

@@ -158,6 +158,22 @@ export async function postDeviceFaultReport(
     : { success: false, error: result.error };
 }
 
+/** Gives a just-confirmed telemedicine/result-interpretation appointment its
+ * Zoom join link right away, instead of waiting for the first "Join call"
+ * tap to discover one doesn't exist yet — see
+ * apps/web/src/app/api/mobile/appointments/setup-video/route.ts. Best-effort
+ * by design: appointments.ts's bookAppointment() calls this after the
+ * booking is already confirmed and ignores its result, the same fallback
+ * web itself relies on if Zoom is briefly unreachable — a missing join link
+ * is recovered the next time this (or the web equivalent) runs, never a
+ * reason to fail a booking that already succeeded. */
+export async function postAppointmentVideoSetup(appointmentId: string): Promise<{ success: boolean; error?: string }> {
+  const result = await request<{ ok: boolean }>("/api/mobile/appointments/setup-video", "POST", {
+    appointmentId,
+  });
+  return result.ok ? { success: true } : { success: false, error: result.error };
+}
+
 export interface LifestyleActionResult {
   success?: boolean;
   message?: string;
@@ -377,7 +393,8 @@ export async function fetchWithTimeoutAndRetry(url: string, init: RequestInit): 
 async function request<T>(
   path: string,
   method: "GET" | "POST",
-  body?: unknown
+  body?: unknown,
+  isRetry = false
 ): Promise<RequestResult<T>> {
   const {
     data: { session },
@@ -401,6 +418,20 @@ async function request<T>(
     response = await fetchWithTimeoutAndRetry(url, init);
   } catch {
     return { ok: false, error: NETWORK_ERROR_MESSAGE };
+  }
+
+  // A 401 here means the server rejected a token the client still considers
+  // valid (e.g. revoked server-side, or expired just ahead of the client's
+  // own auto-refresh). Try one explicit refresh-and-retry before giving up —
+  // otherwise a stale-but-not-yet-refreshed token surfaces as a confusing
+  // "Request failed (401)" instead of either succeeding or signing out.
+  if (response.status === 401 && !isRetry) {
+    const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+    if (!refreshError && refreshed.session) {
+      return request<T>(path, method, body, true);
+    }
+    await supabase.auth.signOut();
+    return { ok: false, error: "Your session expired — please sign in again." };
   }
 
   try {

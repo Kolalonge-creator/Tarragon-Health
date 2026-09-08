@@ -1,10 +1,41 @@
-# Mobile native-conversion scope docs
+# Mobile native-conversion scope docs — SUPERSEDED, kept for design rationale only
 
-These six files are handoff specs for converting the remaining WebView-only
-patient sections in `apps/mobile` to fully native screens, one at a time.
-Each is self-contained — paste the **entire contents of one file** as your
-first message in a fresh Claude Code session working in this repo, and it
-has everything needed to start building without any other context.
+**Status as of 2026-09-08: done.** All six sections these docs describe as
+pending (`health-check`, `healthy-ageing`, `womens-health`, `sexual-health`,
+`wellness`, `family`) shipped across four same-week commits —
+`4ffe7c3b`/PR #508 (healthy-ageing, wellness, health-check, womens-health top
+level), `698dbc24`/PR #511 (a further 9 sections including receipts,
+notification-settings, technical-support, health-summary, find-a-specialist,
+screening-days, financial-profile), `041ca1f0` (lifestyle coaching, my
+services), and `b5d236b6` ("Eliminate remaining embedded WebViews from the
+mobile app" — medications, vitals/symptoms, labs, care & support, settings/
+profile, supporting, family, women's-health cycle tracking). The
+`react-native-webview` package, `webview-hub-screen.tsx`, and `sections.ts`'s
+`webviewPath` field this README's "established pattern" section refers to
+below no longer exist anywhere in `apps/mobile` — there is no more
+WebView-wrapped section left to convert. (This correction was made because a
+squash-merge commit message for #511 misattributed which screens it
+converted — see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s 2026-09-08 entry.)
+
+**Before touching anything named in these docs as "not yet done," read the
+actual current screen file first** — several individual "Stay WebView" lists
+inside the six docs below are now stale (e.g. `family.md`'s once described
+the activity log and audit trail as staying WebView; `family-screen.tsx`
+renders both natively today). Where a doc below is still accurate — e.g. the
+reproductive-health safety notes in `womens-health.md`/`sexual-health.md`,
+or a design rationale for why a specific flow is a browser hand-off rather
+than a native rebuild — it remains useful as historical context. Treat the
+"Files" table's implied pending-work status and the "Already done" list
+below as both obsolete: everything in this folder's scope is done.
+
+---
+
+These six files were handoff specs for converting the (at the time)
+remaining WebView-only patient sections in `apps/mobile` to fully native
+screens, one at a time. Each was self-contained — paste the **entire
+contents of one file** as your first message in a fresh Claude Code session
+working in this repo, and it had everything needed to start building without
+any other context.
 
 ## How to use one of these
 

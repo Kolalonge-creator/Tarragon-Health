@@ -89,16 +89,15 @@ const LEVEL_LABEL: Record<"view" | "manage", string> = { view: "view", manage: "
 /**
  * "Your people" — Family's `profile_id = me` direction: who can see/act on
  * the caller's OWN record. Mirrors apps/web/.../patient/family/page.tsx's
- * next-of-kin card, emergency-access banner, the accept/decline request
- * flow, and per-category care visibility, per
- * docs/mobile-native-conversion/family.md's recommended first-pass scope
- * cut. `supporting-screen.tsx` already covers the opposite direction
- * (children/adults the caller looks after, grantee_user_id = me) — linked
- * from here rather than duplicated. The eldercare "manage" request wizard,
- * add-child/add-elder-proxy provisioning, the granular permission/expiry
- * sub-editor, the audit log, and the household rollup all stay WebView in
- * this pass (see the doc's own "Stay WebView" list) — reachable from the
- * "Manage children & dependants" card below.
+ * next-of-kin card, emergency-access banner, accept/decline request flow,
+ * per-category care visibility, and access-history log — all native.
+ * `supporting-screen.tsx` already covers the opposite direction (children/
+ * adults the caller looks after, grantee_user_id = me) — linked from here
+ * rather than duplicated. Only the eldercare "manage" request wizard and
+ * add-child/add-elder-proxy provisioning stay a system-browser hand-off
+ * (never an embedded WebView, which this app no longer has at all) — see
+ * the "Manage children & dependants" card below for why: that flow runs on
+ * a service-role client that must never ship in the mobile bundle.
  */
 export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
   const [loading, setLoading] = useState(true);
