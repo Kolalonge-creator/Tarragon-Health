@@ -18,12 +18,12 @@ const HOW_IT_WORKS = [
   {
     step: 1,
     title: "Your schedule builds itself",
-    body: "Your own due and upcoming vaccines are worked out automatically, from routine childhood immunisation through to adult and travel doses like HPV. Add a child too young to have their own login and their schedule lives on your account, tracked the same way.",
+    body: "Your own due and upcoming vaccines are worked out automatically, from routine childhood immunisation through to adult and travel doses like HPV. Add a child too young to have their own login, and their schedule lives on your account the same way.",
   },
   {
     step: 2,
     title: "A reminder when a dose is due",
-    body: "No more guessing from memory or a paper card. You're reminded before a dose is due, and you get it done at whichever clinic or vaccination provider suits you.",
+    body: "A reminder lands before each dose is due, no more guessing from memory or a paper card, and you get it done at whichever clinic suits you.",
   },
   {
     step: 3,
@@ -40,7 +40,7 @@ const HOW_IT_WORKS = [
 const WHATS_INCLUDED = [
   {
     title: "Your own record, and your children's",
-    body: "A child too young to have their own login keeps their schedule on your account, in the same record as the rest of their care. An adult you're caring for, like a parent, keeps their own account; you follow their schedule as next of kin once they've agreed.",
+    body: "A child too young to have their own login keeps their schedule on your account. A parent or other adult you support keeps their own account, which you follow as next of kin once they've agreed.",
   },
   {
     title: "Reminders, not memory",
@@ -48,7 +48,7 @@ const WHATS_INCLUDED = [
   },
   {
     title: "Get it done wherever suits you",
-    body: "There's no facility to book through the app yet, so you take the dose at whichever clinic or provider is convenient and pay them directly; log it here afterwards.",
+    body: "There's no in-app booking yet, so take the dose at whichever clinic suits you, pay them directly, and log it here afterwards.",
   },
   {
     title: "Doctor-verified certificate",
@@ -76,10 +76,9 @@ export default function VaccinationsPage() {
             Vaccinations, tracked and verified
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            A personal vaccination schedule for you and any children too young to have their own
-            login, a reminder before a dose is due, and a doctor-verified certificate you&apos;ll
-            never lose, even if the paper one is. Get the dose wherever suits you and pay them
-            directly; we take nothing on it.
+            A personal vaccination schedule, a reminder before each dose is due, and a
+            doctor-verified certificate you&apos;ll never lose, even if the paper one is. Get the
+            dose wherever suits you and pay them directly; we take nothing on it.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
             <Button asChild size="lg">

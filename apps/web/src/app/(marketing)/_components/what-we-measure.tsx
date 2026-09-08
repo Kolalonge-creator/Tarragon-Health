@@ -90,7 +90,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   {
     title: "Blood Cell Health",
     description:
-      "A full count of your red cells, white cells, and platelets, plus the two markers most often behind anaemia: anaemia, infection, and clotting problems all show up here first.",
+      "A full count of your red cells, white cells, and platelets: anaemia, infection, and clotting problems all show up here first.",
     items: [
       {
         name: "Full Blood Count: Haemoglobin, Haematocrit, RBC & WBC Count, Platelets, MCV, MCH, MCHC",
@@ -163,7 +163,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   {
     title: "Cancer Screening",
     description:
-      "Matched to your age and sex, not one-size-fits-all, and not everything here is yearly. Each one runs on its own proper calendar, not a generic annual clock.",
+      "Matched to your age and sex, each on its own real-world calendar, not a generic annual clock.",
     items: [
       {
         name: "Cervical Smear (women 25–64)",
