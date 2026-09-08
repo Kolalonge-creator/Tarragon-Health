@@ -124,3 +124,138 @@ describe("the generic fallback is still there for anything unmapped", () => {
     expect(rendered.href).toBe("/patient");
   });
 });
+
+/**
+ * These 21 in_app templates were found live (inserted by real migrations)
+ * with zero case anywhere — every one fell through to "You have an update",
+ * discarding a pre-resolved payload.message on several of them. Same failure
+ * class as the ack-timeout gap above; one test per template so a future
+ * refactor can't silently drop one back into the fallback.
+ */
+describe("previously-unmapped live templates render their own copy, not the fallback", () => {
+  const NOT_FALLBACK = "You have an update";
+
+  it("security.new_device_signin uses the pre-resolved message", () => {
+    const rendered = describeNotification(
+      notification("security.new_device_signin", { message: "New sign-in from a device we haven't seen." })
+    );
+    expect(rendered.text).toBe("New sign-in from a device we haven't seen.");
+    expect(rendered.href).toBe("/patient/privacy");
+  });
+
+  it.each(["vitals_monitoring_due", "vitals_monitoring_overdue", "vitals_monitoring_escalated"])(
+    "%s names the vital type and links to /patient/vitals",
+    (template) => {
+      const rendered = describeNotification(notification(template, { vital_type: "blood_pressure" }));
+      expect(rendered.text).toContain("blood pressure");
+      expect(rendered.text).not.toBe(NOT_FALLBACK);
+      expect(rendered.href).toBe("/patient/vitals");
+    }
+  );
+
+  it("ai_safety_incident_raised names the system and links to AI governance", () => {
+    const rendered = describeNotification(notification("ai_safety_incident_raised", { ai_system: "AI Coach" }));
+    expect(rendered.text).toContain("AI Coach");
+    expect(rendered.href).toBe("/admin/settings/ai-governance");
+  });
+
+  it("ai_system_disabled names the system and links to AI governance", () => {
+    const rendered = describeNotification(notification("ai_system_disabled", { ai_system: "AI Coach" }));
+    expect(rendered.text).toContain("AI Coach");
+    expect(rendered.href).toBe("/admin/settings/ai-governance");
+  });
+
+  it("consultation_summary_ready links to the timeline", () => {
+    const rendered = describeNotification(notification("consultation_summary_ready"));
+    expect(rendered.text).not.toBe(NOT_FALLBACK);
+    expect(rendered.href).toBe("/patient/timeline");
+  });
+
+  it.each(["engagement_reminder_personalized", "engagement_support_offer"])(
+    "%s is not the fallback",
+    (template) => {
+      expect(describeNotification(notification(template)).text).not.toBe(NOT_FALLBACK);
+    }
+  );
+
+  it("lab_sample_rejected includes the rejection reason", () => {
+    const rendered = describeNotification(
+      notification("lab_sample_rejected", { test_name: "FBC", reason: "haemolysed" })
+    );
+    expect(rendered.text).toContain("haemolysed");
+    expect(rendered.href).toBe("/patient/labs");
+  });
+
+  it("medication_dose_reminder names the drug", () => {
+    const rendered = describeNotification(notification("medication_dose_reminder", { drug_name: "Metformin" }));
+    expect(rendered.text).toContain("Metformin");
+    expect(rendered.href).toBe("/patient/medications");
+  });
+
+  it("medication_lab_monitoring_due names the check and the drug", () => {
+    const rendered = describeNotification(
+      notification("medication_lab_monitoring_due", { monitoring_label: "U&E", drug_name: "Lisinopril" })
+    );
+    expect(rendered.text).toContain("U&E");
+    expect(rendered.text).toContain("Lisinopril");
+  });
+
+  it("navigation_request_resolved is not the fallback", () => {
+    expect(describeNotification(notification("navigation_request_resolved")).text).not.toBe(NOT_FALLBACK);
+  });
+
+  it("provider_credential_ladder uses the pre-resolved message and links to /admin", () => {
+    const rendered = describeNotification(
+      notification("provider_credential_ladder", { message: "Dr. X's licence has expired." })
+    );
+    expect(rendered.text).toBe("Dr. X's licence has expired.");
+    expect(rendered.href).toBe("/admin");
+  });
+
+  it("provider_credential_ladder_self links to the clinician's own performance page", () => {
+    expect(describeNotification(notification("provider_credential_ladder_self")).href).toBe(
+      "/clinician/my-performance"
+    );
+  });
+
+  it("provider_intervention_opened links to the clinician's own performance page", () => {
+    expect(describeNotification(notification("provider_intervention_opened")).href).toBe(
+      "/clinician/my-performance"
+    );
+  });
+
+  it.each(["adolescent_shared_access_nudge_13", "adolescent_independence_downgrade_18"])(
+    "%s names the child and links to Your people",
+    (template) => {
+      const rendered = describeNotification(notification(template, { child_name: "Ada" }));
+      expect(rendered.text).toContain("Ada");
+      expect(rendered.href).toBe("/patient/family");
+    }
+  );
+
+  it("appointment_reminder_for_dependent is not the fallback", () => {
+    const rendered = describeNotification(notification("appointment_reminder_for_dependent"));
+    expect(rendered.text).not.toBe(NOT_FALLBACK);
+    expect(rendered.href).toBe("/patient/family");
+  });
+
+  it("dependent_majority_review uses the pre-resolved message", () => {
+    const rendered = describeNotification(
+      notification("dependent_majority_review", { message: "Ada just turned 18." })
+    );
+    expect(rendered.text).toBe("Ada just turned 18.");
+    expect(rendered.href).toBe("/patient/family");
+  });
+
+  it("caregiver_review_overdue is not the fallback", () => {
+    expect(describeNotification(notification("caregiver_review_overdue")).href).toBe("/patient/family");
+  });
+
+  it("emergency_access_review_due uses the pre-resolved message and links to the review queue", () => {
+    const rendered = describeNotification(
+      notification("emergency_access_review_due", { message: "A grant needs review." })
+    );
+    expect(rendered.text).toBe("A grant needs review.");
+    expect(rendered.href).toBe("/clinician/emergency-access-review");
+  });
+});

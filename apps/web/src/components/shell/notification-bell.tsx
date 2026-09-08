@@ -58,6 +58,9 @@ const ROUTINE_TEMPLATES = new Set<string>([
   "wellness_challenge_ending",
   "second_condition_needs_upgrade",
   "engagement_reengagement_nudge",
+  "consultation_summary_ready",
+  "engagement_reminder_personalized",
+  "engagement_support_offer",
 ]);
 
 type DisplayTier = "critical" | "important" | "routine";
@@ -717,6 +720,143 @@ export function describe(n: InAppNotification): { text: string; href: string } {
           ? "1 payment discrepancy is waiting to be reviewed"
           : `${count} payment discrepancies are waiting to be reviewed`,
       href: "/finance/reconciliation",
+    };
+  }
+  if (n.template === "security.new_device_signin") {
+    // From public.record_login_device() (known_device_login_notification.sql).
+    // Same pre-resolved payload.message shape as clinical_staff_indemnity_lapse
+    // below — priority is already 'critical' at insert time, so displayTier
+    // picks this up without needing ALWAYS_CRITICAL_TEMPLATES.
+    return {
+      text: String(
+        payload.message ?? "New sign-in to your account from a device we haven't seen before"
+      ),
+      href: "/patient/privacy",
+    };
+  }
+  if (
+    n.template === "vitals_monitoring_due" ||
+    n.template === "vitals_monitoring_overdue" ||
+    n.template === "vitals_monitoring_escalated"
+  ) {
+    // From private.sweep_vitals_monitoring_gaps() (vitals_monitoring_adherence_
+    // and_gap_ladder.sql) — the reminder/overdue/escalated ladder for a
+    // scheduled monitoring item, same shape as the screening_due/overdue/
+    // escalated triad above.
+    const vital = String(payload.vital_type ?? "a reading").replace(/_/g, " ");
+    const label =
+      n.template === "vitals_monitoring_due"
+        ? "is due"
+        : n.template === "vitals_monitoring_overdue"
+          ? "is overdue"
+          : "is overdue: your care team has been notified";
+    return { text: `Logging your ${vital} ${label}`, href: "/patient/vitals" };
+  }
+  if (n.template === "ai_safety_incident_raised") {
+    // From the ai_safety_incidents insert trigger — admin-facing, priority
+    // 'critical' already at insert.
+    const system = String(payload.ai_system ?? "An AI system");
+    return {
+      text: `${system}: a safety incident was raised and needs review`,
+      href: "/admin/settings/ai-governance",
+    };
+  }
+  if (n.template === "ai_system_disabled") {
+    // From private.disable_ai_system() (ai_governance_kill_switch_and_
+    // dashboard.sql) — priority 'critical' already at insert.
+    const system = String(payload.ai_system ?? "An AI system");
+    const reason = String(payload.reason ?? "").trim();
+    return {
+      text: reason ? `${system} was disabled: ${reason}` : `${system} was disabled`,
+      href: "/admin/settings/ai-governance",
+    };
+  }
+  if (n.template === "consultation_summary_ready") {
+    return { text: "A summary of your recent visit is ready to read", href: "/patient/timeline" };
+  }
+  if (n.template === "engagement_reminder_personalized") {
+    const dim = String(payload.lowest_dimension ?? "your health").replace(/_/g, " ");
+    return { text: `A gentle nudge to check in on ${dim}`, href: "/patient" };
+  }
+  if (n.template === "engagement_support_offer") {
+    const dim = String(payload.lowest_dimension ?? "your health").replace(/_/g, " ");
+    return {
+      text: `We've noticed ${dim} has been quiet lately. We're here if you need support`,
+      href: "/patient",
+    };
+  }
+  if (n.template === "lab_sample_rejected") {
+    const test = String(payload.test_name ?? "your test");
+    const reason = String(payload.reason ?? "").trim();
+    return {
+      text: reason ? `Your sample for ${test} was rejected: ${reason}` : `Your sample for ${test} was rejected`,
+      href: "/patient/labs",
+    };
+  }
+  if (n.template === "medication_dose_reminder") {
+    const drug = String(payload.drug_name ?? "your medication");
+    const time = String(payload.scheduled_time ?? "").trim();
+    return { text: time ? `Time to take ${drug} (${time})` : `Time to take ${drug}`, href: "/patient/medications" };
+  }
+  if (n.template === "medication_lab_monitoring_due") {
+    const label = String(payload.monitoring_label ?? "A lab check");
+    const drug = String(payload.drug_name ?? "your medication");
+    return { text: `${label} for ${drug} is due`, href: "/patient/medications" };
+  }
+  if (n.template === "navigation_request_resolved") {
+    return { text: "Your request for help has been resolved", href: "/patient" };
+  }
+  if (n.template === "provider_credential_ladder") {
+    // From private.advance_provider_credential_ladder() — admin-facing, about
+    // a colleague. Same pre-resolved payload.message shape.
+    return { text: String(payload.message ?? "A clinician's practicing licence needs review"), href: "/admin" };
+  }
+  if (n.template === "provider_credential_ladder_self") {
+    // Same sweep, this time addressed to the affected clinician.
+    return {
+      text: String(payload.message ?? "Your practicing licence needs your attention"),
+      href: "/clinician/my-performance",
+    };
+  }
+  if (n.template === "provider_intervention_opened") {
+    return {
+      text: String(payload.message ?? "A note was added to your professional development file"),
+      href: "/clinician/my-performance",
+    };
+  }
+  if (n.template === "adolescent_shared_access_nudge_13") {
+    const name = String(payload.child_name ?? "The young person you support");
+    return {
+      text: `${name} just turned 13. It's a good time to talk about what they'd like to keep private`,
+      href: "/patient/family",
+    };
+  }
+  if (n.template === "adolescent_independence_downgrade_18") {
+    const name = String(payload.child_name ?? "The young person you supported");
+    return {
+      text: `${name} turned 18, so your access has moved from manage to view-only`,
+      href: "/patient/family",
+    };
+  }
+  if (n.template === "appointment_reminder_for_dependent") {
+    const type = String(payload.appointment_type ?? "An appointment").replace(/_/g, " ");
+    return { text: `${type} is coming up for someone you care for`, href: "/patient/family" };
+  }
+  if (n.template === "dependent_majority_review") {
+    return {
+      text: String(
+        payload.message ?? "Someone you have access for just turned 18. Their access level may need review"
+      ),
+      href: "/patient/family",
+    };
+  }
+  if (n.template === "caregiver_review_overdue") {
+    return { text: "A periodic review of your care access is overdue", href: "/patient/family" };
+  }
+  if (n.template === "emergency_access_review_due") {
+    return {
+      text: String(payload.message ?? "An emergency record-access grant is due for review"),
+      href: "/clinician/emergency-access-review",
     };
   }
   return { text: "You have an update", href: "/patient" };
