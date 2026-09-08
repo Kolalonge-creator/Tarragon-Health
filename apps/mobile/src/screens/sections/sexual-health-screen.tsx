@@ -39,6 +39,7 @@ import {
   type SexualWellnessResult,
 } from "@/lib/sexual-wellness";
 import { CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER, startConfidentialSrhThread } from "@/lib/confidential-message";
+import { loadHealthEducationLibrary, type LibraryItem as HealthEducationLibraryItem } from "@/lib/health-education";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { SexualHealthResultsTab, SexualHealthTestingTab } from "@/screens/sections/sexual-health-testing-tab";
 import type { SectionId } from "@/lib/sections";
@@ -650,11 +651,45 @@ function SexualWellnessCard() {
   );
 }
 
+/**
+ * Native equivalent of sexual-health-hub.tsx's LearnTab: the same three
+ * categories (sexual_health, womens_health, mens_health), sexual_health
+ * first. No per-article route exists anywhere in this app (articles open
+ * inline inside the Learn library's own accordion, not at a URL) — the web
+ * tab itself only ever links to /patient/learn, never a specific article,
+ * so "Browse everything in Learn" here reuses the exact same onNavigate
+ * hookup rather than reimplementing that reading UI a second time.
+ */
 function LearnCard({ onOpenLearn }: { onOpenLearn: () => void }) {
+  const [loading, setLoading] = useState(true);
+  const [items, setItems] = useState<HealthEducationLibraryItem[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      loadHealthEducationLibrary("sexual_health"),
+      loadHealthEducationLibrary("womens_health"),
+      loadHealthEducationLibrary("mens_health"),
+    ])
+      .then(([sexualHealth, womens, mens]) => setItems([...sexualHealth, ...womens, ...mens]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <Card style={{ gap: 8 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Learn</Text>
-      <MutedText>Plain-language reading on fertility, contraception, consent, and related health topics.</MutedText>
+      <MutedText>Plain-language reading on fertility, contraception, and related health topics.</MutedText>
+
+      {loading && <MutedText>Loading…</MutedText>}
+      {!loading && items.length === 0 && <MutedText>Nothing here yet.</MutedText>}
+      {items.map((item) => (
+        <View key={item.content_id} style={{ paddingVertical: 4, gap: 2 }}>
+          <Text onPress={onOpenLearn} style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
+            {item.title}
+          </Text>
+          {item.summary && <MutedText>{item.summary}</MutedText>}
+        </View>
+      ))}
+
       <SecondaryButton title="Browse everything in Learn" onPress={onOpenLearn} />
     </Card>
   );

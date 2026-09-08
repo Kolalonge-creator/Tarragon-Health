@@ -1,5 +1,6 @@
 import { supabase } from "./supabase";
-import { postStiRiskCheck } from "./api";
+import { postStiRiskCheck, postLabOrderCheckout } from "./api";
+import { loadLabPanelBundles, type PanelBundle } from "./labs";
 import type { QueryResult } from "./medications";
 import type { Enums, Tables } from "@tarragon/shared";
 
@@ -182,4 +183,44 @@ export async function submitClinicianAssistedPartnerNotification(
   });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data: null };
+}
+
+// ---------------------------------------------------------------------------
+// STI test booking (native catalogue; the actual Paystack charge itself
+// hands off to the browser via postLabOrderCheckout, same pattern the
+// "My services" and Appointments screens already use)
+// ---------------------------------------------------------------------------
+
+/** The self-bookable STI/BBV-relevant bundles, in the order we want them to
+ * read — mirrors apps/web/.../patient/sexual-health/sti-testing-panel.tsx's
+ * STI_BUNDLE_CODES exactly (kept in sync there, not re-derived from any
+ * flag on the row itself). `single_chlamydia_gonorrhoea`/`sti_panel_full`
+ * were withdrawn in the 2026-09-03 catalogue rebuild and would disappear
+ * from this list on their own via the is_active/self_bookable filter even
+ * if left in, but aren't listed here either. */
+export const STI_BUNDLE_CODES = ["single_hiv", "single_syphilis", "single_hep_b", "single_hep_c", "blood_borne_virus_screen"] as const;
+
+/** Loads the shared panel_bundles catalogue and filters/orders it down to
+ * the STI-relevant, currently self-bookable bundles — the native
+ * equivalent of sti-testing-panel.tsx's useLabCatalogue + STI_BUNDLE_CODES
+ * filter. */
+export async function loadStiBookableBundles(): Promise<PanelBundle[]> {
+  const bundles = await loadLabPanelBundles();
+  const byCode = new Map(bundles.map((b) => [b.code, b] as const));
+  return STI_BUNDLE_CODES.map((code) => byCode.get(code)).filter(
+    (b): b is PanelBundle => !!b && b.is_active === true && b.self_bookable === true
+  );
+}
+
+/** Books the bundle (a plain RLS-scoped lab_orders insert, same as web) and
+ * initiates Paystack checkout via the /api/mobile/lab-orders/checkout
+ * route — the caller opens the returned checkoutUrl with
+ * expo-web-browser's openAuthSessionAsync and the given callbackUrl, same
+ * as "My services"'s postServicesCheckout. */
+export async function bookStiTest(panelBundleId: string, callbackUrl: string): Promise<QueryResult<string>> {
+  const result = await postLabOrderCheckout(panelBundleId, callbackUrl);
+  if (result.error || !result.checkoutUrl) {
+    return { ok: false, error: result.error ?? "Could not start checkout" };
+  }
+  return { ok: true, data: result.checkoutUrl };
 }
