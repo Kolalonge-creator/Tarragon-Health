@@ -6,8 +6,7 @@ import type { Enums } from "@tarragon/shared";
  * suggestion for the patient to act on or discuss with their care team —
  * never a diagnosis, never fed into risk/escalation scoring. Cycle
  * PREDICTION (next period/ovulation) is not here — that's the larger cycle
- * tracker, deliberately still WebView in this pass (see
- * docs/mobile-native-conversion/womens-health.md).
+ * tracker, now fully native (see cycle.ts and cycle-prediction.ts).
  */
 
 export type ReproductiveLifeStage = Enums<"reproductive_life_stage">;

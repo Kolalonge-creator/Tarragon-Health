@@ -22,13 +22,19 @@ export type PurchaseServiceProductState =
  * scopedEntityType/scopedEntityId) — the same checkout path, just a
  * different product code and optional scope.
  *
- * `client`/`caller`/`callbackUrl` are the mobile seam: the Expo app has no
- * Next.js cookie session and no `origin` header to build a same-site
- * callback path from, so /api/mobile/services/checkout resolves the caller
- * from its own bearer token and passes a bearer-authenticated client, the
- * already-verified user, and a full `tarragonhealth://` deep-link callback
- * URL instead. Every existing web call site omits all three and keeps
- * today's cookie-based auth + relative callbackPath behaviour unchanged.
+ * `client`/`caller`/`callbackUrl` are a mobile seam, unused today: the Expo
+ * app has no Next.js cookie session and no `origin` header to build a
+ * same-site callback path from, so a future bearer-authenticated
+ * /api/mobile/services/checkout route (mirroring
+ * apps/web/src/app/api/mobile/lab-orders/checkout/route.ts's pattern) would
+ * resolve the caller from its own bearer token and pass a bearer-
+ * authenticated client, the already-verified user, and a full
+ * `tarragonhealth://` deep-link callback URL instead. No such route exists
+ * right now — the mobile "My services" screen hands checkout off to the
+ * `/patient/subscription` web page via WebBrowser instead (see
+ * apps/mobile/src/screens/sections/services-screen.tsx) — so every actual
+ * call site today omits all three and keeps cookie-based auth + relative
+ * callbackPath behaviour.
  */
 export async function purchaseServiceProduct(args: {
   serviceProductCode: string;

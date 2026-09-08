@@ -8,17 +8,24 @@ import { createAndPayForLabOrder } from "@/lib/billing/create-and-pay-lab-order"
  * pay" button for any self-bookable panel bundle (the Sexual Health
  * testing tab today; deliberately not sexual-health-specific, so a future
  * native Labs screen can reuse this same route rather than growing a
- * second, parallel payment path). Cannot be a direct client call for the
- * same reason /api/mobile/services/checkout can't: initiating the Paystack
- * checkout needs the secret key inside initiateBookingCheckout, never
- * shipped to a client. Calls the *exact same* function the web "Book & pay"
+ * second, parallel payment path). Cannot be a direct client call: initiating
+ * the Paystack checkout needs the secret key inside initiateBookingCheckout,
+ * never shipped to a client. Calls the *exact same* function the web "Book & pay"
  * button uses (createAndPayForPartnerLabOrder) via
  * createAndPayForLabOrder's client/caller/callbackUrl mobile seam.
  */
 const checkoutSchema = z.object({
   panelBundleId: z.string().min(1),
   providerId: z.string().min(1).optional(),
-  callbackUrl: z.string().url(),
+  // Restricted to the app's own deep-link scheme (defense-in-depth): a
+  // bearer token alone shouldn't be enough to redirect Paystack's
+  // post-payment callback to an arbitrary URL.
+  callbackUrl: z
+    .string()
+    .url()
+    .refine((url) => url.startsWith("tarragonhealth://"), {
+      message: "callbackUrl must use the tarragonhealth:// scheme",
+    }),
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
