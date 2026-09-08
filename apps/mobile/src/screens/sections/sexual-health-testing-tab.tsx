@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Modal, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Text, TextInput, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import { koboToNaira } from "@tarragon/shared";
 import {
   RECOMMENDED_SCREEN_LABEL,
   STI_CONDOM_USES,
@@ -8,8 +10,10 @@ import {
   STI_PARTNER_COUNT_LABEL,
   STI_SYMPTOMS,
   STI_SYMPTOM_LABEL,
+  bookStiTest,
   loadOpenStiCaseEpisodes,
   loadPartnerNotifications,
+  loadStiBookableBundles,
   requestSelfNotifyPartnerCopy,
   submitClinicianAssistedPartnerNotification,
   submitStiRiskCheck,
@@ -21,9 +25,16 @@ import {
   type StiRiskCheckResult,
   type StiSymptom,
 } from "@/lib/sti";
-import { WebViewScreen } from "@/screens/webview-screen";
-import { colors, radius, spacing } from "@/ui/theme";
-import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import type { PanelBundle } from "@/lib/labs";
+import { colors, radius } from "@/ui/theme";
+import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+
+/** `tarragonhealth://lab-order-callback` — the deep link Paystack's hosted
+ * checkout redirects back to. Same mechanism as "My services"'s
+ * postServicesCheckout: expo-web-browser's openAuthSessionAsync recognises
+ * any navigation to this URL as "finished" and hands control back to the
+ * app; it is never a screen of its own. */
+const LAB_ORDER_CHECKOUT_CALLBACK_URL = "tarragonhealth://lab-order-callback";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -59,11 +70,86 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 /**
- * "Risk check & testing" tab — the check-in form + a link-out for booking.
- * STI test booking (`sti-testing-panel.tsx` -> createAndPayForPartnerLabOrder)
- * is a Paystack checkout flow, identical in kind to any other lab-order
- * booking; per docs/mobile-native-conversion/sexual-health.md, this stays a
- * WebView link-out rather than a second, parallel payment route.
+ * Native equivalent of sti-testing-panel.tsx: a real catalogue list + "Book
+ * & pay" buttons. The catalogue read and the lab_orders insert are both
+ * plain native calls; only the actual Paystack charge hands off to the
+ * system browser (expo-web-browser's openAuthSessionAsync, same pattern as
+ * "My services"/Appointments' pay-to-confirm) since a card-entry page has
+ * to be Paystack's own hosted checkout, never ours, on web either.
+ */
+function StiBookingPanel() {
+  const [loading, setLoading] = useState(true);
+  const [bundles, setBundles] = useState<PanelBundle[]>([]);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [bookError, setBookError] = useState<string | null>(null);
+  const [bookMessage, setBookMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadStiBookableBundles()
+      .then(setBundles)
+      .catch(() => setLoadError("Could not load the testing catalogue."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function book(bundle: PanelBundle) {
+    setBookError(null);
+    setBookMessage(null);
+    setBookingId(bundle.id);
+    try {
+      const result = await bookStiTest(bundle.id, LAB_ORDER_CHECKOUT_CALLBACK_URL);
+      if (!result.ok) {
+        setBookError(result.error);
+        return;
+      }
+      await WebBrowser.openAuthSessionAsync(result.data, LAB_ORDER_CHECKOUT_CALLBACK_URL);
+      setBookMessage("We're confirming your payment. If it succeeded, your order will show up shortly.");
+    } finally {
+      setBookingId(null);
+    }
+  }
+
+  return (
+    <Card style={{ gap: 10 }}>
+      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>STI testing</Text>
+      <MutedText>
+        Test on your own schedule, whether or not you did the check-in above. Results are reviewed by a
+        doctor either way.
+      </MutedText>
+
+      {loading && <ActivityIndicator color={colors.brand} />}
+      {loadError && <ErrorText>{loadError}</ErrorText>}
+      {!loading && !loadError && bundles.length === 0 && <MutedText>No STI tests are available to book yet.</MutedText>}
+
+      {bundles.map((bundle) => (
+        <View
+          key={bundle.id}
+          style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, paddingVertical: 6 }}
+        >
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{bundle.name}</Text>
+            {bundle.description && <MutedText>{bundle.description}</MutedText>}
+            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
+              ₦{koboToNaira(bundle.price_kobo).toLocaleString("en-NG")}
+            </Text>
+          </View>
+          <SecondaryButton title="Book & pay" onPress={() => void book(bundle)} loading={bookingId === bundle.id} disabled={bookingId !== null} />
+        </View>
+      ))}
+
+      {bookError && <ErrorText>{bookError}</ErrorText>}
+      {bookMessage && <MutedText>{bookMessage}</MutedText>}
+
+      <MutedText>Home test kits aren&apos;t available from a partner yet. For now, book above and we&apos;ll arrange the sample collection.</MutedText>
+    </Card>
+  );
+}
+
+/**
+ * "Risk check & testing" tab — the check-in form plus a real native
+ * catalogue + booking panel (StiBookingPanel), stacked exactly like
+ * sexual-health-hub.tsx's "testing" tab (StiRiskCheckForm + StiTestingPanel
+ * always both visible, not gated behind the check-in result).
  */
 export function SexualHealthTestingTab() {
   const [active, setActive] = useState(false);
@@ -76,7 +162,6 @@ export function SexualHealthTestingTab() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<StiRiskCheckResult | null>(null);
-  const [bookingModalOpen, setBookingModalOpen] = useState(false);
 
   function toggleSymptom(value: StiSymptom) {
     setSymptoms((prev) => {
@@ -108,109 +193,98 @@ export function SexualHealthTestingTab() {
 
   if (result) {
     return (
-      <Card style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Thanks for checking in</Text>
-        {result.recommendedScreenCodes.length > 0 ? (
-          <>
-            <MutedText>Based on your answers, it&apos;s worth getting these tests done:</MutedText>
-            {result.recommendedScreenCodes.map((code) => (
-              <Text key={code} style={{ fontSize: 13, color: colors.ink }}>
-                • {RECOMMENDED_SCREEN_LABEL[code] ?? code.replace(/_/g, " ")}
-              </Text>
-            ))}
+      <View style={{ gap: 12 }}>
+        <Card style={{ gap: 10 }}>
+          <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Thanks for checking in</Text>
+          {result.recommendedScreenCodes.length > 0 ? (
+            <>
+              <MutedText>Based on your answers, it&apos;s worth getting these tests done:</MutedText>
+              {result.recommendedScreenCodes.map((code) => (
+                <Text key={code} style={{ fontSize: 13, color: colors.ink }}>
+                  • {RECOMMENDED_SCREEN_LABEL[code] ?? code.replace(/_/g, " ")}
+                </Text>
+              ))}
+              <MutedText>
+                This isn&apos;t a diagnosis, just a nudge based on what you told us. Testing is quick,
+                confidential, and a doctor reviews every result.
+              </MutedText>
+            </>
+          ) : (
             <MutedText>
-              This isn&apos;t a diagnosis, just a nudge based on what you told us. Testing is quick,
-              confidential, and a doctor reviews every result.
+              Nothing here points to needing a test right now. If anything changes (a new partner, a new
+              symptom, anything at all), you can always come back and check again.
             </MutedText>
-            <SecondaryButton title="Book these tests" onPress={() => setBookingModalOpen(true)} />
-          </>
-        ) : (
-          <MutedText>
-            Nothing here points to needing a test right now. If anything changes (a new partner, a new
-            symptom, anything at all), you can always come back and check again.
-          </MutedText>
-        )}
-      </Card>
+          )}
+        </Card>
+        <StiBookingPanel />
+      </View>
     );
   }
 
   return (
-    <Card style={{ gap: 10 }}>
-      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Sexual health check-in</Text>
-      <MutedText>
-        A few quick, private questions to help us suggest which tests, if any, are worth getting. This
-        stays between you and your care team.
-      </MutedText>
+    <View style={{ gap: 12 }}>
+      <Card style={{ gap: 10 }}>
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Sexual health check-in</Text>
+        <MutedText>
+          A few quick, private questions to help us suggest which tests, if any, are worth getting. This
+          stays between you and your care team.
+        </MutedText>
 
-      <Text onPress={() => setActive((v) => !v)} style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
-        <Text style={{ fontWeight: "700", color: active ? colors.brand : colors.faint }}>{active ? "☑ " : "☐ "}</Text>
-        I&apos;ve been sexually active in the last 12 months
-      </Text>
+        <Text onPress={() => setActive((v) => !v)} style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>
+          <Text style={{ fontWeight: "700", color: active ? colors.brand : colors.faint }}>{active ? "☑ " : "☐ "}</Text>
+          I&apos;ve been sexually active in the last 12 months
+        </Text>
 
-      {active && (
-        <View style={{ gap: 10, borderLeftWidth: 2, borderLeftColor: colors.brandTint, paddingLeft: 12 }}>
-          <Text onPress={() => setNewPartner((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-            <Text style={{ fontWeight: "700", color: newPartner ? colors.brand : colors.faint }}>{newPartner ? "☑ " : "☐ "}</Text>
-            I&apos;ve had a new partner in the last 3 months
-          </Text>
+        {active && (
+          <View style={{ gap: 10, borderLeftWidth: 2, borderLeftColor: colors.brandTint, paddingLeft: 12 }}>
+            <Text onPress={() => setNewPartner((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
+              <Text style={{ fontWeight: "700", color: newPartner ? colors.brand : colors.faint }}>{newPartner ? "☑ " : "☐ "}</Text>
+              I&apos;ve had a new partner in the last 3 months
+            </Text>
 
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Roughly how many partners in the last 12 months?</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {STI_PARTNER_COUNTS.map((v) => (
-              <Chip key={v} label={STI_PARTNER_COUNT_LABEL[v]} active={partnerCount === v} onPress={() => setPartnerCount(v)} />
-            ))}
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Roughly how many partners in the last 12 months?</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {STI_PARTNER_COUNTS.map((v) => (
+                <Chip key={v} label={STI_PARTNER_COUNT_LABEL[v]} active={partnerCount === v} onPress={() => setPartnerCount(v)} />
+              ))}
+            </View>
+
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How often do you use condoms?</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {STI_CONDOM_USES.map((v) => (
+                <Chip key={v} label={STI_CONDOM_USE_LABEL[v]} active={condomUse === v} onPress={() => setCondomUse(v)} />
+              ))}
+            </View>
+
+            <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Have you noticed any of these recently?</Text>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+              {STI_SYMPTOMS.map((v) => (
+                <Chip key={v} label={STI_SYMPTOM_LABEL[v]} active={symptoms.includes(v)} onPress={() => toggleSymptom(v)} />
+              ))}
+            </View>
+
+            <Text onPress={() => setPriorDiagnosis((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
+              <Text style={{ fontWeight: "700", color: priorDiagnosis ? colors.brand : colors.faint }}>{priorDiagnosis ? "☑ " : "☐ "}</Text>
+              I&apos;ve been diagnosed with an STI before
+            </Text>
+            <Text onPress={() => setPartnerDiagnosed((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
+              <Text style={{ fontWeight: "700", color: partnerDiagnosed ? colors.brand : colors.faint }}>{partnerDiagnosed ? "☑ " : "☐ "}</Text>
+              A partner has told me they were diagnosed with an STI
+            </Text>
           </View>
+        )}
 
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How often do you use condoms?</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {STI_CONDOM_USES.map((v) => (
-              <Chip key={v} label={STI_CONDOM_USE_LABEL[v]} active={condomUse === v} onPress={() => setCondomUse(v)} />
-            ))}
-          </View>
-
-          <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Have you noticed any of these recently?</Text>
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
-            {STI_SYMPTOMS.map((v) => (
-              <Chip key={v} label={STI_SYMPTOM_LABEL[v]} active={symptoms.includes(v)} onPress={() => toggleSymptom(v)} />
-            ))}
-          </View>
-
-          <Text onPress={() => setPriorDiagnosis((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-            <Text style={{ fontWeight: "700", color: priorDiagnosis ? colors.brand : colors.faint }}>{priorDiagnosis ? "☑ " : "☐ "}</Text>
-            I&apos;ve been diagnosed with an STI before
-          </Text>
-          <Text onPress={() => setPartnerDiagnosed((v) => !v)} style={{ fontSize: 13, color: colors.ink }}>
-            <Text style={{ fontWeight: "700", color: partnerDiagnosed ? colors.brand : colors.faint }}>{partnerDiagnosed ? "☑ " : "☐ "}</Text>
-            A partner has told me they were diagnosed with an STI
-          </Text>
-        </View>
-      )}
-
-      {error && <ErrorText>{error}</ErrorText>}
-      <PrimaryButton title="See what's worth checking" onPress={submit} loading={submitting} />
-
-      <CalloutCard
-        icon="flask-outline"
-        title="Book an STI test"
-        subtitle="HIV, syphilis, Hepatitis B/C, or a combined panel — book and pay in the full patient app."
-        ctaLabel="Open testing & booking"
-        onPress={() => setBookingModalOpen(true)}
-      />
-      <Modal visible={bookingModalOpen} animationType="slide" onRequestClose={() => setBookingModalOpen(false)}>
-        <View style={{ flex: 1 }}>
-          <View style={{ padding: spacing.screen, paddingTop: 56 }}>
-            <SecondaryButton title="Close" onPress={() => setBookingModalOpen(false)} />
-          </View>
-          <WebViewScreen path="/patient/sexual-health" />
-        </View>
-      </Modal>
-    </Card>
+        {error && <ErrorText>{error}</ErrorText>}
+        <PrimaryButton title="See what's worth checking" onPress={submit} loading={submitting} />
+      </Card>
+      <StiBookingPanel />
+    </View>
   );
 }
 
 const STAGE_ORDER: StiCaseStatus[] = ["result_received", "clinical_review", "patient_notified", "treatment_in_progress", "treatment_completed"];
 const STAGE_LABELS = ["Result received", "Clinical review", "Doctor has been in touch", "Treatment", "Follow-up"];
-const STI_CODE_LABEL: Record<string, string> = { chlamydia_gonorrhoea: "Chlamydia & Gonorrhoea", syphilis: "Syphilis" };
+const STI_CODE_LABEL: { [code: string]: string } = { chlamydia_gonorrhoea: "Chlamydia & Gonorrhoea", syphilis: "Syphilis" };
 const PARTNER_NOTIFY_ELIGIBLE_STATUSES: StiCaseStatus[] = ["patient_notified", "treatment_in_progress", "treatment_completed"];
 
 function StageTracker({ status }: { status: StiCaseStatus }) {

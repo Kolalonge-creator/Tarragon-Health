@@ -2,8 +2,10 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 import { initiateServicePurchaseCheckout } from "@/lib/billing/service-purchase-checkout";
+import type { Database } from "@tarragon/shared";
 
 export type PurchaseServiceProductState =
   | { error?: string; checkoutUrl?: string; activated?: boolean }
@@ -19,6 +21,14 @@ export type PurchaseServiceProductState =
  * scoped to a specific chronic_programme_enrolments row via
  * scopedEntityType/scopedEntityId) — the same checkout path, just a
  * different product code and optional scope.
+ *
+ * `client`/`caller`/`callbackUrl` are the mobile seam: the Expo app has no
+ * Next.js cookie session and no `origin` header to build a same-site
+ * callback path from, so /api/mobile/services/checkout resolves the caller
+ * from its own bearer token and passes a bearer-authenticated client, the
+ * already-verified user, and a full `tarragonhealth://` deep-link callback
+ * URL instead. Every existing web call site omits all three and keeps
+ * today's cookie-based auth + relative callbackPath behaviour unchanged.
  */
 export async function purchaseServiceProduct(args: {
   serviceProductCode: string;
@@ -26,18 +36,31 @@ export async function purchaseServiceProduct(args: {
   scopedEntityType?: string;
   scopedEntityId?: string;
   callbackPath: string;
+  callbackUrl?: string;
   promoCode?: string;
+  client?: SupabaseClient<Database>;
+  caller?: { id: string; email: string };
 }): Promise<PurchaseServiceProductState> {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  if (!user.email) {
-    return { error: "Your account has no email on file — add one before purchasing." };
+  const supabase = args.client ?? (await createClient());
+
+  let userId: string;
+  let userEmail: string;
+  if (args.caller) {
+    userId = args.caller.id;
+    userEmail = args.caller.email;
+  } else {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
+    if (!user.email) {
+      return { error: "Your account has no email on file — add one before purchasing." };
+    }
+    userId = user.id;
+    userEmail = user.email;
   }
 
-  const patientId = args.patientId ?? user.id;
+  const patientId = args.patientId ?? userId;
 
   const { data: purchaseId, error: intentError } = await supabase.rpc(
     "record_service_purchase_intent",
@@ -90,8 +113,8 @@ export async function purchaseServiceProduct(args: {
     return { error: "This purchase has no amount to charge — contact support." };
   }
 
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const callbackUrl = `${origin}${args.callbackPath}`;
+  const callbackUrl =
+    args.callbackUrl ?? `${(await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? ""}${args.callbackPath}`;
   const productName = purchase.service_product?.name ?? args.serviceProductCode;
 
   const result = await initiateServicePurchaseCheckout({
@@ -101,7 +124,7 @@ export async function purchaseServiceProduct(args: {
     patientId: purchase.patient_id,
     amountKobo: purchase.payable_kobo,
     currency: purchase.currency,
-    email: user.email,
+    email: userEmail,
     description: productName,
     callbackUrl,
   });

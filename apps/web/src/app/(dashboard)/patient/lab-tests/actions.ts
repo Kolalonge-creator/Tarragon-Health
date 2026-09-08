@@ -2,9 +2,9 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { requireOwnedBookingOrder } from "@/lib/billing/booking-ownership";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
+import { createAndPayForLabOrder } from "@/lib/billing/create-and-pay-lab-order";
 
 export type PayForLabOrderState = { error?: string } | undefined;
 
@@ -107,55 +107,9 @@ export async function createAndPayForPartnerLabOrder(
   const providerIdRaw = formData.get("providerId");
   const providerId = typeof providerIdRaw === "string" && providerIdRaw ? providerIdRaw : null;
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  if (!user.email) {
-    return { error: "Your account needs an email on file to check out." };
-  }
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("organisation_id")
-    .eq("id", user.id)
-    .single();
-  if (!profile?.organisation_id) {
-    return { error: "Your account has no organisation on file." };
-  }
-
-  const { data: order, error: insertError } = await supabase
-    .from("lab_orders")
-    .insert({
-      organisation_id: profile.organisation_id,
-      patient_id: user.id,
-      panel_bundle_id: panelBundleId,
-      fulfilment: "partner",
-      status: "pending_payment",
-      ...(providerId ? { provider_id: providerId } : {}),
-    })
-    .select("id, payable_kobo, total_kobo, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name)")
-    .single();
-  if (insertError || !order) {
-    return { error: "We couldn't set that review up just now. Please try again." };
-  }
-
-  const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
-  const result = await initiateBookingCheckout({
-    orderType: "lab",
-    orderId: order.id,
-    organisationId: profile.organisation_id,
-    patientId: user.id,
-    amountKobo: order.payable_kobo ?? order.total_kobo,
-    currency: "NGN",
-    email: user.email,
-    description: order.panel_bundle?.name ?? "Lab review",
-    callbackUrl: `${origin}/patient`,
-  });
-
-  if (!result.ok) {
+  const result = await createAndPayForLabOrder({ panelBundleId, providerId });
+  if (result.error) {
     return { error: result.error };
   }
-  redirect(result.checkoutUrl);
+  redirect(result.checkoutUrl!);
 }

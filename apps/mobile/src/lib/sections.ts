@@ -39,11 +39,6 @@ interface SectionDef {
   id: SectionId;
   label: string;
   icon: keyof typeof Ionicons.glyphMap;
-  /** Sections without a native screen render this platform path in a WebView.
-   * Those loads are signed in via /auth/mobile-bridge (see webview-screen.tsx),
-   * so a WebView section is a real working section, not a placeholder — and it
-   * tracks every web deploy with no app-store release. */
-  webviewPath?: string;
   /** Drawer grouping — mirrors the web sidebar's bands (lib/navigation.ts) so
    * the two surfaces describe the patient's world the same way. */
   group: "top" | "Your health" | "Stay well" | "Support" | "Your account";
@@ -171,7 +166,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Learn",
     icon: "school-outline",
     group: "Stay well",
-    webviewPath: "/patient/learn",
   },
   {
     id: "wellness",
@@ -250,7 +244,6 @@ export const SECTIONS: SectionDef[] = [
     label: "Privacy & data",
     icon: "lock-closed-outline",
     group: "Your account",
-    webviewPath: "/patient/privacy",
   },
   { id: "emergency", label: "Emergency card", icon: "alert-circle-outline", group: "Your account" },
   { id: "settings", label: "Settings", icon: "settings-outline", group: "Your account" },
@@ -266,8 +259,3 @@ export const SECTION_GROUP_ORDER = [
 ] as const;
 
 export const PRIMARY_SECTIONS = SECTIONS.filter((s) => s.primary).slice(0, MAX_PRIMARY_SECTIONS);
-
-/** The path a WebView section should load, or null for a native screen. */
-export function sectionWebviewPath(id: SectionId): string | null {
-  return SECTIONS.find((s) => s.id === id)?.webviewPath ?? null;
-}

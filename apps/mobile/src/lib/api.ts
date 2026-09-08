@@ -292,6 +292,28 @@ export async function postSexualWellnessScreen(
   return result.ok ? result.data : { error: result.error };
 }
 
+export interface LabOrderCheckoutResult {
+  checkoutUrl?: string;
+  error?: string;
+}
+
+/** Mirrors apps/web/src/app/api/mobile/lab-orders/checkout/route.ts, the
+ * mobile wrapper around createAndPayForLabOrder (the same function the web
+ * "Book & pay" button uses) — same reasoning as postServicesCheckout:
+ * initiating the Paystack checkout needs the secret key, never shipped to
+ * a client. Deliberately not sexual-health-specific — any self-bookable
+ * panel_bundle can be checked out through this one route. */
+export async function postLabOrderCheckout(
+  panelBundleId: string,
+  callbackUrl: string
+): Promise<LabOrderCheckoutResult> {
+  const result = await request<LabOrderCheckoutResult>("/api/mobile/lab-orders/checkout", "POST", {
+    panelBundleId,
+    callbackUrl,
+  });
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable

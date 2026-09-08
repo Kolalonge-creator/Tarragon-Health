@@ -1,9 +1,22 @@
 import { API_BASE_URL, fetchWithTimeoutAndRetry, NETWORK_ERROR_MESSAGE } from "./api";
 import { supabase } from "./supabase";
+import type { Tables } from "@tarragon/shared";
 
 export interface UploadLabResultResult {
   success: boolean;
   error?: string;
+}
+
+export type PanelBundle = Tables<"panel_bundles">;
+
+/** Mirrors apps/web/src/lib/queries/lab-orders.ts's useLabCatalogue — a
+ * global, admin-editable reference table, readable directly by any
+ * authenticated user, no API route needed. Shared by every native screen
+ * that lets a patient self-book a panel bundle (the Sexual Health testing
+ * tab today). */
+export async function loadLabPanelBundles(): Promise<PanelBundle[]> {
+  const { data } = await supabase.from("panel_bundles").select("*").eq("is_active", true).order("name", { ascending: true });
+  return data ?? [];
 }
 
 /**
