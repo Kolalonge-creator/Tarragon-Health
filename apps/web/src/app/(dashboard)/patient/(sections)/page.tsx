@@ -4,6 +4,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
 import { adolescentAgeBandFromDateOfBirth } from "@tarragon/shared";
+import { formatGlucose, GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { statTileValue } from "@/components/ui/stat-tile-value";
@@ -65,7 +66,8 @@ function CardSkeleton({ className = "h-40" }: { className?: string }) {
 }
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting, subjectSex, subjectDateOfBirth } = await getPatientDashboardContext();
+  const { subjectId, acting, subjectSex, subjectDateOfBirth, glucoseUnit } =
+    await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
 
@@ -165,7 +167,13 @@ export default async function PatientOverviewPage() {
           <StatTile
             icon={SEMANTIC_ICON.diabetes}
             label="Latest glucose"
-            {...statTileValue(stats.latestGlucoseMmolL, "No reading yet", "mmol/L")}
+            // In the reader's own unit, so the tile matches the number on
+            // their meter rather than a converted one they cannot check.
+            {...statTileValue(
+              formatGlucose(stats.latestGlucoseMmolL, glucoseUnit, { withUnit: false }),
+              "No reading yet",
+              GLUCOSE_UNIT_LABEL[glucoseUnit]
+            )}
           />
           <StatTile
             icon={SEMANTIC_ICON.medication}

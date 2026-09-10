@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { BP_LEVEL_COLORS, BP_LEVEL_LABEL } from "@/lib/bp-classification";
+import { GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
+import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import {
   classifyVitalOffline,
   computeSevenDayAverage,
@@ -71,7 +73,8 @@ const inputStyle = {
 type OtherVitalType = "glucose" | "weight" | "temperature" | "spo2" | "pulse";
 
 const OTHER_VITAL_TYPES: { id: OtherVitalType; label: string; unit: string }[] = [
-  { id: "glucose", label: "Glucose", unit: "mmol/L" },
+  // Overridden per-render by the patient's own unit -- see `selected` below.
+  { id: "glucose", label: "Glucose", unit: "mg/dL" },
   { id: "weight", label: "Weight", unit: "kg" },
   { id: "temperature", label: "Temperature", unit: "°C" },
   { id: "spo2", label: "SpO2", unit: "%" },
@@ -390,14 +393,31 @@ function OtherVitalCard({
 }) {
   const [type, setType] = useState<OtherVitalType>("glucose");
   const [value, setValue] = useState("");
-  const [glucoseUnit, setGlucoseUnit] = useState<"mmol_l" | "mg_dl">("mmol_l");
+  // Defaults to the unit this patient's own meter reads (see
+  // lib/glucose-unit.ts). It arrives asynchronously, so it seeds the field
+  // only while the patient has not already touched the toggle themselves --
+  // otherwise the preference landing a moment later would yank the unit back
+  // out from under a deliberate choice mid-entry.
+  const preferredUnit = useGlucoseDisplayUnit();
+  const [glucoseUnit, setGlucoseUnit] = useState<"mmol_l" | "mg_dl">(preferredUnit);
+  const [unitTouched, setUnitTouched] = useState(false);
+  useEffect(() => {
+    if (!unitTouched) setGlucoseUnit(preferredUnit);
+  }, [preferredUnit, unitTouched]);
   const [glucoseContext, setGlucoseContext] = useState<GlucoseContext>("random");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedLabel, setSavedLabel] = useState<string | null>(null);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
 
-  const selected = OTHER_VITAL_TYPES.find((t) => t.id === type)!;
+  const selectedRaw = OTHER_VITAL_TYPES.find((t) => t.id === type)!;
+  // Glucose is the one vital whose unit is the patient's to choose, so its
+  // placeholder and "Saved: ..." confirmation follow the live toggle rather
+  // than the hardcoded mmol/L in OTHER_VITAL_TYPES.
+  const selected =
+    type === "glucose"
+      ? { ...selectedRaw, unit: GLUCOSE_UNIT_LABEL[glucoseUnit] }
+      : selectedRaw;
 
   function resetForNewType(next: OtherVitalType) {
     setType(next);
@@ -502,7 +522,10 @@ function OtherVitalCard({
             accessibilityRole="button"
             accessibilityLabel={`Glucose unit: ${glucoseUnit === "mmol_l" ? "millimoles per litre" : "milligrams per decilitre"}. Switches to ${glucoseUnit === "mmol_l" ? "milligrams per decilitre" : "millimoles per litre"}.`}
             hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-            onPress={() => setGlucoseUnit((u) => (u === "mmol_l" ? "mg_dl" : "mmol_l"))}
+            onPress={() => {
+              setUnitTouched(true);
+              setGlucoseUnit((u) => (u === "mmol_l" ? "mg_dl" : "mmol_l"));
+            }}
             style={{
               height: 38,
               paddingHorizontal: 12,

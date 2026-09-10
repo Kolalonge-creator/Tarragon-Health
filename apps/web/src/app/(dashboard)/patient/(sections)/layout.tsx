@@ -4,6 +4,7 @@ import { ActingForBanner } from "@/app/(dashboard)/patient/acting-for-banner";
 import { EmergencyAlert } from "@/app/(dashboard)/patient/emergency-alert";
 import { DangerSymptomCheck } from "@/app/(dashboard)/patient/danger-symptom-check";
 import { ageFromDateOfBirth } from "@tarragon/shared";
+import { GlucoseUnitProvider } from "@/components/glucose-unit-provider";
 
 /**
  * Shared chrome for the 7 real dashboard sections (Overview, Vitals,
@@ -26,8 +27,15 @@ export default async function PatientSectionsLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { profile, acting, subjectId, subjectState, subjectDateOfBirth, subjectHasEmergencyContact } =
-    await getPatientDashboardContext();
+  const {
+    profile,
+    acting,
+    subjectId,
+    subjectState,
+    subjectDateOfBirth,
+    subjectHasEmergencyContact,
+    glucoseUnit,
+  } = await getPatientDashboardContext();
 
   return (
     <DashboardPlaceholder
@@ -51,7 +59,13 @@ export default async function PatientSectionsLayout({
       />
       <DangerSymptomCheck patientId={subjectId} ageYears={ageFromDateOfBirth(subjectDateOfBirth)} />
 
-      <div className="space-y-6">{children}</div>
+      {/* Every glucose figure below this point renders in the reader's own
+          unit. Wrapping the section content rather than each card: the cards
+          are reached from several parents, and one parent forgetting a prop
+          is a card silently back on mmol/L. */}
+      <GlucoseUnitProvider unit={glucoseUnit}>
+        <div className="space-y-6">{children}</div>
+      </GlucoseUnitProvider>
     </DashboardPlaceholder>
   );
 }

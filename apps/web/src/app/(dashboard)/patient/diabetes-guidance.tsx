@@ -1,4 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { formatGlucose } from "@tarragon/shared";
+import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
 
 /**
  * Patient-facing diabetes safety guidance (§12.6 hypo rule, §17.4 sick-day
@@ -13,7 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * below, but a type-1 patient's insulin is never optional, sick or well, so
  * it earns a standalone callout rather than living inside the sick-day text.
  */
-export function DiabetesGuidance({ diabetesType }: { diabetesType?: string | null }) {
+export async function DiabetesGuidance({ diabetesType }: { diabetesType?: string | null }) {
+  // A hypo threshold a patient cannot read off their own meter is not
+  // guidance, it is trivia. 3.9 mmol/L is 70 mg/dL.
+  const glucoseUnit = await getGlucoseDisplayUnit();
   return (
     <Card>
       <CardHeader>
@@ -34,7 +39,8 @@ export function DiabetesGuidance({ diabetesType }: { diabetesType?: string | nul
         <section className="space-y-1.5">
           <h3 className="font-medium text-deep-forest dark:text-brand-green-bright">If your sugar goes low (a &quot;hypo&quot;)</h3>
           <p>
-            A low is below 3.9 mmol/L, or feeling shaky, sweaty, confused or very hungry. Use the{" "}
+            A low is below {formatGlucose(3.9, glucoseUnit)}, or feeling shaky, sweaty, confused or
+            very hungry. Use the{" "}
             <strong>15/15 rule</strong>:
           </p>
           <ol className="list-decimal space-y-0.5 pl-5">

@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatGlucose } from "@tarragon/shared";
+import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
 import { computeTimeInRange, windowStartIso } from "@/lib/vitals/time-in-range";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -11,6 +13,7 @@ const WINDOW_DAYS = 14;
  * the numbers, not a verdict.
  */
 export async function GlucoseInsights({ patientId }: { patientId: string }) {
+  const glucoseUnit = await getGlucoseDisplayUnit();
   const supabase = await createClient();
   const since = windowStartIso(WINDOW_DAYS);
 
@@ -54,7 +57,8 @@ export async function GlucoseInsights({ patientId }: { patientId: string }) {
           <div className="space-y-1.5">
             <p className="text-charcoal-ink/80 dark:text-night-ink/80">
               Last {WINDOW_DAYS} days ({tir.total} readings), how often you were in range
-              ({tir.low}–{tir.high} mmol/L):
+              ({formatGlucose(tir.low, glucoseUnit, { withUnit: false })}–
+              {formatGlucose(tir.high, glucoseUnit)}):
             </p>
             <div className="flex h-4 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15">
               {tir.belowPct > 0 && <div className="bg-red-400" style={{ width: `${tir.belowPct}%` }} />}
