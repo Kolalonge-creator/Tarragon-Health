@@ -4,6 +4,7 @@ import { CtaBand } from "../_components/cta-band";
 import { SymptomToTestCheck } from "../_components/symptom-to-test-check";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
+import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -33,7 +34,8 @@ const FAQS = [
   },
 ];
 
-export default function SymptomCheckerPage() {
+export default async function SymptomCheckerPage() {
+  const priceOverrides = await fetchServicePriceOverrides();
   return (
     <>
       <Section className="pt-16 sm:pt-24">
@@ -54,7 +56,7 @@ export default function SymptomCheckerPage() {
       </Section>
 
       <Section>
-        <SymptomToTestCheck />
+        <SymptomToTestCheck priceOverrides={priceOverrides} />
       </Section>
 
       <Section variant="sage">

@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { computeBmi, bmiCategory, type BmiCategory, type Sex } from "@/lib/obesity/classify";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { ProductCtaCard } from "./product-cta-card";
+import type { ResolvedServicePrices } from "../_content/pricing";
 
 /**
  * Public, no-login BMI + daily calorie estimate. Reuses the same computeBmi/
@@ -74,7 +76,11 @@ function bmr(sex: Sex, weightKg: number, heightCm: number, age: number): number 
   return sex === "male" ? base + 5 : base - 161;
 }
 
-export function BmiCalorieCalculator() {
+export function BmiCalorieCalculator({
+  priceOverrides,
+}: {
+  priceOverrides?: ResolvedServicePrices;
+} = {}) {
   const [sex, setSex] = useState<Sex>("female");
   const [age, setAge] = useState(30);
   const [heightCm, setHeightCm] = useState(165);
@@ -228,6 +234,16 @@ export function BmiCalorieCalculator() {
             </div>
           ) : null}
         </div>
+      ) : null}
+
+      {wantsLoss ? (
+        <ProductCtaCard
+          code="weight_management_3m"
+          href={MARKETING_ROUTES.weightManagement}
+          ctaLabel="See Supervised Weight Management"
+          overrides={priceOverrides}
+          className="mt-6"
+        />
       ) : null}
 
       <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
