@@ -42809,6 +42809,15 @@ export type Database = {
         Args: { p_checkin_id: string; p_note?: string }
         Returns: Database["public"]["Tables"]["weight_management_checkins"]["Row"]
       }
+      confirm_weight_management_eligibility: {
+        Args: {
+          p_enrolment_id: string
+          p_medication_id: string
+          p_notes?: string
+          p_obesity_assessment_id: string
+        }
+        Returns: Database["public"]["Tables"]["weight_management_enrolments"]["Row"]
+      }
     }
     Enums: {
       lab_integration_status: "api" | "hl7_fhir" | "file_exchange" | "structured_upload" | "manual"
