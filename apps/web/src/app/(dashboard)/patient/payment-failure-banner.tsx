@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { RetryPaymentButton } from "@/app/(dashboard)/patient/retry-payment-button";
 import { EscalatePaymentIssueButton } from "@/app/(dashboard)/patient/escalate-payment-issue-button";
+import { DismissPendingPurchaseButton } from "@/app/(dashboard)/patient/dismiss-pending-purchase-button";
 import { NAV_ICON } from "@/lib/icons";
 import { koboToNaira } from "@tarragon/shared";
 
@@ -61,6 +62,7 @@ export async function PaymentFailureBanner({ patientId }: { patientId: string })
       <div className="flex shrink-0 items-center gap-2">
         <RetryPaymentButton serviceProductCode={purchase.service_product.code} />
         <EscalatePaymentIssueButton servicePurchaseId={purchase.id} />
+        <DismissPendingPurchaseButton servicePurchaseId={purchase.id} />
       </div>
     </div>
   );
