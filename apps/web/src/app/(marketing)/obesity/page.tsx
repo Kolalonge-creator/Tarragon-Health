@@ -37,7 +37,7 @@ export default async function ObesityPage() {
           </h2>
           <p className="mt-2 text-base leading-relaxed text-charcoal-ink/75">
             Everything on this page is free and stays free. If you are on medication you obtained
-            yourself, a doctor can supervise how it is used — suitability, dose, side effects and a
+            yourself, a doctor can supervise how it is used: suitability, dose, side effects and a
             review every month. We do not prescribe or supply the medicine.
           </p>
           <Link

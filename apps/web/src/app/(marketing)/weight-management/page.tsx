@@ -41,7 +41,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "Supervised weight management",
   description:
-    "A doctor supervising weight-loss medication you obtain yourself: whether it suits you, at what dose, what to watch for, and a review every month. Tarragon does not prescribe or supply the medicine.",
+    "A doctor supervising weight-loss medication you obtain yourself: whether it suits you, at what dose, and what to watch for. We do not supply the medicine.",
   path: MARKETING_ROUTES.weightManagement,
 });
 
@@ -244,7 +244,7 @@ export default async function WeightManagementPage() {
           <CtaBand
             variant="gradient"
             title="Start with the assessment, not the prescription"
-            description="Create a free account, record where you are starting from, and a doctor will tell you whether this is the right route for you — including if the answer is no."
+            description="Create a free account, record where you are starting from, and a doctor will tell you whether this is the right route for you, including if the answer is no."
             primaryLabel="Create a free account"
             secondaryHref={MARKETING_ROUTES.pricing}
             secondaryLabel="See all prices"
