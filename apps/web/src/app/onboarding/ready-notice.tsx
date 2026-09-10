@@ -34,6 +34,43 @@ export function ReadyNotice() {
         condition with you. You can see prices and buy any of that any time from your
         dashboard&apos;s My services page; nothing here signs you up for anything.
       </p>
+
+      {/* What the app is FOR, in three lines, before the dashboard rather
+          than instead of it. This screen explained the pricing well and the
+          product not at all, so the first thing a new patient ever read about
+          what they had joined was a dashboard of empty cards. The three items
+          are the same three the dashboard's own get-started card then walks
+          them through, in the same order, so this reads as a preview of the
+          next screen rather than a separate pitch. */}
+      <div className="rounded-lg bg-white/70 p-4">
+        <p className="text-sm font-semibold text-charcoal-ink">What happens next</p>
+        <ul className="mt-2 space-y-2 text-sm text-charcoal-ink">
+          <li className="flex gap-2">
+            <span aria-hidden className="font-semibold text-brand-green">1.</span>
+            <span>
+              Answer a few questions about your health. That builds your own screening and
+              vaccination calendar, so you know which checks are due and when.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden className="font-semibold text-brand-green">2.</span>
+            <span>
+              Log your readings: blood pressure, blood sugar, weight. Any meter, typed in by
+              hand. A care team looks at what you log.
+            </span>
+          </li>
+          <li className="flex gap-2">
+            <span aria-hidden className="font-semibold text-brand-green">3.</span>
+            <span>
+              Add the medicines you take, and the app reminds you about doses and refills.
+            </span>
+          </li>
+        </ul>
+        <p className="mt-3 text-xs text-charcoal-ink/70">
+          If a reading ever looks dangerous, you are told straight away what to do, on every
+          plan, whether or not you have paid for anything.
+        </p>
+      </div>
       <form
         action={async () => {
           setPending(true);
@@ -56,7 +93,7 @@ export function ReadyNotice() {
         }}
       >
         <Button type="submit" className="w-full" disabled={pending}>
-          {pending ? "Finishing…" : "Continue to my dashboard"}
+          {pending ? "Finishing…" : "Take me to my dashboard"}
         </Button>
       </form>
       <FormError id={fieldErrorId("onboarding-finish")} message={error} />

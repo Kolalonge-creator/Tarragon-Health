@@ -8,6 +8,12 @@ export interface PatientSummaryStats {
   activeMedicationCount: number;
   dosesTaken: number;
   dosesTotal: number;
+  /** Whether this patient has ever logged a reading of ANY type. latestBp and
+   * latestGlucoseMmolL between them only cover two of the eight vital types,
+   * so neither being present is not the same as "has logged nothing" -- a
+   * patient who has only ever recorded their weight would read as brand new.
+   * Drives the Overview's first-run state, so it has to mean what it says. */
+  hasAnyVitals: boolean;
 }
 
 export async function getPatientSummaryStats(patientId: string): Promise<PatientSummaryStats> {
@@ -44,6 +50,14 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
         .eq("scheduled_for_date", today),
     ]);
 
+  // head + exact count: asks "does even one row exist" without transferring
+  // any of them, and without a limit(1) that would make a genuine failure
+  // (null) indistinguishable from an empty table.
+  const { count: vitalsCount } = await supabase
+    .from("vitals_readings")
+    .select("id", { count: "exact", head: true })
+    .eq("patient_id", patientId);
+
   const checklist = buildTodaysDoseChecklist(medications ?? [], doseLogs ?? []);
   const dosesTaken = checklist.filter((item) => item.status === "taken").length;
 
@@ -59,6 +73,9 @@ export async function getPatientSummaryStats(patientId: string): Promise<Patient
     activeMedicationCount: medications?.length ?? 0,
     dosesTaken,
     dosesTotal: checklist.length,
+    // A failed count must not read as "brand new" and wipe a real patient's
+    // dashboard down to a get-started card, so null falls the safe way.
+    hasAnyVitals: vitalsCount === null ? true : vitalsCount > 0,
   };
 }
 

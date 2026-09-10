@@ -5,6 +5,11 @@ import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
 import { adolescentAgeBandFromDateOfBirth } from "@tarragon/shared";
 import { formatGlucose, GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
+import {
+  GetStartedCard,
+  isFirstRun,
+  shouldShowGetStarted,
+} from "@/app/(dashboard)/patient/get-started-card";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { StatTile } from "@/components/ui/stat-tile";
 import { statTileValue } from "@/components/ui/stat-tile-value";
@@ -84,6 +89,20 @@ export default async function PatientOverviewPage() {
   const subjectAgeBand = adolescentAgeBandFromDateOfBirth(subjectDateOfBirth);
   const isAdolescentBand = subjectAgeBand === "younger_adolescent" || subjectAgeBand === "older_adolescent";
 
+  // Day-one state. Every analytic card below is right for a patient with a
+  // history and useless for one without: on an empty account they collectively
+  // said "no reading yet" five times, charted nothing, and ended on a prompt
+  // to pay. A patient part-way through setup still keeps the full dashboard --
+  // they have real data worth charting -- so the card and the suppression ask
+  // two different questions.
+  const progress = {
+    hasRiskAssessment: prevention.hasRiskAssessment,
+    hasAnyVitals: stats.hasAnyVitals,
+    hasMedications: stats.activeMedicationCount > 0,
+  };
+  const showGetStarted = shouldShowGetStarted(progress);
+  const firstRun = isFirstRun(progress) && !prevention.hasActiveCarePlan;
+
   const bpLevel = classifyBpLevel(stats.latestBp?.systolic, stats.latestBp?.diastolic);
   const bpTileProps =
     bpLevel !== "unknown"
@@ -148,6 +167,16 @@ export default async function PatientOverviewPage() {
           phone this row is what's on screen when the page opens. */}
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
+      {showGetStarted && (
+        <GetStartedCard progress={progress} acting={acting?.fullName ?? null} />
+      )}
+
+      {/* On a genuinely empty account everything below this point can only
+          report an absence, so it is not rendered at all until there is
+          something real to say. GetStartedCard above is what stands in its
+          place. */}
+      {!firstRun && (
+      <>
       {/* Dual-state overview: a patient in a chronic programme leads with
           monitoring numbers; a healthy patient leads with prevention. Both
           states read the same shared record — nothing is hidden, only led
@@ -250,16 +279,6 @@ export default async function PatientOverviewPage() {
               {...bpTileProps}
             />
           </div>
-          {!prevention.hasRiskAssessment && (
-            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-              Two minutes on your{" "}
-              <Link href="/patient/prevention" className="text-brand-green dark:text-brand-green-bright hover:underline">
-                health profile
-              </Link>{" "}
-              builds your personal screening and vaccination calendar: the checks that keep
-              healthy people healthy.
-            </p>
-          )}
         </>
       )}
 
@@ -333,12 +352,18 @@ export default async function PatientOverviewPage() {
       <Suspense fallback={<CardSkeleton className="h-40" />}>
         <YourCareTeam patientId={subjectId} />
       </Suspense>
+      {/* Deliberately inside the !firstRun block: an upgrade prompt was the
+          last thing a brand-new patient saw on their first ever visit,
+          before they had logged a single reading or been given any reason to
+          want a doctor's time. */}
       <RequiresEntitlement
         feature="doctor_checkin"
         fallback={<UpgradePrompt feature="doctor_checkin" />}
       >
         <CareTeamContact patientId={subjectId} />
       </RequiresEntitlement>
+      </>
+      )}
     </div>
   );
 }
