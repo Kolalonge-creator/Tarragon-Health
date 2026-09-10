@@ -177,37 +177,54 @@ do $$
 declare
   v_status text;
   v_abandoned_touched int;
+  v_row_exists boolean;
 begin
   -- 1. Positive, real data: the one row with a genuinely completed
   --    Paystack charge behind it (verified independently against
   --    Paystack's own /transaction/verify endpoint, see header) is now
-  --    active.
-  select status into v_status
-    from public.service_purchases where id = '2efae6a7-85c1-46a8-bdf7-811647068700';
-  if v_status is distinct from 'active' then
-    raise exception 'FAIL: the one row with a real completed charge behind it is % instead of active', v_status;
-  end if;
-  raise notice 'PASS: the genuinely-paid row is now active';
+  --    active. Read by id with a graceful SKIP rather than a hard
+  --    assumption it exists -- this id is a real production row from the
+  --    session that found this bug, which a from-scratch CI replay (empty
+  --    seed) never has. See reference_rolled_back_txn_vs_ci_replay_
+  --    20260906.md in memory: this migration's first version hardcoded
+  --    these production ids as a bare assertion and failed CI's replay
+  --    for exactly this reason -- caught there, not guessed at here.
+  select exists(
+    select 1 from public.service_purchases where id = '2efae6a7-85c1-46a8-bdf7-811647068700'
+  ) into v_row_exists;
 
-  -- Negative control on real data: the 5 merely-abandoned checkouts (never
-  -- reached Paystack, no pending_payment_provider_ref, no payment_
-  -- transactions row at all) must NOT have been touched by the backfill --
-  -- proves the backfill's join is selective, not "activate anything
-  -- pending".
-  select count(*) into v_abandoned_touched
-    from public.service_purchases
-   where id in (
-     '61da33cf-2622-4129-ba6c-2317376c5e81',
-     '76a8a98c-064f-4269-8e88-2a7f0e405877',
-     '3ac48607-e80e-403b-9c7a-a7cbd33e4b66',
-     'e32e2bac-a011-480f-846f-533aeca675c5',
-     '0242af8e-2ffe-4eb5-b97f-dcc7bff714ea'
-   )
-   and status <> 'pending_payment';
-  if v_abandoned_touched > 0 then
-    raise exception 'FAIL: the backfill activated % abandoned-checkout row(s) that never had a real payment', v_abandoned_touched;
+  if not v_row_exists then
+    raise notice 'SKIP: the real paid-purchase row from production is not present in this environment (expected on a fresh CI replay)';
+  else
+    select status into v_status
+      from public.service_purchases where id = '2efae6a7-85c1-46a8-bdf7-811647068700';
+    if v_status is distinct from 'active' then
+      raise exception 'FAIL: the one row with a real completed charge behind it is % instead of active', v_status;
+    end if;
+    raise notice 'PASS: the genuinely-paid row is now active';
+
+    -- Negative control on real data: the 5 merely-abandoned checkouts
+    -- (never reached Paystack, no pending_payment_provider_ref, no
+    -- payment_transactions row at all) must NOT have been touched by the
+    -- backfill -- proves the backfill's join is selective, not "activate
+    -- anything pending". Only checked alongside the row above, since both
+    -- come from the same production session and neither exists without
+    -- the other.
+    select count(*) into v_abandoned_touched
+      from public.service_purchases
+     where id in (
+       '61da33cf-2622-4129-ba6c-2317376c5e81',
+       '76a8a98c-064f-4269-8e88-2a7f0e405877',
+       '3ac48607-e80e-403b-9c7a-a7cbd33e4b66',
+       'e32e2bac-a011-480f-846f-533aeca675c5',
+       '0242af8e-2ffe-4eb5-b97f-dcc7bff714ea'
+     )
+     and status <> 'pending_payment';
+    if v_abandoned_touched > 0 then
+      raise exception 'FAIL: the backfill activated % abandoned-checkout row(s) that never had a real payment', v_abandoned_touched;
+    end if;
+    raise notice 'PASS: abandoned checkouts with no real payment were correctly left alone';
   end if;
-  raise notice 'PASS: abandoned checkouts with no real payment were correctly left alone';
 
   -- 2. Negative, pure boolean check (no table writes): a genuine
   --    underpayment must still be refused. Mirrors the trigger's own
