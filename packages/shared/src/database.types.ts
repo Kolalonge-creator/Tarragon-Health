@@ -38965,13 +38965,41 @@ export type Database = {
       therapy_directory: {
         Row: {
           city: string | null
-          clinical_interests: string | null
+          clinical_interests: string[] | null
           consultation_fee_kobo: number | null
           id: string | null
           languages: string[] | null
           name: string | null
           needs_doctor_approval: boolean | null
-          qualifications: string | null
+          qualifications: string[] | null
+          specialist_type: Database["public"]["Enums"]["specialist_type"] | null
+          state: string | null
+          subspecialty: string | null
+          supports_in_person: boolean | null
+          supports_telemedicine: boolean | null
+          years_of_experience: number | null
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+        }
+        Relationships: []
+      }
+      specialist_directory: {
+        Row: {
+          accepted_hmos: string[] | null
+          area: string | null
+          city: string | null
+          clinical_interests: string[] | null
+          consultation_fee_kobo: number | null
+          id: string | null
+          languages: string[] | null
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          name: string | null
+          provider_tier: Database["public"]["Enums"]["specialist_provider_tier"] | null
+          qualifications: string[] | null
           specialist_type: Database["public"]["Enums"]["specialist_type"] | null
           state: string | null
           subspecialty: string | null

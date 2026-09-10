@@ -43,8 +43,10 @@ export function AssignSpecialistProviderForm({
               <div>
                 <p className="text-sm text-charcoal-ink">{provider.name}</p>
                 <p className="text-xs text-charcoal-ink/60">
-                  {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"}, ₦
-                  {koboToNaira(provider.consultation_fee_kobo).toLocaleString()}
+                  {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"}
+                  {provider.consultation_fee_kobo != null
+                    ? `, ₦${koboToNaira(provider.consultation_fee_kobo).toLocaleString()}`
+                    : ""}
                 </p>
               </div>
               <Button
@@ -53,7 +55,7 @@ export function AssignSpecialistProviderForm({
                 disabled={assign.isPending}
                 onClick={() =>
                   assign.mutate(
-                    { referralId, specialistProviderId: provider.id },
+                    { referralId, specialistProviderId: provider.id! },
                     { onSuccess: () => router.refresh() }
                   )
                 }
