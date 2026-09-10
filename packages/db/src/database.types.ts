@@ -37965,6 +37965,10 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      cancel_pending_service_purchase: {
+        Args: { p_service_purchase_id: string }
+        Returns: undefined
+      }
       cancel_waiting_list_entry: {
         Args: { p_waiting_list_id: string }
         Returns: undefined
