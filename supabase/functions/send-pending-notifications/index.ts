@@ -1639,8 +1639,8 @@ const TEMPLATE_MAP: Record<
     const testName = String(payload.test_name ?? "a lab test");
     const selfBooked = payload.self_booked === true;
     const lead = selfBooked
-      ? `Your lab test order is confirmed. Show order ${orderNumber} at the lab so they know exactly what to run.`
-      : `Your care team has requested a lab test for you.`;
+      ? `Your lab test order is confirmed. A printable PDF of the request is attached — take it to any laboratory you choose, or show order ${orderNumber} if you have already printed it.`
+      : `Your care team has requested a lab test for you. A printable PDF of the request is attached.`;
     const smsText = selfBooked
       ? `Hi ${patientName}, your lab order is confirmed: ${testName} (order ${orderNumber}). ` +
         `Show order ${orderNumber} at the lab to have it done. Tarragon Health`
@@ -1672,7 +1672,7 @@ const TEMPLATE_MAP: Record<
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Test</td><td style="padding:4px 0"><strong>${testName}</strong></td></tr>` +
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Order number</td><td style="padding:4px 0"><strong>${orderNumber}</strong></td></tr>` +
           `</table>` +
-          `<p>Open the Tarragon Health app to see the order, choose where to have it done, and track your results.</p>` +
+          `<p>The attached PDF lists the tests and the reason for them — it does not name a laboratory or a price, because you choose where to have it done and pay them directly. Open the Tarragon Health app to see the order, choose where to have it done, and track your results.</p>` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
@@ -2499,11 +2499,19 @@ async function sendExpoPush(
     : { ok: false, error: lastError ?? "expo push send failed", goneSubscriptionIds };
 }
 
+/** One file attached to an outbound email. `content` is base64, matching
+ * Resend's `attachments` field shape exactly — see sendEmail below. */
+interface EmailAttachment {
+  filename: string;
+  content: string;
+}
+
 async function sendEmail(
   toEmail: string,
   subject: string,
   html: string,
   text: string,
+  attachments?: EmailAttachment[],
 ): Promise<SendResult> {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   if (!apiKey) {
@@ -2523,9 +2531,66 @@ async function sendEmail(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from, to: [toEmail], subject, html, text }),
+      body: JSON.stringify({
+        from,
+        to: [toEmail],
+        subject,
+        html,
+        text,
+        // Omitted entirely rather than sent as [] when there is nothing to
+        // attach — an empty array is harmless to Resend, but omitting it
+        // keeps every other email's request body byte-identical to before
+        // this change, which matters given how easily this function has
+        // drifted from source in the past (see CLAUDE.md's standing note).
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      }),
     })
   );
+}
+
+/**
+ * Fetches the take-anywhere test request PDF for one lab order from the
+ * Next.js app, so it can ride along as an email attachment.
+ *
+ * Deliberately fails soft: any problem here (secret unset, app unreachable,
+ * order deleted between enqueue and send, a non-200) returns null rather than
+ * throwing, and the caller sends the email WITHOUT the attachment rather than
+ * not sending it at all. The confirmation email is the guaranteed thing the
+ * founder requirement asks for; the PDF is a genuine enhancement to it, not a
+ * precondition — a patient who does not get the attachment can still open the
+ * request in the app, exactly as before this existed. Logged either way, so a
+ * silent failure here is at least visible in the function's own logs.
+ */
+async function fetchLabOrderRequestPdf(orderId: string): Promise<EmailAttachment | null> {
+  const serviceKey = Deno.env.get("NOTIFICATIONS_SERVICE_KEY");
+  if (!serviceKey) {
+    console.error("lab-order PDF attachment: NOTIFICATIONS_SERVICE_KEY not configured");
+    return null;
+  }
+  const base = Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng";
+
+  try {
+    const response = await fetch(
+      `${base}/api/internal/notifications/lab-order-request-pdf/${orderId}`,
+      { headers: { "X-Service-Key": serviceKey } },
+    );
+    if (!response.ok) {
+      console.error(`lab-order PDF attachment: fetch returned ${response.status} for order ${orderId}`);
+      return null;
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    // Deno has no Buffer global; btoa needs a binary string, built in chunks
+    // so a large PDF does not blow the call-stack a spread/apply would hit.
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    return { filename: `tarragon-test-request-${orderId}.pdf`, content: btoa(binary) };
+  } catch (error) {
+    console.error("lab-order PDF attachment: fetch threw", error);
+    return null;
+  }
 }
 
 Deno.serve(async () => {
@@ -2796,7 +2861,20 @@ Deno.serve(async () => {
         failed++;
         continue;
       }
-      await settle(await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text));
+      // Scoped to exactly one template, deliberately: this is the founder
+      // requirement that the test-request email carry the PDF, not a general
+      // "attach a PDF" mechanism every template gets for free. A future
+      // template that wants the same treatment should add its own explicit
+      // case here rather than have this condition grown into something
+      // fuzzier.
+      let attachments: EmailAttachment[] | undefined;
+      if (row.template === "lab_order_requested_patient" && typeof payload.order_id === "string") {
+        const pdf = await fetchLabOrderRequestPdf(payload.order_id);
+        if (pdf) attachments = [pdf];
+      }
+      await settle(
+        await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text, attachments),
+      );
     } else if (row.channel === "push") {
       const subs = subscriptionsByProfile.get(row.recipient_id) ?? [];
       const pushBody = render.smsText.length > PUSH_BODY_MAX_CHARS
