@@ -17,7 +17,11 @@ import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-fo
 import { RiskAssessmentDisplay } from "@/app/(dashboard)/patient/risk-assessment-display";
 import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
-import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
+import { DownloadPreventiveCarePlanLink } from "@/app/(dashboard)/patient/download-preventive-care-plan-link";
+import {
+  PreventionTabs,
+  type PreventionTab,
+} from "@/app/(dashboard)/patient/prevention-tabs";
 import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-campaigns-card";
 import { DevelopmentalScreeningCard } from "@/app/(dashboard)/patient/developmental-screening-card";
 import { SymptomToTestCheck } from "@/app/(dashboard)/patient/symptom-to-test-check";
@@ -49,7 +53,8 @@ import { SymptomToTestCheck } from "@/app/(dashboard)/patient/symptom-to-test-ch
  * anchorIds so those deep links keep landing on the right tab.
  */
 export default async function PreventionHubPage() {
-  const { profile, subjectId, subjectSex, subjectDateOfBirth } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectSex, subjectDateOfBirth } =
+    await getPatientDashboardContext();
 
   // The screening calendar and lab-request coordination are free to every
   // patient since the pay-per-service rework — neither costs clinician time.
@@ -57,7 +62,11 @@ export default async function PreventionHubPage() {
   // reads the same, and so re-gating it later is a one-line change.
   const screeningBookingEnabled = true;
 
-  const location = { state: profile.state, city: profile.city, area: profile.area };
+  const location = {
+    state: profile.state,
+    city: profile.city,
+    area: profile.area,
+  };
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);
   // Distinct from ageYears above (the CALLER's own age, used for the "Me"
   // family-vaccination tab): the Child health tab below is about whichever
@@ -91,26 +100,29 @@ export default async function PreventionHubPage() {
       label: "Screenings & Vaccinations",
       anchorIds: ["screenings", "vaccinations"],
       content: (
-        <div id="screenings" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <div className="space-y-4">
-            <PreventiveScreeningCalendar
-              patientId={subjectId}
-              organisationId={profile.organisation_id}
-              bookingEnabled={screeningBookingEnabled}
-            />
-          </div>
+        <div id="screenings" className="scroll-mt-24 space-y-4">
+          <DownloadPreventiveCarePlanLink patientId={subjectId} />
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <div className="space-y-4">
+              <PreventiveScreeningCalendar
+                patientId={subjectId}
+                organisationId={profile.organisation_id}
+                bookingEnabled={screeningBookingEnabled}
+              />
+            </div>
 
-          <div id="vaccinations" className="scroll-mt-24">
-            <VaccinationForFamily
-              self={{
-                id: subjectId,
-                label: "Me",
-                ageYears,
-                dateOfBirth: profile.date_of_birth,
-                sex: profile.sex,
-              }}
-              patientLocation={location}
-            />
+            <div id="vaccinations" className="scroll-mt-24">
+              <VaccinationForFamily
+                self={{
+                  id: subjectId,
+                  label: "Me",
+                  ageYears,
+                  dateOfBirth: profile.date_of_birth,
+                  sex: profile.sex,
+                }}
+                patientLocation={location}
+              />
+            </div>
           </div>
         </div>
       ),
@@ -120,7 +132,10 @@ export default async function PreventionHubPage() {
       label: "Risk Assessment",
       anchorIds: ["risk-assessment"],
       content: (
-        <div id="risk-assessment" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div
+          id="risk-assessment"
+          className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2"
+        >
           <div className="space-y-4">
             <RiskAssessmentForm patientId={subjectId} />
             <RiskAssessmentDisplay patientId={subjectId} />
@@ -160,7 +175,10 @@ export default async function PreventionHubPage() {
       anchorIds: ["symptom-checker"],
       content: (
         <div id="symptom-checker" className="scroll-mt-24">
-          <SymptomToTestCheck patientId={subjectId} organisationId={profile.organisation_id} />
+          <SymptomToTestCheck
+            patientId={subjectId}
+            organisationId={profile.organisation_id}
+          />
         </div>
       ),
     },
@@ -170,14 +188,21 @@ export default async function PreventionHubPage() {
       content: (
         <div className="space-y-6">
           <PreventionCampaignsCard patientId={subjectId} />
-          <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
+          <PreventiveProgrammes
+            patientId={subjectId}
+            ageYears={ageYears}
+            sex={profile.sex}
+          />
           <CancerScreeningCard sex={profile.sex} />
           {/* Permissive on an unrecorded sex, deliberately: see
               shouldOfferCycleTracking. The strict `=== "female"` test this
               replaces left the cycle tracker with no entry point at all for
               the majority of accounts, which carry no recorded sex. */}
           {shouldOfferCycleTracking(subjectSex) && profile.organisation_id && (
-            <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
+            <ReproductiveHealthCard
+              patientId={subjectId}
+              organisationId={profile.organisation_id}
+            />
           )}
           {profile.sex === "male" && <MensHealthCard patientId={subjectId} />}
         </div>
@@ -195,15 +220,20 @@ export default async function PreventionHubPage() {
       <Card className="border-brand-green/25">
         <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-soft-sage dark:bg-brand-green/20">
-            <SEMANTIC_ICON.preventive className="h-6 w-6 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
+            <SEMANTIC_ICON.preventive
+              className="h-6 w-6 text-deep-forest dark:text-brand-green-bright"
+              strokeWidth={2}
+              aria-hidden
+            />
           </span>
           <div className="flex-1">
             <p className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">
               Your yearly Health Check
             </p>
             <p className="mt-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-              A guided, whole-body check-in: your health profile, wellbeing, measurements,
-              screenings, and immunisations, reviewed by a doctor at the end.
+              A guided, whole-body check-in: your health profile, wellbeing,
+              measurements, screenings, and immunisations, reviewed by a doctor
+              at the end.
             </p>
           </div>
           <Link
