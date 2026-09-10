@@ -8,8 +8,8 @@ import {
   type TherapyProvider,
   type TherapySession,
 } from "@/lib/therapy";
-import { colors, radius, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { colors, spacing } from "@/ui/theme";
+import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
 
 const MODALITY_LABEL: Record<Enums<"therapy_modality">, string> = {
   video: "Video",
