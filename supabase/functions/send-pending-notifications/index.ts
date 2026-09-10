@@ -153,6 +153,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   vaccination_due: "screenings_vaccinations",
   vaccination_verified: "screenings_vaccinations",
   screening_due: "screenings_vaccinations",
+  preventive_care_plan_updated: "screenings_vaccinations",
   health_check_due_soon: "screenings_vaccinations",
   diabetes_complication_check_due: "screenings_vaccinations",
   preventive_review_due: "screenings_vaccinations",
@@ -1680,6 +1681,36 @@ const TEMPLATE_MAP: Record<
       },
     };
   },
+  // Email-only digest, queued by private.queue_preventive_care_plan_email_
+  // reminders (at most once per patient per 30 days, only when something is
+  // currently due/overdue). No whatsapp/sms component exists for this one —
+  // metaTemplateName/components/smsText are populated anyway so a
+  // misrouted whatsapp/sms row degrades to plain text rather than crashing,
+  // matching every other template's shape.
+  preventive_care_plan_updated: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const smsText =
+      `Hi ${patientName}, your preventive & chronic care plan has been updated — ` +
+      `see the Tarragon Health app for what's due. Tarragon Health`;
+    return {
+      metaTemplateName: "preventive_care_plan_updated",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: patientName }] }],
+      smsText,
+      email: {
+        subject: "Your preventive & chronic care plan",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>You have some routine screening, vaccination or Annual Health Check items due. A copy of your full plan is attached as a PDF — it lists what's recommended and why, and does not name a laboratory or a price, because you choose where to have each item done and pay them directly.</p>` +
+          `<p>Open the Tarragon Health app to see your live plan and mark anything you've already had done.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
   // Sent to the patient once a Tarragon doctor has confirmed the physical
   // certificate they uploaded — the dose is now Tarragon-verified, their
   // Tarragon certificate is ready to download in the app, and (if the vaccine
@@ -2593,6 +2624,47 @@ async function fetchLabOrderRequestPdf(orderId: string): Promise<EmailAttachment
   }
 }
 
+/**
+ * Fetches the preventive & chronic care plan PDF for one patient, so the
+ * "preventive_care_plan_updated" email can carry it as an attachment. Same
+ * fail-soft shape as fetchLabOrderRequestPdf and for the same reason: the
+ * email itself is the guaranteed thing (queued by
+ * private.queue_preventive_care_plan_email_reminders), the PDF is an
+ * enhancement to it — a patient who does not get the attachment can still
+ * open their plan in the app.
+ */
+async function fetchPreventiveCarePlanPdf(patientId: string): Promise<EmailAttachment | null> {
+  const serviceKey = Deno.env.get("NOTIFICATIONS_SERVICE_KEY");
+  if (!serviceKey) {
+    console.error("preventive care plan PDF attachment: NOTIFICATIONS_SERVICE_KEY not configured");
+    return null;
+  }
+  const base = Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng";
+
+  try {
+    const response = await fetch(
+      `${base}/api/internal/notifications/preventive-care-plan-pdf/${patientId}`,
+      { headers: { "X-Service-Key": serviceKey } },
+    );
+    if (!response.ok) {
+      console.error(
+        `preventive care plan PDF attachment: fetch returned ${response.status} for patient ${patientId}`,
+      );
+      return null;
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    return { filename: `tarragon-preventive-care-plan.pdf`, content: btoa(binary) };
+  } catch (error) {
+    console.error("preventive care plan PDF attachment: fetch threw", error);
+    return null;
+  }
+}
+
 Deno.serve(async () => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -2870,6 +2942,9 @@ Deno.serve(async () => {
       let attachments: EmailAttachment[] | undefined;
       if (row.template === "lab_order_requested_patient" && typeof payload.order_id === "string") {
         const pdf = await fetchLabOrderRequestPdf(payload.order_id);
+        if (pdf) attachments = [pdf];
+      } else if (row.template === "preventive_care_plan_updated") {
+        const pdf = await fetchPreventiveCarePlanPdf(row.recipient_id);
         if (pdf) attachments = [pdf];
       }
       await settle(
