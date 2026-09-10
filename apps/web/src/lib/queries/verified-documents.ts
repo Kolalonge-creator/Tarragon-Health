@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import type { Tables } from "@tarragon/shared";
+import type { Enums, Tables } from "@tarragon/shared";
 
 export type VerifiedDocument = Tables<"verified_documents">;
 
@@ -43,7 +43,7 @@ export function useRequestVerifiedDocument() {
     }: {
       patientId: string;
       organisationId: string;
-      documentType: "fit_to_work" | "travel_health_certificate";
+      documentType: Enums<"verified_document_type">;
       requestNote?: string;
     }) => {
       const supabase = createClient();

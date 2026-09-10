@@ -241,7 +241,12 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           ))}
         {section === "messages" && <MessagesScreen patientId={userId} />}
         {section === "supporting" && (
-          <SupportingScreen userId={userId} acting={acting} onActingChange={refreshActing} />
+          <SupportingScreen
+            userId={userId}
+            organisationId={organisationId}
+            acting={acting}
+            onActingChange={refreshActing}
+          />
         )}
         {section === "passport" && (
           <HealthPassportScreen
@@ -277,7 +282,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         )}
         {section === "lifestyle" && <LifestyleScreen patientId={userId} onNavigate={handleSelect} />}
         {section === "weightManagement" && (
-          <WeightManagementScreen userId={userId} onNavigate={handleSelect} />
+          <WeightManagementScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
         {section === "learn" && <LearnScreen userId={userId} organisationId={organisationId} />}
         {section === "wellness" && (

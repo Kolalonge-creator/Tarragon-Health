@@ -14,14 +14,40 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import type { Enums } from "@tarragon/shared";
 
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
-const VERIFIED_DOCUMENT_CREDIT_CODE = "verified_document_credit";
 
-const DOCUMENT_TYPE_LABEL: Record<string, string> = {
+/** Legacy flat credit, retired 2026-09-10 (service_products.is_active = false)
+ * but still honoured for anyone who bought one before the per-type split —
+ * see private.enforce_verified_document_credit's fallback. Never sold again;
+ * only checked here so a patient who already holds one isn't blocked. */
+const LEGACY_VERIFIED_DOCUMENT_CREDIT_CODE = "verified_document_credit";
+
+/** Every document type is its own service_products code, priced individually
+ * (migration 20260910011848_doctor_time_price_ladder_and_result_interpretation.sql).
+ * The code is always this prefix plus the enum value — see
+ * private.enforce_verified_document_credit, which builds the same string. */
+function serviceProductCodeFor(documentType: Enums<"verified_document_type">): string {
+  return `verified_document_${documentType}`;
+}
+
+/** Typed off the enum, not a hand-written union, so a future document type
+ * fails the build here rather than being silently unreachable — same
+ * discipline as DOCUMENT_TITLE in lib/verified-documents/verified-document.tsx.
+ * Labels here are the patient-facing short form; the PDF's own title (set in
+ * that file) is worded slightly more formally and is what actually prints. */
+const DOCUMENT_TYPE_LABEL: Record<Enums<"verified_document_type">, string> = {
   fit_to_work: "Fit-to-work letter",
+  return_to_work: "Return-to-work letter",
   travel_health_certificate: "Travel health certificate",
+  medication_carry_letter: "Medication carry letter",
+  specialist_referral_letter: "Specialist referral letter",
+  school_health_form: "School health form",
+  insurance_medical_summary: "Insurance medical summary",
 };
+
+const DOCUMENT_TYPE_OPTIONS = Object.keys(DOCUMENT_TYPE_LABEL) as Enums<"verified_document_type">[];
 
 function DocumentRow({ document }: { document: VerifiedDocument }) {
   return (
@@ -70,9 +96,9 @@ function DocumentRow({ document }: { document: VerifiedDocument }) {
 }
 
 /**
- * Verified Digital Documents — pay-per-service item, no plan bypass: a
- * fit-to-work letter or travel health certificate, doctor-attested and
- * delivered as a signed PDF once issued.
+ * Verified Digital Documents — pay-per-service item, no plan bypass: any of
+ * the seven doctor-attested document types (see DOCUMENT_TYPE_LABEL), each
+ * priced and sold as its own credit, delivered as a signed PDF once issued.
  */
 export function VerifiedDocumentsCard({
   patientId,
@@ -82,14 +108,22 @@ export function VerifiedDocumentsCard({
   organisationId: string | null;
 }) {
   const { data: documents } = useMyVerifiedDocuments(patientId);
-  const { data: hasCredit, isLoading: isCheckingCredit } = useHasAvailableServicePurchase(
+  const [documentType, setDocumentType] = useState<Enums<"verified_document_type">>("fit_to_work");
+  const typeSpecificCode = serviceProductCodeFor(documentType);
+  // A patient can hold either the credit priced for this specific document
+  // type, or a pre-2026-09-10 legacy flat credit — either satisfies the
+  // request-side trigger, so either should unlock the form here.
+  const { data: hasTypeCredit, isLoading: isCheckingTypeCredit } = useHasAvailableServicePurchase(
     patientId,
-    VERIFIED_DOCUMENT_CREDIT_CODE
+    typeSpecificCode
   );
+  const { data: hasLegacyCredit, isLoading: isCheckingLegacyCredit } = useHasAvailableServicePurchase(
+    patientId,
+    LEGACY_VERIFIED_DOCUMENT_CREDIT_CODE
+  );
+  const hasCredit = Boolean(hasTypeCredit || hasLegacyCredit);
+  const isCheckingCredit = isCheckingTypeCredit || isCheckingLegacyCredit;
   const request = useRequestVerifiedDocument();
-  const [documentType, setDocumentType] = useState<"fit_to_work" | "travel_health_certificate">(
-    "fit_to_work"
-  );
   const [requestNote, setRequestNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isBuying, setIsBuying] = useState(false);
@@ -113,7 +147,7 @@ export function VerifiedDocumentsCard({
     setFormError(null);
     try {
       const result = await purchaseServiceProduct({
-        serviceProductCode: VERIFIED_DOCUMENT_CREDIT_CODE,
+        serviceProductCode: typeSpecificCode,
         callbackPath: "/patient/care",
       });
       if (result?.error) {
@@ -136,15 +170,17 @@ export function VerifiedDocumentsCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          A doctor-attested fit-to-work letter or travel health certificate, delivered as a signed
-          PDF, no printing or courier needed.
+          A doctor-attested letter or summary — a fit-to-work note, a travel health letter, a
+          specialist referral and more — delivered as a signed PDF, no printing or courier needed.
         </p>
 
         {!isCheckingCredit && !hasCredit && (
           <div className="space-y-2 rounded-md border border-brand-green/30 dark:border-brand-green-bright/30 bg-brand-green/5 dark:bg-brand-green/15 p-3">
-            <p className="text-sm text-charcoal-ink dark:text-night-ink">Buy a credit to request a document.</p>
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
+              Buy a credit for this document type to request it.
+            </p>
             <Button size="sm" disabled={isBuying} onClick={buyCredit}>
-              {isBuying ? "Redirecting to payment…" : "Buy a credit"}
+              {isBuying ? "Redirecting to payment…" : `Buy a ${DOCUMENT_TYPE_LABEL[documentType].toLowerCase()} credit`}
             </Button>
           </div>
         )}
@@ -154,11 +190,13 @@ export function VerifiedDocumentsCard({
           <Select
             id="verified-document-type"
             value={documentType}
-            onChange={(e) => setDocumentType(e.target.value as typeof documentType)}
-            disabled={!hasCredit}
+            onChange={(e) => setDocumentType(e.target.value as Enums<"verified_document_type">)}
           >
-            <option value="fit_to_work">Fit-to-work letter</option>
-            <option value="travel_health_certificate">Travel health certificate</option>
+            {DOCUMENT_TYPE_OPTIONS.map((type) => (
+              <option key={type} value={type}>
+                {DOCUMENT_TYPE_LABEL[type]}
+              </option>
+            ))}
           </Select>
         </div>
         <div className="space-y-2">

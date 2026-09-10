@@ -30,6 +30,7 @@ import {
 } from "@/lib/queries/partner-catalogues";
 import { AdminLabFacilities } from "./admin-lab-facilities";
 import { AdminLabProviderLocations } from "./admin-lab-provider-locations";
+import { CostBasisEditor } from "./cost-basis-editor";
 import {
   PartnerLicenseBadge,
   PartnerLicenseEditor,
@@ -323,8 +324,14 @@ function LabCommissionRates() {
 
 export function LabsManager({
   labPartnerLogins,
+  isSuperAdmin,
 }: {
   labPartnerLogins: LabPartnerLoginRow[];
+  /** Gates the cost-basis editor: its RLS write policy is private.is_admin(),
+   * strictly narrower than the partners.labs.manage permission that gates
+   * this whole page, so a delegated (non-admin) partner manager can see this
+   * page but must not be shown a save control that Postgres will refuse. */
+  isSuperAdmin: boolean;
 }) {
   const { data: labs, isLoading } = useAllLabProviders();
   const create = useCreateLabProvider();
@@ -515,6 +522,7 @@ export function LabsManager({
                               updateLicense.mutate({ id: lab.id, ...next })
                             }
                           />
+                          <CostBasisEditor lab={lab} isSuperAdmin={isSuperAdmin} />
                           <AdminLabProviderLocations labProviderId={lab.id} />
                           <AdminLabFacilities labProviderId={lab.id} />
                           <PartnerLoginLinker
