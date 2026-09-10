@@ -76,7 +76,7 @@ function ProviderRow({
           </div>
           <p className="mt-0.5 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             {[
-              provider.qualifications,
+              provider.qualifications?.join(", ") || null,
               provider.subspecialty,
               provider.years_of_experience ? `${provider.years_of_experience} years` : null,
               [provider.city, provider.state].filter(Boolean).join(", ") || null,
@@ -84,14 +84,24 @@ function ProviderRow({
               .filter(Boolean)
               .join(" · ")}
           </p>
-          {provider.clinical_interests ? (
+          {provider.clinical_interests?.length ? (
             <p className="mt-1 text-xs leading-relaxed text-charcoal-ink/60 dark:text-night-ink/60">
-              {provider.clinical_interests}
+              {provider.clinical_interests.join(", ")}
             </p>
           ) : null}
           {provider.languages?.length ? (
             <p className="mt-1 text-xs text-charcoal-ink/50 dark:text-night-ink/50">
               Speaks {provider.languages.join(", ")}
+            </p>
+          ) : null}
+          {/* Deliberately shown. A registration number is what lets somebody
+              check this practitioner with the regulator before paying them,
+              which is the only part of "we verified them" the person taking the
+              risk can confirm for themselves. Founder decision, 2026-09-10. */}
+          {provider.license_number ? (
+            <p className="mt-1 text-xs text-charcoal-ink/45 dark:text-night-ink/45">
+              {provider.license_type ?? "Registration"} {provider.license_number}, verifiable with
+              the regulator
             </p>
           ) : null}
         </div>
