@@ -161,15 +161,19 @@ export default async function PatientOverviewPage() {
         </p>
       )}
 
+      {/* Above Quick actions, not below it: while these steps are outstanding
+          they are the most useful thing on the page, and two of the three are
+          the same destinations the quick-action row offers anyway. */}
+      {showGetStarted && (
+        <GetStartedCard progress={progress} acting={acting?.fullName ?? null} />
+      )}
+
       {/* The everyday jobs, one tap from the top of the page — including the
           Learn and Lifestyle coaching buttons (founder ask, 2026-08-12).
           Above the stat tiles deliberately: doing beats reading, and on a
           phone this row is what's on screen when the page opens. */}
       <QuickActions showCycle={shouldOfferCycleTracking(subjectSex)} />
 
-      {showGetStarted && (
-        <GetStartedCard progress={progress} acting={acting?.fullName ?? null} />
-      )}
 
       {/* On a genuinely empty account everything below this point can only
           report an absence, so it is not rendered at all until there is
