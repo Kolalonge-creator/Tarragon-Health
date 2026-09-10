@@ -9,7 +9,8 @@ export type PatientReceiptServiceType =
   | "consultation"
   | "care_voucher";
 
-export type PatientReceiptStatus = "successful" | "pending" | "failed" | "refunded" | "pending_refund";
+export type PatientReceiptStatus =
+  "successful" | "pending" | "failed" | "refunded" | "pending_refund";
 
 export interface PatientReceipt {
   id: string;
@@ -21,6 +22,17 @@ export interface PatientReceipt {
   currency: string;
   status: PatientReceiptStatus;
   provider: string | null;
+  /**
+   * The real amount Paystack actually charged and the fee it kept, read
+   * from the same charge.success payment_transactions row activation
+   * itself matched on (20260910231326_receipts_show_paystack_fee_
+   * breakdown.sql) — null for every service_type except 'membership', and
+   * null there too for a free/voucher-covered activation with no real
+   * Paystack charge behind it. Never a guess: Paystack only reveals its
+   * fee once a charge completes, so there is nothing to show before that.
+   */
+  charged_amount_minor: number | null;
+  fee_minor: number | null;
 }
 
 /** Every payment the signed-in patient made — membership, lab, pharmacy,
