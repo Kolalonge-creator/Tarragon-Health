@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import type { SectionId } from "@/lib/sections";
+import { type UiLanguage } from "@tarragon/shared";
 import { colors, radius, spacing, typeScale } from "@/ui/theme";
 
 /**
@@ -41,36 +42,80 @@ interface Step {
 export function GetStartedCard({
   progress,
   onNavigate,
+  language = "en",
 }: {
   progress: GetStartedProgress;
   onNavigate: (id: SectionId) => void;
+  language?: UiLanguage;
 }) {
-  const steps: Step[] = [
-    {
-      title: "Fill in the health profile",
-      detail:
-        "About two minutes. It builds your personal screening and vaccination calendar: the checks that keep well people well.",
-      cta: "Start the profile",
-      target: "prevention",
-      done: progress.hasRiskAssessment,
-    },
-    {
-      title: "Log the first reading",
-      detail:
-        "Blood pressure, blood sugar or weight, from any meter, typed in by hand. This is what the care team looks at.",
-      cta: "Log a reading",
-      target: "vitals",
-      done: progress.hasAnyVitals,
-    },
-    {
-      title: "Add your medicines",
-      detail:
-        "Whatever you take now. Once they are on the list, you get dose reminders and refill nudges.",
-      cta: "Add a medicine",
-      target: "medications",
-      done: progress.hasMedications,
-    },
-  ];
+  // Written per-language rather than looked up string-by-string, matching
+  // web's get-started-card.tsx. Setup guidance only -- no clinical content,
+  // per the boundary in packages/shared/src/ui-language.ts.
+  const pidgin = language === "pcm";
+  const copy = pidgin
+    ? {
+        heading: "Three things wey you go set up",
+        of: "out of",
+        intro:
+          "This app dey keep your health record for one place, e dey tell you which check don due, and e dey put your readings for front of a care team wey fit do something about am. These three steps na wetin go turn am on.",
+        footer:
+          "All of this na free. Na only doctor time you dey ever pay for, and na only when you ask for am.",
+        steps: [
+          {
+            title: "Fill your health profile",
+            detail:
+              "Na like two minutes. E go build your own screening and vaccination calendar: the checks wey dey keep well person well.",
+            cta: "Start am",
+          },
+          {
+            title: "Enter the first reading",
+            detail:
+              "Blood pressure, blood sugar or weight, from any machine, you fit type am by hand. Na wetin the care team dey look.",
+            cta: "Enter a reading",
+          },
+          {
+            title: "Add your medicine",
+            detail:
+              "Whatever you dey take now. Once dem dey the list, you go dey get reminder for dose and refill.",
+            cta: "Add medicine",
+          },
+        ],
+      }
+    : {
+        heading: "Three things to set up",
+        of: "of",
+        intro:
+          "This app keeps your health record in one place, tells you which checks are due, and puts your readings in front of a care team who can act on them. These three steps switch that on.",
+        footer:
+          "All of this is free. You are only ever charged for a doctor's time, and only when you ask for it.",
+        steps: [
+          {
+            title: "Fill in the health profile",
+            detail:
+              "About two minutes. It builds your personal screening and vaccination calendar: the checks that keep well people well.",
+            cta: "Start the profile",
+          },
+          {
+            title: "Log the first reading",
+            detail:
+              "Blood pressure, blood sugar or weight, from any meter, typed in by hand. This is what the care team looks at.",
+            cta: "Log a reading",
+          },
+          {
+            title: "Add your medicines",
+            detail:
+              "Whatever you take now. Once they are on the list, you get dose reminders and refill nudges.",
+            cta: "Add a medicine",
+          },
+        ],
+      };
+  const targets: SectionId[] = ["prevention", "vitals", "medications"];
+  const dones = [progress.hasRiskAssessment, progress.hasAnyVitals, progress.hasMedications];
+  const steps: Step[] = copy.steps.map((step, i) => ({
+    ...step,
+    target: targets[i]!,
+    done: dones[i]!,
+  }));
   const doneCount = steps.filter((s) => s.done).length;
 
   return (
@@ -85,16 +130,14 @@ export function GetStartedCard({
     >
       <View style={{ flexDirection: "row", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
         <Text style={{ fontSize: typeScale.title, fontWeight: "700", color: colors.ink, flexShrink: 1 }}>
-          Three things to set up
+          {copy.heading}
         </Text>
         <Text style={{ fontSize: typeScale.caption, fontWeight: "600", color: colors.muted }}>
-          {doneCount} of {steps.length} done
+          {doneCount} {copy.of} {steps.length} done
         </Text>
       </View>
       <Text style={{ fontSize: typeScale.body, lineHeight: 20, color: colors.muted }}>
-        This app keeps your health record in one place, tells you which checks are due, and puts
-        your readings in front of a care team who can act on them. These three steps switch that
-        on.
+        {copy.intro}
       </Text>
 
       {steps.map((step, index) => (
@@ -170,8 +213,7 @@ export function GetStartedCard({
       ))}
 
       <Text style={{ fontSize: typeScale.caption, lineHeight: 17, color: colors.faint }}>
-        All of this is free. You are only ever charged for a doctor&apos;s time, and only when you
-        ask for it.
+        {copy.footer}
       </Text>
     </View>
   );

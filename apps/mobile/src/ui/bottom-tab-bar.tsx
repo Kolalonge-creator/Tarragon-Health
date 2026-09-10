@@ -1,4 +1,5 @@
 import { Platform, Pressable, Text, View } from "react-native";
+import { useT } from "@/lib/ui-language";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { PRIMARY_SECTIONS, type SectionId } from "@/lib/sections";
@@ -30,6 +31,7 @@ interface BottomTabBarProps {
 const MIN_BOTTOM_INSET = Platform.OS === "ios" ? 22 : 8;
 
 export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarProps) {
+  const tr = useT();
   const moreActive = !PRIMARY_SECTIONS.some((s) => s.id === activeSection);
   const insets = useSafeAreaInsets();
 
@@ -50,13 +52,13 @@ export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarPr
           <Tab
             key={section.id}
             icon={section.icon}
-            label={section.shortLabel ?? section.label}
+            label={tr(section.shortLabel ?? section.label)}
             active={active}
             onPress={() => onSelect(section.id)}
           />
         );
       })}
-      <Tab icon="menu-outline" label="More" active={moreActive} onPress={onMore} />
+      <Tab icon="menu-outline" label={tr("More")} active={moreActive} onPress={onMore} />
     </View>
   );
 }

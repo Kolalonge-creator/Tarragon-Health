@@ -258,3 +258,5 @@ export type SpecialistVerificationStage = Enums<"specialist_verification_stage">
 
 /** platform_consultation_duration_defaults.duration_type / specialist_provider_availability_rules.duration_type. */
 export type ConsultationDurationType = Enums<"consultation_duration_type">;
+
+export * from "./ui-language";

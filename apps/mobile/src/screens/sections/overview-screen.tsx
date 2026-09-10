@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useT, useUiLanguage } from "@/lib/ui-language";
 import {
   GetStartedCard,
   isFirstRun,
@@ -134,6 +135,8 @@ function formatVisitTime(iso: string): string {
 
 export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewScreenProps) {
   const glucoseUnit = useGlucoseDisplayUnit();
+  const uiLanguage = useUiLanguage();
+  const tr = useT();
   const [stats, setStats] = useState<SummaryStats | null>(null);
   const [careTeam, setCareTeam] = useState<CareTeamInfo | null>(null);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -367,14 +370,14 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
       ) : null}
 
       {showGetStarted ? (
-        <GetStartedCard progress={progress} onNavigate={onNavigate} />
+        <GetStartedCard progress={progress} onNavigate={onNavigate} language={uiLanguage} />
       ) : null}
 
       <View style={{ gap: 10 }}>
         {/* On an empty account these four tiles can only read "—", "—", "0"
             and "0/0". The quick actions below them stay: those are how a
             patient puts the first number there. */}
-        {firstRun ? null : <SectionLabel>Your numbers</SectionLabel>}
+        {firstRun ? null : <SectionLabel>{tr("Your numbers")}</SectionLabel>}
         {firstRun ? null : (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           <StatTile icon="heart-outline" label="Latest BP" value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"} unit="mmHg" />
@@ -389,10 +392,10 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
         </View>
         )}
         <QuickActionGrid>
-          <QuickActionButton icon="pulse-outline" label="Log a reading" onPress={() => onNavigate("vitals")} />
-          <QuickActionButton icon="medkit-outline" label="Medications" onPress={() => onNavigate("medications")} />
-          <QuickActionButton icon="chatbox-ellipses-outline" label="Messages" onPress={() => onNavigate("messages")} />
-          <QuickActionButton icon="flask-outline" label="Labs" onPress={() => onNavigate("labs")} />
+          <QuickActionButton icon="pulse-outline" label={tr("Log a reading")} onPress={() => onNavigate("vitals")} />
+          <QuickActionButton icon="medkit-outline" label={tr("Medications")} onPress={() => onNavigate("medications")} />
+          <QuickActionButton icon="chatbox-ellipses-outline" label={tr("Messages")} onPress={() => onNavigate("messages")} />
+          <QuickActionButton icon="flask-outline" label={tr("Labs & results")} onPress={() => onNavigate("labs")} />
         </QuickActionGrid>
       </View>
 

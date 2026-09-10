@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useT } from "@/lib/ui-language";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
@@ -45,6 +46,7 @@ export function NavDrawer({
   //
   // Overview is still left out: it is one tap away in the bottom tab bar and
   // behind the header's home icon, so a tile here would only duplicate it.
+  const tr = useT();
   const everydayItems = SECTIONS.filter((s) => s.group === "top" && s.id !== "overview");
   const groups = SECTION_GROUP_ORDER.filter(
     (group) => group !== "top" && SECTIONS.some((s) => s.group === group)
@@ -110,7 +112,7 @@ export function NavDrawer({
             showsVerticalScrollIndicator={false}
           >
             <View style={{ gap: 12 }}>
-              <SectionLabel>Everyday</SectionLabel>
+              <SectionLabel>{tr("Everyday")}</SectionLabel>
               <QuickActionGrid>
                 {everydayItems.map((section) => (
                   <QuickActionButton
@@ -142,7 +144,7 @@ export function NavDrawer({
                       paddingVertical: 6,
                     }}
                   >
-                    <SectionLabel>{group}</SectionLabel>
+                    <SectionLabel>{tr(group)}</SectionLabel>
                     <Ionicons
                       name={open ? "chevron-down" : "chevron-forward"}
                       size={16}

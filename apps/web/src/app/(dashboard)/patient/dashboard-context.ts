@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getActingFor as getActingForUncached } from "@/lib/acting/acting-for";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_GLUCOSE_DISPLAY_UNIT, type GlucoseDisplayUnit } from "@tarragon/shared";
+import { asUiLanguage, DEFAULT_GLUCOSE_DISPLAY_UNIT, type GlucoseDisplayUnit } from "@tarragon/shared";
 
 // getCurrentProfile/getCurrentUser are already React cache()-wrapped
 // (lib/supabase/server.ts); getActingFor is not, and both the shared layout
@@ -91,10 +91,15 @@ export async function getPatientDashboardContext() {
   const glucoseUnit: GlucoseDisplayUnit =
     profile.glucose_display_unit === "mmol_l" ? "mmol_l" : DEFAULT_GLUCOSE_DISPLAY_UNIT;
 
+  // Same "the CALLER's preference" rule as glucoseUnit above: this is the
+  // language of whoever is reading the screen, not a fact about the subject.
+  const uiLanguage = asUiLanguage(profile.language);
+
   return {
     profile,
     acting,
     glucoseUnit,
+    uiLanguage,
     subjectId,
     subjectState,
     subjectSex,

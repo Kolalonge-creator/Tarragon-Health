@@ -71,7 +71,7 @@ function CardSkeleton({ className = "h-40" }: { className?: string }) {
 }
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting, subjectSex, subjectDateOfBirth, glucoseUnit } =
+  const { subjectId, acting, subjectSex, subjectDateOfBirth, glucoseUnit, uiLanguage } =
     await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
@@ -165,7 +165,11 @@ export default async function PatientOverviewPage() {
           they are the most useful thing on the page, and two of the three are
           the same destinations the quick-action row offers anyway. */}
       {showGetStarted && (
-        <GetStartedCard progress={progress} acting={acting?.fullName ?? null} />
+        <GetStartedCard
+          progress={progress}
+          acting={acting?.fullName ?? null}
+          language={uiLanguage}
+        />
       )}
 
       {/* The everyday jobs, one tap from the top of the page — including the

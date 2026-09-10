@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { type UiLanguage } from "@tarragon/shared";
 
 /**
  * What a brand-new patient sees instead of a page of empty cards.
@@ -57,42 +58,86 @@ interface Step {
   done: boolean;
 }
 
+/**
+ * Written per-language rather than looked up string-by-string, because two of
+ * the three detail lines interpolate whose account this is. A dictionary keyed
+ * on the English sentence cannot match a sentence that is assembled at render
+ * time, and translating only the static half would leave a card that is
+ * English and Pidgin in alternating lines.
+ *
+ * Setup guidance only -- no clinical content, per the boundary in
+ * packages/shared/src/ui-language.ts.
+ */
+function stepCopy(language: UiLanguage, subject: string, them: string) {
+  if (language === "pcm") {
+    return {
+      intro: `This app dey keep ${subject} health record for one place, e dey tell ${them} which check don due, and e dey put ${subject} readings for front of a care team wey fit do something about am. These three steps na wetin go turn am on.`,
+      steps: [
+        {
+          title: "Fill your health profile",
+          detail: `Na like two minutes. E go build ${subject} own screening and vaccination calendar: the checks wey dey keep well person well.`,
+          cta: "Start am",
+        },
+        {
+          title: "Enter the first reading",
+          detail:
+            "Blood pressure, blood sugar or weight, from any machine, you fit type am by hand. Na wetin the care team dey look.",
+          cta: "Enter a reading",
+        },
+        {
+          title: "Add the medicine",
+          detail: `Whatever ${them} dey take now. Once dem dey the list, ${them} go dey get reminder for dose and refill.`,
+          cta: "Add medicine",
+        },
+      ],
+    };
+  }
+  return {
+    intro: `This app keeps ${subject} health record in one place, tells ${them} which checks are due, and puts ${subject} readings in front of a care team who can act on them. These three steps are what switch that on.`,
+    steps: [
+      {
+        title: "Fill in the health profile",
+        detail: `About two minutes. It builds ${subject} personal screening and vaccination calendar: the checks that keep well people well.`,
+        cta: "Start the profile",
+      },
+      {
+        title: "Log the first reading",
+        detail:
+          "Blood pressure, blood sugar or weight, from any meter, typed in by hand. This is what the care team looks at.",
+        cta: "Log a reading",
+      },
+      {
+        title: "Add the medicines",
+        detail: `Whatever ${them} take now. Once they are on the list, ${them} get dose reminders and refill nudges.`,
+        cta: "Add a medicine",
+      },
+    ],
+  };
+}
+
 export function GetStartedCard({
   progress,
   acting,
+  language = "en",
 }: {
   progress: GetStartedProgress;
   /** Name of the person whose account this is, when a supporter is running
    * it, so the steps do not tell a supporter to log "your" readings. */
   acting?: string | null;
+  language?: UiLanguage;
 }) {
-  const subject = acting ? `${acting}'s` : "your";
+  const pidgin = language === "pcm";
+  const subject = acting ? `${acting}'s` : pidgin ? "your" : "your";
   const them = acting ? "them" : "you";
+  const copy = stepCopy(language, subject, them);
+  const hrefs = ["/patient/prevention", "/patient/vitals", "/patient/medications"];
+  const dones = [progress.hasRiskAssessment, progress.hasAnyVitals, progress.hasMedications];
 
-  const steps: Step[] = [
-    {
-      title: "Fill in the health profile",
-      detail: `About two minutes. It builds ${subject} personal screening and vaccination calendar: the checks that keep well people well.`,
-      href: "/patient/prevention",
-      cta: "Start the profile",
-      done: progress.hasRiskAssessment,
-    },
-    {
-      title: "Log the first reading",
-      detail:
-        "Blood pressure, blood sugar or weight, from any meter, typed in by hand. This is what the care team looks at.",
-      href: "/patient/vitals",
-      cta: "Log a reading",
-      done: progress.hasAnyVitals,
-    },
-    {
-      title: "Add the medicines",
-      detail: `Whatever ${them} take now. Once they are on the list, ${them} get dose reminders and refill nudges.`,
-      href: "/patient/medications",
-      cta: "Add a medicine",
-      done: progress.hasMedications,
-    },
-  ];
+  const steps: Step[] = copy.steps.map((step, i) => ({
+    ...step,
+    href: hrefs[i]!,
+    done: dones[i]!,
+  }));
 
   const doneCount = steps.filter((s) => s.done).length;
 
@@ -106,17 +151,13 @@ export function GetStartedCard({
           id="get-started-heading"
           className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink"
         >
-          Three things to set up
+          {pidgin ? "Three things wey you go set up" : "Three things to set up"}
         </h2>
         <p className="text-xs font-medium text-charcoal-ink/55 dark:text-night-ink/60">
-          {doneCount} of {steps.length} done
+          {doneCount} {pidgin ? "out of" : "of"} {steps.length} done
         </p>
       </div>
-      <p className="mb-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-        This app keeps {subject} health record in one place, tells {them} which checks are due, and
-        puts {acting ? "their" : "your"} readings in front of a care team who can act on them. These
-        three steps are what switch that on.
-      </p>
+      <p className="mb-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">{copy.intro}</p>
 
       <ol className="space-y-2.5">
         {steps.map((step, index) => (
@@ -173,8 +214,9 @@ export function GetStartedCard({
 
       <p className="mt-4 text-xs text-charcoal-ink/55 dark:text-night-ink/60">
         <SEMANTIC_ICON.preventive aria-hidden className="mr-1 inline h-3.5 w-3.5 align-[-2px]" />
-        All of this is free. You are only ever charged for a doctor&apos;s time, and only when you
-        ask for it.
+        {pidgin
+          ? "All of this na free. Na only doctor time you dey ever pay for, and na only when you ask for am."
+          : "All of this is free. You are only ever charged for a doctor's time, and only when you ask for it."}
       </p>
     </section>
   );
