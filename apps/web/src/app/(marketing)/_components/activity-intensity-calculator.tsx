@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { ProductCtaCard } from "./product-cta-card";
+import type { ResolvedServicePrices } from "../_content/pricing";
 
 /**
  * Public, no-login physical-activity intensity + calorie-burn estimate.
@@ -45,7 +47,11 @@ const INTENSITY_COPY: Record<Intensity, { label: string; tone: string }> = {
 
 const WEEKLY_TARGET_MINUTES = 150;
 
-export function ActivityIntensityCalculator() {
+export function ActivityIntensityCalculator({
+  priceOverrides,
+}: {
+  priceOverrides?: ResolvedServicePrices;
+} = {}) {
   const [activityKey, setActivityKey] = useState(ACTIVITIES[3].key);
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [weightKg, setWeightKg] = useState(70);
@@ -151,6 +157,16 @@ export function ActivityIntensityCalculator() {
           </p>
         </div>
       </div>
+
+      {progressPct < 50 ? (
+        <ProductCtaCard
+          code="async_consult_credit"
+          href="/checkout/async_consult_credit"
+          ctaLabel="Ask a doctor — no account needed"
+          overrides={priceOverrides}
+          className="mt-6"
+        />
+      ) : null}
 
       <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
         A general estimate from average energy-expenditure tables, not a personalised

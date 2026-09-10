@@ -49,6 +49,7 @@ const ROUTINE_TEMPLATES = new Set<string>([
   "health_reset_complete",
   "voucher_gift_used",
   "care_voucher_expiring",
+  "service_purchase_expiring",
   "reward_voucher_issued",
   "sponsor_monthly_report",
   "sponsor_care_reviewed",
@@ -285,6 +286,14 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text: `${label} runs out on ${on}. Use it, or ask us and we will extend it.`,
       href: "/patient/care",
+    };
+  }
+  if (n.template === "service_purchase_expiring") {
+    const label = String(payload.label ?? "A paid service");
+    const on = String(payload.expires_on ?? "soon");
+    return {
+      text: `${label} runs out on ${on}. Buy it again to keep it going.`,
+      href: "/patient/subscription",
     };
   }
   if (n.template === "reward_voucher_issued") {
