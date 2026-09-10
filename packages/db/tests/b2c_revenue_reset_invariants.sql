@@ -28,29 +28,48 @@
 -- this_file.sql`, or the Supabase SQL editor.
 --
 -- Wrapped in BEGIN/ROLLBACK: a verification script, never seed data. It always
--- leaves the database exactly as it found it.
+-- leaves the database exactly as it found it, and it builds every fixture it
+-- needs rather than borrowing a row the live project happens to hold -- a proof
+-- that borrows passes there and fails on a fresh reset.
 -- ===========================================================================
 
 begin;
 
 do $$
 declare
-  v_patient  uuid;
   v_org      uuid;
+  v_patient  uuid := gen_random_uuid();
   v_bundle   uuid;
   v_product  uuid;
   v_med      uuid;
   v_refused  boolean;
   v_ok       boolean;
-  v_before   boolean;
   v_after    boolean;
   v_expired  boolean;
 begin
-  select id, organisation_id into v_patient, v_org
-    from public.profiles where role = 'patient' limit 1;
-  if v_patient is null then
-    raise exception 'No patient row to verify against. Seed one and re-run.';
+  -- Fixtures are built here rather than borrowed, per packages/db/tests/ci.manifest:
+  -- a proof that depends on a row the live project happens to hold passes there
+  -- and fails on a fresh reset, which is the opposite of useful. Only the
+  -- organisation is borrowed, exactly as
+  -- doctor_time_entitlement_grantable_by_purchasable_product.sql does.
+  select organisation_id into v_org
+    from public.profiles where role = 'patient' and organisation_id is not null limit 1;
+  if v_org is null then
+    select id into v_org from public.organisations limit 1;
   end if;
+  if v_org is null then
+    raise exception 'no organisation exists — cannot run this proof';
+  end if;
+
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_patient, 'b2c-reset@example.invalid', 'x', now(), '{}', '{}');
+  -- auth.users' new-user trigger creates the profiles row already; upsert.
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_patient, v_org, 'patient', 'B2C Reset Probe')
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id,
+        role = excluded.role,
+        full_name = excluded.full_name;
 
   -- ----------------------------------------------------------------------
   -- 1. Tarragon does not bill for a test, but the free request still works
@@ -79,7 +98,7 @@ begin
     raise exception 'FAIL(1): Tarragon accepted a partner-billed order for a guidance_only bundle.';
   end if;
 
-  -- The half that would have been silently broken.
+  -- The half that would have been silently broken by turning self_bookable off.
   insert into public.lab_orders
     (organisation_id, patient_id, panel_bundle_id, fulfilment, status, origin, total_kobo)
   values (v_org, v_patient, v_bundle, 'self_arranged', 'ordered', 'patient_initiated', 0);
@@ -88,15 +107,8 @@ begin
   -- ----------------------------------------------------------------------
   -- 2. The escalation gate opens, and closes again
   -- ----------------------------------------------------------------------
-  delete from public.service_purchases sp
-   using public.service_products p
-   where p.id = sp.service_product_id
-     and sp.patient_id = v_patient
-     and 'vitals_red_flag_doctor_escalation' = any(p.features);
-
-  v_before := private.patient_has_feature_access(v_patient, 'vitals_red_flag_doctor_escalation');
-  if v_before then
-    raise notice 'NOTE(2): this patient already had escalation from another source; the open/close assertions below are still valid.';
+  if private.patient_has_feature_access(v_patient, 'vitals_red_flag_doctor_escalation') then
+    raise exception 'FAIL(2): a brand-new patient with no purchase already has escalation.';
   end if;
 
   select id into v_product from public.service_products where code = 'continuous_monitoring_12m';
@@ -118,10 +130,10 @@ begin
    where patient_id = v_patient and service_product_id = v_product;
 
   v_expired := private.patient_has_feature_access(v_patient, 'vitals_red_flag_doctor_escalation');
-  if v_expired and not v_before then
+  if v_expired then
     raise exception 'FAIL(2): EXPIRED cover still opens the escalation gate.';
   end if;
-  raise notice 'PASS(2): escalation gate opens with active cover and closes once expired';
+  raise notice 'PASS(2): escalation gate closed, opens with active cover, closes once expired';
 
   -- ----------------------------------------------------------------------
   -- 3. Supervision only, enforced rather than asserted in copy
@@ -160,11 +172,6 @@ begin
   -- ----------------------------------------------------------------------
   -- 4. The crisis route is in the database
   -- ----------------------------------------------------------------------
-  delete from public.emergency_events
-   where patient_id = v_patient
-     and status = 'active'
-     and source in ('mental_health_screen', 'intake_screen');
-
   insert into public.mental_health_screens
     (organisation_id, patient_id, instrument, total_score, severity_band, crisis_flagged, item_responses)
   values (v_org, v_patient, 'phq9', 18, 'moderately_severe', true, '{"items":[2,2,2,2,2,2,2,2,2]}'::jsonb);
