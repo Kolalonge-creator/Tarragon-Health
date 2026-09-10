@@ -24,6 +24,14 @@ import { SEMANTIC_ICON } from "@/lib/icons";
  *    as a quote. If you find yourself adding a "Pay" button here, the
  *    commercial decision has been reversed and the database will refuse the
  *    order anyway (private.enforce_guidance_only_is_never_billed).
+ *
+ *    It is also sourced from a published consumer price list, not from a
+ *    contract anyone has sighted (lab_providers.cost_basis, which defaults to
+ *    'published_list' and refuses to claim otherwise without evidence). So the
+ *    copy says "at a major private laboratory" and adds that smaller ones are
+ *    usually cheaper. Do not tighten that into a firmer promise than the data
+ *    supports -- describing an unverified figure as a rate we have negotiated
+ *    is the mistake that produced this whole change.
  * 2. Never name a single laboratory as the place to go. `where_to_get` is
  *    written at the category level on purpose — sending everyone to one
  *    provider is how the platform ended up marking up that provider's retail

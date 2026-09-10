@@ -17207,6 +17207,10 @@ export type Database = {
           name: string
           organisation_id: string | null
           regions: string[]
+          cost_basis: string
+          cost_basis_note: string | null
+          cost_basis_verified_at: string | null
+          cost_basis_verified_by: string | null
         }
         Insert: {
           compliance_owner_profile_id?: string | null
@@ -17224,6 +17228,10 @@ export type Database = {
           name: string
           organisation_id?: string | null
           regions?: string[]
+          cost_basis?: string
+          cost_basis_note?: string | null
+          cost_basis_verified_at?: string | null
+          cost_basis_verified_by?: string | null
         }
         Update: {
           compliance_owner_profile_id?: string | null
@@ -17241,6 +17249,10 @@ export type Database = {
           name?: string
           organisation_id?: string | null
           regions?: string[]
+          cost_basis?: string
+          cost_basis_note?: string | null
+          cost_basis_verified_at?: string | null
+          cost_basis_verified_by?: string | null
         }
         Relationships: [
           {
@@ -40788,6 +40800,14 @@ export type Database = {
           price_kobo: number
           verdict: string
         }[]
+      }
+      approve_therapy_session: {
+        Args: { p_confirm?: boolean; p_session_id: string }
+        Returns: Database["public"]["Tables"]["therapy_sessions"]["Row"]
+      }
+      review_weight_management_checkin: {
+        Args: { p_checkin_id: string; p_note?: string }
+        Returns: Database["public"]["Tables"]["weight_management_checkins"]["Row"]
       }
     }
     Enums: {

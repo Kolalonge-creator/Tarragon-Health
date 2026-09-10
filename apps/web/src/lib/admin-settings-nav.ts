@@ -290,6 +290,14 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/service-margins",
+        label: "Service margins",
+        blurb:
+          "What each paid service earns after clinical time and payment fees, and the clinician rates behind it. Replace the seeded estimates with payroll to make the cost floor binding.",
+        icon: SEMANTIC_ICON.commission,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/outcomes-contracts",
         label: "Fee-at-risk contracts",
         blurb: "Review and approve HMO/corporate-proposed outcomes contract terms.",

@@ -18010,6 +18010,10 @@ export type Database = {
           organisation_id: string | null
           regions: string[]
           status_notes: string | null
+          cost_basis: string
+          cost_basis_note: string | null
+          cost_basis_verified_at: string | null
+          cost_basis_verified_by: string | null
         }
         Insert: {
           accreditation?: string | null
@@ -18030,6 +18034,10 @@ export type Database = {
           organisation_id?: string | null
           regions?: string[]
           status_notes?: string | null
+          cost_basis?: string
+          cost_basis_note?: string | null
+          cost_basis_verified_at?: string | null
+          cost_basis_verified_by?: string | null
         }
         Update: {
           accreditation?: string | null
@@ -18050,6 +18058,10 @@ export type Database = {
           organisation_id?: string | null
           regions?: string[]
           status_notes?: string | null
+          cost_basis?: string
+          cost_basis_note?: string | null
+          cost_basis_verified_at?: string | null
+          cost_basis_verified_by?: string | null
         }
         Relationships: [
           {
@@ -42760,6 +42772,14 @@ export type Database = {
           price_kobo: number
           verdict: string
         }[]
+      }
+      approve_therapy_session: {
+        Args: { p_confirm?: boolean; p_session_id: string }
+        Returns: Database["public"]["Tables"]["therapy_sessions"]["Row"]
+      }
+      review_weight_management_checkin: {
+        Args: { p_checkin_id: string; p_note?: string }
+        Returns: Database["public"]["Tables"]["weight_management_checkins"]["Row"]
       }
     }
     Enums: {
