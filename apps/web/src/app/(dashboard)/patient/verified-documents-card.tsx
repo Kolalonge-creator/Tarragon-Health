@@ -8,6 +8,7 @@ import {
 } from "@/lib/queries/verified-documents";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,9 @@ const LEGACY_VERIFIED_DOCUMENT_CREDIT_CODE = "verified_document_credit";
  * (migration 20260910011848_doctor_time_price_ladder_and_result_interpretation.sql).
  * The code is always this prefix plus the enum value — see
  * private.enforce_verified_document_credit, which builds the same string. */
-function serviceProductCodeFor(documentType: Enums<"verified_document_type">): string {
+function serviceProductCodeFor(
+  documentType: Enums<"verified_document_type">,
+): string {
   return `verified_document_${documentType}`;
 }
 
@@ -47,14 +50,17 @@ const DOCUMENT_TYPE_LABEL: Record<Enums<"verified_document_type">, string> = {
   insurance_medical_summary: "Insurance medical summary",
 };
 
-const DOCUMENT_TYPE_OPTIONS = Object.keys(DOCUMENT_TYPE_LABEL) as Enums<"verified_document_type">[];
+const DOCUMENT_TYPE_OPTIONS = Object.keys(
+  DOCUMENT_TYPE_LABEL,
+) as Enums<"verified_document_type">[];
 
 function DocumentRow({ document }: { document: VerifiedDocument }) {
   return (
     <li className="flex flex-wrap items-center justify-between gap-2 py-3">
       <div>
         <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-          {DOCUMENT_TYPE_LABEL[document.document_type] ?? document.document_type.replace(/_/g, " ")}
+          {DOCUMENT_TYPE_LABEL[document.document_type] ??
+            document.document_type.replace(/_/g, " ")}
         </p>
         {document.status === "requested" && (
           <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
@@ -64,7 +70,8 @@ function DocumentRow({ document }: { document: VerifiedDocument }) {
         )}
         {document.status === "declined" && (
           <p className="text-xs text-red-600 dark:text-red-300">
-            Not issued{document.declined_reason ? `: ${document.declined_reason}` : ""}
+            Not issued
+            {document.declined_reason ? `: ${document.declined_reason}` : ""}
           </p>
         )}
         {document.status === "issued" && document.valid_from && (
@@ -108,19 +115,19 @@ export function VerifiedDocumentsCard({
   organisationId: string | null;
 }) {
   const { data: documents } = useMyVerifiedDocuments(patientId);
-  const [documentType, setDocumentType] = useState<Enums<"verified_document_type">>("fit_to_work");
+  const [documentType, setDocumentType] =
+    useState<Enums<"verified_document_type">>("fit_to_work");
   const typeSpecificCode = serviceProductCodeFor(documentType);
   // A patient can hold either the credit priced for this specific document
   // type, or a pre-2026-09-10 legacy flat credit — either satisfies the
   // request-side trigger, so either should unlock the form here.
-  const { data: hasTypeCredit, isLoading: isCheckingTypeCredit } = useHasAvailableServicePurchase(
-    patientId,
-    typeSpecificCode
-  );
-  const { data: hasLegacyCredit, isLoading: isCheckingLegacyCredit } = useHasAvailableServicePurchase(
-    patientId,
-    LEGACY_VERIFIED_DOCUMENT_CREDIT_CODE
-  );
+  const { data: hasTypeCredit, isLoading: isCheckingTypeCredit } =
+    useHasAvailableServicePurchase(patientId, typeSpecificCode);
+  const { data: hasLegacyCredit, isLoading: isCheckingLegacyCredit } =
+    useHasAvailableServicePurchase(
+      patientId,
+      LEGACY_VERIFIED_DOCUMENT_CREDIT_CODE,
+    );
   const hasCredit = Boolean(hasTypeCredit || hasLegacyCredit);
   const isCheckingCredit = isCheckingTypeCredit || isCheckingLegacyCredit;
   const request = useRequestVerifiedDocument();
@@ -134,11 +141,19 @@ export function VerifiedDocumentsCard({
     setFormError(null);
     if (!organisationId) return;
     request.mutate(
-      { patientId, organisationId, documentType, requestNote: requestNote || undefined },
+      {
+        patientId,
+        organisationId,
+        documentType,
+        requestNote: requestNote || undefined,
+      },
       {
         onSuccess: () => setRequestNote(""),
-        onError: (error) => setFormError((error as Error).message || "Could not send this request."),
-      }
+        onError: (error) =>
+          setFormError(
+            (error as Error).message || "Could not send this request.",
+          ),
+      },
     );
   }
 
@@ -170,8 +185,9 @@ export function VerifiedDocumentsCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          A doctor-attested letter or summary — a fit-to-work note, a travel health letter, a
-          specialist referral and more — delivered as a signed PDF, no printing or courier needed.
+          A doctor-attested letter or summary — a fit-to-work note, a travel
+          health letter, a specialist referral and more — delivered as a signed
+          PDF, no printing or courier needed.
         </p>
 
         {!isCheckingCredit && !hasCredit && (
@@ -180,8 +196,11 @@ export function VerifiedDocumentsCard({
               Buy a credit for this document type to request it.
             </p>
             <Button size="sm" disabled={isBuying} onClick={buyCredit}>
-              {isBuying ? "Redirecting to payment…" : `Buy a ${DOCUMENT_TYPE_LABEL[documentType].toLowerCase()} credit`}
+              {isBuying
+                ? "Redirecting to payment…"
+                : `Buy a ${DOCUMENT_TYPE_LABEL[documentType].toLowerCase()} credit`}
             </Button>
+            <PaystackFeeNotice />
           </div>
         )}
 
@@ -190,7 +209,9 @@ export function VerifiedDocumentsCard({
           <Select
             id="verified-document-type"
             value={documentType}
-            onChange={(e) => setDocumentType(e.target.value as Enums<"verified_document_type">)}
+            onChange={(e) =>
+              setDocumentType(e.target.value as Enums<"verified_document_type">)
+            }
           >
             {DOCUMENT_TYPE_OPTIONS.map((type) => (
               <option key={type} value={type}>
@@ -209,9 +230,13 @@ export function VerifiedDocumentsCard({
             disabled={!hasCredit}
           />
         </div>
-        {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
+        {formError && (
+          <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>
+        )}
         {request.isSuccess && (
-          <p className="text-sm text-brand-green dark:text-brand-green-bright">Sent. A doctor will respond within 72 hours.</p>
+          <p className="text-sm text-brand-green dark:text-brand-green-bright">
+            Sent. A doctor will respond within 72 hours.
+          </p>
         )}
         <Button onClick={onSubmit} disabled={request.isPending || !hasCredit}>
           {request.isPending ? "Sending…" : "Request document"}

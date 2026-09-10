@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { PageHeader } from "@/components/ui/page-header";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +26,7 @@ import { SexualWellnessPanel } from "./sexual-wellness-panel";
 import { startConfidentialSrhThread } from "./confidential-message-action";
 import { SexualHealthPrivacySettingsCard } from "./sexual-health-privacy-settings-card";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 
 const CONFIDENTIAL_MESSAGE_CREDIT_CODE = "confidential_message_credit";
 
@@ -49,9 +56,13 @@ function PrivacyBanner() {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-clinical-navy/15 dark:border-night-ink/20 bg-clinical-navy/[0.04] dark:bg-night-ink/10 p-3">
       <p className="flex items-center gap-1.5 text-xs font-semibold text-clinical-navy dark:text-night-ink">
-        <SEMANTIC_ICON.privacy className="h-3.5 w-3.5 shrink-0" strokeWidth={2} aria-hidden />
-        Your answers here stay between you and your care team, never shown to a family member,
-        an employer, or an HMO, even one that pays for your plan.
+        <SEMANTIC_ICON.privacy
+          className="h-3.5 w-3.5 shrink-0"
+          strokeWidth={2}
+          aria-hidden
+        />
+        Your answers here stay between you and your care team, never shown to a
+        family member, an employer, or an HMO, even one that pays for your plan.
       </p>
       <Link
         href="/patient"
@@ -132,13 +143,18 @@ function ConfidentialMessageCta() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.privacy className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
+          <SEMANTIC_ICON.privacy
+            className="h-5 w-5 text-deep-forest dark:text-brand-green-bright"
+            strokeWidth={2}
+            aria-hidden
+          />
           Message your care team confidentially
         </CardTitle>
         <CardDescription>
-          For anything here you&apos;d rather write than say out loud. This thread is hidden from
-          anyone else who supports your care, even someone with their usual access to your record.
-          A doctor reads and replies, so this is a paid message (₦2,500).
+          For anything here you&apos;d rather write than say out loud. This
+          thread is hidden from anyone else who supports your care, even someone
+          with their usual access to your record. A doctor reads and replies, so
+          this is a paid message (₦2,500).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -154,8 +170,15 @@ function ConfidentialMessageCta() {
         )}
 
         {!open && (
-          <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
-            {sent ? "Send another confidential message" : "Start a confidential message"}
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setOpen(true)}
+          >
+            {sent
+              ? "Send another confidential message"
+              : "Start a confidential message"}
           </Button>
         )}
 
@@ -181,17 +204,28 @@ function ConfidentialMessageCta() {
                 maxLength={4000}
               />
             </div>
-            {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+            {error && (
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            )}
             <div className="flex gap-2">
               {needsCredit ? (
-                <Button type="button" size="sm" disabled={isBuying} onClick={buyCreditThenSend}>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={isBuying}
+                  onClick={buyCreditThenSend}
+                >
                   {isBuying ? "Redirecting to payment…" : "Pay ₦2,500 and send"}
                 </Button>
               ) : (
                 <Button
                   type="button"
                   size="sm"
-                  disabled={pending || subject.trim().length < 3 || body.trim().length === 0}
+                  disabled={
+                    pending ||
+                    subject.trim().length < 3 ||
+                    body.trim().length === 0
+                  }
                   onClick={send}
                 >
                   {pending ? "Sending…" : "Send"}
@@ -207,6 +241,7 @@ function ConfidentialMessageCta() {
                 Cancel
               </Button>
             </div>
+            {needsCredit && <PaystackFeeNotice />}
           </div>
         )}
       </CardContent>
@@ -223,8 +258,8 @@ function ResultsTab({ patientId }: { patientId: string }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-        If a chlamydia, gonorrhoea, or syphilis result needs follow-up, it shows up here
-        automatically. Nothing to do here unless you have an open case.
+        If a chlamydia, gonorrhoea, or syphilis result needs follow-up, it shows
+        up here automatically. Nothing to do here unless you have an open case.
       </p>
       <StiCaseStatusCard patientId={patientId} />
     </div>
@@ -249,24 +284,40 @@ function LearnTab() {
   const womens = useHealthEducationLibrary("womens_health");
   const mens = useHealthEducationLibrary("mens_health");
   const sexualHealth = useHealthEducationLibrary("sexual_health");
-  const isLoading = womens.isLoading || mens.isLoading || sexualHealth.isLoading;
-  const items = [...(sexualHealth.data ?? []), ...(womens.data ?? []), ...(mens.data ?? [])];
+  const isLoading =
+    womens.isLoading || mens.isLoading || sexualHealth.isLoading;
+  const items = [
+    ...(sexualHealth.data ?? []),
+    ...(womens.data ?? []),
+    ...(mens.data ?? []),
+  ];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.learn className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
+          <SEMANTIC_ICON.learn
+            className="h-5 w-5 text-deep-forest dark:text-brand-green-bright"
+            strokeWidth={2}
+            aria-hidden
+          />
           Learn
         </CardTitle>
         <CardDescription>
-          Plain-language reading on fertility, contraception, and related health topics.
+          Plain-language reading on fertility, contraception, and related health
+          topics.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isLoading && (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            Loading…
+          </p>
+        )}
         {!isLoading && items.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing here yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            Nothing here yet.
+          </p>
         )}
         {items.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
@@ -279,7 +330,9 @@ function LearnTab() {
                   {item.title}
                 </Link>
                 {item.summary && (
-                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.summary}</p>
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                    {item.summary}
+                  </p>
                 )}
               </li>
             ))}
