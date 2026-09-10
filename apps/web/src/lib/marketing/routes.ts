@@ -10,6 +10,7 @@ export const MARKETING_ROUTES = {
   hypertension: "/hypertension",
   diabetes: "/diabetes",
   obesity: "/obesity",
+  weightManagement: "/weight-management",
   parentcare: "/parentcare",
   prevention: "/prevention",
   annualHealthCheck: "/annual-health-check",
