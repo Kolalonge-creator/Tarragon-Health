@@ -163,15 +163,25 @@ begin
    where r.patient_id = p_beneficiary
      and r.taken_at >= v_since;
 
+  -- 'acknowledged' and 'resolved' are the states that mean a clinician has
+  -- actually looked. 'open' is not: an alert nobody has picked up is precisely
+  -- the thing a sponsor must not be told is a review. ('in_progress' is not a
+  -- value of public.alert_status at all -- the enum is open / acknowledged /
+  -- resolved / snoozed / closed -- and an earlier draft of this function
+  -- compared against it, which would have failed at runtime rather than at
+  -- migration time, since plpgsql does not resolve these until execution.)
   select max(a.updated_at) into v_reviewed
     from public.clinician_alerts a
    where a.patient_id = p_beneficiary
-     and a.status in ('resolved', 'in_progress')
+     and a.status in ('acknowledged', 'resolved', 'closed')
      and a.updated_at >= v_since;
 
+  -- public.screening_schedules, not patient_screening_schedule, which does not
+  -- exist. Same class of mistake as above and equally invisible to a replay.
   select min(s.due_date) into v_next_due
-    from public.patient_screening_schedule s
+    from public.screening_schedules s
    where s.patient_id = p_beneficiary
+     and s.status in ('pending', 'overdue')
      and s.due_date >= current_date;
 
   select max(sp.expires_at) into v_cover_to
@@ -201,7 +211,68 @@ revoke all on function public.sponsor_care_report(uuid, date) from public;
 grant execute on function public.sponsor_care_report(uuid, date) to authenticated;
 
 do $$
+declare
+  v_patient uuid;
+  v_sponsor uuid;
+  v_org     uuid;
 begin
+  -- plpgsql resolves table, column and enum references at EXECUTION, not at
+  -- creation, so a function referencing a table that does not exist is created
+  -- happily and fails the first time a real sponsor opens their report. Two
+  -- such mistakes were caught here by RUNNING it rather than reading it: a
+  -- reference to patient_screening_schedule (the table is screening_schedules)
+  -- and a comparison against an alert status of 'in_progress' (not a value of
+  -- public.alert_status at all).
+  --
+  -- So this probe does the work to reach the far end of the body: it borrows an
+  -- identity, gives that identity a voucher for a beneficiary so the
+  -- authorisation check passes, raises the sharing level so the activity branch
+  -- is taken too, and calls the function for real. All of it inside a
+  -- subtransaction that is rolled back by raising.
+  select p.id, p.organisation_id into v_patient, v_org
+    from public.profiles p where p.role = 'patient' limit 1;
+  select p.id into v_sponsor
+    from public.profiles p where p.id <> v_patient limit 1;
+
+  if v_patient is null or v_sponsor is null then
+    raise notice 'SKIP: need two profiles to exercise sponsor_care_report';
+  else
+    begin
+      perform set_config('request.jwt.claims',
+        json_build_object('sub', v_sponsor::text, 'role', 'authenticated')::text, true);
+
+      -- care_vouchers_kind_shape requires a prepaid_service voucher to name
+      -- what it is for, so the probe links a real product rather than an
+      -- invented sku string.
+      insert into public.care_vouchers
+        (organisation_id, voucher_number, kind, beneficiary_profile_id, purchaser_profile_id,
+         service_product_id, sku_code, sku_name, face_value_kobo, amount_paid_kobo, status)
+      select v_org, 'ZZPROBE-' || substr(gen_random_uuid()::text, 1, 8), 'prepaid_service',
+             v_patient, v_sponsor, p.id, p.code, p.name, p.price_kobo, p.price_kobo, 'active'
+        from public.service_products p
+       where p.code = 'continuous_monitoring_12m';
+
+      insert into public.sponsor_sharing_preferences
+        (organisation_id, patient_id, sponsor_id, level)
+      values (v_org, v_patient, v_sponsor, 'activity')
+      on conflict (patient_id, sponsor_id) do update set level = 'activity';
+
+      -- The call that matters: sharing_level 'activity' takes the branch that
+      -- touches vitals_readings, clinician_alerts, screening_schedules and
+      -- service_purchases. If any reference is wrong, this raises.
+      perform public.sponsor_care_report(v_patient);
+
+      raise exception 'ROLLBACK_PROBE';
+    exception
+      when others then
+        if sqlerrm <> 'ROLLBACK_PROBE' then
+          raise exception 'FAIL: sponsor_care_report does not execute: % (%)', sqlerrm, sqlstate;
+        end if;
+    end;
+    perform set_config('request.jwt.claims', null, true);
+    raise notice 'PASS: sponsor_care_report executes its activity branch against the real schema';
+  end if;
+
   if has_function_privilege('anon', 'public.sponsor_care_report(uuid, date)', 'EXECUTE') then
     raise exception 'FAIL: anon can EXECUTE sponsor_care_report';
   end if;

@@ -85,13 +85,31 @@ on conflict (code) do update
       features            = excluded.features,
       is_active           = true;
 
--- The dormant obesity programme becomes the clinical spine of the paid product
--- rather than a second, parallel definition of the same thing.
+-- The obesity programme becomes the clinical spine of the paid product rather
+-- than a second, parallel definition of the same thing.
+--
+-- is_active IS DELIBERATELY NOT SET HERE, and this is a correction rather than
+-- an omission. An earlier draft set it true and failed a from-scratch migration
+-- replay on:
+--
+--   Cannot activate chronic condition "obesity": no protocol version for
+--   "chronic_obesity_who" has been signed by an active Clinical Director.
+--
+-- That guard is right and this migration was wrong. Activating a chronic
+-- pathway is a clinical governance act -- it asserts that a named Clinical
+-- Director has read and signed the protocol behind it -- and a pricing
+-- migration has no business performing one. It passed against production only
+-- because the obesity pathway is already signed there (2026-08-13); on any
+-- fresh environment it must stay dormant until a real person signs it, and
+-- seeding a signature to make CI green would fabricate exactly the human
+-- judgement the governance module exists to protect.
+--
+-- So this sets only what the paid product needs from the programme's shape. If
+-- a future environment needs obesity active, someone signs the protocol.
 update public.chronic_condition_programmes
-   set monitoring_vitals    = array['weight', 'blood_pressure', 'glucose']::public.vital_type[],
+   set monitoring_vitals     = array['weight', 'blood_pressure', 'glucose']::public.vital_type[],
        review_cadence_months = 1,
-       is_active            = true,
-       purchase_summary     = 'Supervised while you lose weight on medication you obtain yourself: suitability confirmed by a doctor, a dose plan they own, side-effect monitoring, and a review every month.'
+       purchase_summary      = 'Supervised while you lose weight on medication you obtain yourself: suitability confirmed by a doctor, a dose plan they own, side-effect monitoring, and a review every month.'
  where code = 'obesity';
 
 -- ---------------------------------------------------------------------------

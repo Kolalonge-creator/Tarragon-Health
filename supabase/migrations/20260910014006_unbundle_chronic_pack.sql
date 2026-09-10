@@ -167,13 +167,15 @@ begin
 
   select amount_minor into v_consult from public.lab_result_consult_prices where is_enabled limit 1;
   select price_kobo   into v_written from public.service_products where code = 'written_result_interpretation';
-  if v_consult is distinct from v_written then
+  -- A fresh environment may have no enabled consult price row at all, which is
+  -- not a fork -- it is the absence of one. Only assert when both exist.
+  if v_consult is not null and v_consult is distinct from v_written then
     raise exception 'FAIL: having a result read has two prices again -- lab_result_consult_prices % vs written_result_interpretation %',
       v_consult, v_written;
   end if;
 
-  raise notice 'PASS: pack unbundled; % product(s) carry the doctor-supported track; result interpretation unified at %',
-    v_track, v_written / 100;
+  raise notice 'PASS: pack unbundled; % product(s) carry the doctor-supported track; result interpretation at % (consult price row: %)',
+    v_track, v_written / 100, coalesce((v_consult / 100)::text, 'none');
 end $$;
 
 commit;
