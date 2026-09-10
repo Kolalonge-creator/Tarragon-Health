@@ -93,6 +93,21 @@ begin
   returning id into v_staff_row;
 
   -- Find a self-bookable bundle this patient can actually be billed for.
+  --
+  -- As of 2026-09-10 every bundle is guidance_only: Tarragon stopped billing
+  -- for laboratory tests when its recorded cost for one turned out to be the
+  -- laboratory's own retail price, and
+  -- private.enforce_guidance_only_is_never_billed refuses a partner-billed
+  -- order outright. So the first pass below finds nothing.
+  --
+  -- This script does NOT skip in that case, and the distinction matters. What
+  -- it proves is a security property of lab_orders -- that a patient cannot
+  -- mark their own partner order paid -- not a fact about the current
+  -- catalogue. That property has to keep being true for the day partner billing
+  -- returns, which it may: reintroducing it requires only proving a negotiated
+  -- rate genuinely below public list. So when nothing is billable, the script
+  -- makes one billable inside its own rolled-back transaction and carries on
+  -- testing the attack.
   for r in select id, name from public.panel_bundles where self_bookable order by name loop
     begin
       insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, fulfilment, status)
@@ -107,7 +122,23 @@ begin
   end loop;
 
   if v_bundle is null then
-    raise exception 'no partner-priceable self-bookable bundle found — cannot run this test';
+    for r in select id, name from public.panel_bundles where self_bookable and guidance_only order by name loop
+      update public.panel_bundles set guidance_only = false where id = r.id;
+      begin
+        insert into public.lab_orders (organisation_id, patient_id, panel_bundle_id, fulfilment, status)
+        values (v_org, v_patient, r.id, 'partner', 'pending_payment')
+        returning id into v_probe;
+        delete from public.lab_orders where id = v_probe;
+        v_bundle := r.id;
+        exit;
+      exception when others then
+        update public.panel_bundles set guidance_only = true where id = r.id;
+      end;
+    end loop;
+  end if;
+
+  if v_bundle is null then
+    raise exception 'no partner-priceable self-bookable bundle found, even after lifting guidance_only — cannot run this test';
   end if;
 
   insert into fspoi_fixture values

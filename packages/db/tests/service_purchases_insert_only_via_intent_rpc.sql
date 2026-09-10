@@ -59,10 +59,18 @@ begin
     raise exception 'no organisation available — cannot run this test';
   end if;
 
+  -- Resolved by SHAPE, not by a hardcoded code. This test named
+  -- chronic_doctor_supported_pack until that product was retired and unbundled
+  -- on 2026-09-10, at which point the test failed for a reason that had nothing
+  -- to do with what it proves -- the RPC-only insert path is a property of
+  -- service_purchases, not of any one product. Any active, priced NGN product
+  -- exercises it identically.
   select id into v_product from public.service_products
-  where code = 'chronic_doctor_supported_pack' and is_active;
+   where is_active and currency = 'NGN' and price_kobo > 0
+   order by price_kobo, code
+   limit 1;
   if v_product is null then
-    raise exception 'chronic_doctor_supported_pack is missing or inactive — cannot run this test';
+    raise exception 'no active priced NGN product — cannot run this test';
   end if;
 
   insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
@@ -151,15 +159,19 @@ declare
   v_amount   bigint;
   v_expected bigint;
   v_visible  int;
+  v_code     text;
 begin
-  select price_kobo into v_expected from public.service_products
-  where code = 'chronic_doctor_supported_pack';
+  -- Both resolved BEFORE the role switch: the temp fixture table is not
+  -- readable as `authenticated`, so reading it inside the simulated session
+  -- fails with 42501 on the fixture rather than on the thing under test.
+  select price_kobo, code into v_expected, v_code from public.service_products
+  where id = (select v from spir_fixture where k = 'product');
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_attacker, 'role', 'authenticated')::text, true);
   set local role authenticated;
 
-  v_id := public.record_service_purchase_intent(v_attacker, 'chronic_doctor_supported_pack');
+  v_id := public.record_service_purchase_intent(v_attacker, v_code);
 
   -- ...and the same session can still read back what it just bought.
   select count(*) into v_visible from public.service_purchases where id = v_id;

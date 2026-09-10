@@ -81,14 +81,74 @@ on conflict (code) do update
 -- 2. Monitoring carries entry to the doctor-supported track
 -- ---------------------------------------------------------------------------
 
+-- WHY MONITORING CARRIES THE WHOLE ONGOING FEATURE SET
+--
+-- Retiring the pack stranded four features that only it granted --
+-- clinician_review, doctor_checkin, async_doctor_visit and
+-- multi_condition_review. That is not a cosmetic gap: it is precisely the
+-- defect packages/db/tests/doctor_time_entitlement_grantable_by_purchasable_product.sql
+-- was written to catch after the 2026-09-02 retirement left a patient who had
+-- paid for the doctor-supported programme resolving false for
+-- vitals_red_flag_doctor_escalation. This migration reproduced it on the first
+-- CI run and the test caught it, which is the test earning its place.
+--
+-- The features move onto Continuous Monitoring rather than onto the credits,
+-- for two reasons. Conceptually, monitoring is now what "a doctor is engaged
+-- with you" means on this platform, and each credit is the piece of work you
+-- spend for; a feature describes the relationship, not the transaction.
+-- Mechanically, a feature on a CONSUMABLE credit leaks:
+-- public.redeem_available_service_purchase stamps redeemed_at but leaves
+-- status = 'active', and private.patient_has_feature_access checks status and
+-- expires_at without checking redeemed_at, so a spent credit would keep
+-- granting its feature for the rest of its 730-day life. Only duration
+-- products may carry features.
 update public.service_products
-   set features = array['vitals_red_flag_doctor_escalation', 'chronic_doctor_supported_track']
+   set features = array[
+     'vitals_red_flag_doctor_escalation',
+     'chronic_doctor_supported_track',
+     'clinician_review',
+     'doctor_checkin',
+     'async_doctor_visit',
+     'multi_condition_review',
+     'result_document_review'
+   ]
  where code in ('continuous_monitoring_3m', 'continuous_monitoring_6m');
 
 update public.service_products
-   set features = array['vitals_red_flag_doctor_escalation', 'chronic_doctor_supported_track', 'annual_review'],
+   set features = array[
+     'vitals_red_flag_doctor_escalation',
+     'chronic_doctor_supported_track',
+     'clinician_review',
+     'doctor_checkin',
+     'async_doctor_visit',
+     'multi_condition_review',
+     'result_document_review',
+     'annual_review'
+   ],
        description = 'A full year of the standing watch: every reading you log checked against care protocols, and a dangerous one put in front of a doctor on your care team. Includes your annual review, and entry to the doctor-supported track of the chronic programme if you are managing hypertension or diabetes. Paid once, for a year, at the lowest monthly equivalent we offer. Nothing renews, and there is no card kept on file.'
  where code = 'continuous_monitoring_12m';
+
+-- And prove the stranding is actually closed, here, rather than waiting for CI
+-- to find it again.
+do $$
+declare
+  v_feature text;
+  DOCTOR_TIME text[] := array[
+    'vitals_red_flag_doctor_escalation', 'clinician_review', 'doctor_checkin',
+    'async_doctor_visit', 'multi_condition_review', 'result_document_review',
+    'annual_review'
+  ];
+begin
+  foreach v_feature in array DOCTOR_TIME loop
+    if not exists (
+      select 1 from public.service_products
+       where is_active and v_feature = any(features)
+    ) then
+      raise exception 'FAIL: retiring the pack stranded "%" -- no active product grants it, so the entitlement is unreachable.', v_feature;
+    end if;
+  end loop;
+  raise notice 'PASS: every doctor-time feature still has a product a patient can buy';
+end $$;
 
 -- The annual review is real doctor time and has to be costed, or the
 -- twelve-month tier silently gives away work the model cannot see.
