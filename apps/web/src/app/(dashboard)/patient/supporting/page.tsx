@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { NAV_ICON } from "@/lib/icons";
 import { SupportedPeople } from "./supported-people";
+import { SponsorSharingControl } from "@/components/sponsor-care-report";
 import { joinAsPatientToo } from "./actions";
 
 /**
@@ -33,6 +34,14 @@ export default async function SupportingPage() {
       />
 
       <SupportedPeople />
+
+      {/* The other half of the same relationship, on the same page on purpose.
+          Someone who both supports a person and is supported BY one should be
+          able to see and change what they share without hunting through
+          settings. Renders nothing when nobody is paying for their care. */}
+      {profile.organisation_id ? (
+        <SponsorSharingControl organisationId={profile.organisation_id} />
+      ) : null}
 
       {profile.receives_care === false ? (
         // A supporter account has no care of its own, deliberately: we never

@@ -55,3 +55,11 @@ vitals_red_flag_plan_gate.sql
 revenue_recognition_orphan_source_guard.sql
 migration_replay_leaves_no_orphaned_finance_rows.sql
 population_health_engine.sql
+
+# --- Added 2026-09-10 -------------------------------------------------------
+# The B2C revenue reset. Proves the four rules in that change that carry real
+# money or real clinical risk, each in BOTH directions -- asserting only that
+# something is refused proves nothing when the mechanism is refusing everyone,
+# which is how this platform once shipped a doctor-escalation gate that
+# resolved false for every patient with its tests green.
+b2c_revenue_reset_invariants.sql

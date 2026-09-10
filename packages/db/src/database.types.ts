@@ -17207,6 +17207,10 @@ export type Database = {
           name: string
           organisation_id: string | null
           regions: string[]
+          cost_basis: string
+          cost_basis_note: string | null
+          cost_basis_verified_at: string | null
+          cost_basis_verified_by: string | null
         }
         Insert: {
           compliance_owner_profile_id?: string | null
@@ -17224,6 +17228,10 @@ export type Database = {
           name: string
           organisation_id?: string | null
           regions?: string[]
+          cost_basis?: string
+          cost_basis_note?: string | null
+          cost_basis_verified_at?: string | null
+          cost_basis_verified_by?: string | null
         }
         Update: {
           compliance_owner_profile_id?: string | null
@@ -17241,6 +17249,10 @@ export type Database = {
           name?: string
           organisation_id?: string | null
           regions?: string[]
+          cost_basis?: string
+          cost_basis_note?: string | null
+          cost_basis_verified_at?: string | null
+          cost_basis_verified_by?: string | null
         }
         Relationships: [
           {
@@ -22158,6 +22170,11 @@ export type Database = {
           review_discount_bp: number
           self_bookable: boolean
           test_codes: string[]
+          guidance_only: boolean
+          indicative_price_checked_on: string | null
+          indicative_price_kobo: number | null
+          indicative_price_source: string | null
+          where_to_get: string | null
         }
         Insert: {
           code: string
@@ -22175,6 +22192,11 @@ export type Database = {
           review_discount_bp?: number
           self_bookable?: boolean
           test_codes?: string[]
+          guidance_only?: boolean
+          indicative_price_checked_on?: string | null
+          indicative_price_kobo?: number | null
+          indicative_price_source?: string | null
+          where_to_get?: string | null
         }
         Update: {
           code?: string
@@ -22192,6 +22214,11 @@ export type Database = {
           review_discount_bp?: number
           self_bookable?: boolean
           test_codes?: string[]
+          guidance_only?: boolean
+          indicative_price_checked_on?: string | null
+          indicative_price_kobo?: number | null
+          indicative_price_source?: string | null
+          where_to_get?: string | null
         }
         Relationships: []
       }
@@ -30692,6 +30719,11 @@ export type Database = {
           reopens_on_exposure: boolean
           sensitive: boolean
           sex_applicability: Database["public"]["Enums"]["screen_applicability"]
+          guidance_only: boolean
+          indicative_price_checked_on: string | null
+          indicative_price_kobo: number | null
+          indicative_price_source: string | null
+          where_to_get: string | null
         }
         Insert: {
           age_from?: number | null
@@ -30719,6 +30751,11 @@ export type Database = {
           reopens_on_exposure?: boolean
           sensitive?: boolean
           sex_applicability?: Database["public"]["Enums"]["screen_applicability"]
+          guidance_only?: boolean
+          indicative_price_checked_on?: string | null
+          indicative_price_kobo?: number | null
+          indicative_price_source?: string | null
+          where_to_get?: string | null
         }
         Update: {
           age_from?: number | null
@@ -30746,6 +30783,11 @@ export type Database = {
           reopens_on_exposure?: boolean
           sensitive?: boolean
           sex_applicability?: Database["public"]["Enums"]["screen_applicability"]
+          guidance_only?: boolean
+          indicative_price_checked_on?: string | null
+          indicative_price_kobo?: number | null
+          indicative_price_source?: string | null
+          where_to_get?: string | null
         }
         Relationships: []
       }
@@ -36352,6 +36394,375 @@ export type Database = {
           },
         ]
       }
+      clinical_tier_cost_rates: {
+        Row: {
+          basis: string
+          cost_per_minute_kobo: number
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"]
+          is_provisional: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          basis: string
+          cost_per_minute_kobo: number
+          doctor_tier: Database["public"]["Enums"]["doctor_tier"]
+          is_provisional?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          basis?: string
+          cost_per_minute_kobo?: number
+          doctor_tier?: Database["public"]["Enums"]["doctor_tier"]
+          is_provisional?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      growth_config: {
+        Row: {
+          id: string
+          organisation_id: string | null
+          referral_apply_window_days: number
+          referral_reward_kobo: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          organisation_id?: string | null
+          referral_apply_window_days?: number
+          referral_reward_kobo?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          organisation_id?: string | null
+          referral_apply_window_days?: number
+          referral_reward_kobo?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      service_delivery_cost_model: {
+        Row: {
+          component: string
+          coordination_minutes: number
+          delivered_by_tier: Database["public"]["Enums"]["doctor_tier"]
+          expected_minutes: number
+          notes: string | null
+          service_product_code: string
+          units_per_term: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          component?: string
+          coordination_minutes?: number
+          delivered_by_tier: Database["public"]["Enums"]["doctor_tier"]
+          expected_minutes: number
+          notes?: string | null
+          service_product_code: string
+          units_per_term?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          component?: string
+          coordination_minutes?: number
+          delivered_by_tier?: Database["public"]["Enums"]["doctor_tier"]
+          expected_minutes?: number
+          notes?: string | null
+          service_product_code?: string
+          units_per_term?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      sponsor_sharing_preferences: {
+        Row: {
+          created_at: string
+          decided_at: string
+          id: string
+          level: Database["public"]["Enums"]["sponsor_sharing_level"]
+          organisation_id: string
+          patient_id: string
+          sponsor_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          decided_at?: string
+          id?: string
+          level?: Database["public"]["Enums"]["sponsor_sharing_level"]
+          organisation_id: string
+          patient_id: string
+          sponsor_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          decided_at?: string
+          id?: string
+          level?: Database["public"]["Enums"]["sponsor_sharing_level"]
+          organisation_id?: string
+          patient_id?: string
+          sponsor_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      therapy_sessions: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cancelled_at: string | null
+          cancelled_reason: string | null
+          clinician_alert_id: string | null
+          commission_kobo: number
+          completed_at: string | null
+          created_at: string
+          fee_kobo: number
+          id: string
+          modality: Database["public"]["Enums"]["therapy_modality"]
+          organisation_id: string
+          patient_id: string
+          patient_note: string | null
+          payment_provider_ref: string | null
+          provider_id: string
+          requested_at: string
+          scheduled_for: string | null
+          status: Database["public"]["Enums"]["therapy_session_status"]
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          clinician_alert_id?: string | null
+          commission_kobo?: number
+          completed_at?: string | null
+          created_at?: string
+          fee_kobo: number
+          id?: string
+          modality?: Database["public"]["Enums"]["therapy_modality"]
+          organisation_id: string
+          patient_id: string
+          patient_note?: string | null
+          payment_provider_ref?: string | null
+          provider_id: string
+          requested_at?: string
+          scheduled_for?: string | null
+          status?: Database["public"]["Enums"]["therapy_session_status"]
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_reason?: string | null
+          clinician_alert_id?: string | null
+          commission_kobo?: number
+          completed_at?: string | null
+          created_at?: string
+          fee_kobo?: number
+          id?: string
+          modality?: Database["public"]["Enums"]["therapy_modality"]
+          organisation_id?: string
+          patient_id?: string
+          patient_note?: string | null
+          payment_provider_ref?: string | null
+          provider_id?: string
+          requested_at?: string
+          scheduled_for?: string | null
+          status?: Database["public"]["Enums"]["therapy_session_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      weight_management_enrolments: {
+        Row: {
+          created_at: string
+          eligibility_confirmed_at: string | null
+          eligibility_confirmed_by: string | null
+          eligibility_notes: string | null
+          ended_reason: string | null
+          ends_at: string | null
+          id: string
+          medication_id: string | null
+          obesity_assessment_id: string | null
+          organisation_id: string
+          patient_id: string
+          service_purchase_id: string | null
+          started_at: string | null
+          starting_weight_kg: number | null
+          status: Database["public"]["Enums"]["weight_management_status"]
+          supervising_clinician_id: string | null
+          target_weight_kg: number | null
+          term_days: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          eligibility_confirmed_at?: string | null
+          eligibility_confirmed_by?: string | null
+          eligibility_notes?: string | null
+          ended_reason?: string | null
+          ends_at?: string | null
+          id?: string
+          medication_id?: string | null
+          obesity_assessment_id?: string | null
+          organisation_id: string
+          patient_id: string
+          service_purchase_id?: string | null
+          started_at?: string | null
+          starting_weight_kg?: number | null
+          status?: Database["public"]["Enums"]["weight_management_status"]
+          supervising_clinician_id?: string | null
+          target_weight_kg?: number | null
+          term_days: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          eligibility_confirmed_at?: string | null
+          eligibility_confirmed_by?: string | null
+          eligibility_notes?: string | null
+          ended_reason?: string | null
+          ends_at?: string | null
+          id?: string
+          medication_id?: string | null
+          obesity_assessment_id?: string | null
+          organisation_id?: string
+          patient_id?: string
+          service_purchase_id?: string | null
+          started_at?: string | null
+          starting_weight_kg?: number | null
+          status?: Database["public"]["Enums"]["weight_management_status"]
+          supervising_clinician_id?: string | null
+          target_weight_kg?: number | null
+          term_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      weight_management_dose_steps: {
+        Row: {
+          agreed_at: string | null
+          agreed_by: string | null
+          created_at: string
+          dose_label: string
+          enrolment_id: string
+          held_reason: string | null
+          id: string
+          organisation_id: string
+          planned_from: string
+          reached_at: string | null
+          step_number: number
+          updated_at: string
+        }
+        Insert: {
+          agreed_at?: string | null
+          agreed_by?: string | null
+          created_at?: string
+          dose_label: string
+          enrolment_id: string
+          held_reason?: string | null
+          id?: string
+          organisation_id: string
+          planned_from: string
+          reached_at?: string | null
+          step_number: number
+          updated_at?: string
+        }
+        Update: {
+          agreed_at?: string | null
+          agreed_by?: string | null
+          created_at?: string
+          dose_label?: string
+          enrolment_id?: string
+          held_reason?: string | null
+          id?: string
+          organisation_id?: string
+          planned_from?: string
+          reached_at?: string | null
+          step_number?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      weight_management_checkins: {
+        Row: {
+          abdominal_pain: number | null
+          checked_in_at: string
+          clinician_note: string | null
+          constipation: number | null
+          created_at: string
+          diarrhoea: number | null
+          enrolment_id: string
+          id: string
+          nausea: number | null
+          organisation_id: string
+          patient_id: string
+          patient_note: string | null
+          poor_oral_intake: boolean
+          red_flag_reported: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          updated_at: string
+          vomiting: number | null
+          weight_kg: number | null
+        }
+        Insert: {
+          abdominal_pain?: number | null
+          checked_in_at?: string
+          clinician_note?: string | null
+          constipation?: number | null
+          created_at?: string
+          diarrhoea?: number | null
+          enrolment_id: string
+          id?: string
+          nausea?: number | null
+          organisation_id: string
+          patient_id: string
+          patient_note?: string | null
+          poor_oral_intake?: boolean
+          red_flag_reported?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+          vomiting?: number | null
+          weight_kg?: number | null
+        }
+        Update: {
+          abdominal_pain?: number | null
+          checked_in_at?: string
+          clinician_note?: string | null
+          constipation?: number | null
+          created_at?: string
+          diarrhoea?: number | null
+          enrolment_id?: string
+          id?: string
+          nausea?: number | null
+          organisation_id?: string
+          patient_id?: string
+          patient_note?: string | null
+          poor_oral_intake?: boolean
+          red_flag_reported?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          updated_at?: string
+          vomiting?: number | null
+          weight_kg?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       care_message_communication_log: {
@@ -36673,6 +37084,40 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      service_product_margins: {
+        Row: {
+          code: string | null
+          component_count: number | null
+          contribution_kobo: number | null
+          delivered_by_tier: string | null
+          delivery_cost_kobo: number | null
+          expected_minutes: number | null
+          name: string | null
+          payment_fee_kobo: number | null
+          price_kobo: number | null
+          rates_are_provisional: boolean | null
+        }
+        Relationships: []
+      }
+      therapy_directory: {
+        Row: {
+          city: string | null
+          clinical_interests: string | null
+          consultation_fee_kobo: number | null
+          id: string | null
+          languages: string[] | null
+          name: string | null
+          needs_doctor_approval: boolean | null
+          qualifications: string | null
+          specialist_type: Database["public"]["Enums"]["specialist_type"] | null
+          state: string | null
+          subspecialty: string | null
+          supports_in_person: boolean | null
+          supports_telemedicine: boolean | null
+          years_of_experience: number | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -40342,6 +40787,28 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      sponsor_care_report: {
+        Args: { p_beneficiary: string; p_since?: string }
+        Returns: Json
+      }
+      assert_service_price_covers_cost: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          code: string
+          contribution_kobo: number
+          delivery_cost_kobo: number
+          price_kobo: number
+          verdict: string
+        }[]
+      }
+      approve_therapy_session: {
+        Args: { p_confirm?: boolean; p_session_id: string }
+        Returns: Database["public"]["Tables"]["therapy_sessions"]["Row"]
+      }
+      review_weight_management_checkin: {
+        Args: { p_checkin_id: string; p_note?: string }
+        Returns: Database["public"]["Tables"]["weight_management_checkins"]["Row"]
+      }
     }
     Enums: {
       activity_entry_type: "steps" | "workout"
@@ -41006,6 +41473,7 @@ export type Database = {
         | "support_ticket_intake"
         | "symptom_triage"
         | "pulse_red_flag"
+        | "mental_health_screen"
       employer_allowance_type:
         | "gp_consultation"
         | "specialist_consultation"
@@ -42128,6 +42596,7 @@ export type Database = {
         | "onboarding"
         | "clinical_approval"
         | "active"
+      sponsor_sharing_level: "none" | "activity" | "full"
       staff_employment_type: "employed" | "contracted"
       sti_case_status:
         | "result_received"
@@ -42175,6 +42644,8 @@ export type Database = {
         | "severe_headache"
         | "visual_disturbance"
         | "confusion"
+      therapy_modality: "video" | "audio" | "in_person"
+      therapy_session_status: "requested" | "awaiting_clinician_approval" | "confirmed" | "completed" | "cancelled" | "no_show"
       timeline_event_type:
         | "lab_completed"
         | "lab_abnormal"
@@ -42255,7 +42726,7 @@ export type Database = {
         | "verified"
         | "rejected"
       verified_document_status: "requested" | "issued" | "declined"
-      verified_document_type: "fit_to_work" | "travel_health_certificate"
+      verified_document_type: "fit_to_work" | "travel_health_certificate" | "return_to_work" | "medication_carry_letter" | "specialist_referral_letter" | "school_health_form" | "insurance_medical_summary"
       video_consultation_context:
         | "pre_referral_triage"
         | "specialist_consult"
@@ -42301,6 +42772,7 @@ export type Database = {
         | "dexcom"
         | "libre"
         | "android_health_connect"
+      weight_management_status: "pending_eligibility" | "active" | "paused" | "completed" | "withdrawn"
       wellness_challenge_metric:
         | "vitals_logs"
         | "meal_logs"
@@ -43187,6 +43659,7 @@ export const Constants = {
         "support_ticket_intake",
         "symptom_triage",
         "pulse_red_flag",
+        "mental_health_screen",
       ],
       employer_allowance_type: [
         "gp_consultation",
@@ -44448,6 +44921,7 @@ export const Constants = {
         "clinical_approval",
         "active",
       ],
+      sponsor_sharing_level: ["none", "activity", "full"],
       staff_employment_type: ["employed", "contracted"],
       sti_case_status: [
         "result_received",
@@ -44500,6 +44974,8 @@ export const Constants = {
         "visual_disturbance",
         "confusion",
       ],
+      therapy_modality: ["video", "audio", "in_person"],
+      therapy_session_status: ["requested", "awaiting_clinician_approval", "confirmed", "completed", "cancelled", "no_show"],
       timeline_event_type: [
         "lab_completed",
         "lab_abnormal",
@@ -44587,7 +45063,15 @@ export const Constants = {
         "rejected",
       ],
       verified_document_status: ["requested", "issued", "declined"],
-      verified_document_type: ["fit_to_work", "travel_health_certificate"],
+      verified_document_type: [
+        "fit_to_work",
+        "travel_health_certificate",
+        "return_to_work",
+        "medication_carry_letter",
+        "specialist_referral_letter",
+        "school_health_form",
+        "insurance_medical_summary",
+      ],
       video_consultation_context: [
         "pre_referral_triage",
         "specialist_consult",
@@ -44638,6 +45122,7 @@ export const Constants = {
         "libre",
         "android_health_connect",
       ],
+      weight_management_status: ["pending_eligibility", "active", "paused", "completed", "withdrawn"],
       wellness_challenge_metric: [
         "vitals_logs",
         "meal_logs",

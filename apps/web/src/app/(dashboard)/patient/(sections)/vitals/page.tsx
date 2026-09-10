@@ -3,6 +3,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { VitalsForm } from "@/app/(dashboard)/patient/vitals-form";
+import { MonitoringCoverCard } from "@/components/monitoring-cover-card";
 import { HbpmSummaryCard } from "@/app/(dashboard)/patient/hbpm-summary-card";
 import { GlucoseInsights } from "@/app/(dashboard)/patient/glucose-insights";
 import { VitalsHistory } from "@/app/(dashboard)/patient/vitals-history";
@@ -34,6 +35,10 @@ export default async function PatientVitalsPage() {
       <VitalsTrendChart patientId={subjectId} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Directly above the form someone logs a reading into, which is the
+            one moment they are actually thinking about what happens to it. */}
+        <MonitoringCoverCard />
+
         <VitalsForm patientId={subjectId} />
         <div className="space-y-4">
           <HbpmSummaryCard patientId={subjectId} />

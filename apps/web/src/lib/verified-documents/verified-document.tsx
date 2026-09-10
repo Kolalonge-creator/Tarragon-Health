@@ -1,10 +1,11 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import type { Enums } from "@tarragon/shared";
 
 export interface VerifiedDocumentData {
   patientName: string;
   patientNumber: string | null;
   dateOfBirth: string | null;
-  documentType: "fit_to_work" | "travel_health_certificate";
+  documentType: Enums<"verified_document_type">;
   documentId: string;
   attestationText: string;
   validFrom: string;
@@ -42,10 +43,35 @@ const styles = StyleSheet.create({
   footer: { marginTop: 18, fontSize: 8, color: "#666" },
 });
 
+/** Typed off the enum, not a hand-written union, so adding a document type
+ * fails the build here rather than rendering an untitled PDF. */
 const DOCUMENT_TITLE: Record<VerifiedDocumentData["documentType"], string> = {
-  fit_to_work: "Fit-to-Work Certificate",
-  travel_health_certificate: "Travel Health Certificate",
+  fit_to_work: "Fitness-to-Work Letter",
+  return_to_work: "Return-to-Work Letter",
+  travel_health_certificate: "Travel Health Letter",
+  medication_carry_letter: "Medication Carry Letter",
+  specialist_referral_letter: "Specialist Referral Letter",
+  school_health_form: "School Health Summary",
+  insurance_medical_summary: "Insurance Medical Summary",
 };
+
+/**
+ * The scope statement printed on the face of every document.
+ *
+ * This is the medicolegal core of the product, not a disclaimer bolted on. A
+ * doctor issuing any of these has reviewed a record remotely and has NOT
+ * examined the person, and the recipient has to be able to see that. It also
+ * says plainly what the document is not valid for.
+ *
+ * Nigerian pre-employment medicals require physical examination -- vitals taken
+ * by the examiner, and in several sectors a chest radiograph -- and visa
+ * medicals must come from a panel physician designated by the destination
+ * country. Tarragon does not and must not issue either. Do not add a type here
+ * that implies otherwise, and do not soften this paragraph: it is the sentence
+ * that makes the rest of the document defensible.
+ */
+const SCOPE_STATEMENT =
+  "This document is based on a remote review of the health record TarragonHealth holds for this patient. No physical examination was performed. It is not a pre-employment medical examination, an immigration or visa medical, or a substitute for either, and it should not be accepted as one.";
 
 function formatDate(value: string | null | undefined): string {
   if (!value) return "Not recorded";
@@ -122,9 +148,14 @@ export function VerifiedDocumentPdf({ data }: { data: VerifiedDocumentData }) {
           <Text style={{ color: "#555" }}>{formatDate(data.issuedAt)}</Text>
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Basis and scope</Text>
+          <Text style={{ color: "#555" }}>{SCOPE_STATEMENT}</Text>
+        </View>
+
         <Text style={styles.footer}>
-          Issued by TarragonHealth. Verify this document by contacting TarragonHealth support with
-          the document reference above.
+          Issued by TarragonHealth. To confirm this document is genuine, verify the reference above
+          at tarragonhealth.ng/verify. A document that cannot be verified there was not issued by us.
         </Text>
       </Page>
     </Document>

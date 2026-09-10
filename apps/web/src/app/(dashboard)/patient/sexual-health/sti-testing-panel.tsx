@@ -1,13 +1,11 @@
 "use client";
 
-import { useActionState, useMemo } from "react";
-import { koboToNaira } from "@tarragon/shared";
+import { useMemo } from "react";
 import { useLabCatalogue, type PanelBundle } from "@/lib/queries/lab-orders";
-import { createAndPayForPartnerLabOrder } from "../lab-tests/actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { TestGuidanceCard, TestGuidanceIntro } from "@/components/test-guidance";
 
 /** The self-bookable STI/BBV-relevant bundles, in the order we want them to
  * read: individual tests first, the combined panel last.
@@ -28,14 +26,23 @@ const STI_BUNDLE_CODES = [
   "blood_borne_virus_screen",
 ] as const;
 
+/**
+ * Rewritten 2026-09-10 from a checkout to guidance. Tarragon no longer sells
+ * tests -- its recorded cost was the laboratory's own retail price -- so this
+ * lists what is worth testing for, what to expect it to cost, and where to go.
+ *
+ * The confidentiality notice stays exactly where it was and matters more here
+ * than anywhere else on the platform: someone reading this page needs to know
+ * who can see the result before they decide to test, and that is unaffected by
+ * who bills for it.
+ */
 export function StiTestingPanel() {
   const { data: bundles, isLoading, isError } = useLabCatalogue();
-  const [payState, payAction, payPending] = useActionState(createAndPayForPartnerLabOrder, undefined);
 
   const stiBundles = useMemo(() => {
     const byCode = new Map((bundles ?? []).map((b) => [b.code, b] as [string, PanelBundle]));
     return STI_BUNDLE_CODES.map((code) => byCode.get(code)).filter(
-      (b): b is PanelBundle => !!b && b.is_active && b.self_bookable
+      (b): b is PanelBundle => !!b && b.is_active
     );
   }, [bundles]);
 
@@ -47,44 +54,34 @@ export function StiTestingPanel() {
           STI testing
         </CardTitle>
         <CardDescription>
-          Test on your own schedule, whether or not you did the check-in above. Results are
-          reviewed by a doctor either way.
+          Test on your own schedule, whether or not you did the check-in above. Take the request
+          to any laboratory, then upload the result and a doctor will read it with you.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <ConfidentialResultNotice />
 
+        <TestGuidanceIntro />
+
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600 dark:text-red-400">Could not load the testing catalogue.</p>}
-        {!isLoading && stiBundles.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No STI tests are available to book yet.</p>
+        {!isLoading && !isError && stiBundles.length === 0 && (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            Nothing is listed here yet.
+          </p>
         )}
 
         <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {stiBundles.map((bundle) => (
-            <li key={bundle.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{bundle.name}</p>
-                {bundle.description && (
-                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{bundle.description}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-                  ₦{koboToNaira(bundle.price_kobo).toLocaleString("en-NG")}
-                </span>
-                <form action={payAction}>
-                  <input type="hidden" name="panelBundleId" value={bundle.id} />
-                  <Button type="submit" size="sm" disabled={payPending}>
-                    {payPending ? "Taking you to payment…" : "Book & pay"}
-                  </Button>
-                </form>
-              </div>
-            </li>
+            <TestGuidanceCard
+              key={bundle.id}
+              name={bundle.name}
+              description={bundle.description}
+              bundle={bundle}
+            />
           ))}
         </ul>
 
-        {payState?.error && <p className="text-sm text-red-600 dark:text-red-400">{payState.error}</p>}
 
         {/* Home test kits (spec §47.4): screen_types.home_kit_available is
          * a real catalogue flag (migration 20260829120000) for a genuinely
@@ -95,8 +92,8 @@ export function StiTestingPanel() {
          * codebase uses for dormant imaging screens and wearable providers
          * with no real credentials yet. */}
         <p className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-          Home test kits aren&apos;t available from a partner yet. For now, book above and
-          we&apos;ll arrange the sample collection.
+          Home test kits aren&apos;t available from a partner yet. For now, take the request to a
+          laboratory of your choice.
         </p>
       </CardContent>
     </Card>

@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Text, TextInput, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import { koboToNaira } from "@tarragon/shared";
 import {
   RECOMMENDED_SCREEN_LABEL,
@@ -10,7 +9,6 @@ import {
   STI_PARTNER_COUNT_LABEL,
   STI_SYMPTOMS,
   STI_SYMPTOM_LABEL,
-  bookStiTest,
   loadOpenStiCaseEpisodes,
   loadPartnerNotifications,
   loadStiBookableBundles,
@@ -28,13 +26,6 @@ import {
 import type { PanelBundle } from "@/lib/labs";
 import { colors, radius } from "@/ui/theme";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
-
-/** `tarragonhealth://lab-order-callback` — the deep link Paystack's hosted
- * checkout redirects back to. Same mechanism as "My services"'s
- * postServicesCheckout: expo-web-browser's openAuthSessionAsync recognises
- * any navigation to this URL as "finished" and hands control back to the
- * app; it is never a screen of its own. */
-const LAB_ORDER_CHECKOUT_CALLBACK_URL = "tarragonhealth://lab-order-callback";
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
@@ -81,9 +72,6 @@ function StiBookingPanel() {
   const [loading, setLoading] = useState(true);
   const [bundles, setBundles] = useState<PanelBundle[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [bookingId, setBookingId] = useState<string | null>(null);
-  const [bookError, setBookError] = useState<string | null>(null);
-  const [bookMessage, setBookMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadStiBookableBundles()
@@ -92,34 +80,20 @@ function StiBookingPanel() {
       .finally(() => setLoading(false));
   }, []);
 
-  async function book(bundle: PanelBundle) {
-    setBookError(null);
-    setBookMessage(null);
-    setBookingId(bundle.id);
-    try {
-      const result = await bookStiTest(bundle.id, LAB_ORDER_CHECKOUT_CALLBACK_URL);
-      if (!result.ok) {
-        setBookError(result.error);
-        return;
-      }
-      await WebBrowser.openAuthSessionAsync(result.data, LAB_ORDER_CHECKOUT_CALLBACK_URL);
-      setBookMessage("We're confirming your payment. If it succeeded, your order will show up shortly.");
-    } finally {
-      setBookingId(null);
-    }
-  }
 
   return (
     <Card style={{ gap: 10 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>STI testing</Text>
       <MutedText>
-        Test on your own schedule, whether or not you did the check-in above. Results are reviewed by a
-        doctor either way.
+        Test on your own schedule, whether or not you did the check-in above. Working out what you
+        need and writing the request is free. You take it to any laboratory and pay them directly at
+        their price — we add nothing and take no cut. Upload the result and a doctor will read it
+        with you.
       </MutedText>
 
       {loading && <ActivityIndicator color={colors.brand} />}
       {loadError && <ErrorText>{loadError}</ErrorText>}
-      {!loading && !loadError && bundles.length === 0 && <MutedText>No STI tests are available to book yet.</MutedText>}
+      {!loading && !loadError && bundles.length === 0 && <MutedText>Nothing is listed here yet.</MutedText>}
 
       {bundles.map((bundle) => (
         <View
@@ -129,18 +103,22 @@ function StiBookingPanel() {
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>{bundle.name}</Text>
             {bundle.description && <MutedText>{bundle.description}</MutedText>}
-            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink, marginTop: 2 }}>
-              ₦{koboToNaira(bundle.price_kobo).toLocaleString("en-NG")}
+            {/* The laboratory's price, not Tarragon's. Tarragon stopped selling
+                tests on 2026-09-10: what it recorded as its cost was the
+                laboratory's own retail price, so any margin made it dearer than
+                the laboratory performing the test. Never render this as a
+                figure Tarragon charges. */}
+            <Text style={{ fontSize: 13, color: colors.ink, marginTop: 2 }}>
+              {bundle.indicative_price_kobo
+                ? `About ₦${koboToNaira(bundle.indicative_price_kobo).toLocaleString("en-NG")} at a major private laboratory. Smaller ones are often cheaper.`
+                : "Ask the laboratory for their current price."}
             </Text>
+            {bundle.where_to_get && <MutedText>{bundle.where_to_get}</MutedText>}
           </View>
-          <SecondaryButton title="Book & pay" onPress={() => void book(bundle)} loading={bookingId === bundle.id} disabled={bookingId !== null} />
         </View>
       ))}
 
-      {bookError && <ErrorText>{bookError}</ErrorText>}
-      {bookMessage && <MutedText>{bookMessage}</MutedText>}
-
-      <MutedText>Home test kits aren&apos;t available from a partner yet. For now, book above and we&apos;ll arrange the sample collection.</MutedText>
+      <MutedText>Home test kits aren&apos;t available from a partner yet. For now, take the request to a laboratory of your choice.</MutedText>
     </Card>
   );
 }

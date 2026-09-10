@@ -422,6 +422,24 @@ export function getNavSections(
                   href: "/clinician/lab-result-consults",
                   icon: "labs",
                 },
+                // Both added 2026-09-10 with the two new clinical products.
+                // Shown to every clinician tier, per this file's gating
+                // philosophy: the authority rules live in the database
+                // (private.enforce_therapy_approver_authority and
+                // enforce_weight_checkin_reviewer_authority), so a Care
+                // Coordinator can see either queue and is refused if they try
+                // to act on it, which is the right shape -- they route work,
+                // they do not close clinical decisions.
+                {
+                  label: "Weight management",
+                  href: "/clinician/weight-management",
+                  icon: "weight",
+                },
+                {
+                  label: "Therapy approvals",
+                  href: "/clinician/therapy-approvals",
+                  icon: "mood",
+                },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in
                 // lib/clinical/doctor-tier.ts) — shown to every clinician tier

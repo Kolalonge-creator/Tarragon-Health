@@ -2,11 +2,15 @@ import { PAID_SERVICES, type PaidService } from "../_content/pricing";
 import { PricingLabelBadge } from "./pricing-label";
 
 /**
- * The paid menu: a doctor's time, priced per piece of work.
+ * The paid menu: a doctor's time, priced per piece of work, plus the one
+ * ongoing product.
  *
- * The 12-week programme is rendered first and wider than the rest — it is the
- * only ongoing thing sold, and the one most patients managing a condition
- * actually want. Everything after it is a genuine one-off.
+ * The lead entry is rendered first and wider than the rest. It used to be the
+ * 12-week pack and is now Continuous Monitoring, which is why the price caption
+ * moved onto the data (PaidService.priceCaption) instead of being the hardcoded
+ * string "for the full twelve weeks" it was here — that string silently became
+ * a lie the moment the lead product changed. Everything after it is a genuine
+ * one-off.
  *
  * Prices come from _content/pricing.ts as fallbacks and are overridden with the
  * live service_products price where one is passed in. Every entry here must
@@ -30,9 +34,11 @@ export function PricingServices({
             </h3>
             <p className="mt-1 font-heading text-2xl font-bold text-brand-green">
               {priceFor(programme)}
-              <span className="ml-2 align-middle text-sm font-normal text-charcoal-ink/60">
-                for the full twelve weeks
-              </span>
+              {programme.priceCaption ? (
+                <span className="ml-2 align-middle text-sm font-normal text-charcoal-ink/60">
+                  {programme.priceCaption}
+                </span>
+              ) : null}
             </p>
           </div>
           <PricingLabelBadge label="PAID SERVICE" />
