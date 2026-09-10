@@ -60,14 +60,20 @@ insert into public.clinical_tier_cost_rates (doctor_tier, cost_per_minute_kobo, 
 on conflict (doctor_tier) do nothing;
 
 create table public.service_delivery_cost_model (
-  service_product_code text primary key,
+  service_product_code text not null,
+  -- A product is not always one lump of one tier's time. The chronic pathway is
+  -- protocol-driven reviews by a Medical Officer PLUS a medication review that
+  -- needs prescribing authority, and costing the whole thing at either tier is
+  -- wrong in one direction or the other. One row per named component, summed.
+  component            text not null default 'delivery',
   expected_minutes     numeric(6,1) not null check (expected_minutes > 0),
   delivered_by_tier    public.doctor_tier not null,
   coordination_minutes numeric(6,1) not null default 0 check (coordination_minutes >= 0),
   units_per_term       numeric(6,1) not null default 1 check (units_per_term > 0),
   notes                text,
   updated_at           timestamptz not null default now(),
-  updated_by           uuid references public.profiles(id) on delete set null
+  updated_by           uuid references public.profiles(id) on delete set null,
+  primary key (service_product_code, component)
 );
 
 comment on table public.service_delivery_cost_model is
@@ -78,40 +84,40 @@ comment on column public.service_delivery_cost_model.coordination_minutes is
   'Care Coordinator minutes, costed at the coordinator rate rather than a doctor''s. Chasing a patient who has not logged a reading is real work and real cost, and pretending it is free is how a price ends up below its true floor.';
 
 insert into public.service_delivery_cost_model
-  (service_product_code, expected_minutes, delivered_by_tier, coordination_minutes, units_per_term, notes)
+  (service_product_code, component, expected_minutes, delivered_by_tier, coordination_minutes, units_per_term, notes)
 values
-  ('async_consult_credit',            12, 'medical_officer',         3,  1, 'Read the record, write a considered answer, file it. 72-hour SLA.'),
-  ('confidential_message_credit',     12, 'medical_officer',         0,  1, 'As above; no coordinator involvement by design, the thread is confidential.'),
-  ('prescription_renewal_credit',     10, 'medical_officer',         3,  1, 'Review the existing prescription, confirm it is still appropriate, sign.'),
-  ('written_result_interpretation',   20, 'medical_officer',         3,  1, 'Read an uploaded result from any provider, write a plain-language interpretation, file it to the record.'),
-  ('second_opinion_credit',           25, 'senior_medical_officer',  3,  1, 'Senior review of an existing result or diagnosis, written assessment. Thinnest margin on the ladder; watch it.'),
-  ('video_visit_credit',              20, 'medical_officer',         5,  1, '15-minute consultation plus notes, plus slot coordination.'),
-  ('result_interpretation_credit',    25, 'medical_officer',         5,  1, 'Prepared read plus a 15-minute video walkthrough.'),
-  ('senior_case_review_credit',       60, 'senior_medical_officer', 10,  1, 'Every condition, one written plan. The most doctor time of any one-off product.'),
+  ('async_consult_credit', 'delivery',            12, 'medical_officer',         3,  1, 'Read the record, write a considered answer, file it. 72-hour SLA.'),
+  ('confidential_message_credit', 'delivery',     12, 'medical_officer',         0,  1, 'As above; no coordinator involvement by design, the thread is confidential.'),
+  ('prescription_renewal_credit', 'delivery',     10, 'medical_officer',         3,  1, 'Review the existing prescription, confirm it is still appropriate, sign.'),
+  ('written_result_interpretation', 'delivery',   20, 'medical_officer',         3,  1, 'Read an uploaded result from any provider, write a plain-language interpretation, file it to the record.'),
+  ('second_opinion_credit', 'delivery',           25, 'senior_medical_officer',  3,  1, 'Senior review of an existing result or diagnosis, written assessment. Thinnest margin on the ladder; watch it.'),
+  ('video_visit_credit', 'delivery',              20, 'medical_officer',         5,  1, '15-minute consultation plus notes, plus slot coordination.'),
+  ('result_interpretation_credit', 'delivery',    25, 'medical_officer',         5,  1, 'Prepared read plus a 15-minute video walkthrough.'),
+  ('senior_case_review_credit', 'delivery',       60, 'senior_medical_officer', 10,  1, 'Every condition, one written plan. The most doctor time of any one-off product.'),
 
-  ('verified_document_fit_to_work',             15, 'medical_officer', 5, 1, 'Record review, attestation drafting, signature.'),
-  ('verified_document_return_to_work',          15, 'medical_officer', 5, 1, 'As above.'),
-  ('verified_document_medication_carry_letter', 12, 'medical_officer', 5, 1, 'Drug list, doses, indications, in the form officials expect.'),
-  ('verified_document_school_health_form',      15, 'medical_officer', 8, 1, 'Coordinator assembles the immunisation record; the doctor attests it.'),
-  ('verified_document_travel_health_certificate', 20, 'medical_officer', 5, 1, 'Stability assessment plus medication list for an airline or insurer.'),
-  ('verified_document_specialist_referral_letter', 25, 'medical_officer', 5, 1, 'History, medicines, results and the specific clinical question.'),
-  ('verified_document_insurance_medical_summary',  35, 'senior_medical_officer', 8, 1, 'The most detailed document issued; senior tier because an insurer relies on it.'),
+  ('verified_document_fit_to_work', 'delivery',             15, 'medical_officer', 5, 1, 'Record review, attestation drafting, signature.'),
+  ('verified_document_return_to_work', 'delivery',          15, 'medical_officer', 5, 1, 'As above.'),
+  ('verified_document_medication_carry_letter', 'delivery', 12, 'medical_officer', 5, 1, 'Drug list, doses, indications, in the form officials expect.'),
+  ('verified_document_school_health_form', 'delivery',      15, 'medical_officer', 8, 1, 'Coordinator assembles the immunisation record; the doctor attests it.'),
+  ('verified_document_travel_health_certificate', 'delivery', 20, 'medical_officer', 5, 1, 'Stability assessment plus medication list for an airline or insurer.'),
+  ('verified_document_specialist_referral_letter', 'delivery', 25, 'medical_officer', 5, 1, 'History, medicines, results and the specific clinical question.'),
+  ('verified_document_insurance_medical_summary', 'delivery',  35, 'senior_medical_officer', 8, 1, 'The most detailed document issued; senior tier because an insurer relies on it.'),
 
   -- Monitoring is costed per EXCEPTION, not per patient-month: the watch itself
   -- is deterministic and free, and the only cost is a doctor looking at a
   -- reading that crossed a threshold. 0.3 escalations per patient-month is an
   -- assumption and the single most important number to replace with observed
   -- data once there is any.
-  ('continuous_monitoring_3m',        15, 'medical_officer', 5,  0.9, '0.3 escalations per patient-month over 3 months. Assumption, not observation.'),
-  ('continuous_monitoring_6m',        15, 'medical_officer', 5,  1.8, 'As above over 6 months.'),
-  ('continuous_monitoring_12m',       15, 'medical_officer', 5,  3.6, 'As above over 12 months.'),
+  ('continuous_monitoring_3m', 'delivery',        15, 'medical_officer', 5,  0.9, '0.3 escalations per patient-month over 3 months. Assumption, not observation.'),
+  ('continuous_monitoring_6m', 'delivery',        15, 'medical_officer', 5,  1.8, 'As above over 6 months.'),
+  ('continuous_monitoring_12m', 'delivery',       15, 'medical_officer', 5,  3.6, 'As above over 12 months.'),
 
-  ('weight_management_3m',            30, 'senior_medical_officer', 20, 4.0, 'Eligibility assessment plus 3 monthly reviews; coordinator handles fortnightly check-in chasing.'),
-  ('weight_management_6m',            30, 'senior_medical_officer', 20, 7.0, 'Eligibility plus 6 monthly reviews.'),
-  ('weight_management_12m',           30, 'senior_medical_officer', 20, 13.0, 'Eligibility plus 12 monthly reviews.'),
+  ('weight_management_3m', 'delivery',            30, 'senior_medical_officer', 20, 4.0, 'Eligibility assessment plus 3 monthly reviews; coordinator handles fortnightly check-in chasing.'),
+  ('weight_management_6m', 'delivery',            30, 'senior_medical_officer', 20, 7.0, 'Eligibility plus 6 monthly reviews.'),
+  ('weight_management_12m', 'delivery',           30, 'senior_medical_officer', 20, 13.0, 'Eligibility plus 12 monthly reviews.'),
 
-  ('chronic_doctor_supported_pack',   40, 'senior_medical_officer', 30, 4.0, 'Three doctor reviews plus one medication review across twelve weeks.')
-on conflict (service_product_code) do update
+  ('chronic_doctor_supported_pack', 'delivery',   40, 'senior_medical_officer', 30, 4.0, 'Three doctor reviews plus one medication review across twelve weeks.')
+on conflict (service_product_code, component) do update
   set expected_minutes     = excluded.expected_minutes,
       delivered_by_tier    = excluded.delivered_by_tier,
       coordination_minutes = excluded.coordination_minutes,
@@ -127,26 +133,27 @@ select
   p.code,
   p.name,
   p.price_kobo,
-  m.delivered_by_tier,
-  m.expected_minutes,
-  m.units_per_term,
-  round((m.expected_minutes * r.cost_per_minute_kobo
-       + m.coordination_minutes * cr.cost_per_minute_kobo) * m.units_per_term) as delivery_cost_kobo,
+  string_agg(distinct m.delivered_by_tier::text, ' + ') as delivered_by_tier,
+  sum(m.expected_minutes * m.units_per_term) as expected_minutes,
+  count(*) as component_count,
+  round(sum((m.expected_minutes * r.cost_per_minute_kobo
+       + m.coordination_minutes * cr.cost_per_minute_kobo) * m.units_per_term)) as delivery_cost_kobo,
   -- Paystack: 1.5% on local cards, plus a 100 naira flat fee that is waived
   -- entirely at or below 2,500 naira. The cliff is real and worth seeing in the
   -- same table as the margin.
   round(p.price_kobo * 0.015) + case when p.price_kobo > 250000 then 10000 else 0 end as payment_fee_kobo,
   p.price_kobo
-    - round((m.expected_minutes * r.cost_per_minute_kobo
-           + m.coordination_minutes * cr.cost_per_minute_kobo) * m.units_per_term)
+    - round(sum((m.expected_minutes * r.cost_per_minute_kobo
+           + m.coordination_minutes * cr.cost_per_minute_kobo) * m.units_per_term))
     - (round(p.price_kobo * 0.015) + case when p.price_kobo > 250000 then 10000 else 0 end)
     as contribution_kobo,
-  bool_or(r.is_provisional or cr.is_provisional) over () as rates_are_provisional
+  bool_or(r.is_provisional or cr.is_provisional) as rates_are_provisional
 from public.service_products p
 join public.service_delivery_cost_model m on m.service_product_code = p.code
 join public.clinical_tier_cost_rates r  on r.doctor_tier = m.delivered_by_tier
 join public.clinical_tier_cost_rates cr on cr.doctor_tier = 'care_coordinator'
-where p.is_active;
+where p.is_active
+group by p.code, p.name, p.price_kobo;
 
 comment on view public.service_product_margins is
   'Price, modelled delivery cost, payment processing and contribution for every active paid product. rates_are_provisional says whether the underlying clinician rates are real payroll or the 2026-09-10 market estimates; while it is true, treat every figure here as indicative.';
