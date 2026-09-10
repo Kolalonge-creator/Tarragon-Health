@@ -42,7 +42,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
       >
         <input type="hidden" name="email" value={email} />
         <p className="text-sm leading-relaxed text-charcoal-ink/70">
-          We emailed a 6-digit code to <span className="font-medium">{email}</span>. Enter it
+          We emailed a code to <span className="font-medium">{email}</span>. Enter it
           below — nothing is charged until you finish on the payment page after this.
         </p>
         <div className="space-y-1.5">
@@ -53,7 +53,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
             id="token"
             name="token"
             inputMode="numeric"
-            maxLength={6}
+            maxLength={8}
             autoComplete="one-time-code"
             required
             className={FIELD_CLASS}
