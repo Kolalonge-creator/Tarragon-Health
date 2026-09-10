@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { WeightClient } from "./weight-client";
+import { WeightManagementPanel } from "@/components/weight-management-panel";
 
 /**
  * Weight-goal tracking (Omada-style "Weight" screen) — same entitlement gate
@@ -24,6 +25,19 @@ export default async function WeightPage() {
         description="Track your weight against a goal you set. Log weight from your vitals or your lifestyle check-in; either way, it shows up here."
       />
       <WeightClient patientId={profile.id} />
+
+      {/* Tracking and coaching above are free and stay free. This is the one
+          paid thing on the page, and it is a different product: supervision of
+          medication the patient obtained themselves, not coaching. It renders
+          an explanation rather than nothing when they are not enrolled, because
+          somebody already taking a GLP-1 has no other way to find out that a
+          doctor can supervise it. */}
+      {profile.organisation_id ? (
+        <WeightManagementPanel
+          organisationId={profile.organisation_id}
+          patientId={profile.id}
+        />
+      ) : null}
     </div>
   );
 }
