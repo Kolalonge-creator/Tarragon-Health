@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { COUNTRY_CALLING_CODES } from "@tarragon/shared";
-import { startGuestCheckout } from "@/lib/billing/guest-checkout";
+import { startGuestCheckout, verifyGuestCheckoutOtp } from "@/lib/billing/guest-checkout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,34 +13,64 @@ import { PHONE_HINT_ID, PhoneNumberHint, phoneInputProps } from "@/components/ui
 const FIELD_CLASS = "h-11 rounded-xl";
 
 /**
- * Buy-without-an-account form. Submitting sends a real sign-in link to the
- * email given (see startGuestCheckout) — nothing is charged and no session
- * exists yet at this point; clicking that link is what continues the
- * purchase (/checkout/continue).
+ * Buy-without-an-account form, two steps like PhoneLoginForm: request a
+ * code, then type it in. Nothing is charged and no session exists until
+ * the code is verified — see lib/billing/guest-checkout.ts for why this is
+ * a typed code rather than a clickable link.
  */
 export function GuestCheckoutForm({ code }: { code: string }) {
-  const [state, formAction, pending] = useActionState(
+  const [requestState, requestAction, requestPending] = useActionState(
     startGuestCheckout.bind(null, code),
     undefined
   );
+  const [verifyState, verifyAction, verifyPending] = useActionState(
+    verifyGuestCheckoutOtp.bind(null, code),
+    undefined
+  );
 
-  const errorId = fieldErrorId("guest-checkout-form");
+  const email = verifyState?.email ?? requestState?.email;
+  const showVerify = requestState?.step === "verify" || verifyState?.step === "verify";
 
-  if (state?.sent) {
+  const verifyErrorId = fieldErrorId("guest-checkout-verify");
+  const requestErrorId = fieldErrorId("guest-checkout-request");
+
+  if (showVerify && email) {
     return (
-      <div className="rounded-2xl border border-brand-green/30 bg-soft-sage p-6 text-center">
-        <p className="font-heading text-lg font-semibold text-charcoal-ink">Check your email</p>
-        <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/75">
-          We sent a link to finish this purchase. Open it on this device to continue straight to
-          payment — nothing is charged until then.
+      <form
+        action={verifyAction}
+        className="space-y-5 rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-7"
+      >
+        <input type="hidden" name="email" value={email} />
+        <p className="text-sm leading-relaxed text-charcoal-ink/70">
+          We emailed a 6-digit code to <span className="font-medium">{email}</span>. Enter it
+          below — nothing is charged until you finish on the payment page after this.
         </p>
-      </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="token" className="text-charcoal-ink/70">
+            Verification code
+          </Label>
+          <Input
+            id="token"
+            name="token"
+            inputMode="numeric"
+            maxLength={6}
+            autoComplete="one-time-code"
+            required
+            className={FIELD_CLASS}
+            {...fieldErrorProps(verifyErrorId, Boolean(verifyState?.error))}
+          />
+        </div>
+        <FormError id={verifyErrorId} message={verifyState?.error} />
+        <Button type="submit" size="lg" className="w-full rounded-xl" disabled={verifyPending}>
+          {verifyPending ? "Checking…" : "Verify & continue"}
+        </Button>
+      </form>
     );
   }
 
   return (
     <form
-      action={formAction}
+      action={requestAction}
       className="space-y-5 rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm sm:p-7"
     >
       <div className="space-y-1.5">
@@ -53,7 +83,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
           autoComplete="name"
           required
           className={FIELD_CLASS}
-          {...fieldErrorProps(errorId, state?.field === "fullName")}
+          {...fieldErrorProps(requestErrorId, requestState?.field === "fullName")}
         />
       </div>
       <div className="space-y-1.5">
@@ -68,7 +98,7 @@ export function GuestCheckoutForm({ code }: { code: string }) {
           autoComplete="email"
           required
           className={FIELD_CLASS}
-          {...fieldErrorProps(errorId, state?.field === "email")}
+          {...fieldErrorProps(requestErrorId, requestState?.field === "email")}
         />
       </div>
       <div className="space-y-1.5">
@@ -98,15 +128,16 @@ export function GuestCheckoutForm({ code }: { code: string }) {
         <PhoneNumberHint />
       </div>
 
-      <FormError id={errorId} message={state?.error} />
+      <FormError id={requestErrorId} message={requestState?.error} />
 
-      <Button type="submit" size="lg" className="w-full rounded-xl" disabled={pending}>
-        {pending ? "Sending your link…" : "Continue by email"}
+      <Button type="submit" size="lg" className="w-full rounded-xl" disabled={requestPending}>
+        {requestPending ? "Sending your code…" : "Continue by email"}
       </Button>
 
       <p className="text-center text-xs leading-relaxed text-charcoal-ink/50">
         This creates a Tarragon Health account for you, free, with no password to set — you sign
-        in from your email from now on. Nothing is charged until you finish on the payment page.
+        in with an emailed code from now on. Nothing is charged until you finish on the payment
+        page.
       </p>
     </form>
   );

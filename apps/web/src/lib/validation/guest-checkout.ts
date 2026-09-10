@@ -35,3 +35,12 @@ export function combineGuestPhone(input: GuestCheckoutInput): string | null {
   const combined = `${input.countryCode}${input.phone}`;
   return E164_GENERIC.test(combined) ? combined : null;
 }
+
+/** The second step: typing in the 6-digit code the guest was emailed —
+ * same shape as phoneOtpVerifySchema, just email-keyed instead of
+ * phone-keyed. */
+export const guestCheckoutVerifySchema = z.object({
+  email: z.email("Enter a valid email address"),
+  token: z.string().length(6, "Enter the 6-digit code"),
+});
+export type GuestCheckoutVerifyInput = z.infer<typeof guestCheckoutVerifySchema>;
