@@ -30,7 +30,7 @@ const WAYS_TO_GIVE = [
   },
   {
     title: "Cover a doctor's time for them",
-    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, or the 12-week doctor-supported programme for hypertension or diabetes. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
+    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, Continuous Monitoring on their readings, or Supervised Weight Management if they're already taking weight-loss medication. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
   },
   {
     // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
@@ -55,9 +55,14 @@ function giftIdeas(overrides: ResolvedServicePrices) {
       body: "Their once-a-year look at the things worth checking every year: liver, kidneys, blood sugar, cholesterol, urine, blood count and HIV status. A doctor reads every result with them, in writing, with a downloadable report. If they'd also like a live video consult to talk it through, that's a separate low-cost booking they can add whenever they want one.",
     },
     {
-      title: "12-week doctor-supported programme",
-      price: `${servicePrice("chronic_doctor_supported_pack", overrides)}, bought once`,
-      body: "For someone managing high blood pressure or diabetes: twelve weeks where a doctor sets their care plan, reviews their readings, adjusts their medication, and is alerted if a reading is dangerous. It runs its twelve weeks and simply ends; nothing renews on its own.",
+      title: "Continuous Monitoring",
+      price: `From ${servicePrice("continuous_monitoring_3m", overrides)}, for three months`,
+      body: "A standing watch on the blood pressure, blood sugar and other readings they log: checked against care protocols, with a dangerous one put in front of a doctor rather than sitting unnoticed. Bought once for a fixed term, then it simply stops; nothing renews on its own.",
+    },
+    {
+      title: "Supervised Weight Management",
+      price: "From ₦75,000, for three months",
+      body: "For someone already taking weight-loss medication they've obtained themselves: a doctor confirms they're a suitable candidate, agrees a dose plan with them, watches for side effects, and reviews progress monthly. Tarragon supervises; it never prescribes or supplies the medicine.",
     },
     {
       title: "A video visit with a doctor",
@@ -71,12 +76,12 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What exactly am I buying?",
     answer:
-      "One named service for someone specific, never a top-up balance: a health check like the Core Screen, a doctor consultation, or the 12-week doctor-supported programme. It sits on their account with their name on it until they choose to use it.",
+      "One named service for someone specific, never a top-up balance: a health check like the Core Screen, a doctor consultation, Continuous Monitoring, or Supervised Weight Management. It sits on their account with their name on it until they choose to use it.",
   },
   {
     question: "Who can I buy this for?",
     answer:
-      "Anyone already linked to you as family or next of kin on Tarragon: a parent, spouse, sibling, or child. If they are not linked yet, add them from your Family page first, or send them your referral link instead so they can join and pay their own way.",
+      "A parent, spouse, sibling, or child. If they already use Tarragon, link them as family or next of kin first, from your dashboard's Your people page. If they've never used Tarragon at all, you don't need to wait for them to sign up: from Buy care for someone, you can set up a record for them yourself with their name, phone number and your relationship to them, and pay straight away. They don't need a smartphone, an app, or an account of their own for this to work.",
   },
   {
     question: "Does a health check gift include a video call with a doctor?",
@@ -113,13 +118,13 @@ const GIFT_FAQ: FaqItem[] = [
 const HOW_IT_WORKS = [
   {
     step: 1,
-    title: "Add them as family",
-    body: "If they are not already linked to you, add them as a next of kin or family member from your Family page. It happens once, and the connection carries a consent grant.",
+    title: "Tell us who it's for",
+    body: "If they already use Tarragon, link them as family or next of kin first. If they don't, set up their record yourself, with their name, phone number and your relationship to them: they don't sign up or do anything before you can pay.",
   },
   {
     step: 2,
     title: "Choose the check or service",
-    body: "From your dashboard, pick the check or paid service you want them to have and who it is for. Reserving it is free.",
+    body: "From Buy care for someone on your dashboard, pick the check or paid service you want them to have. Reserving it is free.",
   },
   {
     step: 3,
@@ -155,8 +160,9 @@ export default async function GiftPage() {
 
       <Section className="pb-0 pt-10 sm:pt-14">
         <p className="mx-auto max-w-3xl text-center text-sm text-charcoal-ink/60">
-          Already a member? Open the care vouchers card on your dashboard to buy a health check or
-          a doctor&apos;s time for someone, or share your referral link.
+          Already a member? Open Buy care for someone on your dashboard to buy a health check or a
+          doctor&apos;s time for someone, whether or not they use Tarragon yet, or share your
+          referral link.
         </p>
       </Section>
 

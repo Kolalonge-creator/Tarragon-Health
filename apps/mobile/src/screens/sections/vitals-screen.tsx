@@ -27,6 +27,7 @@ import {
 } from "@/ui/components";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { SymptomScreen } from "@/screens/sections/symptom-screen";
+import { MonitoringCoverCard } from "@/screens/sections/monitoring-cover-card";
 
 interface GuidanceState {
   detail: string;
@@ -252,6 +253,8 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Vitals &amp; symptoms</Text>
         <MutedText>Log readings and see how they trend over time.</MutedText>
       </View>
+
+      <MonitoringCoverCard />
 
       {pendingCount > 0 ? (
         <View

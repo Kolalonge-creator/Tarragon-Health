@@ -7,6 +7,7 @@ import {
   type SupportedPersonFinance,
   type SupportedPersonVoucher,
 } from "@/lib/supporting-finance";
+import { loadSponsorCareReport, type SponsorCareReport } from "@/lib/sponsor-care-report";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, radius, spacing } from "@/ui/theme";
 import { Badge, Card, ErrorText, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
@@ -152,6 +153,60 @@ function VoucherRow({ voucher, trailing }: { voucher: SupportedPersonVoucher; tr
   );
 }
 
+/**
+ * The activity half of "what your money paid for" — mirrors
+ * apps/web/src/components/sponsor-care-report.tsx's SponsorCareReport.
+ * Payment facts already render above from loadSupportedPeopleFinance; this
+ * adds the part that component alone can't show — how it's going, and only
+ * as far as the patient has chosen to share. Fetched per-card rather than
+ * batched with the voucher load above because it's a separate RPC
+ * (sponsor_care_report) keyed by beneficiary, not a table read.
+ */
+function SponsorActivitySection({ beneficiaryId }: { beneficiaryId: string }) {
+  const [report, setReport] = useState<SponsorCareReport | null>(null);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadSponsorCareReport(beneficiaryId).then((result) => {
+      if (cancelled) return;
+      if (!result.ok) {
+        setError(true);
+        return;
+      }
+      setReport(result.data);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [beneficiaryId]);
+
+  if (error || !report) return null;
+
+  if (report.sharing_level === "none") {
+    return (
+      <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}>
+        <MutedText>{report.note}</MutedText>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8, gap: 4 }}>
+      <Text style={{ fontSize: 12, fontWeight: "700", color: colors.ink }}>How it is going, in the last 30 days</Text>
+      <MutedText>
+        {report.readings_logged
+          ? `${report.readings_logged} reading${report.readings_logged === 1 ? "" : "s"} logged.`
+          : "No readings logged yet this month."}
+      </MutedText>
+      {report.last_clinical_review ? <MutedText>A doctor reviewed their readings on {shortDate(report.last_clinical_review)}.</MutedText> : null}
+      {report.next_check_due ? <MutedText>Their next check is due {shortDate(report.next_check_due)}.</MutedText> : null}
+      {report.monitoring_active_until ? <MutedText>Watched until {shortDate(report.monitoring_active_until)}.</MutedText> : null}
+      <MutedText>{report.note}</MutedText>
+    </View>
+  );
+}
+
 function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
   const name = person.fullName ?? "This person";
 
@@ -221,6 +276,8 @@ function PersonFinanceCard({ person }: { person: SupportedPersonFinance }) {
       {person.readyVouchers.length === 0 && person.savingVouchers.length === 0 && person.usedVouchers.length === 0 && (
         <MutedText>No vouchers yet.</MutedText>
       )}
+
+      <SponsorActivitySection beneficiaryId={person.profileId} />
 
       <Pressable
         accessibilityRole="button"
