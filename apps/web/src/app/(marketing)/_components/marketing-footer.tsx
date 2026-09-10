@@ -26,6 +26,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
     { href: MARKETING_ROUTES.obesity, label: "Weight Health" },
+    { href: MARKETING_ROUTES.weightManagement, label: "Supervised weight management" },
     { href: MARKETING_ROUTES.medication, label: "Medication" },
     { href: MARKETING_ROUTES.labs, label: "Labs" },
     { href: MARKETING_ROUTES.bmiCalculator, label: "BMI & Calorie Calculator" },

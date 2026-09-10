@@ -23,6 +23,32 @@ export default async function ObesityPage() {
 
   return (
     <ProductPageTemplate content={content}>
+      {/* The two weight pages answer different questions and must not blur.
+          THIS page is weight as a condition, managed with coaching that is free
+          and stays free. The link below is for the narrower case: someone
+          already taking, or considering, weight-loss medication who wants a
+          doctor supervising how it is used. Tarragon does not prescribe or
+          supply that medicine, which is why it is a separate page with its own
+          disclosure rather than an upsell bolted onto this one. */}
+      <Section variant="sage">
+        <div className="mx-auto max-w-3xl rounded-2xl border border-charcoal-ink/10 bg-white p-6 text-center shadow-sm">
+          <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
+            Taking weight-loss medication, or thinking about it?
+          </h2>
+          <p className="mt-2 text-base leading-relaxed text-charcoal-ink/75">
+            Everything on this page is free and stays free. If you are on medication you obtained
+            yourself, a doctor can supervise how it is used: suitability, dose, side effects and a
+            review every month. We do not prescribe or supply the medicine.
+          </p>
+          <Link
+            href={MARKETING_ROUTES.weightManagement}
+            className="mt-4 inline-block font-medium text-brand-green underline decoration-brand-green/40 underline-offset-4 hover:decoration-brand-green"
+          >
+            See supervised weight management
+          </Link>
+        </div>
+      </Section>
+
       <Section>
         <SectionHeading
           eyebrow="Try it yourself"

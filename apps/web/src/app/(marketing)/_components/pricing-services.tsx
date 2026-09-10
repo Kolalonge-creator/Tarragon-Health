@@ -1,4 +1,6 @@
-import { PAID_SERVICES, type PaidService } from "../_content/pricing";
+import Link from "next/link";
+import { PAID_SERVICES, WEIGHT_MANAGEMENT, type PaidService } from "../_content/pricing";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { PricingLabelBadge } from "./pricing-label";
 
 /**
@@ -56,6 +58,21 @@ export function PricingServices({
             ))}
           </ul>
         ) : null}
+        {programme.terms ? (
+          <div className="mt-4 grid gap-3 border-t border-charcoal-ink/10 pt-4 sm:grid-cols-3">
+            {programme.terms.map((term) => (
+              <div key={term.code} className="rounded-lg border border-charcoal-ink/10 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/55">
+                  {term.label}
+                </p>
+                <p className="mt-0.5 font-heading text-lg font-bold text-brand-green">
+                  {priceOverrides[term.code] ?? term.price}
+                </p>
+                <p className="mt-1 text-xs leading-relaxed text-charcoal-ink/65">{term.perMonth}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
         {programme.conditions ? (
           <div className="mt-4 grid gap-3 border-t border-charcoal-ink/10 pt-4 sm:grid-cols-2">
             {programme.conditions.map((c) => (
@@ -101,6 +118,59 @@ export function PricingServices({
             </p>
           </div>
         ))}
+      </div>
+
+      {/* Its own block, not a card in the grid above. It is a course of medical
+          supervision rather than a piece of work, and it needs its own
+          disclosure: Tarragon does not prescribe or supply weight-loss
+          medication, and the database refuses an enrolment against a medicine
+          Tarragon started. Never let this collapse into the one-off grid, and
+          never drop the disclosure to make it fit. */}
+      <div className="rounded-2xl border border-clinical-navy/20 bg-white p-6 shadow-sm sm:p-8">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h3 className="font-heading text-xl font-semibold text-charcoal-ink">
+              {WEIGHT_MANAGEMENT.name}
+            </h3>
+            <p className="mt-1 font-heading text-2xl font-bold text-brand-green">
+              {priceOverrides[WEIGHT_MANAGEMENT.terms[0].code] ?? WEIGHT_MANAGEMENT.price}
+              <span className="ml-2 align-middle text-sm font-normal text-charcoal-ink/60">
+                {WEIGHT_MANAGEMENT.priceCaption}
+              </span>
+            </p>
+          </div>
+          <PricingLabelBadge label="PAID SERVICE" />
+        </div>
+        <p className="mt-3 max-w-3xl text-sm leading-relaxed text-charcoal-ink/75">
+          {WEIGHT_MANAGEMENT.description}
+        </p>
+        <div className="mt-4 rounded-xl border-l-2 border-clinical-navy bg-clinical-navy/[0.04] p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wide text-clinical-navy">
+            What we do not do
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-charcoal-ink/75">
+            {WEIGHT_MANAGEMENT.disclosure}
+          </p>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {WEIGHT_MANAGEMENT.terms.map((term) => (
+            <div key={term.code} className="rounded-lg border border-charcoal-ink/10 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/55">
+                {term.label}
+              </p>
+              <p className="mt-0.5 font-heading text-lg font-bold text-brand-green">
+                {priceOverrides[term.code] ?? term.price}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-charcoal-ink/65">{term.perMonth}</p>
+            </div>
+          ))}
+        </div>
+        <Link
+          href={MARKETING_ROUTES.weightManagement}
+          className="mt-4 inline-block text-sm font-medium text-brand-green underline decoration-brand-green/40 underline-offset-4 hover:decoration-brand-green"
+        >
+          How supervision works, and who it is not for
+        </Link>
       </div>
     </div>
   );
