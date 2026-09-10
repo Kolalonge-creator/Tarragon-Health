@@ -10,7 +10,6 @@ import {
   type SymptomCluster,
 } from "@/lib/symptom-check/symptom-clusters";
 import { ProductCtaCard } from "./product-cta-card";
-import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import type { ResolvedServicePrices } from "../_content/pricing";
 
 /**
@@ -176,8 +175,8 @@ function ClusterResultCard({
       </p>
       <ProductCtaCard
         code="async_consult_credit"
-        href={MARKETING_ROUTES.pricing}
-        ctaLabel="See what a written question costs"
+        href="/checkout/async_consult_credit"
+        ctaLabel="Ask a doctor — no account needed"
         overrides={priceOverrides}
         className="mt-6 border-white/60 bg-white/60"
       />
@@ -208,8 +207,8 @@ function ResultCard({
       </div>
       <ProductCtaCard
         code="async_consult_credit"
-        href={MARKETING_ROUTES.pricing}
-        ctaLabel="See what a written question costs"
+        href="/checkout/async_consult_credit"
+        ctaLabel="Ask a doctor — no account needed"
         overrides={priceOverrides}
         className="mt-6 border-white bg-white"
       />

@@ -239,8 +239,8 @@ export function BmiCalorieCalculator({
       {wantsLoss ? (
         <ProductCtaCard
           code="weight_management_3m"
-          href={MARKETING_ROUTES.weightManagement}
-          ctaLabel="See Supervised Weight Management"
+          href="/checkout/weight_management_3m"
+          ctaLabel="Buy now — no account needed"
           overrides={priceOverrides}
           className="mt-6"
         />

@@ -12,10 +12,10 @@ import { servicePrice, type ResolvedServicePrices } from "../_content/pricing";
  * (servicePrice/ResolvedServicePrices), so a visitor never sees a number
  * here that checkout would then contradict.
  *
- * `href` is deliberately a prop, not derived from `code` — today it points
- * at the relevant marketing product page (e.g. /weight-management), which is
- * live; once guest checkout (buy without an account first) ships, callers
- * can repoint it at `/checkout/${code}` without this component changing.
+ * `href` is deliberately a prop, not derived from `code` — call sites point
+ * it at `/checkout/${code}` (buy without an account first, apps/web/src/app/
+ * checkout/[code]) for a guest-eligible product, or at the relevant
+ * marketing product page for one that isn't guest-buyable.
  */
 export function ProductCtaCard({
   code,

@@ -161,8 +161,8 @@ export function ActivityIntensityCalculator({
       {progressPct < 50 ? (
         <ProductCtaCard
           code="async_consult_credit"
-          href={MARKETING_ROUTES.pricing}
-          ctaLabel="Ask a doctor"
+          href="/checkout/async_consult_credit"
+          ctaLabel="Ask a doctor — no account needed"
           overrides={priceOverrides}
           className="mt-6"
         />
