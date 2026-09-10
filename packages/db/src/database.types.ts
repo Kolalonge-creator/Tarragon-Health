@@ -40775,6 +40775,20 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      sponsor_care_report: {
+        Args: { p_beneficiary: string; p_since?: string }
+        Returns: Json
+      }
+      assert_service_price_covers_cost: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          code: string
+          contribution_kobo: number
+          delivery_cost_kobo: number
+          price_kobo: number
+          verdict: string
+        }[]
+      }
     }
     Enums: {
       activity_entry_type: "steps" | "workout"

@@ -6,6 +6,7 @@ import { WellbeingTiles } from "@/app/(dashboard)/patient/wellbeing-tiles";
 import { WellbeingCheckinForm } from "@/app/(dashboard)/patient/wellbeing-checkin-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { MentalHealthScreenForm } from "@/app/(dashboard)/patient/mental-health-form";
+import { TherapyNetwork } from "@/components/therapy-network";
 import { CategoryDetail } from "@/app/(dashboard)/patient/health-education";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,11 +35,14 @@ export default async function PatientWellbeingPage() {
         </div>
       </div>
 
-      {/* Module 46 §46.8: in-house therapy, booked through the same general
-          appointment engine as any other visit — see 20260829098000. An
-          external psychiatry/psychology referral (a clinical decision your
-          care team makes, not self-service) is still available when that's
-          a better fit — ask them about it during a review or check-in. */}
+      {/* Two routes, deliberately side by side and clearly distinguished.
+          In-house therapy is booked through the same appointment engine as any
+          other visit (§46.8, migration 20260829098000). The independent network
+          below it is a different relationship: practitioners in private
+          practice whose registration Tarragon has verified, booked on
+          commission. A patient deciding where to take something this personal
+          is entitled to know which one they are dealing with, so neither card
+          is allowed to blur into the other. */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Talk to someone</CardTitle>
@@ -53,6 +57,8 @@ export default async function PatientWellbeingPage() {
           </Button>
         </CardContent>
       </Card>
+
+      <TherapyNetwork organisationId={organisationId} patientId={subjectId} />
 
       <CategoryDetail
         category="mental_health"

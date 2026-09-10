@@ -5,6 +5,7 @@ import { useActionState, useState } from "react";
 import { koboToNaira } from "@tarragon/shared";
 import { APPOINTMENT_TYPE_LABELS } from "../appointments/appointment-labels";
 import { Badge } from "@/components/ui/badge";
+import { SponsorCareReport } from "@/components/sponsor-care-report";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -239,6 +240,13 @@ function PersonCard({
   const name = person.fullName ?? "This person";
 
   return (
+    <div className="space-y-3">
+    {/* The Care Report sits ABOVE the management controls, deliberately. The
+        question a sponsor opens this page with is "did the money do anything?",
+        not "what can I change?". Everything in it is either their own payment
+        record or activity this person chose to share; it never contains a
+        clinical value at any sharing level. */}
+    <SponsorCareReport beneficiaryId={person.profileId} beneficiaryName={name} />
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
@@ -356,6 +364,7 @@ function PersonCard({
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }
 
