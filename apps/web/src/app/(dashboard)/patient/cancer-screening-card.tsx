@@ -1,12 +1,11 @@
 "use client";
 
-import { useActionState, useMemo } from "react";
-import { koboToNaira, type Enums } from "@tarragon/shared";
+import { useMemo } from "react";
+import { type Enums } from "@tarragon/shared";
 import { useLabCatalogue, type PanelBundle } from "@/lib/queries/lab-orders";
-import { createAndPayForPartnerLabOrder } from "./lab-tests/actions";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { TestGuidanceCard, TestGuidanceIntro } from "@/components/test-guidance";
 
 /** Sex-specific tracks — never offer the wrong one. Sex unknown (not yet
  * recorded) hides all four rather than guessing, same posture as
@@ -25,23 +24,32 @@ function isOfferedFor(code: string, sex: Enums<"sex"> | null): boolean {
 }
 
 /**
- * One-off cancer screening bundles (2026-09-03 catalogue rebuild, reworked
- * 2026-09-06): real panel_bundles billed through the same partner-billed
- * lab-order checkout every other bundle on this platform uses
- * (createAndPayForPartnerLabOrder) — not a standalone credit that only marks
- * a calendar date. A prior version of this card sold these on the
- * service_products credit primitive, which never created a lab_orders row,
- * so nothing was ever actually sent to a lab; see the fix-up migration.
+ * Cancer screening, as guidance rather than a checkout.
+ *
+ * Rewritten 2026-09-10, and the reason matters more than the layout. These four
+ * bundles were sold, and three of them billed for tests the platform could not
+ * order: Cervical Cancer Screening (30 and over) charged 222,500 naira for
+ * "liquid-based cytology plus HPV DNA co-test" while its test_codes contained
+ * only the smear, because HPV DNA has no row in lab_tests at all. A woman
+ * paying that would reasonably have believed she had been co-tested.
+ *
+ * The fix is not a better checkout. Tarragon's recorded cost for a test was the
+ * laboratory's own retail price, so it was never able to beat the laboratory on
+ * price anyway. What it can do — and what a laboratory will not — is tell you
+ * exactly what to ask for, what it should cost, and read the result when it
+ * comes back. So this card now says precisely that, and the descriptions it
+ * renders were rewritten in the same migration to name the test a patient
+ * should request ("ask for LBC and HPV as a single request") rather than
+ * describe something Tarragon would do.
  */
 export function CancerScreeningCard({ sex }: { sex: Enums<"sex"> | null }) {
   const { data: bundles, isLoading, isError } = useLabCatalogue();
-  const [payState, payAction, payPending] = useActionState(createAndPayForPartnerLabOrder, undefined);
 
   const cancerBundles = useMemo(() => {
     const byCode = new Map((bundles ?? []).map((b) => [b.code, b] as [string, PanelBundle]));
     return CANCER_SCREENING_CODES.filter((code) => isOfferedFor(code, sex))
       .map((code) => byCode.get(code))
-      .filter((b): b is PanelBundle => !!b && b.is_active && b.self_bookable);
+      .filter((b): b is PanelBundle => !!b && b.is_active);
   }, [bundles, sex]);
 
   if (sex === null) return null;
@@ -54,42 +62,32 @@ export function CancerScreeningCard({ sex }: { sex: Enums<"sex"> | null }) {
           Cancer screening
         </CardTitle>
         <CardDescription>
-          A guideline-backed step up from the Annual Health Check, with a doctor consult built in
-          to walk through the result either way.
+          The screening worth doing at your age, what to ask a laboratory for, and roughly what it
+          costs.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <TestGuidanceIntro />
+
         {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {isError && <p className="text-sm text-red-600">Could not load these screenings.</p>}
-        {!isLoading && cancerBundles.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No cancer screening bundles are available yet.</p>
+        {!isLoading && !isError && cancerBundles.length === 0 && (
+          <p className="text-sm text-charcoal-ink/60">
+            Nothing is recommended for you here yet. Your screening calendar will tell you when
+            something falls due.
+          </p>
         )}
 
         <ul className="divide-y divide-charcoal-ink/10">
           {cancerBundles.map((bundle) => (
-            <li key={bundle.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
-                {bundle.description && (
-                  <p className="text-xs text-charcoal-ink/60">{bundle.description}</p>
-                )}
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm font-medium text-charcoal-ink">
-                  ₦{koboToNaira(bundle.price_kobo).toLocaleString("en-NG")}
-                </span>
-                <form action={payAction}>
-                  <input type="hidden" name="panelBundleId" value={bundle.id} />
-                  <Button type="submit" size="sm" disabled={payPending}>
-                    {payPending ? "Taking you to payment…" : "Book & pay"}
-                  </Button>
-                </form>
-              </div>
-            </li>
+            <TestGuidanceCard
+              key={bundle.id}
+              name={bundle.name}
+              description={bundle.description}
+              bundle={bundle}
+            />
           ))}
         </ul>
-
-        {payState?.error && <p className="text-sm text-red-600">{payState.error}</p>}
       </CardContent>
     </Card>
   );

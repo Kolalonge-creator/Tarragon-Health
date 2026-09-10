@@ -132,11 +132,28 @@ export function useScreenTypePrices() {
   });
 }
 
-/** True only when every test in the bundle has a contracted partner price on file. */
+/**
+ * Whether Tarragon will bill for this bundle itself, rather than the patient
+ * paying a laboratory directly.
+ *
+ * As of 2026-09-10 the honest answer is "no, for anything in the laboratory
+ * catalogue". Tarragon's recorded cost for a test turned out to be the
+ * laboratory's own published retail price, so billing it with a margin made
+ * Tarragon dearer than the laboratory performing the test, on every item.
+ * `guidance_only` is what records that decision per bundle.
+ *
+ * The guidance_only check is FIRST and short-circuits, so this stays correct
+ * even if a partner price is on file — which it usually is, since that price is
+ * exactly the retail figure the decision was about. The database enforces the
+ * same rule independently (private.enforce_guidance_only_is_never_billed), so a
+ * surface that forgets to call this cannot sell anything either; this is what
+ * keeps the option from being OFFERED, not what prevents the sale.
+ */
 export function bundleIsPartnerBillable(
-  bundle: Pick<PanelBundle, "test_codes">,
+  bundle: Pick<PanelBundle, "test_codes" | "guidance_only">,
   prices: Map<string, number | null> | undefined
 ): boolean {
+  if (bundle.guidance_only) return false;
   if (!prices || bundle.test_codes.length === 0) return false;
   return bundle.test_codes.every((code) => !!prices.get(code));
 }

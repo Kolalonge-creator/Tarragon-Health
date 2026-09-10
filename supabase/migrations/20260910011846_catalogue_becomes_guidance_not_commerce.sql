@@ -26,13 +26,25 @@
 -- doctor-time migration that follows this one).
 --
 -- Mechanically: every panel_bundle and every priced screen_type becomes
--- guidance_only — a recommendation carrying an indicative price and where to
--- obtain it, not a thing with a checkout. self_bookable goes false across the
--- board, which is what every existing purchase surface already filters on
--- (annual-health-check-booking, cancer-screening-card, sti-testing-panel,
--- vouchers, screening-days), so nothing can be bought through an existing code
--- path from the moment this lands. The UI change that follows replaces those
--- now-empty lists with the guidance presentation.
+-- guidance_only -- a recommendation carrying an indicative price and where to
+-- obtain it, not a thing with a checkout.
+--
+-- self_bookable is DELIBERATELY LEFT ALONE, and getting this wrong would have
+-- broken the very thing this migration is trying to keep. It reads like a
+-- commerce flag and is not one: private.enforce_lab_order_origin uses it to
+-- decide whether a patient may raise a request WITHOUT a currently-due
+-- screening_schedule. Turning it off would not have stopped anyone buying a
+-- test -- it would have stopped them getting the free request that is now the
+-- whole product, and forced every request back through a due screening.
+--
+-- The two flags are orthogonal and both are needed:
+--   self_bookable   may a patient raise this request themselves, unprompted?
+--   guidance_only   does Tarragon bill for it, or does the patient pay the lab?
+--
+-- What actually stops the selling is the guard in section 6, which refuses a
+-- partner-billed (fulfilment = 'partner') order for a guidance_only bundle at
+-- the database level. The patient-facing surfaces keep listing these; they
+-- render a price to expect and where to go, instead of a checkout button.
 --
 -- THIS ALSO CLOSES A LIVE CLINICAL EXPOSURE
 -- -----------------------------------------
@@ -100,12 +112,11 @@ comment on column public.screen_types.where_to_get is
   'See panel_bundles.where_to_get.';
 
 -- ---------------------------------------------------------------------------
--- 2. Nothing in the laboratory catalogue is purchasable any more
+-- 2. Nothing in the laboratory catalogue is billed by Tarragon any more
 -- ---------------------------------------------------------------------------
 
 update public.panel_bundles
-   set self_bookable = false,
-       guidance_only = true;
+   set guidance_only = true;
 
 update public.screen_types
    set guidance_only = true
@@ -226,20 +237,67 @@ update public.screen_types
  where code = 'fit';
 
 -- ---------------------------------------------------------------------------
--- 6. Assertions
+-- 6. The guard that actually stops the selling
+--
+-- Belt and braces against the UI: even if a partner-billed checkout survives
+-- somewhere in the app, or is reached directly, the database refuses it for a
+-- bundle Tarragon has decided not to sell. Written as its own trigger rather
+-- than folded into private.enforce_lab_order_origin, which is a busy function
+-- with several unrelated responsibilities and no room for another one.
+-- ---------------------------------------------------------------------------
+
+create or replace function private.enforce_guidance_only_is_never_billed()
+returns trigger
+language plpgsql
+security definer
+set search_path to ''
+as $function$
+begin
+  if new.fulfilment = 'partner' and exists (
+    select 1 from public.panel_bundles pb
+     where pb.id = new.panel_bundle_id
+       and pb.guidance_only
+  ) then
+    raise exception 'Tarragon does not bill for this test. Take the request to a laboratory of your choice and pay them directly.'
+      using errcode = '23514', detail = 'BUNDLE_IS_GUIDANCE_ONLY';
+  end if;
+  return new;
+end;
+$function$;
+
+comment on function private.enforce_guidance_only_is_never_billed() is
+  'Refuses a partner-billed lab order for a bundle marked guidance_only. The commercial rule -- Tarragon does not sell tests, because its cost for one is the laboratory''s own retail price -- enforced in the database rather than trusted to the UI.';
+
+-- The 'aa_' prefix is load-bearing. Postgres fires same-timing triggers in
+-- alphabetical order, and lab_orders carries a dozen BEFORE triggers -- one of
+-- which, lab_orders_compute_review_price, prices the order and can itself raise
+-- for unrelated reasons before this one is ever reached. "We do not sell this"
+-- has to be answered before anyone works out what it would cost. Mirrors the
+-- existing lab_orders_zz_never_below_partner_cost, which uses the same
+-- convention in the other direction to run last.
+drop trigger if exists lab_orders_guidance_only_never_billed on public.lab_orders;
+drop trigger if exists lab_orders_aa_guidance_only_never_billed on public.lab_orders;
+create trigger lab_orders_aa_guidance_only_never_billed
+  before insert or update of fulfilment, panel_bundle_id on public.lab_orders
+  for each row execute function private.enforce_guidance_only_is_never_billed();
+
+-- ---------------------------------------------------------------------------
+-- 7. Assertions
 -- ---------------------------------------------------------------------------
 
 do $$
 declare
-  v_bookable        int;
+  v_billable        int;
   v_not_guidance    int;
   v_priced_no_guide int;
   v_no_where        int;
 begin
-  select count(*) into v_bookable
-    from public.panel_bundles where self_bookable;
-  if v_bookable <> 0 then
-    raise exception 'FAIL: % panel_bundles row(s) still self_bookable', v_bookable;
+  -- Not "nothing is self_bookable" -- self_bookable is the free request right
+  -- and must survive. What must be true is that nothing can be partner-billed.
+  select count(*) into v_billable
+    from public.panel_bundles where not guidance_only;
+  if v_billable <> 0 then
+    raise exception 'FAIL: % panel_bundles row(s) are still billable by Tarragon', v_billable;
   end if;
 
   select count(*) into v_not_guidance
@@ -260,6 +318,39 @@ begin
   if v_no_where <> 0 then
     raise exception 'FAIL: % panel_bundles row(s) have no where_to_get answer', v_no_where;
   end if;
+
+  -- Prove the guard refuses a partner-billed order, rather than merely existing.
+  declare
+    v_patient uuid;
+    v_org     uuid;
+    v_bundle  uuid;
+    v_refused boolean := false;
+  begin
+    select id, organisation_id into v_patient, v_org from public.profiles where role = 'patient' limit 1;
+    select id into v_bundle from public.panel_bundles where guidance_only and is_active limit 1;
+    if v_patient is not null and v_bundle is not null then
+      begin
+        begin
+          insert into public.lab_orders
+            (organisation_id, patient_id, panel_bundle_id, fulfilment, status, origin, total_kobo)
+          values (v_org, v_patient, v_bundle, 'partner', 'pending_payment', 'patient_initiated', 100);
+        exception when others then
+          if sqlerrm like '%does not bill for this test%' then
+            v_refused := true;
+          else
+            raise;
+          end if;
+        end;
+        raise exception 'ROLLBACK_PROBE';
+      exception when others then
+        if sqlerrm <> 'ROLLBACK_PROBE' then raise; end if;
+      end;
+      if not v_refused then
+        raise exception 'FAIL: a partner-billed order was accepted for a guidance_only bundle.';
+      end if;
+      raise notice 'PASS: partner billing refused for a guidance_only bundle';
+    end if;
+  end;
 
   raise notice 'PASS: laboratory catalogue is guidance, not commerce (% bundles, % screens)',
     (select count(*) from public.panel_bundles),
