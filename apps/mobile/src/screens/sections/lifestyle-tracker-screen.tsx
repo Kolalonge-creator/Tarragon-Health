@@ -19,6 +19,7 @@ import {
   SectionLabel,
 } from "@/ui/components";
 import { colors, radius, spacing, typeScale } from "@/ui/theme";
+import { useT } from "@/lib/ui-language";
 
 /**
  * One shell for all the daily lifestyle trackers (sleep, alcohol, smoking,
@@ -71,6 +72,7 @@ export interface LifestyleTrackerConfig<S> {
 }
 
 export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTrackerConfig<S> }) {
+  const t = useT();
   const [state, setState] = useState<S | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -225,11 +227,11 @@ export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTracker
         ))}
         <PrimaryButton title={config.submitLabel} onPress={() => void onSubmit()} loading={saving} />
         {saveError ? <ErrorText>{saveError}</ErrorText> : null}
-        {saved ? <MutedText>Saved.</MutedText> : null}
+        {saved ? <MutedText>{t("Saved.")}</MutedText> : null}
       </Card>
 
       <View style={{ gap: 10 }}>
-        <SectionLabel>Last 30 days</SectionLabel>
+        <SectionLabel>{t("Last 30 days")}</SectionLabel>
         {history.length === 0 ? (
           <MutedText>{config.emptyHistory}</MutedText>
         ) : (

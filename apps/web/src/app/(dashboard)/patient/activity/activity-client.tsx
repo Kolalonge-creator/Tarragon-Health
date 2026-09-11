@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { useT } from "@/components/ui-language-provider";
 
 import { formatPatientDate } from "@/lib/format-date";
 const GOAL_QUERY_KEY = "activity-goal";
@@ -98,6 +99,7 @@ function groupLabel(dateKey: string): string {
 }
 
 export function ActivityClient({ patientId }: { patientId: string }) {
+  const t = useT();
   const goal = useActivityGoal(patientId);
   const todaySteps = useTodaySteps(patientId);
   const entries = useActivityEntries(patientId);
@@ -131,12 +133,12 @@ export function ActivityClient({ patientId }: { patientId: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>History</CardTitle>
+          <CardTitle>{t("History")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {entries.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+          {entries.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("Loading…")}</p>}
           {!entries.isLoading && grouped.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing logged yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("Nothing logged yet.")}</p>
           )}
           <div className="space-y-5">
             {grouped.map(([dateKey, rows]) => (
@@ -162,17 +164,18 @@ export function ActivityClient({ patientId }: { patientId: string }) {
 }
 
 function WeeklyGuidelineCard({ minutes, loading }: { minutes: number | undefined; loading: boolean }) {
+  const t = useT();
   const total = minutes ?? 0;
   const progressPct = Math.min(100, Math.round((total / WHO_WEEKLY_TARGET_MINUTES) * 100));
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>This week&apos;s activity guideline</CardTitle>
+        <CardTitle>{t("This week's activity guideline")}</CardTitle>
       </CardHeader>
       <CardContent>
         {loading ? (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("Loading…")}</p>
         ) : (
           <>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
@@ -188,7 +191,7 @@ function WeeklyGuidelineCard({ minutes, loading }: { minutes: number | undefined
               />
             </div>
             <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              {progressPct >= 100 ? "Weekly guideline reached, nice work." : `${progressPct}% of the way there.`}
+              {progressPct >= 100 ? t("Weekly guideline reached, nice work.") : `${progressPct}% of the way there.`}
             </p>
           </>
         )}
@@ -208,6 +211,7 @@ function TodayCard({
   stepGoal: number;
   loading: boolean;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const remaining = Math.max(0, stepGoal - currentSteps);
@@ -232,15 +236,15 @@ function TodayCard({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <div>
-          <CardTitle>Today</CardTitle>
+          <CardTitle>{t("Today")}</CardTitle>
           {!loading && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              {remaining > 0 ? `Try for ${remaining.toLocaleString()} more steps today` : "Goal reached, nice work"}
+              {remaining > 0 ? `Try for ${remaining.toLocaleString()} more steps today` : t("Goal reached, nice work")}
             </p>
           )}
         </div>
         <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
-          {editing ? "Close" : "Edit steps"}
+          {editing ? t("Close") : t("Edit steps")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -252,7 +256,7 @@ function TodayCard({
           <div className="grid gap-4 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4 sm:grid-cols-2">
             <form action={formAction} className="space-y-2">
               <input type="hidden" name="_intent" value="steps" />
-              <Label htmlFor="step_count">Log today&apos;s steps</Label>
+              <Label htmlFor="step_count">{t("Log today's steps")}</Label>
               <Input
                 id="step_count"
                 name="step_count"
@@ -262,12 +266,12 @@ function TodayCard({
                 required
               />
               <Button type="submit" size="sm">
-                Save steps
+                {t("Save steps")}
               </Button>
             </form>
             <form action={formAction} className="space-y-2">
               <input type="hidden" name="_intent" value="goal" />
-              <Label htmlFor="daily_step_goal">Daily step goal</Label>
+              <Label htmlFor="daily_step_goal">{t("Daily step goal")}</Label>
               <Input
                 id="daily_step_goal"
                 name="daily_step_goal"
@@ -277,7 +281,7 @@ function TodayCard({
                 required
               />
               <Button type="submit" size="sm" variant="outline">
-                Save goal
+                {t("Save goal")}
               </Button>
             </form>
           </div>
@@ -289,6 +293,7 @@ function TodayCard({
 }
 
 function LogWorkoutCard({ patientId }: { patientId: string }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [state, formAction, pending] = useActionState<ActivityActionState, FormData>(
     async (prev, formData) => {
@@ -305,7 +310,7 @@ function LogWorkoutCard({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log a workout</CardTitle>
+        <CardTitle>{t("Log a workout")}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="grid gap-3 sm:grid-cols-3 sm:items-end">
@@ -320,15 +325,15 @@ function LogWorkoutCard({ patientId }: { patientId: string }) {
             </Select>
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="duration_minutes">Duration (min)</Label>
+            <Label htmlFor="duration_minutes">{t("Duration (min)")}</Label>
             <Input id="duration_minutes" name="duration_minutes" type="number" min={1} placeholder="30" required />
           </div>
           <Button type="submit" disabled={pending}>
-            {pending ? "Logging…" : "Log workout"}
+            {pending ? t("Logging…") : t("Log workout")}
           </Button>
         </form>
         {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
-        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">Logged.</p>}
+        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">{t("Logged.")}</p>}
       </CardContent>
     </Card>
   );
