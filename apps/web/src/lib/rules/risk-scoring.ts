@@ -141,6 +141,27 @@ const CONDITION_RULES: ConditionRules[] = [
     ],
   },
   {
+    condition: "ckd",
+    sexApplicability: null,
+    moderateThreshold: 2,
+    highThreshold: 5,
+    factors: [
+      // Diabetes and hypertension are the two leading causes of CKD, so an
+      // existing diagnosis of either counts far more heavily than a lifestyle
+      // factor — this engine has no lab-based eGFR/ACR input to draw on (see
+      // kdigo-ckd-risk.ts for the lab-based KDIGO calculation surfaced
+      // separately once real labs exist), so self-reported diagnoses are the
+      // strongest signal available here.
+      { key: "existing_diabetes", points: 3, applies: (r) => r.existing_diagnoses.includes("diabetes") },
+      { key: "existing_hypertension", points: 3, applies: (r) => r.existing_diagnoses.includes("hypertension") },
+      { key: "family_diabetes", points: 1, applies: (r) => r.family_diabetes },
+      { key: "family_hypertension", points: 1, applies: (r) => r.family_hypertension },
+      { key: "age_60_plus", points: 1, applies: (_r, p) => p.ageYears !== null && p.ageYears >= 60 },
+      { key: "smoking_current", points: 1, applies: (r) => r.smoking_status === "current" },
+      { key: "bmi_obese", points: 1, applies: (_r, _p, bmi) => bmi !== null && bmi >= 30 },
+    ],
+  },
+  {
     condition: "breast_ca",
     sexApplicability: "female",
     moderateThreshold: 1,
