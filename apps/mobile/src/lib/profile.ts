@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
-import { type GlucoseDisplayUnit } from "@tarragon/shared";
+import { type GlucoseDisplayUnit, type UiLanguage } from "@tarragon/shared";
 import { clearGlucoseUnitCache } from "./glucose-unit";
+import { clearUiLanguageCache } from "./ui-language";
 import type { Tables } from "@tarragon/shared";
 
 export type ProfileRow = Tables<"profiles">;
@@ -114,6 +115,17 @@ export async function updateGlucoseDisplayUnit(
   if (error) throw error;
   // The unit is cached per session for the screens that only read it.
   clearGlucoseUnitCache();
+}
+
+/**
+ * Interface language. Wayfinding only -- clinical guidance, emergency copy,
+ * dosing and consent text are never translated. See profiles.language and
+ * packages/shared/src/ui-language.ts.
+ */
+export async function updateUiLanguage(userId: string, value: UiLanguage): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ language: value }).eq("id", userId);
+  if (error) throw error;
+  clearUiLanguageCache();
 }
 
 export interface EmergencyContactInput {

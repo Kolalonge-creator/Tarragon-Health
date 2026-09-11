@@ -41,6 +41,13 @@ import { WomensHealthScreen } from "@/screens/sections/womens-health-screen";
 import { FamilyScreen } from "@/screens/sections/family-screen";
 import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
 import { LifestyleScreen } from "@/screens/sections/lifestyle-screen";
+import {
+  ActivityScreen,
+  AlcoholScreen,
+  MealsScreen,
+  SleepScreen,
+  SmokingScreen,
+} from "@/screens/sections/tracker-screens";
 import { ServicesScreen } from "@/screens/sections/services-screen";
 import { LearnScreen } from "@/screens/sections/learn-screen";
 import { PrivacyScreen } from "@/screens/sections/privacy-screen";
@@ -281,6 +288,11 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
         {section === "lifestyle" && <LifestyleScreen patientId={userId} onNavigate={handleSelect} />}
+        {section === "meals" && <MealsScreen patientId={subjectId} />}
+        {section === "sleep" && <SleepScreen patientId={subjectId} />}
+        {section === "activity" && <ActivityScreen patientId={subjectId} />}
+        {section === "smoking" && <SmokingScreen patientId={subjectId} />}
+        {section === "alcohol" && <AlcoholScreen patientId={subjectId} />}
         {section === "weightManagement" && (
           <WeightManagementScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
