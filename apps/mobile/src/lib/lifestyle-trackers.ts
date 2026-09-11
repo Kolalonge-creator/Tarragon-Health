@@ -315,3 +315,58 @@ export async function logActivity(
   });
   return error ? { error: error.message } : {};
 }
+
+// ── Meals ──────────────────────────────────────────────────────────────────
+
+export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
+
+export interface MealsState {
+  entries: { id: string; loggedAt: string; mealType: MealType; description: string | null }[];
+}
+
+export async function loadMealsState(patientId: string): Promise<QueryResult<MealsState>> {
+  const { data, error } = await supabase
+    .from("nutrition_log_entries")
+    .select("id, logged_at, meal_type, description")
+    .eq("patient_id", patientId)
+    .order("logged_at", { ascending: false })
+    .limit(60);
+  if (error) return { ok: false, error: error.message };
+  return {
+    ok: true,
+    data: {
+      entries: (data ?? []).map((r) => ({
+        id: r.id,
+        loggedAt: r.logged_at,
+        mealType: r.meal_type as MealType,
+        description: r.description,
+      })),
+    },
+  };
+}
+
+/**
+ * Text-only. The web screen also offers a photo that an AI vision model
+ * estimates carbs from, and that is deliberately NOT reproduced here: every
+ * AI call site on this platform has to be registered in `ai_systems` and go
+ * through runGovernedAi(), so it needs a governed server endpoint rather than
+ * a call from the app. Until that exists, the photo estimate stays on web and
+ * the app says so, instead of quietly shipping an ungoverned second call site.
+ *
+ * ai_status is left at its 'none' default, which is exactly what a
+ * hand-written meal is: an entry with no AI estimate attached.
+ */
+export async function logMeal(
+  patientId: string,
+  input: { mealType: MealType; description: string }
+): Promise<{ error?: string }> {
+  const orgId = await organisationId(patientId);
+  if (!orgId) return { error: "No organisation on file" };
+  const { error } = await supabase.from("nutrition_log_entries").insert({
+    organisation_id: orgId,
+    patient_id: patientId,
+    meal_type: input.mealType,
+    description: input.description,
+  });
+  return error ? { error: error.message } : {};
+}

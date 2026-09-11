@@ -2,6 +2,7 @@ import type { Ionicons } from "@expo/vector-icons";
 
 export type SectionId =
   | "overview"
+  | "meals"
   | "sleep"
   | "activity"
   | "smoking"
@@ -157,6 +158,7 @@ export const SECTIONS: SectionDef[] = [
   // sit in "Stay well" beside the hub that links them, and are reachable
   // from the drawer directly as well as from Lifestyle coaching -- somebody
   // logging sleep every night should not have to go through a hub to do it.
+  { id: "meals", label: "Meals", icon: "restaurant-outline", group: "Stay well" },
   { id: "sleep", label: "Sleep", icon: "moon-outline", group: "Stay well" },
   { id: "activity", label: "Movement", icon: "walk-outline", group: "Stay well" },
   { id: "smoking", label: "Smoking", icon: "flame-outline", group: "Stay well" },

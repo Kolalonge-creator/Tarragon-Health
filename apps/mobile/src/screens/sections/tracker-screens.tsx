@@ -11,6 +11,10 @@ import {
   type AlcoholState,
   type SleepState,
   type SmokingState,
+  loadMealsState,
+  logMeal,
+  type MealsState,
+  type MealType,
 } from "@/lib/lifestyle-trackers";
 import { LifestyleTrackerScreen } from "@/screens/sections/lifestyle-tracker-screen";
 
@@ -190,6 +194,49 @@ export function ActivityScreen({ patientId }: { patientId: string }) {
               .join(" · "),
           })),
         emptyHistory: "Nothing logged yet.",
+      }}
+    />
+  );
+}
+
+export function MealsScreen({ patientId }: { patientId: string }) {
+  return (
+    <LifestyleTrackerScreen<MealsState>
+      config={{
+        title: "Meals",
+        blurb:
+          "Write down what you ate. Over time it helps you and your care team see what is working. To add a photo and get a carb estimate, open Meals on the website.",
+        fields: [
+          {
+            key: "mealType",
+            label: "Which meal?",
+            required: true,
+            choices: [
+              { value: "breakfast", label: "Breakfast" },
+              { value: "lunch", label: "Lunch" },
+              { value: "dinner", label: "Dinner" },
+              { value: "snack", label: "Snack" },
+            ],
+          },
+          { key: "description", label: "What did you eat?", hint: "Like: jollof rice and chicken", required: true },
+        ],
+        submitLabel: "Save this meal",
+        load: () => loadMealsState(patientId),
+        submit: async (values) => {
+          const mealType = values.mealType as MealType | undefined;
+          const description = values.description?.trim();
+          if (!mealType) return { error: "Pick which meal it was." };
+          if (!description) return { error: "Write what you ate." };
+          return logMeal(patientId, { mealType, description });
+        },
+        summary: () => null,
+        history: (s) =>
+          s.entries.map((e) => ({
+            id: e.id,
+            title: e.description ?? "Meal",
+            subtitle: `${e.mealType[0]!.toUpperCase()}${e.mealType.slice(1)} · ${dayLabel(e.loggedAt.slice(0, 10))}`,
+          })),
+        emptyHistory: "Nothing logged yet. Your next meal is a fine place to start.",
       }}
     />
   );

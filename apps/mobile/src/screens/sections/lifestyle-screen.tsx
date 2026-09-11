@@ -39,17 +39,18 @@ const NATIVE_TRACKERS: {
   section: SectionId;
   icon: keyof typeof Ionicons.glyphMap;
 }[] = [
+  { label: "Meals", section: "meals", icon: "restaurant-outline" },
   { label: "Sleep", section: "sleep", icon: "moon-outline" },
   { label: "Movement", section: "activity", icon: "walk-outline" },
   { label: "Smoking", section: "smoking", icon: "flame-outline" },
   { label: "Alcohol", section: "alcohol", icon: "wine-outline" },
 ];
 
-/** Still web, for now: meals and exercise programmes have no native screen
- * yet. Listed separately rather than mixed in with the four above, so the
- * "opens in your browser" caption sits only on the ones it is true of. */
+/** Still web: structured exercise programmes (readiness screening, enrolment)
+ * have no native screen yet. Listed separately from the native trackers above
+ * so the "opens in your browser" caption sits only on the one entry it is
+ * true of. Meals is native now, minus the AI photo estimate -- see logMeal. */
 const WEB_TRACKERS: { label: string; path: string }[] = [
-  { label: "Meals", path: "/patient/nutrition" },
   { label: "Exercise programmes", path: "/patient/exercise" },
 ];
 

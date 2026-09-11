@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, Text, TextInput, View } from "react-native";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 import {
   Card,
   ErrorText,
@@ -34,6 +42,11 @@ export interface TrackerField {
   hint?: string;
   keyboard?: "numeric" | "default";
   required?: boolean;
+  /** Renders a row of chips instead of a text field. Added for the meal-type
+   * picker: a patient choosing breakfast/lunch/dinner should tap, not type,
+   * and putting it in the shared shell keeps that screen looking like its
+   * four siblings rather than becoming a one-off. */
+  choices?: { value: string; label: string }[];
 }
 
 export interface TrackerHistoryItem {
@@ -157,6 +170,37 @@ export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTracker
             <Text style={{ fontSize: typeScale.body, fontWeight: "600", color: colors.ink }}>
               {field.label}
             </Text>
+            {field.choices ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+                {field.choices.map((choice) => {
+                  const selected = values[field.key] === choice.value;
+                  return (
+                    <Pressable
+                      key={choice.value}
+                      accessibilityRole="radio"
+                      accessibilityState={{ selected, checked: selected }}
+                      onPress={() => setValues((v) => ({ ...v, [field.key]: choice.value }))}
+                      style={{
+                        paddingVertical: 10,
+                        paddingHorizontal: 16,
+                        borderRadius: radius.control,
+                        backgroundColor: selected ? colors.brand : colors.groupBg,
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: typeScale.body,
+                          fontWeight: "600",
+                          color: selected ? "#FFFFFF" : colors.ink,
+                        }}
+                      >
+                        {choice.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : (
             <TextInput
               accessibilityLabel={field.label}
               value={values[field.key] ?? ""}
@@ -176,6 +220,7 @@ export function LifestyleTrackerScreen<S>({ config }: { config: LifestyleTracker
                 backgroundColor: colors.card,
               }}
             />
+            )}
           </View>
         ))}
         <PrimaryButton title={config.submitLabel} onPress={() => void onSubmit()} loading={saving} />

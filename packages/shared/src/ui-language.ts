@@ -81,6 +81,7 @@ const PIDGIN: Record<string, string> = {
   "Stay well": "Stay well",
   "Lifestyle coaching": "Food & body coaching",
   "Weight management": "Weight matter",
+  "Meals": "Food",
   "Sleep": "Sleep",
   "Movement": "Movement",
   "Smoking": "Smoking",

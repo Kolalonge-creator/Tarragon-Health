@@ -44,6 +44,7 @@ import { LifestyleScreen } from "@/screens/sections/lifestyle-screen";
 import {
   ActivityScreen,
   AlcoholScreen,
+  MealsScreen,
   SleepScreen,
   SmokingScreen,
 } from "@/screens/sections/tracker-screens";
@@ -287,6 +288,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
           <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
         )}
         {section === "lifestyle" && <LifestyleScreen patientId={userId} onNavigate={handleSelect} />}
+        {section === "meals" && <MealsScreen patientId={subjectId} />}
         {section === "sleep" && <SleepScreen patientId={subjectId} />}
         {section === "activity" && <ActivityScreen patientId={subjectId} />}
         {section === "smoking" && <SmokingScreen patientId={subjectId} />}
