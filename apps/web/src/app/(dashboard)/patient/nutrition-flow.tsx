@@ -25,6 +25,7 @@ import { LoadErrorCard } from "@/components/ui/load-error-card";
 import { listQueryState } from "@/lib/queries/list-query-state";
 import { MEAL_TYPE_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
+import { useT } from "@/components/ui-language-provider";
 
 import { formatPatientDate } from "@/lib/format-date";
 const MEAL_PHOTO_BUCKET = "meal-photos";
@@ -81,6 +82,7 @@ function LogMealSection({
   patientId: string;
   visionConfigured: boolean;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const formRef = useRef<HTMLFormElement>(null);
   const [file, setFile] = useState<File | null>(null);
@@ -115,11 +117,11 @@ function LogMealSection({
       setFile(null);
       setMealType("lunch");
       if (res?.aiStatus === "estimated") {
-        setMessage("Logged. We've added an estimate below. Check and confirm it.");
+        setMessage(t("Logged. We've added an estimate below. Check and confirm it."));
       } else if (res?.aiStatus === "unavailable") {
-        setMessage("Logged. We couldn't estimate this photo automatically. You can add details.");
+        setMessage(t("Logged. We couldn't estimate this photo automatically. You can add details."));
       } else {
-        setMessage("Logged.");
+        setMessage(t("Logged."));
       }
     },
     onError: (err) => {
@@ -130,7 +132,7 @@ function LogMealSection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log a meal</CardTitle>
+        <CardTitle>{t("Log a meal")}</CardTitle>
       </CardHeader>
       <CardContent>
         <form
@@ -143,7 +145,7 @@ function LogMealSection({
           }}
         >
           <div className="grid gap-2">
-            <Label>Meal</Label>
+            <Label>{t("Meal")}</Label>
             <input type="hidden" name="meal_type" value={mealType} />
             {/* Two-up on a phone. At 375px, four columns leave roughly 56px of
                 content per cell once the gaps and the buttons' own p-3 are
@@ -176,7 +178,7 @@ function LogMealSection({
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="description">What did you eat? (optional)</Label>
+            <Label htmlFor="description">{t("What did you eat? (optional)")}</Label>
             <Textarea
               id="description"
               name="description"
@@ -184,14 +186,14 @@ function LogMealSection({
               maxLength={500}
             />
             <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              We&apos;ll match this against our Nigerian food list to estimate calories, carbs, protein,
-              fat, fibre and sodium. You can describe portions in everyday terms like a plate, cup,
-              spoon, handful, piece or serving.
+              {t(
+                "We'll match this against our Nigerian food list to estimate calories, carbs, protein, fat, fibre and sodium. You can describe portions in everyday terms like a plate, cup, spoon, handful, piece or serving."
+              )}
             </p>
           </div>
 
           <div className="grid gap-2">
-            <Label htmlFor="photo">Photo (optional)</Label>
+            <Label htmlFor="photo">{t("Photo (optional)")}</Label>
             <Input
               id="photo"
               type="file"
@@ -200,14 +202,16 @@ function LogMealSection({
             />
             <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               {visionConfigured
-                ? "Add a photo and we'll estimate the portions and carbs for you: a coaching guide, not a medical measurement."
-                : "Photo estimates aren't switched on yet; your meal still logs with the details you add."}
+                ? t(
+                    "Add a photo and we'll estimate the portions and carbs for you: a coaching guide, not a medical measurement."
+                  )
+                : t("Photo estimates aren't switched on yet; your meal still logs with the details you add.")}
             </p>
           </div>
 
           <div className="flex items-center gap-3">
             <Button type="submit" disabled={mutation.isPending}>
-              {mutation.isPending ? "Logging…" : "Log meal"}
+              {mutation.isPending ? t("Logging…") : t("Log meal")}
             </Button>
             {message && <span className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{message}</span>}
           </div>
@@ -333,6 +337,7 @@ function EntryCard({
   activeConditions: CarePlanCondition[];
   catalogue: FoodCatalogueItem[];
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [carbs, setCarbs] = useState<string>("");
   const [saved, setSaved] = useState(false);
@@ -371,7 +376,7 @@ function EntryCard({
       )}
 
       {entry.ai_status === "unavailable" && !estimate && (
-        <p className="mt-2 text-xs text-charcoal-ink/50 dark:text-night-ink/55">No automatic estimate for this meal.</p>
+        <p className="mt-2 text-xs text-charcoal-ink/50 dark:text-night-ink/55">{t("No automatic estimate for this meal.")}</p>
       )}
 
       {estimate && (
@@ -412,7 +417,7 @@ function EntryCard({
         <div className="mt-3 flex flex-wrap items-end gap-2">
           <div className="grid gap-1">
             <Label htmlFor={`carbs-${entry.id}`} className="text-xs">
-              Adjust carbs (g, optional)
+              {t("Adjust carbs (g, optional)")}
             </Label>
             <Input
               id={`carbs-${entry.id}`}
@@ -430,14 +435,14 @@ function EntryCard({
             disabled={confirm.isPending}
             onClick={() => confirm.mutate()}
           >
-            {confirm.isPending ? "Saving…" : "Confirm"}
+            {confirm.isPending ? t("Saving…") : t("Confirm")}
           </Button>
         </div>
       )}
 
       {(entry.patient_confirmed || saved) && (
         <p className="mt-2 text-xs font-medium text-brand-green dark:text-brand-green-bright">
-          Confirmed
+          {t("Confirmed")}
           {entry.confirmed_carbs_g != null ? ` · ${Math.round(entry.confirmed_carbs_g)} g carbs` : ""}
         </p>
       )}
@@ -470,6 +475,7 @@ function MealHistorySection({
   patientId: string;
   activeConditions: CarePlanCondition[];
 }) {
+  const t = useT();
   const { data: entries, isLoading, isError } = useNutritionEntries(patientId);
   const { data: catalogue } = useFoodCatalogue();
   const state = listQueryState({ isLoading, isError, count: entries?.length });
@@ -491,12 +497,12 @@ function MealHistorySection({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Recent meals</CardTitle>
+        <CardTitle>{t("Recent meals")}</CardTitle>
       </CardHeader>
       <CardContent>
-        {state === "loading" && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {state === "loading" && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("Loading…")}</p>}
         {state === "empty" && (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No meals logged yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("No meals logged yet.")}</p>
         )}
         {grouped.length > 0 && (
           <div className="space-y-5">
@@ -525,6 +531,7 @@ function MealHistorySection({
 
 /** Budget-aware substitution (spec 19.9): "I cannot afford X". */
 function BudgetHelperSection() {
+  const t = useT();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<BudgetAlternativeState | null>(null);
 
@@ -536,12 +543,13 @@ function BudgetHelperSection() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Need a cheaper option?</CardTitle>
+        <CardTitle>{t("Need a cheaper option?")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Tell us what you can&apos;t afford right now, and we&apos;ll suggest a local, budget-friendly
-          swap with a similar role on the plate.
+          {t(
+            "Tell us what you can't afford right now, and we'll suggest a local, budget-friendly swap with a similar role on the plate."
+          )}
         </p>
         <form
           className="flex flex-wrap gap-2"
@@ -558,14 +566,15 @@ function BudgetHelperSection() {
             className="flex-1 sm:min-w-64"
           />
           <Button type="submit" disabled={mutation.isPending || !query.trim()}>
-            {mutation.isPending ? "Checking…" : "Suggest"}
+            {mutation.isPending ? t("Checking…") : t("Suggest")}
           </Button>
         </form>
         {result && "error" in result && <p className="text-sm text-red-600 dark:text-red-300">{result.error}</p>}
         {result && "notFound" in result && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-            We don&apos;t have a specific suggestion for that yet. Generally affordable everyday
-            options include beans, eggs, garri and seasonal vegetables.
+            {t(
+              "We don't have a specific suggestion for that yet. Generally affordable everyday options include beans, eggs, garri and seasonal vegetables."
+            )}
           </p>
         )}
         {result && "message" in result && (

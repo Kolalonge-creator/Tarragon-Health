@@ -11,12 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
+import { useT } from "@/components/ui-language-provider";
 
 import { formatPatientDate } from "@/lib/format-date";
 const GOAL_KEY = "sleep-goal";
 const ENTRIES_KEY = "sleep-log-entries";
 
 export function SleepClient({ patientId }: { patientId: string }) {
+  const t = useT();
   const goal = useSleepGoal(patientId);
   const entries = useSleepLogEntries(patientId);
 
@@ -29,12 +31,12 @@ export function SleepClient({ patientId }: { patientId: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>History</CardTitle>
+          <CardTitle>{t("History")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {entries.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+          {entries.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("Loading…")}</p>}
           {!entries.isLoading && (entries.data?.length ?? 0) === 0 && (
-            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing logged yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("Nothing logged yet.")}</p>
           )}
           <ul className="space-y-2">
             {(entries.data ?? []).map((entry) => (
@@ -46,7 +48,7 @@ export function SleepClient({ patientId }: { patientId: string }) {
                 </p>
                 {entry.daytime_sleepiness != null && (
                   <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                    Daytime sleepiness: {DAYTIME_SLEEPINESS_LABELS[entry.daytime_sleepiness]}
+                    {t("Daytime sleepiness:")} {DAYTIME_SLEEPINESS_LABELS[entry.daytime_sleepiness]}
                   </p>
                 )}
               </li>
@@ -65,6 +67,7 @@ function GoalCard({
   patientId: string;
   goal: ReturnType<typeof useSleepGoal>["data"];
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(!goal);
   const [state, formAction, pending] = useActionState<SleepActionState, FormData>(
@@ -82,9 +85,9 @@ function GoalCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle>Your sleep goal</CardTitle>
+        <CardTitle>{t("Your sleep goal")}</CardTitle>
         <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
-          {editing ? "Close" : goal ? "Update" : "Set a goal"}
+          {editing ? t("Close") : goal ? t("Update") : t("Set a goal")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -98,7 +101,7 @@ function GoalCard({
         {editing && (
           <form action={formAction} className="grid gap-3 sm:grid-cols-3 sm:items-end">
             <div className="grid gap-1">
-              <Label htmlFor="target_duration_hours">Target hours</Label>
+              <Label htmlFor="target_duration_hours">{t("Target hours")}</Label>
               <Input
                 id="target_duration_hours"
                 name="target_duration_hours"
@@ -110,15 +113,15 @@ function GoalCard({
               />
             </div>
             <div className="grid gap-1">
-              <Label htmlFor="target_bedtime">Bedtime</Label>
+              <Label htmlFor="target_bedtime">{t("Bedtime")}</Label>
               <Input id="target_bedtime" name="target_bedtime" type="time" defaultValue={goal?.target_bedtime?.slice(0, 5) ?? undefined} />
             </div>
             <div className="grid gap-1">
-              <Label htmlFor="target_waketime">Wake time</Label>
+              <Label htmlFor="target_waketime">{t("Wake time")}</Label>
               <Input id="target_waketime" name="target_waketime" type="time" defaultValue={goal?.target_waketime?.slice(0, 5) ?? undefined} />
             </div>
             <Button type="submit" disabled={pending} className="sm:col-span-3">
-              {pending ? "Saving…" : "Save goal"}
+              {pending ? t("Saving…") : t("Save goal")}
             </Button>
           </form>
         )}
@@ -129,6 +132,7 @@ function GoalCard({
 }
 
 function LogCard({ patientId }: { patientId: string }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [state, formAction, pending] = useActionState<SleepActionState, FormData>(
     async (prev, formData) => {
@@ -144,30 +148,30 @@ function LogCard({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log last night</CardTitle>
+        <CardTitle>{t("Log last night")}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="grid gap-3 sm:grid-cols-2">
           <div className="grid gap-1">
-            <Label htmlFor="duration_hours">Hours slept</Label>
+            <Label htmlFor="duration_hours">{t("Hours slept")}</Label>
             <Input id="duration_hours" name="duration_hours" type="number" min={0} max={24} step={0.5} required />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="quality_rating">Quality (1-5)</Label>
+            <Label htmlFor="quality_rating">{t("Quality (1-5)")}</Label>
             <Input id="quality_rating" name="quality_rating" type="number" min={1} max={5} />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="bedtime">Bedtime</Label>
+            <Label htmlFor="bedtime">{t("Bedtime")}</Label>
             <Input id="bedtime" name="bedtime" type="time" />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="waketime">Wake time</Label>
+            <Label htmlFor="waketime">{t("Wake time")}</Label>
             <Input id="waketime" name="waketime" type="time" />
           </div>
           <div className="grid gap-1 sm:col-span-2">
-            <Label htmlFor="daytime_sleepiness">How likely are you to doze off during the day?</Label>
+            <Label htmlFor="daytime_sleepiness">{t("How likely are you to doze off during the day?")}</Label>
             <Select id="daytime_sleepiness" name="daytime_sleepiness" defaultValue="">
-              <option value="">Not sure</option>
+              <option value="">{t("Not sure")}</option>
               {Object.entries(DAYTIME_SLEEPINESS_LABELS).map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -176,11 +180,11 @@ function LogCard({ patientId }: { patientId: string }) {
             </Select>
           </div>
           <Button type="submit" disabled={pending} className="sm:col-span-2">
-            {pending ? "Saving…" : "Save"}
+            {pending ? t("Saving…") : t("Save")}
           </Button>
         </form>
         {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
-        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">Logged.</p>}
+        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">{t("Logged.")}</p>}
       </CardContent>
     </Card>
   );
