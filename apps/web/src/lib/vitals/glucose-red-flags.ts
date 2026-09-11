@@ -84,7 +84,7 @@ const NONE: GlucoseFlag = { tier: "none", kind: "none", detail: "" };
 /**
  * Suspected type 1 / ketosis-prone clue (§4): a young, lean patient with
  * marked hyperglycaemia must not be assumed to be type 2 — getting this wrong
- * (delaying insulin) can be fatal. We err toward suspicion per the pathway: an
+ * (delaying insulin) can be fatal. We err towards suspicion per the pathway: an
  * unknown BMI does not rule it out in a young patient. This only ANNOTATES an
  * already-firing high-glucose flag — it never changes the tier.
  */

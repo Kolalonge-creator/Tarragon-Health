@@ -6,7 +6,7 @@ import { ProviderRestrictionsManager } from "./provider-restrictions-manager";
 export default async function ProviderRestrictionsSettingsPage() {
   const profile = await getCurrentProfile();
 
-  // Matches the DB's real authorization boundary (private.is_complaints_handler():
+  // Matches the DB's real authorisation boundary (private.is_complaints_handler():
   // admin or an active Clinical Director) — not the RBAC delegation system, since
   // provider_restrictions' own RLS checks that function directly, not
   // private.has_permission(). A Clinical Director who isn't the super admin still

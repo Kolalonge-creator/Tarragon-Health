@@ -17,7 +17,7 @@ export interface AppropriatenessCheckInput {
 /**
  * CDS advisory checks for a referral before submission (67.7): missing
  * information, an origin that would normally carry urgency but doesn't yet,
- * and no recent investigations on file for a specialty where that's usually
+ * and no recent investigations on file for a speciality where that's usually
  * expected before a specialist sees the patient.
  *
  * Deliberately advisory only, never blocking — "CDS can assist... but the

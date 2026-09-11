@@ -144,7 +144,7 @@ export function PharmacistOverview() {
                   <dd className="font-medium text-charcoal-ink">{profile.delivery ? "Yes" : "No"}</dd>
                 </div>
                 <div className="flex items-center justify-between">
-                  <dt className="text-charcoal-ink/55">License</dt>
+                  <dt className="text-charcoal-ink/55">Licence</dt>
                   <dd className="font-medium text-charcoal-ink">{profile.license_number ?? "—"}</dd>
                 </div>
                 <div className="flex items-center justify-between">

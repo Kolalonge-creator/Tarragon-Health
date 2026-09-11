@@ -3,7 +3,7 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 /**
- * Dashboard status colors — a system separate from brand colors
+ * Dashboard status colours — a system separate from brand colours
  * (brand-green/clinical-navy). Used for clinical severity/status only.
  */
 const badgeVariants = cva(

@@ -36,7 +36,7 @@ export function licenseStatus(expiresAt: string | null): {
 
 export function PartnerLicenseBadge({ expiresAt }: { expiresAt: string | null }) {
   const status = licenseStatus(expiresAt);
-  return <Badge variant={status.variant}>License: {status.label}</Badge>;
+  return <Badge variant={status.variant}>Licence: {status.label}</Badge>;
 }
 
 export function PartnerLicenseEditor({
@@ -62,7 +62,7 @@ export function PartnerLicenseEditor({
         className="text-xs text-charcoal-ink/60 underline"
         onClick={() => setOpen(true)}
       >
-        Edit regulatory license
+        Edit regulatory licence
       </button>
     );
   }
@@ -70,7 +70,7 @@ export function PartnerLicenseEditor({
   return (
     <div className="mt-2 grid gap-2 rounded-md border border-charcoal-ink/10 bg-warm-ivory p-3 sm:grid-cols-3">
       <div className="space-y-1">
-        <Label>License type</Label>
+        <Label>Licence type</Label>
         <Input
           placeholder="e.g. PCN premises registration"
           value={licenseType}
@@ -78,7 +78,7 @@ export function PartnerLicenseEditor({
         />
       </div>
       <div className="space-y-1">
-        <Label>License / registration number</Label>
+        <Label>Licence / registration number</Label>
         <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
       </div>
       <div className="space-y-1">
@@ -99,7 +99,7 @@ export function PartnerLicenseEditor({
             setOpen(false);
           }}
         >
-          {saving ? "Saving…" : "Save license"}
+          {saving ? "Saving…" : "Save licence"}
         </Button>
         <Button type="button" size="sm" variant="outline" onClick={() => setOpen(false)}>
           Cancel

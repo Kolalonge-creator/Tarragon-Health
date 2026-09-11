@@ -338,7 +338,7 @@ function DraftNoteCard({
                 })
               }
             >
-              {finalize.isPending ? "Signing…" : "Sign & finalize"}
+              {finalise.isPending ? "Signing…" : "Sign & finalise"}
             </Button>
           </div>
         </div>

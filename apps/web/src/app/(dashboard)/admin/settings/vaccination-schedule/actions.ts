@@ -10,7 +10,7 @@ export type SignVaccinationScheduleState = { error?: string; success?: boolean }
 /**
  * Create a new sign-off draft, snapshotting the CURRENT active
  * vaccination_catalog rows so the record shows exactly what was reviewed at
- * this moment — never re-derived later from a catalog that may have since
+ * this moment — never re-derived later from a catalogue that may have since
  * changed. Inserted as unsigned/inactive (RLS forces this); a Clinical
  * Director then signs it via signVaccinationScheduleAction below.
  */

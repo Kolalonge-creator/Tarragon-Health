@@ -1,5 +1,5 @@
 /**
- * Shared brand-toned pill colors for marketing stat callouts (audience-tabs,
+ * Shared brand-toned pill colours for marketing stat callouts (audience-tabs,
  * b2b-page-template). Deliberately NOT the shared clinical-status `Badge`
  * component — its red/amber/green variants are reserved for the dashboard's
  * clinical severity system (see badge.tsx's own header comment and

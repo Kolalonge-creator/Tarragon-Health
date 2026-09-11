@@ -218,7 +218,7 @@ export function ServiceLevelsDashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
-                  <th className="py-2 pr-4 font-medium">Specialty</th>
+                  <th className="py-2 pr-4 font-medium">Speciality</th>
                   <th className="py-2 pr-4 text-right font-medium">Referrals (90d)</th>
                   <th className="py-2 pr-4 text-right font-medium">Avg hrs to booking</th>
                   <th className="py-2 pr-4 text-right font-medium">Median hrs to booking</th>

@@ -11,10 +11,10 @@ import {
 /**
  * Clinical Director sign-off for the vaccination reference schedule that
  * drives vaccination_catalog's due/overdue computation and the vaccination_due
- * reminder cron. The catalog itself is edited via migrations (each dosing
+ * reminder cron. The catalogue itself is edited via migrations (each dosing
  * change is its own reviewed, tested change — see supabase/migrations for the
  * 2026-07-24 tetanus/shingles accuracy work); this page is where a Clinical
- * Director reviews the CURRENT catalog and puts a signed record of that
+ * Director reviews the CURRENT catalogue and puts a signed record of that
  * review on file, the same signing discipline as /admin/settings/cv-risk-config.
  */
 export default async function VaccinationScheduleSettingsPage() {

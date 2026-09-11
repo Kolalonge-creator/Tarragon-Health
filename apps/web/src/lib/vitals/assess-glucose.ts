@@ -125,7 +125,7 @@ export async function assessGlucoseBestEffort(
 
     const ageYears = profile?.date_of_birth ? ageFromDateOfBirth(profile.date_of_birth) : null;
     // BMI needs height, which the vitals record doesn't carry — pass null, and
-    // suspectsType1 errs toward suspicion for a young patient with unknown BMI
+    // suspectsType1 errs towards suspicion for a young patient with unknown BMI
     // (per the pathway: a lean/young clue must not be missed).
     if (!typeAlreadyKnown && suspectsType1({ ageYears, bmi: null })) {
       flag.detail +=

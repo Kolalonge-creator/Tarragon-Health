@@ -19,7 +19,7 @@ import type { Enums } from "@tarragon/shared";
  *    the screening calendar's due-schedule state (Prevention screen), and
  *    per the founder's 2026-08-03 self-arranged-fulfilment decision there is
  *    no facility directory or booking flow to build a "book this" action
- *    toward. This screen is read/track only, same as the web catalogue's own
+ *    towards. This screen is read/track only, same as the web catalogue's own
  *    "read-only per the clinician-originated-orders guardrail" note.
  *  - The partner-lab visit request (RequestPartnerLabVisit) and vaccination
  *    booking-requests list (BookingRequestsList) — both are facility-

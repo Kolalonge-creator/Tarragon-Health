@@ -8,10 +8,10 @@ export type CostAvoidedEstimate = {
 };
 
 /**
- * "Estimated cost avoided" is a modeled figure (abnormal findings caught
+ * "Estimated cost avoided" is a modelled figure (abnormal findings caught
  * early x a per-catch estimate from cohort_cost_model_constants), never a
  * real claims-integration number — Tarragon has no HMO claims data feed.
- * Every call site rendering this MUST show a visible "modeled estimate,
+ * Every call site rendering this MUST show a visible "modelled estimate,
  * not a real claims feed" label — see CARE_GAP_ESTIMATE_DISCLAIMER.
  */
 export async function estimateCostAvoided(
@@ -44,4 +44,4 @@ export async function estimateCostAvoided(
 }
 
 export const CARE_GAP_ESTIMATE_DISCLAIMER =
-  "Modeled estimate — not a real claims feed. Based on abnormal findings caught early x an admin-configurable per-catch figure.";
+  "Modelled estimate — not a real claims feed. Based on abnormal findings caught early x an admin-configurable per-catch figure.";

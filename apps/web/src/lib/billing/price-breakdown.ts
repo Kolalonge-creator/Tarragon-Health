@@ -1,7 +1,7 @@
 /**
  * §91.6 price transparency. Distinct from review-price.tsx's deliberate
  * per-test-price suppression for lab bundles (a clinical-privacy decision —
- * see private.price_review_for_patient) — this is a genuinely itemized
+ * see private.price_review_for_patient) — this is a genuinely itemised
  * breakdown for everything else, and where a lab bundle is involved it
  * collapses to that same single suppressed "Lab tests" line rather than
  * reimplementing or undoing that suppression.
@@ -27,7 +27,7 @@ export interface PriceBreakdown {
 }
 
 /** A single flat line at the total price, no discounts — the common case for
- * a flow with nothing yet to itemize further (a service pack purchase, a
+ * a flow with nothing yet to itemise further (a service pack purchase, a
  * video visit). Kept as one small helper rather than repeating this object
  * shape at every call site. */
 export function flatBreakdown(label: string, amountKobo: number, currency = "NGN"): PriceBreakdown {

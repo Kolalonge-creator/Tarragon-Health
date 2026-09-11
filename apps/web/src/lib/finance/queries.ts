@@ -227,7 +227,7 @@ export const financeKeys = {
 
 /**
  * Additions from the 2026-07-26 audit/tracking/functionality pass: maker-
- * checker approvals, cost centers, budgets, cash flow statement, accounts
+ * checker approvals, cost centres, budgets, cash flow statement, accounts
  * payable, statutory compliance calendar, KPIs and
  * the finance-specific audit log viewer.
  */
