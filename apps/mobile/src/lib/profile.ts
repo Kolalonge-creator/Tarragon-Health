@@ -1,4 +1,6 @@
 import { supabase } from "./supabase";
+import { type GlucoseDisplayUnit } from "@tarragon/shared";
+import { clearGlucoseUnitCache } from "./glucose-unit";
 import type { Tables } from "@tarragon/shared";
 
 export type ProfileRow = Tables<"profiles">;
@@ -94,6 +96,24 @@ export async function updateConditionLanguage(
     .update({ condition_language_preference: value })
     .eq("id", userId);
   if (error) throw error;
+}
+
+/**
+ * The unit this patient reads their own glucose figures in. Display and
+ * entry-form default only -- vitals_readings always stores mmol/L, so this
+ * never converts a stored reading. See profiles.glucose_display_unit.
+ */
+export async function updateGlucoseDisplayUnit(
+  userId: string,
+  value: GlucoseDisplayUnit
+): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ glucose_display_unit: value })
+    .eq("id", userId);
+  if (error) throw error;
+  // The unit is cached per session for the screens that only read it.
+  clearGlucoseUnitCache();
 }
 
 export interface EmergencyContactInput {

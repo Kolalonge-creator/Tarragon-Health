@@ -67,6 +67,53 @@ export function mmolLToMgDl(mmolL: number): number {
   return Math.round(mmolL * GLUCOSE_MMOL_TO_MGDL);
 }
 
+/**
+ * The unit a patient sees their own glucose figures in.
+ *
+ * `vitals_readings` always STORES mmol/L; this is a display and
+ * input-default concern only, so switching it never converts stored data.
+ *
+ * The Nigerian default is mg/dL, and deliberately so: meters sold here read
+ * mg/dL, so a patient typing the 110 off their Accu-Chek and being shown
+ * "6.1" back has been handed a number they cannot check against the device in
+ * their hand. Before this existed, every display site on both apps was
+ * hardcoded to mmol/L, including the hypoglycaemia threshold in the diabetes
+ * guidance ("below 3.9 mmol/L") — a figure that meter will never show.
+ */
+export const GLUCOSE_DISPLAY_UNITS = ["mg_dl", "mmol_l"] as const;
+export type GlucoseDisplayUnit = (typeof GLUCOSE_DISPLAY_UNITS)[number];
+
+/** What Nigeria's meters read, and so what a new patient gets. */
+export const DEFAULT_GLUCOSE_DISPLAY_UNIT: GlucoseDisplayUnit = "mg_dl";
+
+export const GLUCOSE_UNIT_LABEL: Record<GlucoseDisplayUnit, string> = {
+  mg_dl: "mg/dL",
+  mmol_l: "mmol/L",
+};
+
+/**
+ * A stored mmol/L reading as the patient's own unit, unit suffix included.
+ *
+ * mg/dL is a whole number and mmol/L carries one decimal, which is what each
+ * unit's own meters report — rendering "110.0 mg/dL" or "6 mmol/L" both read
+ * as a machine's idea of the number rather than the patient's.
+ */
+export function formatGlucose(
+  mmolL: number | null | undefined,
+  unit: GlucoseDisplayUnit,
+  options: { withUnit?: boolean } = {},
+): string | null {
+  if (mmolL === null || mmolL === undefined || !Number.isFinite(mmolL)) return null;
+  const value = unit === "mg_dl" ? String(mmolLToMgDl(mmolL)) : mmolL.toFixed(1);
+  return options.withUnit === false ? value : `${value} ${GLUCOSE_UNIT_LABEL[unit]}`;
+}
+
+/** The bare number in the patient's unit, for a chart axis or a form field
+ * that carries its unit in a separate label. */
+export function glucoseInDisplayUnit(mmolL: number, unit: GlucoseDisplayUnit): number {
+  return unit === "mg_dl" ? mmolLToMgDl(mmolL) : Math.round(mmolL * 10) / 10;
+}
+
 /** The official NGSP<->IFCC master equation slope/intercept — a fixed
  * clinical-standard formula, not a model, so it's safe to hardcode here
  * rather than depend on services/ml being up. */

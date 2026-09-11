@@ -258,6 +258,7 @@ function CollapsibleNavGroup({
   open,
   onToggle,
   navCounts,
+  onNavigate,
 }: {
   label: string;
   items: NavItem[];
@@ -265,6 +266,7 @@ function CollapsibleNavGroup({
   open: boolean;
   onToggle: (label: string, currentlyOpen: boolean) => void;
   navCounts?: NavCounts;
+  onNavigate?: () => void;
 }) {
   const panelId = React.useId();
   return (
@@ -295,7 +297,13 @@ function CollapsibleNavGroup({
         <div className="overflow-hidden" inert={!open}>
           <ul className="space-y-0.5">
             {items.map((item) => (
-              <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
+              <NavLinkItem
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                navCounts={navCounts}
+                onNavigate={onNavigate}
+              />
             ))}
           </ul>
         </div>
@@ -320,10 +328,13 @@ function CollapsibleSidebarNav({
   sections,
   pathname,
   navCounts,
+  onNavigate,
 }: {
   sections: NavSection[];
   pathname: string;
   navCounts?: NavCounts;
+  /** Set on the phone drawer so following a link also closes it. */
+  onNavigate?: () => void;
 }) {
   const dangerItems = sections.flatMap((s) => s.items.filter((i) => i.variant === "danger"));
   const groups = sections
@@ -405,11 +416,18 @@ function CollapsibleSidebarNav({
               open={overrideFor(group.label) ?? group.label === activeGroupLabel}
               onToggle={toggleGroup}
               navCounts={navCounts}
+              onNavigate={onNavigate}
             />
           ) : (
             <ul key={i} className="space-y-0.5">
               {group.items.map((item) => (
-                <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
+                <NavLinkItem
+                  key={item.href}
+                  item={item}
+                  pathname={pathname}
+                  navCounts={navCounts}
+                  onNavigate={onNavigate}
+                />
               ))}
             </ul>
           )
@@ -418,7 +436,13 @@ function CollapsibleSidebarNav({
       {dangerItems.length > 0 && (
         <ul className="mt-auto space-y-0.5 pt-6">
           {dangerItems.map((item) => (
-            <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
+            <NavLinkItem
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              navCounts={navCounts}
+              onNavigate={onNavigate}
+            />
           ))}
         </ul>
       )}
@@ -631,12 +655,29 @@ export function AppShell({
                 <NAV_ICON.close className="h-5 w-5" strokeWidth={2} />
               </Button>
             </div>
-            <SidebarNav
-              sections={navSections}
-              pathname={pathname}
-              onNavigate={() => setMobileOpen(false)}
-              navCounts={navCounts}
-            />
+            {/* The phone drawer gets the same progressive disclosure as the
+                desktop sidebar for the patient surface. It used to render
+                every link flat, which on the patient menu is a single
+                scrolling wall — the surface where that hurts most, since it
+                is also the smallest screen. The everyday band stays open
+                (CollapsibleSidebarNav never collapses the unlabelled top
+                group) and the Emergency card stays pinned, so nothing a
+                patient needs in a hurry moved behind a heading. */}
+            {surface === "warm" ? (
+              <CollapsibleSidebarNav
+                sections={navSections}
+                pathname={pathname}
+                onNavigate={() => setMobileOpen(false)}
+                navCounts={navCounts}
+              />
+            ) : (
+              <SidebarNav
+                sections={navSections}
+                pathname={pathname}
+                onNavigate={() => setMobileOpen(false)}
+                navCounts={navCounts}
+              />
+            )}
             {userBlock}
           </div>
         </div>

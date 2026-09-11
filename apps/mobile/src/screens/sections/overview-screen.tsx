@@ -1,4 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  GetStartedCard,
+  isFirstRun,
+  shouldShowGetStarted,
+} from "@/screens/sections/get-started-card";
+import {
+  formatGlucose,
+  GLUCOSE_UNIT_LABEL,
+  type GlucoseDisplayUnit,
+} from "@tarragon/shared";
+import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import {
@@ -86,7 +97,7 @@ interface HeroMetric {
  * relevant first: a real BP reading beats glucose beats today's dose count.
  * Null means no reading of any kind exists yet; the hero shows a warm
  * prompt instead — never a fake or zeroed value. */
-function heroMetric(stats: SummaryStats): HeroMetric | null {
+function heroMetric(stats: SummaryStats, glucoseUnit: GlucoseDisplayUnit): HeroMetric | null {
   if (stats.latestBp) {
     return {
       label: "Latest blood pressure",
@@ -95,7 +106,12 @@ function heroMetric(stats: SummaryStats): HeroMetric | null {
     };
   }
   if (stats.latestGlucoseMmolL !== null) {
-    return { label: "Latest glucose", value: String(stats.latestGlucoseMmolL), unit: "mmol/L" };
+    return {
+      label: "Latest glucose",
+      // The reader's own unit, so this matches the number on their meter.
+      value: formatGlucose(stats.latestGlucoseMmolL, glucoseUnit, { withUnit: false }) ?? "—",
+      unit: GLUCOSE_UNIT_LABEL[glucoseUnit],
+    };
   }
   if (stats.dosesTotal > 0) {
     return { label: "Doses taken today", value: `${stats.dosesTaken}/${stats.dosesTotal}` };
@@ -117,6 +133,7 @@ function formatVisitTime(iso: string): string {
 }
 
 export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewScreenProps) {
+  const glucoseUnit = useGlucoseDisplayUnit();
   const [stats, setStats] = useState<SummaryStats | null>(null);
   const [careTeam, setCareTeam] = useState<CareTeamInfo | null>(null);
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
@@ -201,8 +218,19 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
     );
   }
 
+  // Same two questions as web's Overview: whether to offer the setup steps,
+  // and whether the account is empty enough that the stat tiles could only
+  // render em-dashes.
+  const progress = {
+    hasRiskAssessment: stats.hasRiskAssessment,
+    hasAnyVitals: stats.lastVitalTakenAt !== null,
+    hasMedications: stats.activeMedicationCount > 0,
+  };
+  const showGetStarted = shouldShowGetStarted(progress);
+  const firstRun = isFirstRun(progress);
+
   const step = nextBestStep(stats);
-  const hero = heroMetric(stats);
+  const hero = heroMetric(stats, glucoseUnit);
 
   return (
     <ScrollView
@@ -338,14 +366,28 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
         </Card>
       ) : null}
 
+      {showGetStarted ? (
+        <GetStartedCard progress={progress} onNavigate={onNavigate} />
+      ) : null}
+
       <View style={{ gap: 10 }}>
-        <SectionLabel>Your numbers</SectionLabel>
+        {/* On an empty account these four tiles can only read "—", "—", "0"
+            and "0/0". The quick actions below them stay: those are how a
+            patient puts the first number there. */}
+        {firstRun ? null : <SectionLabel>Your numbers</SectionLabel>}
+        {firstRun ? null : (
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
           <StatTile icon="heart-outline" label="Latest BP" value={stats.latestBp ? `${stats.latestBp.systolic}/${stats.latestBp.diastolic}` : "—"} unit="mmHg" />
-          <StatTile icon="water-outline" label="Latest glucose" value={stats.latestGlucoseMmolL !== null ? String(stats.latestGlucoseMmolL) : "—"} unit="mmol/L" />
+          <StatTile
+            icon="water-outline"
+            label="Latest glucose"
+            value={formatGlucose(stats.latestGlucoseMmolL, glucoseUnit, { withUnit: false }) ?? "—"}
+            unit={GLUCOSE_UNIT_LABEL[glucoseUnit]}
+          />
           <StatTile icon="medkit-outline" label="Active meds" value={String(stats.activeMedicationCount)} />
           <StatTile icon="checkmark-circle-outline" label="Doses today" value={`${stats.dosesTaken}/${stats.dosesTotal}`} />
         </View>
+        )}
         <QuickActionGrid>
           <QuickActionButton icon="pulse-outline" label="Log a reading" onPress={() => onNavigate("vitals")} />
           <QuickActionButton icon="medkit-outline" label="Medications" onPress={() => onNavigate("medications")} />

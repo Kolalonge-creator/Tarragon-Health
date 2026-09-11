@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { GLUCOSE_UNIT_LABEL, type GlucoseDisplayUnit } from "@tarragon/shared";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
@@ -26,6 +27,7 @@ import {
   loadLatestIdentityVerification,
   loadProfile,
   updateConditionLanguage,
+  updateGlucoseDisplayUnit,
   updateEmergencyContact,
   updateLocation,
   type CorrectionRequestRow,
@@ -145,6 +147,73 @@ function LocationSection({
         {saved ? <MutedText>Location saved.</MutedText> : null}
         <PrimaryButton title="Save location" onPress={handleSave} loading={saving} />
       </Card>
+    </View>
+  );
+}
+
+function GlucoseUnitSection({
+  userId,
+  profile,
+  onSaved,
+}: {
+  userId: string;
+  profile: ProfileRow;
+  onSaved: (patch: Partial<ProfileRow>) => void;
+}) {
+  const [value, setValue] = useState<GlucoseDisplayUnit>(
+    profile.glucose_display_unit === "mmol_l" ? "mmol_l" : "mg_dl"
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function choose(next: GlucoseDisplayUnit) {
+    if (next === value) return;
+    const previous = value;
+    setValue(next);
+    setSaving(true);
+    setError(null);
+    try {
+      await updateGlucoseDisplayUnit(userId, next);
+      onSaved({ glucose_display_unit: next });
+    } catch (e) {
+      setValue(previous);
+      setError(e instanceof Error ? e.message : "Couldn't save that just now. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      <SectionLabel>Blood sugar unit</SectionLabel>
+      <MutedText>
+        Pick whichever one your own meter shows, so you never have to convert. This only changes
+        how readings are shown; nothing you have already logged is altered.
+      </MutedText>
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        {(["mg_dl", "mmol_l"] as const).map((option) => (
+          <Pressable
+            key={option}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: value === option, checked: value === option }}
+            onPress={() => void choose(option)}
+            disabled={saving}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: radius.control,
+              alignItems: "center",
+              backgroundColor: value === option ? colors.brand : colors.groupBg,
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? "#FFFFFF" : colors.ink }}>
+              {GLUCOSE_UNIT_LABEL[option]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {error ? <ErrorText>{error}</ErrorText> : null}
     </View>
   );
 }
@@ -831,6 +900,8 @@ export function ProfileScreen() {
       <LocationSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
       <ConditionLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
+      <SectionDivider />
+      <GlucoseUnitSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
       <EmergencyContactSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
