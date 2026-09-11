@@ -30,6 +30,7 @@ import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
 import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-completion-card";
 import { HealthProgressCard } from "@/app/(dashboard)/patient/health-progress-card";
+import { ServicesPromoCard } from "@/app/(dashboard)/patient/services-promo-card";
 import { YourCareTeam } from "@/components/your-care-team";
 import { RequiresEntitlement } from "@/components/requires-entitlement";
 import { UpgradePrompt } from "@/components/upgrade-prompt";
@@ -289,6 +290,17 @@ export default async function PatientOverviewPage() {
           </div>
         </>
       )}
+
+      {/* The catalogue's cheapest currently-buyable services, directly on the
+          page every patient lands on — this is where the paid-per-service
+          doctor-time revenue actually gets bought, and until now the only
+          way in was four rows down "Your account" in the sidebar. Self-hides
+          once nothing is left to buy. Placed after the clinical snapshot
+          above (brand voice: no upsell-first dashboard) but before the
+          score/progress detail cards, so it stays in the upper half of the
+          page without displacing "how am I doing" as the thing the page
+          leads with. */}
+      <ServicesPromoCard />
 
       {/* Paired on lg: the breakdown behind the hero's score (the hero band
           owns the display-scale figure now — this card is "Score details",

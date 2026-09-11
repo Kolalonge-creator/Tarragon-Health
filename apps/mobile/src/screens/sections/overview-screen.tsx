@@ -399,6 +399,27 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
         </QuickActionGrid>
       </View>
 
+      {/* This is where the paid-per-service doctor-time revenue actually
+          gets bought, and until now the only way in was drilling into "Your
+          account" in the drawer. Mirrors web's ServicesPromoCard on Overview
+          (2026-09-11): placed right after the clinical snapshot rather than
+          above it (brand voice: no upsell-first dashboard). Opens the native
+          "My services" section rather than a WebView, same as any other
+          drawer destination. Not tr()-wrapped, matching the untranslated
+          CalloutCard pair further down this file (Message your care
+          team/Care & support) rather than the newer tr()-wrapped strings
+          above -- this screen's Pidgin coverage is partial today. */}
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Doctor time &amp; services</SectionLabel>
+        <CalloutCard
+          icon="card-outline"
+          title="My services"
+          subtitle="The app is free. You only pay for a doctor's time — one service at a time, nothing auto-renews."
+          ctaLabel="See services"
+          onPress={() => onNavigate("services")}
+        />
+      </View>
+
       {schedule.length > 0 ? (
         <View style={{ gap: 10 }}>
           <SectionLabel>What&apos;s coming up</SectionLabel>
