@@ -42,6 +42,19 @@ export interface PreventiveProgrammeRecommendation {
   rationale: string;
 }
 
+/** prevention_risk_scores.tier is risk_level (has very_high/unknown); this
+ * engine only works in three tiers. very_high collapses into high; unknown
+ * collapses into low — a recommendation driven by absent data should never
+ * read as more urgent than one driven by an actual low reading. Shared
+ * between the client-side "Recommended for you" badge
+ * (preventive-programmes.tsx) and the server-side auto-enrolment in
+ * submitRiskAssessment (patient/actions.ts) so both apply the same rule. */
+export function toRiskTier(tier: Enums<"risk_level">): RiskTier {
+  if (tier === "very_high") return "high";
+  if (tier === "unknown") return "low";
+  return tier;
+}
+
 const TIER_RANK: Record<RiskTier, number> = { low: 0, moderate: 1, high: 2 };
 
 function anyTierMeets(
