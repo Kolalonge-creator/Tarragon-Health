@@ -96,6 +96,17 @@ const nextConfig: NextConfig = {
   // In a monorepo, trace files from the repo root so shared workspace
   // packages are correctly included in the production output.
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  // Server Actions default to a 1MB request-body cap. Every form that
+  // uploads a file straight through a Server Action (patient avatar, up to
+  // 5MB per validatePatientAvatarFile; medicine-pack photos, up to 8MB) was
+  // silently rejected by this cap before the handler ever ran, well below
+  // what the UI advertised and validated client-side. Raised past the
+  // largest of those, with the multipart overhead the docs call out.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
   // Compile TypeScript sources imported from workspace packages.
   transpilePackages: ["@tarragon/shared", "@tarragon/lifestyle-engine", "@tarragon/symptom-triage-engine"],
   // Dev-server-only (ignored in production builds). The Expo mobile app's

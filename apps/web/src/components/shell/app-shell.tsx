@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { NAV_ICON, APP_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
 import { UiLanguageProvider, useT } from "@/components/ui-language-provider";
-import { DEFAULT_UI_LANGUAGE, type UiLanguage } from "@tarragon/shared";
+import { DEFAULT_UI_LANGUAGE, UI_LANGUAGES, UI_LANGUAGE_LABEL, type UiLanguage } from "@tarragon/shared";
 import { useWorklistCounts, type WorklistCountKey } from "@/lib/queries/worklist-counts";
 
 /** Live counts keyed by NavItem.countKey, plus whether the underlying batched
@@ -477,6 +477,55 @@ function BrandLockup({ homeHref }: { homeHref: string }) {
   );
 }
 
+/**
+ * Quick header language switch — cycles English/Pidgin with one tap, the
+ * same way ThemeToggle cycles the theme. The fuller picker with the "clinical
+ * content stays in English" note still lives at Profile
+ * (app/(dashboard)/patient/ui-language-form.tsx); before this, that Profile
+ * page was the ONLY place a patient could find the switch at all, on every
+ * other page in the app.
+ */
+function LanguageToggle({
+  language,
+  action,
+}: {
+  language: UiLanguage;
+  action: (
+    prevState: { success?: boolean; error?: string } | undefined,
+    formData: FormData
+  ) => Promise<{ success?: boolean; error?: string } | undefined>;
+}) {
+  const [state, formAction, pending] = React.useActionState(action, undefined);
+  const next = UI_LANGUAGES[(UI_LANGUAGES.indexOf(language) + 1) % UI_LANGUAGES.length];
+  const router = useRouter();
+  // The action's own revalidatePath("/patient", "layout") busts the server
+  // cache, but the nav labels this shell already rendered stay stale until
+  // something asks for a fresh RSC payload — a raw form submit doesn't do
+  // that on its own here. router.refresh() is that ask, right after a
+  // successful save, so switching languages reads as instant rather than
+  // "took effect next time you happen to navigate somewhere."
+  React.useEffect(() => {
+    if (state?.success) router.refresh();
+  }, [state, router]);
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="language" value={next} />
+      <Button
+        type="submit"
+        variant="ghost"
+        size="sm"
+        className="h-9 px-2 text-xs font-semibold text-charcoal-ink/70 hover:text-charcoal-ink dark:text-night-ink/70 dark:hover:text-night-ink"
+        disabled={pending}
+        aria-label={`${UI_LANGUAGE_LABEL[language]} interface. Switch to ${UI_LANGUAGE_LABEL[next]}`}
+        title={`${UI_LANGUAGE_LABEL[language]}, tap to switch to ${UI_LANGUAGE_LABEL[next]}`}
+      >
+        {language.toUpperCase()}
+      </Button>
+    </form>
+  );
+}
+
 export function AppShell({
   userName,
   avatarUrl,
@@ -488,6 +537,7 @@ export function AppShell({
   surface = "default",
   initialTheme = "light",
   uiLanguage = DEFAULT_UI_LANGUAGE,
+  uiLanguageAction,
   signOutAction,
   children,
 }: {
@@ -514,6 +564,16 @@ export function AppShell({
    * so the data-theme attribute is on the first paint — no wrong-theme
    * flash. Ignored on the default surface, which never themes. */
   initialTheme?: ThemePreference;
+  /** Saves profiles.language — the patient's own updateUiLanguage server
+   * action (app/(dashboard)/patient/ui-language-actions.ts), passed in by
+   * the layout rather than imported here, the same way signOutAction is, so
+   * this shared shell never reaches into a route-specific action file.
+   * Renders the quick header LanguageToggle only when supplied (patient
+   * surface only — the layout omits it for staff). */
+  uiLanguageAction?: (
+    prevState: { success?: boolean; error?: string } | undefined,
+    formData: FormData
+  ) => Promise<{ success?: boolean; error?: string } | undefined>;
   signOutAction: () => Promise<void>;
   children: React.ReactNode;
 }) {
@@ -727,6 +787,9 @@ export function AppShell({
               </span>
             </div>
             <div className="flex items-center gap-3 text-sm">
+              {surface === "warm" && uiLanguageAction && (
+                <LanguageToggle language={uiLanguage} action={uiLanguageAction} />
+              )}
               {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}
               <DeviceHeartbeat />
               <PushSubscribePrompt />

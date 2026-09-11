@@ -25,6 +25,7 @@ export default async function NotificationSettingsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Notification settings"
         icon={NAV_ICON.bell}
         description="Choose how you'd like to hear from us for each kind of update. Critical health alerts sit outside this: they always reach you in the app."

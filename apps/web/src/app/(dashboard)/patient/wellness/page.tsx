@@ -34,6 +34,7 @@ export default async function WellnessHubPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Wellness rewards"
         icon={SEMANTIC_ICON.points}
         description="Small, everyday habits add up. Earn points for logging, learning, and finishing challenges, collect badges along the way, and redeem points any time for a real Health reward voucher you can put towards your care."

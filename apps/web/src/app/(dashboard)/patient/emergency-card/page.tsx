@@ -60,6 +60,7 @@ export default async function EmergencyCardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Emergency card"
         icon={NAV_ICON.siren}
         description="The few things that matter most if you are ever treated somewhere that has not seen you before: your blood group and genotype, allergies, current medicines, ongoing conditions, and your emergency contact."
