@@ -325,7 +325,14 @@ export function AnnualHealthCheckBooking({
 
             {selected && !openBundleIds.has(selected.id) && (
               <div className="space-y-2 pt-1">
-                {partnerBillingAvailable ? (
+                {/* partnerBillingAvailable is a REGION check (is a contracted lab
+                    switched on where this patient lives), not a check on whether
+                    Tarragon sells this bundle. Those came apart on 2026-09-10
+                    when the catalogue became guidance_only: a Lagos patient was
+                    still shown a price and a "Book & pay" button, and
+                    private.enforce_guidance_only_is_never_billed refused the
+                    order at the database. Both conditions now have to hold. */}
+                {partnerBillingAvailable && !selected.guidance_only ? (
                   <form action={payAction} className="space-y-3">
                     <input type="hidden" name="panelBundleId" value={selected.id} />
                     {selectedTestDetails?.specimen_type && (
