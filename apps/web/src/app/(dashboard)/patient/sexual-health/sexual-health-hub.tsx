@@ -355,6 +355,7 @@ export function SexualHealthHub({ patientId }: { patientId: string }) {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Sexual & reproductive health"
         icon={SEMANTIC_ICON.family}
         description="Testing, contraception, fertility, and wellness: private, and reviewed by your care team."

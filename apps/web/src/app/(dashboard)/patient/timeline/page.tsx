@@ -18,6 +18,7 @@ export default async function PatientTimelinePage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Activity timeline"
         icon={NAV_ICON.audit}
         description="Every lab result, medication change, screening, and care-team update on your record, grouped by month."

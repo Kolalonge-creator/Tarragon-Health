@@ -19,6 +19,7 @@ export default async function PatientReceiptsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Receipts"
         icon={NAV_ICON.receipts}
         description="Every payment you have made: membership, labs, pharmacy, referrals, video consultations, and care vouchers you bought."

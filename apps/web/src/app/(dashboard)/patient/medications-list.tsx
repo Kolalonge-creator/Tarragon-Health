@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   useConfirmMedicationRefill,
   useMedicationCollections,
@@ -45,6 +45,7 @@ import { Label } from "@/components/ui/label";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
+import { assessMedicationSafety, type DrugSafetySeverity, type FindingKind } from "@/lib/rules/drug-safety";
 
 import { formatPatientDate } from "@/lib/format-date";
 const SOURCE_BADGE: Record<
@@ -54,6 +55,20 @@ const SOURCE_BADGE: Record<
   clinician: { variant: "blue", label: "Prescribed" },
   specialist: { variant: "amber", label: "Specialist" },
   patient: { variant: "grey", label: "Self-added" },
+};
+
+const SAFETY_SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {
+  contraindicated: { label: "Avoid together", variant: "red" },
+  caution: { label: "Caution", variant: "amber" },
+  info: { label: "Note", variant: "grey" },
+};
+
+const SAFETY_KIND_LABEL: Record<FindingKind, string> = {
+  interaction: "Interaction",
+  duplicate_therapy: "Duplicate therapy",
+  renal_dosing: "Kidney function",
+  drug_specific: "Drug note",
+  allergy: "Allergy",
 };
 
 export function MedicationsList({
@@ -129,6 +144,7 @@ export function MedicationsList({
       </CardHeader>
       <CardContent>
         <CabinetSummary patientId={patientId} />
+        {!isClinicianView && <MedicationInteractionNote medications={data ?? []} />}
         {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
           <p className="text-sm text-red-600 dark:text-red-300">Could not load medications.</p>
@@ -304,6 +320,75 @@ function RefillGapNote({
       supply, {signal.actualIntervalDays} days between the last two pickups).{" "}
       <span className="text-charcoal-ink/50 dark:text-night-ink/55">{REFILL_GAP_DISCLAIMER}</span>
     </p>
+  );
+}
+
+/**
+ * Read-only, patient-facing surfacing of assessMedicationSafety's interaction/
+ * duplicate-therapy/drug-specific findings across the patient's own active
+ * list — the same rule engine MedicationSafetyPanel already runs for
+ * clinicians (@/lib/rules/drug-safety.ts), just without the eGFR/allergy
+ * context a clinician's chart has loaded, so renal-dosing and allergy
+ * findings are left out here rather than shown as checked when they were
+ * not. Advisory only: it never blocks adding a medication and writes
+ * nothing anywhere — see checkMedicationSafetyAfterAdd in actions.ts for why
+ * the gated, alert-writing version of this check stays clinician-only.
+ */
+function MedicationInteractionNote({ medications }: { medications: MedicationWithCarePlan[] }) {
+  const report = useMemo(
+    () =>
+      assessMedicationSafety(
+        medications.map((m) => ({
+          id: m.id,
+          drugName: m.drug_name,
+          dose: m.dose,
+          prescriberName: m.prescriber_name,
+          source: m.source,
+        })),
+      ),
+    [medications],
+  );
+
+  const findings = report.findings.filter(
+    (f) => f.kind === "interaction" || f.kind === "duplicate_therapy" || f.kind === "drug_specific",
+  );
+
+  if (medications.length < 2 || findings.length === 0) return null;
+
+  return (
+    <div className="mb-3 space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
+      <p className="text-sm font-medium text-amber-900 dark:text-amber-300">
+        Something worth knowing about how these work together
+      </p>
+      <ul className="space-y-2">
+        {findings.map((finding, index) => {
+          const badge = SAFETY_SEVERITY_BADGE[finding.severity];
+          return (
+            <li key={`${finding.kind}-${finding.title}-${index}`} className="rounded-md bg-white/70 p-2 dark:bg-night-ink/20">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={badge.variant}>{badge.label}</Badge>
+                <span className="text-[0.65rem] uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
+                  {SAFETY_KIND_LABEL[finding.kind]}
+                </span>
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{finding.title}</p>
+              </div>
+              <p className="mt-1 text-sm text-charcoal-ink/80 dark:text-night-ink/80">{finding.message}</p>
+              <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/55">
+                {[...new Set(finding.drugNames)].join(" · ")}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-xs text-amber-900/80 dark:text-amber-300/80">
+        This is a curated check, not a complete interaction database, and it does not replace a
+        clinician&apos;s judgement. Do not stop or change a dose on your own,{" "}
+        <a href="/patient/messages" className="font-medium underline">
+          message your care team
+        </a>{" "}
+        about this instead.
+      </p>
+    </div>
   );
 }
 

@@ -51,19 +51,19 @@ export function MonitoringCoverCard() {
   if (!cover) {
     return (
       <Card className="border-brand-green/25">
-        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-          <div className="min-w-0 flex-1">
+        <CardContent className="flex flex-col gap-3 py-4">
+          <div className="min-w-0">
             <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
               Nobody is alerted when one of your readings is dangerous
             </p>
             <p className="mt-1 text-xs leading-relaxed text-charcoal-ink/65 dark:text-night-ink/65">
               Every reading you log is still checked against care protocols, and you still get the
-              full emergency safety net — immediate guidance, your emergency contact notified, and a
+              full emergency safety net: immediate guidance, your emergency contact notified, and a
               check-in afterwards. Continuous Monitoring adds a doctor on your care team being told
               as well, from ₦7,500 for three months. Nothing renews and no card is kept.
             </p>
           </div>
-          <Button asChild size="sm" className="shrink-0">
+          <Button asChild size="sm" className="self-start">
             <Link href="/patient/subscription">See Continuous Monitoring</Link>
           </Button>
         </CardContent>
@@ -77,8 +77,8 @@ export function MonitoringCoverCard() {
 
   return (
     <Card className={endingSoon ? "border-amber-400/50" : "border-brand-green/30"}>
-      <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
-        <div className="flex min-w-0 flex-1 items-start gap-3">
+      <CardContent className="flex flex-col gap-3 py-4">
+        <div className="flex min-w-0 items-start gap-3">
           <SEMANTIC_ICON.clinicianFollowUp
             className="mt-0.5 h-5 w-5 shrink-0 text-deep-forest dark:text-brand-green-bright"
             strokeWidth={2}
@@ -99,8 +99,7 @@ export function MonitoringCoverCard() {
                   })}
                   {endingSoon ? (
                     <>
-                      {" "}
-                      — that is {remaining} day{remaining === 1 ? "" : "s"} away. It will simply stop
+                      , ending in {remaining} day{remaining === 1 ? "" : "s"}. It will simply stop
                       then; nothing renews on its own.
                     </>
                   ) : (
@@ -114,7 +113,7 @@ export function MonitoringCoverCard() {
           </div>
         </div>
         {endingSoon ? (
-          <Button asChild size="sm" variant="outline" className="shrink-0">
+          <Button asChild size="sm" variant="outline" className="self-start">
             <Link href="/patient/subscription">Extend it</Link>
           </Button>
         ) : null}

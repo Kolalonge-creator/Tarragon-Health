@@ -77,9 +77,9 @@ export function AvatarUploadForm({
         <CardTitle className="text-base">Profile photo</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex items-center gap-4">
+        <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4 text-center">
           <Avatar fullName={fullName} photoUrl={preview ?? avatarUrl} size="xl" />
-          <div className="flex-1 space-y-1.5">
+          <div className="w-full max-w-xs space-y-1.5">
             <Label htmlFor={`${fieldId}-file`} className="text-xs">
               Upload a new photo
             </Label>
@@ -91,7 +91,7 @@ export function AvatarUploadForm({
               onChange={(event) => handleFileChange(event.target.files?.[0] ?? null)}
             />
             <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">JPG, PNG, or WEBP, up to 5 MB.</p>
-            <div className="flex flex-wrap items-center gap-2 pt-1">
+            <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
               <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
                 {upload.isPending ? "Saving…" : "Save photo"}
               </Button>
