@@ -227,7 +227,7 @@ function SexualHealthHub({
         <MutedText>Testing, contraception, fertility, and wellness: private, and reviewed by your care team.</MutedText>
         <View style={{ borderWidth: 1, borderColor: colors.navy, backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10 }}>
           <Text style={{ fontSize: 11.5, fontWeight: "600", color: colors.navy }}>
-            Your answers here stay between you and your care team, never shown to a family member, an
+            Your answers here stay between you and your care team, and are not shown to a family member, an
             employer, or an HMO, even one that pays for your plan.
           </Text>
         </View>
@@ -524,8 +524,8 @@ function FertilityCard() {
     <Card style={{ gap: 10 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Fertility check-in</Text>
       <MutedText>
-        A few quick questions to point you toward the right next step: education, advice, baseline
-        tests, or a specialist. Never a diagnosis.
+        A few quick questions to point you towards the right next step: education, advice, baseline
+        tests, or a specialist. Not a diagnosis.
       </MutedText>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>How many months have you been trying to conceive?</Text>
       <TextInput value={months} onChangeText={setMonths} keyboardType="numeric" placeholder="e.g. 8" style={[textInputStyle, { maxWidth: 120 }]} />
@@ -591,7 +591,7 @@ function SexualWellnessCard() {
   return (
     <Card style={{ gap: 12 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Sexual wellness</Text>
-      <MutedText>A short, private check-in: never a diagnosis, and only your care team can see it.</MutedText>
+      <MutedText>A short, private check-in: not a diagnosis, and only your care team can see it.</MutedText>
 
       {view === "picker" && (
         <View style={{ gap: 8 }}>

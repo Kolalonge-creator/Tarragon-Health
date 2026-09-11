@@ -61,7 +61,7 @@ function PrivacyBanner() {
           strokeWidth={2}
           aria-hidden
         />
-        Your answers here stay between you and your care team, never shown to a
+        Your answers here stay between you and your care team, and are not shown to a
         family member, an employer, or an HMO, even one that pays for your plan.
       </p>
       <Link

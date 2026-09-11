@@ -29,7 +29,7 @@ export const SUPPORT_KNOWLEDGE_BASE: KnowledgeBaseArticle[] = [
   {
     title: "When to escalate to clinical review",
     body:
-      "Escalate a ticket into clinical review when the patient is asking something that needs real clinical judgment — a described symptom or medication concern that came in through a technical ticket by mistake. Never answer a clinical question yourself, and never create an ordinary ticket for something that sounds like a medical emergency (severe chest pain, trouble breathing, etc.) — that goes straight to the emergency pathway instead.",
+      "Escalate a ticket into clinical review when the patient is asking something that needs real clinical judgment — a described symptom or medication concern that came in through a technical ticket by mistake. Do not answer a clinical question yourself, and do not create an ordinary ticket for something that sounds like a medical emergency (severe chest pain, trouble breathing, etc.) — that goes straight to the emergency pathway instead.",
     topic: "escalation",
   },
   {

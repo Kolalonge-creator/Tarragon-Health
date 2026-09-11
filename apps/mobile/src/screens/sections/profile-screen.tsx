@@ -261,7 +261,7 @@ function GlucoseUnitSection({
     <View style={{ gap: 10 }}>
       <SectionLabel>Blood sugar unit</SectionLabel>
       <MutedText>
-        Pick whichever one your own meter shows, so you never have to convert. This only changes
+        Pick whichever one your own meter shows, so there is nothing to convert. This only changes
         how readings are shown; nothing you have already logged is altered.
       </MutedText>
       <View style={{ flexDirection: "row", gap: 10 }}>
@@ -329,7 +329,7 @@ function ConditionLanguageSection({
       <SectionLabel>How we describe your condition</SectionLabel>
       <MutedText>
         Choose the wording we use across your dashboard — a gentler everyday term ("weight") or the
-        clinical term ("obesity"). This never changes your actual record.
+        clinical term ("obesity"). This does not change your actual record.
       </MutedText>
       <View style={{ flexDirection: "row", gap: 10 }}>
         {(["gentle", "clinical"] as const).map((option) => (

@@ -399,7 +399,7 @@ function EntryRow({
       {entry.entry_type === "workout" && (
         <button
           type="button"
-          aria-label={favorite ? "Unfavorite" : "Favorite"}
+          aria-label={favorite ? "Remove from favourites" : "Add to favourites"}
           onClick={async () => {
             const next = !favorite;
             setFavorite(next);

@@ -156,7 +156,7 @@ export function DataDeletionRequestsDashboard({ organisationId }: { organisation
         <p className="text-sm text-charcoal-ink/60">
           55.19: patient-initiated requests to delete device/wearable data. Processing deletes
           wearable readings and, depending on scope, disconnects wearables or unpairs Bluetooth
-          devices. This never touches a patient&apos;s vitals or medical record.
+          devices. This leaves a patient&apos;s vitals and medical record untouched.
         </p>
       </div>
 

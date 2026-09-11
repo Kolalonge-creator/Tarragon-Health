@@ -149,7 +149,7 @@ export function VoucherManager() {
           <CardTitle>Voucher settings</CardTitle>
           <CardDescription>
             The validity window applies from the day a voucher is fully paid for, not from the day
-            it is reserved, so a long instalment plan never eats into it.
+            it is reserved, so a long instalment plan cannot eat into it.
           </CardDescription>
         </CardHeader>
         <CardContent>

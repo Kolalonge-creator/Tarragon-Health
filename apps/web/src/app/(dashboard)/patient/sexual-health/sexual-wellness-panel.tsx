@@ -108,7 +108,7 @@ export function SexualWellnessPanel() {
           Sexual wellness
         </CardTitle>
         <CardDescription>
-          A short, private check-in: never a diagnosis, and only your care team can see it.
+          A short, private check-in: not a diagnosis, and only your care team can see it.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

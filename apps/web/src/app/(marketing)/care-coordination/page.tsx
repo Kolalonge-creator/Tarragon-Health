@@ -161,7 +161,7 @@ export default function CareCoordinationPage() {
           ))}
         </ol>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          We never set, quote, or collect a naira for any test: the laboratory tells you its own
+          We do not set, quote or collect a naira for any test: the laboratory tells you its own
           price, and you pay them directly.
         </p>
       </Section>

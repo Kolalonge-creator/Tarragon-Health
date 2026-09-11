@@ -10,7 +10,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Devices that work well with Tarragon",
   description:
-    "You never need to buy a device: typing a reading takes seconds and is free. If you want one, these BP monitors, scales and glucometers work well with us.",
+    "There is no need to buy a device: typing a reading takes seconds and is free. If you want one, these BP monitors, scales and glucometers work well with us.",
   path: MARKETING_ROUTES.devices,
 });
 
@@ -22,7 +22,7 @@ export default function DevicesPage() {
           as="h1"
           eyebrow="Devices"
           title="Devices that work well with Tarragon"
-          description="You never need one: typing a reading into the app takes seconds. If you'd like a device anyway, these are well-regarded third-party models whose own apps share readings with Apple Health or Health Connect, which Tarragon reads as sync rolls out. Tarragon doesn't manufacture, sell, or earn anything from them."
+          description="There is no need for one: typing a reading into the app takes seconds. If you'd like a device anyway, these are well-regarded third-party models whose own apps share readings with Apple Health or Health Connect, which Tarragon reads as sync rolls out. Tarragon doesn't manufacture, sell, or earn anything from them."
         />
 
         <h2 className="sr-only">Suggested devices</h2>

@@ -442,8 +442,8 @@ function RecommendedForYou({
         {(lockedCount ?? 0) > 0 && (
           <p className="mt-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
             {lockedCount} more personalised lesson{lockedCount === 1 ? "" : "s"} unlock over the
-            coming weeks, paced so each one sticks. The full library below is never locked, read
-            anything, any time.
+            coming weeks, paced so each one sticks. The full library below stays open, so read
+            anything, at any time.
           </p>
         )}
       </CardContent>

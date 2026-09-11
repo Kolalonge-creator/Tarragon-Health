@@ -82,7 +82,7 @@ export function GiftPersonalizer() {
           Who is it for?
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-          Tell us who you are gifting this to and we will personalize the card. This does not
+          Tell us who you are gifting this to and we will personalise the card. This does not
           start the purchase, it is just for you: the real gift happens on your dashboard once
           you have added them as family.
         </p>

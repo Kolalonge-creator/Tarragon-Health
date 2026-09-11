@@ -145,7 +145,7 @@ function ApiKeysSection({ apiKeys }: { apiKeys: ApiKeyRow[] }) {
         {issuedKey && (
           <div className="space-y-2 rounded-lg border border-brand-green/40 bg-brand-green/5 p-4">
             <p className="text-sm font-medium text-deep-forest">
-              Copy this key now; it will never be shown again.
+              Copy this key now; it will not be shown again.
             </p>
             <code className="block break-all rounded bg-white p-2 text-xs text-charcoal-ink">
               {issuedKey}
@@ -482,7 +482,7 @@ function WebhookEndpointsSection({
         {issuedSecret && (
           <div className="space-y-2 rounded-lg border border-brand-green/40 bg-brand-green/5 p-4">
             <p className="text-sm font-medium text-deep-forest">
-              Copy this signing secret now; it will never be shown again.
+              Copy this signing secret now; it will not be shown again.
             </p>
             <code className="block break-all rounded bg-white p-2 text-xs text-charcoal-ink">
               {issuedSecret}

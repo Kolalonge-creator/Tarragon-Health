@@ -46,7 +46,7 @@ export function WellnessPointsCard({ patientId }: { patientId: string }) {
         </CardTitle>
         <CardDescription>
           Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting
-          challenges. Redeem any time for a reward voucher you can put toward your care.
+          challenges. Redeem any time for a reward voucher you can put towards your care.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -225,7 +225,7 @@ const WHAT_WE_MEASURE: MeasureCategory[] = [
   {
     title: "Know Your Basics",
     description:
-      "Facts about your own blood most Nigerians are never told plainly: useful for emergencies, marriage counselling, and pregnancy planning.",
+      "Facts about your own blood that few Nigerians are ever told plainly: useful for emergencies, marriage counselling, and pregnancy planning.",
     items: [
       {
         name: "Blood Group & Rhesus Factor",

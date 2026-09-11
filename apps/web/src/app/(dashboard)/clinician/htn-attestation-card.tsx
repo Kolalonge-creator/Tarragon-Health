@@ -47,7 +47,7 @@ export function HtnAttestationCard({ expiresAt }: { expiresAt: string | null }) 
           I confirm I know and will act on the hypertension pathway&rsquo;s red flags (§14): a
           hypertensive-crisis reading (&ge;180/120) or a symptomatic low reading, the secondary-cause
           screening triggers, the ACE-inhibitor/ARB combination and pregnancy prescribing blocks, and the
-          renal-safety stop-thresholds for ARBs and thiazides. A red flag is never auto-closed or
+          renal-safety stop-thresholds for ARBs and thiazides. A red flag cannot be auto-closed or
           downgraded.
         </p>
         <form action={formAction}>

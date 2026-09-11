@@ -80,7 +80,7 @@ export function PartnerLabBillingOption({
           {createPartnerOrder.isPending ? "Setting it up…" : "Set this up"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setExpanded(false)}>
-          Never mind
+          Not now
         </Button>
       </div>
     </div>

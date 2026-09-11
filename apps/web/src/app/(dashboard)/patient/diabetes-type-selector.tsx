@@ -43,7 +43,7 @@ export function DiabetesTypeSelector({
       ) : (
         <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
           This helps your care team give you the right guidance (for example, insulin should
-          never be stopped in type 1). Tell us what you were told at diagnosis; your care team
+          not be stopped in type 1). Tell us what you were told at diagnosis; your care team
           will confirm it.
         </p>
       )}

@@ -158,7 +158,7 @@ export function SignupForm({
           ))}
         </Select>
         <p id="signup-state-hint" className="text-xs text-charcoal-ink/50">
-          Helps us show what&apos;s available near you. You can add or change this anytime.
+          Helps us show what&apos;s available near you. You can add or change this at any time.
         </p>
       </div>
       <div className="space-y-1.5">

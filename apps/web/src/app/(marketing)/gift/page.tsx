@@ -30,14 +30,14 @@ const WAYS_TO_GIVE = [
   },
   {
     title: "Cover a doctor's time for them",
-    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, Continuous Monitoring on their readings, or Supervised Weight Management if they're already taking weight-loss medication. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, never to you.",
+    body: "Anything on our paid list can be bought for someone else at the same real price: a video visit, a result read back to them properly, Continuous Monitoring on their readings, or Supervised Weight Management if they're already taking weight-loss medication. Nothing renews afterwards, so there is no card of yours left on their account, and their results go to them and their doctor, and to nobody else.",
   },
   {
     // The ₦500 figure is fixed in code, not DB-configured: redeem_referral_code
     // hardcodes reward_kobo = 50000 (migration 20260724113718). Update this
     // line (and _content/pricing.ts) together if that ever changes.
     title: "Invite them, you both get a reward",
-    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they complete their first paid order, you both get a ₦500 reward voucher toward your care, a discount, not cash.",
+    body: "If they are not on Tarragon yet, share your personal referral link; signing up is free. Once they complete their first paid order, you both get a ₦500 reward voucher towards your care, a discount, not cash.",
   },
 ];
 
@@ -62,7 +62,7 @@ function giftIdeas(overrides: ResolvedServicePrices) {
     {
       title: "Supervised Weight Management",
       price: "From ₦75,000, for three months",
-      body: "For someone already taking weight-loss medication they've obtained themselves: a doctor confirms they're a suitable candidate, agrees a dose plan with them, watches for side effects, and reviews progress monthly. Tarragon supervises; it never prescribes or supplies the medicine.",
+      body: "For someone already taking weight-loss medication they've obtained themselves: a doctor confirms they're a suitable candidate, agrees a dose plan with them, watches for side effects, and reviews progress monthly. Tarragon supervises; it does not prescribe or supply the medicine.",
     },
     {
       title: "A video visit with a doctor",
@@ -76,12 +76,12 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "What exactly am I buying?",
     answer:
-      "One named service for someone specific, never a top-up balance: a health check like the Core Screen, a doctor consultation, Continuous Monitoring, or Supervised Weight Management. It sits on their account with their name on it until they choose to use it.",
+      "One named service for someone specific, rather than a top-up balance: a health check like the Core Screen, a doctor consultation, Continuous Monitoring, or Supervised Weight Management. It sits on their account with their name on it until they choose to use it.",
   },
   {
     question: "Who can I buy this for?",
     answer:
-      "A parent, spouse, sibling, or child. If they already use Tarragon, link them as family or next of kin first, from your dashboard's Your people page. If they've never used Tarragon at all, you don't need to wait for them to sign up: from Buy care for someone, you can set up a record for them yourself with their name, phone number and your relationship to them, and pay straight away. They don't need a smartphone, an app, or an account of their own for this to work.",
+      "A parent, spouse, sibling, or child. If they already use Tarragon, link them as family or next of kin first, from your dashboard's Your people page. If they have not used Tarragon before, you do not need to wait for them to sign up: from Buy care for someone, you can set up a record for them yourself with their name, phone number and your relationship to them, and pay straight away. They don't need a smartphone, an app, or an account of their own for this to work.",
   },
   {
     question: "Does a health check gift include a video call with a doctor?",
@@ -96,7 +96,7 @@ const GIFT_FAQ: FaqItem[] = [
   {
     question: "Will I see their results?",
     answer:
-      "No. Results go to them and their doctor, never to you. You will only be told when something you paid for is ready to use, and later that it was used.",
+      "No. Results go to them and their doctor, and to nobody else. You will only be told when something you paid for is ready to use, and later that it was used.",
   },
   {
     question: "What if I am buying from outside Nigeria?",

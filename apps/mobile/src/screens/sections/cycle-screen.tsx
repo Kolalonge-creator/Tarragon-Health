@@ -242,7 +242,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
         <ScreenTitle>Your cycle</ScreenTitle>
         <MutedText>
           Log your period and how you feel, and see what to expect next. Everything here is an
-          estimate from your own history, never a diagnosis.
+          estimate from your own history, not a diagnosis.
         </MutedText>
       </View>
 
@@ -442,7 +442,7 @@ export function CycleScreen({ patientId, organisationId, onNavigate }: CycleScre
 
       <Text style={{ fontSize: 11.5, color: colors.faint }}>
         Your cycle information is part of your health record. Your care team can see it; nobody
-        else can. It is never used to score your health risk.
+        else can. It plays no part in scoring your health risk.
       </Text>
     </ScrollView>
   );

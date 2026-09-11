@@ -38,7 +38,7 @@ export function CampaignForm({ populations = [] }: { populations?: CampaignPopul
         <CardDescription>
           Created as a draft, visible only to staff. Eligibility is evaluated per patient against
           their own profile and current risk tiers (e.g. field <code>hypertension_tier</code>),
-          never against another patient&apos;s data.
+          and not against another patient&apos;s data.
         </CardDescription>
       </CardHeader>
       <CardContent>

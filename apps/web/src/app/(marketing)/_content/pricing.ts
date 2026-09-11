@@ -204,7 +204,7 @@ export const FREE_FEATURES: FreeFeatureGroup[] = [
 ];
 
 export const FREE_FEATURES_NOTE =
-  "All of the above is free, with no time limit, no card required, and nothing that turns into a charge on its own. You pay laboratories and pharmacies directly for tests, medicines and vaccines, at their price. Tarragon never takes a cut of what they charge you.";
+  "All of the above is free, with no time limit, no card required, and nothing that turns into a charge on its own. You pay laboratories and pharmacies directly for tests, medicines and vaccines, at their price. Tarragon takes no cut of what they charge you.";
 
 /**
  * What actually costs money: a doctor's time, priced per piece of work.
@@ -258,7 +258,7 @@ export const PAID_SERVICES: PaidService[] = [
       "Every blood pressure, glucose, oxygen, temperature and pulse reading checked as you log it",
       "A dangerous reading raised to a doctor, not just flagged on your record",
       "Entry to the doctor-supported track if you are managing hypertension or diabetes",
-      "We tell you before it runs out, so it never lapses without you knowing",
+      "We tell you before it runs out, so you always know where you stand",
     ],
     terms: [
       { code: "continuous_monitoring_3m", label: "3 months", price: "₦7,500", perMonth: "₦2,500 a month" },
@@ -412,12 +412,12 @@ export const WEIGHT_MANAGEMENT = {
  * now Continuous Monitoring, which is both the cheapest way in and the thing
  * that keeps someone watched. */
 export const CARE_VOUCHER_INTRO =
-  "You can buy a paid service up front, for yourself or for someone who has linked you to their care, and pay for it in one go or bit by bit. Whoever it is for uses it when they are ready. It is not an account balance and it is never exchangeable for cash. The app itself is free, so a voucher is only ever for a doctor's time. Tests are paid straight to the laboratory you use.";
+  "You can buy a paid service up front, for yourself or for someone who has linked you to their care, and pay for it in one go or bit by bit. Whoever it is for uses it when they are ready. It is not an account balance, and it cannot be exchanged for cash. The app itself is free, so a voucher is only ever for a doctor's time. Tests are paid straight to the laboratory you use.";
 
 export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
   {
     title: "Pay a little at a time",
-    body: "Spread a paid service, such as twelve months of Continuous Monitoring or a course of Supervised Weight Management, over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying toward it.",
+    body: "Spread a paid service, such as twelve months of Continuous Monitoring or a course of Supervised Weight Management, over as many instalments as you like. It becomes usable once it is fully paid, and nothing runs out while you are still paying towards it.",
   },
   {
     title: "Someone can buy it for you",
@@ -507,7 +507,7 @@ export const FREE_TRIALS: { title: string; body: string }[] = [
 ];
 
 export const FREE_TRIAL_TERMS: string[] = [
-  "The free app has no time limit and never turns into a charge on its own.",
+  "The free app has no time limit, and it stays free unless you choose to buy something.",
   "You will always see the exact price and confirm it before anything is taken from your card.",
   "Nothing renews automatically. When a paid service runs out, you buy it again only if you want to.",
 ];
@@ -535,13 +535,13 @@ export const BOOKING_STEPS: { title: string; body: string }[] = [
   },
 ];
 
-export const NEVER_DO: string[] = [
-  "Never charge you without showing the price and getting your confirmation first",
-  "Never diagnose you or change your medication without a doctor's review",
-  "Never share your health information with a family member without your consent",
-  "Never lock you into a contract or a subscription, and never charge your card a second time on its own",
-  "Never disguise a paid service as something free, and never disguise something genuinely free (like the HPV vaccine for girls 9–14) as something you need to pay us for",
-  "Never put an expiry date on the free app, and never turn it into a charge on its own",
+export const OUR_UNDERTAKINGS: string[] = [
+  "We show you the price and wait for your confirmation before we charge you anything",
+  "A doctor reviews your case before any diagnosis is offered or any medicine is changed",
+  "Your health information reaches a family member only with your consent",
+  "There is no contract and no subscription, and your card is charged once for each thing you confirm",
+  "A paid service is always labelled as paid, and anything genuinely free (such as the HPV vaccine for girls 9–14) is always labelled as free",
+  "The free app stays free, with no expiry date and nothing that turns into a charge on its own",
 ];
 
 /**
@@ -594,7 +594,7 @@ export function getPricingFaq(
   {
     question: "If I log a dangerous reading and I have not paid anything, what happens?",
     answer:
-      "You get the full emergency safety net, and it never depended on payment: immediate, specific guidance to get to a hospital, your emergency contact notified, and a check-in with you afterwards. Your readings are checked against the same care protocols whatever you pay. What Continuous Monitoring adds is that a Tarragon doctor is alerted to it as well, and follows up with you personally.",
+      "You get the full emergency safety net, and it has always been yours regardless of payment: immediate, specific guidance to get to a hospital, your emergency contact notified, and a check-in with you afterwards. Your readings are checked against the same care protocols whatever you pay. What Continuous Monitoring adds is that a Tarragon doctor is alerted to it as well, and follows up with you personally.",
   },
   {
     question: "Which conditions does Tarragon manage, and where does weight management fit?",
@@ -603,7 +603,7 @@ export function getPricingFaq(
   {
     question: "Will my card ever be charged automatically?",
     answer:
-      "No. There is no subscription and nothing renews. Your card is never charged for a test, refill, or vaccine at all: those go straight to whichever laboratory, pharmacy, or provider you choose, and you pay them directly, at their price. The only things Tarragon ever charges you for are paid services you have explicitly confirmed.",
+      "No. There is no subscription and nothing renews. Your card is not charged for a test, refill or vaccine at all: those go straight to whichever laboratory, pharmacy, or provider you choose, and you pay them directly, at their price. The only things Tarragon ever charges you for are paid services you have explicitly confirmed.",
   },
   {
     question: "My test came back abnormal. Will I be billed extra automatically?",
@@ -653,7 +653,7 @@ export function getPricingFaq(
   {
     question: "What is a care voucher?",
     answer:
-      "It is a paid service bought up front, for you or for someone who has linked you to their care. It is for that service and for the person named on it: it cannot be transferred, and it is never exchangeable for cash. You can pay for it in instalments, and a family member abroad can buy one for you, which is what sponsoring someone's care means here. Referring a friend earns you both a ₦500 reward voucher once they complete their first paid order.",
+      "It is a paid service bought up front, for you or for someone who has linked you to their care. It is for that service and for the person named on it: it cannot be transferred, and it cannot be exchanged for cash. You can pay for it in instalments, and a family member abroad can buy one for you, which is what sponsoring someone's care means here. Referring a friend earns you both a ₦500 reward voucher once they complete their first paid order.",
   },
   {
     question: "I live abroad. Can I pay for a relative's care in Nigeria?",

@@ -29,7 +29,7 @@ export function DoctorsDashboard() {
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         De-identified for platform reporting: patient panels and the response log show patient
-        numbers (PT/TH-xxxx), never names, and never the clinical response text. Full detail belongs
+        numbers (PT/TH-xxxx), not names, and not the clinical response text. Full detail belongs
         in a clinical director / admin view scoped to their own organisation.
       </p>
 

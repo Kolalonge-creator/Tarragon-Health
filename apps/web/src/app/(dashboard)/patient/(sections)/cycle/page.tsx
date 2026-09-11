@@ -48,7 +48,7 @@ export default async function CyclePage() {
     <DashboardSection
       id="cycle"
       title="Your cycle"
-      description="Log your period and how you feel, and see what to expect next. Everything here is an estimate from your own history, never a diagnosis."
+      description="Log your period and how you feel, and see what to expect next. Everything here is an estimate from your own history, not a diagnosis."
       icon={SEMANTIC_ICON.family}
     >
       {/* Every row written here carries an organisation_id, so without one
