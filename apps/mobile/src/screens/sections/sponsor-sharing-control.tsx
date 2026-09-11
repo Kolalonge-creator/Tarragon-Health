@@ -12,7 +12,7 @@ const LEVEL_COPY: Record<Enums<"sponsor_sharing_level">, { title: string; body: 
   },
   activity: {
     title: "That, plus how it is going",
-    body: "They also see how many readings you logged, that a doctor reviewed them, and when your next check is due. Never your actual numbers, results or diagnoses.",
+    body: "They also see how many readings you logged, that a doctor reviewed them, and when your next check is due. Not your actual numbers, results or diagnoses.",
   },
   full: {
     title: "That, plus your progress report",

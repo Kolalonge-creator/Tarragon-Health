@@ -54,8 +54,8 @@ export function AdolescentHealthForm() {
           {state.abuseNeglectExploitationFlagged && !state.selfHarmFlagged && !state.immediateDangerFlagged && (
             <p className="rounded-md bg-amber-50 dark:bg-amber-500/15 p-3 text-amber-800 dark:text-amber-300">
               You told us something that matters. A senior member of your care team will look into
-              this carefully and privately. This is never shared with anyone else without your
-              safety being the first priority.
+              this carefully and privately. This is shared with someone else only where your
+              safety has to come first.
             </p>
           )}
         </CardContent>

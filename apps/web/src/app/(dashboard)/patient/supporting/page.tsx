@@ -30,7 +30,7 @@ export default async function SupportingPage() {
       <PageHeader
         title="People you support"
         icon={NAV_ICON.healthyAgeing}
-        description="Money you put toward someone else's care, and what it actually paid for. Every person here keeps their own account and their own plan; you are funding their care, not holding it."
+        description="Money you put towards someone else's care, and what it actually paid for. Every person here keeps their own account and their own plan; you are funding their care, not holding it."
         actions={
           <Link
             href="/patient/supporting/new"

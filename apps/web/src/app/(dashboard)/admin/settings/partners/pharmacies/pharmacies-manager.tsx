@@ -420,7 +420,7 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
           <CardTitle>Add a pharmacy partner</CardTitle>
           <CardDescription>
             Starts the onboarding pipeline (application → verification → activation, below). A
-            new partner is never immediately active. Contact phone/email lets a partner pharmacy
+            new partner is not immediately active. Contact phone/email lets a partner pharmacy
             be notified of orders without logging in.
           </CardDescription>
         </CardHeader>

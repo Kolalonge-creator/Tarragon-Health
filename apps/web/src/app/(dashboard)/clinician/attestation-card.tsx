@@ -45,7 +45,7 @@ export function AttestationCard({ expiresAt }: { expiresAt: string | null }) {
         <p className="text-charcoal-ink/60">
           I confirm I will practise evidence-based, high-value screening; deliver sensitive
           results (HIV, hepatitis, cancer) personally with linkage to care; act on every red
-          flag; and never leave an abnormal result without a closed-loop plan.
+          flag; and leave no abnormal result without a closed-loop plan.
         </p>
         <form action={formAction}>
           <Button type="submit" disabled={pending} variant={current ? "outline" : "default"}>

@@ -104,7 +104,7 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
 
       <View>
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Recent payment issues</Text>
-        <MutedText>We never store your card. A failed charge means Paystack declined it, not that anything on our side went wrong.</MutedText>
+        <MutedText>Your card details are not stored with us. A failed charge means Paystack declined it, not that anything on our side went wrong.</MutedText>
         {profile.recentFailures.length === 0 ? (
           <MutedText>No recent payment problems.</MutedText>
         ) : (

@@ -171,7 +171,7 @@ export function BroadcastComposer() {
                 required
               />
               <p className="text-xs text-charcoal-ink/50">
-                This goes out over WhatsApp/SMS/email. Never include a diagnosis, test result, or
+                This goes out over WhatsApp/SMS/email. Do not include a diagnosis, test result, or
                 other clinical detail specific to a person. General announcements only.
               </p>
             </div>

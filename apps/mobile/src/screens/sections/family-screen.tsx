@@ -158,7 +158,7 @@ export function FamilyScreen({ userId, onNavigate }: FamilyScreenProps) {
         <ScreenTitle>Your people</ScreenTitle>
         <MutedText>
           Who we contact if something urgent comes up, who can follow your care, and the children whose
-          records you keep. Everyone keeps their own account, never a shared or family plan.
+          records you keep. Everyone keeps their own account, rather than a shared or family plan.
         </MutedText>
       </View>
 
@@ -385,7 +385,7 @@ function NextOfKinCard({ current, userId, onChanged }: { current: NextOfKinState
       <MutedText>
         One person we contact if something urgent comes up. If they have a Tarragon account of their own,
         we&apos;ll ask them to confirm before they can also follow your care: see your readings,
-        appointments and results. They can never change anything on your record, and either of you can
+        appointments and results. They cannot change anything on your record, and either of you can
         withdraw access at any time.
       </MutedText>
 
@@ -476,7 +476,7 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
             {open && (
               <View style={{ backgroundColor: colors.groupBg, borderRadius: radius.control, padding: 10, gap: 8 }}>
                 <MutedText>
-                  Tick what {name} should be able to see. They will never be able to change anything on your
+                  Tick what {name} should be able to see. They will not be able to change anything on your
                   record, or end a conversation you are having. You will see every message they send.
                 </MutedText>
                 {CARE_ACCESS_CATEGORIES.map((cat) => (
@@ -502,7 +502,7 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
                     Reproductive health
                   </Text>
                   <MutedText>
-                    Kept separate on purpose: turning on everything else above never includes this. Cycle,
+                    Kept separate on purpose: turning on everything else above leaves this untouched. Cycle,
                     pregnancy and related information stays private unless you choose to share it here too.
                   </MutedText>
                 </View>

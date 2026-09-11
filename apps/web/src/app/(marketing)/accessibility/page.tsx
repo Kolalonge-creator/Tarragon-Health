@@ -52,7 +52,7 @@ export default function AccessibilityPage() {
                 operability for forms, menus, and dialogs.</li>
               <li>Text alternatives for meaningful images and icons.</li>
               <li>A colour palette checked for contrast, and status colours (for example the
-                clinical red/amber/green used on dashboards) that never rely on colour alone.</li>
+                clinical red/amber/green used on dashboards) that carry a label or shape as well as colour.</li>
               <li>Automated accessibility checks (including Lighthouse) as part of how we build
                 and review new pages, with issues fixed as we find them.</li>
             </ul>

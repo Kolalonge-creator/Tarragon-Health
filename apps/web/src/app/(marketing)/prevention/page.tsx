@@ -58,7 +58,7 @@ const SCREENING_GROUPS = [
       "A full childhood immunisation record for each of your children, on the same recognised schedule as their paper card, but one you can't lose",
       "HPV vaccination (free at government PHC centres for girls 9–14; catch-up doses bookable for women 15–45)",
       "Hepatitis B vaccination series, with each dose tracked to completion",
-      "Optional cycle tracking for women, with gentle nudges: an estimated next period (never a prediction), a nudge to book antenatal care once you're pregnant, or a nudge to talk to your care team as perimenopause or menopause begins",
+      "Optional cycle tracking for women, with gentle nudges: an estimated next period (an estimate, not a prediction), a nudge to book antenatal care once you're pregnant, or a nudge to talk to your care team as perimenopause or menopause begins",
     ],
   },
   {
@@ -71,7 +71,7 @@ const SCREENING_GROUPS = [
 const ABNORMAL_STEPS = [
   {
     title: "A doctor is alerted immediately",
-    body: "An abnormal result never sits in a queue: it triggers an immediate alert to a doctor, who reviews it against your history as a priority, not in next month's batch.",
+    body: "An abnormal result does not sit in a queue: it triggers an immediate alert to a doctor, who reviews it against your history as a priority, not in next month's batch.",
   },
   {
     title: "You hear from your care team fast",
@@ -79,7 +79,7 @@ const ABNORMAL_STEPS = [
   },
   {
     title: "Follow-up until the loop is closed",
-    body: "If the result needs ongoing attention, your record upgrades into chronic care monitoring on the same platform: same record, same care team, no starting over, and never an extra charge for the follow-up.",
+    body: "If the result needs ongoing attention, your record upgrades into chronic care monitoring on the same platform: same record, same care team, no starting over, and no extra charge for the follow-up.",
   },
 ];
 

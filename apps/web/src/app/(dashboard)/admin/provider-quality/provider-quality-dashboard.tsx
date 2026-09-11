@@ -96,7 +96,7 @@ function NetworkSummarySection() {
         </Card>
         <Card>
           <CardContent className="py-4">
-            <p className="text-xs text-charcoal-ink/50">Credentials never recorded</p>
+            <p className="text-xs text-charcoal-ink/50">Credentials not on record</p>
             <p className="font-heading text-xl font-semibold text-charcoal-ink">
               {formatNumber(ca.credentials_not_recorded)}
             </p>
@@ -189,7 +189,7 @@ function CredentialMonitorSection() {
       <CardHeader>
         <CardTitle className="text-base">Licence, indemnity, attestation (§29.6)</CardTitle>
         <CardDescription>
-          A blank expiry date shows as &quot;not recorded&quot;, never as expired. Nobody has
+          A blank expiry date shows as &quot;not recorded&quot;, rather than as expired. Nobody has
           typed it in yet, that&apos;s a different fact.
         </CardDescription>
       </CardHeader>

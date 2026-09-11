@@ -32,7 +32,7 @@ export default async function LpeContentLibrarySettingsPage() {
     <div className="space-y-6">
       <PageHeader
         title="Lifestyle coaching content library"
-        description="Reference copy the AI Coach can draw on when replying to a patient, never quoted verbatim, used to inform an answer in the coach's own voice. A block is only ever shown to a patient (indirectly, through the coach) after a Clinical Director approves it here; edit anything that needs work first, then sign it."
+        description="Reference copy the AI Coach can draw on when replying to a patient, not quoted verbatim, used to inform an answer in the coach's own voice. A block is only ever shown to a patient (indirectly, through the coach) after a Clinical Director approves it here; edit anything that needs work first, then sign it."
       />
       {/* "No content blocks found." from a failed read reads as an empty
           library, which invites re-authoring copy that already exists and is

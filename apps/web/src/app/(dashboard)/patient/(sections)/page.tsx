@@ -141,7 +141,7 @@ export default async function PatientOverviewPage() {
           in the same visual register as "refill due" or "screening
           overdue" (CLAUDE.md brand voice: no fear-based urgency). Two
           mutually exclusive cases: the teen looking at their own dashboard
-          gets a low-key nudge toward the check-in; a parent/guardian
+          gets a low-key nudge towards the check-in; a parent/guardian
           looking at a teen's dashboard while acting for them gets a
           reminder that some things stay private even from them. Neither
           renders for a child-band dependent (parent-managed, no carve-out)

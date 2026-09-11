@@ -155,7 +155,7 @@ export default async function FinancialProfilePage() {
           <CardHeader>
             <CardTitle as="h2">Recent payment issues</CardTitle>
             <CardDescription>
-              We never store your card. A failed charge means Paystack declined it, not that
+              Your card details are not stored with us. A failed charge means Paystack declined it, not that
               anything on our side went wrong.
             </CardDescription>
           </CardHeader>

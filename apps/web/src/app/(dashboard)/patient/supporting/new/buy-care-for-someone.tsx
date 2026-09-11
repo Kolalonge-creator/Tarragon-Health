@@ -139,7 +139,7 @@ function ChooseBeneficiary({ onChosen }: { onChosen: (b: Beneficiary) => void })
         <CardHeader>
           <CardTitle>Someone who isn&apos;t on Tarragon yet</CardTitle>
           <CardDescription>
-            You set up their record and pay for it; they never need to sign up, download anything,
+            You set up their record and pay for it; they do not need to sign up, download anything,
             or do anything at all before you can buy this for them. If they already have a
             Tarragon account under this number, we&apos;ll tell you and point you at the right
             path instead: you can&apos;t take over an account that already exists.
@@ -294,7 +294,7 @@ function PickAndPay({ beneficiary }: { beneficiary: Beneficiary }) {
             {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
             <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
               Billed to you now, in naira, via Paystack. {beneficiary.name} keeps their own record
-              and can see it was paid for; you never see their results. After payment you land back
+              and can see it was paid for; their results stay with them. After payment you land back
               on{" "}
               <Link href="/patient/supporting" className="text-brand-green underline">
                 People you support

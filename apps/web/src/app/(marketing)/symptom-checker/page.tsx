@@ -18,7 +18,7 @@ export const metadata: Metadata = pageMetadata({
 const FAQS = [
   {
     q: "Is this a diagnosis?",
-    a: "No. This checks your symptoms against a short, doctor-reviewed list of common patterns and suggests a next step. It's education and triage support, not a diagnosis, and it's never a substitute for a doctor actually assessing you.",
+    a: "No. This checks your symptoms against a short, doctor-reviewed list of common patterns and suggests a next step. It's education and triage support, not a diagnosis, and it does not stand in for a doctor actually assessing you.",
   },
   {
     q: "Is my answer saved anywhere?",

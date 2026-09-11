@@ -57,7 +57,7 @@ export function DuplicateFlagActions({
       <ConfirmDialog
         open={confirming}
         title="Mark these as two different people?"
-        description="This is permanent. The duplicate sweep never flags this pair again, so if they do turn out to be the same person, nothing will surface them a second time."
+        description="This is permanent. The duplicate sweep will not flag this pair again, so if they do turn out to be the same person, nothing will surface them a second time."
         confirmLabel="They are different people"
         cancelLabel="Cancel"
         destructive

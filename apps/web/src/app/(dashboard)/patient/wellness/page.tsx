@@ -36,7 +36,7 @@ export default async function WellnessHubPage() {
       <PageHeader
         title="Wellness rewards"
         icon={SEMANTIC_ICON.points}
-        description="Small, everyday habits add up. Earn points for logging, learning, and finishing challenges, collect badges along the way, and redeem points any time for a real Health reward voucher you can put toward your care."
+        description="Small, everyday habits add up. Earn points for logging, learning, and finishing challenges, collect badges along the way, and redeem points any time for a real Health reward voucher you can put towards your care."
       />
 
       <WellnessPointsCard patientId={profile.id} />

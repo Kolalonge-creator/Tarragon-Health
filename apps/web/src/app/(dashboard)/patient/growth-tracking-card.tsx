@@ -74,7 +74,7 @@ export function GrowthTrackingCard({
         <CardTitle>Growth</CardTitle>
         <CardDescription>
           Weight, height, and head circumference over time, flagged for clinical review on a
-          significant change, never diagnosed from the chart alone.
+          significant change, rather than diagnosed from the chart alone.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

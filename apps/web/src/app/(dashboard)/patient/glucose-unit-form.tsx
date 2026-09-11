@@ -33,7 +33,7 @@ export function GlucoseUnitForm({ initial }: { initial: GlucoseDisplayUnit }) {
           Blood sugar unit
         </CardTitle>
         <CardDescription>
-          Pick whichever one your own meter shows, so you never have to convert.
+          Pick whichever one your own meter shows, so there is nothing to convert.
         </CardDescription>
       </CardHeader>
       <CardContent>

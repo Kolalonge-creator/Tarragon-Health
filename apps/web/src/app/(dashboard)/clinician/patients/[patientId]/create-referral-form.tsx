@@ -187,7 +187,7 @@ export function CreateReferralForm({
             ))}
           </Select>
           <p className="text-xs text-charcoal-ink/50">
-            The patient never sets or upgrades this themselves. It is a clinical decision.
+            The patient cannot set or upgrade this themselves. It is a clinical decision.
           </p>
         </div>
 

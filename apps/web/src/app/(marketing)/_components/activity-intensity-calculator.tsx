@@ -142,7 +142,7 @@ export function ActivityIntensityCalculator({
 
         <div className="mt-4 border-t border-deep-forest/10 pt-4">
           <p className="text-xs font-medium text-charcoal-ink/70">
-            Progress toward WHO&apos;s 150-minutes-a-week moderate-activity guideline
+            Progress towards WHO&apos;s 150-minutes-a-week moderate-activity guideline
           </p>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white">
             <div
@@ -152,7 +152,7 @@ export function ActivityIntensityCalculator({
           </div>
           <p className="mt-2 text-xs text-charcoal-ink/60">
             {activity.intensity === "light"
-              ? "Light activity is great for recovery and daily movement, but doesn't count toward this particular guideline."
+              ? "Light activity is great for recovery and daily movement, but doesn't count towards this particular guideline."
               : `This session alone is about ${progressPct}% of the weekly target${activity.intensity === "vigorous" ? " (vigorous minutes count double)" : ""}.`}
           </p>
         </div>

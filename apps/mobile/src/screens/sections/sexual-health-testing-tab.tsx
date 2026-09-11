@@ -450,7 +450,7 @@ export function SexualHealthResultsTab({ patientId, organisationId }: { patientI
             <StageTracker status={episode.status} />
             {showConfidentialNotice ? (
               <MutedText>
-                This result is confidential — visible only to you and your care team, never sent over
+                This result is confidential — visible only to you and your care team, and not sent over
                 WhatsApp, SMS, or email.
               </MutedText>
             ) : (

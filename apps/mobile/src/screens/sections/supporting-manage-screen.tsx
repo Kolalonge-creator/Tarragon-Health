@@ -82,7 +82,7 @@ export function SupportingManageScreen({ userId }: { userId: string }) {
       <View>
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>What you&apos;ve funded</Text>
         <MutedText>
-          Money you&apos;ve put toward someone else&apos;s care, and what it actually paid for. Every person here
+          Money you&apos;ve put towards someone else&apos;s care, and what it actually paid for. Every person here
           keeps their own account and their own plan.
         </MutedText>
       </View>

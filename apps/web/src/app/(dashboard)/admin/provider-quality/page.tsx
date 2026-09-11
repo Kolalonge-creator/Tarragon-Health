@@ -22,7 +22,7 @@ export default async function ProviderQualityPage() {
     <div className="space-y-6">
       <PageHeader
         title="Provider quality"
-        description="Operational, documentation, and patient-experience performance by metric (never a single provider score, §29.10), plus the roster's credential status and the complaints pipeline. Clinical quality indicators appear only once a Clinical Director has validated and signed one off."
+        description="Operational, documentation, and patient-experience performance by metric (not a single provider score, §29.10), plus the roster's credential status and the complaints pipeline. Clinical quality indicators appear only once a Clinical Director has validated and signed one off."
       />
       <ProviderQualityDashboard />
     </div>

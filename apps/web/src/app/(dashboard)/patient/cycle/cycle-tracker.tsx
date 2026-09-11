@@ -465,7 +465,7 @@ export function CycleTracker({
 
       <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         Your cycle information is part of your health record. Your care team can see it; nobody
-        else can. It is never used to score your health risk.
+        else can. It plays no part in scoring your health risk.
       </p>
     </div>
   );

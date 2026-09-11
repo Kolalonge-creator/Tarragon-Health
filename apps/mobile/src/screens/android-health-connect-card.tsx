@@ -77,7 +77,7 @@ export function AndroidHealthConnectCard() {
 
       <MutedText>
         We read your blood pressure, blood sugar, weight, oxygen level, resting heart rate and
-        steps. Your care team sees them alongside everything else on your record. We never write
+        steps. Your care team sees them alongside everything else on your record. We do not write
         anything back to Health Connect, and you choose what to share on the next screen. Once
         you&apos;ve synced, we&apos;ll also keep checking for new readings in the background; tap
         Sync any time you want the latest right now.
