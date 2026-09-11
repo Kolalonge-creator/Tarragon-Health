@@ -9,7 +9,7 @@ import { TestimonialModerationButtons } from "./moderation-buttons";
 
 export default async function AdminTestimonialsPage() {
   const profile = await getCurrentProfile();
-  // proxy.ts already blocks non-admins from /admin/**; defense in depth.
+  // proxy.ts already blocks non-admins from /admin/**; defence in depth.
   if (profile?.role !== "admin") redirect("/admin");
 
   const supabase = await createClient();

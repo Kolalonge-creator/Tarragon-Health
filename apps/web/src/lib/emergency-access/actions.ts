@@ -36,7 +36,7 @@ export async function requestEmergencyAccessAction(
  * Records a review outcome. review_emergency_record_access() is where "a
  * different reviewer" and "the patient's home-org clinical director" are
  * actually enforced — same reason this is a thin wrapper, not a second
- * authorization check.
+ * authorisation check.
  */
 export async function reviewEmergencyAccessAction(
   grantId: string,

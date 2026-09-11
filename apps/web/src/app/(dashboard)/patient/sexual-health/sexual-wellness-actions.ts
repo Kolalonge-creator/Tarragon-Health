@@ -32,7 +32,7 @@ export type SubmitSexualHealthScreenState =
  * discipline as mental_health_screens). When cardiometabolicFlag comes back
  * true (iief5 at moderate/severe), we don't create a new alert type or a
  * second risk engine — the result just carries the flag so the UI can nudge
- * the patient toward the existing CV-risk questionnaire
+ * the patient towards the existing CV-risk questionnaire
  * (/patient/prevention#risk-assessment).
  */
 export async function submitSexualHealthScreen(

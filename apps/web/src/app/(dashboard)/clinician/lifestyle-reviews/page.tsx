@@ -6,7 +6,7 @@ import { LifestyleReviewsClient, type PendingReview } from "./lifestyle-reviews-
 
 /**
  * Clinician worklist for periodic lifestyle reviews (spec §12). Org-staff gated
- * (defense in depth on RLS). Completing a review server-stamps reviewed_by and
+ * (defence in depth on RLS). Completing a review server-stamps reviewed_by and
  * rolls the next one at the condition cadence.
  */
 export default async function LifestyleReviewsPage() {

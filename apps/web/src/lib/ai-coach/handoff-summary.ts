@@ -14,7 +14,7 @@ const summarySchema = z.object({
 
 const SYSTEM_PROMPT = `You are preparing a handoff summary so a human on the patient's care team doesn't have to
 re-read a whole chat transcript before helping. You are given the recent AI Coach conversation and
-a minimized snapshot of the patient's active medications and care-plan conditions -- never their
+a minimised snapshot of the patient's active medications and care-plan conditions -- never their
 full chart.
 
 Fill in exactly these four fields, each 1 short sentence, using "Not mentioned" or "None on file"
@@ -59,7 +59,7 @@ export async function buildCoachHandoffSummary(
     input.aiAction
   );
 
-  // Nothing to summarize -- e.g. a patient who clicks "speak to someone"
+  // Nothing to summarise -- e.g. a patient who clicks "speak to someone"
   // without ever chatting with the coach first. Asking the model to
   // extract a concern/symptoms from an empty conversation produced
   // literal placeholder-looking text ("<UNKNOWN>") in practice rather than

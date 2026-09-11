@@ -20,7 +20,7 @@ export type CreateSupportTicketState =
  * creates a ticket at all: it inserts an emergency_events row instead
  * (source='support_ticket_intake'), the same acknowledge-gated pathway the
  * one-touch danger-symptom check uses (§24.7 — "Support workflow should
- * immediately direct toward the appropriate emergency pathway, rather than
+ * immediately direct towards the appropriate emergency pathway, rather than
  * creating an ordinary support ticket"). The DB trigger on emergency_events
  * raises the emergency-tier clinician_alert — this action never decides
  * urgency itself.

@@ -48,7 +48,7 @@ const ONBOARDING_LABEL: Record<string, string> = {
 const ONBOARDING_NEXT_LABEL: Record<string, string> = {
   application: "Start business verification",
   business_verification: "Mark business verified → regulatory check",
-  regulatory_verification: "Confirm license verified → location check",
+  regulatory_verification: "Confirm licence verified → location check",
   location_verification: "Confirm location verified → service config",
   service_configuration: "Confirm service configured → integration test",
   integration_testing: "Confirm integration tested → approve",
@@ -78,7 +78,7 @@ function PharmacyOnboardingPanel({ pharmacy }: { pharmacy: PharmacyPartner }) {
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="amber">{ONBOARDING_LABEL[status] ?? status}</Badge>
         {status === "regulatory_verification" && !pharmacy.license_verified_at && (
-          <span className="text-xs text-amber-800">Needs a verified license (see below) before advancing.</span>
+          <span className="text-xs text-amber-800">Needs a verified licence (see below) before advancing.</span>
         )}
         {status === "location_verification" && (
           <span className="text-xs text-amber-800">
@@ -512,7 +512,7 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
                 (ph.license_type ?? "").toLowerCase().includes(q) ||
                 (ph.delivery && "delivery".includes(q))
               }
-              searchPlaceholder="Search pharmacies by name, city, state, or license…"
+              searchPlaceholder="Search pharmacies by name, city, state, or licence…"
               emptyMessage="No pharmacies yet."
               renderItem={(ph) => (
                 <div key={ph.id} className="space-y-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
@@ -538,7 +538,7 @@ export function PharmaciesManager({ pharmacistLogins }: { pharmacistLogins: Phar
                   </div>
                   {ph.license_number && (
                     <p className="text-xs text-charcoal-ink/50">
-                      {ph.license_type ?? "License"}: {ph.license_number}
+                      {ph.license_type ?? "Licence"}: {ph.license_number}
                     </p>
                   )}
                   {!["activated", "rejected"].includes(ph.onboarding_status ?? "application") && (

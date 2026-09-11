@@ -52,7 +52,7 @@ async function isReachable(url: string): Promise<boolean> {
  * Liveness only — never touches a patient table, needs no API key. Hits
  * GoTrue's own `/auth/v1/health` and treats *any* HTTP response as proof the
  * project is reachable, including a 401/403/404 — this is checking whether
- * the server answers, not whether the caller is authorized. Empirically
+ * the server answers, not whether the caller is authorised. Empirically
  * confirmed against the live project (2026-08-30): this endpoint actually
  * returns 401 without an apikey header, not the 200 a "health endpoint"
  * name suggests, so treating only a 2xx as "up" would misreport a perfectly

@@ -60,7 +60,7 @@ export function Budgets() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Set a monthly budget per account (optionally per cost center) and compare it against real ledger
+        Set a monthly budget per account (optionally per cost centre) and compare it against real ledger
         postings for the same period.
       </p>
 
@@ -85,7 +85,7 @@ export function Budgets() {
           <TableShell>
             <thead>
               <tr className="border-b border-charcoal-ink/10 text-xs text-charcoal-ink/50">
-                <Th>Account</Th><Th>Cost center</Th><Th right>Budget</Th><Th right>Actual</Th><Th right>Variance</Th>
+                <Th>Account</Th><Th>Cost centre</Th><Th right>Budget</Th><Th right>Actual</Th><Th right>Variance</Th>
               </tr>
             </thead>
             <tbody>
@@ -129,7 +129,7 @@ export function Budgets() {
               </Select>
             </div>
             <div>
-              <Label>Cost center (optional)</Label>
+              <Label>Cost centre (optional)</Label>
               <Select value={f.cost_center_code} onChange={(e) => setF((p) => ({ ...p, cost_center_code: e.target.value }))}>
                 <option value="">Unassigned</option>
                 {(costCenters.data ?? []).map((c) => <option key={c.code} value={c.code}>{c.name}</option>)}
@@ -156,7 +156,7 @@ export function Budgets() {
           <TableShell>
             <thead>
               <tr className="border-b border-charcoal-ink/10 text-xs text-charcoal-ink/50">
-                <Th>Month</Th><Th>Account</Th><Th>Cost center</Th><Th right>Amount</Th><Th> </Th>
+                <Th>Month</Th><Th>Account</Th><Th>Cost centre</Th><Th right>Amount</Th><Th> </Th>
               </tr>
             </thead>
             <tbody>

@@ -695,7 +695,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What actually happens when you stop",
         paragraphs: [
-          "For most blood pressure medicines, pressure rises back toward its untreated level within days to a couple of weeks, quietly, with no warning sign. The risk of stroke and heart attack rises with it. If a medicine genuinely isn't suiting you, side effects, cost, or difficulty remembering doses, that is a real reason to change the plan, but the answer is a different medicine or a different routine, not silence.",
+          "For most blood pressure medicines, pressure rises back towards its untreated level within days to a couple of weeks, quietly, with no warning sign. The risk of stroke and heart attack rises with it. If a medicine genuinely isn't suiting you, side effects, cost, or difficulty remembering doses, that is a real reason to change the plan, but the answer is a different medicine or a different routine, not silence.",
         ],
       },
       {
@@ -767,7 +767,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "How much is actually enough",
         paragraphs: [
-          "Roughly 150 minutes a week of brisk walking or similar activity, about 20-25 minutes most days, is the widely-used benchmark for general health. For weight maintenance specifically, some evidence points toward needing closer to 250-300 minutes a week. Either way, consistency across months matters far more than intensity on any single day.",
+          "Roughly 150 minutes a week of brisk walking or similar activity, about 20-25 minutes most days, is the widely-used benchmark for general health. For weight maintenance specifically, some evidence points towards needing closer to 250-300 minutes a week. Either way, consistency across months matters far more than intensity on any single day.",
         ],
       },
       {
@@ -1339,7 +1339,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "A realistic starting point",
         paragraphs: [
-          "You don't need to remove all fat; a completely fat-free diet isn't the goal or even healthy. The practical shift is toward fish, beans and vegetable oils more often, and away from reused frying oil and heavily processed snack foods, most days rather than every single day.",
+          "You don't need to remove all fat; a completely fat-free diet isn't the goal or even healthy. The practical shift is towards fish, beans and vegetable oils more often, and away from reused frying oil and heavily processed snack foods, most days rather than every single day.",
         ],
       },
     ],

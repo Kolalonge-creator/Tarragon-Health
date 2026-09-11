@@ -153,7 +153,7 @@ const READ_PERMISSIONS = [
  * observed either — every blood-pressure write also writes its systolic
  * constituent, so observing the quantity types already fires on BP changes,
  * without risking the same uncatchable-native-exception class the
- * authorization call hit (see READ_PERMISSIONS above). Kept as its own
+ * authorisation call hit (see READ_PERMISSIONS above). Kept as its own
  * constant rather than re-deriving it, since the two APIs want slightly
  * different TypeScript shapes. */
 const BACKGROUND_TYPES = READ_PERMISSIONS;

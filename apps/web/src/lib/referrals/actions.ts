@@ -110,7 +110,7 @@ export async function uploadReferralOutcomeDocumentAsPatient(
  * forbids a staff session from writing directly — same shape as
  * uploadResultDocumentForPatient. Attaching a document is not itself a
  * clinical act (no diagnosis/plan is recorded here), so any org-staff role
- * may do this, not just clinical tier — closing the referral afterward is
+ * may do this, not just clinical tier — closing the referral afterwards is
  * the clinical-tier-gated step.
  */
 export async function uploadReferralOutcomeDocumentForPatient(

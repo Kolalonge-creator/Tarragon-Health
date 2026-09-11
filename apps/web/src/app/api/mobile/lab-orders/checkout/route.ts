@@ -17,7 +17,7 @@ import { createAndPayForLabOrder } from "@/lib/billing/create-and-pay-lab-order"
 const checkoutSchema = z.object({
   panelBundleId: z.string().min(1),
   providerId: z.string().min(1).optional(),
-  // Restricted to the app's own deep-link scheme (defense-in-depth): a
+  // Restricted to the app's own deep-link scheme (defence-in-depth): a
   // bearer token alone shouldn't be enough to redirect Paystack's
   // post-payment callback to an arbitrary URL.
   callbackUrl: z

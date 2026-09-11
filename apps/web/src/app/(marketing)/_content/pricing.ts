@@ -428,7 +428,7 @@ export const CARE_VOUCHER_POINTS: { title: string; body: string }[] = [
     // hardcodes reward_kobo = 50000 (migration 20260724113718). If that function
     // is ever repriced, update this line (and the FAQ + gift page) with it.
     title: "Refer a friend",
-    body: "Share your referral link from your dashboard. Once your friend completes their first paid order, you both get a ₦500 reward voucher toward your care.",
+    body: "Share your referral link from your dashboard. Once your friend completes their first paid order, you both get a ₦500 reward voucher towards your care.",
   },
   {
     title: "It does not quietly disappear",

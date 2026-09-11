@@ -29,7 +29,7 @@ const METRIC_LABEL: Record<string, string> = {
   alert_response_minutes: "Avg. alert response time",
   escalation_resolution_hours: "Avg. escalation resolution time",
   alert_sla_met_rate: "Alert SLA met",
-  encounter_note_completion_rate: "Notes finalized",
+  encounter_note_completion_rate: "Notes finalised",
   referral_documentation_rate: "Referrals documented",
   result_acknowledgement_rate: "Results acknowledged",
   experience_punctuality: "Punctuality",

@@ -114,7 +114,7 @@ function HomeVisitProvidersSection() {
                 </div>
                 {p.license_number && (
                   <p className="mt-1 text-xs text-charcoal-ink/50">
-                    {p.license_type ?? "License"}: {p.license_number}
+                    {p.license_type ?? "Licence"}: {p.license_number}
                   </p>
                 )}
                 <PartnerLicenseEditor
@@ -286,7 +286,7 @@ function LogisticsPartnersSection() {
                 </div>
                 {p.license_number && (
                   <p className="mt-1 text-xs text-charcoal-ink/50">
-                    {p.license_type ?? "License"}: {p.license_number}
+                    {p.license_type ?? "Licence"}: {p.license_number}
                   </p>
                 )}
                 <PartnerLicenseEditor

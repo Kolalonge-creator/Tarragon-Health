@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 /**
- * The minimized, structured data a case brief is grounded in -- deliberately
+ * The minimised, structured data a case brief is grounded in -- deliberately
  * NOT the patient's free-text clinical notes or full chart. Every field here
  * is something a clinician/doctor looking at this alert would want at a
  * glance; nothing here is sent to Claude that isn't already visible
