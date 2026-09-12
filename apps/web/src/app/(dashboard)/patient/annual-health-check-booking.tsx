@@ -1,28 +1,24 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   useLabCatalogue,
   useCreateLabOrder,
   usePatientLabOrders,
-  useScreenTypePrices,
-  bundleIsPartnerBillable,
   type PanelBundle,
 } from "@/lib/queries/lab-orders";
-import { useRegionServiceAvailable } from "@/lib/queries/service-regions";
-import { createAndPayForPartnerLabOrder } from "./lab-tests/actions";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ConfidentialResultNotice } from "@/components/confidential-result-notice";
 import { PatientResultUpload } from "@/components/patient-result-upload";
+import { EcgReportUpload } from "@/components/ecg-report-upload";
+import { LabOrderTestChecklist } from "@/components/lab-order-test-checklist";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
-import { PartnerLabBillingOption } from "./partner-lab-billing-option";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ReviewPrice } from "./review-price";
 import { cn } from "@/lib/utils";
-import { LabLocationPicker } from "@/components/lab-location-picker";
 import { LabSpecimenTracker } from "@/components/lab-specimen-tracker";
 import { useScreenTypeDetails } from "@/lib/queries/lab-orders";
 
@@ -52,23 +48,24 @@ const isConfidential = (b: PanelBundle) => CONFIDENTIAL_CODES.includes(b.code);
 const REBOOK_AFTER_MONTHS = 11;
 
 /**
- * The Screen ladder. Two fulfilment modes coexist, and neither is hardcoded
- * here — both read the same `region_service_available(state, 'lab')` gate
- * the database itself uses for what a lab_orders row is allowed to be:
+ * The Screen ladder — self-arranged only. `panel_bundles.guidance_only` is
+ * `true` for every bundle as of migration `20260910011846_catalogue_
+ * becomes_guidance_not_commerce.sql`: Tarragon no longer bills for or books
+ * any test, full stop, and `private.enforce_guidance_only_is_never_billed`
+ * refuses a partner-billed lab_orders insert at the database level
+ * regardless of what the UI does. There used to be a second, partner-billed
+ * fulfilment mode here (Synlab Nigeria, switched on 2026-08-21) — that
+ * branch was removed 2026-09-11 once it became clear the DB had already cut
+ * it off from underneath the UI, leaving the "Book & pay" button silently
+ * broken (a doomed insert behind a generic error).
  *
- * Self-arranged (still every state without a switched-on lab partner):
- * Tarragon writes the request saying which tests are needed and why, the
- * patient takes it to whichever lab they like and pays that lab directly,
- * then uploads the result here for a doctor to read. `useCreateLabOrder`.
- *
- * Partner-billed (Synlab Nigeria, switched on 2026-08-21 for Lagos): the
- * founder's Option A — Tarragon bills one price for the review, computed for
- * that patient, and settles with Synlab behind the scenes. The "Book & pay"
- * button runs `createAndPayForPartnerLabOrder` and goes straight to hosted
- * checkout; ReviewPrice shows the same number this books at, because both
- * read `price_review_for_patient`/`private.compute_review_price`. A
- * partner-billed order that never finished checkout shows up in "Waiting on
- * payment" rather than vanishing, so nothing is silently lost.
+ * Every bundle now works the same way: `useCreateLabOrder` opens a request
+ * at `status: 'ordered'` with no charge, the patient takes the printed
+ * request (auto-opened right after) to any laboratory they choose and pays
+ * that lab directly, then uploads the result here for a doctor to read.
+ * "Waiting on payment" below still exists to settle any pre-existing
+ * partner-billed order from before this cutover — it is not a live booking
+ * path any more.
  *
  * `screensEnabled` gates the curated ladder as a subscription feature. What is
  * NEVER gated, on any plan: uploading a result, a doctor reading it, and the
@@ -85,21 +82,15 @@ export function AnnualHealthCheckBooking({
   organisationId: string | null;
   /** Hides sex-specific single screenings (e.g. cervical smear for men). */
   sex?: string | null;
-  /**
-   * Nigerian state, used only to ask whether Tarragon is billing for tests
-   * here yet (region_service_available(state, 'lab')). ReviewPrice decides
-   * what to say about money from that; this component never asserts it.
-   */
+  /** Nigerian state, passed through to ReviewPrice for its own copy. */
   state?: string | null;
   screensEnabled?: boolean;
 }) {
   const { data: bundles } = useLabCatalogue();
   const { data: orders } = usePatientLabOrders(patientId);
-  const { data: screenTypePrices } = useScreenTypePrices();
   const createOrder = useCreateLabOrder();
-  const { data: partnerBillingAvailable } = useRegionServiceAvailable(state, "lab");
-  const [payState, payAction, payPending] = useActionState(createAndPayForPartnerLabOrder, undefined);
   const [selectedBundleId, setSelectedBundleId] = useState<string | null>(null);
+  const [printError, setPrintError] = useState<string | null>(null);
   // Captured once on mount so the render stays pure (lint: no Date.now() in
   // render); a rebook nudge doesn't need a live-ticking clock.
   const [nowMs] = useState(() => Date.now());
@@ -264,27 +255,42 @@ export function AnnualHealthCheckBooking({
             <p className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/60 dark:text-night-ink/60">
               Waiting on your result
             </p>
-            {openOrders.map((order) => (
-              <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
-                <div className="flex items-center gap-2">
-                  <Badge variant="blue">Ready to take to a lab</Badge>
-                  <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
+            {openOrders.map((order) => {
+              const testCodes = order.panel_bundle?.test_codes ?? [];
+              const includesEcg = testCodes.includes("ecg_resting");
+              const isMultiTest = testCodes.length > 1;
+              return (
+                <div key={order.id} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="blue">Ready to take to a lab</Badge>
+                    <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
+                  </div>
+                  <p className="text-sm text-charcoal-ink dark:text-night-ink">
+                    {order.panel_bundle?.name ?? "Health check"}
+                  </p>
+                  {order.fulfilment === "self_arranged" && (
+                    <a
+                      href={`/api/patient/lab-order/${order.id}/request`}
+                      className="inline-block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
+                    >
+                      Print the request to take with you
+                    </a>
+                  )}
+                  <LabSpecimenTracker labOrderId={order.id} />
+                  {isMultiTest ? (
+                    <LabOrderTestChecklist labOrderId={order.id} testCodes={testCodes} />
+                  ) : (
+                    <>
+                      <PatientResultUpload
+                        labOrderId={order.id}
+                        label={includesEcg ? "Upload your blood/lab results" : "Upload your result"}
+                      />
+                      {includesEcg && <EcgReportUpload labOrderId={order.id} label="Upload your 12-lead ECG" />}
+                    </>
+                  )}
                 </div>
-                <p className="text-sm text-charcoal-ink dark:text-night-ink">
-                  {order.panel_bundle?.name ?? "Health check"}
-                </p>
-                {order.fulfilment === "self_arranged" && (
-                  <a
-                    href={`/api/patient/lab-order/${order.id}/request`}
-                    className="inline-block text-xs font-medium text-brand-green dark:text-brand-green-bright hover:underline"
-                  >
-                    Download the request to take with you
-                  </a>
-                )}
-                <LabSpecimenTracker labOrderId={order.id} />
-                <PatientResultUpload labOrderId={order.id} />
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
 
@@ -325,68 +331,50 @@ export function AnnualHealthCheckBooking({
 
             {selected && !openBundleIds.has(selected.id) && (
               <div className="space-y-2 pt-1">
-                {partnerBillingAvailable ? (
-                  <form action={payAction} className="space-y-3">
-                    <input type="hidden" name="panelBundleId" value={selected.id} />
-                    {selectedTestDetails?.specimen_type && (
-                      <p className="text-xs text-charcoal-ink/60">
-                        <span className="font-medium text-charcoal-ink">Sample needed: </span>
-                        {selectedTestDetails.specimen_type}
-                        {selectedTestDetails.preparation_instructions
-                          ? ` — ${selectedTestDetails.preparation_instructions}`
-                          : ""}
-                      </p>
-                    )}
-                    <LabLocationPicker testCode={selected.test_codes[0] ?? null} state={state} />
-                    <Button type="submit" size="sm" disabled={payPending}>
-                      {payPending ? "Taking you to payment…" : `Book & pay for ${selected.name}`}
-                    </Button>
-                    <p className="mt-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                      We book it with our lab partner and send you the result, no separate lab
-                      visit to arrange.
-                    </p>
-                    {payState?.error && <p className="mt-1 text-xs text-red-600 dark:text-red-300">{payState.error}</p>}
-                  </form>
-                ) : (
-                  <>
-                    <Button
-                      type="button"
-                      size="sm"
-                      disabled={createOrder.isPending}
-                      onClick={() =>
-                        createOrder.mutate({
-                          organisationId,
-                          patientId,
-                          panelBundleId: selected.id,
-                        })
-                      }
-                    >
-                      {createOrder.isPending ? "Getting it ready…" : `Get ${selected.name}`}
-                    </Button>
-                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                      Costs vary quite a bit between labs, so it&apos;s worth asking two before you
-                      go.
-                    </p>
-                    {createOrder.isError && (
-                      <p className="text-xs text-red-600 dark:text-red-300">
-                        Could not set that up just now. Please try again.
-                      </p>
-                    )}
-                    {/* partnerBillingAvailable already covers this state with the
-                        "Book & pay" flow above — this opt-in is only offered as a
-                        fallback where the state isn't switched on but this specific
-                        bundle still has a contracted price on file. */}
-                    {bundleIsPartnerBillable(selected, screenTypePrices) && (
-                      <PartnerLabBillingOption
-                        patientId={patientId}
-                        organisationId={organisationId}
-                        panelBundleId={selected.id}
-                        bundleName={selected.name}
-                        priceKobo={selected.price_kobo}
-                      />
-                    )}
-                  </>
+                {selectedTestDetails?.specimen_type && (
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                    <span className="font-medium text-charcoal-ink dark:text-night-ink">Sample needed: </span>
+                    {selectedTestDetails.specimen_type}
+                    {selectedTestDetails.preparation_instructions
+                      ? `. ${selectedTestDetails.preparation_instructions}`
+                      : ""}
+                  </p>
                 )}
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={createOrder.isPending}
+                  onClick={() => {
+                    setPrintError(null);
+                    createOrder.mutate(
+                      { organisationId, patientId, panelBundleId: selected.id },
+                      {
+                        onSuccess: (order) => {
+                          if (!order?.id) return;
+                          const win = window.open(`/api/patient/lab-order/${order.id}/request`, "_blank");
+                          if (!win) {
+                            setPrintError(
+                              "Your request is ready below under “Waiting on your result” — your browser blocked the automatic print, so use the link there instead."
+                            );
+                          }
+                        },
+                      }
+                    );
+                  }}
+                >
+                  {createOrder.isPending ? "Getting your form ready…" : `Get & print ${selected.name}`}
+                </Button>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                  We&apos;ll open a printable request listing exactly what&apos;s needed. Take it to
+                  any laboratory you like and pay them directly; costs vary quite a bit between
+                  labs, so it&apos;s worth asking two before you go.
+                </p>
+                {createOrder.isError && (
+                  <p className="text-xs text-red-600 dark:text-red-300">
+                    Could not set that up just now. Please try again.
+                  </p>
+                )}
+                {printError && <p className="text-xs text-amber-700 dark:text-amber-300">{printError}</p>}
               </div>
             )}
           </>

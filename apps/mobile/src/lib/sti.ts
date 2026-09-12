@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { postStiRiskCheck, postLabOrderCheckout } from "./api";
+import { postStiRiskCheck } from "./api";
 import { loadLabPanelBundles, type PanelBundle } from "./labs";
 import type { QueryResult } from "./medications";
 import type { Enums, Tables } from "@tarragon/shared";
@@ -186,9 +186,11 @@ export async function submitClinicianAssistedPartnerNotification(
 }
 
 // ---------------------------------------------------------------------------
-// STI test booking (native catalogue; the actual Paystack charge itself
-// hands off to the browser via postLabOrderCheckout, same pattern the
-// "My services" and Appointments screens already use)
+// STI test catalogue (guidance only — see StiBookingPanel in
+// sexual-health-testing-tab.tsx). Tarragon does not book or bill any of
+// these; bookStiTest/postLabOrderCheckout were removed once every
+// panel_bundles row became guidance_only (migration
+// 20260910011846_catalogue_becomes_guidance_not_commerce.sql).
 // ---------------------------------------------------------------------------
 
 /** The self-bookable STI/BBV-relevant bundles, in the order we want them to
@@ -210,17 +212,4 @@ export async function loadStiBookableBundles(): Promise<PanelBundle[]> {
   return STI_BUNDLE_CODES.map((code) => byCode.get(code)).filter(
     (b): b is PanelBundle => !!b && b.is_active === true && b.self_bookable === true
   );
-}
-
-/** Books the bundle (a plain RLS-scoped lab_orders insert, same as web) and
- * initiates Paystack checkout via the /api/mobile/lab-orders/checkout
- * route — the caller opens the returned checkoutUrl with
- * expo-web-browser's openAuthSessionAsync and the given callbackUrl, same
- * as "My services"'s postServicesCheckout. */
-export async function bookStiTest(panelBundleId: string, callbackUrl: string): Promise<QueryResult<string>> {
-  const result = await postLabOrderCheckout(panelBundleId, callbackUrl);
-  if (result.error || !result.checkoutUrl) {
-    return { ok: false, error: result.error ?? "Could not start checkout" };
-  }
-  return { ok: true, data: result.checkoutUrl };
 }
