@@ -359,6 +359,59 @@ export async function postLabOrderCheckout(
   return result.ok ? result.data : { error: result.error };
 }
 
+export interface CoachTurnResponse {
+  success?: boolean;
+  conversationId?: string;
+  reply?: string;
+  tier?: "routine" | "clinician_review" | "emergency";
+  aiInteractionId?: string | null;
+  error?: string;
+}
+
+/** Mirrors apps/web/.../patient/ai-coach-actions.ts's sendCoachMessage --
+ * see apps/web/src/app/api/mobile/ai-coach/message/route.ts. Entitlement,
+ * rate-limiting, the governed Claude call, and the emergency-keyword safety
+ * net all happen server-side; this is a thin passthrough. */
+export async function postCoachMessage(
+  message: string,
+  conversationId?: string
+): Promise<CoachTurnResponse> {
+  const result = await request<CoachTurnResponse>("/api/mobile/ai-coach/message", "POST", {
+    message,
+    conversationId,
+  });
+  return result.ok ? result.data : { error: result.error };
+}
+
+export type CoachQuickActionKind = "explain_record" | "care_plan_summary" | "appointment_prep";
+
+/** Mirrors ai-coach-quick-action.ts's runAiCoachQuickAction -- see
+ * apps/web/src/app/api/mobile/ai-coach/quick-action/route.ts. These three
+ * surfaces are deterministic and never call Claude. */
+export async function postCoachQuickAction(
+  kind: CoachQuickActionKind,
+  conversationId?: string
+): Promise<CoachTurnResponse> {
+  const result = await request<CoachTurnResponse>("/api/mobile/ai-coach/quick-action", "POST", {
+    kind,
+    conversationId,
+  });
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** Mirrors handoff-actions.ts's requestCareTeamHandoffAction (§78.12 "I want
+ * to speak to someone") -- see apps/web/src/app/api/mobile/ai-coach/handoff/route.ts. */
+export async function postCoachHandoffToCareTeam(
+  conversationId?: string
+): Promise<{ success?: boolean; threadId?: string; error?: string }> {
+  const result = await request<{ success?: boolean; threadId?: string }>(
+    "/api/mobile/ai-coach/handoff",
+    "POST",
+    { conversationId }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable
