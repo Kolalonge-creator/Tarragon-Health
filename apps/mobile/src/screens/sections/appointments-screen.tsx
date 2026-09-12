@@ -156,7 +156,7 @@ export function AppointmentsScreen({ patientId, organisationId }: AppointmentsSc
       <View>
         <Text style={{ fontSize: 20, fontWeight: "700", color: colors.ink }}>Appointments</Text>
         <MutedText>
-          Telemedicine or a result interpretation session, always with a Tarragon doctor.
+          A video or audio visit, or a result consultation, always with a Tarragon doctor.
         </MutedText>
       </View>
 

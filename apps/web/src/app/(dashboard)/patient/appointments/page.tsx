@@ -41,7 +41,7 @@ export default async function PatientAppointmentsPage({
         backTo={{ href: "/patient", label: "Dashboard" }}
         title="Appointments"
         icon={SEMANTIC_ICON.booking}
-        description="Book a telemedicine visit or a result interpretation session with a Tarragon doctor, request a second opinion, and manage your upcoming appointments."
+        description="Book a video or audio visit, or a result consultation, with a Tarragon doctor, request a second opinion, and manage your upcoming appointments."
       />
       <MyAppointmentsList patientId={subjectId} />
       <BookAppointment
