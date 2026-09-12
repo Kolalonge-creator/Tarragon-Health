@@ -16,40 +16,7 @@ import { BreastSymptomCard } from "@/app/(dashboard)/patient/breast-symptom-card
 import { MenopauseSymptomCard } from "@/app/(dashboard)/patient/menopause-symptom-card";
 import { FertilityRequestCard } from "@/app/(dashboard)/patient/fertility-request-card";
 import { formatPatientDate } from "@/lib/format-date";
-
-/**
- * `appointments` has no category/specialty column (see the `service`
- * comment in 20260828000637_appointment_engine_core.sql — deliberately
- * free text, not a catalogue FK), so there is no real field marking an
- * appointment as "women's health". This keyword match over the free-text
- * `reason`/`service` columns is a heuristic, not a guarantee — it can miss
- * a genuinely relevant appointment logged with different wording, and it
- * intentionally only affects what this stat highlights, never what the
- * patient can actually book or see on the real Appointments page.
- */
-const WOMENS_HEALTH_APPOINTMENT_KEYWORDS = [
-  "women",
-  "gyn",
-  "pregnan",
-  "antenatal",
-  "prenatal",
-  "postnatal",
-  "postpartum",
-  "cervical",
-  "breast",
-  "menstrual",
-  "period",
-  "contracept",
-  "menopause",
-  "fertility",
-  "pelvic",
-  "obstetric",
-] as const;
-
-function isWomensHealthAppointment(appt: { reason: string | null; service: string | null }): boolean {
-  const text = `${appt.reason ?? ""} ${appt.service ?? ""}`.toLowerCase();
-  return WOMENS_HEALTH_APPOINTMENT_KEYWORDS.some((keyword) => text.includes(keyword));
-}
+import { todayIsoDate } from "@/lib/queries/medications";
 
 /**
  * Women's Health (spec §44) — one destination integrating prevention,
@@ -123,7 +90,7 @@ export default async function WomensHealthPage() {
     { data: reproProfile, error: reproError },
     { data: pregnancy, error: pregnancyError },
     { data: activePlans },
-    { data: upcomingAppointments },
+    { data: nextScreening },
   ] = await Promise.all([
     supabase
       .from("reproductive_health_profiles")
@@ -136,17 +103,25 @@ export default async function WomensHealthPage() {
       .eq("patient_id", subjectId)
       .maybeSingle(),
     supabase.from("care_plans").select("condition").eq("patient_id", subjectId).eq("status", "active"),
+    // Real, non-heuristic scoping: screen_types.sex_applicability is an
+    // actual enum column ('all'|'male'|'female'), not a guess over free
+    // text — cervical smear, mammography etc. are all seeded 'female'.
+    // pending/booked/overdue mirrors the "actionable" set
+    // PreventiveScreeningCalendar already uses; completed/declined/
+    // cancelled screenings are never "next" anything.
     supabase
-      .from("appointments")
-      .select("scheduled_for, reason, service")
+      .from("screening_schedules")
+      .select("due_date, status, screen_type:screen_types!inner(name, sex_applicability)")
       .eq("patient_id", subjectId)
-      .neq("status", "cancelled")
-      .gte("scheduled_for", new Date().toISOString())
-      .order("scheduled_for", { ascending: true })
-      .limit(20),
+      .eq("screen_type.sex_applicability", "female")
+      .in("status", ["pending", "booked", "overdue"])
+      .order("due_date", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
-  const nextAppointment = (upcomingAppointments ?? []).find(isWomensHealthAppointment) ?? null;
+  const today = todayIsoDate();
+  const nextScreeningOverdue = Boolean(nextScreening && nextScreening.due_date < today);
 
   const activeConditions = (activePlans ?? []).map((p) => p.condition as CarePlanCondition);
 
@@ -208,21 +183,25 @@ export default async function WomensHealthPage() {
             <SummaryStat label="Antenatal" value={`Week ${gestationalEstimate.weeks}`} />
           )}
           <Link
-            href="/patient/appointments"
+            href="/patient/prevention"
             className="-m-1 rounded-md p-1 transition hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10"
           >
             <SummaryStat
-              label="Next appointment"
+              label="Next screening"
               value={
-                nextAppointment?.scheduled_for
-                  ? formatPatientDate(nextAppointment.scheduled_for, {
-                      weekday: "short",
-                      month: "short",
-                      day: "numeric",
-                    })
-                  : "Book a women's health visit"
+                nextScreening
+                  ? `${nextScreening.screen_type?.name ?? "Screening"} · ${
+                      nextScreeningOverdue
+                        ? "Overdue"
+                        : formatPatientDate(nextScreening.due_date, { month: "short", day: "numeric" })
+                    }`
+                  : "No screening due"
               }
-              valueClassName="text-brand-green dark:text-brand-green-bright"
+              valueClassName={
+                nextScreeningOverdue
+                  ? "text-red-600 dark:text-red-400"
+                  : "text-brand-green dark:text-brand-green-bright"
+              }
             />
           </Link>
         </CardContent>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { supabase } from "@/lib/supabase";
+import { todayIsoDate } from "@/lib/medications";
 import { computeGestationalEstimate } from "@/lib/gestational-age";
 import { contraceptionCautionNote, menopauseTreatmentCautionNote, type CarePlanCondition } from "@/lib/womens-health-intersections";
 import { computeCycleNudges, type ReproductiveLifeStage } from "@/lib/cycle-nudges";
@@ -58,36 +59,10 @@ function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
 }
 
-/**
- * `appointments` has no category/specialty column, so there is no real
- * field marking an appointment as "women's health" — mirrors the same
- * heuristic in apps/web/.../womens-health/page.tsx. A keyword match over
- * the free-text reason/service columns, not a guarantee; only affects
- * what this stat highlights, never what the patient can book or see on
- * the real Appointments screen.
- */
-const WOMENS_HEALTH_APPOINTMENT_KEYWORDS = [
-  "women",
-  "gyn",
-  "pregnan",
-  "antenatal",
-  "prenatal",
-  "postnatal",
-  "postpartum",
-  "cervical",
-  "breast",
-  "menstrual",
-  "period",
-  "contracept",
-  "menopause",
-  "fertility",
-  "pelvic",
-  "obstetric",
-] as const;
-
-function isWomensHealthAppointment(appt: { reason: string | null; service: string | null }): boolean {
-  const text = `${appt.reason ?? ""} ${appt.service ?? ""}`.toLowerCase();
-  return WOMENS_HEALTH_APPOINTMENT_KEYWORDS.some((keyword) => text.includes(keyword));
+interface NextScreening {
+  screenTypeName: string;
+  dueDate: string;
+  isOverdue: boolean;
 }
 
 const textInputStyle = {
@@ -159,25 +134,30 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
   const [pregnancy, setPregnancy] = useState<PatientPregnancy | null>(null);
   const [pregnancyUnknown, setPregnancyUnknown] = useState(false);
   const [activeConditions, setActiveConditions] = useState<CarePlanCondition[]>([]);
-  const [nextAppointment, setNextAppointment] = useState<string | null>(null);
+  const [nextScreening, setNextScreening] = useState<NextScreening | null>(null);
   const [cycleTrackerOpen, setCycleTrackerOpen] = useState(false);
 
   const refresh = useCallback(async () => {
-    const [profileRes, pregnancyRes, plansRes, appointmentRes] = await Promise.all([
+    const [profileRes, pregnancyRes, plansRes, screeningRes] = await Promise.all([
       loadReproductiveHealthProfile(patientId).then(
         (data) => ({ ok: true as const, data }),
         (e) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) })
       ),
       loadPregnancy(patientId),
       supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
+      // Real, non-heuristic scoping: screen_types.sex_applicability is an
+      // actual enum column ('all'|'male'|'female'), not a guess over free
+      // text. Mirrors the web page's query and PreventiveScreeningCalendar's
+      // "actionable" status set (pending/booked/overdue).
       supabase
-        .from("appointments")
-        .select("scheduled_for, reason, service")
+        .from("screening_schedules")
+        .select("due_date, status, screen_type:screen_types!inner(name, sex_applicability)")
         .eq("patient_id", patientId)
-        .neq("status", "cancelled")
-        .gte("scheduled_for", new Date().toISOString())
-        .order("scheduled_for", { ascending: true })
-        .limit(20),
+        .eq("screen_type.sex_applicability", "female")
+        .in("status", ["pending", "booked", "overdue"])
+        .order("due_date", { ascending: true })
+        .limit(1)
+        .maybeSingle(),
     ]);
 
     setReproUnknown(!profileRes.ok);
@@ -185,10 +165,20 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
     setPregnancyUnknown(!pregnancyRes.ok);
     setPregnancy(pregnancyRes.ok ? pregnancyRes.data : null);
     setActiveConditions(((plansRes.data ?? []) as { condition: CarePlanCondition }[]).map((p) => p.condition));
-    const nextWomensHealthAppointment = ((appointmentRes.data ?? []) as { scheduled_for: string; reason: string | null; service: string | null }[]).find(
-      isWomensHealthAppointment
+    const screeningRow = screeningRes.data as {
+      due_date: string;
+      screen_type: { name: string } | null;
+    } | null;
+    const today = todayIsoDate();
+    setNextScreening(
+      screeningRow
+        ? {
+            screenTypeName: screeningRow.screen_type?.name ?? "Screening",
+            dueDate: screeningRow.due_date,
+            isOverdue: screeningRow.due_date < today,
+          }
+        : null
     );
-    setNextAppointment(nextWomensHealthAppointment?.scheduled_for ?? null);
   }, [patientId]);
 
   useEffect(() => {
@@ -279,10 +269,18 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
             <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Week {gestationalEstimate.weeks}</Text>
           </View>
         )}
-        <Pressable style={{ flexBasis: "30%", flexGrow: 1 }} onPress={() => onNavigate("appointments")}>
-          <MutedText>Next appointment</MutedText>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.brand }}>
-            {nextAppointment ? when(nextAppointment) : "Book a women's health visit"}
+        <Pressable style={{ flexBasis: "30%", flexGrow: 1 }} onPress={() => onNavigate("prevention")}>
+          <MutedText>Next screening</MutedText>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "700",
+              color: nextScreening?.isOverdue ? colors.danger : colors.brand,
+            }}
+          >
+            {nextScreening
+              ? `${nextScreening.screenTypeName} · ${nextScreening.isOverdue ? "Overdue" : when(nextScreening.dueDate)}`
+              : "No screening due"}
           </Text>
         </Pressable>
       </Card>
