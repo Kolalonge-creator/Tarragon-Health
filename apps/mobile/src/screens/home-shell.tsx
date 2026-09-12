@@ -32,6 +32,7 @@ import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
 import { AdolescentHealthScreen } from "@/screens/sections/adolescent-health-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
+import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
@@ -156,6 +157,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
+  const [openVideoVisitId, setOpenVideoVisitId] = useState<string | null>(null);
 
   const refreshActing = useCallback(() => {
     // Best-effort: a failed read (e.g. SecureStore hiccup) falls back to the
@@ -210,13 +212,17 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
       )}
 
       <View style={{ flex: 1 }}>
-        {section === "overview" && (
-          <OverviewScreen
-            patientId={subjectId}
-            patientName={acting?.fullName ?? patientName}
-            onNavigate={handleSelect}
-          />
-        )}
+        {section === "overview" &&
+          (openVideoVisitId ? (
+            <VideoVisitScreen consultationId={openVideoVisitId} onBack={() => setOpenVideoVisitId(null)} />
+          ) : (
+            <OverviewScreen
+              patientId={subjectId}
+              patientName={acting?.fullName ?? patientName}
+              onNavigate={handleSelect}
+              onOpenVideoVisit={setOpenVideoVisitId}
+            />
+          ))}
         {section === "vitals" && <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />}
         {section === "medications" && (
           <MedicationsScreen
