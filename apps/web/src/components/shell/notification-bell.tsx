@@ -398,6 +398,18 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/labs",
     };
   }
+  if (n.template === "async_consult_answered") {
+    return {
+      text: "A doctor answered your question",
+      href: "/patient/care",
+    };
+  }
+  if (n.template === "second_opinion_answered") {
+    return {
+      text: "A doctor answered your second opinion request",
+      href: "/patient/care",
+    };
+  }
   if (n.template === "free_tier_reading_self_care_suggestion") {
     // From private.raise_dangerous_reading_ai_suggestion() / assess-glucose.ts
     // raiseGlucoseAlert() — the Tarragon Free alternative to doctor escalation

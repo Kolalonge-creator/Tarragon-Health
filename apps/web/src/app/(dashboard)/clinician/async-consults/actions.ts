@@ -50,7 +50,7 @@ export async function answerAsyncConsult(
     await service.from("notifications").insert({
       organisation_id: consult.organisation_id,
       recipient_id: consult.patient_id,
-      channel: "whatsapp",
+      channel: "in_app",
       status: "pending",
       template: "async_consult_answered",
       payload: {},
