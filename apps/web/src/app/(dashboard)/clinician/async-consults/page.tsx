@@ -70,7 +70,7 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithPatient }) {
         <Textarea
           name="answer"
           rows={3}
-          placeholder="Your answer to the patient, written for them, not for the chart."
+          placeholder="Your answer to the patient, written for them, not for the notes."
         />
         {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
         {state?.message && <p className="text-xs text-brand-green">{state.message}</p>}

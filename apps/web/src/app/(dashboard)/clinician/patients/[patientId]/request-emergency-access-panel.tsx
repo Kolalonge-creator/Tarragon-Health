@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
  * On a successful request, request_emergency_record_access grants access
  * immediately (this is an emergency -- there is nothing to wait for), so a
  * plain router.refresh() re-runs this same server component's own patient
- * lookup, which now succeeds under the new grant and renders the real chart.
+ * lookup, which now succeeds under the new grant and renders the real patient record.
  */
 export function RequestEmergencyAccessPanel({
   patientId,

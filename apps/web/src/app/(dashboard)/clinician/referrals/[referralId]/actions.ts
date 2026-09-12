@@ -8,7 +8,7 @@ const referralIdSchema = z.string().uuid();
 
 export type AssembleClinicalSummaryState = { error?: string; success?: boolean } | undefined;
 
-/** Last N vitals readings surfaced in the assembled summary — enough for a specialist to see a trend, not a full chart. */
+/** Last N vitals readings surfaced in the assembled summary — enough for a specialist to see a trend, not the full record. */
 const RECENT_VITALS_LIMIT = 5;
 
 /**

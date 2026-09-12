@@ -67,7 +67,7 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithPatient }) {
         <Textarea
           name="answer"
           rows={4}
-          placeholder="Your assessment, written for the patient, not for the chart."
+          placeholder="Your assessment, written for the patient, not for the notes."
         />
         {state?.error && <p className="text-xs text-red-600">{state.error}</p>}
         {state?.message && <p className="text-xs text-brand-green">{state.message}</p>}
