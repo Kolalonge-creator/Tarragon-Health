@@ -63,3 +63,41 @@ export async function uploadLabResult(photo: {
     return { success: false, error: NETWORK_ERROR_MESSAGE };
   }
 }
+
+/**
+ * "I photographed the wrong result" — swaps the file on a document the
+ * patient uploaded themselves, in place, while it's still unreviewed.
+ * Mirrors uploadLabResult's multipart shape, against
+ * /api/mobile/lab-result-replace (replaceResultDocumentAsPatient's native
+ * counterpart, DB-enforced by the same RLS/trigger change as the web path).
+ */
+export async function replaceLabResult(
+  documentId: string,
+  photo: { uri: string; mimeType: string; fileName: string },
+): Promise<UploadLabResultResult> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    return { success: false, error: "Not signed in" };
+  }
+
+  const formData = new FormData();
+  formData.append("document_id", documentId);
+  formData.append("file", { uri: photo.uri, type: photo.mimeType, name: photo.fileName } as unknown as Blob);
+
+  try {
+    const response = await fetchWithTimeoutAndRetry(`${API_BASE_URL}/api/mobile/lab-result-replace`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: formData,
+    });
+    const json = (await response.json()) as { success?: boolean; error?: string };
+    if (!response.ok) {
+      return { success: false, error: json.error ?? `Replace failed (${response.status})` };
+    }
+    return { success: true };
+  } catch {
+    return { success: false, error: NETWORK_ERROR_MESSAGE };
+  }
+}

@@ -11,6 +11,7 @@ import {
   labPartnerResultUploadSchema,
   markResultReviewedSchema,
   patientResultUploadSchema,
+  replaceResultDocumentSchema,
   staffResultUploadSchema,
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
@@ -361,6 +362,111 @@ export async function uploadResultDocumentAsPatient(
   await runLabReportExtraction(createServiceRoleClient(), {
     documentId: inserted.id,
     organisationId: me.organisation_id,
+    patientId: user.id,
+    filePath: path,
+    mimeType: file.type,
+  });
+
+  revalidatePath("/patient");
+  revalidatePath("/patient/prevention");
+  return { success: true };
+}
+
+/**
+ * A patient replaces a result document they uploaded themselves — "I
+ * attached the wrong file." Updates the SAME row in place (never a
+ * delete+reinsert): the insert trigger's clinician_alerts row stays pointed
+ * at something real, rather than orphaning. DB-enforced, not just an app
+ * check — 20260912220345_lab_result_documents_patient_self_replace.sql
+ * gives the patient a narrow UPDATE policy (their own row, source =
+ * 'patient', reviewed_at is null) and teaches the immutability trigger to
+ * let file_path move under exactly that condition; everything below is
+ * defence in depth plus the parts the DB can't do (storage, re-extraction).
+ *
+ * Once reviewed, a doctor has already acted on the original file — the DB
+ * itself refuses the update at that point, so this returns early with a
+ * clear message instead of letting a silent no-op reach storage.
+ */
+export async function replaceResultDocumentAsPatient(
+  formData: FormData,
+): Promise<ResultUploadResult> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Attach the corrected file (PDF or photo)." };
+  }
+  const fileError = validateResultDocFile(file);
+  if (fileError) return { error: fileError };
+
+  const parsed = replaceResultDocumentSchema.safeParse({
+    document_id: formData.get("document_id"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { document_id: documentId, note } = parsed.data;
+
+  const supabase = await createClient();
+
+  // Re-checked here (not just left to RLS) so the error message is useful
+  // rather than a generic "0 rows updated".
+  const { data: doc } = await supabase
+    .from("lab_result_documents")
+    .select("id, patient_id, organisation_id, source, reviewed_at, file_path")
+    .eq("id", documentId)
+    .maybeSingle();
+  if (!doc || doc.patient_id !== user.id || doc.source !== "patient") {
+    return { error: "That upload isn't yours to replace." };
+  }
+  if (doc.reviewed_at) {
+    return { error: "Your care team has already reviewed this one — message them instead." };
+  }
+
+  const oldPath = doc.file_path;
+  const ext = EXT_BY_MIME[file.type] ?? "bin";
+  const path = `${user.id}/${randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(RESULT_DOC_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { error: uploadError.message };
+
+  const { error: updateError } = await supabase
+    .from("lab_result_documents")
+    .update({
+      file_path: path,
+      original_filename: file.name,
+      mime_type: file.type,
+      file_size_bytes: file.size,
+      // Omitted (rather than set to null) when the patient didn't type a new
+      // one — a partial update, so the existing note survives untouched.
+      ...(note ? { note } : {}),
+      ai_summary_status: "pending",
+      ai_summary_generated_at: null,
+    })
+    .eq("id", documentId);
+  if (updateError) {
+    // The DB-enforced gate (RLS + the immutability trigger) is what actually
+    // rejects a reviewed/foreign/non-patient-source row — the checks above are
+    // just for a clearer message. Roll back the newly-uploaded object either way.
+    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    return { error: updateError.message };
+  }
+
+  // The old file is no longer referenced by any row — remove it. Best-effort:
+  // the replacement has already succeeded, so a cleanup failure here is a
+  // storage-hygiene issue, not a reason to tell the patient anything failed.
+  await supabase.storage.from(RESULT_DOC_BUCKET).remove([oldPath]);
+
+  // Re-read the new file into structured values, same as a fresh upload —
+  // upserts onto the same document_id, so the old extraction is replaced
+  // rather than left stale.
+  await runLabReportExtraction(createServiceRoleClient(), {
+    documentId,
+    organisationId: doc.organisation_id,
     patientId: user.id,
     filePath: path,
     mimeType: file.type,
