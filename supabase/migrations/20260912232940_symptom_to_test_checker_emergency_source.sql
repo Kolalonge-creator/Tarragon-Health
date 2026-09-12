@@ -1,0 +1,22 @@
+-- Tarragon Health — symptom-to-test checker: real escalation on a danger flag.
+--
+-- The patient-dashboard Symptom-to-Test checker (symptom-to-test-check.tsx,
+-- mounted in the Prevention hub) matches a checkbox selection against
+-- DANGER_SYMPTOM_IDS (lib/symptom-check/symptom-clusters.ts) and, until now,
+-- only rendered a static "see a doctor" card on a match — no
+-- clinician_alerts row, no emergency_events row, no audit trail at all. This
+-- adds the one new emergency_source value the fix needs so that danger flag
+-- can go through the existing emergency_events pathway
+-- (private.handle_emergency_event, 20260716224736) instead: the same
+-- Priority-1 clinician_alerts row (on plans with
+-- vitals_red_flag_doctor_escalation) or free-tier self-care suggestion, plus
+-- the site-wide acknowledge-gated EmergencyAlert dialog, that
+-- reportDangerSymptoms/SymptomLogForm's red-flag branch/the symptom triage
+-- engine already get.
+--
+-- Own migration, own transaction: Postgres does not allow a new enum value
+-- to be used in the same transaction that added it — same split already
+-- used for 'exposure_report' (20260821192305), 'support_ticket_intake'
+-- (20260829001552), and 'pregnancy_symptom_checklist' (20260902213943).
+
+alter type public.emergency_source add value if not exists 'symptom_to_test_checker';

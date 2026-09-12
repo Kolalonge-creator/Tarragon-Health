@@ -67,7 +67,7 @@ export function SymptomToTestCheck({
         {matched.length === 0 ? (
           <ResultCard
             title="Not sure what this points to"
-            body="What you've described doesn't clearly match one of the specific patterns we check for here. That doesn't mean it's nothing — a doctor is the right next step to look at it properly."
+            body="What you've described doesn't clearly match one of the specific patterns we check for here. That doesn't mean it's nothing. A doctor is the right next step to look at it properly."
             priceOverrides={priceOverrides}
           />
         ) : (
@@ -170,13 +170,13 @@ function ClusterResultCard({
         </Link>
       </div>
       <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/50">
-        Sign up to actually request this or book a consultation — nothing here is a diagnosis,
+        Sign up to actually request this or book a consultation. Nothing here is a diagnosis,
         and nothing you answered was saved or sent anywhere.
       </p>
       <ProductCtaCard
         code="async_consult_credit"
         href="/checkout/async_consult_credit"
-        ctaLabel="Ask a doctor — no account needed"
+        ctaLabel="Ask a doctor, no account needed"
         overrides={priceOverrides}
         className="mt-6 border-white/60 bg-white/60"
       />
@@ -208,7 +208,7 @@ function ResultCard({
       <ProductCtaCard
         code="async_consult_credit"
         href="/checkout/async_consult_credit"
-        ctaLabel="Ask a doctor — no account needed"
+        ctaLabel="Ask a doctor, no account needed"
         overrides={priceOverrides}
         className="mt-6 border-white bg-white"
       />

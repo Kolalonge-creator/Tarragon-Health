@@ -19,6 +19,19 @@ describe("appendSymptomSuggestion", () => {
     expect(reply).toBe("Thanks for sharing that.");
   });
 
+  it("does not append the liver-concern test suggestion when jaundice-like wording is also present", () => {
+    // A clinician_review- or routine-tier message describing jaundice-like
+    // symptoms alongside the liver_concern cluster's other anchor symptoms
+    // must never get a test suggestion stapled onto it — jaundice always
+    // routes straight to a doctor, same invariant as the checkbox-side
+    // symptom-to-test checker (symptom-clusters.ts's excludeSymptomIds).
+    const reply = appendSymptomSuggestion(
+      "Thanks for sharing that.",
+      "My urine has been really dark, I have pain on my upper right side of my abdomen, and my skin looks yellow"
+    );
+    expect(reply).toBe("Thanks for sharing that.");
+  });
+
   it("documents that emergency-classified messages must never reach this function", () => {
     // graph.ts only calls appendSymptomSuggestion from the non-emergency
     // branch of llmTurn's result (and llmTurn itself is unreachable once
