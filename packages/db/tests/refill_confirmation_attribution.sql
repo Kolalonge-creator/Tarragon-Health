@@ -2,13 +2,13 @@
 -- Live proof for attribute_refill_confirmation_for_any_clinical_tier.
 --
 -- Before this change, private.enforce_medication_confirm_only stamped
--- last_confirmed_at / last_confirmed_by only in the Tier 1 branch, AFTER an
--- unconditional `if has_prescribing_authority then return new; end if;`. So a
--- Tier 2+ doctor confirming a refill wrote refill_date but was never
--- attributed, and the patient-facing "Confirmed by your care team - date" line
--- stayed blank. Combined with the UI gate (which excluded prescribers
--- outright), a senior doctor covering a shift with no Tier 1 on duty could
--- neither see the control nor be credited for using it.
+-- last_confirmed_at / last_confirmed_by only in the Medical Officer branch,
+-- AFTER an unconditional `if has_prescribing_authority then return new; end if;`.
+-- So a Senior Medical Officer+ doctor confirming a refill wrote refill_date
+-- but was never attributed, and the patient-facing "Confirmed by your care
+-- team - date" line stayed blank. Combined with the UI gate (which excluded
+-- prescribers outright), a senior doctor covering a shift with no Medical
+-- Officer on duty could neither see the control nor be credited for using it.
 --
 -- The fix must NOT over-correct: a prescriber changing a dose or stopping a
 -- medication must never surface to the patient as a care-team confirmation.
@@ -16,11 +16,11 @@
 -- conditional for prescribers rather than unconditional for everyone.
 --
 -- Cases (each negative paired with a positive control):
---   1. Tier 1 confirms a refill            -> stamped (unchanged behaviour)
---   2. Tier 4 prescriber confirms a refill -> stamped (THE FIX)
---   3. Tier 4 prescriber changes the dose  -> NOT stamped (no false credit)
+--   1. Medical Officer confirms a refill        -> stamped (unchanged behaviour)
+--   2. Senior Medical Officer prescriber confirms a refill -> stamped (THE FIX)
+--   3. Senior Medical Officer prescriber changes the dose  -> NOT stamped (no false credit)
 --   4. Patient edits their own medication  -> NOT stamped (not their own care team)
---   5. Tier 1 attempts a dose change       -> still BLOCKED 42501 (regression control)
+--   5. Medical Officer attempts a dose change -> still BLOCKED 42501 (regression control)
 --
 -- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: make stamping
 -- unconditional for prescribers (drop the v_is_confirmation guard). Case 3
@@ -70,15 +70,15 @@ begin
       'Need one patient and one clinician-role profile with no clinical_staff row in org %', v_org;
   end if;
 
-  -- Indemnity is set because the DB refuses to activate a Tier 4 record
-  -- without current cover.
+  -- Indemnity is set because the DB refuses to activate a contracted Senior
+  -- Medical Officer record without current cover.
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director, doctor_tier,
+    doctor_tier,
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   ) values (
     v_org, v_clin, 'Refill Attribution Probe', true, now(),
-    false, 'tier_1',
+    'medical_officer',
     'Probe Indemnity Ltd', 'PROBE-ATTRIBUTION', now() + interval '1 year'
   ) returning id into v_staff_id;
 
@@ -99,13 +99,13 @@ begin
   perform set_config('request.jwt.claims', '', true);
 
   select last_confirmed_by into v_by from public.medications where id = v_med;
-  insert into test_result values (1, 'Tier 1 confirms refill -> stamped',
+  insert into test_result values (1, 'Medical Officer confirms refill -> stamped',
     case when v_by = v_staff_id then 'PASS' else 'FAIL' end,
     'last_confirmed_by=' || coalesce(v_by::text, 'null'));
 
   ---------------------------------------------------------------- case 2
   update public.clinical_staff
-     set doctor_tier = 'tier_4_senior_registrar' where id = v_staff_id;
+     set doctor_tier = 'senior_medical_officer' where id = v_staff_id;
 
   insert into public.medications (
     organisation_id, patient_id, drug_name, dose, frequency, source,
@@ -123,7 +123,7 @@ begin
   perform set_config('request.jwt.claims', '', true);
 
   select last_confirmed_by into v_by from public.medications where id = v_med;
-  insert into test_result values (2, 'Tier 4 prescriber confirms refill -> stamped (THE FIX)',
+  insert into test_result values (2, 'Senior Medical Officer prescriber confirms refill -> stamped (THE FIX)',
     case when v_by = v_staff_id then 'PASS' else 'FAIL' end,
     'last_confirmed_by=' || coalesce(v_by::text, 'null'));
 
@@ -145,7 +145,7 @@ begin
 
   select last_confirmed_by, last_confirmed_at, dose
     into v_by, v_at, v_dose from public.medications where id = v_med;
-  insert into test_result values (3, 'Tier 4 prescriber changes dose -> NOT stamped',
+  insert into test_result values (3, 'Senior Medical Officer prescriber changes dose -> NOT stamped',
     case when v_by is null and v_at is null then 'PASS' else 'FAIL' end,
     'dose=' || v_dose || ' last_confirmed_by=' || coalesce(v_by::text, 'null'));
 
@@ -172,7 +172,7 @@ begin
     'last_confirmed_by=' || coalesce(v_by::text, 'null'));
 
   ---------------------------------------------------------------- case 5
-  update public.clinical_staff set doctor_tier = 'tier_1' where id = v_staff_id;
+  update public.clinical_staff set doctor_tier = 'medical_officer' where id = v_staff_id;
 
   insert into public.medications (
     organisation_id, patient_id, drug_name, dose, frequency, source,
@@ -194,7 +194,7 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (5, 'Tier 1 attempts dose change -> still BLOCKED (regression control)',
+  insert into test_result values (5, 'Medical Officer attempts dose change -> still BLOCKED (regression control)',
     case when v_blocked then 'PASS' else 'FAIL' end,
     case when v_blocked then '42501 raised' else 'dose change allowed - BUG' end);
 end $$;

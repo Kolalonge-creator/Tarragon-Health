@@ -395,13 +395,21 @@ begin
   select id into v_pat  from public.profiles where role='patient'   and organisation_id=v_org limit 1;
   select id into v_clin from public.profiles where role='clinician' and organisation_id=v_org limit 1;
 
-  -- Give v_clin real Tier 2 authority so the 2026-07-31 tier gate is
-  -- satisfied and only I5's own check is exercised below. Scoped to this
-  -- rolled-back transaction; cleared automatically at rollback.
-  delete from public.clinical_staff where profile_id = v_clin;
+  -- Give v_clin real Senior Medical Officer authority so the emergency
+  -- escalation tier gate (private.can_handle_emergency_escalation, Senior
+  -- Medical Officer+) is satisfied and only I5's own check is exercised
+  -- below. Scoped to this rolled-back transaction; cleared automatically at
+  -- rollback. Upserted (not delete+reinsert): v_clin may already carry a real
+  -- clinical_staff row whose id is FK-referenced elsewhere (e.g.
+  -- patient_timeline) -- deleting it would fail with a foreign-key violation
+  -- unrelated to what this test proves.
   insert into public.clinical_staff
-    (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, is_clinical_director)
-  values (v_org, v_clin, 'I5 fixture Tier 2', true, now(), 'tier_2', false);
+    (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
+  values (v_org, v_clin, 'I5 fixture Senior Medical Officer', true, now(), 'senior_medical_officer')
+  on conflict (profile_id) do update
+    set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
+        active = excluded.active, license_verified_at = excluded.license_verified_at,
+        doctor_tier = excluded.doctor_tier;
 
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title)
   values (v_org, v_pat, 'emergency', 'open', 'I5 PASS-PROOF FIXTURE — emergency alert')

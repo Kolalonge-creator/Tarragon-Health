@@ -26,14 +26,14 @@
 --      safeguarding_concerns row; filing one auto-opens an
 --      urgent_escalation clinician_alerts row with
 --      type_code='safeguarding_concern'.
---   6. A Tier 1 clinician who did NOT file a concern reads ZERO rows from
+--   6. A Medical Officer clinician who did NOT file a concern reads ZERO rows from
 --      safeguarding_concerns (narrower visibility than clinical_incident_
 --      reports is the whole point of this table) -- but the reporter
 --      themselves CAN still read their own filed row.
---   7. A Tier 3 clinician reads every concern in the org.
---   8. A Tier 1 clinician attempting to move a concern to 'under_review' is
---      rejected; a Tier 3 clinician succeeds and is stamped as reviewer.
---      NOTE on rejection shape: a Tier 1 who isn't the reporter can't even
+--   7. A Senior Medical Officer clinician reads every concern in the org.
+--   8. A Medical Officer clinician attempting to move a concern to 'under_review' is
+--      rejected; a Senior Medical Officer clinician succeeds and is stamped as reviewer.
+--      NOTE on rejection shape: a Medical Officer who isn't the reporter can't even
 --      SELECT the row (check 6), so their UPDATE's WHERE clause silently
 --      matches 0 rows -- Postgres never gets far enough to run the
 --      attribution trigger's explicit insufficient_privilege raise. This
@@ -57,7 +57,7 @@ create temporary table wpc_result(
 
 -- --------------------------------------------------------------------------
 -- Fixtures: reuse an existing patient-bearing org; fresh probe profiles for
--- a patient, a Tier 1 clinician, and a Tier 3 clinician + Care Coordinator.
+-- a patient, a Medical Officer clinician, and a Senior Medical Officer clinician + Care Coordinator.
 -- --------------------------------------------------------------------------
 do $$
 declare
@@ -97,8 +97,8 @@ begin
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
   values
-    (v_org, (select v from wpc_fixture where k = 'tier1'), 'WPC Test Tier1', 'tier_1'::public.doctor_tier, true, now()),
-    (v_org, (select v from wpc_fixture where k = 'tier3'), 'WPC Test Tier3', 'tier_3'::public.doctor_tier, true, now())
+    (v_org, (select v from wpc_fixture where k = 'tier1'), 'WPC Test Medical Officer', 'medical_officer'::public.doctor_tier, true, now()),
+    (v_org, (select v from wpc_fixture where k = 'tier3'), 'WPC Test Senior Medical Officer', 'senior_medical_officer'::public.doctor_tier, true, now())
   on conflict do nothing;
 end $$;
 
@@ -306,7 +306,7 @@ begin
 end $$;
 
 -- ==========================================================================
--- 6. A Tier 1 clinician who did NOT file the concern reads ZERO rows; the
+-- 6. A Medical Officer clinician who did NOT file the concern reads ZERO rows; the
 -- reporter (care_coordinator) can still read their own.
 -- ==========================================================================
 do $$
@@ -324,10 +324,10 @@ begin
   reset role;
 
   insert into wpc_result values
-    ('Tier 1 (not reporter, not reviewer) reads 0 concerns', 'tier1', v_tier1_count::text, '0',
+    ('Medical Officer (not reporter, not reviewer) reads 0 concerns', 'tier1', v_tier1_count::text, '0',
      case when v_tier1_count = 0 then 'PASS' else 'FAIL' end);
   if v_tier1_count <> 0 then
-    raise exception 'LEAK: bare Tier 1 clinician reads % safeguarding_concerns row(s) they did not file and cannot review', v_tier1_count;
+    raise exception 'LEAK: bare Medical Officer clinician reads % safeguarding_concerns row(s) they did not file and cannot review', v_tier1_count;
   end if;
 
   perform set_config('request.jwt.claims',
@@ -346,8 +346,8 @@ begin
 end $$;
 
 -- ==========================================================================
--- 7/8. Tier 3 reads every concern in the org and can move one into review;
--- Tier 1 is rejected attempting the same review transition.
+-- 7/8. Senior Medical Officer reads every concern in the org and can move one into review;
+-- Medical Officer is rejected attempting the same review transition.
 -- ==========================================================================
 do $$
 declare
@@ -371,10 +371,10 @@ begin
   reset role;
 
   insert into wpc_result values
-    ('Tier 3 reads every concern in the org', 'tier3', v_tier3_count::text, '>= 1',
+    ('Senior Medical Officer reads every concern in the org', 'tier3', v_tier3_count::text, '>= 1',
      case when v_tier3_count >= 1 then 'PASS' else 'FAIL' end);
   if v_tier3_count < 1 then
-    raise exception 'Tier 3 clinician cannot read safeguarding_concerns at all -- can_review_safeguarding_concern is broken';
+    raise exception 'Senior Medical Officer clinician cannot read safeguarding_concerns at all -- can_review_safeguarding_concern is broken';
   end if;
 
   perform set_config('request.jwt.claims',
@@ -395,12 +395,12 @@ begin
   select status into v_tier1_status_after from public.safeguarding_concerns where id = v_concern_id;
 
   insert into wpc_result values
-    ('Tier 1 cannot move a concern into review', 'tier1',
+    ('Medical Officer cannot move a concern into review', 'tier1',
      case when v_tier1_rejected then 'rejected (exception)' when v_tier1_status_after = 'open' then 'rejected (0 rows matched)' else 'allowed' end,
      'rejected',
      case when v_tier1_rejected or v_tier1_status_after = 'open' then 'PASS' else 'FAIL' end);
   if not v_tier1_rejected and v_tier1_status_after <> 'open' then
-    raise exception 'GAP: Tier 1 clinician moved a safeguarding concern into review -- should require Tier 3+/Director';
+    raise exception 'GAP: Medical Officer clinician moved a safeguarding concern into review -- should require Senior Medical Officer+/Director';
   end if;
 
   -- Stronger form of the same check: the REPORTER (care_coordinator, who
@@ -426,7 +426,7 @@ begin
      case when v_reporter_rejected then 'exception raised' else 'no exception' end, 'exception raised',
      case when v_reporter_rejected and v_reporter_status_after = 'open' then 'PASS' else 'FAIL' end);
   if not v_reporter_rejected then
-    raise exception 'GAP: the attribution trigger''s Tier 3+ check did not fire for a visible row -- care_coordinator (the reporter) moved their own concern into review with no exception';
+    raise exception 'GAP: the attribution trigger''s Senior Medical Officer+ check did not fire for a visible row -- care_coordinator (the reporter) moved their own concern into review with no exception';
   end if;
   if v_reporter_status_after <> 'open' then
     raise exception 'GAP: care_coordinator''s own concern changed status despite an exception being raised';
@@ -443,11 +443,11 @@ begin
   reset role;
 
   insert into wpc_result values
-    ('Tier 3 moves concern into review, stamped as reviewer', 'tier3',
+    ('Senior Medical Officer moves concern into review, stamped as reviewer', 'tier3',
      v_tier3_reviewer::text, v_expected_staff::text,
      case when v_tier3_reviewer = v_expected_staff then 'PASS' else 'FAIL' end);
   if v_tier3_reviewer is distinct from v_expected_staff then
-    raise exception 'GAP: Tier 3 review did not stamp reviewed_by_staff as their own clinical_staff.id (got %, expected %)',
+    raise exception 'GAP: Senior Medical Officer review did not stamp reviewed_by_staff as their own clinical_staff.id (got %, expected %)',
       v_tier3_reviewer, v_expected_staff;
   end if;
 end $$;

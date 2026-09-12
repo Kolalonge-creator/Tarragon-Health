@@ -101,7 +101,7 @@ begin
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at, verified_by)
   values
-    (v_org, v_clin, 'VERIFY Lab Network Ordering Clinician', 'tier_2', true, now(), v_patient)
+    (v_org, v_clin, 'VERIFY Lab Network Ordering Clinician', 'medical_officer', true, now(), v_patient)
   returning id into v_staff;
 
   -- One partner-billed order routed to Lab A, with the tarragon_negotiated

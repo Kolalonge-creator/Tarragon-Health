@@ -151,7 +151,7 @@ declare
 begin
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at, verified_by)
-  values (v_org, v_clinician, 'PHR3 Test Clinician', 'tier_2', true, now(), v_patient);
+  values (v_org, v_clinician, 'PHR3 Test Clinician', 'medical_officer', true, now(), v_patient);
 
   insert into public.imaging_providers (name) values ('PHR3 Test Imaging Centre ' || v_org::text)
   returning id into v_provider;

@@ -24,7 +24,7 @@ declare
   v_org           uuid := '00000000-0000-0000-0000-000000000001';
   v_pat           uuid;
   v_pat2          uuid;
-  v_doc           uuid;  -- profile that will hold a Tier 2 clinical_staff row
+  v_doc           uuid;  -- profile that will hold a Medical Officer clinical_staff row
   v_coord         uuid;  -- profile that will hold a Care Coordinator clinical_staff row
   v_appt          uuid;
   v_appt_noshow   uuid;
@@ -54,11 +54,18 @@ begin
     raise exception 'need at least 2 org-staff profiles in org 0001 to build this fixture';
   end if;
 
-  delete from public.clinical_staff where profile_id in (v_doc, v_coord);
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, is_clinical_director)
+  -- Upserted in place (not delete+reinsert): profile_id may belong to a real
+  -- staff member whose clinical_staff.id is FK-referenced elsewhere (e.g. a
+  -- signed protocol_versions.approved_by), and deleting the row would fail
+  -- with a foreign-key violation unrelated to what this test proves.
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
   values
-    (v_org, v_doc,   'Telemedicine Test: Tier 2 Doctor', true, now(), 'tier_2', false),
-    (v_org, v_coord, 'Telemedicine Test: Care Coordinator', true, now(), 'care_coordinator', false);
+    (v_org, v_doc,   'Telemedicine Test: Medical Officer Doctor', true, now(), 'medical_officer'),
+    (v_org, v_coord, 'Telemedicine Test: Care Coordinator', true, now(), 'care_coordinator')
+  on conflict (profile_id) do update
+    set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
+        active = excluded.active, license_verified_at = excluded.license_verified_at,
+        doctor_tier = excluded.doctor_tier;
 
   ---------------------------------------------------------------------------
   -- Fixtures: two telemedicine appointments for v_pat with v_doc as
@@ -307,9 +314,14 @@ begin
   insert into test_result values (13, 'publish_consultation_summary refuses a draft note', 'BLOCKED',
     case when v_blocked then 'BLOCKED (correct)' else 'ALLOWED (BUG -- published from an unsigned draft)' end, coalesce(v_err, ''));
 
+  -- identity_confirmed is a second, independent finalize requirement added by
+  -- 20260829212708_wrong_patient_identity_confirmation.sql (predates this
+  -- fixture), enforced by the same trigger as the outcome check.
   perform set_config('request.jwt.claims', json_build_object('sub', v_doc, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
-  update public.clinical_encounter_notes set status = 'finalized', outcome = 'continue_monitoring' where id = v_note;
+  update public.clinical_encounter_notes
+    set status = 'finalized', outcome = 'continue_monitoring', identity_confirmed = true
+    where id = v_note;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 

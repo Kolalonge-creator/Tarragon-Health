@@ -7,6 +7,10 @@
 -- (an equality, i.e. a fence) rather than a minimum (a floor), so a Tier 4
 -- Senior Registrar covering a shift with no Tier 1 on duty could not confirm a
 -- routine refill. Fixed by 20260801093117_refill_confirm_any_clinical_tier.sql.
+-- (`tier_1`/`tier_4_senior_registrar` were the pre-collapse enum values live at
+-- the time -- see the 2026-08-31 tier-collapse migration; today's equivalent
+-- fence would read `doctor_tier = 'medical_officer'` denying a Chief Medical
+-- Officer, which is exactly what the sabotage step below now demonstrates.)
 --
 -- WHY THIS TEST DISCOVERS GATES DYNAMICALLY rather than listing them:
 -- the point is to stop the NEXT gate someone writes from reintroducing a
@@ -31,8 +35,9 @@
 --   5. The full matrix, printed for inspection
 --
 -- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: revert
--- can_confirm_medication_refill to `doctor_tier = 'tier_1'` and re-run. Case 3
--- must FAIL, naming that gate with tier_1=allowed / tier_2=denied.
+-- can_confirm_medication_refill to `doctor_tier = 'medical_officer'` and
+-- re-run. Case 3 must FAIL, naming that gate with
+-- medical_officer=allowed / senior_medical_officer=denied.
 --
 -- Note the probe row carries indemnity fields and employment_type =
 -- 'contracted': the DB enforces current indemnity cover before a Chief

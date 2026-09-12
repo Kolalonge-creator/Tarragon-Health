@@ -9,7 +9,7 @@
 --   1. Patient requests a repeat on an eligible prescription -> ALLOWED, status=pending
 --   2. A second request while one is pending -> BLOCKED (duplicate)
 --   3. Care Coordinator (org staff, no clinical authority) attempts to approve -> BLOCKED
---   4. Tier 1 approves -> ALLOWED, status=approved, reviewed_by/reviewed_at stamped
+--   4. Medical Officer approves -> ALLOWED, status=approved, reviewed_by/reviewed_at stamped
 --   5. Re-reviewing an already-approved request -> BLOCKED (already reviewed)
 --   6. A further request once repeats are exhausted (repeats_allowed=1, one already
 --      approved) -> BLOCKED
@@ -63,11 +63,11 @@ begin
 
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director, doctor_tier,
+    doctor_tier,
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   ) values (
     v_org, v_clin, 'Repeat Request Probe', true, now(),
-    false, 'tier_1',
+    'medical_officer',
     'Probe Indemnity Ltd', 'PROBE-REPEAT-RX', now() + interval '1 year'
   ) returning id into v_staff_id;
 
@@ -136,7 +136,7 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (4, 'Tier 1 approves -> ALLOWED, reviewer stamped',
+  insert into test_result values (4, 'Medical Officer approves -> ALLOWED, reviewer stamped',
     case when (select status from public.medication_repeat_requests where id = v_req) = 'approved'
       and (select reviewed_by from public.medication_repeat_requests where id = v_req) = v_staff_id
       and (select reviewed_at from public.medication_repeat_requests where id = v_req) is not null

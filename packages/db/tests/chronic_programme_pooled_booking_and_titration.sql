@@ -35,15 +35,16 @@ begin
     raise exception 'need an active real-doctor clinical_staff row in the same organisation to run this test';
   end if;
 
-  -- Titration needs Tier 2+ prescribing authority (private.enforce_medication_confirm_only
-  -- refuses a dose/frequency change below that, even for a superuser role —
-  -- it's a plain trigger, not RLS, so it isn't bypassed).
+  -- Titration needs Senior Medical Officer+ prescribing authority
+  -- (private.enforce_medication_confirm_only refuses a dose/frequency change
+  -- below that, even for a superuser role — it's a plain trigger, not RLS,
+  -- so it isn't bypassed).
   select id into v_prescriber from public.clinical_staff
     where organisation_id = v_org and active
-      and doctor_tier in ('tier_2', 'tier_3', 'tier_4_senior_registrar', 'tier_5_partner_specialist')
+      and doctor_tier in ('senior_medical_officer', 'chief_medical_officer')
   limit 1;
   if v_prescriber is null then
-    raise exception 'need an active Tier 2+ clinical_staff row in the same organisation to run this test';
+    raise exception 'need an active Senior Medical Officer+ clinical_staff row in the same organisation to run this test';
   end if;
 
   select id into v_patient from public.profiles where organisation_id = v_org and role = 'patient' limit 1;
