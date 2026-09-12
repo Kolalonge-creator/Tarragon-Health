@@ -9,7 +9,7 @@
 -- otherwise pass a negatives-only test.
 --
 -- Cases:
---   1. Tier 2 doctor records a monitoring_schedule follow-up on their own
+--   1. Medical Officer records a monitoring_schedule follow-up on their own
 --      note                                              -> ALLOWED
 --   2. Care Coordinator attempts the same on the same note -> BLOCKED (42501)
 --      (control for 1: creating a follow-up instruction is a clinical act)
@@ -18,7 +18,7 @@
 --      (logistics -- routes onto care_outreach_tasks)
 --   4. Care Coordinator attempts to action the monitoring_schedule
 --      follow-up via the same RPC                         -> BLOCKED (42501)
---   5. Tier 2 doctor actions the monitoring_schedule follow-up -> ALLOWED
+--   5. Medical Officer actions the monitoring_schedule follow-up -> ALLOWED
 --      (control for 4: same row, clinical-tier caller succeeds; also
 --      proves the vitals_reminder_rules row is really created)
 --   6. Any edit to the now-actioned monitoring_schedule follow-up -> BLOCKED
@@ -47,7 +47,7 @@ declare
   v_org         uuid := '00000000-0000-0000-0000-000000000001';
   v_pat         uuid;
   v_pat2        uuid;
-  v_doc         uuid;  -- profile that will hold a Tier 2 clinical_staff row
+  v_doc         uuid;  -- profile that will hold a Medical Officer clinical_staff row
   v_coord       uuid;  -- profile that will hold a Care Coordinator clinical_staff row
   v_note        uuid;
   v_fu_monitor  uuid;
@@ -77,14 +77,21 @@ begin
     raise exception 'need at least 2 org-staff profiles in org 0001 to build this fixture';
   end if;
 
-  -- Clear any pre-existing clinical_staff rows for these two profiles for
-  -- the life of this transaction, so the fixture is the only thing the
-  -- authority checks can see.
-  delete from public.clinical_staff where profile_id in (v_doc, v_coord);
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, is_clinical_director)
+  -- Pin any pre-existing clinical_staff row for these two profiles to this
+  -- fixture's tier for the life of this transaction, so the fixture is the
+  -- only thing the authority checks can see. Upserted in place (not
+  -- delete+reinsert) because profile_id may belong to a real staff member
+  -- whose clinical_staff.id is FK-referenced elsewhere (e.g. a signed
+  -- protocol_versions.approved_by) -- deleting the row would fail with a
+  -- foreign-key violation having nothing to do with what this test proves.
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
   values
-    (v_org, v_doc,   'Consultation System Test: Tier 2 Doctor', true, now(), 'tier_2', false),
-    (v_org, v_coord, 'Consultation System Test: Care Coordinator', true, now(), 'care_coordinator', false);
+    (v_org, v_doc,   'Consultation System Test: Medical Officer Doctor', true, now(), 'medical_officer'),
+    (v_org, v_coord, 'Consultation System Test: Care Coordinator', true, now(), 'care_coordinator')
+  on conflict (profile_id) do update
+    set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
+        active = excluded.active, license_verified_at = excluded.license_verified_at,
+        doctor_tier = excluded.doctor_tier;
 
   ---------------------------------------------------------------------------
   -- Fixtures: one draft clinical_encounter_notes row (written as the
@@ -109,7 +116,7 @@ begin
   returning id into v_consult;
 
   ---------------------------------------------------------------------------
-  -- 1. Tier 2 doctor records a monitoring_schedule follow-up -> ALLOWED
+  -- 1. Medical Officer records a monitoring_schedule follow-up -> ALLOWED
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;
   perform set_config('request.jwt.claims', json_build_object('sub', v_doc, 'role', 'authenticated')::text, true);
@@ -124,7 +131,7 @@ begin
   end;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
-  insert into test_result values (1, 'Tier 2 doctor records monitoring_schedule follow-up', 'ALLOWED',
+  insert into test_result values (1, 'Medical Officer records monitoring_schedule follow-up', 'ALLOWED',
     case when not v_blocked and v_fu_monitor is not null then 'ALLOWED (correct)' else 'BLOCKED (BUG)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
@@ -195,7 +202,7 @@ begin
     case when v_blocked then 'BLOCKED (correct)' else 'ALLOWED (BUG -- coordinator set a clinical monitoring cadence)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
-  -- 5. CONTROL: Tier 2 doctor actions the same monitoring_schedule
+  -- 5. CONTROL: Medical Officer actions the same monitoring_schedule
   --    follow-up -> ALLOWED, and a real vitals_reminder_rules row exists.
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;
@@ -211,7 +218,7 @@ begin
   perform set_config('request.jwt.claims', '', true);
   select status, linked_vitals_reminder_rule_id into v_status, v_linked_rule from public.consultation_follow_ups where id = v_fu_monitor;
   select frequency_days into v_freq from public.vitals_reminder_rules where id = v_linked_rule;
-  insert into test_result values (5, 'CONTROL Tier 2 doctor actions monitoring_schedule follow-up', 'ALLOWED, vitals_reminder_rules.frequency_days=3',
+  insert into test_result values (5, 'CONTROL Medical Officer actions monitoring_schedule follow-up', 'ALLOWED, vitals_reminder_rules.frequency_days=3',
     case when not v_blocked and v_status = 'actioned' and v_freq = 3
       then 'ALLOWED (correct), frequency_days=' || v_freq::text
       else 'FAILED (BUG): blocked=' || v_blocked::text || ' status=' || coalesce(v_status,'null') || ' freq=' || coalesce(v_freq::text,'null') end,
@@ -253,12 +260,18 @@ begin
 
   ---------------------------------------------------------------------------
   -- 8. CONTROL: Finalize the same note WITH an outcome -> ALLOWED
+  -- Also confirms patient identity: 20260829212708_wrong_patient_identity_
+  -- confirmation.sql (predates this fixture) added identity_confirmed as a
+  -- second, independent finalize requirement enforced by the same trigger --
+  -- without it this control would fail for a reason unrelated to outcome.
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;
   perform set_config('request.jwt.claims', json_build_object('sub', v_doc, 'role', 'authenticated')::text, true);
   perform set_config('role', 'authenticated', true);
   begin
-    update public.clinical_encounter_notes set status = 'finalized', outcome = 'continue_monitoring' where id = v_note;
+    update public.clinical_encounter_notes
+      set status = 'finalized', outcome = 'continue_monitoring', identity_confirmed = true
+      where id = v_note;
   exception when others then
     v_blocked := true;
     get stacked diagnostics v_err = message_text;

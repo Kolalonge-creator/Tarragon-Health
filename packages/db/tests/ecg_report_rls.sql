@@ -82,7 +82,7 @@ begin
       (organisation_id, profile_id, full_name, doctor_tier, active,
        license_verified_at, verified_by)
     values
-      (v_org, v_clin, 'VERIFY ECG Reviewing Clinician', 'tier_2', true, now(), v_pat_a)
+      (v_org, v_clin, 'VERIFY ECG Reviewing Clinician', 'medical_officer', true, now(), v_pat_a)
     returning id into v_staff;
   else
     update public.clinical_staff

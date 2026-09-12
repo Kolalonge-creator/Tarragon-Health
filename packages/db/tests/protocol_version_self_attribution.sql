@@ -19,10 +19,10 @@
 --      this is the exact forgery this migration closes)
 --   1b. approved_at backdated by the client        -> forced to now(), not
 --       the backdated value (folded into case 1's assertions)
---   3. Non-director tier_1 clinician attempts to sign -> BLOCKED 42501
+--   3. Non-director medical_officer clinician attempts to sign -> BLOCKED 42501
 --   4. Non-director care_coordinator attempts to sign, with approved_by
 --      forged to the victim -> BLOCKED 42501 entirely (the precise account
---      shape -- doctor_tier='care_coordinator', is_clinical_director=false --
+--      shape -- doctor_tier='care_coordinator' --
 --      the live exploit was proved against)
 --   5. An inactive (deactivated) Clinical Director attempts to sign -> BLOCKED
 --      42501 (matches getCallerOrgAndDirector()'s .eq('active', true))
@@ -65,27 +65,29 @@ begin
     raise exception 'Need one clinician-role profile with no clinical_staff row in org %', v_org;
   end if;
 
-  -- The "signer" -- starts as an active Clinical Director. Indemnity fields
-  -- are set because clinical_staff_enforce_indemnity refuses to activate a
-  -- director record without current cover.
+  -- The "signer" -- starts as an active Chief Medical Officer / Clinical
+  -- Director. Indemnity fields are set because clinical_staff_enforce_
+  -- indemnity refuses to activate a chief_medical_officer record without
+  -- current cover.
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director, doctor_tier,
+    doctor_tier,
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   ) values (
     v_org, v_clin, 'Protocol Attribution Probe (Signer)', true, now(),
-    true, null,
+    'chief_medical_officer',
     'Probe Indemnity Ltd', 'PROBE-PROTOCOL-SIGNER', now() + interval '1 year'
   ) returning id into v_staff_id;
 
   -- The "victim" -- a second, distinct clinical_staff identity to forge
   -- approved_by into. Synthetic (profile_id null -- the column is nullable)
-  -- so this never touches a real login; tier_1 needs no indemnity fields.
+  -- so this never touches a real login; medical_officer needs no indemnity
+  -- fields.
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director, doctor_tier
+    doctor_tier
   ) values (
-    v_org, null, 'Protocol Attribution Probe (Victim)', true, now(), false, 'tier_1'
+    v_org, null, 'Protocol Attribution Probe (Victim)', true, now(), 'medical_officer'
   ) returning id into v_victim_id;
 
   ---------------------------------------------------------------- case 1 (+1b)
@@ -129,7 +131,7 @@ begin
 
   ---------------------------------------------------------------- case 3
   update public.clinical_staff
-     set is_clinical_director = false, doctor_tier = 'tier_1'
+     set doctor_tier = 'medical_officer'
    where id = v_staff_id;
 
   v_blocked := false;
@@ -140,7 +142,7 @@ begin
     insert into public.protocol_versions (
       organisation_id, protocol_id, version_number, title, change_summary, approved_by
     ) values (
-      v_org, 'attribution_probe_case3', 1, 'Probe Protocol v3', 'case 3 tier_1 attempt',
+      v_org, 'attribution_probe_case3', 1, 'Probe Protocol v3', 'case 3 medical_officer attempt',
       v_staff_id
     );
   exception when insufficient_privilege then
@@ -149,7 +151,7 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (3, 'Non-director tier_1 clinician attempts to sign -> BLOCKED',
+  insert into test_result values (3, 'Non-director medical_officer clinician attempts to sign -> BLOCKED',
     case when v_blocked then 'PASS' else 'FAIL' end,
     case when v_blocked then '42501 raised' else 'insert allowed - BUG' end);
 
@@ -184,7 +186,7 @@ begin
 
   ---------------------------------------------------------------- case 5
   update public.clinical_staff
-     set is_clinical_director = true, doctor_tier = null, active = false
+     set doctor_tier = 'chief_medical_officer', active = false
    where id = v_staff_id;
 
   v_blocked := false;

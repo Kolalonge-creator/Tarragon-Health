@@ -71,10 +71,10 @@ begin
   if v_clin_staff_id is null then
     insert into public.clinical_staff
       (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-      values (v_org, v_clin_profile, 'Alert System Test Clinician', true, now(), 'tier_1')
+      values (v_org, v_clin_profile, 'Alert System Test Clinician', true, now(), 'medical_officer')
       returning id into v_clin_staff_id;
   else
-    update public.clinical_staff set doctor_tier = 'tier_1', active = true where id = v_clin_staff_id;
+    update public.clinical_staff set doctor_tier = 'medical_officer', active = true where id = v_clin_staff_id;
   end if;
 
   -- ---- Case 1: severity always derived from level, type_code fallback ----
@@ -83,10 +83,10 @@ begin
   -- for the 8 pre-existing generators this feature deliberately does not
   -- touch, see part 2b's header) is exercised directly via title text —
   -- matches the real diabetic-foot-complication generator's own title.
-  -- Title matches deterioration's fallback pattern (owner_tier=tier_1 in
-  -- the seeded alert_rules config, matching the tier_1 fixture below) so
-  -- case 1's classification and case 2's auto-assignment exercise the same
-  -- alert consistently.
+  -- Title matches deterioration's fallback pattern (owner_tier=medical_officer
+  -- in the seeded alert_rules config, matching the medical_officer fixture
+  -- below) so case 1's classification and case 2's auto-assignment exercise
+  -- the same alert consistently.
   insert into public.clinician_alerts (organisation_id, patient_id, level, title)
     values (v_org, v_pat, 'emergency', 'Lifestyle red flag (test): fixture_rule')
     returning id, severity, type_code into v_a1, v_severity, v_type;
@@ -95,18 +95,18 @@ begin
     case when v_severity = 4 and v_type = 'deterioration' then 'PASS' else 'FAIL' end,
     format('severity=%s type_code=%s', v_severity, v_type));
 
-  -- ---- Case 2: auto-assignment to a valid tier_1 staff member ----
+  -- ---- Case 2: auto-assignment to a valid medical_officer staff member ----
   -- Asserts a real, correctly-tiered assignment happened rather than the
-  -- specific fixture row, since the org may carry other real tier_1 staff
-  -- whose lower existing alert load legitimately wins the least-loaded tie
-  -- -- the invariant under test is "auto-assignment landed on someone
+  -- specific fixture row, since the org may carry other real medical_officer
+  -- staff whose lower existing alert load legitimately wins the least-loaded
+  -- tie -- the invariant under test is "auto-assignment landed on someone
   -- eligible", not "landed on my fixture specifically".
   select responsible_clinician_id into v_responsible from public.clinician_alerts where id = v_a1;
-  insert into test_result values (2, 'auto-assign responsible_clinician_id to a valid tier_1 staff member',
+  insert into test_result values (2, 'auto-assign responsible_clinician_id to a valid medical_officer staff member',
     case
       when v_responsible is not null and exists (
         select 1 from public.clinical_staff
-        where id = v_responsible and organisation_id = v_org and doctor_tier = 'tier_1' and active
+        where id = v_responsible and organisation_id = v_org and doctor_tier = 'medical_officer' and active
       ) then 'PASS'
       else 'FAIL'
     end,

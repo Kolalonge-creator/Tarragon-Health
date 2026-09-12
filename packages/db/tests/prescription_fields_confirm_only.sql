@@ -2,9 +2,9 @@
 -- Live proof for 20260827200208_prescription_workspace_fields — the new
 -- prescription order-entry columns (route/duration_days/quantity/
 -- repeats_allowed/indication/instructions) must be exactly as protected from
--- Tier 1's refill-confirm-only path as drug_name/dose/frequency already are.
+-- Medical Officer's refill-confirm-only path as drug_name/dose/frequency already are.
 --
--- Without this guard, a Tier 1 doctor confirming a refill (a write RLS
+-- Without this guard, a Medical Officer confirming a refill (a write RLS
 -- legitimately admits via can_confirm_medication_refill) could silently
 -- rewrite prescription detail under cover of "just confirming the refill
 -- date" — the trigger only blocks columns it explicitly compares, so a new
@@ -12,15 +12,15 @@
 --
 -- Cases (each negative paired with a positive control, same shape as
 -- refill_confirmation_attribution.sql):
---   1. Tier 1 attempts to change route         -> BLOCKED 42501
---   2. Tier 1 attempts to change instructions  -> BLOCKED 42501
---   3. Tier 1 confirms a refill (route untouched) -> ALLOWED (regression control)
---   4. Tier 2+ prescriber changes route         -> ALLOWED (unrestricted path still works)
+--   1. Medical Officer attempts to change route         -> BLOCKED 42501
+--   2. Medical Officer attempts to change instructions  -> BLOCKED 42501
+--   3. Medical Officer confirms a refill (route untouched) -> ALLOWED (regression control)
+--   4. Senior Medical Officer+ prescriber changes route -> ALLOWED (unrestricted path still works)
 --   5. Client-supplied added_by is overwritten with the real caller (private.stamp_medication_added_by)
 --
 -- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: comment out the
 -- `or old.route is distinct from new.route` (and instructions) line from
--- enforce_medication_confirm_only. Cases 1 and 2 must FAIL, showing a Tier 1
+-- enforce_medication_confirm_only. Cases 1 and 2 must FAIL, showing a Medical Officer
 -- write to prescription detail going through unblocked. For case 5, change
 -- stamp_medication_added_by to `if new.added_by is null then ... end if;` —
 -- it must FAIL, showing the spoofed added_by surviving.
@@ -66,11 +66,11 @@ begin
 
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director, doctor_tier,
+    doctor_tier,
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   ) values (
     v_org, v_clin, 'Prescription Fields Probe', true, now(),
-    false, 'tier_1',
+    'medical_officer',
     'Probe Indemnity Ltd', 'PROBE-RX-FIELDS', now() + interval '1 year'
   ) returning id into v_staff_id;
 
@@ -96,7 +96,7 @@ begin
   perform set_config('request.jwt.claims', '', true);
 
   select route into v_route from public.medications where id = v_med;
-  insert into test_result values (1, 'Tier 1 attempts to change route -> BLOCKED',
+  insert into test_result values (1, 'Medical Officer attempts to change route -> BLOCKED',
     case when v_blocked and v_route = 'Oral' then 'PASS' else 'FAIL' end,
     'blocked=' || v_blocked || ' route=' || coalesce(v_route, 'null'));
 
@@ -122,7 +122,7 @@ begin
   perform set_config('request.jwt.claims', '', true);
 
   select instructions into v_instr from public.medications where id = v_med;
-  insert into test_result values (2, 'Tier 1 attempts to change instructions -> BLOCKED',
+  insert into test_result values (2, 'Medical Officer attempts to change instructions -> BLOCKED',
     case when v_blocked and v_instr = 'Take with food' then 'PASS' else 'FAIL' end,
     'blocked=' || v_blocked || ' instructions=' || coalesce(v_instr, 'null'));
 
@@ -143,13 +143,13 @@ begin
   perform set_config('request.jwt.claims', '', true);
 
   select route into v_route from public.medications where id = v_med;
-  insert into test_result values (3, 'Tier 1 confirms refill, route untouched -> ALLOWED (regression control)',
+  insert into test_result values (3, 'Medical Officer confirms refill, route untouched -> ALLOWED (regression control)',
     case when v_route = 'Oral' then 'PASS' else 'FAIL' end,
     'route=' || coalesce(v_route, 'null'));
 
   ---------------------------------------------------------------- case 4
   update public.clinical_staff
-     set doctor_tier = 'tier_2' where id = v_staff_id;
+     set doctor_tier = 'senior_medical_officer' where id = v_staff_id;
 
   insert into public.medications (
     organisation_id, patient_id, drug_name, dose, frequency, source,
@@ -167,7 +167,7 @@ begin
   perform set_config('request.jwt.claims', '', true);
 
   select route into v_route from public.medications where id = v_med;
-  insert into test_result values (4, 'Tier 2 prescriber changes route -> ALLOWED (unrestricted path)',
+  insert into test_result values (4, 'Senior Medical Officer prescriber changes route -> ALLOWED (unrestricted path)',
     case when v_route = 'Subcutaneous' then 'PASS' else 'FAIL' end,
     'route=' || coalesce(v_route, 'null'));
 
@@ -176,7 +176,7 @@ begin
   -- added_by, not merely default it when null — the "Signed by" trail this
   -- migration exists to support is a trust claim, and CLINICAL_TRUST_MODEL_
   -- SPEC.md requires false attribution be structurally impossible, not just
-  -- discouraged. v_clin (still Tier 2 from case 4) attempts to attribute the
+  -- discouraged. v_clin (still Senior Medical Officer from case 4) attempts to attribute the
   -- prescription to the patient instead of themselves.
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);

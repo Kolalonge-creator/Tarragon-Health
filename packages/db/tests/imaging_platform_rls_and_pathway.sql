@@ -77,10 +77,10 @@ begin
   if v_clin_staff is null then
     insert into public.clinical_staff
       (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at, verified_by)
-    values (v_org, v_clin, 'VERIFY Imaging Ordering Clinician', 'tier_2', true, now(), v_pat_a)
+    values (v_org, v_clin, 'VERIFY Imaging Ordering Clinician', 'medical_officer', true, now(), v_pat_a)
     returning id into v_clin_staff;
   else
-    update public.clinical_staff set active = true, organisation_id = v_org, doctor_tier = 'tier_2'
+    update public.clinical_staff set active = true, organisation_id = v_org, doctor_tier = 'medical_officer'
     where id = v_clin_staff;
   end if;
 
@@ -122,7 +122,7 @@ begin
   perform set_config('role', 'postgres', true);
 
   -- ------------------------------------------------------------------------
-  -- Check 2 CONTROL: a real Tier-2 clinician CAN create the same order.
+  -- Check 2 CONTROL: a real Medical Officer clinician CAN create the same order.
   -- ------------------------------------------------------------------------
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
@@ -248,7 +248,7 @@ begin
     (1, 'Care Coordinator: imaging_orders INSERT is blocked (no ordering authority)',
         'true', v_order_cc_blocked::text,
         case when v_order_cc_blocked then 'PASS' else 'FAIL' end),
-    (2, 'CONTROL — Tier-2 clinician CAN create an imaging order',
+    (2, 'CONTROL — Medical Officer clinician CAN create an imaging order',
         '1', n_orders_a::text,
         case when n_orders_a = 1 then 'PASS' else 'FAIL' end),
     (3, 'patient B: cannot read patient A''s imaging_orders row',

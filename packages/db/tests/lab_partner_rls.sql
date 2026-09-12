@@ -104,13 +104,19 @@ begin
    where id = v_lp;
 
   -- An active clinical_staff row to own the orders: enforce_lab_order_origin
-  -- refuses a clinically_triggered order without one. Tier 2 and not a clinical
-  -- director, so the indemnity activation trigger does not apply.
+  -- refuses a clinically_triggered order without one. Medical Officer, so the
+  -- indemnity activation trigger does not apply. Upserted (not a plain
+  -- insert): v_clin may already carry a real clinical_staff row, and
+  -- profile_id is UNIQUE.
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, doctor_tier, active,
      license_verified_at, verified_by)
   values
-    (v_org, v_clin, 'VERIFY Ordering Clinician', 'tier_2', true, now(), v_pat_a)
+    (v_org, v_clin, 'VERIFY Ordering Clinician', 'medical_officer', true, now(), v_pat_a)
+  on conflict (profile_id) do update
+    set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
+        doctor_tier = excluded.doctor_tier, active = excluded.active,
+        license_verified_at = excluded.license_verified_at, verified_by = excluded.verified_by
   returning id into v_staff;
 
   -- One order routed to the partner's OWN lab, one to a competitor's. Both ids

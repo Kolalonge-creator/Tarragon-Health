@@ -55,7 +55,7 @@ begin
   -- Self-contained fixtures: a real clinician (tiered) and a Care Coordinator
   -- (tier = care_coordinator), both active in v_org.
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-  values (v_org, v_clin, 'CDS Test Clinician', true, now(), 'tier_2')
+  values (v_org, v_clin, 'CDS Test Clinician', true, now(), 'medical_officer')
   on conflict (profile_id) do update
     set organisation_id = excluded.organisation_id, active = true, doctor_tier = excluded.doctor_tier
   returning id into v_clin_staff_id;

@@ -3,21 +3,21 @@
 -- the new prescription-lifecycle columns (rx_number/verification_code/
 -- expires_at/version/previous_version_id/superseded_at/amendment_reason)
 -- must be (a) auto-assigned for a clinician-sourced prescription and NEVER
--- for a patient-sourced one, and (b) exactly as protected from Tier 1's
+-- for a patient-sourced one, and (b) exactly as protected from Medical Officer's
 -- refill-confirm-only path as drug_name/dose/frequency already are.
 --
 -- Cases:
 --   1. Clinician-sourced insert -> rx_number/verification_code/expires_at all assigned
 --   2. Patient-sourced insert   -> all three stay NULL
---   3. Tier 1 attempts to change rx_number  -> BLOCKED 42501
---   4. Tier 1 attempts to change expires_at -> BLOCKED 42501
---   5. Tier 1 confirms a refill (rx_number untouched) -> ALLOWED (regression control)
---   6. Tier 2+ prescriber changes route (unrestricted path still works) -> ALLOWED
+--   3. Medical Officer attempts to change rx_number  -> BLOCKED 42501
+--   4. Medical Officer attempts to change expires_at -> BLOCKED 42501
+--   5. Medical Officer confirms a refill (rx_number untouched) -> ALLOWED (regression control)
+--   6. Senior Medical Officer+ prescriber changes route (unrestricted path still works) -> ALLOWED
 --
 -- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: comment out the
 -- `or old.rx_number is distinct from new.rx_number` (and expires_at) line
 -- from enforce_medication_confirm_only. Cases 3 and 4 must FAIL, showing a
--- Tier 1 write to prescription-identity detail going through unblocked.
+-- Medical Officer write to prescription-identity detail going through unblocked.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/prescription_lifecycle_confirm_only.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
@@ -58,11 +58,11 @@ begin
 
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director, doctor_tier,
+    doctor_tier,
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   ) values (
     v_org, v_clin, 'Prescription Lifecycle Probe', true, now(),
-    false, 'tier_1',
+    'medical_officer',
     'Probe Indemnity Ltd', 'PROBE-RX-LIFECYCLE', now() + interval '1 year'
   ) returning id into v_staff_id;
 
@@ -104,7 +104,7 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (3, 'Tier 1 attempts to change rx_number -> BLOCKED',
+  insert into test_result values (3, 'Medical Officer attempts to change rx_number -> BLOCKED',
     case when v_blocked and (select rx_number from public.medications where id = v_med) = v_rx
       then 'PASS' else 'FAIL' end, 'blocked=' || v_blocked);
 
@@ -121,7 +121,7 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (4, 'Tier 1 attempts to change expires_at -> BLOCKED',
+  insert into test_result values (4, 'Medical Officer attempts to change expires_at -> BLOCKED',
     case when v_blocked and (select expires_at from public.medications where id = v_med) = v_expires
       then 'PASS' else 'FAIL' end, 'blocked=' || v_blocked);
 
@@ -133,12 +133,12 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (5, 'Tier 1 confirms refill, rx_number untouched -> ALLOWED (regression control)',
+  insert into test_result values (5, 'Medical Officer confirms refill, rx_number untouched -> ALLOWED (regression control)',
     case when (select rx_number from public.medications where id = v_med) = v_rx
       then 'PASS' else 'FAIL' end, 'rx_number unchanged');
 
   ---------------------------------------------------------------- case 6
-  update public.clinical_staff set doctor_tier = 'tier_2' where id = v_staff_id;
+  update public.clinical_staff set doctor_tier = 'senior_medical_officer' where id = v_staff_id;
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
@@ -147,7 +147,7 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (6, 'Tier 2 prescriber changes route -> ALLOWED (unrestricted path still works)',
+  insert into test_result values (6, 'Senior Medical Officer prescriber changes route -> ALLOWED (unrestricted path still works)',
     case when (select route from public.medications where id = v_med) = 'Subcutaneous'
       then 'PASS' else 'FAIL' end, '');
 end $$;
