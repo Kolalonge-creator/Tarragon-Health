@@ -268,7 +268,11 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
           wellness nudge, so it renders above the hero band, same as web's
           Overview. Renders nothing when there's no payment problem. */}
       {paymentIssue ? (
-        <PaymentIssueCard issue={paymentIssue} onResolved={() => void load().catch(() => {})} />
+        <PaymentIssueCard
+          key={paymentIssue.id}
+          issue={paymentIssue}
+          onResolved={() => void load().catch(() => {})}
+        />
       ) : null}
 
       {/* Hero band: the one place the screen answers "how am I doing, and
