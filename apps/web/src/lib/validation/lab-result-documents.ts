@@ -35,9 +35,11 @@ export type StaffResultUploadInput = z.infer<typeof staffResultUploadSchema>;
 /** A patient uploading their own result from whichever lab they used. The
  * document `source` is pinned to 'patient' server-side and patient_id is taken
  * from the session, never from this input — the only thing the client chooses
- * is which of their own open orders (if any) it belongs to. */
+ * is which of their own open orders (if any) it belongs to, and/or which of
+ * their own self-reported screening_completions (if any) it belongs to. */
 export const patientResultUploadSchema = z.object({
   lab_order_id: z.string().uuid().optional(),
+  screening_completion_id: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
 });
 export type PatientResultUploadInput = z.infer<typeof patientResultUploadSchema>;

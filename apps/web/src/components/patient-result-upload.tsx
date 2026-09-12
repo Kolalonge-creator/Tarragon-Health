@@ -103,9 +103,14 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
  * self-arranged model, and the piece that was missing while the whole
  * permission chain for it already existed in the database.
  *
- * Compact by design: it renders inline under an open test request, and also
- * standalone (no labOrderId) for a result the patient already had from before
- * they joined.
+ * Compact by design: it renders inline under an open test request, standalone
+ * (no labOrderId) for a result the patient already had from before they
+ * joined, on the general "result documents" list, and after confirming a
+ * screening was done elsewhere (screeningCompletionId) — one component and
+ * one gated action for every patient self-upload entry point, so none of them
+ * can silently drift out of sync with the others the way the general list's
+ * upload form once did (it used to write straight to the table from the
+ * browser, bypassing both the consult fee and the AI extraction below).
  *
  * Once uploaded, whether a doctor actually reads it is never gated by plan —
  * a result a patient is holding must always be readable by a doctor,
@@ -117,15 +122,25 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
  */
 export function PatientResultUpload({
   labOrderId,
+  screeningCompletionId,
   label = "Upload your result",
   patientId,
+  onUploaded,
 }: {
   /** Files the upload against a specific open request. Omit for a loose result. */
   labOrderId?: string;
+  /** Links the upload back to a self-reported screening_completions row (see
+   * ConfirmScreeningDoneForm) — optional, for the "upload your result" step
+   * right after confirming a screening was done elsewhere. */
+  screeningCompletionId?: string;
   label?: string;
   /** When provided, renders the patient's own consult-fee request status
    * (with a cancel action) below the upload form. */
   patientId?: string;
+  /** Called after a successful upload, in addition to this component's own
+   * success message — lets a parent flow (e.g. ConfirmScreeningDoneForm)
+   * react without duplicating the upload/gating logic itself. */
+  onUploaded?: () => void;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +157,7 @@ export function PatientResultUpload({
       const formData = new FormData();
       formData.set("file", file);
       if (labOrderId) formData.set("lab_order_id", labOrderId);
+      if (screeningCompletionId) formData.set("screening_completion_id", screeningCompletionId);
       if (note.trim()) formData.set("note", note.trim());
       const result = await uploadResultDocumentAsPatient(formData);
       if (result.error) {
@@ -157,6 +173,7 @@ export function PatientResultUpload({
       setNote("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       router.refresh();
+      onUploaded?.();
     },
   });
 

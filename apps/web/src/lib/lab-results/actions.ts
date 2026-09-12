@@ -221,6 +221,18 @@ export async function uploadResultDocumentForPatient(
  * private.patient_has_feature_access("result_document_review")'s call
  * (subscription-plan gated), an unrelated, orthogonal rule: this fee gates
  * whether the upload is allowed to happen at all, not whether it gets read.
+ *
+ * screening_completion_id is the OTHER entry point into this same action —
+ * ConfirmScreeningDoneForm's "upload your result" step after a patient
+ * self-reports a screening as already done (see screening_self_reported_
+ * completion.sql). That flow used to write straight to `lab_result_documents`
+ * from the browser via a plain React Query mutation (useUploadOwnResultDocument,
+ * now removed), which meant it silently skipped both this consultation fee AND
+ * runLabReportExtraction below — neither exemption was ever a real founder
+ * decision, just a gap left over from before the 2026-08-30 fee existed. A
+ * screening-completion upload is the same self-arranged-result event as any
+ * other patient upload, so it is gated and extracted identically; the only
+ * difference is this optional FK for traceability back to the confirmation.
  */
 export async function uploadResultDocumentAsPatient(
   formData: FormData,
@@ -237,12 +249,17 @@ export async function uploadResultDocumentAsPatient(
 
   const parsed = patientResultUploadSchema.safeParse({
     lab_order_id: formData.get("lab_order_id") || undefined,
+    screening_completion_id: formData.get("screening_completion_id") || undefined,
     note: formData.get("note") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { lab_order_id: labOrderId, note } = parsed.data;
+  const {
+    lab_order_id: labOrderId,
+    screening_completion_id: screeningCompletionId,
+    note,
+  } = parsed.data;
 
   const supabase = await createClient();
 
@@ -269,6 +286,20 @@ export async function uploadResultDocumentAsPatient(
       .eq("patient_id", user.id)
       .maybeSingle();
     if (!order) return { error: "That test request isn't on your record." };
+  }
+
+  // Same defence-in-depth shape as the lab_order_id check above: RLS's own
+  // lab_result_documents_insert policy already re-verifies this ownership,
+  // but failing early and specifically here (rather than surfacing a raw
+  // Postgres RLS-violation message from the insert below) gives a real error.
+  if (screeningCompletionId) {
+    const { data: completion } = await supabase
+      .from("screening_completions")
+      .select("id")
+      .eq("id", screeningCompletionId)
+      .eq("patient_id", user.id)
+      .maybeSingle();
+    if (!completion) return { error: "That screening confirmation isn't on your record." };
   }
 
   // The consultation-fee gate — called BEFORE the storage upload so an
@@ -320,6 +351,7 @@ export async function uploadResultDocumentAsPatient(
       organisation_id: me.organisation_id,
       patient_id: user.id,
       lab_order_id: labOrderId ?? null,
+      screening_completion_id: screeningCompletionId ?? null,
       file_path: path,
       original_filename: file.name,
       mime_type: file.type,

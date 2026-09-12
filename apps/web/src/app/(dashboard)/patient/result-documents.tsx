@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
-import { UploadResultForm } from "./upload-result-form";
+import { PatientResultUpload } from "@/components/patient-result-upload";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
 import { AiResultSummary } from "./ai-result-summary";
 
@@ -116,7 +116,9 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
             }))}
           />
         )}
-        <UploadResultForm />
+        <div className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-4">
+          <PatientResultUpload label="Upload a result" patientId={patientId} />
+        </div>
       </CardContent>
     </Card>
   );
