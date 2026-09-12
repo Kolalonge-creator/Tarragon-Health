@@ -1,11 +1,13 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import {
   useHealthEducationFeed,
   useHealthEducationLockedCount,
   useHealthEducationCategoryCounts,
   useHealthEducationLibrary,
+  useHealthEducationContentDetail,
   useHealthEducationProgrammes,
   useHealthEducationProgrammeDetail,
   useMarkContentProgress,
@@ -21,6 +23,7 @@ import {
   HEALTH_EDUCATION_FEEDBACK_OPTIONS,
   type HealthEducationFeedItem,
   type HealthEducationLibraryItem,
+  type HealthEducationContentDetail,
   type HealthEducationCategory,
   type HealthEducationReadingLevel,
   type HealthEducationFeedbackType,
@@ -60,7 +63,10 @@ function conditionLabelFor(
     : (CONDITION_LABEL[condition] ?? condition);
 }
 
-type AnyEducationItem = HealthEducationFeedItem | HealthEducationLibraryItem;
+type AnyEducationItem =
+  | HealthEducationFeedItem
+  | HealthEducationLibraryItem
+  | HealthEducationContentDetail;
 
 /** §20.1 content types beyond article (article gets no badge — it's the default). */
 const CONTENT_TYPE_LABEL: Record<string, string> = {
@@ -280,21 +286,99 @@ function SetGoalFromLesson({
   );
 }
 
+/**
+ * The video/audio/body/quiz-or-understood/goal/feedback block — identical
+ * whether it's showing inline inside an accordion (`EducationItem`) or as
+ * the whole of a dedicated full-page topic view (`TopicDetailView`).
+ */
+function ContentDetailBody({
+  item,
+  patientId,
+  organisationId,
+}: {
+  item: AnyEducationItem;
+  patientId: string;
+  organisationId: string;
+}) {
+  const mark = useMarkContentProgress(patientId, organisationId);
+  const questions = useMemo(() => parseKnowledgeCheck(item.knowledge_check), [item.knowledge_check]);
+  const audioUrl = "audio_url" in item ? item.audio_url : null;
+
+  return (
+    <div className="space-y-4 pt-1">
+      {item.content_type === "video" && item.video_url && (
+        <a
+          href={item.video_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright underline"
+        >
+          Watch the video
+        </a>
+      )}
+      {item.content_type === "audio" && audioUrl && (
+        <audio controls src={audioUrl} className="w-full">
+          Your browser does not support inline audio.
+        </audio>
+      )}
+      <div className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90 dark:text-night-ink/90">
+        {item.body}
+      </div>
+
+      {questions ? (
+        <KnowledgeCheck
+          questions={questions}
+          pending={mark.isPending}
+          onComplete={(result) =>
+            mark.mutate({
+              contentId: item.content_id,
+              status: statusFromCheck(result),
+              checkScore: result.score,
+              checkTotal: result.total,
+            })
+          }
+        />
+      ) : (
+        item.status !== "understood" && (
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={mark.isPending}
+            onClick={() => mark.mutate({ contentId: item.content_id, status: "understood" })}
+          >
+            Mark as understood
+          </Button>
+        )
+      )}
+
+      {mark.isError && (
+        <p className="text-xs text-red-600 dark:text-red-300">Could not save your progress. Try again.</p>
+      )}
+
+      <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
+      <ContentFeedback contentId={item.content_id} patientId={patientId} organisationId={organisationId} />
+    </div>
+  );
+}
+
 function EducationItem({
   item,
   patientId,
   organisationId,
   conditionLanguagePreference,
+  href,
 }: {
   item: AnyEducationItem;
   patientId: string;
   organisationId: string;
   conditionLanguagePreference?: string | null;
+  /** When set, the title links to a full-page view instead of expanding in
+   * place — used by the "Recommended for you" rail (see TopicDetailView)
+   * so opening a topic can never unmount it out from under the reader. */
+  href?: string;
 }) {
   const [open, setOpen] = useState(false);
   const mark = useMarkContentProgress(patientId, organisationId);
-  const questions = useMemo(() => parseKnowledgeCheck(item.knowledge_check), [item.knowledge_check]);
-  const audioUrl = "audio_url" in item ? item.audio_url : null;
 
   function toggle() {
     const next = !open;
@@ -309,13 +393,22 @@ function EducationItem({
   return (
     <li className="space-y-2 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={toggle}
-          className="text-left text-sm font-medium text-charcoal-ink dark:text-night-ink hover:text-brand-green dark:hover:text-brand-green-bright"
-        >
-          {item.title}
-        </button>
+        {href ? (
+          <Link
+            href={href}
+            className="text-left text-sm font-medium text-charcoal-ink dark:text-night-ink hover:text-brand-green dark:hover:text-brand-green-bright"
+          >
+            {item.title}
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={toggle}
+            className="text-left text-sm font-medium text-charcoal-ink dark:text-night-ink hover:text-brand-green dark:hover:text-brand-green-bright"
+          >
+            {item.title}
+          </button>
+        )}
         {item.condition && (
           <Badge variant="grey">{conditionLabelFor(item.condition, conditionLanguagePreference)}</Badge>
         )}
@@ -333,66 +426,8 @@ function EducationItem({
         {item.clinician_reviewed && <span>Reviewed by our clinical team</span>}
       </div>
 
-      {open && (
-        <div className="space-y-4 pt-1">
-          {item.content_type === "video" && item.video_url && (
-            <a
-              href={item.video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright underline"
-            >
-              Watch the video
-            </a>
-          )}
-          {item.content_type === "audio" && audioUrl && (
-            <audio controls src={audioUrl} className="w-full">
-              Your browser does not support inline audio.
-            </audio>
-          )}
-          <div className="whitespace-pre-line text-sm leading-relaxed text-charcoal-ink/90 dark:text-night-ink/90">
-            {item.body}
-          </div>
-
-          {questions ? (
-            <KnowledgeCheck
-              questions={questions}
-              pending={mark.isPending}
-              onComplete={(result) =>
-                mark.mutate({
-                  contentId: item.content_id,
-                  status: statusFromCheck(result),
-                  checkScore: result.score,
-                  checkTotal: result.total,
-                })
-              }
-            />
-          ) : (
-            item.status !== "understood" && (
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={mark.isPending}
-                onClick={() =>
-                  mark.mutate({ contentId: item.content_id, status: "understood" })
-                }
-              >
-                Mark as understood
-              </Button>
-            )
-          )}
-
-          {mark.isError && (
-            <p className="text-xs text-red-600 dark:text-red-300">Could not save your progress. Try again.</p>
-          )}
-
-          <SetGoalFromLesson item={item} patientId={patientId} organisationId={organisationId} />
-          <ContentFeedback
-            contentId={item.content_id}
-            patientId={patientId}
-            organisationId={organisationId}
-          />
-        </div>
+      {!href && open && (
+        <ContentDetailBody item={item} patientId={patientId} organisationId={organisationId} />
       )}
     </li>
   );
@@ -436,6 +471,7 @@ function RecommendedForYou({
               patientId={patientId}
               organisationId={organisationId}
               conditionLanguagePreference={conditionLanguagePreference}
+              href={`/patient/learn/${item.code}`}
             />
           ))}
         </ul>
@@ -857,5 +893,80 @@ export function HealthEducationLibrary({
         <CategoryGrid onSelect={setActiveCategory} />
       )}
     </div>
+  );
+}
+
+/**
+ * A single topic's full-page view — the destination for "Recommended for
+ * you" links (see EducationItem's `href` mode above) and, going forward,
+ * a shareable/bookmarkable URL for any lesson. Marks the item "seen" once,
+ * on load, rather than on an in-place toggle — that's what let a topic
+ * disappear before it could be read (see the health_education_content_detail
+ * migration header for the full mechanism).
+ */
+export function TopicDetailView({
+  code,
+  patientId,
+  organisationId,
+  conditionLanguagePreference,
+}: {
+  code: string;
+  patientId: string;
+  organisationId: string;
+  conditionLanguagePreference?: string | null;
+}) {
+  const { data: item, isLoading, isError } = useHealthEducationContentDetail(code);
+  const mark = useMarkContentProgress(patientId, organisationId);
+  const markedSeen = useRef(false);
+
+  useEffect(() => {
+    if (item && item.status === null && !markedSeen.current) {
+      markedSeen.current = true;
+      mark.mutate({ contentId: item.content_id, status: "seen" });
+    }
+  }, [item, mark]);
+
+  if (isLoading) {
+    return <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>;
+  }
+
+  if (isError || !item) {
+    return (
+      <Card>
+        <CardContent className="py-6 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+          We couldn&apos;t find that topic. It may have been updated or retired — head back to{" "}
+          <Link href="/patient/learn" className="font-medium text-brand-green dark:text-brand-green-bright underline">
+            Learn
+          </Link>{" "}
+          to find it again.
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="text-xl">{item.title}</CardTitle>
+          {item.condition && (
+            <Badge variant="grey">{conditionLabelFor(item.condition, conditionLanguagePreference)}</Badge>
+          )}
+          {item.content_type !== "article" && (
+            <Badge variant="grey">{CONTENT_TYPE_LABEL[item.content_type] ?? item.content_type.replace(/_/g, " ")}</Badge>
+          )}
+          {item.status === "needs_review" && <Badge variant="blue">Revisit</Badge>}
+          {item.status === "understood" && <Badge variant="green">Understood</Badge>}
+        </div>
+        {item.summary && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{item.summary}</p>}
+        <div className="flex flex-wrap items-center gap-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+          {item.estimated_minutes ? <span>{item.estimated_minutes} min read</span> : null}
+          {item.clinician_reviewed && <span>Reviewed by our clinical team</span>}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ContentDetailBody item={item} patientId={patientId} organisationId={organisationId} />
+      </CardContent>
+    </Card>
   );
 }

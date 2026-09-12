@@ -40870,6 +40870,30 @@ export type Database = {
           item_count: number
         }[]
       }
+      health_education_content_detail: {
+        Args: { p_code: string }
+        Returns: {
+          audio_url: string
+          body: string
+          category: Database["public"]["Enums"]["health_education_category"]
+          check_score: number
+          check_total: number
+          clinician_reviewed: boolean
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          content_id: string
+          content_type: Database["public"]["Enums"]["health_education_content_type"]
+          estimated_minutes: number
+          has_knowledge_check: boolean
+          knowledge_check: Json
+          reading_level: Database["public"]["Enums"]["health_education_reading_level"]
+          reviewed_by_name: string
+          status: Database["public"]["Enums"]["health_education_status"]
+          summary: string
+          title: string
+          video_url: string
+        }[]
+      }
       health_education_feed: {
         Args: never
         Returns: {
