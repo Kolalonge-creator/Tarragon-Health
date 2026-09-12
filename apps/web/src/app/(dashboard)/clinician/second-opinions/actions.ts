@@ -48,7 +48,7 @@ export async function answerSecondOpinionRequest(
     await service.from("notifications").insert({
       organisation_id: request.organisation_id,
       recipient_id: request.patient_id,
-      channel: "whatsapp",
+      channel: "in_app",
       status: "pending",
       template: "second_opinion_answered",
       payload: {},
