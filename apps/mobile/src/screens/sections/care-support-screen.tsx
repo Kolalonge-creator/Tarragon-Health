@@ -43,6 +43,15 @@ import {
   type ReferralItem,
 } from "@/lib/care";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import {
+  loadMyVouchers,
+  redeemServiceVoucher,
+  loadMyReferralCode,
+  redeemReferralCode,
+  isVoucherSpendable,
+  type CareVoucher,
+} from "@/lib/vouchers";
+import { submitTestimonial } from "@/lib/testimonials";
 import { colors, radius, spacing } from "@/ui/theme";
 import {
   Badge,
@@ -52,6 +61,7 @@ import {
   MutedText,
   PrimaryButton,
   SecondaryButton,
+  SectionLabel,
 } from "@/ui/components";
 
 function when(iso: string): string {
@@ -122,6 +132,8 @@ export function CareSupportScreen({ patientId, organisationId }: CareSupportScre
       <HospitalAdmissionsSection patientId={patientId} organisationId={organisationId} />
       <AskADoctorSection patientId={patientId} organisationId={organisationId} />
       <NeedHelpSection patientId={patientId} />
+      <VouchersSection patientId={patientId} />
+      <TestimonialSection />
 
       <CalloutCard
         icon="medkit-outline"
@@ -977,5 +989,196 @@ function NeedHelpSection({ patientId }: { patientId: string }) {
         </View>
       )}
     </View>
+  );
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  reserved: "Still paying",
+  active: "Ready to use",
+  redeemed: "Used",
+  expired: "Expired",
+  cancelled: "Cancelled",
+};
+
+/**
+ * Native equivalent of components/care-vouchers-card.tsx, scoped to what
+ * carries no payment -- see lib/vouchers.ts's header for the full reasoning.
+ * Buying a voucher or paying an instalment toward one both stay a browser
+ * hand-off (Paystack checkout, App Store 3.1.1), same as the "More ways to
+ * get care" callout below this section already does for video visits etc.
+ */
+function VouchersSection({ patientId }: { patientId: string }) {
+  const [vouchers, setVouchers] = useState<CareVoucher[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [redeeming, setRedeeming] = useState<string | null>(null);
+  const [redeemResult, setRedeemResult] = useState<{ voucherId: string; message?: string; error?: string } | null>(null);
+
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [redeemInput, setRedeemInput] = useState("");
+  const [applyingCode, setApplyingCode] = useState(false);
+  const [codeResult, setCodeResult] = useState<{ ok: boolean; error?: string } | null>(null);
+
+  const load = useCallback(async () => {
+    const [vouchersResult, codeResult] = await Promise.all([loadMyVouchers(patientId), loadMyReferralCode()]);
+    if (vouchersResult.ok) setVouchers(vouchersResult.data);
+    if (codeResult.ok) setReferralCode(codeResult.data);
+    setLoading(false);
+  }, [patientId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (loading) return null;
+
+  const live = vouchers.filter((v) => v.status === "reserved" || isVoucherSpendable(v));
+  const spendable = live.filter((v) => v.service_product_id && isVoucherSpendable(v));
+
+  async function handleRedeem(voucher: CareVoucher) {
+    setRedeeming(voucher.id);
+    setRedeemResult(null);
+    const res = await redeemServiceVoucher(voucher.id);
+    setRedeeming(null);
+    setRedeemResult({ voucherId: voucher.id, ...res });
+    if (res.message) await load();
+  }
+
+  async function handleApplyCode() {
+    if (!redeemInput) return;
+    setApplyingCode(true);
+    const res = await redeemReferralCode(redeemInput);
+    setApplyingCode(false);
+    setCodeResult(res);
+  }
+
+  return (
+    <Card style={{ gap: 10 }}>
+      <SectionLabel>Your care vouchers</SectionLabel>
+      <MutedText>
+        A voucher is for the service named on it and for you alone. It is not an account balance and it is never
+        exchangeable for cash.
+      </MutedText>
+
+      {live.length === 0 ? (
+        <MutedText>You do not have any vouchers yet.</MutedText>
+      ) : (
+        live.map((v) => (
+          <View key={v.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}>
+            <Text style={{ fontSize: 13.5, color: colors.ink }}>{v.sku_name ?? "Care voucher"}</Text>
+            <Badge tone={v.status === "active" ? "brand" : "neutral"}>{STATUS_LABEL[v.status] ?? v.status}</Badge>
+          </View>
+        ))
+      )}
+
+      {spendable.map((v) => (
+        <View key={`redeem-${v.id}`} style={{ gap: 4 }}>
+          <SecondaryButton
+            title={`Start my ${v.sku_name ?? "care"}`}
+            loading={redeeming === v.id}
+            onPress={() => void handleRedeem(v)}
+          />
+          {redeemResult?.voucherId === v.id && redeemResult.error && <ErrorText>{redeemResult.error}</ErrorText>}
+          {redeemResult?.voucherId === v.id && redeemResult.message && <MutedText>{redeemResult.message}</MutedText>}
+        </View>
+      ))}
+
+      <CalloutCard
+        icon="pricetag-outline"
+        title="Buy or pay toward a voucher"
+        subtitle="Gift a service, buy a health check, or pay an instalment — opened in your browser."
+        ctaLabel="Open"
+        onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
+      />
+
+      <View style={{ borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10, gap: 8 }}>
+        <Text style={{ fontSize: 13.5, fontWeight: "600", color: colors.ink }}>Invite someone</Text>
+        <MutedText>
+          When someone you invite completes their first paid order, you both get a reward voucher towards your
+          care.
+        </MutedText>
+        {referralCode && <Text style={{ fontSize: 13, color: colors.ink, fontFamily: "monospace" }}>{referralCode}</Text>}
+        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <TextInput
+            value={redeemInput}
+            onChangeText={setRedeemInput}
+            placeholder="Enter a referral code"
+            placeholderTextColor={colors.faint}
+            style={[textInputStyle, { flex: 1 }]}
+          />
+          <SecondaryButton title="Apply" disabled={!redeemInput} loading={applyingCode} onPress={() => void handleApplyCode()} />
+        </View>
+        {codeResult && (codeResult.ok ? <MutedText>Code applied.</MutedText> : <ErrorText>{codeResult.error}</ErrorText>)}
+      </View>
+    </Card>
+  );
+}
+
+/**
+ * Native equivalent of components/testimonial-form.tsx -- a consented
+ * testimonial submission, never invented or scraped. An admin reviews
+ * before anything appears on the marketing site.
+ */
+function TestimonialSection() {
+  const [displayName, setDisplayName] = useState("");
+  const [quote, setQuote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<{ error?: string; message?: string } | null>(null);
+
+  async function handleSubmit() {
+    setSubmitting(true);
+    const res = await submitTestimonial(displayName, quote);
+    setSubmitting(false);
+    setResult(res);
+    if (res.message) {
+      setDisplayName("");
+      setQuote("");
+    }
+  }
+
+  return (
+    <Card style={{ gap: 10 }}>
+      <SectionLabel>Share your experience</SectionLabel>
+      {result?.message ? (
+        <MutedText>{result.message}</MutedText>
+      ) : (
+        <>
+          <MutedText>
+            A short quote about your Tarragon experience. With your permission, we may share it on our website
+            (never your medical details, just your words).
+          </MutedText>
+          <View>
+            <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>How should we credit you?</Text>
+            <TextInput
+              value={displayName}
+              onChangeText={setDisplayName}
+              placeholder="e.g. Amina O."
+              placeholderTextColor={colors.faint}
+              maxLength={80}
+              style={textInputStyle}
+            />
+          </View>
+          <View>
+            <Text style={{ fontSize: 13, color: colors.ink, marginBottom: 4 }}>Your words</Text>
+            <TextInput
+              value={quote}
+              onChangeText={setQuote}
+              placeholder="What made a difference for you?"
+              placeholderTextColor={colors.faint}
+              maxLength={500}
+              multiline
+              numberOfLines={3}
+              style={textInputStyle}
+            />
+          </View>
+          <SecondaryButton
+            title="Submit for review"
+            loading={submitting}
+            disabled={displayName.trim().length === 0 || quote.trim().length < 20}
+            onPress={() => void handleSubmit()}
+          />
+          {result?.error ? <ErrorText>{result.error}</ErrorText> : null}
+        </>
+      )}
+    </Card>
   );
 }
