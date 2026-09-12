@@ -87,7 +87,7 @@ function StiBookingPanel() {
       <MutedText>
         Test on your own schedule, whether or not you did the check-in above. Working out what you
         need and writing the request is free. You take it to any laboratory and pay them directly at
-        their price — we add nothing and take no cut. Upload the result and a doctor will read it
+        their price. We add nothing and take no cut. Upload the result and a doctor will read it
         with you.
       </MutedText>
 
@@ -450,7 +450,7 @@ export function SexualHealthResultsTab({ patientId, organisationId }: { patientI
             <StageTracker status={episode.status} />
             {showConfidentialNotice ? (
               <MutedText>
-                This result is confidential — visible only to you and your care team, and not sent over
+                This result is confidential, visible only to you and your care team, never sent over
                 WhatsApp, SMS, or email.
               </MutedText>
             ) : (

@@ -42008,6 +42008,7 @@ export type Database = {
         }
         Returns: string
       }
+      reproductive_health_analytics: { Args: never; Returns: Json }
       request_emergency_record_access: {
         Args: { p_patient_id: string; p_reason: string }
         Returns: Json

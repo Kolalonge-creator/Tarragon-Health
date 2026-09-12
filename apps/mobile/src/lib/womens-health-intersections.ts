@@ -30,11 +30,11 @@ export function pregnancyLedCareBanner(activeConditions: CarePlanCondition[]): s
 export function contraceptionCautionNote(activeConditions: CarePlanCondition[]): string | null {
   const flagged = activeConditions.filter((c) => CONTRACEPTION_CAUTION_CONDITIONS.includes(c));
   if (flagged.length === 0) return null;
-  return "Some contraceptive methods (especially combined hormonal ones) need extra care alongside a blood pressure or cardiovascular condition — mention your current method at your next review so your care team can check it's still a good fit.";
+  return "Some contraceptive methods (especially combined hormonal ones) need extra care alongside a blood pressure or cardiovascular condition. Mention your current method at your next review so your care team can check it's still a good fit.";
 }
 
 export function menopauseTreatmentCautionNote(activeConditions: CarePlanCondition[]): string | null {
   const flagged = activeConditions.filter((c) => MENOPAUSE_TREATMENT_CAUTION_CONDITIONS.includes(c));
   if (flagged.length === 0) return null;
-  return "Menopause treatment options (including HRT) are weighed differently alongside a blood pressure or cardiovascular condition — this is worth discussing directly with your care team rather than starting anything on your own.";
+  return "Menopause treatment options (including HRT) are weighed differently alongside a blood pressure or cardiovascular condition. This is worth discussing directly with your care team rather than starting anything on your own.";
 }
