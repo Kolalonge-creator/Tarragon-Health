@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { useT } from "@/lib/ui-language";
 import { Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import Constants from "expo-constants";
@@ -33,7 +35,27 @@ export function NavDrawer({
   onClose,
   onSignOut,
 }: NavDrawerProps) {
-  const groups = SECTION_GROUP_ORDER.filter((group) => group !== "top" && SECTIONS.some((s) => s.group === group));
+  // The everyday jobs stay open; the rest collapse to their headings.
+  // Previously all four bands rendered expanded, which on the patient menu is
+  // ~31 icon tiles in one scroll on the smallest screen the product has --
+  // and the things somebody actually opened the app for (log a reading, tick
+  // off today's medicines, read a result) were mixed into "Your health"
+  // alongside Healthy ageing and Find a specialist. This mirrors the web
+  // sidebar's own progressive disclosure rather than inventing a second
+  // pattern for native.
+  //
+  // Overview is still left out: it is one tap away in the bottom tab bar and
+  // behind the header's home icon, so a tile here would only duplicate it.
+  const tr = useT();
+  const everydayItems = SECTIONS.filter((s) => s.group === "top" && s.id !== "overview");
+  const groups = SECTION_GROUP_ORDER.filter(
+    (group) => group !== "top" && SECTIONS.some((s) => s.group === group)
+  );
+  const activeGroup = SECTIONS.find((s) => s.id === activeSection)?.group;
+  // Only the band holding the current section opens by default; tapping a
+  // heading overrides that for this session.
+  const [manualOpen, setManualOpen] = useState<Record<string, boolean>>({});
+  const isOpen = (group: string) => manualOpen[group] ?? group === activeGroup;
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -89,23 +111,59 @@ export function NavDrawer({
             contentContainerStyle={{ padding: spacing.screen, gap: 18 }}
             showsVerticalScrollIndicator={false}
           >
-            {groups.map((group, i) => {
+            <View style={{ gap: 12 }}>
+              <SectionLabel>{tr("Everyday")}</SectionLabel>
+              <QuickActionGrid>
+                {everydayItems.map((section) => (
+                  <QuickActionButton
+                    key={section.id}
+                    icon={section.icon}
+                    label={section.label}
+                    active={section.id === activeSection}
+                    onPress={() => onSelect(section.id)}
+                  />
+                ))}
+              </QuickActionGrid>
+            </View>
+            {groups.map((group) => {
               const items = SECTIONS.filter((s) => s.group === group);
+              const open = isOpen(group);
               return (
                 <View key={group} style={{ gap: 12 }}>
-                  {i > 0 ? <SectionDivider /> : null}
-                  <SectionLabel>{group}</SectionLabel>
-                  <QuickActionGrid>
-                    {items.map((section) => (
-                      <QuickActionButton
-                        key={section.id}
-                        icon={section.icon}
-                        label={section.label}
-                        active={section.id === activeSection}
-                        onPress={() => onSelect(section.id)}
-                      />
-                    ))}
-                  </QuickActionGrid>
+                  <SectionDivider />
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: open }}
+                    accessibilityLabel={`${group}, ${open ? "expanded" : "collapsed"}`}
+                    onPress={() => setManualOpen((m) => ({ ...m, [group]: !open }))}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      // Keeps the heading itself above the 44pt tap-target floor.
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <SectionLabel>{tr(group)}</SectionLabel>
+                    <Ionicons
+                      name={open ? "chevron-down" : "chevron-forward"}
+                      size={16}
+                      color={colors.faint}
+                    />
+                  </Pressable>
+                  {open ? (
+                    <QuickActionGrid>
+                      {items.map((section) => (
+                        <QuickActionButton
+                          key={section.id}
+                          icon={section.icon}
+                          label={section.label}
+                          active={section.id === activeSection}
+                          onPress={() => onSelect(section.id)}
+                        />
+                      ))}
+                    </QuickActionGrid>
+                  ) : null}
                 </View>
               );
             })}

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import Link from "next/link";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { ProductCtaCard } from "./product-cta-card";
+import type { ResolvedServicePrices } from "../_content/pricing";
 
 /**
  * Public, no-login physical-activity intensity + calorie-burn estimate.
@@ -45,7 +47,11 @@ const INTENSITY_COPY: Record<Intensity, { label: string; tone: string }> = {
 
 const WEEKLY_TARGET_MINUTES = 150;
 
-export function ActivityIntensityCalculator() {
+export function ActivityIntensityCalculator({
+  priceOverrides,
+}: {
+  priceOverrides?: ResolvedServicePrices;
+} = {}) {
   const [activityKey, setActivityKey] = useState(ACTIVITIES[3].key);
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [weightKg, setWeightKg] = useState(70);
@@ -136,7 +142,7 @@ export function ActivityIntensityCalculator() {
 
         <div className="mt-4 border-t border-deep-forest/10 pt-4">
           <p className="text-xs font-medium text-charcoal-ink/70">
-            Progress toward WHO&apos;s 150-minutes-a-week moderate-activity guideline
+            Progress towards WHO&apos;s 150-minutes-a-week moderate-activity guideline
           </p>
           <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-white">
             <div
@@ -146,11 +152,21 @@ export function ActivityIntensityCalculator() {
           </div>
           <p className="mt-2 text-xs text-charcoal-ink/60">
             {activity.intensity === "light"
-              ? "Light activity is great for recovery and daily movement, but doesn't count toward this particular guideline."
+              ? "Light activity is great for recovery and daily movement, but doesn't count towards this particular guideline."
               : `This session alone is about ${progressPct}% of the weekly target${activity.intensity === "vigorous" ? " (vigorous minutes count double)" : ""}.`}
           </p>
         </div>
       </div>
+
+      {progressPct < 50 ? (
+        <ProductCtaCard
+          code="async_consult_credit"
+          href="/checkout/async_consult_credit"
+          ctaLabel="Ask a doctor — no account needed"
+          overrides={priceOverrides}
+          className="mt-6"
+        />
+      ) : null}
 
       <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
         A general estimate from average energy-expenditure tables, not a personalised

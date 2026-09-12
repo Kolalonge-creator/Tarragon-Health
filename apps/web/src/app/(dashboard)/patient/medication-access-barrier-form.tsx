@@ -47,7 +47,7 @@ export function MedicationAccessBarrierForm({
       <input type="hidden" name="medication_id" value={medicationId} />
       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Tell us what&apos;s stopping you from taking {drugName}. Your care team will follow up.
-        We never swap your medicine for a cheaper one on our own.
+        We do not swap your medicine for a cheaper one on our own.
       </p>
       <div className="space-y-1.5">
         <Label htmlFor={`barrier_reason_${medicationId}`} className="text-xs">

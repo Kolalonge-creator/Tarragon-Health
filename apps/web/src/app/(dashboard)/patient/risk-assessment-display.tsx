@@ -20,8 +20,8 @@ const CONDITION_LABELS: Record<PreventionCondition, string> = {
   other: "Other",
 };
 
-// Clinical-dashboard status colors (green/amber/red/grey) — a separate
-// system from brand color, per CLAUDE.md. "unknown" reads as grey/neutral,
+// Clinical-dashboard status colours (green/amber/red/grey) — a separate
+// system from brand colour, per CLAUDE.md. "unknown" reads as grey/neutral,
 // deliberately not green — an unassessed domain must never look reassuring.
 const TIER_BADGE: Record<RiskTier | "unknown", "green" | "amber" | "red" | "grey"> = {
   low: "green",

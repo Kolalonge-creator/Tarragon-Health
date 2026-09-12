@@ -26,7 +26,7 @@ const RELATIONSHIPS = [
  * A live-updating gift-card mockup paired with a name/relationship form,
  * dohealth.co-style. Deliberately does not submit or persist anything: no
  * network call, no Supabase write (that stays Contact/Join's job per
- * CLAUDE.md), just local state that personalizes the preview card and the
+ * CLAUDE.md), just local state that personalises the preview card and the
  * CTA copy before handing off to /login or /signup, where the real "add
  * them as family, then choose the check" flow lives.
  */
@@ -82,7 +82,7 @@ export function GiftPersonalizer() {
           Who is it for?
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
-          Tell us who you are gifting this to and we will personalize the card. This does not
+          Tell us who you are gifting this to and we will personalise the card. This does not
           start the purchase, it is just for you: the real gift happens on your dashboard once
           you have added them as family.
         </p>

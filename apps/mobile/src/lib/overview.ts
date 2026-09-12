@@ -11,6 +11,10 @@ export interface SummaryStats {
    * none exists — lets Overview's "Next best step" say "log a reading"
    * only when there genuinely isn't a fresh one. */
   lastVitalTakenAt: string | null;
+  /** Whether a health profile has ever been completed -- the thing that
+   * builds the screening/vaccination calendar. Drives the first-run
+   * get-started card, mirroring web's getPatientPreventionStats. */
+  hasRiskAssessment: boolean;
 }
 
 /** Mirrors getPatientSummaryStats in apps/web/src/app/(dashboard)/patient/summary.ts.
@@ -18,7 +22,7 @@ export interface SummaryStats {
  * must never render as "Active meds 0" or an empty dose checklist. */
 export async function getSummaryStats(patientId: string): Promise<QueryResult<SummaryStats>> {
   try {
-    const [bpRes, glucoseRes, medsRes, latestRes, doses] = await Promise.all([
+    const [bpRes, glucoseRes, medsRes, latestRes, doses, riskRes] = await Promise.all([
       supabase
         .from("vitals_readings")
         .select("systolic, diastolic")
@@ -41,6 +45,11 @@ export async function getSummaryStats(patientId: string): Promise<QueryResult<Su
         .order("taken_at", { ascending: false })
         .limit(1),
       loadTodaysDoses(patientId),
+      // head + exact count: "does even one exist", without transferring rows.
+      supabase
+        .from("patient_risk_scores")
+        .select("id", { count: "exact", head: true })
+        .eq("patient_id", patientId),
     ]);
 
     const failure = bpRes.error ?? glucoseRes.error ?? medsRes.error ?? latestRes.error;
@@ -62,6 +71,9 @@ export async function getSummaryStats(patientId: string): Promise<QueryResult<Su
         dosesTaken: doses.data.filter((d) => d.status === "taken").length,
         dosesTotal: doses.data.length,
         lastVitalTakenAt: latestRes.data?.[0]?.taken_at ?? null,
+        // A failed count must not read as "brand new" and replace a real
+        // patient's dashboard with a get-started card, so null falls safe.
+        hasRiskAssessment: riskRes.count === null ? true : riskRes.count > 0,
       },
     };
   } catch (e) {

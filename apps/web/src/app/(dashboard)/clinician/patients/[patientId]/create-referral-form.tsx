@@ -146,13 +146,13 @@ export function CreateReferralForm({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="specialist-type">Specialty</Label>
+          <Label htmlFor="specialist-type">Speciality</Label>
           <Select
             id="specialist-type"
             value={specialistType}
             onChange={(e) => setSpecialistType(e.target.value as SpecialistType)}
           >
-            <option value="">Select a specialty</option>
+            <option value="">Select a speciality</option>
             {SPECIALIST_TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -187,7 +187,7 @@ export function CreateReferralForm({
             ))}
           </Select>
           <p className="text-xs text-charcoal-ink/50">
-            The patient never sets or upgrades this themselves. It is a clinical decision.
+            The patient cannot set or upgrade this themselves. It is a clinical decision.
           </p>
         </div>
 

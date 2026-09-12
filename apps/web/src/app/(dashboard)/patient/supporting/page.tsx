@@ -28,9 +28,18 @@ export default async function SupportingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="People you support"
         icon={NAV_ICON.healthyAgeing}
-        description="Money you put toward someone else's care, and what it actually paid for. Every person here keeps their own account and their own plan; you are funding their care, not holding it."
+        description="Money you put towards someone else's care, and what it actually paid for. Every person here keeps their own account and their own plan; you are funding their care, not holding it."
+        actions={
+          <Link
+            href="/patient/supporting/new"
+            className="inline-flex items-center rounded-md bg-brand-green px-4 py-2 text-sm font-medium text-white"
+          >
+            Buy care for someone
+          </Link>
+        }
       />
 
       <SupportedPeople />

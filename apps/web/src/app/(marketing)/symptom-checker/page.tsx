@@ -4,6 +4,7 @@ import { CtaBand } from "../_components/cta-band";
 import { SymptomToTestCheck } from "../_components/symptom-to-test-check";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { Section, SectionHeading } from "../_components/section";
+import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -17,7 +18,7 @@ export const metadata: Metadata = pageMetadata({
 const FAQS = [
   {
     q: "Is this a diagnosis?",
-    a: "No. This checks your symptoms against a short, doctor-reviewed list of common patterns and suggests a next step. It's education and triage support, not a diagnosis, and it's never a substitute for a doctor actually assessing you.",
+    a: "No. This checks your symptoms against a short, doctor-reviewed list of common patterns and suggests a next step. It's education and triage support, not a diagnosis, and it does not stand in for a doctor actually assessing you.",
   },
   {
     q: "Is my answer saved anywhere?",
@@ -33,7 +34,8 @@ const FAQS = [
   },
 ];
 
-export default function SymptomCheckerPage() {
+export default async function SymptomCheckerPage() {
+  const priceOverrides = await fetchServicePriceOverrides();
   return (
     <>
       <Section className="pt-16 sm:pt-24">
@@ -54,7 +56,7 @@ export default function SymptomCheckerPage() {
       </Section>
 
       <Section>
-        <SymptomToTestCheck />
+        <SymptomToTestCheck priceOverrides={priceOverrides} />
       </Section>
 
       <Section variant="sage">

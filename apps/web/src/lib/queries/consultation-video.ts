@@ -156,7 +156,7 @@ export function useConsultationSummary(consultationId: string) {
   });
 }
 
-/** Publishes the curated post-visit summary from a finalized encounter note
+/** Publishes the curated post-visit summary from a finalised encounter note
  * — clinical-tier gated server-side, one per note (publish-once). */
 export function usePublishConsultationSummary() {
   const queryClient = useQueryClient();

@@ -1,16 +1,33 @@
 "use client";
 
 import { useActionState, useEffect, useState } from "react";
-import { useMyServicePurchases, isPurchaseCurrentlyActive } from "@/lib/queries/service-purchases";
-import { useActiveServiceProducts, type ServiceProduct } from "@/lib/queries/service-products";
+import {
+  useMyServicePurchases,
+  isPurchaseCurrentlyActive,
+} from "@/lib/queries/service-purchases";
+import {
+  useActiveServiceProducts,
+  type ServiceProduct,
+} from "@/lib/queries/service-products";
 import { buyServiceProduct } from "./actions";
-import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  fromMinorUnits,
+  CURRENCY_SYMBOL,
+  type Currency,
+} from "@tarragon/shared";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
+import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 
 function formatPrice(priceKobo: number, currency: Currency): string {
   if (priceKobo === 0) return "Free";
@@ -21,7 +38,11 @@ function formatDate(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return null;
-  return formatPatientDate(d, { day: "numeric", month: "long", year: "numeric" });
+  return formatPatientDate(d, {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 }
 
 /**
@@ -39,36 +60,42 @@ function formatDate(iso: string | null | undefined): string | null {
  * A product silently missing from a billing page is how this platform
  * previously advertised three diaspora packs nobody could buy.
  */
-const PRODUCT_GROUPS: { id: string; title: string; blurb: string; match: (code: string) => boolean }[] =
-  [
-    {
-      id: "cover",
-      title: "Ongoing cover",
-      blurb:
-        "Paid once for a fixed term, then it stops. No card is kept on file and there is nothing to cancel.",
-      match: (code) => code.startsWith("continuous_monitoring_") || code.startsWith("weight_management_"),
-    },
-    {
-      id: "doctor-time",
-      title: "A doctor's time",
-      blurb: "One piece of work, priced on its own. Buy it when you need it.",
-      match: (code) =>
-        code.endsWith("_credit") || code === "written_result_interpretation",
-    },
-    {
-      id: "documents",
-      title: "Doctor-signed documents",
-      blurb:
-        "Issued as a signed PDF anyone can verify. Not valid as a pre-employment or immigration medical, which need a physical examination.",
-      match: (code) => code.startsWith("verified_document_"),
-    },
-    {
-      id: "other",
-      title: "Other",
-      blurb: "",
-      match: () => true,
-    },
-  ];
+const PRODUCT_GROUPS: {
+  id: string;
+  title: string;
+  blurb: string;
+  match: (code: string) => boolean;
+}[] = [
+  {
+    id: "cover",
+    title: "Ongoing cover",
+    blurb:
+      "Paid once for a fixed term, then it stops. No card is kept on file and there is nothing to cancel.",
+    match: (code) =>
+      code.startsWith("continuous_monitoring_") ||
+      code.startsWith("weight_management_"),
+  },
+  {
+    id: "doctor-time",
+    title: "A doctor's time",
+    blurb: "One piece of work, priced on its own. Buy it when you need it.",
+    match: (code) =>
+      code.endsWith("_credit") || code === "written_result_interpretation",
+  },
+  {
+    id: "documents",
+    title: "Doctor-signed documents",
+    blurb:
+      "Issued as a signed PDF anyone can verify. Not valid as a pre-employment or immigration medical, which need a physical examination.",
+    match: (code) => code.startsWith("verified_document_"),
+  },
+  {
+    id: "other",
+    title: "Other",
+    blurb: "",
+    match: () => true,
+  },
+];
 
 /**
  * Pay-per-service patient billing page (2026-08-31, replaced the recurring
@@ -80,9 +107,17 @@ const PRODUCT_GROUPS: { id: string; title: string; blurb: string; match: (code: 
  * expires — buying again is the only "renewal" there is.
  */
 export function SubscriptionManager() {
-  const { data: purchases, isLoading, isError, refetch: refetchPurchases } = useMyServicePurchases();
+  const {
+    data: purchases,
+    isLoading,
+    isError,
+    refetch: refetchPurchases,
+  } = useMyServicePurchases();
   const { data: catalogue } = useActiveServiceProducts();
-  const [buyState, buyAction, buyPending] = useActionState(buyServiceProduct, undefined);
+  const [buyState, buyAction, buyPending] = useActionState(
+    buyServiceProduct,
+    undefined,
+  );
   const [promoCode, setPromoCode] = useState("");
 
   useEffect(() => {
@@ -91,8 +126,18 @@ export function SubscriptionManager() {
     }
   }, [buyState, refetchPurchases]);
 
-  if (isLoading) return <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>;
-  if (isError) return <p className="text-sm text-red-600 dark:text-red-400">Could not load your services.</p>;
+  if (isLoading)
+    return (
+      <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+        Loading…
+      </p>
+    );
+  if (isError)
+    return (
+      <p className="text-sm text-red-600 dark:text-red-400">
+        Could not load your services.
+      </p>
+    );
 
   const active = (purchases ?? []).filter(isPurchaseCurrentlyActive);
   const activeProductIds = new Set(active.map((p) => p.service_product_id));
@@ -102,7 +147,8 @@ export function SubscriptionManager() {
   // docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md's "diaspora is a sponsor, not a
   // patient" decision — there is no diaspora patient-facing tier.
   const buyable = (catalogue ?? []).filter(
-    (product) => product.currency === "NGN" && !activeProductIds.has(product.id),
+    (product) =>
+      product.currency === "NGN" && !activeProductIds.has(product.id),
   );
 
   // First matching group wins, and "Other" matches everything, so nothing can
@@ -112,7 +158,8 @@ export function SubscriptionManager() {
     group,
     products: buyable.filter(
       (product) =>
-        PRODUCT_GROUPS.find((candidate) => candidate.match(product.code))?.id === group.id,
+        PRODUCT_GROUPS.find((candidate) => candidate.match(product.code))
+          ?.id === group.id,
     ),
   })).filter(({ products }) => products.length > 0);
 
@@ -123,28 +170,34 @@ export function SubscriptionManager() {
           <CardHeader>
             <CardTitle>Your active services</CardTitle>
             <CardDescription>
-              Each is a one-off purchase covering a fixed window: nothing renews automatically,
-              and payments aren&apos;t refundable. Buy again any time to extend.
+              Each is a one-off purchase covering a fixed window: nothing renews
+              automatically, and payments aren&apos;t refundable. Buy again any
+              time to extend.
             </CardDescription>
           </CardHeader>
           <CardContent>
             {active.length === 0 ? (
               <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-                Nothing active yet. The app itself is free; you only ever pay for a doctor&apos;s
-                time. Buy a service when you want one.
+                Nothing active yet. The app itself is free; you only ever pay
+                for a doctor&apos;s time. Buy a service when you want one.
               </p>
             ) : (
               <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {active.map((purchase) => {
                   const endLabel = formatDate(purchase.expires_at);
                   return (
-                    <li key={purchase.id} className="flex items-center justify-between gap-4 py-3">
+                    <li
+                      key={purchase.id}
+                      className="flex items-center justify-between gap-4 py-3"
+                    >
                       <div>
                         <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                           {purchase.service_product?.name ?? "Unknown service"}
                         </p>
                         <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                          {endLabel ? `Active until ${endLabel}` : "Active, no expiry"}
+                          {endLabel
+                            ? `Active until ${endLabel}`
+                            : "Active, no expiry"}
                         </p>
                       </div>
                       <Badge variant="green">Active</Badge>
@@ -162,11 +215,23 @@ export function SubscriptionManager() {
             <CardDescription>One-off payment, no auto-renewal.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            {buyState?.error && <p className="text-sm text-red-600 dark:text-red-400">{buyState.error}</p>}
-            {buyState?.message && <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">{buyState.message}</p>}
+            {buyable.length > 0 && <PaystackFeeNotice />}
+            {buyState?.error && (
+              <p className="text-sm text-red-600 dark:text-red-400">
+                {buyState.error}
+              </p>
+            )}
+            {buyState?.message && (
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+                {buyState.message}
+              </p>
+            )}
             {buyable.length > 0 && (
               <div className="space-y-1">
-                <Label htmlFor="promo-code" className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                <Label
+                  htmlFor="promo-code"
+                  className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
+                >
                   Promo code (optional)
                 </Label>
                 <Input
@@ -214,11 +279,27 @@ export function SubscriptionManager() {
                             ) : null}
                           </div>
                           <form action={buyAction} className="shrink-0">
-                            <input type="hidden" name="serviceProductCode" value={product.code} />
-                            <input type="hidden" name="promoCode" value={promoCode} />
-                            <Button type="submit" size="sm" variant="outline" disabled={buyPending}>
+                            <input
+                              type="hidden"
+                              name="serviceProductCode"
+                              value={product.code}
+                            />
+                            <input
+                              type="hidden"
+                              name="promoCode"
+                              value={promoCode}
+                            />
+                            <Button
+                              type="submit"
+                              size="sm"
+                              variant="outline"
+                              disabled={buyPending}
+                            >
                               {product.price_kobo === 0 ? "Switch to" : "Buy"}{" "}
-                              {formatPrice(product.price_kobo, product.currency as Currency)}
+                              {formatPrice(
+                                product.price_kobo,
+                                product.currency as Currency,
+                              )}
                             </Button>
                           </form>
                         </li>
@@ -242,12 +323,17 @@ export function SubscriptionManager() {
               {(purchases ?? [])
                 .filter((p) => !isPurchaseCurrentlyActive(p))
                 .map((purchase) => (
-                  <li key={purchase.id} className="flex items-center justify-between gap-4 py-3">
+                  <li
+                    key={purchase.id}
+                    className="flex items-center justify-between gap-4 py-3"
+                  >
                     <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
                       {purchase.service_product?.name ?? "Unknown service"}
                     </p>
                     <Badge variant="grey">
-                      {purchase.status === "pending_payment" ? "Payment pending" : purchase.status}
+                      {purchase.status === "pending_payment"
+                        ? "Payment pending"
+                        : purchase.status}
                     </Badge>
                   </li>
                 ))}

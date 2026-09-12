@@ -175,12 +175,16 @@ export function SupportedPeople() {
           <CardTitle>You are not supporting anyone yet</CardTitle>
           <CardDescription>
             Once someone names you as next of kin, or accepts a request to let you help manage
-            their care, they appear here and you can fund their care directly.
+            their care, they appear here and you can fund their care directly. If they are not on
+            Tarragon yet, you do not need to wait for them: you can set up their record yourself.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-wrap gap-3">
+          <Button asChild>
+            <Link href="/patient/supporting/new">Buy care for someone</Link>
+          </Button>
           <Button asChild variant="outline">
-            <Link href="/patient/family">Set that up</Link>
+            <Link href="/patient/family">Manage next of kin and family</Link>
           </Button>
         </CardContent>
       </Card>

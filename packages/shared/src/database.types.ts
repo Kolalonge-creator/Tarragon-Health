@@ -29337,6 +29337,7 @@ export type Database = {
           emergency_contact_phone: string | null
           emergency_contact_relationship: string | null
           full_name: string | null
+          glucose_display_unit: string
           height_cm: number | null
           height_reconciled_at: string | null
           id: string
@@ -29387,6 +29388,7 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           full_name?: string | null
+          glucose_display_unit?: string
           height_cm?: number | null
           height_reconciled_at?: string | null
           id: string
@@ -29437,6 +29439,7 @@ export type Database = {
           emergency_contact_phone?: string | null
           emergency_contact_relationship?: string | null
           full_name?: string | null
+          glucose_display_unit?: string
           height_cm?: number | null
           height_reconciled_at?: string | null
           id?: string
@@ -38965,13 +38968,41 @@ export type Database = {
       therapy_directory: {
         Row: {
           city: string | null
-          clinical_interests: string | null
+          clinical_interests: string[] | null
           consultation_fee_kobo: number | null
           id: string | null
           languages: string[] | null
           name: string | null
           needs_doctor_approval: boolean | null
-          qualifications: string | null
+          qualifications: string[] | null
+          specialist_type: Database["public"]["Enums"]["specialist_type"] | null
+          state: string | null
+          subspecialty: string | null
+          supports_in_person: boolean | null
+          supports_telemedicine: boolean | null
+          years_of_experience: number | null
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+        }
+        Relationships: []
+      }
+      specialist_directory: {
+        Row: {
+          accepted_hmos: string[] | null
+          area: string | null
+          city: string | null
+          clinical_interests: string[] | null
+          consultation_fee_kobo: number | null
+          id: string | null
+          languages: string[] | null
+          license_expires_at: string | null
+          license_number: string | null
+          license_type: string | null
+          license_verified_at: string | null
+          name: string | null
+          provider_tier: Database["public"]["Enums"]["specialist_provider_tier"] | null
+          qualifications: string[] | null
           specialist_type: Database["public"]["Enums"]["specialist_type"] | null
           state: string | null
           subspecialty: string | null
@@ -39798,6 +39829,10 @@ export type Database = {
       }
       cancel_lab_result_consult_request: {
         Args: { p_request_id: string }
+        Returns: undefined
+      }
+      cancel_pending_service_purchase: {
+        Args: { p_service_purchase_id: string }
         Returns: undefined
       }
       cancel_waiting_list_entry: {
@@ -42780,6 +42815,15 @@ export type Database = {
       review_weight_management_checkin: {
         Args: { p_checkin_id: string; p_note?: string }
         Returns: Database["public"]["Tables"]["weight_management_checkins"]["Row"]
+      }
+      confirm_weight_management_eligibility: {
+        Args: {
+          p_enrolment_id: string
+          p_medication_id: string
+          p_notes?: string
+          p_obesity_assessment_id: string
+        }
+        Returns: Database["public"]["Tables"]["weight_management_enrolments"]["Row"]
       }
     }
     Enums: {

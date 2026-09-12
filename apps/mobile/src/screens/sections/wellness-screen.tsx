@@ -125,7 +125,7 @@ export function WellnessScreen({ patientId, organisationId, onNavigate }: Wellne
         <MutedText>
           Small, everyday habits add up. Earn points for logging, learning, and finishing challenges,
           collect badges along the way, and redeem points any time for a real reward voucher you can put
-          toward your care.
+          towards your care.
         </MutedText>
       </View>
 
@@ -188,7 +188,7 @@ function PointsCard({
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Wellness points</Text>
       <MutedText>
         Earn points for logging vitals, meals, and check-ins, finishing lessons, and hitting challenges.
-        Redeem any time for a reward voucher you can put toward your care.
+        Redeem any time for a reward voucher you can put towards your care.
       </MutedText>
 
       <View style={{ flexDirection: "row", alignItems: "baseline", gap: 6 }}>

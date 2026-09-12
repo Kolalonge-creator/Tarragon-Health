@@ -144,7 +144,7 @@ export function LedgerBrowser() {
                   <Th>Account</Th>
                   <Th right>Debit</Th>
                   <Th right>Credit</Th>
-                  <Th>Cost center</Th>
+                  <Th>Cost centre</Th>
                   <Th>Line memo</Th>
                   <Th> </Th>
                 </tr>
@@ -220,7 +220,7 @@ export function LedgerBrowser() {
 
       <SectionCard
         title="General ledger"
-        description="Every posted journal entry and its lines. Corrections are made by reversing, never editing."
+        description="Every posted journal entry and its lines. Corrections are made by reversing, rather than editing."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />

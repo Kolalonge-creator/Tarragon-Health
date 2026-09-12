@@ -6,7 +6,7 @@ import type { RiskAssessmentInput } from "@/lib/validation/risk-assessment";
  * simplification — skip the AI health-age score, compute honest, defensible
  * rule-based tiers using standard risk factors"). Deliberately data-driven —
  * a config table of weighted factors + thresholds per condition, mirroring
- * how screen_types treats the screening catalog as data, not scattered
+ * how screen_types treats the screening catalogue as data, not scattered
  * code — so a clinician can review/adjust weights later without an
  * engineer re-deriving logic.
  *

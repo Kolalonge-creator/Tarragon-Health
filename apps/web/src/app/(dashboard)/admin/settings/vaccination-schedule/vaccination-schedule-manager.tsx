@@ -63,7 +63,7 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
           <p className="text-sm text-charcoal-ink/70">
             Creating a draft snapshots every active vaccination_catalog entry below exactly as it
             stands right now. Once you sign it, that snapshot is the permanent record of what was
-            reviewed and approved. A later catalog change needs a fresh draft and a fresh signature.
+            reviewed and approved. A later catalogue change needs a fresh draft and a fresh signature.
           </p>
           <div className="space-y-1">
             <label htmlFor="notes" className="text-sm font-medium text-charcoal-ink">

@@ -44,7 +44,7 @@
  * private.apply_subsidy_contribution_from_transaction (an AFTER INSERT
  * trigger on payment_transactions, see
  * supabase/migrations/20260830113902_subsidy_split_engine.sql). Two of these
- * checkouts exist per subsidized order — one for the sponsor's share, one
+ * checkouts exist per subsidised order — one for the sponsor's share, one
  * for the patient's — each carrying its own subsidy_contribution_id. The
  * underlying lab/pharmacy/referral order only flips to payment_confirmed
  * once BOTH contributions have landed.

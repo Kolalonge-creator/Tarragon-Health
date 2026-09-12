@@ -47,7 +47,7 @@ export function FertilityRequestCard({ patientId }: { patientId: string }) {
         <CardTitle>Fertility</CardTitle>
         <CardDescription>
           Fertility assessment involves your history, some tests and, where appropriate, a
-          specialist review, never a guaranteed outcome or a certain timeline.
+          specialist review, rather than a guaranteed outcome or a fixed timeline.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -81,6 +81,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     rationale: assessment.rationale,
     advisory: true,
     disclaimer:
-      "Advisory risk stratification only, never a prescription -- this engine never recommends a specific medication or dose, and a high-risk/secondary-prevention classification always means 'flag for clinician review', never 'treat automatically'.",
+      "Advisory risk stratification only, not a prescription -- this engine does not recommend a specific medication or dose, and a high-risk/secondary-prevention classification always means 'flag for clinician review', never 'treat automatically'.",
   });
 }

@@ -49,10 +49,10 @@ export default function AccessibilityPage() {
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed text-charcoal-ink/80">
               <li>Semantic HTML and heading structure, so screen readers can navigate the page.</li>
               <li>Visible keyboard focus states on every interactive element, and full keyboard
-                operability for forms, menus, and dialogs.</li>
+                operability for forms, menus, and dialogues.</li>
               <li>Text alternatives for meaningful images and icons.</li>
               <li>A colour palette checked for contrast, and status colours (for example the
-                clinical red/amber/green used on dashboards) that never rely on colour alone.</li>
+                clinical red/amber/green used on dashboards) that carry a label or shape as well as colour.</li>
               <li>Automated accessibility checks (including Lighthouse) as part of how we build
                 and review new pages, with issues fixed as we find them.</li>
             </ul>

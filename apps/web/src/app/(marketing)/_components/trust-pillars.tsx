@@ -3,7 +3,7 @@
 const PILLARS = [
   {
     title: "Clinically reviewed",
-    body: "Real doctors review your readings and results against care protocols, never an algorithm acting alone.",
+    body: "Real doctors review your readings and results against care protocols, rather than an algorithm acting alone.",
   },
   {
     title: "Warm, not automated",
@@ -15,7 +15,7 @@ const PILLARS = [
   },
   {
     title: "Explained in plain language",
-    body: "We tell you what a result means and what to do next in clear words, so you are never left guessing.",
+    body: "We tell you what a result means and what to do next in clear words, so you are left in no doubt.",
   },
   {
     title: "Premium, within reach",
@@ -29,10 +29,10 @@ const PILLARS = [
 
 /** Honest commitments, positively framed (avoids the curt-negative marketing tone). */
 const COMMITMENTS = [
-  "No fear-based urgency, ever",
+  "Calm, measured language, with no scare tactics",
   "Clear, upfront pricing with no hidden costs",
   "Honest about what we can and can't do",
-  "We support your hospital, never replace it",
+  "We support your hospital rather than replace it",
 ] as const;
 
 export function TrustPillars() {

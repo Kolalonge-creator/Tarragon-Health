@@ -18,7 +18,7 @@ export type SubsidyCheckoutResult =
 
 /**
  * §91.9 two-simultaneous-charges subsidy mechanic (founder decision). A
- * sponsor with a real `manage` grant over the patient starts a subsidized
+ * sponsor with a real `manage` grant over the patient starts a subsidised
  * checkout for one real, already-pending order — never a standing
  * per-member-per-month arrangement (see transaction_subsidies' own CHECK
  * constraints, I8). The split is computed server-side by
@@ -51,7 +51,7 @@ export async function initiateSubsidizedCheckout(args: {
     p_sponsor_profile_id: user.id,
   });
   if (error || !data) {
-    return { ok: false, error: error?.message ?? "Could not start a subsidized checkout for that order." };
+    return { ok: false, error: error?.message ?? "Could not start a subsidised checkout for that order." };
   }
 
   const result = data as {
@@ -92,7 +92,7 @@ export async function initiateSubsidizedCheckout(args: {
 export type PayShareResult = { ok: true; checkoutUrl: string } | { ok: false; error: string };
 
 /**
- * Pays whichever side of a subsidized order belongs to the caller — the
+ * Pays whichever side of a subsidised order belongs to the caller — the
  * sponsor's share (if initiateSubsidizedCheckout's own redirect was
  * abandoned) or the patient's own reduced share. RLS on subsidy_contributions
  * already scopes the row to payer_profile_id = caller, so this can't be used

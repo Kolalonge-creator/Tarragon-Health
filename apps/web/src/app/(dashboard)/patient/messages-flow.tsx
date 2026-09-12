@@ -9,10 +9,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import {
+  FormError,
+  fieldErrorId,
+  fieldErrorProps,
+} from "@/components/ui/form-error";
 import { NAV_ICON } from "@/lib/icons";
-import { careMessageCategories, type CareMessageCategory } from "@/lib/validation/care-messages";
+import {
+  careMessageCategories,
+  type CareMessageCategory,
+} from "@/lib/validation/care-messages";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 
 const CONFIDENTIAL_MESSAGE_CREDIT_CODE = "confidential_message_credit";
 
@@ -37,7 +45,11 @@ function BackToList({ onClick }: { onClick: () => void }) {
       aria-label="Back to messages"
       className="-ml-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-charcoal-ink/60 dark:text-night-ink/60 hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10 hover:text-charcoal-ink dark:hover:text-night-ink lg:hidden"
     >
-      <NAV_ICON.chevronRight className="h-5 w-5 rotate-180" strokeWidth={2} aria-hidden />
+      <NAV_ICON.chevronRight
+        className="h-5 w-5 rotate-180"
+        strokeWidth={2}
+        aria-hidden
+      />
     </button>
   );
 }
@@ -149,7 +161,10 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
         </div>
         <div className="flex-1 overflow-y-auto">
           {isLoading && (
-            <p role="status" className="p-4 text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            <p
+              role="status"
+              className="p-4 text-sm text-charcoal-ink/60 dark:text-night-ink/60"
+            >
               Loading…
             </p>
           )}
@@ -168,17 +183,22 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                     setOpenId(thread.id);
                   }}
                   className={`w-full border-b border-charcoal-ink/6 dark:border-night-ink/10 px-4 py-3 text-left transition-colors ${
-                    openId === thread.id ? "bg-warm-ivory dark:bg-night-ink/10" : "hover:bg-warm-ivory/60 dark:hover:bg-night-ink/10"
+                    openId === thread.id
+                      ? "bg-warm-ivory dark:bg-night-ink/10"
+                      : "hover:bg-warm-ivory/60 dark:hover:bg-night-ink/10"
                   }`}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="truncate text-sm font-semibold text-charcoal-ink dark:text-night-ink">
                       {thread.subject}
                     </span>
-                    {thread.status === "closed" && <Badge variant="grey">Closed</Badge>}
+                    {thread.status === "closed" && (
+                      <Badge variant="grey">Closed</Badge>
+                    )}
                   </div>
                   <p className="mt-0.5 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-                    {CATEGORY_LABEL[thread.category]} · {when(thread.last_message_at)}
+                    {CATEGORY_LABEL[thread.category]} ·{" "}
+                    {when(thread.last_message_at)}
                   </p>
                 </button>
               </li>
@@ -187,7 +207,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
         </div>
       </div>
 
-      <div className={`${showDetail ? "flex" : "hidden lg:flex"} min-h-0 flex-1 flex-col`}>
+      <div
+        className={`${showDetail ? "flex" : "hidden lg:flex"} min-h-0 flex-1 flex-col`}
+      >
         {composing ? (
           <div className="flex min-h-0 flex-1 flex-col">
             <div className="flex items-center gap-2 border-b border-charcoal-ink/10 dark:border-night-ink/15 p-4">
@@ -211,13 +233,18 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                   placeholder="e.g. Question about my medication"
                   maxLength={150}
                   required
-                  {...fieldErrorProps(composeErrorId, Boolean(error), "care-message-subject-hint")}
+                  {...fieldErrorProps(
+                    composeErrorId,
+                    Boolean(error),
+                    "care-message-subject-hint",
+                  )}
                 />
                 <p
                   id="care-message-subject-hint"
                   className="text-xs text-charcoal-ink/60 dark:text-night-ink/60"
                 >
-                  At least three characters, so your care team can see what it is about.
+                  At least three characters, so your care team can see what it
+                  is about.
                 </p>
               </div>
               <div className="grid gap-2">
@@ -225,7 +252,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                 <select
                   id="category"
                   value={category}
-                  onChange={(e) => setCategory(e.target.value as CareMessageCategory)}
+                  onChange={(e) =>
+                    setCategory(e.target.value as CareMessageCategory)
+                  }
                   className="h-10 rounded-md border border-charcoal-ink/15 dark:border-night-ink/20 bg-white dark:bg-night-card px-3 text-sm text-charcoal-ink dark:text-night-ink"
                 >
                   {careMessageCategories.map((c) => (
@@ -236,8 +265,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                 </select>
                 {category === "clinical" && (
                   <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                    A clinical question needs a doctor&apos;s time, so this is a paid message
-                    (₦2,500). Pick a different category for routine bookings, refills, or check-ins.
+                    A clinical question needs a doctor&apos;s time, so this is a
+                    paid message (₦2,500). Pick a different category for routine
+                    bookings, refills, or check-ins.
                   </p>
                 )}
               </div>
@@ -255,13 +285,23 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
               </div>
               <div className="flex items-center gap-3">
                 {needsCredit ? (
-                  <Button type="button" disabled={isBuying} onClick={buyCreditThenSend}>
-                    {isBuying ? "Redirecting to payment…" : "Pay ₦2,500 and send"}
+                  <Button
+                    type="button"
+                    disabled={isBuying}
+                    onClick={buyCreditThenSend}
+                  >
+                    {isBuying
+                      ? "Redirecting to payment…"
+                      : "Pay ₦2,500 and send"}
                   </Button>
                 ) : (
                   <Button
                     type="button"
-                    disabled={start.isPending || subject.trim().length < 3 || body.trim().length === 0}
+                    disabled={
+                      start.isPending ||
+                      subject.trim().length < 3 ||
+                      body.trim().length === 0
+                    }
                     onClick={startThread}
                   >
                     {start.isPending ? "Sending…" : "Send"}
@@ -269,6 +309,7 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
                 )}
                 <FormError id={composeErrorId} message={error} />
               </div>
+              {needsCredit && <PaystackFeeNotice />}
             </div>
           </div>
         ) : openThread ? (
@@ -278,7 +319,9 @@ export function MessagesFlow({ patientId }: { patientId: string }) {
               <span className="min-w-0 truncate font-heading text-sm font-semibold text-charcoal-ink dark:text-night-ink">
                 {openThread.subject}
               </span>
-              {openThread.status === "closed" && <Badge variant="grey">Closed</Badge>}
+              {openThread.status === "closed" && (
+                <Badge variant="grey">Closed</Badge>
+              )}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto p-5">
               <CareMessageThread

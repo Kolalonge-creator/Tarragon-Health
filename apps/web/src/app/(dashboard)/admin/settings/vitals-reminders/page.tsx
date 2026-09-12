@@ -7,7 +7,7 @@ export default async function VitalsRemindersSettingsPage() {
   const profile = await getCurrentProfile();
 
   // proxy.ts already blocks non-admins from reaching any /admin/** route at
-  // the routing layer — this is a defense-in-depth check on top of that,
+  // the routing layer — this is a defence-in-depth check on top of that,
   // since this page's content (not just its RLS-protected data) is
   // admin-only.
   if (profile?.role !== "admin") {

@@ -111,10 +111,17 @@ export function WearableConnectCard({
   const connections = useWearableConnections(patientId);
   const setStatus = useSetWearableConnectionStatus(patientId);
   const [consentOpenFor, setConsentOpenFor] = useState<CloudOAuthWearableProvider | null>(null);
+  // Undecided until the patient actually toggles the disclosure — until
+  // then it follows whether they already have a connection, so someone
+  // mid-sync lands open and everyone else lands collapsed, without either
+  // state fighting a manual toggle once one happens.
+  const [userToggledOpen, setUserToggledOpen] = useState<boolean | null>(null);
 
   const connectionByProvider = new Map(
     (connections.data ?? []).map((c) => [c.provider, c])
   );
+  const connectedCount = connectionByProvider.size;
+  const isOpen = userToggledOpen ?? connectedCount > 0;
 
   return (
     <Card>
@@ -130,7 +137,16 @@ export function WearableConnectCard({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
+        <details
+          open={isOpen}
+          onToggle={(event) => setUserToggledOpen((event.target as HTMLDetailsElement).open)}
+        >
+          <summary className="cursor-pointer text-sm font-medium text-charcoal-ink dark:text-night-ink hover:text-brand-green dark:hover:text-brand-green-bright">
+            {connectedCount > 0
+              ? `${connectedCount} device${connectedCount === 1 ? "" : "s"} connected, tap to manage`
+              : "Show connection options"}
+          </summary>
+        <ul className="mt-3 divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {ALL_PROVIDERS.map((provider) => {
             const connection = connectionByProvider.get(provider);
             const isConfigured = configuredProviders.includes(provider);
@@ -225,6 +241,7 @@ export function WearableConnectCard({
             <Badge variant="grey">Requires partnership</Badge>
           </li>
         </ul>
+        </details>
       </CardContent>
     </Card>
   );

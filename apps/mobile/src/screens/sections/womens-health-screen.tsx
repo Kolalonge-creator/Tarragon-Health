@@ -419,7 +419,7 @@ function ReproductiveHealthCard({
     <Card style={{ gap: 10 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Your cycle & life stage</Text>
       <MutedText>
-        Tell us where you are so we can give a useful nudge, never a diagnosis, and you can change this any
+        Tell us where you are so we can give a useful nudge, not a diagnosis, and you can change this at any
         time.
       </MutedText>
 
@@ -1116,7 +1116,7 @@ function FertilityRequestCard({
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Fertility</Text>
       <MutedText>
         Fertility assessment involves your history, some tests and, where appropriate, a specialist review,
-        never a guaranteed outcome or a certain timeline.
+        rather than a guaranteed outcome or a fixed timeline.
       </MutedText>
       <Text onPress={() => onNavigate("learn")} style={{ fontSize: 12.5, fontWeight: "700", color: colors.brand }}>
         Read fertility basics and preconception health

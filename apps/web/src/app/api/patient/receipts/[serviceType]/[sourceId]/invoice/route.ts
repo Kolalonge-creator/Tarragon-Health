@@ -10,7 +10,7 @@ const paramsSchema = z.object({
 
 /**
  * PDF invoice for one payment (spec §25.6), built on top of get_or_create_invoice
- * (20260829004654_patient_invoices.sql) — the RPC is the real authorization
+ * (20260829004654_patient_invoices.sql) — the RPC is the real authorisation
  * boundary (it only returns a row for a payment that appears in the caller's
  * own patient_receipts()), this route just renders whatever it returns.
  * Idempotent: re-downloading always renders the same invoice_number/totals,

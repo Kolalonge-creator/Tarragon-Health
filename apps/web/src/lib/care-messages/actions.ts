@@ -8,7 +8,7 @@ import { generateDraftReply } from "./generate-draft-reply";
  * Mirrors private.is_org_staff's role set for this specific purpose --
  * clinician, care_coordinator, and the org admin super-user
  * (packages/db's 20260729234618_harden_is_org_staff_exclude_lab_partner.sql
- * is the source of truth). This is a defense-in-depth UI gate only: the real
+ * is the source of truth). This is a defence-in-depth UI gate only: the real
  * write boundary is that care_message_draft_replies carries no insert/
  * update/delete policy at all, so even a caller that got past this check
  * could not write the row itself -- only the service-role generator below

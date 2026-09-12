@@ -58,7 +58,7 @@ export default async function ImpactPage() {
           title={anyVisible ? "What the numbers show" : "We're just getting started"}
           description={
             anyVisible
-              ? "Every figure below is a real count, aggregated across every patient, institution and city, never broken down by organisation or individual."
+              ? "Every figure below is a real count, aggregated across every patient, institution and city, and not broken down by organisation or individual."
               : "TarragonHealth is early. We hold back any number small enough that showing it could identify a real person, so most figures here will fill in as more patients join. That's a privacy choice, not a bug."
           }
         />

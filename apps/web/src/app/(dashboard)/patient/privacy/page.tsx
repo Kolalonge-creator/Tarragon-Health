@@ -26,6 +26,7 @@ export default async function PrivacyCentrePage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Privacy & your data"
         icon={SEMANTIC_ICON.privacy}
         description="What you've agreed to, who can see your record, and how to request, correct, or delete your data."

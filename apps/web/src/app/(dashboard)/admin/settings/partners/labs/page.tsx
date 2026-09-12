@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
-import { hasPermission } from "@/lib/auth/permissions";
+import { getCallerPermissions, hasPermission } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
@@ -11,6 +11,7 @@ export default async function LabsPartnersPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
   if (!(await hasPermission("partners.labs.manage"))) redirect("/admin");
+  const { isSuperAdmin } = await getCallerPermissions();
 
   // lab_partner logins (email lives in auth.users, not profiles) so the admin
   // can link an already-provisioned login (via /admin/settings/members) to a
@@ -46,7 +47,7 @@ export default async function LabsPartnersPage() {
     <div className="space-y-6">
       <PageHeader
         title="Labs"
-        description="Add and manage the lab providers patients can book with, keep contact details current, link a partner login, and track turnaround performance."
+        description="Add and manage the lab providers patients can book with, keep contact details current, link a partner login, track turnaround performance, and record where each provider's prices came from."
       />
       {/* The partner-login list feeding this Manager is what an admin checks
           before provisioning a new one. Read as empty on failure, it invites a
@@ -57,7 +58,7 @@ export default async function LabsPartnersPage() {
           Reload before creating or linking a login here.
         </LoadFailure>
       ) : (
-        <LabsManager labPartnerLogins={labPartnerLogins} />
+        <LabsManager labPartnerLogins={labPartnerLogins} isSuperAdmin={isSuperAdmin} />
       )}
     </div>
   );

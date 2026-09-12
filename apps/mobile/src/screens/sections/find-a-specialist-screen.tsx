@@ -31,7 +31,7 @@ interface FindASpecialistScreenProps {
 
 /**
  * Browse Tarragon's specialist network — mirrors apps/web/.../
- * find-a-specialist/find-a-specialist.tsx: same filters (specialty,
+ * find-a-specialist/find-a-specialist.tsx: same filters (speciality,
  * state/city, telemedicine, max fee, language), same read-only/informational
  * shape (a patient messages their care team to actually arrange a referral,
  * never picks a provider directly here).
@@ -78,7 +78,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
     >
       <View>
         <ScreenTitle>Find a specialist</ScreenTitle>
-        <MutedText>Browse Tarragon&apos;s specialist network by specialty, location, and language.</MutedText>
+        <MutedText>Browse Tarragon&apos;s specialist network by speciality, location, and language.</MutedText>
       </View>
 
       <Card style={{ gap: 10 }}>
@@ -150,18 +150,20 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
         <Card key={p.id} style={{ gap: 4 }}>
           <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
             <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{p.name}</Text>
-            <Badge>{specialtyLabel(p.specialist_type)}</Badge>
+            <Badge>{p.specialist_type ? specialtyLabel(p.specialist_type) : "Specialist"}</Badge>
             {p.subspecialty && <Badge tone="brand">{p.subspecialty}</Badge>}
             {p.supports_telemedicine && <Badge tone="brand">Telemedicine</Badge>}
           </View>
           <MutedText>
-            {[p.city, p.state].filter(Boolean).join(", ") || "Location on file"}, ₦
-            {fromMinorUnits(p.consultation_fee_kobo, "NGN").toLocaleString()}
+            {[p.city, p.state].filter(Boolean).join(", ") || "Location on file"}
+            {p.consultation_fee_kobo != null
+              ? `, ₦${fromMinorUnits(p.consultation_fee_kobo, "NGN").toLocaleString()}`
+              : ""}
             {p.years_of_experience != null ? ` · ${p.years_of_experience} yrs experience` : ""}
           </MutedText>
-          {p.qualifications.length > 0 && <MutedText>{p.qualifications.join(", ")}</MutedText>}
-          {p.clinical_interests.length > 0 && <MutedText>Focus: {p.clinical_interests.join(", ")}</MutedText>}
-          {p.languages.length > 0 && <MutedText>Languages: {p.languages.join(", ")}</MutedText>}
+          {!!p.qualifications?.length && <MutedText>{p.qualifications.join(", ")}</MutedText>}
+          {!!p.clinical_interests?.length && <MutedText>Focus: {p.clinical_interests.join(", ")}</MutedText>}
+          {!!p.languages?.length && <MutedText>Languages: {p.languages.join(", ")}</MutedText>}
         </Card>
       ))}
       <MutedText>Interested in seeing one of these specialists? Message your care team and they&apos;ll arrange the referral.</MutedText>

@@ -67,7 +67,7 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
-            <Label htmlFor="fas-type">Specialty</Label>
+            <Label htmlFor="fas-type">Speciality</Label>
             <Select
               id="fas-type"
               value={specialistType}
@@ -132,22 +132,24 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
               <div key={provider.id} className="space-y-1 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-charcoal-ink dark:text-night-ink">{provider.name}</span>
-                  <Badge variant="grey">{provider.specialist_type.replace(/_/g, " ")}</Badge>
+                  <Badge variant="grey">{provider.specialist_type?.replace(/_/g, " ") ?? "Specialist"}</Badge>
                   {provider.subspecialty && <Badge variant="blue">{provider.subspecialty}</Badge>}
                   {provider.supports_telemedicine && <Badge variant="blue">Telemedicine</Badge>}
                 </div>
                 <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                  {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"}, ₦
-                  {koboToNaira(provider.consultation_fee_kobo).toLocaleString()}
+                  {[provider.city, provider.state].filter(Boolean).join(", ") || "Location on file"}
+                  {provider.consultation_fee_kobo != null
+                    ? `, ₦${koboToNaira(provider.consultation_fee_kobo).toLocaleString()}`
+                    : ""}
                   {provider.years_of_experience != null && ` · ${provider.years_of_experience} yrs experience`}
                 </p>
-                {provider.qualifications.length > 0 && (
+                {!!provider.qualifications?.length && (
                   <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{provider.qualifications.join(", ")}</p>
                 )}
-                {provider.clinical_interests.length > 0 && (
+                {!!provider.clinical_interests?.length && (
                   <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Focus: {provider.clinical_interests.join(", ")}</p>
                 )}
-                {provider.languages.length > 0 && (
+                {!!provider.languages?.length && (
                   <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Languages: {provider.languages.join(", ")}</p>
                 )}
               </div>

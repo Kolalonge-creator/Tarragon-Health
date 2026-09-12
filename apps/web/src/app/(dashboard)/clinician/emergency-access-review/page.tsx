@@ -40,7 +40,7 @@ export default async function EmergencyAccessReviewPage() {
         <p className="text-charcoal-ink/60">
           When a clinician outside your organisation opens one of your patients&apos; records in an
           emergency, it happens immediately -- there is no waiting for approval first -- but every
-          request lands here afterward for you to confirm it was legitimate. The requester can never
+          request lands here afterwards for you to confirm it was legitimate. The requester cannot
           review their own request.
         </p>
       </div>

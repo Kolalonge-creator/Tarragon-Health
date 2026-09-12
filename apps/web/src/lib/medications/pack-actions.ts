@@ -9,7 +9,12 @@ const MAX_BYTES = 8 * 1024 * 1024;
 /** Mirrors pack-vision.ts's own MODEL_ID, so a drift shows up in
  * ai_vendor_model_observations rather than passing unnoticed (40.19). */
 const PACK_VISION_MODEL_ID = "claude-sonnet-5";
-const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/heic"];
+// HEIC/HEIF deliberately excluded: Anthropic's vision API only accepts
+// jpeg/png/gif/webp, so a HEIC photo (the default iPhone camera format) was
+// silently forwarded to readMedicationPack, always failed the model call,
+// and surfaced as the generic "not available" fallback below — not a format
+// problem the patient could tell from that message.
+const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 
 type PackReadingOutcome = { ok: true; reading: PackReading } | { ok: false };
 
@@ -46,8 +51,14 @@ export async function checkMedicationPack(formData: FormData): Promise<PackCheck
   if (file.size > MAX_BYTES) {
     return { error: "That photo is too large. Try one under 8MB." };
   }
+  if (file.type === "image/heic" || file.type === "image/heif") {
+    return {
+      error:
+        "That photo format (HEIC) can't be read here. On iPhone, open Settings, then Camera, then Formats, and choose \"Most Compatible\", then take the photo again, or choose an existing JPEG or PNG photo instead.",
+    };
+  }
   if (!ALLOWED.includes(file.type)) {
-    return { error: "Use a photo (JPEG, PNG, WEBP or HEIC)." };
+    return { error: "Use a photo (JPEG, PNG or WEBP)." };
   }
 
   const imageBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");

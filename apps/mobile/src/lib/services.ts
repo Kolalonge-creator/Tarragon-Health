@@ -26,6 +26,65 @@ export interface ServicesState {
   buyable: ServiceProduct[];
 }
 
+export interface PendingPaymentIssue {
+  id: string;
+  serviceProductCode: string;
+  serviceProductName: string;
+  payableKobo: number;
+  currency: Currency;
+}
+
+/**
+ * Mirrors apps/web/.../patient/payment-failure-banner.tsx's
+ * findStalePendingPurchase exactly (same 30-minute grace period so someone
+ * mid-checkout on the provider's hosted page never sees this). A purchase
+ * the patient started and never finished stays 'pending_payment'
+ * indefinitely — record_service_purchase_intent always inserts a fresh row,
+ * nothing else here mutates or expires it.
+ */
+export async function getPendingPaymentIssue(patientId: string): Promise<QueryResult<PendingPaymentIssue | null>> {
+  try {
+    const staleBefore = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+    const { data, error } = await supabase
+      .from("service_purchases")
+      .select("id, payable_kobo, currency, service_product:service_products(code, name)")
+      .eq("patient_id", patientId)
+      .eq("status", "pending_payment")
+      .lt("created_at", staleBefore)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    if (!data?.service_product?.code) return { ok: true, data: null };
+    return {
+      ok: true,
+      data: {
+        id: data.id,
+        serviceProductCode: data.service_product.code,
+        serviceProductName: data.service_product.name ?? "a service",
+        payableKobo: data.payable_kobo ?? 0,
+        currency: data.currency as Currency,
+      },
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Mirrors the "Not right now" server action in apps/web/.../patient/
+ * payment-failure-banner-actions.ts — same SECURITY DEFINER RPC
+ * (cancel_pending_service_purchase, 20260910222854), scoped to the caller's
+ * own still-pending_payment row.
+ */
+export async function cancelPendingServicePurchase(servicePurchaseId: string): Promise<QueryResult<void>> {
+  const { error } = await supabase.rpc("cancel_pending_service_purchase", {
+    p_service_purchase_id: servicePurchaseId,
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: undefined };
+}
+
 /**
  * Mirrors apps/web/src/lib/queries/service-purchases.ts's useMyServicePurchases
  * and service-products.ts's useActiveServiceProducts — both plain

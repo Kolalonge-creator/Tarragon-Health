@@ -13,6 +13,16 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent, type ChartConfig } f
 import { formatPatientDate } from "@/lib/format-date";
 const WEIGHT_CONFIG: ChartConfig = { weight_kg: { label: "Weight (kg)", color: "var(--color-chart-glucose)" } };
 const HEIGHT_CONFIG: ChartConfig = { height_cm: { label: "Height (cm)", color: "var(--color-chart-systolic)" } };
+const HEAD_CIRCUMFERENCE_CONFIG: ChartConfig = {
+  head_circumference_cm: { label: "Head circumference (cm)", color: "var(--color-chart-diastolic)" },
+};
+/** Routine head-circumference tracking is a 0-36-month clinical window
+ * (WHO); it stops being a meaningful growth-monitoring metric well before
+ * this card's own adult cutoff (ageYears >= 19 above). Treated the same
+ * permissive way as that cutoff when a date of birth isn't on file. */
+function showsHeadCircumference(ageYears: number | null): boolean {
+  return ageYears === null || ageYears < 3;
+}
 
 function formatDate(iso: string): string {
   return formatPatientDate(iso, { month: "short", day: "numeric", year: "2-digit" });
@@ -42,6 +52,7 @@ export function GrowthTrackingCard({
   const logMeasurement = useLogGrowthMeasurement();
 
   if (ageYears !== null && ageYears >= 19) return null;
+  const showHeadCircumference = showsHeadCircumference(ageYears);
 
   const weightPoints = (measurements ?? [])
     .filter((m) => m.weight_kg !== null)
@@ -49,6 +60,9 @@ export function GrowthTrackingCard({
   const heightPoints = (measurements ?? [])
     .filter((m) => m.height_cm !== null)
     .map((m) => ({ date: formatDate(m.measured_at), height_cm: m.height_cm }));
+  const headCircumferencePoints = (measurements ?? [])
+    .filter((m) => m.head_circumference_cm !== null)
+    .map((m) => ({ date: formatDate(m.measured_at), head_circumference_cm: m.head_circumference_cm }));
 
   const latest = measurements && measurements.length > 0 ? measurements[measurements.length - 1] : null;
   const latestZ = latest?.weight_for_age_z ?? latest?.height_for_age_z ?? null;
@@ -73,8 +87,9 @@ export function GrowthTrackingCard({
       <CardHeader>
         <CardTitle>Growth</CardTitle>
         <CardDescription>
-          Weight, height, and head circumference over time, flagged for clinical review on a
-          significant change, never diagnosed from the chart alone.
+          {showHeadCircumference
+            ? "Weight, height, and head circumference over time, flagged for clinical review on a significant change, rather than diagnosed from the chart alone."
+            : "Weight and height over time, flagged for clinical review on a significant change, rather than diagnosed from the chart alone."}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -114,11 +129,26 @@ export function GrowthTrackingCard({
           </ChartContainer>
         )}
 
+        {showHeadCircumference && headCircumferencePoints.length >= 2 && (
+          <ChartContainer config={HEAD_CIRCUMFERENCE_CONFIG}>
+            <LineChart data={headCircumferencePoints}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+              <XAxis dataKey="date" fontSize={12} tick={{ fill: "var(--chart-tick)" }} />
+              <YAxis fontSize={12} tick={{ fill: "var(--chart-tick)" }} domain={["dataMin - 1", "dataMax + 1"]} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <Line type="monotone" dataKey="head_circumference_cm" stroke="var(--color-head_circumference_cm)" dot />
+            </LineChart>
+          </ChartContainer>
+        )}
+
         {!isLoading && (measurements?.length ?? 0) < 2 && (
           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Log at least two measurements to see a trend.</p>
         )}
 
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <form
+          onSubmit={handleSubmit}
+          className={`grid grid-cols-1 gap-3 ${showHeadCircumference ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+        >
           <div className="space-y-1.5">
             <Label htmlFor="height_cm">Height / length (cm)</Label>
             <Input
@@ -141,18 +171,20 @@ export function GrowthTrackingCard({
               onChange={(e) => setWeightKg(e.target.value)}
             />
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="head_circumference_cm">Head circumference (cm)</Label>
-            <Input
-              id="head_circumference_cm"
-              type="number"
-              step="0.1"
-              min="0"
-              value={headCircumferenceCm}
-              onChange={(e) => setHeadCircumferenceCm(e.target.value)}
-            />
-          </div>
-          <div className="sm:col-span-3">
+          {showHeadCircumference && (
+            <div className="space-y-1.5">
+              <Label htmlFor="head_circumference_cm">Head circumference (cm)</Label>
+              <Input
+                id="head_circumference_cm"
+                type="number"
+                step="0.1"
+                min="0"
+                value={headCircumferenceCm}
+                onChange={(e) => setHeadCircumferenceCm(e.target.value)}
+              />
+            </div>
+          )}
+          <div className={showHeadCircumference ? "sm:col-span-3" : "sm:col-span-2"}>
             {logMeasurement.isError && (
               <p className="mb-2 text-sm text-red-600 dark:text-red-300">Could not save this measurement.</p>
             )}

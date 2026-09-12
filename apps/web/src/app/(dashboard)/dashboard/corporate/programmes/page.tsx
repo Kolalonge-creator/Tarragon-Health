@@ -89,7 +89,7 @@ export default async function CorporateProgrammesPage() {
           <CardDescription>
             Time-boxed wellness programmes you can request for your organisation: screening
             drives, vaccination pushes, activity challenges, and education campaigns. A Tarragon
-            admin reviews each request before it goes live; we never share individual employee
+            admin reviews each request before it goes live; we do not share individual employee
             health information as part of running one.
           </CardDescription>
         </CardHeader>
@@ -123,7 +123,7 @@ export default async function CorporateProgrammesPage() {
           <CardHeader>
             <CardTitle>Your programmes</CardTitle>
             <CardDescription>
-              Aggregate participation only: individual employee results are never shown here.
+              Aggregate participation only: individual employee results are not shown here.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">

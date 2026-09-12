@@ -8,6 +8,7 @@ import {
 } from "@/lib/queries/senior-case-review";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,9 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
   return (
     <li className="space-y-1 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{review.situation_summary}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+          {review.situation_summary}
+        </p>
         {completed ? (
           <Badge variant="green">Plan ready</Badge>
         ) : review.status === "declined" ? (
@@ -42,11 +45,15 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithAnswerer }) {
         </p>
       )}
       {review.status === "declined" && review.declined_reason && (
-        <p className="text-xs text-red-600 dark:text-red-300">{review.declined_reason}</p>
+        <p className="text-xs text-red-600 dark:text-red-300">
+          {review.declined_reason}
+        </p>
       )}
       {completed && review.written_plan && (
         <div className="rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 bg-brand-green/[0.04] dark:bg-brand-green/15 p-3">
-          <p className="whitespace-pre-wrap text-sm text-charcoal-ink dark:text-night-ink">{review.written_plan}</p>
+          <p className="whitespace-pre-wrap text-sm text-charcoal-ink dark:text-night-ink">
+            {review.written_plan}
+          </p>
           {review.reviewer && review.reviewed_at && (
             <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Dr. {review.reviewer.full_name}
@@ -75,10 +82,8 @@ export function SeniorCaseReviewCard({
   organisationId: string | null;
 }) {
   const { data: reviews } = useMySeniorCaseReviews(patientId);
-  const { data: hasCredit, isLoading: isCheckingCredit } = useHasAvailableServicePurchase(
-    patientId,
-    SENIOR_CASE_REVIEW_CREDIT_CODE
-  );
+  const { data: hasCredit, isLoading: isCheckingCredit } =
+    useHasAvailableServicePurchase(patientId, SENIOR_CASE_REVIEW_CREDIT_CODE);
   const request = useRequestSeniorCaseReview();
   const [situationSummary, setSituationSummary] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -89,7 +94,9 @@ export function SeniorCaseReviewCard({
   function onSubmit() {
     setFormError(null);
     if (situationSummary.trim().length < 20) {
-      setFormError("Tell us a bit more about your situation so a senior doctor can prepare properly.");
+      setFormError(
+        "Tell us a bit more about your situation so a senior doctor can prepare properly.",
+      );
       return;
     }
     if (!organisationId) return;
@@ -97,8 +104,11 @@ export function SeniorCaseReviewCard({
       { patientId, organisationId, situationSummary: situationSummary.trim() },
       {
         onSuccess: () => setSituationSummary(""),
-        onError: (error) => setFormError((error as Error).message || "Could not send this request."),
-      }
+        onError: (error) =>
+          setFormError(
+            (error as Error).message || "Could not send this request.",
+          ),
+      },
     );
   }
 
@@ -130,17 +140,20 @@ export function SeniorCaseReviewCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Managing more than one condition, or feel your plan isn&apos;t quite right? A senior doctor
-          reviews your whole record and sends you a written plan, coordinated across everything
-          you&apos;re managing.
+          Managing more than one condition, or feel your plan isn&apos;t quite
+          right? A senior doctor reviews your whole record and sends you a
+          written plan, coordinated across everything you&apos;re managing.
         </p>
 
         {!isCheckingCredit && !hasCredit && (
           <div className="space-y-2 rounded-md border border-brand-green/30 dark:border-brand-green-bright/30 bg-brand-green/5 dark:bg-brand-green/15 p-3">
-            <p className="text-sm text-charcoal-ink dark:text-night-ink">Buy a credit to request a review.</p>
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
+              Buy a credit to request a review.
+            </p>
             <Button size="sm" disabled={isBuying} onClick={buyCredit}>
               {isBuying ? "Redirecting to payment…" : "Buy a credit"}
             </Button>
+            <PaystackFeeNotice />
           </div>
         )}
 
@@ -155,7 +168,9 @@ export function SeniorCaseReviewCard({
             disabled={!hasCredit}
           />
         </div>
-        {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
+        {formError && (
+          <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>
+        )}
         {request.isSuccess && (
           <p className="text-sm text-brand-green dark:text-brand-green-bright">
             Sent to a senior doctor. Expect a written plan within 5 days.

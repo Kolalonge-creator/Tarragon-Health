@@ -137,7 +137,7 @@ export function useFinalizeEncounterNote() {
       noteId: string;
       patientId: string;
       outcome: NonNullable<ClinicalEncounterNote["outcome"]>;
-      /** Wrong-patient prevention (§89.4) — the DB rejects finalizing without
+      /** Wrong-patient prevention (§89.4) — the DB rejects finalising without
        * this; private.enforce_clinical_encounter_note_attribution() derives
        * identity_confirmed_by/at server-side, this flag is the only thing
        * the client actually controls. */

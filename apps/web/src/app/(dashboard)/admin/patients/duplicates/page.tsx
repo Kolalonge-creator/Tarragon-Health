@@ -69,7 +69,7 @@ export default async function AdminPatientDuplicatesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Duplicate patients"
-        description="Possible duplicate patient records, flagged by name/DOB/phone/email similarity. Flagging never merges anything. Review each pair and either dismiss it or hand it to the merge tool."
+        description="Possible duplicate patient records, flagged by name/DOB/phone/email similarity. Flagging does not merge anything. Review each pair and either dismiss it or hand it to the merge tool."
         actions={<RunSweepButton />}
       />
 

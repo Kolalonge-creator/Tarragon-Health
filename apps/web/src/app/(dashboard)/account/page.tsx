@@ -115,7 +115,7 @@ export default async function AccountPage() {
               {staff.doctor_tier === "chief_medical_officer" && (
                 <Field label="Clinical governance" value={<Badge variant="blue">Clinical Director</Badge>} />
               )}
-              <Field label="Specialty" value={staff.specialty} />
+              <Field label="Speciality" value={staff.specialty} />
               <Field
                 label="Credential"
                 value={

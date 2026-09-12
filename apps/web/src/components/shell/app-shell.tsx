@@ -3,7 +3,7 @@
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { NAV_ICON, APP_ICON } from "@/lib/icons";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,8 @@ import { ProfileMenu } from "./profile-menu";
 import { ThemeToggle, type ThemePreference } from "./theme-toggle";
 import { Avatar } from "@/components/avatar";
 import { MAX_PRIMARY_NAV_ITEMS, type NavItem, type NavSection } from "@/lib/navigation";
+import { UiLanguageProvider, useT } from "@/components/ui-language-provider";
+import { DEFAULT_UI_LANGUAGE, UI_LANGUAGES, UI_LANGUAGE_LABEL, type UiLanguage } from "@tarragon/shared";
 import { useWorklistCounts, type WorklistCountKey } from "@/lib/queries/worklist-counts";
 
 /** Live counts keyed by NavItem.countKey, plus whether the underlying batched
@@ -50,6 +52,7 @@ function BottomTabBar({
   showMore: boolean;
   onMore: () => void;
 }) {
+  const tr = useT();
   const tabClass =
     "flex flex-1 flex-col items-center justify-center gap-0.5 px-1 py-2 text-[11px] font-medium leading-tight";
 
@@ -84,7 +87,7 @@ function BottomTabBar({
                   )}
                   strokeWidth={2}
                 />
-                <span className="truncate">{item.shortLabel ?? item.label}</span>
+                <span className="truncate">{tr(item.shortLabel ?? item.label)}</span>
               </Link>
             </li>
           );
@@ -101,7 +104,7 @@ function BottomTabBar({
                 className="h-5 w-5 text-charcoal-ink/45 dark:text-night-ink/55"
                 strokeWidth={2}
               />
-              <span>More</span>
+              <span>{tr("More")}</span>
             </button>
           </li>
         )}
@@ -149,6 +152,7 @@ function NavLinkItem({
    * bar items don't route through here at all) — badge simply never renders. */
   navCounts?: NavCounts;
 }) {
+  const tr = useT();
   const active = isActive(pathname, item.href, item.exact);
   const Icon = APP_ICON[item.icon];
   const danger = item.variant === "danger";
@@ -179,7 +183,7 @@ function NavLinkItem({
           )}
           strokeWidth={2}
         />
-        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        <span className="min-w-0 flex-1 truncate">{tr(item.label)}</span>
         {item.countKey && (
           <NavBadge count={navCounts?.counts?.[item.countKey]} failed={!!navCounts?.failed} />
         )}
@@ -199,13 +203,14 @@ function SidebarNav({
   onNavigate?: () => void;
   navCounts?: NavCounts;
 }) {
+  const tr = useT();
   return (
     <nav aria-label="Main" className="flex-1 space-y-6 overflow-y-auto px-3 py-4">
       {sections.map((section, i) => (
         <div key={section.label ?? i}>
           {section.label && (
             <p className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40 dark:text-night-ink/50">
-              {section.label}
+              {tr(section.label)}
             </p>
           )}
           <ul className="space-y-0.5">
@@ -258,6 +263,7 @@ function CollapsibleNavGroup({
   open,
   onToggle,
   navCounts,
+  onNavigate,
 }: {
   label: string;
   items: NavItem[];
@@ -265,7 +271,9 @@ function CollapsibleNavGroup({
   open: boolean;
   onToggle: (label: string, currentlyOpen: boolean) => void;
   navCounts?: NavCounts;
+  onNavigate?: () => void;
 }) {
+  const tr = useT();
   const panelId = React.useId();
   return (
     <div>
@@ -276,7 +284,7 @@ function CollapsibleNavGroup({
         onClick={() => onToggle(label, open)}
         className="flex w-full items-center justify-between rounded-lg px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/40 transition-colors hover:text-charcoal-ink/70 dark:text-night-ink/50 dark:hover:text-night-ink/70"
       >
-        {label}
+        {tr(label)}
         <NAV_ICON.chevronRight
           aria-hidden="true"
           className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-90")}
@@ -295,7 +303,13 @@ function CollapsibleNavGroup({
         <div className="overflow-hidden" inert={!open}>
           <ul className="space-y-0.5">
             {items.map((item) => (
-              <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
+              <NavLinkItem
+                key={item.href}
+                item={item}
+                pathname={pathname}
+                navCounts={navCounts}
+                onNavigate={onNavigate}
+              />
             ))}
           </ul>
         </div>
@@ -320,10 +334,13 @@ function CollapsibleSidebarNav({
   sections,
   pathname,
   navCounts,
+  onNavigate,
 }: {
   sections: NavSection[];
   pathname: string;
   navCounts?: NavCounts;
+  /** Set on the phone drawer so following a link also closes it. */
+  onNavigate?: () => void;
 }) {
   const dangerItems = sections.flatMap((s) => s.items.filter((i) => i.variant === "danger"));
   const groups = sections
@@ -405,11 +422,18 @@ function CollapsibleSidebarNav({
               open={overrideFor(group.label) ?? group.label === activeGroupLabel}
               onToggle={toggleGroup}
               navCounts={navCounts}
+              onNavigate={onNavigate}
             />
           ) : (
             <ul key={i} className="space-y-0.5">
               {group.items.map((item) => (
-                <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
+                <NavLinkItem
+                  key={item.href}
+                  item={item}
+                  pathname={pathname}
+                  navCounts={navCounts}
+                  onNavigate={onNavigate}
+                />
               ))}
             </ul>
           )
@@ -418,7 +442,13 @@ function CollapsibleSidebarNav({
       {dangerItems.length > 0 && (
         <ul className="mt-auto space-y-0.5 pt-6">
           {dangerItems.map((item) => (
-            <NavLinkItem key={item.href} item={item} pathname={pathname} navCounts={navCounts} />
+            <NavLinkItem
+              key={item.href}
+              item={item}
+              pathname={pathname}
+              navCounts={navCounts}
+              onNavigate={onNavigate}
+            />
           ))}
         </ul>
       )}
@@ -447,6 +477,55 @@ function BrandLockup({ homeHref }: { homeHref: string }) {
   );
 }
 
+/**
+ * Quick header language switch — cycles English/Pidgin with one tap, the
+ * same way ThemeToggle cycles the theme. The fuller picker with the "clinical
+ * content stays in English" note still lives at Profile
+ * (app/(dashboard)/patient/ui-language-form.tsx); before this, that Profile
+ * page was the ONLY place a patient could find the switch at all, on every
+ * other page in the app.
+ */
+function LanguageToggle({
+  language,
+  action,
+}: {
+  language: UiLanguage;
+  action: (
+    prevState: { success?: boolean; error?: string } | undefined,
+    formData: FormData
+  ) => Promise<{ success?: boolean; error?: string } | undefined>;
+}) {
+  const [state, formAction, pending] = React.useActionState(action, undefined);
+  const next = UI_LANGUAGES[(UI_LANGUAGES.indexOf(language) + 1) % UI_LANGUAGES.length];
+  const router = useRouter();
+  // The action's own revalidatePath("/patient", "layout") busts the server
+  // cache, but the nav labels this shell already rendered stay stale until
+  // something asks for a fresh RSC payload — a raw form submit doesn't do
+  // that on its own here. router.refresh() is that ask, right after a
+  // successful save, so switching languages reads as instant rather than
+  // "took effect next time you happen to navigate somewhere."
+  React.useEffect(() => {
+    if (state?.success) router.refresh();
+  }, [state, router]);
+
+  return (
+    <form action={formAction}>
+      <input type="hidden" name="language" value={next} />
+      <Button
+        type="submit"
+        variant="ghost"
+        size="sm"
+        className="h-9 px-2 text-xs font-semibold text-charcoal-ink/70 hover:text-charcoal-ink dark:text-night-ink/70 dark:hover:text-night-ink"
+        disabled={pending}
+        aria-label={`${UI_LANGUAGE_LABEL[language]} interface. Switch to ${UI_LANGUAGE_LABEL[next]}`}
+        title={`${UI_LANGUAGE_LABEL[language]}, tap to switch to ${UI_LANGUAGE_LABEL[next]}`}
+      >
+        {language.toUpperCase()}
+      </Button>
+    </form>
+  );
+}
+
 export function AppShell({
   userName,
   avatarUrl,
@@ -457,12 +536,17 @@ export function AppShell({
   navSections,
   surface = "default",
   initialTheme = "light",
+  uiLanguage = DEFAULT_UI_LANGUAGE,
+  uiLanguageAction,
   signOutAction,
   children,
 }: {
   userName: string;
   avatarUrl?: string | null;
   roleLabel: string;
+  /** Patient interface language. Staff surfaces always pass "en" -- see the
+   * boundary note in packages/shared/src/ui-language.ts. */
+  uiLanguage?: UiLanguage;
   /** e.g. "Patient ID" / "Staff ID" — omitted for roles with no reference number. */
   idLabel?: string;
   idValue?: string | null;
@@ -480,6 +564,16 @@ export function AppShell({
    * so the data-theme attribute is on the first paint — no wrong-theme
    * flash. Ignored on the default surface, which never themes. */
   initialTheme?: ThemePreference;
+  /** Saves profiles.language — the patient's own updateUiLanguage server
+   * action (app/(dashboard)/patient/ui-language-actions.ts), passed in by
+   * the layout rather than imported here, the same way signOutAction is, so
+   * this shared shell never reaches into a route-specific action file.
+   * Renders the quick header LanguageToggle only when supplied (patient
+   * surface only — the layout omits it for staff). */
+  uiLanguageAction?: (
+    prevState: { success?: boolean; error?: string } | undefined,
+    formData: FormData
+  ) => Promise<{ success?: boolean; error?: string } | undefined>;
   signOutAction: () => Promise<void>;
   children: React.ReactNode;
 }) {
@@ -579,6 +673,7 @@ export function AppShell({
   );
 
   return (
+    <UiLanguageProvider language={uiLanguage}>
     <div
       ref={themedRootRef}
       // data-theme scopes every dark: variant to this subtree (globals.css'
@@ -631,12 +726,29 @@ export function AppShell({
                 <NAV_ICON.close className="h-5 w-5" strokeWidth={2} />
               </Button>
             </div>
-            <SidebarNav
-              sections={navSections}
-              pathname={pathname}
-              onNavigate={() => setMobileOpen(false)}
-              navCounts={navCounts}
-            />
+            {/* The phone drawer gets the same progressive disclosure as the
+                desktop sidebar for the patient surface. It used to render
+                every link flat, which on the patient menu is a single
+                scrolling wall — the surface where that hurts most, since it
+                is also the smallest screen. The everyday band stays open
+                (CollapsibleSidebarNav never collapses the unlabelled top
+                group) and the Emergency card stays pinned, so nothing a
+                patient needs in a hurry moved behind a heading. */}
+            {surface === "warm" ? (
+              <CollapsibleSidebarNav
+                sections={navSections}
+                pathname={pathname}
+                onNavigate={() => setMobileOpen(false)}
+                navCounts={navCounts}
+              />
+            ) : (
+              <SidebarNav
+                sections={navSections}
+                pathname={pathname}
+                onNavigate={() => setMobileOpen(false)}
+                navCounts={navCounts}
+              />
+            )}
             {userBlock}
           </div>
         </div>
@@ -675,6 +787,9 @@ export function AppShell({
               </span>
             </div>
             <div className="flex items-center gap-3 text-sm">
+              {surface === "warm" && uiLanguageAction && (
+                <LanguageToggle language={uiLanguage} action={uiLanguageAction} />
+              )}
               {surface === "warm" && <ThemeToggle theme={theme} onChange={setTheme} />}
               <DeviceHeartbeat />
               <PushSubscribePrompt />
@@ -741,5 +856,6 @@ export function AppShell({
         />
       )}
     </div>
+    </UiLanguageProvider>
   );
 }

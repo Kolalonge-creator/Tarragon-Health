@@ -15,7 +15,7 @@ type InstitutionSubsidySummary =
     };
 
 /**
- * §91.9 institution-facing view of what this employer/HMO has subsidized for
+ * §91.9 institution-facing view of what this employer/HMO has subsidised for
  * its people — deliberately aggregate-only, forever (I9). This calls
  * public.institution_subsidy_summary, which re-checks
  * private.can_manage_employer(organisationId) itself and applies the same
@@ -52,7 +52,7 @@ export async function SubsidySpendSummary({ organisationId }: { organisationId: 
         {summary.suppressed ? (
           <p className="text-sm text-charcoal-ink/60">{summary.note}</p>
         ) : summary.claim_count === 0 ? (
-          <p className="text-sm text-charcoal-ink/60">Nothing subsidized yet.</p>
+          <p className="text-sm text-charcoal-ink/60">Nothing subsidised yet.</p>
         ) : (
           <div className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">

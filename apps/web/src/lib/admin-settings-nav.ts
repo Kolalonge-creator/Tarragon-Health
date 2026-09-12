@@ -298,6 +298,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
+        href: "/admin/settings/growth-config",
+        label: "Referral & growth config",
+        blurb: "The referral reward and the apply window — tunable without a migration.",
+        icon: NAV_ICON.referral,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/outcomes-contracts",
         label: "Fee-at-risk contracts",
         blurb: "Review and approve HMO/corporate-proposed outcomes contract terms.",

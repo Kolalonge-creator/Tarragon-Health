@@ -121,7 +121,7 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Role authorization is derived from `profiles`, never from JWT metadata
+  // Role authorisation is derived from `profiles`, never from JWT metadata
   // (which is user-editable) — mirrors the RLS helper functions in
   // supabase/migrations/20260705000001_core_auth_multitenancy.sql.
   const { data: profile } = await supabase
@@ -325,7 +325,7 @@ export const config = {
       // elsewhere: a prefetch is a separate HTTP request, so React.cache
       // (which dedupes getCurrentUser within one render pass — see
       // lib/supabase/server.ts) cannot help across them, and nothing here may
-      // cache an authorization decision — a proxy-level cache is keyed by
+      // cache an authorisation decision — a proxy-level cache is keyed by
       // path, not by caller, so a hit would answer one user's request with
       // another user's verdict. Next's own authentication guide describes
       // exactly this shape (proxy runs on every route including prefetched

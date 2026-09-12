@@ -6,6 +6,7 @@ import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
+import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -38,7 +39,10 @@ const FAQS = [
 ];
 
 export default async function BmiCalculatorPage() {
-  const articles = await loadResourceArticles();
+  const [articles, priceOverrides] = await Promise.all([
+    loadResourceArticles(),
+    fetchServicePriceOverrides(),
+  ]);
   const weightArticles = articles.filter((a) => a.category === "Weight");
 
   return (
@@ -50,7 +54,7 @@ export default async function BmiCalculatorPage() {
           title="BMI & Calorie Calculator"
           description="A quick, honest starting point: your body mass index range and an estimated daily calorie target. No account, no email required."
         />
-        <BmiCalorieCalculator />
+        <BmiCalorieCalculator priceOverrides={priceOverrides} />
       </Section>
 
       <Section variant="sage">

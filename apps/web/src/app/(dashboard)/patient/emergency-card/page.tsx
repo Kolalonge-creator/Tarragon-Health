@@ -60,9 +60,10 @@ export default async function EmergencyCardPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Emergency card"
         icon={NAV_ICON.siren}
-        description="The few things that matter most if you are ever treated somewhere that has never seen you before: your blood group and genotype, allergies, current medicines, ongoing conditions, and your emergency contact."
+        description="The few things that matter most if you are ever treated somewhere that has not seen you before: your blood group and genotype, allergies, current medicines, ongoing conditions, and your emergency contact."
         actions={
           <Button asChild className="shrink-0 bg-red-700 hover:bg-red-800">
             <Link href="/patient/emergency-card/print" target="_blank">
@@ -247,7 +248,7 @@ export default async function EmergencyCardPage() {
         </Card>
       ) : null}
 
-      <Badge variant="grey">The live link is never indexed by search engines</Badge>
+      <Badge variant="grey">The live link is kept out of search engines</Badge>
     </div>
   );
 }

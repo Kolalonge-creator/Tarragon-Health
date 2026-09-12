@@ -47,7 +47,7 @@ const OAUTH_PROVIDER_CONFIG: Record<CloudOAuthWearableProvider, OAuthProviderCon
   },
   // Dexcom's real, official developer OAuth2 program (developer.dexcom.com).
   // `offline_access` is required by Dexcom to receive a refresh_token — the
-  // 4 other providers' scopes are all read-data scopes with no analog to
+  // 4 other providers' scopes are all read-data scopes with no analogue to
   // this one, so it can't be omitted the way an empty scope (Garmin) can.
   dexcom: {
     clientIdEnvVar: "DEXCOM_CLIENT_ID",

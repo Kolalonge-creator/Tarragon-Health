@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
+import { PhoneMockup } from "../_components/phone-mockup";
 import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
@@ -160,9 +161,33 @@ export default function CareCoordinationPage() {
           ))}
         </ol>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          We never set, quote, or collect a naira for any test: the laboratory tells you its own
+          We do not set, quote or collect a naira for any test: the laboratory tells you its own
           price, and you pay them directly.
         </p>
+      </Section>
+
+      <Section>
+        <div className="mx-auto grid max-w-4xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
+          <PhoneMockup
+            className="relative mx-auto"
+            src="/marketing/photos/app-messages.png"
+            alt="The TarragonHealth app's Messages screen, showing a note from the care team about a recent blood pressure reading."
+            width={1080}
+            height={1819}
+          />
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              Your care team, a message away
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              A written question, a real reply, right in the app
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              No WhatsApp thread that disappears, no waiting for the next visit to ask something.
+              Message your care team in the app and hear back from the doctors reviewing your case.
+            </p>
+          </div>
+        </div>
       </Section>
 
       <Section variant="sage">

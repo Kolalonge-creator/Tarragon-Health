@@ -25,7 +25,7 @@ const ABOUT_COMMITMENTS = [
     value: "2 hrs",
     label: "contact SLA on critical results",
     detail:
-      "A critical result starts a two-hour clock to contact you; any other abnormal result is followed up within 24 hours. The clock starts the moment the result comes back, never on a schedule.",
+      "A critical result starts a two-hour clock to contact you; any other abnormal result is followed up within 24 hours. The clock starts the moment the result comes back, rather than on a schedule.",
   },
   {
     value: "₦0",
@@ -56,7 +56,7 @@ export default function AboutPage() {
       <PhotoBannerHero
         eyebrow="About TarragonHealth"
         title="Built on one conviction: care shouldn't stop when the appointment ends."
-        description="Chronic disease isn't managed in a fifteen-minute consultation. It's managed in the weeks after: in the dose that gets missed, the reading nobody sees, and the follow-up call that never comes. TarragonHealth exists to close that gap."
+        description="Chronic disease isn't managed in a fifteen-minute consultation. It's managed in the weeks after: in the dose that gets missed, the reading nobody sees, and the follow-up call that fails to come. TarragonHealth exists to close that gap."
         primaryHref="/signup"
         primaryLabel="Get started"
         secondaryHref="#team"
@@ -108,7 +108,7 @@ export default function AboutPage() {
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Prevention and chronic disease management share the same patient record at
               TarragonHealth: the same family, phone, and care team follow you from a routine
-              screening through an ongoing condition, so the story never resets.
+              screening through an ongoing condition, so the story carries on rather than resetting.
             </p>
           </div>
           <MarketingMediaFrame
@@ -122,7 +122,7 @@ export default function AboutPage() {
           {[
             {
               title: "Clinically reviewed",
-              body: "Every reading and result is reviewed by your clinical team, never an algorithm acting alone.",
+              body: "Every reading and result is reviewed by your clinical team, rather than by an algorithm acting alone.",
             },
             {
               title: "Protocol-driven",

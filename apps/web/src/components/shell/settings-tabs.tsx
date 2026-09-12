@@ -22,7 +22,7 @@ function isTabActive(pathname: string, matchHrefs: string[]) {
 /**
  * A persistent horizontal tab strip for a settings-style section with more
  * sub-pages than belong in the main sidebar — e.g. `/admin/settings`'s ~28
- * pages, grouped into 7 tabs. Modeled on the settings pattern used by
+ * pages, grouped into 7 tabs. Modelled on the settings pattern used by
  * payment-processor dashboards: one sidebar entry opens a section, a top tab
  * bar switches between its sub-areas without re-cluttering the sidebar.
  */

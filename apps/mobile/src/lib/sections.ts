@@ -2,6 +2,11 @@ import type { Ionicons } from "@expo/vector-icons";
 
 export type SectionId =
   | "overview"
+  | "meals"
+  | "sleep"
+  | "activity"
+  | "smoking"
+  | "alcohol"
   | "myActions"
   | "vitals"
   | "medications"
@@ -87,7 +92,7 @@ export const SECTIONS: SectionDef[] = [
     id: "vitals",
     label: "Vitals & symptoms",
     icon: "pulse-outline",
-    group: "Your health",
+    group: "top",
     primary: true,
     shortLabel: "Vitals",
   },
@@ -95,11 +100,11 @@ export const SECTIONS: SectionDef[] = [
     id: "medications",
     label: "Medications",
     icon: "medkit-outline",
-    group: "Your health",
+    group: "top",
     primary: true,
     shortLabel: "Meds",
   },
-  { id: "labs", label: "Labs & results", icon: "flask-outline", group: "Your health" },
+  { id: "labs", label: "Labs & results", icon: "flask-outline", group: "top" },
   { id: "devices", label: "Devices", icon: "bluetooth-outline", group: "Your health" },
   {
     id: "prevention",
@@ -150,6 +155,15 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
   },
 
+  // The four daily trackers, native since the lifestyle-tracker pass. They
+  // sit in "Stay well" beside the hub that links them, and are reachable
+  // from the drawer directly as well as from Lifestyle coaching -- somebody
+  // logging sleep every night should not have to go through a hub to do it.
+  { id: "meals", label: "Meals", icon: "restaurant-outline", group: "Stay well" },
+  { id: "sleep", label: "Sleep", icon: "moon-outline", group: "Stay well" },
+  { id: "activity", label: "Movement", icon: "walk-outline", group: "Stay well" },
+  { id: "smoking", label: "Smoking", icon: "flame-outline", group: "Stay well" },
+  { id: "alcohol", label: "Alcohol", icon: "wine-outline", group: "Stay well" },
   {
     id: "lifestyle",
     label: "Lifestyle coaching",
@@ -179,7 +193,7 @@ export const SECTIONS: SectionDef[] = [
     id: "messages",
     label: "Messages",
     icon: "chatbox-ellipses-outline",
-    group: "Support",
+    group: "top",
     primary: true,
     shortLabel: "Messages",
   },
@@ -193,7 +207,7 @@ export const SECTIONS: SectionDef[] = [
     id: "appointments",
     label: "Appointments",
     icon: "calendar-outline",
-    group: "Support",
+    group: "top",
   },
   // Promoted to just below Appointments (2026-09-11), mirroring web's
   // navigation.ts — this is where the paid-per-service doctor-time revenue

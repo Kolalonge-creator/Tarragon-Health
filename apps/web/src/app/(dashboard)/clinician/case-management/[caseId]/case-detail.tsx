@@ -356,7 +356,7 @@ function GoalsSection({ caseId, organisationId, patientId }: { caseId: string; o
       <CardHeader>
         <CardTitle>Care goals</CardTitle>
         <CardDescription>
-          Should be measurable, e.g. &ldquo;Reduce average BP toward agreed clinical target.&rdquo;
+          Should be measurable, e.g. &ldquo;Reduce average BP towards agreed clinical target.&rdquo;
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
@@ -628,8 +628,8 @@ function EscalationSection({ caseId, organisationId, patientId }: { caseId: stri
       <CardHeader>
         <CardTitle>Escalate this case</CardTitle>
         <CardDescription>
-          Raises a case-linked alert through the existing escalation ladder. It never claims or
-          resolves anything on this patient&apos;s behalf.
+          Raises a case-linked alert through the existing escalation ladder. It does not claim or
+          resolve anything on this patient&apos;s behalf.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
