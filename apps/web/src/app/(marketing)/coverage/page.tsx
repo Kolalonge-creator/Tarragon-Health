@@ -73,15 +73,6 @@ export default async function CoveragePage() {
             partner in your state, and we&apos;d rather say so than imply
             otherwise.
           </p>
-          <p className="mt-4 text-sm text-charcoal-ink/60">
-            Where we have a contracted lab partner covering you, we book it
-            and bill you one price directly, with no separate lab visit to
-            arrange. Today that means Synlab Nigeria, in the states listed
-            below. Everywhere else, the self-arranged path above still works
-            exactly the same: take the request to any lab you like and pay
-            them directly. As we contract more laboratories, more of the map
-            below moves into the first group.
-          </p>
           {liveStates.length > 0 && (
             <p className="mt-4 text-sm text-charcoal-ink/60">
               Partner-fulfilled services are live in{" "}

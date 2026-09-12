@@ -4,7 +4,6 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { requireOwnedBookingOrder } from "@/lib/billing/booking-ownership";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
-import { createAndPayForLabOrder } from "@/lib/billing/create-and-pay-lab-order";
 
 export type PayForLabOrderState = { error?: string } | undefined;
 
@@ -61,55 +60,15 @@ export async function payForLabOrder(
   redirect(result.checkoutUrl);
 }
 
-export type CreatePartnerLabOrderState = { error?: string } | undefined;
-
-/**
- * Books a review Tarragon bills for directly (a partner laboratory is
- * contracted and switched on for the patient's state — see ReviewPrice /
- * region_service_available) and takes the patient straight to checkout in
- * one step, the same "create, then redirect to hosted checkout" shape as
- * requestVideoVisit (apps/web/src/app/(dashboard)/patient/video-visit-actions.ts).
- *
- * The insert runs on the caller's own authenticated Supabase client, not a
- * service-role one — the same RLS a direct client-side insert would use
- * (lab_orders_insert: patient_id = auth.uid()), so this grants no more than
- * the patient already has. What actually prices the order and decides
- * whether it can be billed at all is server-side and non-negotiable either
- * way: private.set_lab_order_computed_price (total_kobo, the Synlab cost
- * snapshot) and private.enforce_lab_order_not_below_cost run as BEFORE
- * INSERT triggers no client input reaches. organisation_id is read from the
- * patient's own profile rather than trusted from the form for the same
- * reason requestVideoVisit does it that way — the amount that ends up
- * charged must trace back to something the server looked up, not something
- * the client sent.
- *
- * A patient who leaves before the redirect completes (or a checkout-provider
- * failure) is left with a real pending_payment lab_orders row rather than a
- * lost one — PayForLabOrderButton, wired into the order's own card, picks
- * that back up without creating a duplicate order.
- *
- * providerId is optional and, when set, names which active laboratory to
- * book (from the §56.7 location-picker step — see useLabTestLocations).
- * Omitted, this falls back to whatever private.resolve_lab_order_provider's
- * single-active-laboratory fallback resolves to — unchanged behaviour for
- * the common case today (exactly one contracted lab), and no assumption
- * here about how many are active generally; the DB refuses to price the
- * order at all if the fallback is ambiguous, same as it always has.
- */
-export async function createAndPayForPartnerLabOrder(
-  _prevState: CreatePartnerLabOrderState,
-  formData: FormData,
-): Promise<CreatePartnerLabOrderState> {
-  const panelBundleId = formData.get("panelBundleId");
-  if (typeof panelBundleId !== "string" || !panelBundleId) {
-    return { error: "Pick a review first" };
-  }
-  const providerIdRaw = formData.get("providerId");
-  const providerId = typeof providerIdRaw === "string" && providerIdRaw ? providerIdRaw : null;
-
-  const result = await createAndPayForLabOrder({ panelBundleId, providerId });
-  if (result.error) {
-    return { error: result.error };
-  }
-  redirect(result.checkoutUrl!);
-}
+/* createAndPayForPartnerLabOrder (and its shared lib/billing/create-and-pay-
+ * lab-order.ts, and the mobile wrapper at api/mobile/lab-orders/checkout)
+ * are removed: every panel_bundles row is guidance_only as of migration
+ * 20260910011846_catalogue_becomes_guidance_not_commerce.sql, and
+ * private.enforce_guidance_only_is_never_billed refuses a partner-billed
+ * (fulfilment='partner') lab_orders insert for any of them at the database
+ * level — this action could no longer create a booking that wasn't a doomed
+ * insert behind a generic error, and had no remaining UI caller (the AHC
+ * booking page's own partner-billed branch was removed 2026-09-11, see
+ * annual-health-check-booking.tsx). payForLabOrder above is untouched: it
+ * only pays off an order already sitting at pending_payment, needed for the
+ * one order created before this cutover. */

@@ -337,27 +337,13 @@ export async function postSexualWellnessScreen(
   return result.ok ? result.data : { error: result.error };
 }
 
-export interface LabOrderCheckoutResult {
-  checkoutUrl?: string;
-  error?: string;
-}
-
-/** Mirrors apps/web/src/app/api/mobile/lab-orders/checkout/route.ts, the
- * mobile wrapper around createAndPayForLabOrder (the same function the web
- * "Book & pay" button uses) — same reasoning as postServicesCheckout:
- * initiating the Paystack checkout needs the secret key, never shipped to
- * a client. Deliberately not sexual-health-specific — any self-bookable
- * panel_bundle can be checked out through this one route. */
-export async function postLabOrderCheckout(
-  panelBundleId: string,
-  callbackUrl: string
-): Promise<LabOrderCheckoutResult> {
-  const result = await request<LabOrderCheckoutResult>("/api/mobile/lab-orders/checkout", "POST", {
-    panelBundleId,
-    callbackUrl,
-  });
-  return result.ok ? result.data : { error: result.error };
-}
+/* postLabOrderCheckout (and its route, apps/web/src/app/api/mobile/lab-orders/
+ * checkout/route.ts) is removed: every panel_bundles row is guidance_only as
+ * of migration 20260910011846_catalogue_becomes_guidance_not_commerce.sql, so
+ * a partner-billed lab_orders insert is refused at the database level
+ * regardless of what this called. Had no remaining callers — the Sexual
+ * Health testing tab moved to guidance-only text with no "Book & pay" button
+ * (see sexual-health-testing-tab.tsx's StiBookingPanel). */
 
 export interface CoachTurnResponse {
   success?: boolean;
