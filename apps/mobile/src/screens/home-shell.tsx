@@ -30,6 +30,7 @@ import { NotificationSettingsScreen } from "@/screens/sections/notification-sett
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
+import { AdolescentHealthScreen } from "@/screens/sections/adolescent-health-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
@@ -280,6 +281,9 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         )}
         {section === "sexualHealth" && (
           <SexualHealthScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+        )}
+        {section === "adolescentHealth" && (
+          <AdolescentHealthScreen isActingFor={acting !== null} actingForName={acting?.fullName ?? null} />
         )}
         {section === "wellbeing" && (
           <WellbeingScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
