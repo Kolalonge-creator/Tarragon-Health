@@ -42,6 +42,17 @@ export const patientResultUploadSchema = z.object({
 });
 export type PatientResultUploadInput = z.infer<typeof patientResultUploadSchema>;
 
+/** A patient replacing a result document they uploaded themselves, before
+ * anyone has reviewed it — "I attached the wrong file." Which document is
+ * being replaced is the only identifying input; ownership, source, and the
+ * unreviewed gate are all re-checked server-side from the row itself, never
+ * trusted from the client. */
+export const replaceResultDocumentSchema = z.object({
+  document_id: z.string().uuid(),
+  note: z.string().trim().max(500).optional(),
+});
+export type ReplaceResultDocumentInput = z.infer<typeof replaceResultDocumentSchema>;
+
 /** A clinician marking an uploaded document reviewed and sending the patient a
  * plain-language interpretation of it. `interpretation` is required — a
  * document can't be marked reviewed without telling the patient what it
