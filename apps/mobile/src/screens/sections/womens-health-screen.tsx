@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { supabase } from "@/lib/supabase";
 import { computeGestationalEstimate } from "@/lib/gestational-age";
 import { contraceptionCautionNote, menopauseTreatmentCautionNote, type CarePlanCondition } from "@/lib/womens-health-intersections";
@@ -56,6 +56,38 @@ import { Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton
 
 function when(iso: string): string {
   return new Date(iso).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
+}
+
+/**
+ * `appointments` has no category/specialty column, so there is no real
+ * field marking an appointment as "women's health" — mirrors the same
+ * heuristic in apps/web/.../womens-health/page.tsx. A keyword match over
+ * the free-text reason/service columns, not a guarantee; only affects
+ * what this stat highlights, never what the patient can book or see on
+ * the real Appointments screen.
+ */
+const WOMENS_HEALTH_APPOINTMENT_KEYWORDS = [
+  "women",
+  "gyn",
+  "pregnan",
+  "antenatal",
+  "prenatal",
+  "postnatal",
+  "postpartum",
+  "cervical",
+  "breast",
+  "menstrual",
+  "period",
+  "contracept",
+  "menopause",
+  "fertility",
+  "pelvic",
+  "obstetric",
+] as const;
+
+function isWomensHealthAppointment(appt: { reason: string | null; service: string | null }): boolean {
+  const text = `${appt.reason ?? ""} ${appt.service ?? ""}`.toLowerCase();
+  return WOMENS_HEALTH_APPOINTMENT_KEYWORDS.some((keyword) => text.includes(keyword));
 }
 
 const textInputStyle = {
@@ -140,13 +172,12 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
       supabase.from("care_plans").select("condition").eq("patient_id", patientId).eq("status", "active"),
       supabase
         .from("appointments")
-        .select("scheduled_for")
+        .select("scheduled_for, reason, service")
         .eq("patient_id", patientId)
         .neq("status", "cancelled")
         .gte("scheduled_for", new Date().toISOString())
         .order("scheduled_for", { ascending: true })
-        .limit(1)
-        .maybeSingle(),
+        .limit(20),
     ]);
 
     setReproUnknown(!profileRes.ok);
@@ -154,7 +185,10 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
     setPregnancyUnknown(!pregnancyRes.ok);
     setPregnancy(pregnancyRes.ok ? pregnancyRes.data : null);
     setActiveConditions(((plansRes.data ?? []) as { condition: CarePlanCondition }[]).map((p) => p.condition));
-    setNextAppointment(appointmentRes.data?.scheduled_for ?? null);
+    const nextWomensHealthAppointment = ((appointmentRes.data ?? []) as { scheduled_for: string; reason: string | null; service: string | null }[]).find(
+      isWomensHealthAppointment
+    );
+    setNextAppointment(nextWomensHealthAppointment?.scheduled_for ?? null);
   }, [patientId]);
 
   useEffect(() => {
@@ -245,12 +279,12 @@ export function WomensHealthScreen({ patientId, organisationId, onNavigate }: Wo
             <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>Week {gestationalEstimate.weeks}</Text>
           </View>
         )}
-        <View style={{ flexBasis: "30%", flexGrow: 1 }}>
+        <Pressable style={{ flexBasis: "30%", flexGrow: 1 }} onPress={() => onNavigate("appointments")}>
           <MutedText>Next appointment</MutedText>
-          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.ink }}>
-            {nextAppointment ? when(nextAppointment) : "None booked"}
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.brand }}>
+            {nextAppointment ? when(nextAppointment) : "Book a women's health visit"}
           </Text>
-        </View>
+        </Pressable>
       </Card>
 
       <ReproductiveHealthCard
