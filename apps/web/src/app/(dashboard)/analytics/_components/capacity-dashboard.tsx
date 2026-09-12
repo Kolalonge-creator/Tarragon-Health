@@ -44,7 +44,7 @@ export function CapacityDashboard() {
         <StatTile icon={Users} label="Referrals waitlisted" value={formatNumber(totalWaitlisted)} />
         <StatTile
           icon={AlertTriangle}
-          label="Specialties with zero coverage"
+          label="Specialities with zero coverage"
           value={formatNumber(shortageCount)}
         />
         <StatTile
@@ -55,7 +55,7 @@ export function CapacityDashboard() {
       </div>
 
       {shortageCount > 0 && (
-        <SectionCard title="Zero-coverage specialties" description="No active provider on the catalogue at all.">
+        <SectionCard title="Zero-coverage specialities" description="No active provider on the catalogue at all.">
           <div className="flex flex-wrap gap-1.5">
             {data?.zero_active_provider_specialties.map((s) => (
               <Badge key={s} variant="red">
@@ -67,7 +67,7 @@ export function CapacityDashboard() {
       )}
 
       <SectionCard
-        title="Capacity by specialty"
+        title="Capacity by speciality"
         description="Active providers vs. the catalogue total, current waitlist size, and average current wait for whoever is still waiting."
         actions={<ExportButton filename="provider-capacity-by-specialty" rows={bySpecialty} />}
       >
@@ -80,7 +80,7 @@ export function CapacityDashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
-                  <th className="py-2 pr-4 font-medium">Specialty</th>
+                  <th className="py-2 pr-4 font-medium">Speciality</th>
                   <th className="py-2 pr-4 text-right font-medium">Active</th>
                   <th className="py-2 pr-4 text-right font-medium">Total on catalogue</th>
                   <th className="py-2 pr-4 text-right font-medium">Waitlisted now</th>
@@ -118,7 +118,7 @@ export function CapacityDashboard() {
       </SectionCard>
 
       <SectionCard
-        title="Capacity by specialty and state"
+        title="Capacity by speciality and state"
         description="Where active provider coverage actually sits, geographically."
         actions={<ExportButton filename="provider-capacity-by-state" rows={data?.by_specialty_state ?? []} />}
       >
@@ -131,7 +131,7 @@ export function CapacityDashboard() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
-                  <th className="py-2 pr-4 font-medium">Specialty</th>
+                  <th className="py-2 pr-4 font-medium">Speciality</th>
                   <th className="py-2 pr-4 font-medium">State</th>
                   <th className="py-2 text-right font-medium">Active providers</th>
                 </tr>

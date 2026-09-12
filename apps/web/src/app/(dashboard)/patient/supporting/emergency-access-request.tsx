@@ -74,7 +74,7 @@ export function EmergencyAccessRequest({ profileId, name }: { profileId: string;
       <Textarea
         value={reason}
         onChange={(e) => setReason(e.target.value)}
-        placeholder="e.g. Not able to reach them, need to check their medications before an ER visit"
+        placeholder="e.g. Not able to reach them, need to check their medications before an A&E visit"
         rows={2}
       />
       <div className="flex items-center gap-2">

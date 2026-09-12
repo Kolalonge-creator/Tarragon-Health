@@ -101,11 +101,10 @@ export function NavDrawer({
             </Pressable>
           </View>
 
-          {/* Banded and scrollable. The list grew from twelve entries to
-              seventeen when the five missing sections were added, which is
-              past what fits on a small phone and well past what anyone scans
-              as one flat column — same reasoning, and the same band names, as
-              the web sidebar. */}
+          {/* Banded and scrollable. The list has grown well past what fits on
+              a small phone and well past what anyone scans as one flat
+              column — same reasoning, and the same band names, as the web
+              sidebar. */}
           <ScrollView
             style={{ flex: 1 }}
             contentContainerStyle={{ padding: spacing.screen, gap: 18 }}

@@ -119,7 +119,7 @@ describe("suspectsType1", () => {
   it("suspects a young lean patient", () => {
     expect(suspectsType1({ ageYears: 24, bmi: 21 })).toBe(true);
   });
-  it("errs toward suspicion for a young patient with unknown BMI", () => {
+  it("errs towards suspicion for a young patient with unknown BMI", () => {
     expect(suspectsType1({ ageYears: 30, bmi: null })).toBe(true);
   });
   it("does not suspect an older or overweight patient", () => {

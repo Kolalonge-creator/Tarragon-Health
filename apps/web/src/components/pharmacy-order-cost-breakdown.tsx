@@ -2,7 +2,7 @@ import { koboToNaira } from "@tarragon/shared";
 import type { PharmacyOrderItem } from "@/lib/queries/pharmacy-orders";
 
 /**
- * Itemized medicine / delivery / total cost view (spec §63.14). Purely
+ * Itemised medicine / delivery / total cost view (spec §63.14). Purely
  * presentational — never changes what's actually charged
  * (pharmacy_orders.total_kobo, set once at order creation). The delivery fee
  * is shown as informational only: nothing in this codebase bills it through

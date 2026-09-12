@@ -184,7 +184,7 @@ function BenefitsTable({ insurerId, planName }: { insurerId: string; planName: s
             </span>
             <span className="text-charcoal-ink/60 dark:text-night-ink/60">
               {Math.round(benefit.coverage_pct * 100)}% covered
-              {benefit.copay_fixed_kobo > 0 && ` · ${naira(benefit.copay_fixed_kobo)} copay`}
+              {benefit.copay_fixed_kobo > 0 && ` · ${naira(benefit.copay_fixed_kobo)} co-payment`}
               {benefit.requires_preauth && " · needs pre-authorisation"}
             </span>
           </li>

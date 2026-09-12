@@ -8,7 +8,7 @@ import { payMySubsidyShare } from "@/lib/billing/subsidy-checkout";
 export type FinancialProfileActionState = { error?: string } | undefined;
 
 /**
- * Pays the caller's own share of a §91.9 subsidized bill — either the
+ * Pays the caller's own share of a §91.9 subsidised bill — either the
  * patient's reduced share, or (if abandoned earlier) the sponsor's own
  * share. RLS on subsidy_contributions already scopes this to the caller.
  */

@@ -126,7 +126,7 @@ function ProfileFormFields({ profile }: { profile: PharmacistProfile }) {
 
           <div className="grid grid-cols-1 gap-3.5 border-t border-charcoal-ink/10 pt-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="p_license_number">License number</Label>
+              <Label htmlFor="p_license_number">Licence number</Label>
               <Input
                 id="p_license_number"
                 value={form.licenseNumber}
@@ -134,7 +134,7 @@ function ProfileFormFields({ profile }: { profile: PharmacistProfile }) {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="p_license_expires">License expires</Label>
+              <Label htmlFor="p_license_expires">Licence expires</Label>
               <Input
                 id="p_license_expires"
                 type="date"

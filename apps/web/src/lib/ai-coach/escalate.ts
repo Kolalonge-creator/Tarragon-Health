@@ -19,7 +19,7 @@ export interface AiCoachAlertParams {
   aiAction: string;
 }
 
-/** Minimized medication/condition snapshot for the handoff summary — same
+/** Minimised medication/condition snapshot for the handoff summary — same
  * "narrow, never the whole chart" discipline as every other generator's
  * snapshot builder in this codebase. Never throws; an empty snapshot just
  * means the summary says "none on file" rather than fabricating. */

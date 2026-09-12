@@ -461,7 +461,7 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`service_specialty_${facilityId}`}>Eligible specialty (optional)</Label>
+          <Label htmlFor={`service_specialty_${facilityId}`}>Eligible speciality (optional)</Label>
           <Input
             id={`service_specialty_${facilityId}`}
             placeholder="e.g. Cardiology"

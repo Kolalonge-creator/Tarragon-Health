@@ -51,7 +51,7 @@ describe("buildCoachHandoffSummary", () => {
     expect(summary).toContain(`AI action: ${input().aiAction}`);
   });
 
-  it("skips the model call entirely and uses the template when there's no conversation to summarize", async () => {
+  it("skips the model call entirely and uses the template when there's no conversation to summarise", async () => {
     // A patient who clicks "speak to someone" without ever chatting with
     // the coach first -- recentMessages is empty. Passing a model that
     // throws proves the call was never made (a fallback triggered by a

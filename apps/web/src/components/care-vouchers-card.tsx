@@ -301,7 +301,7 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
           <p className="text-sm font-medium text-slate-800 dark:text-night-ink/90">Invite someone</p>
           <p className="pt-1 text-xs text-slate-600 dark:text-night-ink/70">
             When someone you invite completes their first paid order, you both get a reward voucher
-            toward your care. Reward vouchers are a discount, not cash, and cannot be exchanged for
+            towards your care. Reward vouchers are a discount, not cash, and cannot be exchanged for
             money.
           </p>
           {referralCode && (
@@ -408,7 +408,7 @@ function VoucherRow({
           </p>
 
           <Button type="button" size="sm" variant="outline" className="mt-2" onClick={onTogglePay}>
-            {isPaying ? "Cancel" : "Pay toward this"}
+            {isPaying ? "Cancel" : "Pay towards this"}
           </Button>
 
           {isPaying && (

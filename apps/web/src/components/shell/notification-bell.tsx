@@ -300,7 +300,7 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     const label = String(payload.label ?? "A reward");
     const value = String(payload.value_naira ?? "");
     return {
-      text: value ? `${label}: a ₦${value} voucher toward your care` : `${label} added to your account`,
+      text: value ? `${label}: a ₦${value} voucher towards your care` : `${label} added to your account`,
       href: "/patient/care",
     };
   }
@@ -621,7 +621,7 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   if (n.template === "partner_license_expiry") {
     // From partner_regulatory_license_tracking.sql. Same pre-resolved
     // payload.message shape.
-    return { text: String(payload.message ?? "A partner facility's license needs review"), href: "/admin" };
+    return { text: String(payload.message ?? "A partner facility's licence needs review"), href: "/admin" };
   }
   if (n.template === "health_passport_attestation_declined") {
     const reason = String(payload.reason ?? "").trim();

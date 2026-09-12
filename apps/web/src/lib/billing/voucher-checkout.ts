@@ -8,7 +8,7 @@ export type VoucherCheckoutResult =
   | { ok: false; error: string };
 
 /**
- * Starts a checkout for one instalment toward a specific Care Voucher.
+ * Starts a checkout for one instalment towards a specific Care Voucher.
  *
  * The amount is charged in kobo against the voucher's own naira price, which
  * is pinned server-side at purchase. NGN via Paystack only — a payer-currency

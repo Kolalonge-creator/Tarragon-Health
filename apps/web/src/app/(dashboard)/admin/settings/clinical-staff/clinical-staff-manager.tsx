@@ -133,11 +133,11 @@ function IndemnityBadge({ expiresAt }: { expiresAt: string | null }) {
   return <Badge variant="green">Covered until {formatDate(expiresAt)}</Badge>;
 }
 
-/** The clinician's own MDCN/NMCN Annual Practicing License expiry — distinct from license_verified_at (Tarragon's own re-verification cadence, see ReverifyBadge). */
+/** The clinician's own MDCN/NMCN Annual Practising Licence expiry — distinct from license_verified_at (Tarragon's own re-verification cadence, see ReverifyBadge). */
 function LicenseExpiryBadge({ expiresAt }: { expiresAt: string | null }) {
   if (!expiresAt) return null;
   const days = daysUntil(expiresAt);
-  if (days < 0) return <Badge variant="red">Practicing license expired</Badge>;
+  if (days < 0) return <Badge variant="red">Practising licence expired</Badge>;
   if (days <= 30) return <Badge variant="amber">License expires {formatDate(expiresAt)}</Badge>;
   return <Badge variant="grey">Licensed until {formatDate(expiresAt)}</Badge>;
 }
@@ -152,7 +152,7 @@ function LicenseExpiryForm({ staff }: { staff: ClinicalStaff }) {
     <div className="mt-3 rounded-lg border border-charcoal-ink/10 bg-warm-ivory p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/60">
-          MDCN/NMCN practicing license expiry
+          MDCN/NMCN practising licence expiry
         </p>
         <LicenseExpiryBadge expiresAt={staff.license_expires_at} />
       </div>
@@ -265,7 +265,7 @@ function IndemnityForm({
   );
 }
 
-/** Edits specialty/bio/photo on an existing record — the fields the manager had no way to change after "Add clinical staff". */
+/** Edits speciality/bio/photo on an existing record — the fields the manager had no way to change after "Add clinical staff". */
 function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone: () => void }) {
   const update = useUpdateClinicalStaff();
   const [specialty, setSpecialty] = useState(staff.specialty ?? "");
@@ -312,7 +312,7 @@ function EditClinicalStaffForm({ staff, onDone }: { staff: ClinicalStaff; onDone
       </div>
       <div className="mt-3 grid gap-2 sm:grid-cols-2">
         <Input
-          placeholder="Specialty"
+          placeholder="Speciality"
           value={specialty}
           onChange={(e) => setSpecialty(e.target.value)}
         />
@@ -548,7 +548,7 @@ export function ClinicalStaffManager() {
           </div>
           {isSpecialistEligible(doctorTier) && (
             <div className="space-y-1.5">
-              <Label htmlFor="specialist-type">Specialty (for referral matching)</Label>
+              <Label htmlFor="specialist-type">Speciality (for referral matching)</Label>
               <Select
                 id="specialist-type"
                 value={specialistType ?? ""}
@@ -567,7 +567,7 @@ export function ClinicalStaffManager() {
               </Select>
               <p className="text-xs text-charcoal-ink/60">
                 Setting this makes this doctor an automatic match for any pending specialist
-                referral of the same specialty the moment they&apos;re activated — no separate
+                referral of the same speciality the moment they&apos;re activated — no separate
                 publish step.
               </p>
             </div>
@@ -592,7 +592,7 @@ export function ClinicalStaffManager() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="specialty">Specialty (optional)</Label>
+            <Label htmlFor="specialty">Speciality (optional)</Label>
             <Input id="specialty" value={specialty} onChange={(e) => setSpecialty(e.target.value)} />
           </div>
           <div className="space-y-1.5">
@@ -683,7 +683,7 @@ export function ClinicalStaffManager() {
                 .toLowerCase();
               return haystack.includes(query);
             }}
-            searchPlaceholder="Search by name, staff number, credential, specialty, or tier…"
+            searchPlaceholder="Search by name, staff number, credential, speciality, or tier…"
             emptyMessage="No clinical staff on file yet."
             renderContainer={(children) => <ul className="divide-y divide-charcoal-ink/10">{children}</ul>}
             renderItem={(s) => {
@@ -752,7 +752,7 @@ export function ClinicalStaffManager() {
                           !s.active && !canActivate
                             ? requiresIndemnity && !hasCurrentIndemnity
                               ? "Needs current indemnity cover on file before activation"
-                              : "Needs license verification before activation"
+                              : "Needs licence verification before activation"
                             : undefined
                         }
                         onClick={() => setActive.mutate({ clinicalStaffId: s.id, active: !s.active })}
@@ -796,7 +796,7 @@ export function ClinicalStaffManager() {
                   {isSpecialistEligible(s.doctor_tier) && (
                     <div className="mt-2 flex items-center gap-2">
                       <Label htmlFor={`specialist-type-${s.id}`} className="text-xs text-charcoal-ink/60">
-                        Referral-matching specialty
+                        Referral-matching speciality
                       </Label>
                       <Select
                         id={`specialist-type-${s.id}`}
