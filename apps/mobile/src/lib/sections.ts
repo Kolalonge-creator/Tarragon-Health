@@ -5,6 +5,7 @@ export type SectionId =
   | "meals"
   | "sleep"
   | "activity"
+  | "exercise"
   | "smoking"
   | "alcohol"
   | "myActions"
@@ -175,6 +176,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "meals", label: "Meals", icon: "restaurant-outline", group: "Stay well" },
   { id: "sleep", label: "Sleep", icon: "moon-outline", group: "Stay well" },
   { id: "activity", label: "Movement", icon: "walk-outline", group: "Stay well" },
+  { id: "exercise", label: "Exercise programmes", icon: "barbell-outline", group: "Stay well" },
   { id: "smoking", label: "Smoking", icon: "flame-outline", group: "Stay well" },
   { id: "alcohol", label: "Alcohol", icon: "wine-outline", group: "Stay well" },
   {

@@ -31,6 +31,7 @@ import { TechnicalSupportScreen } from "@/screens/sections/technical-support-scr
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
 import { AdolescentHealthScreen } from "@/screens/sections/adolescent-health-screen";
+import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
@@ -297,6 +298,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {section === "meals" && <MealsScreen patientId={subjectId} />}
         {section === "sleep" && <SleepScreen patientId={subjectId} />}
         {section === "activity" && <ActivityScreen patientId={subjectId} />}
+        {section === "exercise" && <ExerciseScreen patientId={subjectId} organisationId={organisationId} />}
         {section === "smoking" && <SmokingScreen patientId={subjectId} />}
         {section === "alcohol" && <AlcoholScreen patientId={subjectId} />}
         {section === "weightManagement" && (
