@@ -19,13 +19,19 @@ import { pageMetadata } from "@/lib/marketing/site";
  * protocol/automation design can responsibly stretch doctor coverage, so it
  * isn't a settled public claim yet — don't reintroduce a specific ratio
  * without checking with the founder first.
+ *
+ * The "12 hrs" figure below must match the live, signed `escalation_slas`
+ * config (screening_abnormal_result / emergency tier) — check it in Supabase
+ * before changing this, don't just edit the copy. See CLAUDE.md's
+ * "Non-Negotiable Business Rules" note on escalation_slas being the source
+ * of truth, not any file.
  */
 const ABOUT_COMMITMENTS = [
   {
-    value: "2 hrs",
+    value: "12 hrs",
     label: "contact SLA on critical results",
     detail:
-      "A critical result starts a two-hour clock to contact you; any other abnormal result is followed up within 24 hours. The clock starts the moment the result comes back, never on a schedule.",
+      "A critical result starts a twelve-hour clock to contact you; any other abnormal result is followed up within a day. The clock starts the moment the result comes back, never on a schedule.",
   },
   {
     value: "₦0",
