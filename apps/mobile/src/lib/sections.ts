@@ -21,6 +21,7 @@ export type SectionId =
   | "wellness"
   | "care"
   | "messages"
+  | "aiCoach"
   | "family"
   | "supporting"
   | "appointments"
@@ -183,15 +184,35 @@ export const SECTIONS: SectionDef[] = [
     shortLabel: "Messages",
   },
   {
-    id: "care",
-    label: "Care & support",
-    icon: "help-buoy-outline",
+    id: "aiCoach",
+    label: "AI Health Coach",
+    icon: "sparkles-outline",
     group: "Support",
   },
   {
     id: "appointments",
     label: "Appointments",
     icon: "calendar-outline",
+    group: "Support",
+  },
+  // Promoted to just below Appointments (2026-09-11), mirroring web's
+  // navigation.ts — this is where the paid-per-service doctor-time revenue
+  // lives (video visits, Ask a doctor, second opinions, verified documents,
+  // senior case review).
+  {
+    id: "care",
+    label: "Care & support",
+    icon: "help-buoy-outline",
+    group: "Support",
+  },
+  // Promoted out of "Your account" (2026-09-11), mirroring web's
+  // navigation.ts — the buy page for the same paid-per-service doctor-time
+  // revenue belongs next to Care & support, not four rows down an
+  // admin-flavoured band.
+  {
+    id: "services",
+    label: "My services",
+    icon: "card-outline",
     group: "Support",
   },
   {
@@ -213,12 +234,6 @@ export const SECTIONS: SectionDef[] = [
     id: "financialProfile",
     label: "Your finances",
     icon: "wallet-outline",
-    group: "Your account",
-  },
-  {
-    id: "services",
-    label: "My services",
-    icon: "card-outline",
     group: "Your account",
   },
   {

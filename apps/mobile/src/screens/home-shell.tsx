@@ -17,6 +17,7 @@ import { LabsScreen } from "@/screens/sections/labs-screen";
 import { AppointmentsScreen } from "@/screens/sections/appointments-screen";
 import { PreventionScreen } from "@/screens/sections/prevention-screen";
 import { CareSupportScreen } from "@/screens/sections/care-support-screen";
+import { AiCoachScreen } from "@/screens/sections/ai-coach-screen";
 import { ActionsScreen } from "@/screens/sections/actions-screen";
 import { DevicesScreen } from "@/screens/devices-screen";
 import { SyncScreen } from "@/screens/sync-screen";
@@ -240,6 +241,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
             />
           ))}
         {section === "messages" && <MessagesScreen patientId={userId} />}
+        {section === "aiCoach" && <AiCoachScreen patientId={userId} onNavigate={handleSelect} />}
         {section === "supporting" && (
           <SupportingScreen userId={userId} acting={acting} onActingChange={refreshActing} />
         )}
