@@ -64,9 +64,12 @@ const STAGE_NAV: SectionId[] = ["prevention", "wellbeing", "vitals", "prevention
  * rebuild: mental wellbeing (`wellbeing`), risk-assessment/screening/
  * vaccination questionnaires (`prevention`), and viewing/uploading lab
  * orders & results (Labs) are all native screens today. The one thing that
- * stays a system-browser hand-off, below, is booking partner-billed lab
- * work or redeeming a Care Voucher — real Paystack checkout/payment,
- * same reasoning as Subscription elsewhere in this app.
+ * stays a system-browser hand-off, below, is redeeming a Care Voucher —
+ * real Paystack checkout/payment, same reasoning as Subscription elsewhere
+ * in this app. Booking self-arranged lab work no longer needs a hand-off of
+ * its own (every panel_bundle is guidance_only, 2026-09-10 — Tarragon
+ * doesn't bill for or book any test), but the print-a-request action still
+ * lives on the web page for now, so the callout still points there.
  */
 export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenProps) {
   const [loading, setLoading] = useState(true);
@@ -161,12 +164,13 @@ export function HealthCheckScreen({ patientId, onNavigate }: HealthCheckScreenPr
       <CalloutCard
         icon="flask-outline"
         title="Health checks & screenings"
-        // Partner-billed lab work and Care Voucher redemption are real
-        // Paystack checkout/payment flows — system-browser hand-off, never
-        // an embedded WebView, same reasoning as Subscription elsewhere in
-        // this app. Uploading a result and viewing orders/results already
-        // has a real native home in the Labs section.
-        subtitle="Book self-arranged or partner-billed lab work and use a Care Voucher on the web."
+        // Care Voucher redemption is a real Paystack checkout/payment flow —
+        // system-browser hand-off, never an embedded WebView, same reasoning
+        // as Subscription elsewhere in this app. Uploading a result and
+        // viewing orders/results already has a real native home in the Labs
+        // section. Getting and printing a self-arranged request currently
+        // only lives on this web page too (no native print/order flow yet).
+        subtitle="Get and print a lab request, or use a Care Voucher, on the web."
         ctaLabel="Open health checks"
         onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/health-check`)}
       />

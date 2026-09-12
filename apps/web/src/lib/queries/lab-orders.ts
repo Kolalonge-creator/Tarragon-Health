@@ -111,53 +111,6 @@ export function findSingleTestBundle(bundles: PanelBundle[], screenTypeCode: str
   );
 }
 
-/**
- * screen_types.price_kobo, keyed by code — the authoritative signal for
- * whether a specific test is covered by the active contracted partner
- * (Synlab). The 2026-08-21 pricing migration nulls this out for any test
- * without a real contract price, so "every code in a bundle has a price
- * here" is a reliable enough client-side check for whether that bundle can
- * be billed through the partner path, without duplicating
- * private.compute_partner_cost's logic.
- */
-export function useScreenTypePrices() {
-  return useQuery({
-    queryKey: ["screen-type-prices"],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase.from("screen_types").select("code, price_kobo");
-      if (error) throw error;
-      return new Map((data ?? []).map((row) => [row.code, row.price_kobo]));
-    },
-  });
-}
-
-/**
- * Whether Tarragon will bill for this bundle itself, rather than the patient
- * paying a laboratory directly.
- *
- * As of 2026-09-10 the honest answer is "no, for anything in the laboratory
- * catalogue". Tarragon's recorded cost for a test turned out to be the
- * laboratory's own published retail price, so billing it with a margin made
- * Tarragon dearer than the laboratory performing the test, on every item.
- * `guidance_only` is what records that decision per bundle.
- *
- * The guidance_only check is FIRST and short-circuits, so this stays correct
- * even if a partner price is on file — which it usually is, since that price is
- * exactly the retail figure the decision was about. The database enforces the
- * same rule independently (private.enforce_guidance_only_is_never_billed), so a
- * surface that forgets to call this cannot sell anything either; this is what
- * keeps the option from being OFFERED, not what prevents the sale.
- */
-export function bundleIsPartnerBillable(
-  bundle: Pick<PanelBundle, "test_codes" | "guidance_only">,
-  prices: Map<string, number | null> | undefined
-): boolean {
-  if (bundle.guidance_only) return false;
-  if (!prices || bundle.test_codes.length === 0) return false;
-  return bundle.test_codes.every((code) => !!prices.get(code));
-}
-
 /** Active lab_providers — the schema has no bundle->provider relationship, so this is every active provider, not a filtered "who offers this bundle" list. */
 export function useLabProviders() {
   return useQuery({
@@ -283,15 +236,20 @@ export function useCreateLabOrder() {
       // 'ordered' rather than 'pending_payment' because there is nothing for
       // Tarragon to collect. private.enforce_lab_order_origin rejects any of
       // those being set, so this shape is enforced server-side too.
-      const { error } = await supabase.from("lab_orders").insert({
-        organisation_id: organisationId,
-        patient_id: patientId,
-        panel_bundle_id: panelBundleId,
-        total_kobo: 0,
-        status: "ordered",
-        screening_schedule_id: screeningScheduleId ?? null,
-      });
+      const { data, error } = await supabase
+        .from("lab_orders")
+        .insert({
+          organisation_id: organisationId,
+          patient_id: patientId,
+          panel_bundle_id: panelBundleId,
+          total_kobo: 0,
+          status: "ordered",
+          screening_schedule_id: screeningScheduleId ?? null,
+        })
+        .select("id")
+        .single();
       if (error) throw error;
+      return data;
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
@@ -476,5 +434,57 @@ export function usePatientLabResults(patientId: string) {
       return data as LabResultInterpretation[];
     },
     enabled: !!patientId,
+  });
+}
+
+export type LabOrderTestStatus = Tables<"lab_order_test_status">;
+export type TestStatusValue = "not_yet_done" | "done" | "will_not_do";
+
+/**
+ * Per-test progress within one order — the checklist on a multi-test panel
+ * (e.g. Essential/Core Screen). A test_code with no row is implicitly
+ * "not_yet_done"; nothing is pre-seeded (lab-order-test-checklist.tsx).
+ */
+export function useLabOrderTestStatuses(labOrderId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["lab-order-test-status", labOrderId],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("lab_order_test_status")
+        .select("*")
+        .eq("lab_order_id", labOrderId as string);
+      if (error) throw error;
+      return data as LabOrderTestStatus[];
+    },
+    enabled: !!labOrderId,
+  });
+}
+
+/** Marks one test within an order done / not yet done / will not be doing. */
+export function useSetLabOrderTestStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      labOrderId,
+      testCode,
+      status,
+    }: {
+      labOrderId: string;
+      testCode: string;
+      status: TestStatusValue;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("lab_order_test_status")
+        .upsert(
+          { lab_order_id: labOrderId, test_code: testCode, status },
+          { onConflict: "lab_order_id,test_code" }
+        );
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["lab-order-test-status", variables.labOrderId] });
+    },
   });
 }

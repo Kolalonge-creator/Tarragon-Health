@@ -4,7 +4,11 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
-import { patientResultUploadSchema, validateResultDocFile } from "@/lib/validation/lab-result-documents";
+import { testCodeLabel } from "@/lib/labs/test-code-labels";
+import {
+  patientResultUploadSchema,
+  validateResultDocFile,
+} from "@/lib/validation/lab-result-documents";
 
 const EXT_BY_MIME: Record<string, string> = {
   "image/jpeg": "jpg",
@@ -40,7 +44,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   const authHeader = request.headers.get("authorization");
   const accessToken = authHeader?.match(/^Bearer (.+)$/)?.[1];
   if (!accessToken) {
-    return NextResponse.json({ error: "Missing bearer token" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Missing bearer token" },
+      { status: 401 },
+    );
   }
 
   const supabase = createBearerClient(accessToken);
@@ -49,7 +56,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     error: authError,
   } = await supabase.auth.getUser(accessToken);
   if (authError || !user) {
-    return NextResponse.json({ error: "Invalid or expired session" }, { status: 401 });
+    return NextResponse.json(
+      { error: "Invalid or expired session" },
+      { status: 401 },
+    );
   }
 
   let formData: FormData;
@@ -61,7 +71,10 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
-    return NextResponse.json({ error: "Attach the result file (PDF or photo)." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Attach the result file (PDF or photo)." },
+      { status: 400 },
+    );
   }
   const fileError = validateResultDocFile(file);
   if (fileError) {
@@ -71,14 +84,15 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = patientResultUploadSchema.safeParse({
     lab_order_id: formData.get("lab_order_id") || undefined,
     note: formData.get("note") || undefined,
+    test_code: formData.get("test_code") || undefined,
   });
   if (!parsed.success) {
     return NextResponse.json(
       { error: parsed.error.issues[0]?.message ?? "Invalid input" },
-      { status: 400 }
+      { status: 400 },
     );
   }
-  const { lab_order_id: labOrderId, note } = parsed.data;
+  const { lab_order_id: labOrderId, note, test_code: testCode } = parsed.data;
 
   const { data: me } = await supabase
     .from("profiles")
@@ -87,8 +101,11 @@ export async function POST(request: Request): Promise<NextResponse> {
     .single();
   if (!me?.organisation_id) {
     return NextResponse.json(
-      { error: "Your account isn't set up for uploads yet. Message your care team." },
-      { status: 400 }
+      {
+        error:
+          "Your account isn't set up for uploads yet. Message your care team.",
+      },
+      { status: 400 },
     );
   }
 
@@ -100,7 +117,10 @@ export async function POST(request: Request): Promise<NextResponse> {
       .eq("patient_id", user.id)
       .maybeSingle();
     if (!order) {
-      return NextResponse.json({ error: "That test request isn't on your record." }, { status: 400 });
+      return NextResponse.json(
+        { error: "That test request isn't on your record." },
+        { status: 400 },
+      );
     }
   }
 
@@ -114,7 +134,10 @@ export async function POST(request: Request): Promise<NextResponse> {
     // Postgres function params (only DEFAULTs make an arg optional), even
     // though the RPC itself accepts null fine — same cast used elsewhere
     // in this file's web counterpart (lib/lab-results/actions.ts:138).
-    { p_patient_id: user.id, p_lab_order_id: (labOrderId ?? null) as unknown as string },
+    {
+      p_patient_id: user.id,
+      p_lab_order_id: (labOrderId ?? null) as unknown as string,
+    },
   );
   if (claimError) {
     if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
@@ -162,6 +185,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,
+      test_code: testCode ?? null,
     })
     .select("id")
     .single();
@@ -177,7 +201,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     }
     return NextResponse.json(
       { error: insertError?.message ?? "Could not save that upload." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -196,6 +220,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     patientId: user.id,
     filePath: path,
     mimeType: file.type,
+    contextHint: testCode ? testCodeLabel(testCode) : null,
   });
 
   return NextResponse.json({ success: true });
