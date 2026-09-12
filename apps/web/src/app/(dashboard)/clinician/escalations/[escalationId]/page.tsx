@@ -53,7 +53,7 @@ export default async function EscalationDetailPage({
 
   // Read-access audit, same call site pattern as
   // clinician/patients/[patientId]/page.tsx: this page renders the same
-  // vitals/medications/timeline "patient context" a full chart open does, so
+  // vitals/medications/timeline "patient context" a full record open does, so
   // it gets the same log_patient_record_view call rather than being a gap in
   // audit coverage. Best-effort: a logging failure must never block the
   // clinician from seeing the case.

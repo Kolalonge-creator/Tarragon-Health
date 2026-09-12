@@ -18,7 +18,7 @@ const SPECIALIST_TYPE_OPTIONS: { value: SpecialistType; label: string }[] = [
   { value: "endocrinology", label: "Endocrinology" },
   { value: "nephrology", label: "Nephrology" },
   { value: "ophthalmology", label: "Ophthalmology" },
-  { value: "ob_gyn", label: "OB-GYN" },
+  { value: "ob_gyn", label: "Obstetrics & Gynaecology (O&G)" },
   { value: "urologist", label: "Urology" },
   { value: "oncologist", label: "Oncology" },
   { value: "dietetics", label: "Dietetics" },

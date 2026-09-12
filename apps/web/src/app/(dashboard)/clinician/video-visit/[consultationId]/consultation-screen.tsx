@@ -403,7 +403,7 @@ export function ConsultationScreen({
             <CardContent>
               <p className="text-sm text-charcoal-ink/60">
                 Your clinical tier can confirm/continue an existing prescription from the patient&apos;s
-                chart, but starting a new medication needs Tier 2 or above.
+                notes, but starting a new medication needs Tier 2 or above.
               </p>
             </CardContent>
           </Card>
