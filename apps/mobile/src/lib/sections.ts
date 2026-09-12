@@ -14,6 +14,7 @@ export type SectionId =
   | "devices"
   | "prevention"
   | "healthSummary"
+  | "timeline"
   | "womensHealth"
   | "sexualHealth"
   | "wellbeing"
@@ -115,6 +116,12 @@ export const SECTIONS: SectionDef[] = [
     id: "healthSummary",
     label: "Health summary",
     icon: "document-text-outline",
+    group: "Your health",
+  },
+  {
+    id: "timeline",
+    label: "Full activity timeline",
+    icon: "time-outline",
     group: "Your health",
   },
   {

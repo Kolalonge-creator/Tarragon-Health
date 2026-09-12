@@ -463,16 +463,21 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
             <MutedText>No activity yet. Readings, medications and results will appear here.</MutedText>
           </Card>
         ) : (
-          <GroupedList>
-            {activity.map((item) => (
-              <GroupedListRow
-                key={item.id}
-                title={item.title}
-                subtitle={relativeTime(item.occurredAt)}
-                trailing="none"
-              />
-            ))}
-          </GroupedList>
+          <>
+            <GroupedList>
+              {activity.map((item) => (
+                <GroupedListRow
+                  key={item.id}
+                  title={item.title}
+                  subtitle={relativeTime(item.occurredAt)}
+                  trailing="none"
+                />
+              ))}
+            </GroupedList>
+            <Pressable onPress={() => onNavigate("timeline")} style={{ alignSelf: "flex-start" }}>
+              <Text style={{ color: colors.brand, fontSize: 13.5, fontWeight: "600" }}>View full timeline</Text>
+            </Pressable>
+          </>
         )}
       </View>
 

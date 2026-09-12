@@ -260,3 +260,4 @@ export type SpecialistVerificationStage = Enums<"specialist_verification_stage">
 export type ConsultationDurationType = Enums<"consultation_duration_type">;
 
 export * from "./ui-language";
+export * from "./clinical-tier";

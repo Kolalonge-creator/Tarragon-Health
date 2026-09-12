@@ -29,6 +29,7 @@ import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
+import { TimelineScreen } from "@/screens/sections/timeline-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
@@ -236,6 +237,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         {section === "healthSummary" && (
           <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />
         )}
+        {section === "timeline" && <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />}
         {section === "devices" &&
           (openDevice ? (
             <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />
