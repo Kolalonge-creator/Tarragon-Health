@@ -40,8 +40,15 @@ overrides:
   # libvips CVE-2026-33327/33328/35590/35591 (image-parsing DoS/memory
   # issues); fast-uri<3.1.5 has a host-confusion bug via a backslash authority
   # delimiter. Neither has a direct entry in any package.json to bump instead.
-  sharp: ">=0.35.0"
-  fast-uri: ">=3.1.5"
+  # sharp raised again 2026-09-13: GHSA-rgj7-g3m4-5g8c (two libheif CVEs,
+  # fixed at >=0.35.4) was still open against the >=0.35.0 floor above.
+  sharp: ">=0.35.4"
+  # fast-uri raised again 2026-09-13: four more host-confusion/SSRF
+  # advisories (GHSA-5jgf-p345-68v8, GHSA-f65p-4m7j-42xc,
+  # GHSA-fph4-wmhf-6fwf, GHSA-jqff-g426-hqxp — IDN canonicalisation, IPv6
+  # normalisation, and percent-decoding bugs) were still open against the
+  # >=3.1.5 floor above; all fixed at >=4.1.3.
+  fast-uri: ">=4.1.3"
   # 2026-08-29 security audit (pnpm audit --prod: 24 findings, 17 high/7
   # moderate, 0 critical). Each entry fixes one or more real advisories;
   # see docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md-adjacent PR for the full
