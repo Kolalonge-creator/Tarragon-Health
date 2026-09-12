@@ -59,3 +59,36 @@ export function useSaveReproductiveHealthProfile() {
     },
   });
 }
+
+export interface ReproductiveHealthAnalytics {
+  generated_at: string;
+  min_cohort_size: number;
+  reproductive_health_profiles: {
+    reportable: boolean;
+    total: number | null;
+    by_life_stage: Partial<Record<ReproductiveLifeStage, number>>;
+  };
+  menstrual_cycle_tracking: {
+    reportable: boolean;
+    patients_tracking: number | null;
+    total_cycles_logged: number | null;
+    avg_cycle_length_days: number | null;
+  };
+  symptom_frequency: Record<string, number>;
+  mood_frequency: Record<string, number>;
+}
+
+/** Superadmin-only, platform-wide aggregate stats for internal research use — every
+ * figure is suppressed to null/false below a 10-person floor, never a per-patient row.
+ * See the reproductive_health_analytics_rpc migration for the consent/scope decisions. */
+export function useReproductiveHealthAnalytics() {
+  return useQuery({
+    queryKey: ["reproductive-health-analytics"] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("reproductive_health_analytics");
+      if (error) throw error;
+      return data as unknown as ReproductiveHealthAnalytics;
+    },
+  });
+}
