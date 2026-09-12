@@ -43559,6 +43559,7 @@ export type Database = {
         | "symptom_triage"
         | "pulse_red_flag"
         | "mental_health_screen"
+        | "symptom_to_test_checker"
       employer_allowance_type:
         | "gp_consultation"
         | "specialist_consultation"
@@ -45854,6 +45855,7 @@ export const Constants = {
         "symptom_triage",
         "pulse_red_flag",
         "mental_health_screen",
+        "symptom_to_test_checker",
       ],
       employer_allowance_type: [
         "gp_consultation",

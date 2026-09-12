@@ -100,6 +100,22 @@ describe("matchSymptomClustersFromText", () => {
     expect(matchSymptomClustersFromText("I just wanted to ask about my next appointment")).toHaveLength(0);
   });
 
+  it("does not match the liver-concern cluster from free text when jaundice-like wording is also present", () => {
+    // Mirrors matchSymptomClusters' checkbox-side jaundice exclusion for
+    // liver_concern — jaundice is a step up in seriousness that should
+    // always route to a doctor, never to a test suggestion, on either input
+    // path.
+    const matched = matchSymptomClustersFromText(
+      "My urine has been really dark, I have pain on my upper right side of my abdomen, and my skin looks yellow"
+    );
+    expect(matched.map((c) => c.id)).not.toContain("liver_concern");
+  });
+
+  it("does not match the UTI cluster from free text when a fever is also mentioned", () => {
+    const matched = matchSymptomClustersFromText("It burns when I pee and I also have a fever");
+    expect(matched.map((c) => c.id)).not.toContain("uti");
+  });
+
   it("never matches on text that also trips the emergency keyword guardrail", () => {
     // A message combining a real trigger phrase with an emergency phrase
     // must still be treated as emergency-first by callers — this test
