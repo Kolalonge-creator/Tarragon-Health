@@ -26,12 +26,12 @@ export interface TestPreparation {
 export const TEST_PREPARATION: Readonly<Record<string, TestPreparation>> = {
   hba1c: {
     specimenType: "Blood sample (finger-prick or a small venous draw)",
-    instructions: "No fasting needed — eat and drink normally before this test.",
+    instructions: "No fasting needed. Eat and drink normally before this test.",
   },
   lipid_panel: {
     specimenType: "Venous blood sample",
     instructions:
-      "Best done fasting — nothing but water for 9–12 hours beforehand. Ask your care team about timing before you go.",
+      "Best done fasting: nothing but water for 9–12 hours beforehand. Ask your care team about timing before you go.",
   },
   psa: {
     specimenType: "Venous blood sample",
@@ -45,7 +45,7 @@ export const TEST_PREPARATION: Readonly<Record<string, TestPreparation>> = {
   },
   kft: {
     specimenType: "Venous blood sample",
-    instructions: "No fasting needed — drink water normally beforehand.",
+    instructions: "No fasting needed. Drink water normally beforehand.",
   },
   urine_acr: {
     specimenType: "Urine sample",
@@ -89,6 +89,16 @@ export const TEST_PREPARATION: Readonly<Record<string, TestPreparation>> = {
     instructions:
       "No fasting needed. If you take thyroid medication, ask your care team whether to take this test before your dose.",
   },
+  tsh: {
+    specimenType: "Venous blood sample",
+    instructions:
+      "No fasting needed. If you take thyroid medication, ask your care team whether to take this test before your dose.",
+  },
+  free_t4: {
+    specimenType: "Venous blood sample",
+    instructions:
+      "No fasting needed. If you take thyroid medication, ask your care team whether to take this test before your dose.",
+  },
   urinalysis: {
     specimenType: "Urine sample",
     instructions: "No fasting needed. A first-morning sample is preferred if you can manage it.",
@@ -99,24 +109,24 @@ export const TEST_PREPARATION: Readonly<Record<string, TestPreparation>> = {
       "Fasting required — nothing but water for 8–12 hours beforehand. Usually done first thing in the morning.",
   },
   ecg_resting: {
-    specimenType: "No sample — sticky sensors are placed on your chest and limbs to record your heart's rhythm",
+    specimenType: "No sample: sticky sensors are placed on your chest and limbs to record your heart's rhythm",
     instructions: "No fasting needed. Wear something that makes it easy to access your chest.",
   },
   fit: {
     specimenType: "Small stool sample, collected at home with a kit",
-    instructions: "No fasting or dietary changes needed — just follow the kit's own instructions for timing and storage.",
+    instructions: "No fasting or dietary changes needed. Just follow the kit's own instructions for timing and storage.",
   },
   abdominal_ultrasound: {
-    specimenType: "No sample — an ultrasound scan of your abdomen",
+    specimenType: "No sample: an ultrasound scan of your abdomen",
     instructions:
       "Usually needs 6–8 hours fasting beforehand so the images come out clear. Confirm timing with the lab or imaging centre when you book.",
   },
   breast_imaging: {
-    specimenType: "No sample — an ultrasound or mammogram scan",
+    specimenType: "No sample: an ultrasound or mammogram scan",
     instructions: "No fasting needed. Avoid deodorant, powder, or lotion on your chest or underarms on the day.",
   },
   prostate_ultrasound: {
-    specimenType: "No sample — an ultrasound scan",
+    specimenType: "No sample: an ultrasound scan",
     instructions: "You may be asked to arrive with a full bladder. Confirm with the lab or imaging centre when you book.",
   },
   ferritin: {

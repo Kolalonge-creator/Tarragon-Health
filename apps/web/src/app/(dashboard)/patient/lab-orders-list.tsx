@@ -6,6 +6,7 @@ import { Badge, type BadgeProps } from "@/components/ui/badge";
 import type { LabOrderStatus } from "@tarragon/shared";
 import { PatientResultUpload } from "@/components/patient-result-upload";
 import { EcgReportUpload } from "@/components/ecg-report-upload";
+import { LabOrderTestChecklist } from "@/components/lab-order-test-checklist";
 import { RequestPartnerLabVisit } from "@/app/(dashboard)/patient/request-partner-lab-visit";
 import { PayForLabOrderButton } from "@/components/pay-for-lab-order-button";
 import { LoadErrorCard } from "@/components/ui/load-error-card";
@@ -51,7 +52,9 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
             // also includes blood tests, it doesn't arrive on the same PDF,
             // so it gets its own uploader alongside the generic one rather
             // than instead of it.
-            const includesEcg = order.panel_bundle?.test_codes?.includes("ecg_resting") ?? false;
+            const testCodes = order.panel_bundle?.test_codes ?? [];
+            const includesEcg = testCodes.includes("ecg_resting");
+            const isMultiTest = testCodes.length > 1;
             return (
               <li key={order.id} className="space-y-2 py-3">
                 <div className="flex items-center gap-2">
@@ -90,12 +93,18 @@ export function LabOrdersList({ patientId }: { patientId: string }) {
                     >
                       Download the request to take with you
                     </a>
-                    <PatientResultUpload
-                      labOrderId={order.id}
-                      label={includesEcg ? "Upload your blood/lab results" : "Upload your result"}
-                    />
-                    {includesEcg && (
-                      <EcgReportUpload labOrderId={order.id} label="Upload your 12-lead ECG" />
+                    {isMultiTest ? (
+                      <LabOrderTestChecklist labOrderId={order.id} testCodes={testCodes} />
+                    ) : (
+                      <>
+                        <PatientResultUpload
+                          labOrderId={order.id}
+                          label={includesEcg ? "Upload your blood/lab results" : "Upload your result"}
+                        />
+                        {includesEcg && (
+                          <EcgReportUpload labOrderId={order.id} label="Upload your 12-lead ECG" />
+                        )}
+                      </>
                     )}
                     {/* Optional upgrade, not a required step — the download
                         link above already works with zero partners on

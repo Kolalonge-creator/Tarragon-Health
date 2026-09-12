@@ -22,7 +22,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import { Select } from "@/components/ui/select";
+import {
+  FormError,
+  FormSuccess,
+  fieldErrorId,
+  fieldErrorProps,
+} from "@/components/ui/form-error";
+import {
+  OTHER_TEST_TYPE_VALUE,
+  RESULT_DOCUMENT_TEST_TYPE_OPTIONS,
+} from "@/lib/labs/test-code-labels";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 /** Thrown by the upload mutation specifically when the DB-enforced
@@ -41,7 +51,10 @@ function formatPrice(amountMinor: number, currency: string): string {
   return `${symbol}${koboToNaira(amountMinor).toLocaleString()}`;
 }
 
-const STATUS_LABEL: Record<string, { label: string; tone: "blue" | "amber" | "green" | "red" | "grey" }> = {
+const STATUS_LABEL: Record<
+  string,
+  { label: string; tone: "blue" | "amber" | "green" | "red" | "grey" }
+> = {
   payment_confirmed: { label: "Paid, upload your result", tone: "blue" },
   document_uploaded: { label: "Uploaded, waiting for a doctor", tone: "amber" },
   accepted: { label: "Consult booked", tone: "green" },
@@ -61,7 +74,9 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
   const cancel = useMutation({
     mutationFn: (requestId: string) => cancelLabResultConsultRequest(requestId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: labResultConsultKeys.myRequests(patientId) });
+      queryClient.invalidateQueries({
+        queryKey: labResultConsultKeys.myRequests(patientId),
+      });
     },
   });
 
@@ -71,10 +86,18 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
   return (
     <ul className="space-y-1.5 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-2">
       {requests.map((req) => {
-        const status = STATUS_LABEL[req.status] ?? { label: req.status, tone: "grey" as const };
-        const cancellable = !["cancelled", "refunded", "expired"].includes(req.status);
+        const status = STATUS_LABEL[req.status] ?? {
+          label: req.status,
+          tone: "grey" as const,
+        };
+        const cancellable = !["cancelled", "refunded", "expired"].includes(
+          req.status,
+        );
         return (
-          <li key={req.id} className="flex flex-wrap items-center gap-2 text-xs">
+          <li
+            key={req.id}
+            className="flex flex-wrap items-center gap-2 text-xs"
+          >
             <Badge variant={status.tone}>{status.label}</Badge>
             <span className="text-charcoal-ink/50 dark:text-night-ink/55">
               {formatPrice(req.amount_minor, req.currency)} consultation fee
@@ -119,6 +142,7 @@ export function PatientResultUpload({
   labOrderId,
   label = "Upload your result",
   patientId,
+  testCode,
 }: {
   /** Files the upload against a specific open request. Omit for a loose result. */
   labOrderId?: string;
@@ -126,15 +150,26 @@ export function PatientResultUpload({
   /** When provided, renders the patient's own consult-fee request status
    * (with a cancel action) below the upload form. */
   patientId?: string;
+  /** Scopes this upload to one test within a multi-test labOrderId — the
+   * per-test checklist (lab-order-test-checklist.tsx). Omit for a loose or
+   * whole-order upload. */
+  testCode?: string;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fieldId = useId();
   const [file, setFile] = useState<File | null>(null);
   const [note, setNote] = useState("");
+  // Only asked when the caller hasn't already scoped this upload to a known
+  // test (the per-test checklist, lab-order-test-checklist.tsx, passes
+  // `testCode` itself) — a loose upload has no test type to infer, and
+  // knowing it is what lets the AI reader and the patient's result history
+  // interpret and group it correctly.
+  const [testType, setTestType] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const price = useLabResultConsultPrice();
+  const needsTestType = !testCode;
 
   const upload = useMutation({
     mutationFn: async () => {
@@ -143,6 +178,10 @@ export function PatientResultUpload({
       formData.set("file", file);
       if (labOrderId) formData.set("lab_order_id", labOrderId);
       if (note.trim()) formData.set("note", note.trim());
+      const effectiveTestCode =
+        testCode ??
+        (testType && testType !== OTHER_TEST_TYPE_VALUE ? testType : undefined);
+      if (effectiveTestCode) formData.set("test_code", effectiveTestCode);
       const result = await uploadResultDocumentAsPatient(formData);
       if (result.error) {
         if (result.requiresConsultFeePayment) {
@@ -155,6 +194,7 @@ export function PatientResultUpload({
       setSuccess("Thank you. Your care team has been asked to read it.");
       setFile(null);
       setNote("");
+      setTestType("");
       if (fileInputRef.current) fileInputRef.current.value = "";
       router.refresh();
     },
@@ -176,11 +216,16 @@ export function PatientResultUpload({
         return;
       }
     }
+    if (needsTestType && !testType) {
+      setValidationError("Choose the type of test this result is for.");
+      return;
+    }
     upload.mutate();
   }
 
   const uploadErrorInstance = upload.error as Error | null;
-  const requiresPayment = uploadErrorInstance instanceof ConsultFeeRequiredError;
+  const requiresPayment =
+    uploadErrorInstance instanceof ConsultFeeRequiredError;
   const displayError = validationError ?? uploadErrorInstance?.message ?? null;
   const errorId = fieldErrorId(`${fieldId}-file`);
   const hintId = `${fieldId}-file-hint`;
@@ -202,12 +247,47 @@ export function PatientResultUpload({
               setValidationError(null);
               setSuccess(null);
             }}
-            {...fieldErrorProps(errorId, Boolean(displayError) && !requiresPayment, hintId)}
+            {...fieldErrorProps(
+              errorId,
+              Boolean(displayError) && !requiresPayment,
+              hintId,
+            )}
           />
-          <p id={hintId} className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+          <p
+            id={hintId}
+            className="text-xs text-charcoal-ink/50 dark:text-night-ink/55"
+          >
             A photo of the printout is fine. PDF or image, up to 10 MB.
           </p>
         </div>
+        {needsTestType && (
+          <div className="space-y-1.5">
+            <Label htmlFor={`${fieldId}-test-type`} className="text-xs">
+              What type of test is this?
+            </Label>
+            <Select
+              id={`${fieldId}-test-type`}
+              value={testType}
+              onChange={(event) => {
+                setTestType(event.target.value);
+                setValidationError(null);
+              }}
+            >
+              <option value="" disabled>
+                Select the test type
+              </option>
+              {RESULT_DOCUMENT_TEST_TYPE_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </Select>
+            <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+              Helps your care team read it correctly and group it with related
+              results.
+            </p>
+          </div>
+        )}
         <Input
           aria-label="Anything you want your care team to know"
           placeholder="Anything you want your care team to know (optional)"
@@ -216,7 +296,12 @@ export function PatientResultUpload({
           onChange={(event) => setNote(event.target.value)}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" size="sm" variant="outline" disabled={!file || upload.isPending}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            disabled={!file || (needsTestType && !testType) || upload.isPending}
+          >
             {upload.isPending ? "Sending…" : "Send to my care team"}
           </Button>
           <FormSuccess message={success} className="text-xs font-medium" />
@@ -234,12 +319,16 @@ export function PatientResultUpload({
             {displayError}
             {price.data && (
               <>
-                {" "}The fee is {formatPrice(price.data.amount_minor, price.data.currency)}.
+                {" "}
+                The fee is{" "}
+                {formatPrice(price.data.amount_minor, price.data.currency)}.
               </>
             )}
           </p>
           <form action={payAction}>
-            {labOrderId && <input type="hidden" name="lab_order_id" value={labOrderId} />}
+            {labOrderId && (
+              <input type="hidden" name="lab_order_id" value={labOrderId} />
+            )}
             <Button type="submit" size="sm" disabled={payPending}>
               {payPending ? "Redirecting to payment…" : "Pay & continue"}
             </Button>

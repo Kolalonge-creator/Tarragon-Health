@@ -1,17 +1,11 @@
 "use client";
 
+import { useState } from "react";
 import { useScreeningSchedules } from "@/lib/queries/screening";
 import { todayIsoDate } from "@/lib/queries/medications";
-import {
-  useLabCatalogue,
-  useCreateLabOrder,
-  useScreenTypePrices,
-  bundleIsPartnerBillable,
-  findSingleTestBundle,
-} from "@/lib/queries/lab-orders";
+import { useLabCatalogue, useCreateLabOrder, findSingleTestBundle } from "@/lib/queries/lab-orders";
 import { ConfirmScreeningDoneForm } from "./confirm-screening-done-form";
 import { DeclineScreeningForm } from "./decline-screening-form";
-import { PartnerLabBillingOption } from "./partner-lab-billing-option";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,8 +33,8 @@ export function PreventiveScreeningCalendar({
 }) {
   const { data, isLoading, isError } = useScreeningSchedules(patientId);
   const { data: bundles } = useLabCatalogue();
-  const { data: screenTypePrices } = useScreenTypePrices();
   const createOrder = useCreateLabOrder();
+  const [printError, setPrintError] = useState<string | null>(null);
   const today = todayIsoDate();
 
   const canBook = bookingEnabled && !!organisationId;
@@ -114,36 +108,42 @@ export function PreventiveScreeningCalendar({
                         variant="outline"
                         size="sm"
                         disabled={createOrder.isPending}
-                        onClick={() =>
-                          createOrder.mutate({
-                            organisationId: organisationId!,
-                            patientId,
-                            panelBundleId: bundle.id,
-                            screeningScheduleId: schedule.id,
-                          })
-                        }
+                        onClick={() => {
+                          setPrintError(null);
+                          createOrder.mutate(
+                            {
+                              organisationId: organisationId!,
+                              patientId,
+                              panelBundleId: bundle.id,
+                              screeningScheduleId: schedule.id,
+                            },
+                            {
+                              onSuccess: (order) => {
+                                if (!order?.id) return;
+                                const win = window.open(`/api/patient/lab-order/${order.id}/request`, "_blank");
+                                if (!win) {
+                                  setPrintError(
+                                    "Your request is ready below under “Your test requests” — your browser blocked the automatic print, so use the download link there instead."
+                                  );
+                                }
+                              },
+                            }
+                          );
+                        }}
                       >
-                        {createOrder.isPending ? "Getting it ready…" : "Get this test"}
+                        {createOrder.isPending ? "Getting your form ready…" : "Get & print this test"}
                       </Button>
                       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                        We&apos;ll write you a request to take to any lab you like. You pay the lab
-                        directly, then upload the result here for your care team to read.
+                        We&apos;ll open a printable request listing exactly what&apos;s needed. Take it
+                        to any laboratory you like and pay them directly, then upload the result here
+                        for your care team to read.
                       </p>
                       {createOrder.isError && (
                         <p className="text-xs text-red-600 dark:text-red-300">
                           Could not set that up just now. Please try again.
                         </p>
                       )}
-                      {bundleIsPartnerBillable(bundle, screenTypePrices) && (
-                        <PartnerLabBillingOption
-                          patientId={patientId}
-                          organisationId={organisationId!}
-                          panelBundleId={bundle.id}
-                          screeningScheduleId={schedule.id}
-                          bundleName={bundle.name}
-                          priceKobo={bundle.price_kobo}
-                        />
-                      )}
+                      {printError && <p className="text-xs text-amber-700 dark:text-amber-300">{printError}</p>}
                     </div>
                   )}
                   <div className="flex flex-wrap items-start gap-2">
