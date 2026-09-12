@@ -40,7 +40,9 @@ overrides:
   # libvips CVE-2026-33327/33328/35590/35591 (image-parsing DoS/memory
   # issues); fast-uri<3.1.5 has a host-confusion bug via a backslash authority
   # delimiter. Neither has a direct entry in any package.json to bump instead.
-  sharp: ">=0.35.0"
+  # sharp raised again 2026-09-13: GHSA-rgj7-g3m4-5g8c (two libheif CVEs,
+  # fixed at >=0.35.4) was still open against the >=0.35.0 floor above.
+  sharp: ">=0.35.4"
   fast-uri: ">=3.1.5"
   # 2026-08-29 security audit (pnpm audit --prod: 24 findings, 17 high/7
   # moderate, 0 critical). Each entry fixes one or more real advisories;
