@@ -4,6 +4,7 @@ import { createBearerClient } from "@/lib/supabase/bearer";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
+import { testCodeLabel } from "@/lib/labs/test-code-labels";
 import { patientResultUploadSchema, validateResultDocFile } from "@/lib/validation/lab-result-documents";
 
 const EXT_BY_MIME: Record<string, string> = {
@@ -71,6 +72,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   const parsed = patientResultUploadSchema.safeParse({
     lab_order_id: formData.get("lab_order_id") || undefined,
     note: formData.get("note") || undefined,
+    test_code: formData.get("test_code") || undefined,
   });
   if (!parsed.success) {
     return NextResponse.json(
@@ -78,7 +80,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       { status: 400 }
     );
   }
-  const { lab_order_id: labOrderId, note } = parsed.data;
+  const { lab_order_id: labOrderId, note, test_code: testCode } = parsed.data;
 
   const { data: me } = await supabase
     .from("profiles")
@@ -162,6 +164,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,
+      test_code: testCode ?? null,
     })
     .select("id")
     .single();
@@ -196,6 +199,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     patientId: user.id,
     filePath: path,
     mimeType: file.type,
+    contextHint: testCode ? testCodeLabel(testCode) : null,
   });
 
   return NextResponse.json({ success: true });

@@ -162,6 +162,10 @@ export interface ResultDocumentItem {
   source: ResultDocumentSource;
   originalFilename: string | null;
   note: string | null;
+  /** The test type named at upload (e.g. "hba1c", "kft"), or null when it
+   * wasn't asked/known. Turn into a patient-readable label with
+   * testTypeLabel() from lib/labs.ts. */
+  testCode: string | null;
   createdAt: string;
   isPdf: boolean;
   /** Short-lived signed URL for the file, or null if it could not be
@@ -190,7 +194,7 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
     const { data: rows, error } = await supabase
       .from("lab_result_documents")
       .select(
-        "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status"
+        "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status"
       )
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
@@ -228,6 +232,7 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
           source: row.source,
           originalFilename: row.original_filename,
           note: row.note,
+          testCode: row.test_code,
           createdAt: row.created_at,
           isPdf: row.mime_type === "application/pdf",
           signedUrl,
@@ -323,17 +328,16 @@ export interface LabCatalogueItem {
   name: string;
   description: string | null;
   preparationInstructions: string | null;
+  testCodes: string[];
   testCount: number;
 }
 
 /**
- * Active panel_bundles, read-only — mirrors lab-catalogue.tsx. No price is
- * shown, same reasoning as the web catalogue: self-arranged browsing only,
- * a price next to a bundle nobody can act on from here would misleadingly
- * imply this view can charge the patient. Individual test-code names aren't
- * resolved (that map is patient-facing copy owned by
- * apps/web/src/lib/labs/test-code-labels.ts, not importable here) — a test
- * count stands in for "Includes: …" instead.
+ * Active panel_bundles, read-only — mirrors lab-catalogue.tsx, grouped into
+ * the same categories via lab-catalogue-content.ts. No price is shown, same
+ * reasoning as the web catalogue: self-arranged browsing only, a price next
+ * to a bundle nobody can act on from here would misleadingly imply this view
+ * can charge the patient.
  */
 export async function getLabCatalogue(): Promise<QueryResult<LabCatalogueItem[]>> {
   try {
@@ -350,6 +354,7 @@ export async function getLabCatalogue(): Promise<QueryResult<LabCatalogueItem[]>
         name: row.name,
         description: row.description,
         preparationInstructions: row.preparation_instructions,
+        testCodes: row.test_codes ?? [],
         testCount: row.test_codes?.length ?? 0,
       })),
     };

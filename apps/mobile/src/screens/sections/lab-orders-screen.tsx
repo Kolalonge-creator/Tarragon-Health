@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import {
   getAnalyteTrends,
   getLabCatalogue,
@@ -15,10 +16,32 @@ import {
   type ResultDocumentItem,
   type ResultStatus,
 } from "@/lib/lab-orders";
+import { groupBundlesByCategory, testCodeLabels } from "@/lib/lab-catalogue-content";
+import { testTypeLabel } from "@/lib/labs";
 import { resolveSubjectId } from "@/lib/acting";
 import { supabase } from "@/lib/supabase";
 import { colors, spacing } from "@/ui/theme";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SectionLabel } from "@/ui/components";
+
+/** Groups result documents by their known test type, in first-seen order,
+ * with unknown-type documents trailing under "Other results" — mirrors
+ * apps/web/src/app/(dashboard)/patient/result-documents.tsx's grouping. */
+function groupDocumentsByTestType(documents: ResultDocumentItem[]): { label: string; documents: ResultDocumentItem[] }[] {
+  const order: string[] = [];
+  const byLabel = new Map<string, ResultDocumentItem[]>();
+  for (const doc of documents) {
+    const label = testTypeLabel(doc.testCode) ?? "Other results";
+    if (!byLabel.has(label)) {
+      order.push(label);
+      byLabel.set(label, []);
+    }
+    byLabel.get(label)!.push(doc);
+  }
+  return order
+    .filter((label) => label !== "Other results")
+    .concat(byLabel.has("Other results") ? ["Other results"] : [])
+    .map((label) => ({ label, documents: byLabel.get(label)! }));
+}
 
 /** Clinical-status tones (green/amber/red/blue/grey — a separate system from
  * brand colour, per CLAUDE.md) — same literal palette as
@@ -67,6 +90,41 @@ function StatusPill({ tone, label }: { tone: keyof typeof TONE; label: string })
 
 function formatDate(value: string): string {
   return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
+}
+
+/** One collapsible catalogue-bundle row — tap to reveal the "Includes"
+ * breakdown and preparation instructions, mirroring the web catalogue's
+ * <details> dropdown. Local open/closed state only; nothing here is
+ * persisted or shared across bundles. */
+function LabCatalogueRow({ bundle }: { bundle: LabCatalogueItem }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityState={{ expanded: open }}
+      onPress={() => setOpen((v) => !v)}
+      style={({ pressed }) => ({
+        paddingVertical: 13,
+        paddingHorizontal: spacing.card,
+        backgroundColor: pressed ? "rgba(0,0,0,0.04)" : "transparent",
+        gap: 6,
+      })}
+    >
+      <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 14.5, fontWeight: "600", color: colors.ink }}>{bundle.name}</Text>
+          {bundle.description ? <MutedText>{bundle.description}</MutedText> : null}
+        </View>
+        <Ionicons name={open ? "chevron-up" : "chevron-down"} size={17} color={colors.faint} style={{ marginTop: 2 }} />
+      </View>
+      {open ? (
+        <View style={{ gap: 4, paddingTop: 2 }}>
+          <MutedText>Includes: {testCodeLabels(bundle.testCodes).join(", ")}</MutedText>
+          {bundle.preparationInstructions ? <MutedText>{bundle.preparationInstructions}</MutedText> : null}
+        </View>
+      ) : null}
+    </Pressable>
+  );
 }
 
 interface SectionState<T> {
@@ -171,6 +229,8 @@ export function LabOrdersScreen() {
     );
   }
 
+  const resultDocumentGroups = documents.data ? groupDocumentsByTestType(documents.data) : [];
+
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -228,7 +288,7 @@ export function LabOrdersScreen() {
                     <MutedText>
                       You pay the lab directly, at whatever they charge. Take this order number with you, then use
                       &quot;Upload a result&quot; above once you have it.
-                      {order.includesEcg ? " An ECG prints as its own separate document — upload that too." : ""}
+                      {order.includesEcg ? " An ECG prints as its own separate document. Upload that too." : ""}
                     </MutedText>
                   ) : null}
                 </Card>
@@ -250,72 +310,89 @@ export function LabOrdersScreen() {
             <MutedText>No result documents yet.</MutedText>
           </Card>
         ) : (
-          <View style={{ gap: 10 }}>
-            {documents.data.map((doc) => (
-              <Card key={doc.id} style={{ gap: 6 }}>
-                <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
-                  <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: colors.ink }}>
-                    {doc.originalFilename ?? "Result"}
-                  </Text>
-                  <StatusPill
-                    tone={doc.interpretationSentAt ? "green" : "amber"}
-                    label={doc.interpretationSentAt ? "Interpreted" : "Awaiting review"}
-                  />
-                </View>
-                <MutedText>
-                  {doc.source === "patient" ? "You uploaded this" : "Uploaded by your care team"} · {formatDate(doc.createdAt)}
-                  {doc.note ? ` · ${doc.note}` : ""}
-                </MutedText>
-                {doc.signedUrl ? (
+          <View style={{ gap: 14 }}>
+            {resultDocumentGroups.map((group) => (
+              <View key={group.label} style={{ gap: 10 }}>
+                {resultDocumentGroups.length > 1 && (
                   <Text
-                    onPress={() => openDocument(doc.signedUrl)}
-                    style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}
+                    style={{
+                      fontSize: 12,
+                      fontWeight: "700",
+                      color: colors.faint,
+                      textTransform: "uppercase",
+                      letterSpacing: 0.4,
+                    }}
                   >
-                    {doc.isPdf ? "Open original (PDF) →" : "View original →"}
+                    {group.label}
                   </Text>
-                ) : (
-                  <MutedText>File unavailable.</MutedText>
                 )}
-                {doc.interpretationSentAt && doc.patientInterpretation ? (
-                  <View style={{ backgroundColor: colors.brandTint, borderRadius: 10, padding: 10, gap: 6 }}>
-                    <Text style={{ fontSize: 13.5, color: colors.ink }}>{doc.patientInterpretation}</Text>
-                    {doc.nextSteps ? (
-                      <Text style={{ fontSize: 13.5, color: colors.ink }}>
-                        <Text style={{ fontWeight: "600" }}>Next steps: </Text>
-                        {doc.nextSteps}
+                {group.documents.map((doc) => (
+                  <Card key={doc.id} style={{ gap: 6 }}>
+                    <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                      <Text style={{ flex: 1, fontSize: 14, fontWeight: "600", color: colors.ink }}>
+                        {doc.originalFilename ?? "Result"}
                       </Text>
-                    ) : null}
+                      <StatusPill
+                        tone={doc.interpretationSentAt ? "green" : "amber"}
+                        label={doc.interpretationSentAt ? "Interpreted" : "Awaiting review"}
+                      />
+                    </View>
                     <MutedText>
-                      {doc.reviewedByName ? `Reviewed by Dr. ${doc.reviewedByName}` : "Reviewed by your care team"}
-                      {doc.reviewedAt ? ` · ${formatDate(doc.reviewedAt)}` : ""}
+                      {doc.source === "patient" ? "You uploaded this" : "Uploaded by your care team"} · {formatDate(doc.createdAt)}
+                      {doc.note ? ` · ${doc.note}` : ""}
                     </MutedText>
-                  </View>
-                ) : (
-                  <>
-                    <MutedText>
-                      Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon as they have.
-                    </MutedText>
-                    {doc.aiSummaryStatus === "pending" ? (
-                      <MutedText>Preparing an automatic summary…</MutedText>
-                    ) : doc.aiSummaryStatus === "flagged" ? (
-                      <View style={{ backgroundColor: TONE.amber.bg, borderRadius: 10, padding: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "600", color: TONE.amber.text }}>
-                          Automated summary. Not a medical opinion.
-                        </Text>
-                        <Text style={{ fontSize: 12.5, color: colors.ink, marginTop: 2 }}>
-                          One or more values in this file fall outside the range printed on the report itself. Only a
-                          doctor reviewing the full picture can tell you what it means.
-                        </Text>
+                    {doc.signedUrl ? (
+                      <Text
+                        onPress={() => openDocument(doc.signedUrl)}
+                        style={{ fontSize: 13, fontWeight: "600", color: colors.brand }}
+                      >
+                        {doc.isPdf ? "Open original (PDF) →" : "View original →"}
+                      </Text>
+                    ) : (
+                      <MutedText>File unavailable.</MutedText>
+                    )}
+                    {doc.interpretationSentAt && doc.patientInterpretation ? (
+                      <View style={{ backgroundColor: colors.brandTint, borderRadius: 10, padding: 10, gap: 6 }}>
+                        <Text style={{ fontSize: 13.5, color: colors.ink }}>{doc.patientInterpretation}</Text>
+                        {doc.nextSteps ? (
+                          <Text style={{ fontSize: 13.5, color: colors.ink }}>
+                            <Text style={{ fontWeight: "600" }}>Next steps: </Text>
+                            {doc.nextSteps}
+                          </Text>
+                        ) : null}
+                        <MutedText>
+                          {doc.reviewedByName ? `Reviewed by Dr. ${doc.reviewedByName}` : "Reviewed by your care team"}
+                          {doc.reviewedAt ? ` · ${formatDate(doc.reviewedAt)}` : ""}
+                        </MutedText>
                       </View>
-                    ) : doc.aiSummaryStatus === "ready" ? (
-                      <MutedText>
-                        The values in this file look consistent with the ranges printed on the report. A doctor
-                        hasn&apos;t reviewed this yet.
-                      </MutedText>
-                    ) : null}
-                  </>
-                )}
-              </Card>
+                    ) : (
+                      <>
+                        <MutedText>
+                          Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon as they have.
+                        </MutedText>
+                        {doc.aiSummaryStatus === "pending" ? (
+                          <MutedText>Preparing an automatic summary…</MutedText>
+                        ) : doc.aiSummaryStatus === "flagged" ? (
+                          <View style={{ backgroundColor: TONE.amber.bg, borderRadius: 10, padding: 10 }}>
+                            <Text style={{ fontSize: 12, fontWeight: "600", color: TONE.amber.text }}>
+                              Automated summary. Not a medical opinion.
+                            </Text>
+                            <Text style={{ fontSize: 12.5, color: colors.ink, marginTop: 2 }}>
+                              One or more values in this file fall outside the range printed on the report itself. Only a
+                              doctor reviewing the full picture can tell you what it means.
+                            </Text>
+                          </View>
+                        ) : doc.aiSummaryStatus === "ready" ? (
+                          <MutedText>
+                            The values in this file look consistent with the ranges printed on the report. A doctor
+                            hasn&apos;t reviewed this yet.
+                          </MutedText>
+                        ) : null}
+                      </>
+                    )}
+                  </Card>
+                ))}
+              </View>
             ))}
           </View>
         )}
@@ -389,7 +466,7 @@ export function LabOrdersScreen() {
             })}
           </GroupedList>
         )}
-        <MutedText>Each result, compared with your previous one — for tracking, not diagnosis.</MutedText>
+        <MutedText>Each result, compared with your previous one, for tracking, not diagnosis.</MutedText>
       </View>
 
       {/* Lab tests catalogue */}
@@ -404,18 +481,29 @@ export function LabOrdersScreen() {
             <MutedText>No lab tests available yet.</MutedText>
           </Card>
         ) : (
-          <GroupedList>
-            {catalogue.data.map((bundle) => (
-              <GroupedListRow
-                key={bundle.id}
-                title={bundle.name}
-                subtitle={
-                  bundle.description ?? `${bundle.testCount} test${bundle.testCount === 1 ? "" : "s"} included`
-                }
-                trailing="none"
-              />
+          <View style={{ gap: 14 }}>
+            {groupBundlesByCategory(catalogue.data).map(({ category, bundles }) => (
+              <View key={category.key} style={{ gap: 6 }}>
+                <Text
+                  style={{
+                    fontSize: 11.5,
+                    fontWeight: "700",
+                    letterSpacing: 0.3,
+                    textTransform: "uppercase",
+                    color: colors.faint,
+                    paddingHorizontal: spacing.card,
+                  }}
+                >
+                  {category.label}
+                </Text>
+                <GroupedList>
+                  {bundles.map((bundle) => (
+                    <LabCatalogueRow key={bundle.id} bundle={bundle} />
+                  ))}
+                </GroupedList>
+              </View>
             ))}
-          </GroupedList>
+          </View>
         )}
         <MutedText>
           Message your care team in the app and they&apos;ll write you a request to take to a laboratory of your

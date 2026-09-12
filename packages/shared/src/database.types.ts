@@ -18457,6 +18457,7 @@ export type Database = {
           superseded_at: string | null
           superseded_by_document_id: string | null
           supersedes_document_id: string | null
+          test_code: string | null
           updated_at: string
           uploaded_by: string | null
         }
@@ -18488,6 +18489,7 @@ export type Database = {
           superseded_at?: string | null
           superseded_by_document_id?: string | null
           supersedes_document_id?: string | null
+          test_code?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -18519,6 +18521,7 @@ export type Database = {
           superseded_at?: string | null
           superseded_by_document_id?: string | null
           supersedes_document_id?: string | null
+          test_code?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }

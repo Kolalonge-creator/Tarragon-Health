@@ -33,6 +33,7 @@ export function useUploadOwnResultDocument() {
     mutationFn: async (input: {
       file: File;
       note?: string;
+      testCode?: string;
       screeningCompletionId?: string;
     }): Promise<void> => {
       const supabase = createClient();
@@ -67,6 +68,7 @@ export function useUploadOwnResultDocument() {
         file_size_bytes: input.file.size,
         source: "patient",
         note: input.note?.trim() || null,
+        test_code: input.testCode ?? null,
         screening_completion_id: input.screeningCompletionId ?? null,
       });
       if (insertError) {

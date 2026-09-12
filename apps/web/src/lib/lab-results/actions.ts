@@ -7,6 +7,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
+import { testCodeLabel } from "@/lib/labs/test-code-labels";
 import {
   labPartnerResultUploadSchema,
   markResultReviewedSchema,
@@ -238,11 +239,12 @@ export async function uploadResultDocumentAsPatient(
   const parsed = patientResultUploadSchema.safeParse({
     lab_order_id: formData.get("lab_order_id") || undefined,
     note: formData.get("note") || undefined,
+    test_code: formData.get("test_code") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { lab_order_id: labOrderId, note } = parsed.data;
+  const { lab_order_id: labOrderId, note, test_code: testCode } = parsed.data;
 
   const supabase = await createClient();
 
@@ -327,6 +329,7 @@ export async function uploadResultDocumentAsPatient(
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,
+      test_code: testCode ?? null,
     })
     .select("id")
     .single();
@@ -364,6 +367,10 @@ export async function uploadResultDocumentAsPatient(
     patientId: user.id,
     filePath: path,
     mimeType: file.type,
+    // The patient's own test-type pick, same advisory hint
+    // extractLabReportAction already gives the model from an ordered panel's
+    // name — never a constraint, just a steer (see extract.ts's prompt).
+    contextHint: testCode ? testCodeLabel(testCode) : null,
   });
 
   revalidatePath("/patient");
