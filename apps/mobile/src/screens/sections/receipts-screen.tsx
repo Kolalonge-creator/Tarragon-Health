@@ -96,34 +96,47 @@ export function ReceiptsScreen() {
 
       {receipts.length > 0 && (
         <GroupedList>
-          {receipts.map((r) => (
-            <GroupedListRow
-              key={`${r.service_type}:${r.id}`}
-              title={r.service_label}
-              subtitle={`${formatDate(r.occurred_at)} · Ref ${r.reference.slice(0, 18)}`}
-              leading={<Ionicons name={SERVICE_ICON[r.service_type] ?? "card-outline"} size={20} color={colors.muted} />}
-              trailing={
-                <View style={{ alignItems: "flex-end", gap: 4 }}>
-                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
-                    {formatAmount(r.amount_minor, r.currency)}
-                  </Text>
-                  <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
-                  {INVOICEABLE_STATUSES.includes(r.status) && (
-                    <Text
-                      onPress={() =>
-                        void WebBrowser.openBrowserAsync(
-                          `${PLATFORM_URL}/api/patient/receipts/${r.service_type}/${r.id}/invoice`
-                        )
-                      }
-                      style={{ fontSize: 11, fontWeight: "700", color: colors.brand }}
-                    >
-                      Download invoice
+          {receipts.map((r) => {
+            // The headline figure is what actually left the patient's card,
+            // not our listed price — those two only ever differ for a
+            // 'membership' row where Paystack passed its own transaction fee
+            // on to the customer. Falls back to the listed price for every
+            // other service_type, and for a free/voucher-covered activation
+            // with no real Paystack charge behind it.
+            const headlineAmount = r.charged_amount_minor ?? r.amount_minor;
+            const hasFee = r.fee_minor !== null && r.fee_minor > 0;
+            const subtitle = hasFee
+              ? `${formatDate(r.occurred_at)} · Ref ${r.reference.slice(0, 18)}\n${formatAmount(r.amount_minor, r.currency)} for the service + ${formatAmount(r.fee_minor!, r.currency)} card processing fee`
+              : `${formatDate(r.occurred_at)} · Ref ${r.reference.slice(0, 18)}`;
+            return (
+              <GroupedListRow
+                key={`${r.service_type}:${r.id}`}
+                title={r.service_label}
+                subtitle={subtitle}
+                leading={<Ionicons name={SERVICE_ICON[r.service_type] ?? "card-outline"} size={20} color={colors.muted} />}
+                trailing={
+                  <View style={{ alignItems: "flex-end", gap: 4 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
+                      {formatAmount(headlineAmount, r.currency)}
                     </Text>
-                  )}
-                </View>
-              }
-            />
-          ))}
+                    <Badge tone={STATUS_TONE[r.status]}>{STATUS_LABEL[r.status]}</Badge>
+                    {INVOICEABLE_STATUSES.includes(r.status) && (
+                      <Text
+                        onPress={() =>
+                          void WebBrowser.openBrowserAsync(
+                            `${PLATFORM_URL}/api/patient/receipts/${r.service_type}/${r.id}/invoice`
+                          )
+                        }
+                        style={{ fontSize: 11, fontWeight: "700", color: colors.brand }}
+                      >
+                        Download invoice
+                      </Text>
+                    )}
+                  </View>
+                }
+              />
+            );
+          })}
         </GroupedList>
       )}
     </ScrollView>
