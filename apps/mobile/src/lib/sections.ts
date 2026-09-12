@@ -155,7 +155,7 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
   },
 
-  // The four daily trackers, native since the lifestyle-tracker pass. They
+  // The five daily trackers, native since the lifestyle-tracker pass. They
   // sit in "Stay well" beside the hub that links them, and are reachable
   // from the drawer directly as well as from Lifestyle coaching -- somebody
   // logging sleep every night should not have to go through a hub to do it.
