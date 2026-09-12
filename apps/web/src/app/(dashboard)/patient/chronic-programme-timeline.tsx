@@ -262,9 +262,10 @@ function BuyDoctorSupportedAddon({ enrolmentId }: { enrolmentId: string }) {
         Want a doctor on this with you?
       </p>
       <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-        Adds 3 check-in calls with whichever doctor has capacity that week,
-        active dose adjustments, and doctor-suggested testing across your 12
-        weeks.
+        Continuous Monitoring, ₦7,500 for 3 months — 3 check-in calls with
+        whichever doctor has capacity that week, plus written questions to
+        your care team and a doctor checking any dangerous reading, across
+        your 12 weeks.
       </p>
       <form action={formAction}>
         <Button type="submit" size="sm" disabled={pending}>

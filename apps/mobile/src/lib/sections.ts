@@ -197,15 +197,19 @@ export const SECTIONS: SectionDef[] = [
     shortLabel: "Messages",
   },
   {
-    id: "care",
-    label: "Care & support",
-    icon: "help-buoy-outline",
-    group: "Support",
-  },
-  {
     id: "appointments",
     label: "Appointments",
     icon: "calendar-outline",
+    group: "top",
+  },
+  // Promoted into "top", directly below Appointments (2026-09-11), mirroring
+  // web's navigation.ts — this is where the paid-per-service doctor-time
+  // revenue lives (video visits, Ask a doctor, second opinions, verified
+  // documents, senior case review).
+  {
+    id: "care",
+    label: "Care & support",
+    icon: "help-buoy-outline",
     group: "top",
   },
   {

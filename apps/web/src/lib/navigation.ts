@@ -189,6 +189,13 @@ export function getNavSections(
               shortLabel: "Messages",
             },
             { label: "Appointments", href: "/patient/appointments", icon: "booking" },
+            // Promoted here, directly below Appointments (2026-09-11) — this
+            // is where the platform's real pay-per-service doctor-time
+            // revenue lives (video visits, Ask a doctor, second opinions,
+            // verified documents, senior case review), so it belongs beside
+            // the other everyday-action items rather than several bands down
+            // in Support.
+            { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
           ],
         },
         {
@@ -226,7 +233,6 @@ export function getNavSections(
         {
           label: "Support",
           items: [
-            { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
