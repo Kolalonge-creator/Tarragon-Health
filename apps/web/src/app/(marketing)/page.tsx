@@ -86,6 +86,7 @@ export default async function MarketingHomePage() {
             imageSrc={homepage.hero.imageSrc ?? ""}
             imageAlt={homepage.hero.imageAlt ?? ""}
             imagePosition={homepage.hero.imageFocus}
+            videoSrc={homepage.hero.videoSrc}
           />
         }
       >
@@ -93,6 +94,7 @@ export default async function MarketingHomePage() {
           imageSrc={homepage.hero.imageSrc ?? ""}
           imageAlt={homepage.hero.imageAlt ?? ""}
           imagePosition={homepage.hero.imageFocus}
+          videoSrc={homepage.hero.videoSrc}
         />
       </Suspense>
       <Section className="py-8 sm:py-10">
