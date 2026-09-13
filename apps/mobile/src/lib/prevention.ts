@@ -1,7 +1,8 @@
 import { supabase } from "./supabase";
 import { todayIsoDate } from "./medications";
 import type { QueryResult } from "./medications";
-import type { Tables } from "@tarragon/shared";
+import { loadLabPanelBundles, type PanelBundle } from "./labs";
+import type { Enums, Tables } from "@tarragon/shared";
 
 /**
  * Native data layer for the Prevention screen — risk tiers, the screening
@@ -346,6 +347,58 @@ export async function getAnalyteTrends(patientId: string): Promise<QueryResult<A
     }));
     trends.sort((a, b) => (a.latestTakenAt < b.latestTakenAt ? 1 : -1));
     return { ok: true, data: trends };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Cancer screening guidance — mirrors apps/web/.../patient/cancer-screening-card.tsx
+ * (CANCER_SCREENING_CODES + isOfferedFor), which was rewritten 2026-09-10 to
+ * stop selling these as bookable/payable bundles (three of the four were
+ * charging for tests, e.g. an HPV DNA co-test, the platform could not
+ * actually order) and instead say what to ask a laboratory for and roughly
+ * what it costs. Sex-specific tracks, same as web — sex unknown hides all
+ * four rather than guessing.
+ */
+const CANCER_SCREENING_CODES = [
+  "cancer_screen_cervical_under30",
+  "cancer_screen_cervical_30plus",
+  "cancer_screen_women_45plus",
+  "cancer_screen_men_45plus",
+] as const;
+
+function isCancerScreeningOfferedFor(code: string, sex: Enums<"sex"> | null): boolean {
+  if (sex === null) return false;
+  if (code === "cancer_screen_men_45plus") return sex === "male";
+  return sex === "female"; // the other three are all cervical/women's-track
+}
+
+export interface CancerScreeningGuidance {
+  sex: Enums<"sex"> | null;
+  bundles: PanelBundle[];
+}
+
+/** The patient's sex plus the cancer-screening panel_bundles relevant to it —
+ * same underlying `panel_bundles` rows and guidance-only copy as web's
+ * CancerScreeningCard, just read directly rather than through React Query. */
+export async function getCancerScreeningGuidance(
+  patientId: string
+): Promise<QueryResult<CancerScreeningGuidance>> {
+  try {
+    const [{ data: profile, error: profileError }, bundles] = await Promise.all([
+      supabase.from("profiles").select("sex").eq("id", patientId).maybeSingle(),
+      loadLabPanelBundles(),
+    ]);
+    if (profileError) return { ok: false, error: profileError.message };
+
+    const sex = profile?.sex ?? null;
+    const byCode = new Map(bundles.map((b) => [b.code, b] as const));
+    const cancerBundles = CANCER_SCREENING_CODES.filter((code) => isCancerScreeningOfferedFor(code, sex))
+      .map((code) => byCode.get(code))
+      .filter((b): b is PanelBundle => !!b && b.is_active);
+
+    return { ok: true, data: { sex, bundles: cancerBundles } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
