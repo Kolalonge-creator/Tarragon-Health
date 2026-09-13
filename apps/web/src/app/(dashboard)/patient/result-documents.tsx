@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
 import { loadResultDocuments } from "@/lib/lab-results/documents";
 import { UploadResultForm } from "./upload-result-form";
+import { ReplaceResultDocumentForm } from "./replace-result-document-form";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
 import { AiResultSummary } from "./ai-result-summary";
 
@@ -102,6 +103,9 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                       as they have.
                     </p>
                     <AiResultSummary status={doc.aiSummaryStatus} />
+                    {doc.source === "patient" && !doc.reviewedAt && (
+                      <ReplaceResultDocumentForm documentId={doc.id} />
+                    )}
                   </>
                 )}
               </li>

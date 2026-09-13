@@ -49,7 +49,7 @@ export default async function ClinicianVideoVisitPage({
             href={`/clinician/patients/${patient.id}`}
             className="text-sm font-medium text-brand-green hover:underline"
           >
-            Open full patient chart →
+            Open full patient record →
           </Link>
         )}
       </div>

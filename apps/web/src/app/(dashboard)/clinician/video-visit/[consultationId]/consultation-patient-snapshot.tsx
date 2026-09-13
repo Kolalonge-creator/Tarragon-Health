@@ -90,7 +90,7 @@ export function ConsultationPatientSnapshot({ bundle }: { bundle: ConsultationPr
         {bundle.recent_vitals.length === 0 ? (
           <p className="text-charcoal-ink/50">No recent readings.</p>
         ) : (
-          <p className="text-charcoal-ink/60">{bundle.recent_vitals.length} recent reading(s). See the full chart for detail.</p>
+          <p className="text-charcoal-ink/60">{bundle.recent_vitals.length} recent reading(s). See the full record for detail.</p>
         )}
       </div>
 

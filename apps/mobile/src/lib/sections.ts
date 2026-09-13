@@ -169,7 +169,7 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
   },
 
-  // The four daily trackers, native since the lifestyle-tracker pass. They
+  // The five daily trackers, native since the lifestyle-tracker pass. They
   // sit in "Stay well" beside the hub that links them, and are reachable
   // from the drawer directly as well as from Lifestyle coaching -- somebody
   // logging sleep every night should not have to go through a hub to do it.
@@ -218,6 +218,16 @@ export const SECTIONS: SectionDef[] = [
     icon: "help-buoy-outline",
     group: "Support",
   },
+  // Promoted out of "Your account" (2026-09-11), mirroring web's
+  // navigation.ts — the buy page for the same paid-per-service doctor-time
+  // revenue belongs next to Care & support, not four rows down an
+  // admin-flavoured band.
+  {
+    id: "services",
+    label: "My services",
+    icon: "card-outline",
+    group: "Support",
+  },
   {
     id: "appointments",
     label: "Appointments",
@@ -243,12 +253,6 @@ export const SECTIONS: SectionDef[] = [
     id: "financialProfile",
     label: "Your finances",
     icon: "wallet-outline",
-    group: "Your account",
-  },
-  {
-    id: "services",
-    label: "My services",
-    icon: "card-outline",
     group: "Your account",
   },
   {

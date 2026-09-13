@@ -227,6 +227,17 @@ export function getNavSections(
           label: "Support",
           items: [
             { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
+            // Promoted out of "Your account" (2026-09-11) to sit right beside
+            // Care & support — this is the buy page for the same paid-per-
+            // service doctor-time revenue (video visits, Ask a doctor,
+            // second opinions, verified documents), so burying the one page
+            // that actually takes payment four rows down in an admin-flavoured
+            // band was working against the point of promoting Care & support
+            // at all. The href/route folder name ("subscription") predates
+            // the pay-per-service pivot and is a known naming leftover, not a
+            // sign this points at the old recurring-plan page — it renders
+            // the current one-off service catalogue.
+            { label: "My services", href: "/patient/subscription", icon: "billing" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.
@@ -239,7 +250,6 @@ export function getNavSections(
           items: [
             { label: "Health Passport", href: "/patient/health-passport", icon: "passport" },
             { label: "Your finances", href: "/patient/financial-profile", icon: "payables" },
-            { label: "My services", href: "/patient/subscription", icon: "billing" },
             { label: "Receipts", href: "/patient/receipts", icon: "receipts" },
             {
               label: "Notification settings",
