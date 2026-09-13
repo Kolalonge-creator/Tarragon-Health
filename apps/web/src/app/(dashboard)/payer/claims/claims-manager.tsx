@@ -150,7 +150,7 @@ export function ClaimsManager({ rows }: { rows: Row[] }) {
             <CardContent className="space-y-3">
               <p className="text-sm text-charcoal-ink/70">
                 Insurer covered {r.insurer_covered_kobo !== null ? formatKobo(r.insurer_covered_kobo) : "—"} · Patient
-                copay {formatKobo(r.patient_copay_kobo)}
+                co-payment {formatKobo(r.patient_copay_kobo)}
               </p>
               {r.status === "submitted" || r.status === "adjudicating" ? (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
