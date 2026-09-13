@@ -6,14 +6,21 @@ import {
   confirmScreeningDone,
   daysLabel,
   declineScreening,
+  enrolPreventiveProgramme,
   getAnalyteTrends,
   getCancerScreeningGuidance,
+  getPatientSex,
+  getPreventiveEnrolments,
+  getPreventiveProgrammes,
   getRiskScores,
   getScreeningSchedules,
   getVaccinationRecords,
   getVaccinationSchedules,
+  withdrawPreventiveProgramme,
   type AnalyteTrendItem,
   type CancerScreeningGuidance,
+  type ProgrammeEnrolmentItem,
+  type ProgrammeItem,
   type RiskScoreItem,
   type RiskTierValue,
   type ScreeningItem,
@@ -21,8 +28,9 @@ import {
   type VaccinationRecordItem,
 } from "@/lib/prevention";
 import { todayIsoDate } from "@/lib/medications";
+import type { Tables } from "@tarragon/shared";
 import { colors, radius, spacing } from "@/ui/theme";
-import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
+import { Badge, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
 
 interface PreventionScreenProps {
   /** The subject whose prevention record this is — the acting-for subject's
@@ -124,6 +132,12 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
   const [vaccDue, setVaccDue] = useState<SectionState<VaccinationDueItem[]>>(EMPTY_SECTION);
   const [vaccHistory, setVaccHistory] = useState<SectionState<VaccinationRecordItem[]>>(EMPTY_SECTION);
   const [trends, setTrends] = useState<SectionState<AnalyteTrendItem[]>>(EMPTY_SECTION);
+  const [programmes, setProgrammes] = useState<SectionState<ProgrammeItem[]>>(EMPTY_SECTION);
+  const [enrolments, setEnrolments] = useState<SectionState<ProgrammeEnrolmentItem[]>>(EMPTY_SECTION);
+  const [sex, setSex] = useState<Tables<"profiles">["sex"]>(null);
+
+  const [programmeBusyId, setProgrammeBusyId] = useState<string | null>(null);
+  const [programmeError, setProgrammeError] = useState<string | null>(null);
 
   const [actionTarget, setActionTarget] = useState<{ item: ScreeningItem; mode: "confirm" | "decline" } | null>(null);
   const [performedDateInput, setPerformedDateInput] = useState(todayIsoDate());
@@ -134,13 +148,26 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
   const [actionDoneLabel, setActionDoneLabel] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [riskRes, screeningsRes, cancerScreeningRes, vaccDueRes, vaccHistoryRes, trendsRes] = await Promise.all([
+    const [
+      riskRes,
+      screeningsRes,
+      cancerScreeningRes,
+      vaccDueRes,
+      vaccHistoryRes,
+      trendsRes,
+      programmesRes,
+      enrolmentsRes,
+      sexRes,
+    ] = await Promise.all([
       getRiskScores(patientId),
       getScreeningSchedules(patientId),
       getCancerScreeningGuidance(patientId),
       getVaccinationSchedules(patientId),
       getVaccinationRecords(patientId),
       getAnalyteTrends(patientId),
+      getPreventiveProgrammes(),
+      getPreventiveEnrolments(patientId),
+      getPatientSex(patientId),
     ]);
     setRisk(riskRes.ok ? { data: riskRes.data, error: null } : { data: null, error: riskRes.error });
     setScreenings(
@@ -156,7 +183,38 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
       vaccHistoryRes.ok ? { data: vaccHistoryRes.data, error: null } : { data: null, error: vaccHistoryRes.error }
     );
     setTrends(trendsRes.ok ? { data: trendsRes.data, error: null } : { data: null, error: trendsRes.error });
+    setProgrammes(
+      programmesRes.ok ? { data: programmesRes.data, error: null } : { data: null, error: programmesRes.error }
+    );
+    setEnrolments(
+      enrolmentsRes.ok ? { data: enrolmentsRes.data, error: null } : { data: null, error: enrolmentsRes.error }
+    );
+    if (sexRes.ok) setSex(sexRes.data);
   }, [patientId]);
+
+  async function handleEnrolProgramme(programmeId: string) {
+    setProgrammeBusyId(programmeId);
+    setProgrammeError(null);
+    const result = await enrolPreventiveProgramme(patientId, programmeId, organisationId);
+    setProgrammeBusyId(null);
+    if (!result.ok) {
+      setProgrammeError(result.error);
+      return;
+    }
+    await load();
+  }
+
+  async function handleWithdrawProgramme(enrolmentId: string) {
+    setProgrammeBusyId(enrolmentId);
+    setProgrammeError(null);
+    const result = await withdrawPreventiveProgramme(enrolmentId);
+    setProgrammeBusyId(null);
+    if (!result.ok) {
+      setProgrammeError(result.error);
+      return;
+    }
+    await load();
+  }
 
   useEffect(() => {
     load().finally(() => setLoading(false));
@@ -242,6 +300,72 @@ export function PreventionScreen({ patientId, organisationId }: PreventionScreen
         <MutedText>
           Screenings, vaccinations, and the risk tiers that keep a healthy person healthy.
         </MutedText>
+      </View>
+
+      {/* Preventive programmes */}
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Preventive programmes</SectionLabel>
+        {programmes.error || enrolments.error ? (
+          <Card>
+            <ErrorText>Could not load your preventive programmes.</ErrorText>
+          </Card>
+        ) : !programmes.data ? null : (
+          (() => {
+            const enrolmentByProgramme = new Map((enrolments.data ?? []).map((e) => [e.programmeId, e]));
+            const visibleProgrammes = programmes.data.filter((p) => {
+              if (p.code === "mens_health") return sex === "male";
+              if (p.code === "womens_health") return sex === "female";
+              return true;
+            });
+            if (visibleProgrammes.length === 0) {
+              return (
+                <Card>
+                  <MutedText>No programmes available yet.</MutedText>
+                </Card>
+              );
+            }
+            return (
+              <View style={{ gap: 10 }}>
+                {visibleProgrammes.map((programme) => {
+                  const enrolment = enrolmentByProgramme.get(programme.id);
+                  const busy = programmeBusyId === programme.id || programmeBusyId === enrolment?.id;
+                  return (
+                    <Card key={programme.id} style={{ gap: 6 }}>
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                        <Text style={{ flex: 1, fontSize: 14.5, fontWeight: "600", color: colors.ink }}>
+                          {programme.name}
+                        </Text>
+                        {enrolment ? <Badge tone="brand">Enrolled</Badge> : null}
+                      </View>
+                      {programme.description ? <MutedText>{programme.description}</MutedText> : null}
+                      {enrolment?.source === "recommended" ? (
+                        <MutedText>Enrolled automatically based on your profile. Withdraw any time.</MutedText>
+                      ) : null}
+                      <View style={{ flexDirection: "row" }}>
+                        <View style={{ flex: 1 }}>
+                          {enrolment ? (
+                            <SecondaryButton
+                              title="Withdraw"
+                              onPress={() => handleWithdrawProgramme(enrolment.id)}
+                              loading={busy}
+                            />
+                          ) : (
+                            <SecondaryButton
+                              title="Enrol"
+                              onPress={() => handleEnrolProgramme(programme.id)}
+                              loading={busy}
+                            />
+                          )}
+                        </View>
+                      </View>
+                    </Card>
+                  );
+                })}
+              </View>
+            );
+          })()
+        )}
+        {programmeError ? <ErrorText>{programmeError}</ErrorText> : null}
       </View>
 
       {/* Risk tiers */}

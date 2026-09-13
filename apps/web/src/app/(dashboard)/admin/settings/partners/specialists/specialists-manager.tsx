@@ -113,7 +113,7 @@ export function SpecialistsManager() {
               <Input id="sp-name" value={name} onChange={(e) => setName(e.target.value)} required />
             </div>
             <div className="space-y-1">
-              <Label htmlFor="sp-type">Specialty</Label>
+              <Label htmlFor="sp-type">Speciality</Label>
               <Select id="sp-type" value={specialistType} onChange={(e) => setSpecialistType(e.target.value as SpecialistType)}>
                 {SPECIALIST_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -205,7 +205,7 @@ export function SpecialistsManager() {
                 (sp.city ?? "").toLowerCase().includes(q) ||
                 (sp.state ?? "").toLowerCase().includes(q)
               }
-              searchPlaceholder="Search specialists by name, specialty, city…"
+              searchPlaceholder="Search specialists by name, speciality, city…"
               emptyMessage="No specialists yet."
               renderItem={(sp) => (
                 <div key={sp.id} className="space-y-2 rounded-md border border-charcoal-ink/10 px-4 py-2">
@@ -243,7 +243,7 @@ export function SpecialistsManager() {
                   )}
                   {sp.license_number && (
                     <p className="text-xs text-charcoal-ink/50">
-                      {sp.license_type ?? "License"}: {sp.license_number}
+                      {sp.license_type ?? "Licence"}: {sp.license_number}
                     </p>
                   )}
                   <SpecialistVerificationPanel specialistProviderId={sp.id} currentStage={sp.verification_stage} />

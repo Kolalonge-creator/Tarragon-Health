@@ -165,14 +165,14 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
 export type SpecialistProvider = Tables<"specialist_directory">;
 
 /**
- * Assigns a real, active, specialty-matched specialist_providers row to a
+ * Assigns a real, active, speciality-matched specialist_providers row to a
  * pending/waitlisted referral — the partner-booking path (as opposed to the
  * self-arranged default every referral otherwise stays on). Routed through
  * public.set_referral_specialist_provider (RPC), not a raw `.update()` — a
  * plain update would violate specialist_referrals_enforce_fulfilment's
  * self_arranged guard, since every referral defaults to self_arranged and
  * only this RPC flips fulfilment to 'partner' as part of assigning. The RPC
- * re-validates the provider is genuinely active and specialty-matched
+ * re-validates the provider is genuinely active and speciality-matched
  * server-side and locks in the fee from the provider's own row — never a
  * client-supplied value. No scoring/ranking here or in the RPC — org staff
  * still pick manually from useMatchedSpecialistProviders' plain filtered

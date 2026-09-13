@@ -26,7 +26,7 @@ const RELATIONSHIPS = [
  * A live-updating gift-card mockup paired with a name/relationship form,
  * dohealth.co-style. Deliberately does not submit or persist anything: no
  * network call, no Supabase write (that stays Contact/Join's job per
- * CLAUDE.md), just local state that personalizes the preview card and the
+ * CLAUDE.md), just local state that personalises the preview card and the
  * CTA copy before handing off to /login or /signup, where the real "add
  * them as family, then choose the check" flow lives.
  */

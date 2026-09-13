@@ -60,7 +60,7 @@ export default async function HealthCheckPage() {
     .eq("year", year)
     .maybeSingle();
 
-  // Vitals only count toward THIS check once it's genuinely open — a reading
+  // Vitals only count towards THIS check once it's genuinely open — a reading
   // logged in January doesn't retroactively complete a check opened in July.
   const vitalsWindowStart = check?.created_at ?? yearStart;
 

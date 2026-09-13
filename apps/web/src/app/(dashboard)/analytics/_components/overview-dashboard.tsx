@@ -107,7 +107,7 @@ export function OverviewDashboard({ firstName }: { firstName: string | null }) {
         />
         <StatTile
           icon={Building2}
-          label="Avg facility utilization"
+          label="Avg facility utilisation"
           value={formatPercent(utilizationPct)}
           delta={{ text: `${formatNumber(facilitiesWithUsage)} of ${formatNumber(totalFacilities)} active`, direction: "flat" }}
         />

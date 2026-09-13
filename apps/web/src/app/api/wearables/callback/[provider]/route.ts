@@ -17,7 +17,7 @@ function isValidProvider(value: string): value is CloudOAuthWearableProvider {
 }
 
 /**
- * OAuth callback for the wearable Connect flow. Exchanges the authorization
+ * OAuth callback for the wearable Connect flow. Exchanges the authorisation
  * code for tokens, then records the connection — service-role, since a
  * patient's own RLS-scoped session shouldn't need to know the token exists,
  * and wearable_connections' token columns are meant to stay a server-only

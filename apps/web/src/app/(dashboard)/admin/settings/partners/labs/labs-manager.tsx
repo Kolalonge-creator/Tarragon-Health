@@ -511,7 +511,7 @@ export function LabsManager({
                           <ContactEditor lab={lab} />
                           {lab.license_number && (
                             <p className="text-xs text-charcoal-ink/50">
-                              {lab.license_type ?? "License"}:{" "}
+                              {lab.license_type ?? "Licence"}:{" "}
                               {lab.license_number}
                             </p>
                           )}

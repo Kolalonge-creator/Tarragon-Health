@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
  * so the sequence plays exactly once per visit.
  *
  * `visible` always starts `false` (SSR-safe — no `window` read in the
- * initializer, so server and client render identically) and the reduced-
+ * initialiser, so server and client render identically) and the reduced-
  * motion override lives entirely in the `motion-reduce:` classes below,
  * matching the CSS-only approach already used elsewhere on this site
  * (globals.css, marketing-media-frame.tsx's `motion-safe:opacity-0`) rather

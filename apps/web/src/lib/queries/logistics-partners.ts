@@ -197,7 +197,7 @@ export function useRecordFailedDelivery() {
  * pharmacy_orders_update RLS is staff-only (verified against the live
  * policy), so this goes through the narrow security definer RPC
  * public.set_pharmacy_order_delivery_address instead of a direct table
- * update — modeled on claim_employer_roster_member, re-checks
+ * update — modelled on claim_employer_roster_member, re-checks
  * patient_id = auth.uid() server-side and only ever touches
  * delivery_address.
  */

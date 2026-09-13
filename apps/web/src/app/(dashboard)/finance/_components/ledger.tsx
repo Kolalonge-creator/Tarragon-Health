@@ -144,7 +144,7 @@ export function LedgerBrowser() {
                   <Th>Account</Th>
                   <Th right>Debit</Th>
                   <Th right>Credit</Th>
-                  <Th>Cost center</Th>
+                  <Th>Cost centre</Th>
                   <Th>Line memo</Th>
                   <Th> </Th>
                 </tr>

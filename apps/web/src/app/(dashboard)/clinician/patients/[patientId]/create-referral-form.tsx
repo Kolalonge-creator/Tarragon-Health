@@ -18,7 +18,7 @@ const SPECIALIST_TYPE_OPTIONS: { value: SpecialistType; label: string }[] = [
   { value: "endocrinology", label: "Endocrinology" },
   { value: "nephrology", label: "Nephrology" },
   { value: "ophthalmology", label: "Ophthalmology" },
-  { value: "ob_gyn", label: "OB-GYN" },
+  { value: "ob_gyn", label: "Obstetrics & Gynaecology (O&G)" },
   { value: "urologist", label: "Urology" },
   { value: "oncologist", label: "Oncology" },
   { value: "dietetics", label: "Dietetics" },
@@ -146,13 +146,13 @@ export function CreateReferralForm({
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-1.5">
-          <Label htmlFor="specialist-type">Specialty</Label>
+          <Label htmlFor="specialist-type">Speciality</Label>
           <Select
             id="specialist-type"
             value={specialistType}
             onChange={(e) => setSpecialistType(e.target.value as SpecialistType)}
           >
-            <option value="">Select a specialty</option>
+            <option value="">Select a speciality</option>
             {SPECIALIST_TYPE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

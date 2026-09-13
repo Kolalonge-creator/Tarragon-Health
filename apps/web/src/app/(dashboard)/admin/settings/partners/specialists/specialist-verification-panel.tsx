@@ -17,7 +17,7 @@ const STAGE_LABELS: Record<SpecialistVerificationStage, string> = {
   identity_verification: "Identity verification",
   registration_verification: "Professional registration verification",
   qualification_verification: "Qualification verification",
-  specialty_verification: "Specialty verification",
+  specialty_verification: "Speciality verification",
   contract: "Contract",
   onboarding: "Onboarding",
   clinical_approval: "Clinical approval",
@@ -39,7 +39,7 @@ const STAGE_BADGE: Record<SpecialistVerificationStage, "grey" | "amber" | "blue"
 /**
  * 66.3 verification pipeline: Application -> Identity verification ->
  * Professional registration verification -> Qualification verification ->
- * Specialty verification -> Contract -> Onboarding -> Clinical approval ->
+ * Speciality verification -> Contract -> Onboarding -> Clinical approval ->
  * Active. Every transition goes through advance_specialist_verification_stage
  * (never a bare column update), so it's always attributed + audited — this
  * panel is a thin UI over that RPC plus its event log. Any stage other than

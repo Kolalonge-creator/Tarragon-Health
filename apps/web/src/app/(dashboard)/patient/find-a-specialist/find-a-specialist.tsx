@@ -67,7 +67,7 @@ export function FindASpecialist({ patientLocation }: { patientLocation?: Patient
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-3">
           <div className="space-y-1.5">
-            <Label htmlFor="fas-type">Specialty</Label>
+            <Label htmlFor="fas-type">Speciality</Label>
             <Select
               id="fas-type"
               value={specialistType}

@@ -58,7 +58,7 @@ describe("checkSupabase", () => {
     expect(result.latency_ms).toBeGreaterThanOrEqual(0);
   });
 
-  it("reports up on a 401 — proves the project answered, not that the caller is authorized", async () => {
+  it("reports up on a 401 — proves the project answered, not that the caller is authorised", async () => {
     // Confirmed empirically against the live project (2026-08-30): GoTrue's
     // /auth/v1/health returns 401 without an apikey header, not 200 — this
     // guards against treating that as "down" again by accident.

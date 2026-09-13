@@ -6,7 +6,7 @@ import { ConditionsManager } from "./conditions-manager";
 export default async function ConditionsSettingsPage() {
   const profile = await getCurrentProfile();
 
-  // proxy.ts already blocks non-admins from any /admin/** route — defense in depth.
+  // proxy.ts already blocks non-admins from any /admin/** route — defence in depth.
   if (profile?.role !== "admin") {
     redirect("/admin");
   }

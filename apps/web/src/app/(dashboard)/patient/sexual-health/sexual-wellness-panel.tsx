@@ -72,7 +72,7 @@ function LikertQuestion({
  * Sexual dysfunction ("Sexual Wellness") screening flow (spec §47.10). A
  * concern picker opens one of four short instruments; the result is always
  * framed warmly, never as an alarm, and a moderate/severe erectile-function
- * result nudges toward the existing CV-risk questionnaire rather than
+ * result nudges towards the existing CV-risk questionnaire rather than
  * inventing a second risk engine.
  */
 export function SexualWellnessPanel() {

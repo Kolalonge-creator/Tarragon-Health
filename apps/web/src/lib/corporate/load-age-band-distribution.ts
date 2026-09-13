@@ -19,7 +19,7 @@ function bandFor(age: number): AgeBand {
  * client/server-side from profiles.date_of_birth (already fetched for the
  * ML cohort call in load-cohort-analytics.ts) rather than round-tripped
  * through the ML service, since bucketing ages already in hand is a pure
- * derivation, not a modeling task.
+ * derivation, not a modelling task.
  */
 export async function loadAgeBandDistribution(
   supabase: SupabaseClient<Database>,

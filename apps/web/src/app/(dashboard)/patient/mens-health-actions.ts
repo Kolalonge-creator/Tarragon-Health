@@ -128,7 +128,7 @@ export async function submitProstateSymptomAssessment(
 /**
  * Records a male fertility intake (Men's Health §45.6). A suggested semen
  * analysis raises a routine clinician_alerts row via the table's own AFTER
- * INSERT trigger, prompting the care team toward the "investigations ->
+ * INSERT trigger, prompting the care team towards the "investigations ->
  * specialist referral" steps — the actual specialist_referrals row remains a
  * staff action (that table's RLS is staff-write-only), not created here.
  */

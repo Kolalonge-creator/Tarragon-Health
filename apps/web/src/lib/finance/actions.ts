@@ -6,7 +6,7 @@ import type { Json } from "@tarragon/shared";
 
 /**
  * Finance write actions. Each calls a SECURITY DEFINER RPC that is the real
- * authorization gate (private.finance_can(<capability>)) — a finance/admin
+ * authorisation gate (private.finance_can(<capability>)) — a finance/admin
  * account, or a member granted the specific capability. The action layer just
  * surfaces the RPC's result; it never bypasses the gate.
  */
@@ -239,7 +239,7 @@ export async function runRevenueRecognitionAction(): Promise<FinanceActionResult
 
 /**
  * Additions from the 2026-07-26 audit/tracking/functionality pass: maker-
- * checker approvals, cost centers, budgets, accounts payable, statutory
+ * checker approvals, cost centres, budgets, accounts payable, statutory
  * compliance calendar.
  */
 

@@ -17691,6 +17691,58 @@ export type Database = {
           },
         ]
       }
+      lab_order_test_status: {
+        Row: {
+          id: string
+          lab_order_id: string
+          organisation_id: string
+          test_code: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          id?: string
+          lab_order_id: string
+          organisation_id?: string
+          test_code: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          id?: string
+          lab_order_id?: string
+          organisation_id?: string
+          test_code?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lab_order_test_status_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_order_test_status_lab_order_id_fkey"
+            columns: ["lab_order_id"]
+            isOneToOne: false
+            referencedRelation: "lab_orders_awaiting_transmission"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lab_order_test_status_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lab_orders: {
         Row: {
           applied_voucher_id: string | null
@@ -18457,6 +18509,7 @@ export type Database = {
           superseded_at: string | null
           superseded_by_document_id: string | null
           supersedes_document_id: string | null
+          test_code: string | null
           updated_at: string
           uploaded_by: string | null
         }
@@ -18488,6 +18541,7 @@ export type Database = {
           superseded_at?: string | null
           superseded_by_document_id?: string | null
           supersedes_document_id?: string | null
+          test_code?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -18519,6 +18573,7 @@ export type Database = {
           superseded_at?: string | null
           superseded_by_document_id?: string | null
           supersedes_document_id?: string | null
+          test_code?: string | null
           updated_at?: string
           uploaded_by?: string | null
         }
@@ -22319,6 +22374,7 @@ export type Database = {
           channels: Database["public"]["Enums"]["notification_channel"][]
           created_at: string
           created_by: string
+          email_content: Json | null
           id: string
           is_marketing: boolean
           recipient_count: number
@@ -22334,6 +22390,7 @@ export type Database = {
           channels: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
           created_by: string
+          email_content?: Json | null
           id?: string
           is_marketing?: boolean
           recipient_count?: number
@@ -22349,6 +22406,7 @@ export type Database = {
           channels?: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
           created_by?: string
+          email_content?: Json | null
           id?: string
           is_marketing?: boolean
           recipient_count?: number
@@ -39219,6 +39277,15 @@ export type Database = {
         Args: { p_key_id: string }
         Returns: undefined
       }
+      admin_search_patients: {
+        Args: { p_query: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          phone: string
+        }[]
+      }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
@@ -43096,6 +43163,7 @@ export type Database = {
         | "subscribers_by_plan"
         | "all_partners"
         | "partners_by_type"
+        | "specific_patients"
       broadcast_status: "draft" | "sent"
       care_access_category:
         | "appointments_care_plan"
@@ -43559,6 +43627,7 @@ export type Database = {
         | "symptom_triage"
         | "pulse_red_flag"
         | "mental_health_screen"
+        | "symptom_to_test_checker"
       employer_allowance_type:
         | "gp_consultation"
         | "specialist_consultation"
@@ -45328,6 +45397,7 @@ export const Constants = {
         "subscribers_by_plan",
         "all_partners",
         "partners_by_type",
+        "specific_patients",
       ],
       broadcast_status: ["draft", "sent"],
       care_access_category: [
@@ -45854,6 +45924,7 @@ export const Constants = {
         "symptom_triage",
         "pulse_red_flag",
         "mental_health_screen",
+        "symptom_to_test_checker",
       ],
       employer_allowance_type: [
         "gp_consultation",

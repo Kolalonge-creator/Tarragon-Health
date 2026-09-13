@@ -14,7 +14,7 @@ export const revalidate = 300;
  *
  * THREE THINGS THIS PAGE HAS TO GET RIGHT, IN THIS ORDER.
  *
- * 1. Someone in crisis must not be funnelled toward a booking. A therapy
+ * 1. Someone in crisis must not be funnelled towards a booking. A therapy
  *    appointment in a fortnight is not the answer to suicidal ideation, and a
  *    page that reads like it is does harm. The crisis notice comes first, and
  *    the platform enforces the same rule -- a patient with an open crisis alert

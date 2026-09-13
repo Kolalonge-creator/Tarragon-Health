@@ -10,7 +10,7 @@ const SECTIONS: Record<string, { label: string; subtitle: string }> = {
     subtitle: "Check authenticity, medication detail, and validity for any patient's prescription",
   },
   "/pharmacist/history": { label: "Dispensing history", subtitle: "Everything dispensed against orders" },
-  "/pharmacist/profile": { label: "Pharmacy profile", subtitle: "Regions, contact & license details" },
+  "/pharmacist/profile": { label: "Pharmacy profile", subtitle: "Regions, contact & licence details" },
 };
 
 /** Per-route title + subtitle, matching the "Tarragon Health Pharmacist

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
 import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
@@ -186,6 +186,105 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
 
   const subjectId = acting?.profileId ?? userId;
 
+  // One renderer per SectionId, keyed by a Record rather than a chain of
+  // `section === "x" &&` branches: TypeScript refuses to compile this object
+  // unless every value in the SectionId union has an entry, so a new section
+  // added to lib/sections.ts without a matching renderer here is a build
+  // error rather than a blank content area at runtime. Values are functions,
+  // not JSX, so adding a section costs no extra render work — only the one
+  // matching `section` is ever invoked, same as the branch chain this
+  // replaces.
+  const sectionRenderers: Record<SectionId, () => ReactNode> = {
+    overview: () => (
+      <OverviewScreen
+        patientId={subjectId}
+        patientName={acting?.fullName ?? patientName}
+        onNavigate={handleSelect}
+      />
+    ),
+    vitals: () => <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />,
+    medications: () => (
+      <MedicationsScreen
+        patientId={subjectId}
+        organisationId={organisationId}
+        subjectName={acting?.fullName ?? undefined}
+      />
+    ),
+    labs: () => <LabsScreen />,
+    appointments: () => <AppointmentsScreen patientId={userId} organisationId={organisationId} />,
+    prevention: () => <PreventionScreen patientId={subjectId} organisationId={organisationId} />,
+    care: () => <CareSupportScreen patientId={userId} organisationId={organisationId} />,
+    myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
+    healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
+    devices: () =>
+      openDevice ? (
+        <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />
+      ) : (
+        <DevicesScreen patientId={userId} organisationId={organisationId} onOpenDevice={setOpenDevice} />
+      ),
+    messages: () => <MessagesScreen patientId={userId} />,
+    supporting: () => (
+      <SupportingScreen
+        userId={userId}
+        organisationId={organisationId}
+        acting={acting}
+        onActingChange={refreshActing}
+      />
+    ),
+    passport: () => (
+      <HealthPassportScreen
+        patientId={subjectId}
+        organisationId={organisationId}
+        subjectName={acting?.fullName ?? undefined}
+      />
+    ),
+    receipts: () => <ReceiptsScreen />,
+    notificationSettings: () => (
+      <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
+    ),
+    technicalSupport: () => (
+      <TechnicalSupportScreen patientId={userId} organisationId={organisationId} />
+    ),
+    emergency: () => <EmergencyCardScreen patientId={userId} />,
+    settings: () => (
+      <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
+    ),
+    womensHealth: () => (
+      <WomensHealthScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    sexualHealth: () => (
+      <SexualHealthScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    wellbeing: () => (
+      <WellbeingScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    healthCheck: () => <HealthCheckScreen patientId={userId} onNavigate={handleSelect} />,
+    findASpecialist: () => <FindASpecialistScreen patientId={userId} />,
+    healthyAgeing: () => (
+      <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    lifestyle: () => <LifestyleScreen patientId={userId} onNavigate={handleSelect} />,
+    meals: () => <MealsScreen patientId={subjectId} />,
+    sleep: () => <SleepScreen patientId={subjectId} />,
+    activity: () => <ActivityScreen patientId={subjectId} />,
+    smoking: () => <SmokingScreen patientId={subjectId} />,
+    alcohol: () => <AlcoholScreen patientId={subjectId} />,
+    weightManagement: () => (
+      <WeightManagementScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    learn: () => <LearnScreen userId={userId} organisationId={organisationId} />,
+    wellness: () => (
+      <WellnessScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    family: () => <FamilyScreen userId={userId} onNavigate={handleSelect} />,
+    screeningDays: () => <ScreeningDaysScreen />,
+    financialProfile: () => <FinancialProfileScreen userId={userId} />,
+    privacy: () => (
+      <PrivacyScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    services: () => <ServicesScreen />,
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <TopBar
@@ -206,106 +305,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         />
       )}
 
-      <View style={{ flex: 1 }}>
-        {section === "overview" && (
-          <OverviewScreen
-            patientId={subjectId}
-            patientName={acting?.fullName ?? patientName}
-            onNavigate={handleSelect}
-          />
-        )}
-        {section === "vitals" && <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />}
-        {section === "medications" && (
-          <MedicationsScreen
-            patientId={subjectId}
-            organisationId={organisationId}
-            subjectName={acting?.fullName ?? undefined}
-          />
-        )}
-        {section === "labs" && <LabsScreen />}
-        {section === "appointments" && (
-          <AppointmentsScreen patientId={userId} organisationId={organisationId} />
-        )}
-        {section === "prevention" && (
-          <PreventionScreen patientId={subjectId} organisationId={organisationId} />
-        )}
-        {section === "care" && (
-          <CareSupportScreen patientId={userId} organisationId={organisationId} />
-        )}
-        {section === "myActions" && <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />}
-        {section === "healthSummary" && (
-          <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />
-        )}
-        {section === "devices" &&
-          (openDevice ? (
-            <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />
-          ) : (
-            <DevicesScreen
-              patientId={userId}
-              organisationId={organisationId}
-              onOpenDevice={setOpenDevice}
-            />
-          ))}
-        {section === "messages" && <MessagesScreen patientId={userId} />}
-        {section === "supporting" && (
-          <SupportingScreen
-            userId={userId}
-            organisationId={organisationId}
-            acting={acting}
-            onActingChange={refreshActing}
-          />
-        )}
-        {section === "passport" && (
-          <HealthPassportScreen
-            patientId={subjectId}
-            organisationId={organisationId}
-            subjectName={acting?.fullName ?? undefined}
-          />
-        )}
-        {section === "receipts" && <ReceiptsScreen />}
-        {section === "notificationSettings" && (
-          <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
-        )}
-        {section === "technicalSupport" && (
-          <TechnicalSupportScreen patientId={userId} organisationId={organisationId} />
-        )}
-        {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
-        {section === "settings" && (
-          <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
-        )}
-        {section === "womensHealth" && (
-          <WomensHealthScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
-        )}
-        {section === "sexualHealth" && (
-          <SexualHealthScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
-        )}
-        {section === "wellbeing" && (
-          <WellbeingScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
-        )}
-        {section === "healthCheck" && <HealthCheckScreen patientId={userId} onNavigate={handleSelect} />}
-        {section === "findASpecialist" && <FindASpecialistScreen patientId={userId} />}
-        {section === "healthyAgeing" && (
-          <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
-        )}
-        {section === "lifestyle" && <LifestyleScreen patientId={userId} onNavigate={handleSelect} />}
-        {section === "meals" && <MealsScreen patientId={subjectId} />}
-        {section === "sleep" && <SleepScreen patientId={subjectId} />}
-        {section === "activity" && <ActivityScreen patientId={subjectId} />}
-        {section === "smoking" && <SmokingScreen patientId={subjectId} />}
-        {section === "alcohol" && <AlcoholScreen patientId={subjectId} />}
-        {section === "weightManagement" && (
-          <WeightManagementScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
-        )}
-        {section === "learn" && <LearnScreen userId={userId} organisationId={organisationId} />}
-        {section === "wellness" && (
-          <WellnessScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
-        )}
-        {section === "family" && <FamilyScreen userId={userId} onNavigate={handleSelect} />}
-        {section === "screeningDays" && <ScreeningDaysScreen />}
-        {section === "financialProfile" && <FinancialProfileScreen userId={userId} />}
-        {section === "privacy" && <PrivacyScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />}
-        {section === "services" && <ServicesScreen />}
-      </View>
+      <View style={{ flex: 1 }}>{sectionRenderers[section]()}</View>
 
       {/* handleSelect, not setSection: switching tabs must also close the
           drawer and clear any open device detail, same as every other

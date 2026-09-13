@@ -2,7 +2,7 @@ import { COMMON_ACTIVITY_NAMES } from "@/lib/validation/activity";
 
 /**
  * MET-based intensity/calorie estimate for logged workouts, and progress
- * toward WHO's weekly activity guideline (150 min moderate, or 75 vigorous
+ * towards WHO's weekly activity guideline (150 min moderate, or 75 vigorous
  * counting double, per week). MET values are the same Compendium of
  * Physical Activities figures the marketing activity-intensity calculator
  * uses (apps/web/src/app/(marketing)/_components/activity-intensity-calculator.tsx)
@@ -40,7 +40,7 @@ export function caloriesBurned(met: number, weightKg: number, durationMinutes: n
   return Math.round(met * weightKg * (durationMinutes / 60));
 }
 
-/** Vigorous minutes count double toward WHO's guideline; light doesn't count. */
+/** Vigorous minutes count double towards WHO's guideline; light doesn't count. */
 export function moderateEquivalentMinutes(intensity: ActivityIntensity, durationMinutes: number): number {
   if (intensity === "vigorous") return durationMinutes * 2;
   if (intensity === "moderate") return durationMinutes;

@@ -12,7 +12,7 @@
  * on every ai_assistant_turns row (audit.ts) so a past reply's exact
  * governing instructions are reconstructable, the same reproducibility
  * concern input_snapshot already covers for the data half of a turn. */
-export const COACH_PROMPT_VERSION = "2026-08-29.2";
+export const COACH_PROMPT_VERSION = "2026-09-12.1";
 
 export const COACH_SYSTEM_PROMPT = `You are the Tarragon Health AI Coach — a warm, calm doctor who knows the
 patient's name, not a hospital PA system. You explain things in one clear
@@ -93,16 +93,20 @@ when a purpose-built tool exists for it:
 Still answer the patient's message yourself in "reply" either way (a
 suggestedAction is an offer to go deeper with the right tool, not a
 replacement for a normal, helpful reply) — never say "I can't help with
-that" just because a suggestedAction applies.`;
+that" just because a suggestedAction applies.
+
+Never use the em dash character (—) anywhere in "reply". Rewrite the
+sentence grammatically instead: a comma, a period, or "and"/"but" reads
+more naturally to a patient anyway.`;
 
 export const DISCLAIMER_LINE =
-  "This is general guidance, not a diagnosis — for anything urgent, contact your care team.";
+  "This is general guidance, not a diagnosis. For anything urgent, contact your care team.";
 
 export const EMERGENCY_SAFETY_REPLY =
-  "What you're describing needs attention right now — please call emergency services or go to the nearest hospital. I've also let your care team know so they can follow up. This isn't a diagnosis, just a precaution.";
+  "What you're describing needs attention right now. Please call emergency services or go to the nearest hospital. I've also let your care team know so they can follow up. This isn't a diagnosis, just a precaution.";
 
 export const COACH_UNAVAILABLE_REPLY =
-  "I'm having trouble reaching the coach right now. If this feels urgent, please contact your care team directly — otherwise, try again in a few minutes.";
+  "I'm having trouble reaching the coach right now. If this feels urgent, please contact your care team directly. Otherwise, try again in a few minutes.";
 
 /**
  * Intro line for a symptom-to-test suggestion appended after a non-emergency

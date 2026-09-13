@@ -31,7 +31,7 @@ interface FindASpecialistScreenProps {
 
 /**
  * Browse Tarragon's specialist network — mirrors apps/web/.../
- * find-a-specialist/find-a-specialist.tsx: same filters (specialty,
+ * find-a-specialist/find-a-specialist.tsx: same filters (speciality,
  * state/city, telemedicine, max fee, language), same read-only/informational
  * shape (a patient messages their care team to actually arrange a referral,
  * never picks a provider directly here).
@@ -78,7 +78,7 @@ export function FindASpecialistScreen({ patientId }: FindASpecialistScreenProps)
     >
       <View>
         <ScreenTitle>Find a specialist</ScreenTitle>
-        <MutedText>Browse Tarragon&apos;s specialist network by specialty, location, and language.</MutedText>
+        <MutedText>Browse Tarragon&apos;s specialist network by speciality, location, and language.</MutedText>
       </View>
 
       <Card style={{ gap: 10 }}>

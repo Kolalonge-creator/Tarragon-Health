@@ -26,6 +26,8 @@ import {
   type SummaryStats,
   type UpcomingVideoVisit,
 } from "@/lib/overview";
+import { getPendingPaymentIssue, type PendingPaymentIssue } from "@/lib/services";
+import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
 import { todayIsoDate } from "@/lib/medications";
 import { colors, radius, spacing, typeScale } from "@/ui/theme";
 import {
@@ -142,6 +144,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
   const [schedule, setSchedule] = useState<ScheduleItem[]>([]);
   const [activity, setActivity] = useState<RecentActivityItem[]>([]);
   const [videoVisit, setVideoVisit] = useState<UpcomingVideoVisit | null>(null);
+  const [paymentIssue, setPaymentIssue] = useState<PendingPaymentIssue | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   // A failed stats fetch must never render as "Active meds 0" — the screen
@@ -152,12 +155,13 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
   const [partialError, setPartialError] = useState(false);
 
   const load = useCallback(async () => {
-    const [s, ct, sc, act, vv] = await Promise.all([
+    const [s, ct, sc, act, vv, pi] = await Promise.all([
       getSummaryStats(patientId),
       getCareTeam(patientId),
       getCareSchedule(patientId),
       getRecentActivity(patientId),
       getUpcomingVideoVisit(patientId),
+      getPendingPaymentIssue(patientId),
     ]);
     setStats(s.ok ? s.data : null);
     setStatsError(!s.ok);
@@ -165,7 +169,8 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
     if (sc.ok) setSchedule(sc.data);
     if (act.ok) setActivity(act.data);
     if (vv.ok) setVideoVisit(vv.data);
-    setPartialError(!ct.ok || !sc.ok || !act.ok || !vv.ok);
+    if (pi.ok) setPaymentIssue(pi.data);
+    setPartialError(!ct.ok || !sc.ok || !act.ok || !vv.ok || !pi.ok);
   }, [patientId]);
 
   useEffect(() => {
@@ -257,6 +262,13 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
             <MutedText>Some of this page couldn&apos;t load right now. Tap to retry.</MutedText>
           </Card>
         </Pressable>
+      ) : null}
+
+      {/* §91.10 — an unpaid, abandoned checkout is more urgent than a
+          wellness nudge, so it renders above the hero band, same as web's
+          Overview. Renders nothing when there's no payment problem. */}
+      {paymentIssue ? (
+        <PaymentIssueCard issue={paymentIssue} onResolved={() => void load().catch(() => {})} />
       ) : null}
 
       {/* Hero band: the one place the screen answers "how am I doing, and
@@ -397,6 +409,27 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
           <QuickActionButton icon="chatbox-ellipses-outline" label={tr("Messages")} onPress={() => onNavigate("messages")} />
           <QuickActionButton icon="flask-outline" label={tr("Labs & results")} onPress={() => onNavigate("labs")} />
         </QuickActionGrid>
+      </View>
+
+      {/* This is where the paid-per-service doctor-time revenue actually
+          gets bought, and until now the only way in was drilling into "Your
+          account" in the drawer. Mirrors web's ServicesPromoCard on Overview
+          (2026-09-11): placed right after the clinical snapshot rather than
+          above it (brand voice: no upsell-first dashboard). Opens the native
+          "My services" section rather than a WebView, same as any other
+          drawer destination. Not tr()-wrapped, matching the untranslated
+          CalloutCard pair further down this file (Message your care
+          team/Care & support) rather than the newer tr()-wrapped strings
+          above -- this screen's Pidgin coverage is partial today. */}
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Doctor time &amp; services</SectionLabel>
+        <CalloutCard
+          icon="card-outline"
+          title="My services"
+          subtitle="The app is free. You only pay for a doctor's time — one service at a time, nothing auto-renews."
+          ctaLabel="See services"
+          onPress={() => onNavigate("services")}
+        />
       </View>
 
       {schedule.length > 0 ? (

@@ -54,7 +54,7 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithPatient }) {
           value={plan}
           onChange={(e) => setPlan(e.target.value)}
           rows={6}
-          placeholder="A coordinated plan across everything this patient is managing, written for them, not for the chart."
+          placeholder="A coordinated plan across everything this patient is managing, written for them, not for the notes."
         />
         <Button
           size="sm"

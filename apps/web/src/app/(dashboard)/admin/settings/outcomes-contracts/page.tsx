@@ -7,7 +7,7 @@ export default async function OutcomesContractsAdminPage() {
   const profile = await getCurrentProfile();
 
   // proxy.ts already blocks non-admins from reaching any /admin/** route at
-  // the routing layer — this is a defense-in-depth check on top of that,
+  // the routing layer — this is a defence-in-depth check on top of that,
   // matching the other admin/settings pages (e.g. ai-coach/page.tsx).
   if (profile?.role !== "admin") {
     redirect("/admin");

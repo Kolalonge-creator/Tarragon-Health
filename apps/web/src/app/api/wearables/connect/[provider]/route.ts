@@ -50,7 +50,7 @@ function consentFromQuery(url: URL): WearableConsent {
 /**
  * Starts the "Connect a wearable" OAuth handshake — the patient-facing
  * Connect UI (wearable-connect-card.tsx) links straight here. Redirects to
- * the provider's real authorize URL when configured; when not (no real
+ * the provider's real authorise URL when configured; when not (no real
  * developer app registered yet, per CLAUDE.md), redirects back to the
  * dashboard with an error rather than a dead click-through.
  */

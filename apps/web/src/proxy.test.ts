@@ -1,8 +1,8 @@
 /**
- * Proxy authorization-boundary tests.
+ * Proxy authorisation-boundary tests.
  *
  * These cover the two ways this file has been able to hand out an
- * unauthorized response without failing loudly:
+ * unauthorised response without failing loudly:
  *
  *  1. A client-supplied header skipping the proxy entirely via the matcher's
  *     `missing:` clause — which took the MFA step-up gate, the supporter

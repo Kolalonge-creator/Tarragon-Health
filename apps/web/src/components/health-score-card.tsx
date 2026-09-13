@@ -14,8 +14,8 @@ import {
 } from "@/lib/rules/health-score";
 
 import { formatPatientDate } from "@/lib/format-date";
-// Clinical-dashboard status colors (green/amber/red) — a separate system
-// from brand color, per CLAUDE.md. Matches risk-assessment-display.tsx's
+// Clinical-dashboard status colours (green/amber/red) — a separate system
+// from brand colour, per CLAUDE.md. Matches risk-assessment-display.tsx's
 // low/moderate/high convention, extended with very_high.
 const RISK_LEVEL_BADGE: Record<HealthScoreRiskLevel, { variant: "green" | "amber" | "red"; label: string }> = {
   low: { variant: "green", label: "On track" },
