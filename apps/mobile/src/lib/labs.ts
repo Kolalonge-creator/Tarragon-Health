@@ -103,6 +103,11 @@ export async function uploadLabResult(
   /** Omit, or pass OTHER_TEST_TYPE_VALUE, for "not sure" — either way no
    * test_code is sent, same as before this field existed. */
   testCode?: string,
+  /** Files the upload against a specific open request — the per-test
+   * checklist (lab-order-test-checklist.tsx) always passes this; the
+   * freeform "Upload a result" card omits it, same as before this param
+   * existed. */
+  labOrderId?: string,
 ): Promise<UploadLabResultResult> {
   const {
     data: { session },
@@ -122,6 +127,9 @@ export async function uploadLabResult(
   } as unknown as Blob);
   if (testCode && testCode !== OTHER_TEST_TYPE_VALUE) {
     formData.append("test_code", testCode);
+  }
+  if (labOrderId) {
+    formData.append("lab_order_id", labOrderId);
   }
 
   try {
@@ -183,6 +191,47 @@ export async function replaceLabResult(
     const json = (await response.json()) as { success?: boolean; error?: string };
     if (!response.ok) {
       return { success: false, error: json.error ?? `Replace failed (${response.status})` };
+    }
+    return { success: true };
+  } catch {
+    return { success: false, error: NETWORK_ERROR_MESSAGE };
+  }
+}
+
+/**
+ * Native ECG upload — the per-test checklist's counterpart to
+ * EcgReportUpload on web (apps/web/src/components/ecg-report-upload.tsx),
+ * via the bearer-authenticated /api/mobile/ecg-report-upload route
+ * (mirrors uploadEcgReportAsPatient). Never existed on mobile before this —
+ * every prior native upload went through uploadLabResult regardless of
+ * whether the test was actually an ECG.
+ */
+export async function uploadEcgReport(
+  photo: { uri: string; mimeType: string; fileName: string },
+  labOrderId?: string,
+): Promise<UploadLabResultResult> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    return { success: false, error: "Not signed in" };
+  }
+
+  const formData = new FormData();
+  formData.append("file", { uri: photo.uri, type: photo.mimeType, name: photo.fileName } as unknown as Blob);
+  if (labOrderId) {
+    formData.append("lab_order_id", labOrderId);
+  }
+
+  try {
+    const response = await fetchWithTimeoutAndRetry(`${API_BASE_URL}/api/mobile/ecg-report-upload`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${session.access_token}` },
+      body: formData,
+    });
+    const json = (await response.json()) as { success?: boolean; error?: string };
+    if (!response.ok) {
+      return { success: false, error: json.error ?? `Upload failed (${response.status})` };
     }
     return { success: true };
   } catch {

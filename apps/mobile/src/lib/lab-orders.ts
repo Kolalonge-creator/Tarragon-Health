@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { API_BASE_URL } from "./api";
 import type { QueryResult } from "./medications";
 import type { Enums } from "@tarragon/shared";
 
@@ -13,14 +14,35 @@ import type { Enums } from "@tarragon/shared";
  * goes through the same RLS-scoped client every other native screen uses;
  * no service-role access.
  *
- * Deliberately NOT ported:
- *  - Booking a due screening / ordering an ad hoc test (useCreateLabOrder /
- *    LabCatalogue's booking path) — self-arranged order creation is tied to
- *    the screening calendar's due-schedule state (Prevention screen), and
- *    per the founder's 2026-08-03 self-arranged-fulfilment decision there is
- *    no facility directory or booking flow to build a "book this" action
- *    toward. This screen is read/track only, same as the web catalogue's own
- *    "read-only per the clinician-originated-orders guardrail" note.
+ * Corrected 2026-09-14 — three of the four "deliberately not ported" gaps
+ * below are now built (order creation, the printable request, per-test
+ * status + scoped upload including ECG), on explicit founder ask, once
+ * panel_bundles' guidance_only cutover made the old "self-arranged is tied
+ * to a due-screening schedule" framing stale (see
+ * annual-health-check-booking.tsx's own 2026-09-11 rewrite on web). The
+ * fourth (partner-lab visit request / FacilitySelector) is untouched — the
+ * partner-lab network guardrail this file originally cited is unrelated to
+ * guidance_only and still stands.
+ *
+ *  - Booking an ad hoc test from the catalogue: `createLabOrder` below opens
+ *    a self-arranged request exactly like web's useCreateLabOrder (no
+ *    provider, no charge, status='ordered' — private.enforce_lab_order_origin
+ *    enforces this shape server-side regardless of what the client sends).
+ *  - The printable "take to any lab" request:
+ *    `getLabRequestPrintUrl`/`GET /api/mobile/lab-order/[orderId]/request`
+ *    — a bearer-authenticated mirror of the cookie-session web route (same
+ *    generateLabRequestPdf), reached via expo-web-browser so Safari's own
+ *    in-viewer Print/Share/Save handles "print" without a new native
+ *    dependency.
+ *  - Per-test status (done / not yet done / will not be doing) and a result
+ *    upload scoped to one test within a multi-test order:
+ *    `getLabOrderTestStatuses`/`setLabOrderTestStatus` read/write
+ *    lab_order_test_status directly (RLS already scopes it to the order's
+ *    own patient); the upload itself reuses `uploadLabResult`'s existing
+ *    `labOrderId` param (labs.ts) plus the new `uploadEcgReport` for the
+ *    ecg_resting row specifically.
+ *
+ * Still NOT ported, unrelated guardrail, unchanged:
  *  - The partner-lab visit request (RequestPartnerLabVisit) and vaccination
  *    booking-requests list (BookingRequestsList) — both are facility-
  *    selection flows (FacilitySelector) layered on the dormant/near-empty
@@ -31,18 +53,6 @@ import type { Enums } from "@tarragon/shared";
  *    unreviewed AI summary (AiResultSummary) — that starts a Paystack
  *    payment redirect with no native payment flow to hand it to. The status
  *    text itself is shown; the CTA is not.
- *  - Downloading the printable "take to any lab" request PDF
- *    (/api/patient/lab-order/[orderId]/request) — that route is cookie-
- *    session-authenticated (Next.js server client reading the web app's own
- *    cookies), which a bearer-authenticated native client has no access to
- *    (see webview-screen.tsx's "separate cookie jar" note). The same
- *    information the PDF prints (panel name, prep instructions, order
- *    number) is already shown inline on each order card here instead.
- *  - Per-order "Upload your result" / ECG uploader (PatientResultUpload /
- *    EcgReportUpload) — the task brief is explicit the existing native
- *    camera-capture upload in labs-screen.tsx is not to be touched or
- *    duplicated. Each awaiting-result order instead points back to that
- *    existing "Upload a result" card.
  */
 
 export type LabOrderStatus = Enums<"lab_order_status">;
@@ -61,6 +71,8 @@ export interface LabOrderItem {
    * used only to add an informational note here (see the module comment on
    * why the ECG-specific uploader itself isn't duplicated). */
   includesEcg: boolean;
+  /** Raw codes, for the per-test checklist (isMultiTest = length > 1). */
+  testCodes: string[];
   preparationInstructions: string | null;
   clinicalIndication: string | null;
   /** Null-gated "ordered by" attribution — only a clinician-generated order
@@ -71,20 +83,14 @@ export interface LabOrderItem {
 const LAB_ORDER_SELECT =
   "id, order_number, status, urgency, ordered_at, clinical_indication, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name)";
 
-const AWAITING_RESULT_STATUSES: LabOrderStatus[] = [
-  "payment_confirmed",
-  "ordered",
-  "processing",
-];
+const AWAITING_RESULT_STATUSES: LabOrderStatus[] = ["payment_confirmed", "ordered", "processing"];
 
 export function isAwaitingResult(status: LabOrderStatus): boolean {
   return AWAITING_RESULT_STATUSES.includes(status);
 }
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
-export async function getLabOrders(
-  patientId: string,
-): Promise<QueryResult<LabOrderItem[]>> {
+export async function getLabOrders(patientId: string): Promise<QueryResult<LabOrderItem[]>> {
   try {
     const { data, error } = await supabase
       .from("lab_orders")
@@ -102,10 +108,9 @@ export async function getLabOrders(
         orderedAt: row.ordered_at,
         panelBundleName: row.panel_bundle?.name ?? "Lab test",
         testCount: row.panel_bundle?.test_codes?.length ?? 0,
-        includesEcg:
-          row.panel_bundle?.test_codes?.includes("ecg_resting") ?? false,
-        preparationInstructions:
-          row.panel_bundle?.preparation_instructions ?? null,
+        includesEcg: row.panel_bundle?.test_codes?.includes("ecg_resting") ?? false,
+        testCodes: row.panel_bundle?.test_codes ?? [],
+        preparationInstructions: row.panel_bundle?.preparation_instructions ?? null,
         clinicalIndication: row.clinical_indication,
         orderedByName: row.ordered_by_staff?.full_name ?? null,
       })),
@@ -131,7 +136,7 @@ interface StoredInterpretation {
 
 /** Patient's own ML/clinician result verdicts — mirrors lab-results.tsx. */
 export async function getLabResultInterpretations(
-  patientId: string,
+  patientId: string
 ): Promise<QueryResult<LabResultInterpretationItem[]>> {
   try {
     const { data, error } = await supabase
@@ -143,8 +148,7 @@ export async function getLabResultInterpretations(
     return {
       ok: true,
       data: (data ?? []).map((row) => {
-        const interpretation = (row.interpretation ??
-          {}) as StoredInterpretation;
+        const interpretation = (row.interpretation ?? {}) as StoredInterpretation;
         return {
           id: row.id,
           createdAt: row.created_at,
@@ -198,14 +202,12 @@ export interface ResultDocumentItem {
  * one — that interpretation and any next steps. Mirrors result-documents.tsx
  * minus the paid "discuss this" consult CTA (see the module comment).
  */
-export async function getResultDocuments(
-  patientId: string,
-): Promise<QueryResult<ResultDocumentItem[]>> {
+export async function getResultDocuments(patientId: string): Promise<QueryResult<ResultDocumentItem[]>> {
   try {
     const { data: rows, error } = await supabase
       .from("lab_result_documents")
       .select(
-        "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status",
+        "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status"
       )
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
@@ -216,11 +218,7 @@ export async function getResultDocuments(
     // null-gated attribution as ReviewedResultLine on web, but reviewed_by
     // on this table references profiles.id, so the lookup joins through
     // clinical_staff.profile_id.
-    const reviewerIds = [
-      ...new Set(
-        rows.map((r) => r.reviewed_by).filter((id): id is string => !!id),
-      ),
-    ];
+    const reviewerIds = [...new Set(rows.map((r) => r.reviewed_by).filter((id): id is string => !!id))];
     const reviewerNameByProfileId = new Map<string, string>();
     if (reviewerIds.length > 0) {
       const { data: staff } = await supabase
@@ -229,8 +227,7 @@ export async function getResultDocuments(
         .in("profile_id", reviewerIds)
         .eq("active", true);
       for (const s of staff ?? []) {
-        if (s.profile_id)
-          reviewerNameByProfileId.set(s.profile_id, s.full_name);
+        if (s.profile_id) reviewerNameByProfileId.set(s.profile_id, s.full_name);
       }
     }
 
@@ -253,15 +250,13 @@ export async function getResultDocuments(
           isPdf: row.mime_type === "application/pdf",
           signedUrl,
           reviewedAt: row.reviewed_at,
-          reviewedByName: row.reviewed_by
-            ? (reviewerNameByProfileId.get(row.reviewed_by) ?? null)
-            : null,
+          reviewedByName: row.reviewed_by ? reviewerNameByProfileId.get(row.reviewed_by) ?? null : null,
           patientInterpretation: row.patient_interpretation,
           nextSteps: row.next_steps,
           interpretationSentAt: row.interpretation_sent_at,
           aiSummaryStatus: row.ai_summary_status,
         };
-      }),
+      })
     );
     return { ok: true, data: items };
   } catch (e) {
@@ -305,9 +300,7 @@ export interface AnalyteTrendItem {
  * task brief (an older checkout of that file), so the query lives here
  * instead of being imported from there.
  */
-export async function getAnalyteTrends(
-  patientId: string,
-): Promise<QueryResult<AnalyteTrendItem[]>> {
+export async function getAnalyteTrends(patientId: string): Promise<QueryResult<AnalyteTrendItem[]>> {
   try {
     const { data, error } = await supabase
       .from("lab_analyte_readings")
@@ -317,10 +310,7 @@ export async function getAnalyteTrends(
       .limit(200);
     if (error) return { ok: false, error: error.message };
 
-    const byCode = new Map<
-      string,
-      { code: string; value: number; unit: string | null; taken_at: string }[]
-    >();
+    const byCode = new Map<string, { code: string; value: number; unit: string | null; taken_at: string }[]>();
     for (const row of data ?? []) {
       // A qualitative/text-only result (value_text, no numeric value) has
       // nothing to trend or delta against — skip it rather than let a null
@@ -353,6 +343,11 @@ export interface LabCatalogueItem {
   preparationInstructions: string | null;
   testCodes: string[];
   testCount: number;
+  /** Gates the "Get & print" action — mirrors annual-health-check-
+   * booking.tsx's selfBookable filter. A bundle with this false is still
+   * browsable here, just not directly orderable (it's a component of a
+   * bigger panel, e.g. single_hba1c). */
+  selfBookable: boolean;
 }
 
 /**
@@ -362,13 +357,11 @@ export interface LabCatalogueItem {
  * to a bundle nobody can act on from here would misleadingly imply this view
  * can charge the patient.
  */
-export async function getLabCatalogue(): Promise<
-  QueryResult<LabCatalogueItem[]>
-> {
+export async function getLabCatalogue(): Promise<QueryResult<LabCatalogueItem[]>> {
   try {
     const { data, error } = await supabase
       .from("panel_bundles")
-      .select("id, name, description, preparation_instructions, test_codes")
+      .select("id, name, description, preparation_instructions, test_codes, self_bookable")
       .eq("is_active", true)
       .order("name", { ascending: true });
     if (error) return { ok: false, error: error.message };
@@ -381,8 +374,113 @@ export async function getLabCatalogue(): Promise<
         preparationInstructions: row.preparation_instructions,
         testCodes: row.test_codes ?? [],
         testCount: row.test_codes?.length ?? 0,
+        selfBookable: row.self_bookable,
       })),
     };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Opens a self-arranged request for one catalogue bundle — the native
+ * counterpart to apps/web/src/lib/queries/lab-orders.ts's useCreateLabOrder.
+ * No provider, no facility, no charge, opens at 'ordered' rather than
+ * 'pending_payment': private.enforce_lab_order_origin rejects anything else
+ * being set, so this shape is enforced server-side too, not just here.
+ */
+export async function createLabOrder(
+  organisationId: string,
+  patientId: string,
+  panelBundleId: string
+): Promise<QueryResult<{ id: string }>> {
+  try {
+    const { data, error } = await supabase
+      .from("lab_orders")
+      .insert({
+        organisation_id: organisationId,
+        patient_id: patientId,
+        panel_bundle_id: panelBundleId,
+        total_kobo: 0,
+        status: "ordered",
+      })
+      .select("id")
+      .single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: { id: data.id } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * The printable "take to any lab" request PDF, opened via expo-web-browser
+ * rather than fetched — this is a plain https URL (with the caller's own
+ * short-lived Supabase access token as a query param, since a browser view
+ * can't be given a custom Authorization header) so Safari's own in-viewer
+ * Print/Share/Save-to-Files toolbar handles everything past "here it is",
+ * no expo-print/expo-sharing dependency needed. Mirrors
+ * /api/mobile/lab-order/[orderId]/request's dual header-or-query-token
+ * acceptance on the web side.
+ */
+export async function getLabRequestPrintUrl(orderId: string): Promise<QueryResult<string>> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) return { ok: false, error: "Not signed in" };
+  const url = `${API_BASE_URL}/api/mobile/lab-order/${orderId}/request?token=${encodeURIComponent(session.access_token)}`;
+  return { ok: true, data: url };
+}
+
+export type LabOrderTestStatusValue = "not_yet_done" | "done" | "will_not_do";
+
+export interface LabOrderTestStatusItem {
+  testCode: string;
+  status: LabOrderTestStatusValue;
+}
+
+/**
+ * Per-test progress within one order — the native counterpart to
+ * apps/web/src/lib/queries/lab-orders.ts's useLabOrderTestStatuses. A plain
+ * RLS-scoped read: lab_order_test_status_select already admits the order's
+ * own patient. A test_code with no row is implicitly "not_yet_done", so an
+ * empty result here is a normal, unstarted order, not an error.
+ */
+export async function getLabOrderTestStatuses(
+  labOrderId: string
+): Promise<QueryResult<LabOrderTestStatusItem[]>> {
+  try {
+    const { data, error } = await supabase
+      .from("lab_order_test_status")
+      .select("test_code, status")
+      .eq("lab_order_id", labOrderId);
+    if (error) return { ok: false, error: error.message };
+    return {
+      ok: true,
+      data: (data ?? []).map((row) => ({
+        testCode: row.test_code,
+        status: row.status as LabOrderTestStatusValue,
+      })),
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Marks one test within an order done / not yet done / will not be doing —
+ * native counterpart to useSetLabOrderTestStatus. organisation_id is filled
+ * in by the table's own trigger from the parent order, never sent here. */
+export async function setLabOrderTestStatus(
+  labOrderId: string,
+  testCode: string,
+  status: LabOrderTestStatusValue
+): Promise<QueryResult<null>> {
+  try {
+    const { error } = await supabase
+      .from("lab_order_test_status")
+      .upsert({ lab_order_id: labOrderId, test_code: testCode, status }, { onConflict: "lab_order_id,test_code" });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: null };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
