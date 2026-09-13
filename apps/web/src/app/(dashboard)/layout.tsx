@@ -10,6 +10,7 @@ import { cookies } from "next/headers";
 import { THEME_COOKIE, parseThemePreference } from "@/lib/theme";
 import { Providers } from "./providers";
 import { signOut } from "../auth/actions";
+import { updateUiLanguage } from "./patient/ui-language-actions";
 
 export default async function DashboardLayout({
   children,
@@ -109,6 +110,7 @@ export default async function DashboardLayout({
         // they work in has no Pidgin register, and a half-translated clinical
         // console is a safety problem rather than an accessibility win.
         uiLanguage={profile?.role === "patient" ? asUiLanguage(profile?.language) : "en"}
+        uiLanguageAction={profile?.role === "patient" ? updateUiLanguage : undefined}
         initialTheme={theme}
         signOutAction={signOut}
       >

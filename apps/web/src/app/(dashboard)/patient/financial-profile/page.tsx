@@ -114,6 +114,7 @@ export default async function FinancialProfilePage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Your finances"
         icon={NAV_ICON.finance}
         description="Your services, vouchers, transactions, and anything still being refunded, all in one place."

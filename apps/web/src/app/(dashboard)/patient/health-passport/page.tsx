@@ -81,6 +81,7 @@ export default async function HealthPassportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Your Health Passport"
         icon={NAV_ICON.passport}
         description={`A summary of your health record for ${periodLabel}, for your own records or to share with another doctor. Not a substitute for your full medical record.`}

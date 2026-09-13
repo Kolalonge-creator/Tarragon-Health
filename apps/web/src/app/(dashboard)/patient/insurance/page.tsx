@@ -23,6 +23,7 @@ export default async function PatientInsurancePage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Your insurance"
         icon={NAV_ICON.insurance}
         description="The policy on file for you, what it covers, and the status of any pre-authorisation requests or claims your care team has submitted on your behalf."

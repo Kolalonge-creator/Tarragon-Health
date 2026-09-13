@@ -3,6 +3,7 @@ import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { WellbeingTiles } from "@/app/(dashboard)/patient/wellbeing-tiles";
+import { WellbeingTrendChart } from "@/app/(dashboard)/patient/wellbeing-trend-chart";
 import { WellbeingCheckinForm } from "@/app/(dashboard)/patient/wellbeing-checkin-form";
 import { MentalHealthSummary } from "@/components/mental-health-summary";
 import { MentalHealthScreenForm } from "@/app/(dashboard)/patient/mental-health-form";
@@ -26,6 +27,7 @@ export default async function PatientWellbeingPage() {
       icon={SEMANTIC_ICON.mood}
     >
       <WellbeingTiles patientId={subjectId} />
+      <WellbeingTrendChart patientId={subjectId} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <WellbeingCheckinForm patientId={subjectId} />

@@ -7,10 +7,12 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { RESULT_DOC_BUCKET } from "@/lib/lab-results/documents";
 import { runLabReportExtraction } from "@/lib/lab-reports/extraction-actions";
+import { testCodeLabel } from "@/lib/labs/test-code-labels";
 import {
   labPartnerResultUploadSchema,
   markResultReviewedSchema,
   patientResultUploadSchema,
+  replaceResultDocumentSchema,
   staffResultUploadSchema,
   validateResultDocFile,
 } from "@/lib/validation/lab-result-documents";
@@ -163,7 +165,7 @@ export async function uploadResultDocumentForPatient(
       p_uploaded_by: user.id,
       p_note: (note ?? null) as unknown as string,
       p_actor_id: user.id,
-    }
+    },
   );
   const inserted = insertedId ? { id: insertedId } : null;
   if (insertError || !inserted) {
@@ -238,11 +240,12 @@ export async function uploadResultDocumentAsPatient(
   const parsed = patientResultUploadSchema.safeParse({
     lab_order_id: formData.get("lab_order_id") || undefined,
     note: formData.get("note") || undefined,
+    test_code: formData.get("test_code") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { lab_order_id: labOrderId, note } = parsed.data;
+  const { lab_order_id: labOrderId, note, test_code: testCode } = parsed.data;
 
   const supabase = await createClient();
 
@@ -255,7 +258,10 @@ export async function uploadResultDocumentAsPatient(
     .eq("id", user.id)
     .single();
   if (!me?.organisation_id) {
-    return { error: "Your account isn't set up for uploads yet. Message your care team." };
+    return {
+      error:
+        "Your account isn't set up for uploads yet. Message your care team.",
+    };
   }
 
   // If an order is named, confirm it is genuinely theirs. RLS would already
@@ -279,7 +285,10 @@ export async function uploadResultDocumentAsPatient(
   let claimedRequestId: string | null = null;
   const { data: claimed, error: claimError } = await supabase.rpc(
     "claim_lab_result_consult_credit",
-    { p_patient_id: user.id, p_lab_order_id: (labOrderId ?? null) as unknown as string },
+    {
+      p_patient_id: user.id,
+      p_lab_order_id: (labOrderId ?? null) as unknown as string,
+    },
   );
   if (claimError) {
     if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
@@ -327,6 +336,7 @@ export async function uploadResultDocumentAsPatient(
       source: "patient",
       uploaded_by: user.id,
       note: note ?? null,
+      test_code: testCode ?? null,
     })
     .select("id")
     .single();
@@ -361,6 +371,115 @@ export async function uploadResultDocumentAsPatient(
   await runLabReportExtraction(createServiceRoleClient(), {
     documentId: inserted.id,
     organisationId: me.organisation_id,
+    patientId: user.id,
+    filePath: path,
+    mimeType: file.type,
+    // The patient's own test-type pick, same advisory hint
+    // extractLabReportAction already gives the model from an ordered panel's
+    // name — never a constraint, just a steer (see extract.ts's prompt).
+    contextHint: testCode ? testCodeLabel(testCode) : null,
+  });
+
+  revalidatePath("/patient");
+  revalidatePath("/patient/prevention");
+  return { success: true };
+}
+
+/**
+ * A patient replaces a result document they uploaded themselves — "I
+ * attached the wrong file." Updates the SAME row in place (never a
+ * delete+reinsert): the insert trigger's clinician_alerts row stays pointed
+ * at something real, rather than orphaning. DB-enforced, not just an app
+ * check — 20260912220345_lab_result_documents_patient_self_replace.sql
+ * gives the patient a narrow UPDATE policy (their own row, source =
+ * 'patient', reviewed_at is null) and teaches the immutability trigger to
+ * let file_path move under exactly that condition; everything below is
+ * defence in depth plus the parts the DB can't do (storage, re-extraction).
+ *
+ * Once reviewed, a doctor has already acted on the original file — the DB
+ * itself refuses the update at that point, so this returns early with a
+ * clear message instead of letting a silent no-op reach storage.
+ */
+export async function replaceResultDocumentAsPatient(
+  formData: FormData,
+): Promise<ResultUploadResult> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Not signed in" };
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Attach the corrected file (PDF or photo)." };
+  }
+  const fileError = validateResultDocFile(file);
+  if (fileError) return { error: fileError };
+
+  const parsed = replaceResultDocumentSchema.safeParse({
+    document_id: formData.get("document_id"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+  const { document_id: documentId, note } = parsed.data;
+
+  const supabase = await createClient();
+
+  // Re-checked here (not just left to RLS) so the error message is useful
+  // rather than a generic "0 rows updated".
+  const { data: doc } = await supabase
+    .from("lab_result_documents")
+    .select("id, patient_id, organisation_id, source, reviewed_at, file_path")
+    .eq("id", documentId)
+    .maybeSingle();
+  if (!doc || doc.patient_id !== user.id || doc.source !== "patient") {
+    return { error: "That upload isn't yours to replace." };
+  }
+  if (doc.reviewed_at) {
+    return { error: "Your care team has already reviewed this one — message them instead." };
+  }
+
+  const oldPath = doc.file_path;
+  const ext = EXT_BY_MIME[file.type] ?? "bin";
+  const path = `${user.id}/${randomUUID()}.${ext}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(RESULT_DOC_BUCKET)
+    .upload(path, file, { contentType: file.type, upsert: false });
+  if (uploadError) return { error: uploadError.message };
+
+  const { error: updateError } = await supabase
+    .from("lab_result_documents")
+    .update({
+      file_path: path,
+      original_filename: file.name,
+      mime_type: file.type,
+      file_size_bytes: file.size,
+      // Omitted (rather than set to null) when the patient didn't type a new
+      // one — a partial update, so the existing note survives untouched.
+      ...(note ? { note } : {}),
+      ai_summary_status: "pending",
+      ai_summary_generated_at: null,
+    })
+    .eq("id", documentId);
+  if (updateError) {
+    // The DB-enforced gate (RLS + the immutability trigger) is what actually
+    // rejects a reviewed/foreign/non-patient-source row — the checks above are
+    // just for a clearer message. Roll back the newly-uploaded object either way.
+    await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
+    return { error: updateError.message };
+  }
+
+  // The old file is no longer referenced by any row — remove it. Best-effort:
+  // the replacement has already succeeded, so a cleanup failure here is a
+  // storage-hygiene issue, not a reason to tell the patient anything failed.
+  await supabase.storage.from(RESULT_DOC_BUCKET).remove([oldPath]);
+
+  // Re-read the new file into structured values, same as a fresh upload —
+  // upserts onto the same document_id, so the old extraction is replaced
+  // rather than left stale.
+  await runLabReportExtraction(createServiceRoleClient(), {
+    documentId,
+    organisationId: doc.organisation_id,
     patientId: user.id,
     filePath: path,
     mimeType: file.type,
@@ -401,7 +520,12 @@ export async function markResultDocumentReviewed(input: {
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { document_id: documentId, interpretation, next_steps: nextSteps, note } = parsed.data;
+  const {
+    document_id: documentId,
+    interpretation,
+    next_steps: nextSteps,
+    note,
+  } = parsed.data;
 
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
@@ -414,7 +538,9 @@ export async function markResultDocumentReviewed(input: {
     .eq("active", true)
     .maybeSingle();
   if (!staff) {
-    return { error: "Only a Tarragon care-team doctor can mark a result reviewed." };
+    return {
+      error: "Only a Tarragon care-team doctor can mark a result reviewed.",
+    };
   }
 
   const { data: doc, error: docError } = await supabase
@@ -423,7 +549,8 @@ export async function markResultDocumentReviewed(input: {
     .eq("id", documentId)
     .maybeSingle();
   if (docError || !doc) return { error: "Document not found." };
-  if (doc.reviewed_at) return { error: "This result was already marked reviewed." };
+  if (doc.reviewed_at)
+    return { error: "This result was already marked reviewed." };
 
   const now = new Date().toISOString();
   const { error: updateError } = await supabase
@@ -522,14 +649,17 @@ export async function uploadResultAsLabPartner(
   // Re-verifies ownership independently (defence in depth) and derives
   // patient_id/organisation_id itself from the order row — never trusts the
   // lookup above for the write. Also advances the order to 'resulted'.
-  const { error: insertError } = await supabase.rpc("lab_partner_upload_result", {
-    p_order_id: orderId,
-    p_file_path: path,
-    p_original_filename: file.name,
-    p_mime_type: file.type,
-    p_file_size_bytes: file.size,
-    p_note: (note ?? null) as unknown as string,
-  });
+  const { error: insertError } = await supabase.rpc(
+    "lab_partner_upload_result",
+    {
+      p_order_id: orderId,
+      p_file_path: path,
+      p_original_filename: file.name,
+      p_mime_type: file.type,
+      p_file_size_bytes: file.size,
+      p_note: (note ?? null) as unknown as string,
+    },
+  );
   if (insertError) {
     await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
     return { error: insertError.message };

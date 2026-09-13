@@ -58,6 +58,7 @@ export default async function WeightManagementPage() {
   return (
     <div className="mx-auto max-w-3xl space-y-6 py-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title={`${label} management`}
         icon={SEMANTIC_ICON.weight}
         description="Your assessment, your programme, your trackers, and what your care team is doing for you, all in one place."

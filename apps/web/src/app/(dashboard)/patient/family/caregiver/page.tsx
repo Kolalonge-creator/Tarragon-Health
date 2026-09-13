@@ -18,6 +18,7 @@ export default async function CaregiverRequestPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient/family", label: "Your people" }}
         title="Manage care together"
         icon={SEMANTIC_ICON.family}
         description="Set up someone to manage bookings and records on your behalf, or offer to do the same for someone else."

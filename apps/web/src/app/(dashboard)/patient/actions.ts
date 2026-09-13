@@ -24,6 +24,11 @@ import {
   type PaediatricDangerSign,
 } from "@/lib/validation/pediatric-emergency";
 import {
+  symptomCheckerDangerReportSchema,
+  symptomCheckerDangerSignsSummary,
+  type SymptomCheckerDangerSign,
+} from "@/lib/validation/symptom-checker-danger";
+import {
   hospitalAdmissionSchema,
   hospitalAdmissionUpdateSchema,
 } from "@/lib/validation/hospital-admissions";
@@ -41,6 +46,10 @@ import { computePreventionRiskScores } from "@/lib/rules/compute-risk-scores";
 import type { ComputedRiskScore, PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
 import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
 import { computeCareProgrammeRecommendations } from "@/lib/rules/care-programme-recommendations";
+import {
+  computePreventiveProgrammeRecommendations,
+  toRiskTier,
+} from "@/lib/rules/preventive-programme-recommendations";
 import { ageFromDateOfBirth, mgDlToMmolL, type Json } from "@tarragon/shared";
 
 export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
@@ -528,6 +537,54 @@ export async function submitRiskAssessment(
     return { error: scoresError.message };
   }
 
+  // Auto-enrol into any preventive programme these fresh tiers newly
+  // recommend (source='recommended'). The demographic-only baseline
+  // (annual_health_check + age/sex tracks) is already auto-enrolled at
+  // onboarding by the auto_enrol_preventive_programmes DB trigger;
+  // cardiometabolic_prevention depends on the risk tiers just computed
+  // above, so it's handled here instead, the moment they're known. Never
+  // re-enrols a programme the patient has ever withdrawn from — checks for
+  // ANY prior enrolment row, not just a currently-active one
+  // (preventive_enrolments_one_active is a partial unique index and would
+  // happily accept a second 'enrolled' row after a withdrawal). Best-effort:
+  // never blocks the assessment itself from succeeding.
+  try {
+    const programmeRecs = computePreventiveProgrammeRecommendations(
+      scores.map((score) => ({ condition: score.condition, tier: toRiskTier(score.tier) })),
+      { sex: profile.sex, ageYears }
+    );
+    if (programmeRecs.length > 0) {
+      const enrolClient = createServiceRoleClient();
+      const [{ data: candidateProgrammes }, { data: existingEnrolments }] = await Promise.all([
+        enrolClient
+          .from("preventive_programmes")
+          .select("id, code")
+          .in(
+            "code",
+            programmeRecs.map((rec) => rec.code)
+          )
+          .eq("is_active", true),
+        enrolClient.from("preventive_programme_enrolments").select("programme_id").eq("patient_id", subjectId),
+      ]);
+      const hasAnyRecord = new Set((existingEnrolments ?? []).map((row) => row.programme_id));
+      const toEnrol = (candidateProgrammes ?? []).filter((programme) => !hasAnyRecord.has(programme.id));
+      if (toEnrol.length > 0) {
+        await enrolClient.from("preventive_programme_enrolments").insert(
+          toEnrol.map((programme) => ({
+            organisation_id: organisationId,
+            patient_id: subjectId,
+            programme_id: programme.id,
+            status: "enrolled" as const,
+            source: "recommended" as const,
+          }))
+        );
+      }
+    }
+  } catch {
+    // Best-effort — the patient can still enrol manually from the
+    // Prevention tab if this silently fails.
+  }
+
   const { data: screenTypes } = await supabase
     .from("screen_types")
     .select("id, code, sex_applicability, age_from, age_to, frequency_months")
@@ -904,6 +961,64 @@ export async function reportPaediatricDangerSymptoms(
       organisation_id: profile.organisation_id,
       source: "danger_symptom_checklist",
       trigger_detail: paediatricDangerSignsSummary(parsed.data.signs as PaediatricDangerSign[]),
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true, eventId: data.id };
+}
+
+/**
+ * Escalates a danger-symptom selection from the dashboard Symptom-to-Test
+ * checker (symptom-to-test-check.tsx) the same way reportDangerSymptoms
+ * does: a real emergency_events row, so private.handle_emergency_event
+ * raises the Priority-1 clinician_alerts row (on plans with
+ * vitals_red_flag_doctor_escalation) or the free-tier self-care suggestion,
+ * and the site-wide EmergencyAlert dialog picks it up. Closes a gap where
+ * that checker's own danger flag only ever rendered a static "see a doctor"
+ * card, with no clinician_alerts row, no emergency_events row, and no audit
+ * trail anywhere.
+ */
+export async function reportSymptomCheckerDangerFlag(
+  _prevState: ReportDangerState,
+  formData: FormData
+): Promise<ReportDangerState> {
+  const parsed = symptomCheckerDangerReportSchema.safeParse({
+    signs: formData.getAll("signs"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Select at least one sign" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const subjectId = await resolveSubjectId(user.id);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", subjectId)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "No organisation on file" };
+  }
+
+  const { data, error } = await supabase
+    .from("emergency_events")
+    .insert({
+      patient_id: subjectId,
+      organisation_id: profile.organisation_id,
+      source: "symptom_to_test_checker",
+      trigger_detail: symptomCheckerDangerSignsSummary(parsed.data.signs as SymptomCheckerDangerSign[]),
       status: "active",
     })
     .select("id")

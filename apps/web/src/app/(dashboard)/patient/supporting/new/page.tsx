@@ -39,6 +39,7 @@ export default async function BuyCareForSomeonePage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient/supporting", label: "People you support" }}
         title="Buy care for someone"
         icon={NAV_ICON.healthyAgeing}
         description="Pick someone you already support, or set up a record for a relative who isn't on Tarragon yet, then pay for a doctor's time or Continuous Monitoring on their behalf, in naira, via Paystack."

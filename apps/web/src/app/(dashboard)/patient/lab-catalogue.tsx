@@ -1,9 +1,11 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { testCodeLabels } from "@/lib/labs/test-code-labels";
 import { testPreparationForCodes } from "@/lib/labs/test-preparation";
+import { groupBundlesByCategory } from "@/lib/labs/lab-catalogue-categories";
 
 /**
  * Read-only per the clinician-originated-orders guardrail (see
@@ -38,31 +40,56 @@ export function LabCatalogue() {
         )}
         {bundles && bundles.length > 0 && (
           <>
-            <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-              {bundles.map((bundle) => {
-                const preparation = testPreparationForCodes(bundle.test_codes);
-                return (
-                  <li key={bundle.id} className="py-3">
-                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{bundle.name}</p>
-                    {bundle.description && (
-                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{bundle.description}</p>
-                    )}
-                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-                      Includes: {testCodeLabels(bundle.test_codes).join(", ")}
-                    </p>
-                    {preparation.length > 0 && (
-                      <ul className="mt-1.5 space-y-0.5">
-                        {preparation.map((prep) => (
-                          <li key={prep.specimenType + prep.instructions} className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
-                            <span className="font-medium">{prep.specimenType}.</span> {prep.instructions}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+            <div className="space-y-5">
+              {groupBundlesByCategory(bundles).map(({ category, bundles: groupBundles }) => (
+                <div key={category.key} className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/50">
+                    {category.label}
+                  </h3>
+                  <div className="space-y-2">
+                    {groupBundles.map((bundle) => {
+                      const preparation = testPreparationForCodes(bundle.test_codes);
+                      return (
+                        <details
+                          key={bundle.id}
+                          className="group rounded-lg border border-charcoal-ink/10 bg-white px-4 py-3 dark:border-night-ink/15 dark:bg-charcoal-ink"
+                        >
+                          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 marker:hidden">
+                            <div>
+                              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{bundle.name}</p>
+                              {bundle.description && (
+                                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{bundle.description}</p>
+                              )}
+                            </div>
+                            <ChevronDown
+                              className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/40 transition-transform group-open:rotate-180 dark:text-night-ink/40"
+                              aria-hidden="true"
+                            />
+                          </summary>
+                          <div className="mt-3 space-y-2 border-t border-charcoal-ink/10 pt-3 dark:border-night-ink/15">
+                            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                              Includes: {testCodeLabels(bundle.test_codes).join(", ")}
+                            </p>
+                            {preparation.length > 0 && (
+                              <ul className="space-y-0.5">
+                                {preparation.map((prep) => (
+                                  <li
+                                    key={prep.specimenType + prep.instructions}
+                                    className="text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+                                  >
+                                    <span className="font-medium">{prep.specimenType}.</span> {prep.instructions}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
             <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Due screenings can be booked directly from your screening calendar below. For
               anything else here, message your care team in the app and they&apos;ll write you a

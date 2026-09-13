@@ -51,7 +51,8 @@ export async function PaymentFailureBanner({ patientId }: { patientId: string })
         <NAV_ICON.warning className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-300" aria-hidden />
         <div>
           <p className="font-medium text-charcoal-ink dark:text-night-ink">
-            You started buying {purchase.service_product.name ?? "a service"} but didn&apos;t finish
+            You started buying {purchase.service_product.name ?? "a service"}
+            {" "}but didn&apos;t finish
           </p>
           <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
             {koboToNaira(purchase.payable_kobo ?? 0).toLocaleString()} {purchase.currency} is still
@@ -59,7 +60,7 @@ export async function PaymentFailureBanner({ patientId }: { patientId: string })
           </p>
         </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <RetryPaymentButton serviceProductCode={purchase.service_product.code} />
         <EscalatePaymentIssueButton servicePurchaseId={purchase.id} />
         <DismissPendingPurchaseButton servicePurchaseId={purchase.id} />

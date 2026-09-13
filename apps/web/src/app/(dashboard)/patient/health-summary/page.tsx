@@ -44,6 +44,7 @@ export default async function HealthSummaryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Your health summary"
         icon={SEMANTIC_ICON.carePlan}
         description="Everything about your care in one place: conditions, medicines, allergies, recent readings, investigations, care programmes, appointments, referrals, and what's still outstanding."

@@ -19,7 +19,7 @@ import type { Enums } from "@tarragon/shared";
  *    the screening calendar's due-schedule state (Prevention screen), and
  *    per the founder's 2026-08-03 self-arranged-fulfilment decision there is
  *    no facility directory or booking flow to build a "book this" action
- *    towards. This screen is read/track only, same as the web catalogue's own
+ *    toward. This screen is read/track only, same as the web catalogue's own
  *    "read-only per the clinician-originated-orders guardrail" note.
  *  - The partner-lab visit request (RequestPartnerLabVisit) and vaccination
  *    booking-requests list (BookingRequestsList) — both are facility-
@@ -71,14 +71,20 @@ export interface LabOrderItem {
 const LAB_ORDER_SELECT =
   "id, order_number, status, urgency, ordered_at, clinical_indication, panel_bundle:panel_bundles!lab_orders_panel_bundle_id_fkey(name, test_codes, preparation_instructions), ordered_by_staff:clinical_staff!lab_orders_ordered_by_fkey(full_name)";
 
-const AWAITING_RESULT_STATUSES: LabOrderStatus[] = ["payment_confirmed", "ordered", "processing"];
+const AWAITING_RESULT_STATUSES: LabOrderStatus[] = [
+  "payment_confirmed",
+  "ordered",
+  "processing",
+];
 
 export function isAwaitingResult(status: LabOrderStatus): boolean {
   return AWAITING_RESULT_STATUSES.includes(status);
 }
 
 /** Patient's own lab_orders, newest first. RLS (patient_id = auth.uid()) does the scoping. */
-export async function getLabOrders(patientId: string): Promise<QueryResult<LabOrderItem[]>> {
+export async function getLabOrders(
+  patientId: string,
+): Promise<QueryResult<LabOrderItem[]>> {
   try {
     const { data, error } = await supabase
       .from("lab_orders")
@@ -96,8 +102,10 @@ export async function getLabOrders(patientId: string): Promise<QueryResult<LabOr
         orderedAt: row.ordered_at,
         panelBundleName: row.panel_bundle?.name ?? "Lab test",
         testCount: row.panel_bundle?.test_codes?.length ?? 0,
-        includesEcg: row.panel_bundle?.test_codes?.includes("ecg_resting") ?? false,
-        preparationInstructions: row.panel_bundle?.preparation_instructions ?? null,
+        includesEcg:
+          row.panel_bundle?.test_codes?.includes("ecg_resting") ?? false,
+        preparationInstructions:
+          row.panel_bundle?.preparation_instructions ?? null,
         clinicalIndication: row.clinical_indication,
         orderedByName: row.ordered_by_staff?.full_name ?? null,
       })),
@@ -123,7 +131,7 @@ interface StoredInterpretation {
 
 /** Patient's own ML/clinician result verdicts — mirrors lab-results.tsx. */
 export async function getLabResultInterpretations(
-  patientId: string
+  patientId: string,
 ): Promise<QueryResult<LabResultInterpretationItem[]>> {
   try {
     const { data, error } = await supabase
@@ -135,7 +143,8 @@ export async function getLabResultInterpretations(
     return {
       ok: true,
       data: (data ?? []).map((row) => {
-        const interpretation = (row.interpretation ?? {}) as StoredInterpretation;
+        const interpretation = (row.interpretation ??
+          {}) as StoredInterpretation;
         return {
           id: row.id,
           createdAt: row.created_at,
@@ -162,6 +171,10 @@ export interface ResultDocumentItem {
   source: ResultDocumentSource;
   originalFilename: string | null;
   note: string | null;
+  /** The test type named at upload (e.g. "hba1c", "kft"), or null when it
+   * wasn't asked/known. Turn into a patient-readable label with
+   * testTypeLabel() from lib/labs.ts. */
+  testCode: string | null;
   createdAt: string;
   isPdf: boolean;
   /** Short-lived signed URL for the file, or null if it could not be
@@ -185,12 +198,14 @@ export interface ResultDocumentItem {
  * one — that interpretation and any next steps. Mirrors result-documents.tsx
  * minus the paid "discuss this" consult CTA (see the module comment).
  */
-export async function getResultDocuments(patientId: string): Promise<QueryResult<ResultDocumentItem[]>> {
+export async function getResultDocuments(
+  patientId: string,
+): Promise<QueryResult<ResultDocumentItem[]>> {
   try {
     const { data: rows, error } = await supabase
       .from("lab_result_documents")
       .select(
-        "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status"
+        "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, patient_interpretation, next_steps, interpretation_sent_at, ai_summary_status",
       )
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
@@ -201,7 +216,11 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
     // null-gated attribution as ReviewedResultLine on web, but reviewed_by
     // on this table references profiles.id, so the lookup joins through
     // clinical_staff.profile_id.
-    const reviewerIds = [...new Set(rows.map((r) => r.reviewed_by).filter((id): id is string => !!id))];
+    const reviewerIds = [
+      ...new Set(
+        rows.map((r) => r.reviewed_by).filter((id): id is string => !!id),
+      ),
+    ];
     const reviewerNameByProfileId = new Map<string, string>();
     if (reviewerIds.length > 0) {
       const { data: staff } = await supabase
@@ -210,7 +229,8 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
         .in("profile_id", reviewerIds)
         .eq("active", true);
       for (const s of staff ?? []) {
-        if (s.profile_id) reviewerNameByProfileId.set(s.profile_id, s.full_name);
+        if (s.profile_id)
+          reviewerNameByProfileId.set(s.profile_id, s.full_name);
       }
     }
 
@@ -228,17 +248,20 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
           source: row.source,
           originalFilename: row.original_filename,
           note: row.note,
+          testCode: row.test_code,
           createdAt: row.created_at,
           isPdf: row.mime_type === "application/pdf",
           signedUrl,
           reviewedAt: row.reviewed_at,
-          reviewedByName: row.reviewed_by ? reviewerNameByProfileId.get(row.reviewed_by) ?? null : null,
+          reviewedByName: row.reviewed_by
+            ? (reviewerNameByProfileId.get(row.reviewed_by) ?? null)
+            : null,
           patientInterpretation: row.patient_interpretation,
           nextSteps: row.next_steps,
           interpretationSentAt: row.interpretation_sent_at,
           aiSummaryStatus: row.ai_summary_status,
         };
-      })
+      }),
     );
     return { ok: true, data: items };
   } catch (e) {
@@ -282,7 +305,9 @@ export interface AnalyteTrendItem {
  * task brief (an older checkout of that file), so the query lives here
  * instead of being imported from there.
  */
-export async function getAnalyteTrends(patientId: string): Promise<QueryResult<AnalyteTrendItem[]>> {
+export async function getAnalyteTrends(
+  patientId: string,
+): Promise<QueryResult<AnalyteTrendItem[]>> {
   try {
     const { data, error } = await supabase
       .from("lab_analyte_readings")
@@ -292,7 +317,10 @@ export async function getAnalyteTrends(patientId: string): Promise<QueryResult<A
       .limit(200);
     if (error) return { ok: false, error: error.message };
 
-    const byCode = new Map<string, { code: string; value: number; unit: string | null; taken_at: string }[]>();
+    const byCode = new Map<
+      string,
+      { code: string; value: number; unit: string | null; taken_at: string }[]
+    >();
     for (const row of data ?? []) {
       // A qualitative/text-only result (value_text, no numeric value) has
       // nothing to trend or delta against — skip it rather than let a null
@@ -323,19 +351,20 @@ export interface LabCatalogueItem {
   name: string;
   description: string | null;
   preparationInstructions: string | null;
+  testCodes: string[];
   testCount: number;
 }
 
 /**
- * Active panel_bundles, read-only — mirrors lab-catalogue.tsx. No price is
- * shown, same reasoning as the web catalogue: self-arranged browsing only,
- * a price next to a bundle nobody can act on from here would misleadingly
- * imply this view can charge the patient. Individual test-code names aren't
- * resolved (that map is patient-facing copy owned by
- * apps/web/src/lib/labs/test-code-labels.ts, not importable here) — a test
- * count stands in for "Includes: …" instead.
+ * Active panel_bundles, read-only — mirrors lab-catalogue.tsx, grouped into
+ * the same categories via lab-catalogue-content.ts. No price is shown, same
+ * reasoning as the web catalogue: self-arranged browsing only, a price next
+ * to a bundle nobody can act on from here would misleadingly imply this view
+ * can charge the patient.
  */
-export async function getLabCatalogue(): Promise<QueryResult<LabCatalogueItem[]>> {
+export async function getLabCatalogue(): Promise<
+  QueryResult<LabCatalogueItem[]>
+> {
   try {
     const { data, error } = await supabase
       .from("panel_bundles")
@@ -350,6 +379,7 @@ export async function getLabCatalogue(): Promise<QueryResult<LabCatalogueItem[]>
         name: row.name,
         description: row.description,
         preparationInstructions: row.preparation_instructions,
+        testCodes: row.test_codes ?? [],
         testCount: row.test_codes?.length ?? 0,
       })),
     };

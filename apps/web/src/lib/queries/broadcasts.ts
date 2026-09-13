@@ -1,15 +1,55 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import type { Enums, Json, Tables } from "@tarragon/shared";
+import type { BroadcastEmailContent } from "@/lib/broadcasts/render-email-template";
 
 export type NotificationBroadcast = Tables<"notification_broadcasts">;
 export type BroadcastAudience = Enums<"broadcast_audience">;
 export type NotificationChannel = Enums<"notification_channel">;
+export type { BroadcastEmailContent };
 
 export interface BroadcastAudienceFilter {
   state?: string;
   plan_code?: string;
   partner_type?: "pharmacy" | "specialist";
+  // uuid strings — only used/required when audience === "specific_patients".
+  patient_ids?: string[];
+}
+
+// ---- Specific-patient picker (admin_search_patients) -----------------------
+const patientPickerResultSchema = z
+  .array(
+    z.object({
+      id: z.string(),
+      full_name: z.string().nullable(),
+      email: z.string().nullable(),
+      phone: z.string().nullable(),
+    })
+  )
+  .default([]);
+export type PatientPickerResult = z.infer<typeof patientPickerResultSchema>[number];
+
+/**
+ * Search-as-you-type lookup for the "Specific patients" audience. Debounced
+ * by the caller; mirrors usePatientSearch's min-2-chars gate
+ * (apps/web/src/lib/analytics/queries.ts) but calls admin_search_patients
+ * (admin-gated, includes email) rather than the analyst-gated
+ * analytics_patient_search (which is missing email).
+ */
+export function useSearchPatients(query: string) {
+  return useQuery({
+    queryKey: ["broadcast-patient-search", query],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("admin_search_patients", {
+        p_query: query,
+      });
+      if (error) throw error;
+      return patientPickerResultSchema.parse(data);
+    },
+    enabled: query.trim().length >= 2,
+  });
 }
 
 const historyKey = ["broadcasts"] as const;
@@ -79,6 +119,10 @@ export interface SendBroadcastInput {
   audience: BroadcastAudience;
   filter: BroadcastAudienceFilter;
   channels: NotificationChannel[];
+  // Branded template for the email channel only — null/undefined falls back
+  // to admin_send_broadcast's plain title/body rendering (see
+  // notification_broadcasts.email_content's column comment).
+  emailContent?: BroadcastEmailContent | null;
 }
 
 /**
@@ -106,6 +150,7 @@ export function useSendBroadcast() {
           audience: input.audience,
           audience_filter: input.filter as unknown as Json,
           channels: input.channels,
+          email_content: (input.emailContent ?? null) as unknown as Json,
         })
         .select("id")
         .single();
