@@ -6,6 +6,7 @@ import { logWellbeingCheckin, updateWellbeingCheckinFrequency } from "./wellbein
 import {
   wellbeingCheckinsKey,
   wellbeingPreferenceKey,
+  wellbeingTrendKey,
   useWellbeingCheckinPreference,
 } from "@/lib/queries/wellbeing";
 import { WELLBEING_SCALE_QUESTIONS } from "@/lib/validation/wellbeing";
@@ -56,6 +57,7 @@ export function WellbeingCheckinForm({ patientId }: { patientId: string }) {
   useEffect(() => {
     if (state?.success) {
       queryClient.invalidateQueries({ queryKey: wellbeingCheckinsKey(patientId) });
+      queryClient.invalidateQueries({ queryKey: wellbeingTrendKey(patientId) });
     }
   }, [state?.success, queryClient, patientId]);
 

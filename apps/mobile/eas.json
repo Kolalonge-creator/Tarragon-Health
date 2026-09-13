@@ -23,6 +23,13 @@
       },
       "channel": "development"
     },
+    "development-simulator": {
+      "extends": "development",
+      "ios": {
+        "resourceClass": "m-medium",
+        "simulator": true
+      }
+    },
     "preview": {
       "extends": "base",
       "distribution": "internal",
