@@ -2,6 +2,8 @@ import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { createClient } from "@/lib/supabase/server";
+import { loadPatientClinicalContext } from "@/lib/clinical/patient-clinical-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -16,6 +18,8 @@ import { MensHealthCard } from "@/app/(dashboard)/patient/mens-health-card";
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
 import { RiskAssessmentDisplay } from "@/app/(dashboard)/patient/risk-assessment-display";
 import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
+import { CvdRiskCheck } from "@/app/(dashboard)/patient/cvd-risk-check";
+import { CkdRiskCard } from "@/app/(dashboard)/patient/ckd-risk-card";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
 import { DownloadPreventiveCarePlanLink } from "@/app/(dashboard)/patient/download-preventive-care-plan-link";
 import {
@@ -55,6 +59,13 @@ import { SymptomToTestCheck } from "@/app/(dashboard)/patient/symptom-to-test-ch
 export default async function PreventionHubPage() {
   const { profile, subjectId, subjectSex, subjectDateOfBirth } =
     await getPatientDashboardContext();
+
+  // Powers the CKD risk card below — reuses the same KDIGO calculation the
+  // clinician view runs (patient-clinical-context.ts), scoped by the
+  // caller's own RLS-bound client like every other read on this page.
+  const supabase = await createClient();
+  const { egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason } =
+    await loadPatientClinicalContext(supabase, subjectId);
 
   // The screening calendar and lab-request coordination are free to every
   // patient since the pay-per-service rework — neither costs clinician time.
@@ -140,6 +151,13 @@ export default async function PreventionHubPage() {
             <RiskAssessmentForm patientId={subjectId} />
             <RiskAssessmentDisplay patientId={subjectId} />
             <FindriscCheck />
+            <CvdRiskCheck />
+            <CkdRiskCard
+              egfr={egfr}
+              egfrUnavailableReason={egfrUnavailableReason}
+              ckdRisk={ckdRisk}
+              ckdRiskUnavailableReason={ckdRiskUnavailableReason}
+            />
           </div>
           <CareProgrammeRecommendations
             patientId={subjectId}
