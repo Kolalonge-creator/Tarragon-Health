@@ -1,14 +1,7 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { useManagedDependents } from "@/lib/queries/care-access";
-import { claimDependentAccountAction } from "./claim-dependent-actions";
-import { claimDependentAccountSchema } from "@/lib/validation/elder-proxy-dependent";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { ClaimAccountCard } from "./claim-account-card";
 
 /**
  * A managed child dependent private.sweep_dependent_majority_review
@@ -26,82 +19,14 @@ export function MaturedDependentBanner() {
   return (
     <div className="space-y-4">
       {matured.map((dependent) => (
-        <ClaimCard key={dependent.id} dependentId={dependent.id} name={dependent.full_name} />
+        <ClaimAccountCard
+          key={dependent.id}
+          dependentId={dependent.id}
+          title={`${dependent.full_name ?? "They"} turned 18`}
+          description="Give them their own Tarragon login with their real phone number, or keep helping as-is for now. You can do this whenever you're ready."
+          invalidateQueryKey={["managed-dependents"]}
+        />
       ))}
     </div>
-  );
-}
-
-function ClaimCard({ dependentId, name }: { dependentId: string; name: string | null }) {
-  const queryClient = useQueryClient();
-  const [phone, setPhone] = useState("");
-  const [isPending, setIsPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setError(null);
-    setSuccess(null);
-
-    const parsed = claimDependentAccountSchema.safeParse({ dependent_id: dependentId, phone });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? "Invalid details");
-      return;
-    }
-
-    setIsPending(true);
-    try {
-      const result = await claimDependentAccountAction(parsed.data);
-      if ("error" in result) {
-        setError(result.error);
-      } else {
-        setSuccess(result.message);
-        await queryClient.invalidateQueries({ queryKey: ["managed-dependents"] });
-      }
-    } finally {
-      setIsPending(false);
-    }
-  }
-
-  if (success) {
-    return (
-      <Card className="border-brand-green/40 bg-brand-green/5 dark:bg-brand-green/10">
-        <CardContent className="pt-6">
-          <p className="text-sm text-charcoal-ink dark:text-night-ink">{success}</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return (
-    <Card className="border-amber-400/50 bg-amber-50/60 dark:bg-amber-500/10">
-      <CardHeader>
-        <CardTitle className="text-lg">{name ?? "They"} turned 18</CardTitle>
-        <CardDescription>
-          Give them their own Tarragon login with their real phone number, or keep helping as-is for
-          now. You can do this whenever you&apos;re ready.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-3">
-          {error && <p className="w-full text-sm text-red-600 dark:text-red-400">{error}</p>}
-          <div className="space-y-1.5">
-            <Label htmlFor={`claim_phone_${dependentId}`}>Their phone number</Label>
-            <Input
-              id={`claim_phone_${dependentId}`}
-              type="tel"
-              placeholder="+2348012345678"
-              value={phone}
-              onChange={(event) => setPhone(event.target.value)}
-              required
-            />
-          </div>
-          <Button type="submit" disabled={isPending}>
-            {isPending ? "Setting up…" : "Give them their own login"}
-          </Button>
-        </form>
-      </CardContent>
-    </Card>
   );
 }
