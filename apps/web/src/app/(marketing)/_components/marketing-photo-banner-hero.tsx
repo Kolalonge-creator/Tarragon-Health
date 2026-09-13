@@ -18,6 +18,17 @@ import { cn } from "@/lib/utils";
  * wide crop otherwise clips faces/hands — the default "center" is rarely
  * right. A slot with no photo sourced yet falls back to MarketingHero's
  * text-beside-a-card layout instead (see product-page-template.tsx).
+ *
+ * Optional `videoSrc` layers a muted, looping, silent ambient clip over the
+ * still `imageSrc` (which always renders underneath as the immediate paint
+ * and the fallback -- no flash of empty background while the video loads,
+ * and the only thing shown at all if the browser can't play the file). Per
+ * docs/MARKETING_SITE_SPEC.md's "respect prefers-reduced-motion" rule the
+ * video is hidden via `motion-reduce:hidden` rather than just not autoplaying
+ * it, so a reduced-motion visitor sees the exact same static hero photo as
+ * before this prop existed. Same brand rule as the ambient clips on
+ * MarketingMediaFrame: decorative motion only (an animated version of an
+ * already-approved photo), never a claimed patient/doctor testimonial.
  */
 export function PhotoBannerHero({
   eyebrow,
@@ -30,6 +41,7 @@ export function PhotoBannerHero({
   imageSrc,
   imageAlt,
   imagePosition = "center",
+  videoSrc,
   className,
 }: {
   eyebrow?: string;
@@ -42,6 +54,7 @@ export function PhotoBannerHero({
   imageSrc: string;
   imageAlt: string;
   imagePosition?: string;
+  videoSrc?: string;
   className?: string;
 }) {
   return (
@@ -67,6 +80,19 @@ export function PhotoBannerHero({
         style={{ objectPosition: imagePosition }}
         className="object-cover"
       />
+      {videoSrc ? (
+        <video
+          src={videoSrc}
+          poster={imageSrc}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden
+          style={{ objectPosition: imagePosition }}
+          className="absolute inset-0 h-full w-full object-cover motion-reduce:hidden"
+        />
+      ) : null}
       <div
         className="absolute inset-0 bg-gradient-to-t from-charcoal-ink/85 via-charcoal-ink/30 to-transparent sm:bg-gradient-to-r sm:from-charcoal-ink/80 sm:via-charcoal-ink/35 sm:to-transparent"
         aria-hidden
