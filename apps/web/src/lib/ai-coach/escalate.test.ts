@@ -11,7 +11,7 @@ const PARAMS = {
   triggerMessage: "I have crushing chest pain",
   // Empty on purpose -- buildCoachHandoffSummary short-circuits to its
   // template fallback (no model call) when there's no conversation to
-  // summarize, keeping this test suite offline-safe.
+  // summarise, keeping this test suite offline-safe.
   recentMessages: [],
   aiAction: "Escalated immediately via deterministic safety-keyword match, before any AI response",
 };

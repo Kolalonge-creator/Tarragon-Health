@@ -111,7 +111,7 @@ export async function GET(request: Request): Promise<Response> {
       .eq("status", "active");
     const rows = data ?? [];
     // Only devices paired long enough to have had a real chance to sync
-    // count toward the sample — a device paired an hour ago with no sync
+    // count towards the sample — a device paired an hour ago with no sync
     // yet is not a failure.
     const eligible = rows.filter((r) => r.paired_at < recentlyPairedCutoff);
     samples.push({

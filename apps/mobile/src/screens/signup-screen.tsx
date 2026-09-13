@@ -296,7 +296,7 @@ export function SignUpScreen({ onClose }: { onClose: () => void }) {
             </Text>
           </Pressable>
           <MutedText>
-            Helps us show what&apos;s available near you. You can add or change this anytime.
+            Helps us show what&apos;s available near you. You can add or change this at any time.
           </MutedText>
         </View>
 

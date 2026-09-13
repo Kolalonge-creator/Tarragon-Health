@@ -79,6 +79,7 @@ export default async function PatientActionsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="My actions"
         icon={NAV_ICON.approvals}
         description="Everything outstanding, in one place, grouped by how soon it needs you."

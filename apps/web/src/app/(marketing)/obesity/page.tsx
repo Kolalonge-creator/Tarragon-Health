@@ -75,7 +75,7 @@ export default async function ObesityPage() {
               Activity Intensity Calculator →
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
-              Calories burned and how a session counts toward your weekly guideline.
+              Calories burned and how a session counts towards your weekly guideline.
             </p>
           </Link>
         </div>

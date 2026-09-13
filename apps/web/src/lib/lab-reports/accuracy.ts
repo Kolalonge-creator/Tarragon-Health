@@ -23,7 +23,7 @@
  *     as they did before this feature existed.
  *
  * So the headline number is not "accuracy". It is the harmful rate, and it
- * should be driven toward zero even at the cost of missing more.
+ * should be driven towards zero even at the cost of missing more.
  *
  * The `blocked` outcome deserves particular attention when reading a report:
  * it means the engine READ something for that analyte and then its own guards

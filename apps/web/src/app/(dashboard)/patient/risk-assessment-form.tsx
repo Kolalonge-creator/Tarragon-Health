@@ -234,9 +234,9 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
                   <option value="" disabled>
                     Select
                   </option>
-                  <option value="never">Never</option>
-                  <option value="former">Former</option>
-                  <option value="current">Current</option>
+                  <option value="never">Never smoked</option>
+                  <option value="former">Used to smoke</option>
+                  <option value="current">Currently smoke</option>
                 </Select>
               </div>
               {smokingStatus === "current" && (

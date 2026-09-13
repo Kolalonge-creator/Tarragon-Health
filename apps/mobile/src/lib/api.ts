@@ -229,6 +229,35 @@ export async function postLifestyleLog(input: {
   return result.ok ? result.data : { error: result.error };
 }
 
+export interface SleepLogInput {
+  duration_hours: number;
+  quality_rating?: number;
+  bedtime?: string;
+  waketime?: string;
+  daytime_sleepiness?: number;
+  note?: string;
+}
+
+/**
+ * Mirrors apps/web/src/app/api/mobile/lifestyle/sleep-log/route.ts.
+ *
+ * Sleep is the one lifestyle tracker that is not a plain insert: the server
+ * runs flagAbnormalSleep() afterwards, which can raise a clinical alert on a
+ * dangerously short night or severe daytime sleepiness. Writing this straight
+ * from the app would save the row and silently skip that check, so this stays
+ * a thin passthrough rather than a second implementation. The other trackers
+ * carry no such side effect and write directly under RLS -- see
+ * lib/lifestyle-trackers.ts.
+ */
+export async function postSleepLog(input: SleepLogInput): Promise<{ error?: string }> {
+  const result = await request<{ ok?: boolean; error?: string }>(
+    "/api/mobile/lifestyle/sleep-log",
+    "POST",
+    input
+  );
+  return result.ok ? {} : { error: result.error };
+}
+
 export type MentalHealthScreenAnswers = Record<string, number | boolean>;
 
 /** Mirrors apps/web/src/app/api/mobile/mental-health-screen/route.ts (the

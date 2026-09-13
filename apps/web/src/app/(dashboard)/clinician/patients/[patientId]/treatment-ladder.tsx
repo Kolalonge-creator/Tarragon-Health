@@ -10,7 +10,7 @@ const STEPS: { step: string; regimen: string; note: string }[] = [
   {
     step: "Step 1",
     regimen: "Lifestyle + Metformin",
-    note: "Start 500mg once/twice daily with food; titrate over weeks toward 1g twice daily (max ~2g/day). Check eGFR first.",
+    note: "Start 500mg once/twice daily with food; titrate over weeks towards 1g twice daily (max ~2g/day). Check eGFR first.",
   },
   {
     step: "Step 2",

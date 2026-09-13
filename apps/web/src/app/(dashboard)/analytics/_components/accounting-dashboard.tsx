@@ -47,7 +47,7 @@ export function AccountingDashboard() {
                   <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
                     <th className="py-2 pr-4 font-medium">Currency</th>
                     <th className="py-2 pr-4 text-right font-medium">Collected</th>
-                    <th className="py-2 pr-4 text-right font-medium">Recognized</th>
+                    <th className="py-2 pr-4 text-right font-medium">Recognised</th>
                     <th className="py-2 text-right font-medium">Deferred</th>
                   </tr>
                 </thead>

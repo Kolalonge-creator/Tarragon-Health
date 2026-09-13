@@ -137,9 +137,10 @@ export default async function CareCirclePage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Your people"
         icon={SEMANTIC_ICON.parentCare}
-        description="Who we contact if something urgent comes up, who can follow your care, and the children whose records you keep. Everyone keeps their own account, never a shared or family plan."
+        description="Who we contact if something urgent comes up, who can follow your care, and the children whose records you keep. Everyone keeps their own account, rather than a shared or family plan."
       />
 
       <EmergencyAccessBanner />

@@ -84,7 +84,7 @@ export function useOrgAttestationStatuses() {
 
 /**
  * Adds a new clinical_staff record — starts inactive and unverified by
- * design (CLINICAL_TRUST_MODEL_SPEC.md §5: license verification, not
+ * design (CLINICAL_TRUST_MODEL_SPEC.md §5: licence verification, not
  * self-attestation). profilePhone is optional: links the record to an
  * existing login (needed for anyone who'll act in the system — sign
  * escalations, sign protocols); the Chief Medical Officer can also exist as
@@ -151,7 +151,7 @@ export function useCreateClinicalStaff() {
 }
 
 /**
- * Records license verification — sets license_verified_at + verified_by to
+ * Records licence verification — sets license_verified_at + verified_by to
  * the admin performing the check, now. A DB constraint (not just this app
  * code) blocks verified_by from ever equaling the record's own profile_id,
  * so a clinician/doctor structurally cannot verify themselves.
@@ -219,7 +219,7 @@ export function useSetClinicalStaffIndemnity() {
 
 /**
  * Records the real expiry date on the clinician's MDCN/NMCN Annual
- * Practicing License, read off the physical/PDF licence document — distinct
+ * Practising Licence, read off the physical/PDF licence document — distinct
  * from license_verified_at (when Tarragon last checked the record). Optional;
  * private.notify_clinical_staff_license_lapses() only warns once this is set.
  */
@@ -279,7 +279,7 @@ export function useSetClinicalStaffEmploymentType() {
 }
 
 /**
- * Sets the credentialed specialty used to auto-match specialist_referrals
+ * Sets the credentialed speciality used to auto-match specialist_referrals
  * (private.auto_match_internal_specialist, 20260831001458) — distinct from
  * the free-text `specialty` display bio. Setting this on an active record
  * (or activating a record that already has one — see useSetClinicalStaffActive)
@@ -362,7 +362,7 @@ export function useSetClinicalStaffOffersTherapy() {
 }
 
 /**
- * Edits specialty/bio/photo on an existing clinical_staff record — the
+ * Edits speciality/bio/photo on an existing clinical_staff record — the
  * fields the admin manager had no way to change after creation (only
  * verify/activate existed). Name/credential/tier stay create-time-only:
  * changing those carries more weight (re-verification, tier authority) and

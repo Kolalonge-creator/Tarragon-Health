@@ -108,7 +108,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       },
       {
         title: "Close gaps, catch risk early",
-        body: "Care gaps are tracked to completion and abnormal results trigger immediate doctor follow-up, never left open.",
+        body: "Care gaps are tracked to completion and abnormal results trigger immediate doctor follow-up rather than being left open.",
       },
       {
         title: "Report on outcomes",

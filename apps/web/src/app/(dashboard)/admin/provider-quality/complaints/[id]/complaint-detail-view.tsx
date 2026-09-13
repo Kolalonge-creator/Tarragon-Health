@@ -207,7 +207,7 @@ function InvestigationStage({ complaintId }: { complaintId: string }) {
       <CardHeader>
         <CardTitle className="text-base">Investigation file</CardTitle>
         <CardDescription>
-          Visible to handlers only, never to the subject provider, even once they can see the
+          Visible to handlers only, and not to the subject provider, even once they can see the
           complaint itself.
         </CardDescription>
       </CardHeader>

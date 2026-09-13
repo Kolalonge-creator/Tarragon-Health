@@ -15,7 +15,7 @@ export function PayForLabOrderButton({
   orderId: string;
   amountKobo: number;
   /** The pre-discount catalogue price, if known — lets the confirm step show
-   * an itemized breakdown instead of just the final number. Falls back to
+   * an itemised breakdown instead of just the final number. Falls back to
    * amountKobo (no discount line) when a call site doesn't have it. */
   totalKobo?: number;
 }) {

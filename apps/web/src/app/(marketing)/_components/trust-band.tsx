@@ -24,7 +24,7 @@ import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 const TRUST_ITEMS = [
   {
     title: "A real care team, always accountable",
-    body: "Every review carries the doctor's real name on the note itself: never an anonymous system, never a name attached before they've actually reviewed it.",
+    body: "Every review carries the doctor's real name on the note itself: not an anonymous system, and not a name attached before they have actually reviewed it.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" />
@@ -34,7 +34,7 @@ const TRUST_ITEMS = [
   },
   {
     title: "Your record stays yours",
-    body: "Encrypted, and never shared with family without your consent.",
+    body: "Encrypted, and shared with family only with your consent.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <rect x="5" y="10" width="14" height="10" rx="2" />
@@ -44,7 +44,7 @@ const TRUST_ITEMS = [
   },
   {
     title: "Payments handled by Paystack",
-    body: "We never store your card details.",
+    body: "Your card details stay with them, not with us.",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-6 w-6">
         <rect x="3" y="6" width="18" height="13" rx="2" />

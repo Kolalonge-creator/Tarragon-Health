@@ -19,6 +19,7 @@ export default async function PatientSubscriptionPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="My services"
         icon={SEMANTIC_ICON.billing}
         description="One-off purchases covering a fixed window each. Nothing auto-renews. Buy again any time to extend."

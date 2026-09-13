@@ -4,7 +4,7 @@ import { LifestyleFlagsClient, type OpenFlag } from "./lifestyle-flags-client";
 import { LoadFailure } from "@/components/ui/load-failure";
 
 /**
- * Clinician worklist for open LPE safety red flags. Org-staff gated (defense in
+ * Clinician worklist for open LPE safety red flags. Org-staff gated (defence in
  * depth on top of RLS). Standing a flag down is clinical-staff-only + reason,
  * enforced in the action and by the DB trigger (no auto-close).
  */

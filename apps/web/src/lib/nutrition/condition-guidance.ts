@@ -6,7 +6,7 @@ import type { NutritionAnalysisResult } from "./nutrition-analysis";
  * sodium and overall pattern; diabetes focuses on carbohydrate quality,
  * portion and overall pattern; CKD nutrition is genuinely complex and needs
  * a dietitian rather than a generic rule, so this deliberately never gives
- * CKD a numeric target — it always points toward professional input instead
+ * CKD a numeric target — it always points towards professional input instead
  * (see referral-risk.ts). Coaching tone throughout: never "don't eat X",
  * matching the substitution engine's own framing.
  *

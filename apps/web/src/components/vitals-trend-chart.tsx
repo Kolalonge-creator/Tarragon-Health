@@ -1,4 +1,10 @@
 "use client";
+import {
+  glucoseInDisplayUnit,
+  GLUCOSE_UNIT_LABEL,
+  type GlucoseDisplayUnit,
+} from "@tarragon/shared";
+import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useState, type Key as ReactKey } from "react";
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
@@ -31,9 +37,18 @@ const BP_CONFIG: ChartConfig = {
   diastolic: { label: "Diastolic (mmHg)", color: "var(--chart-diastolic)" },
 };
 
-const GLUCOSE_CONFIG: ChartConfig = {
-  glucose_mmol_l: { label: "Glucose (mmol/L)", color: "var(--chart-glucose)" },
-};
+/** The plotted glucose series is converted into the reader's own unit, so the
+ * config (which supplies the axis/tooltip label) has to be built per-unit
+ * rather than being a module constant like the others. The series key stays
+ * `glucose_display` in both cases so the Line/colour wiring is unit-agnostic. */
+function glucoseConfig(unit: GlucoseDisplayUnit): ChartConfig {
+  return {
+    glucose_display: {
+      label: `Glucose (${GLUCOSE_UNIT_LABEL[unit]})`,
+      color: "var(--chart-glucose)",
+    },
+  };
+}
 
 const HBA1C_CONFIG: ChartConfig = {
   value: { label: "HbA1c (%)", color: "var(--chart-glucose)" },
@@ -122,6 +137,7 @@ function makeEndpointDot(lastIndex: number, color: string, placement: "above" | 
 type TrendMode = "blood_pressure" | "glucose" | "weight" | "pulse" | "hba1c" | "bmi";
 
 export function VitalsTrendChart({ patientId }: { patientId: string }) {
+  const glucoseUnit = useGlucoseUnit();
   const [mode, setMode] = useState<TrendMode>("blood_pressure");
   const vitalsTrend = useVitalsTrend(
     patientId,
@@ -132,7 +148,17 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
   const heightStatus = useHeightStatus(patientId);
   const { data, isLoading, isError } =
     mode === "hba1c" ? hba1cTrend : mode === "bmi" ? bmiTrend : vitalsTrend;
-  const points = (data ?? []).map((reading) => ({ ...reading, date: formatDate(reading.taken_at) }));
+  // Readings arrive in mmol/L (what vitals_readings stores) and are plotted in
+  // the reader's own unit. Converting here rather than at the axis keeps the
+  // tooltip, the dot labels and the axis all reporting the same number.
+  const points = (data ?? []).map((reading) => ({
+    ...reading,
+    date: formatDate(reading.taken_at),
+    glucose_display:
+      "glucose_mmol_l" in reading && typeof reading.glucose_mmol_l === "number"
+        ? glucoseInDisplayUnit(reading.glucose_mmol_l, glucoseUnit)
+        : null,
+  }));
   const lastIndex = points.length - 1;
   const noHeightOnFile =
     mode === "bmi" && !heightStatus.isLoading && heightStatus.data?.heightCm == null;
@@ -257,7 +283,7 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
           </div>
         )}
         {points.length >= 2 && mode === "glucose" && (
-          <ChartContainer config={GLUCOSE_CONFIG}>
+          <ChartContainer config={glucoseConfig(glucoseUnit)}>
             <LineChart data={points}>
               <CartesianGrid {...GRID_PROPS} />
               <XAxis dataKey="date" tick={AXIS_TICK} tickLine={false} axisLine={false} />
@@ -266,13 +292,19 @@ export function VitalsTrendChart({ patientId }: { patientId: string }) {
                 tickLine={false}
                 axisLine={false}
                 tickCount={4}
-                domain={["dataMin - 1", "dataMax + 1"]}
+                // Padding has to be in the plotted unit: +/-1 is a sensible
+                // margin in mmol/L and an invisible one in mg/dL (18x larger).
+                domain={
+                  glucoseUnit === "mg_dl"
+                    ? ["dataMin - 18", "dataMax + 18"]
+                    : ["dataMin - 1", "dataMax + 1"]
+                }
               />
               <ChartTooltip content={<ChartTooltipContent />} />
               <Line
                 {...LINE_PROPS}
-                dataKey="glucose_mmol_l"
-                stroke="var(--color-glucose_mmol_l)"
+                dataKey="glucose_display"
+                stroke="var(--color-glucose_display)"
                 dot={makeEndpointDot(lastIndex, "var(--chart-glucose)", "above")}
               />
             </LineChart>

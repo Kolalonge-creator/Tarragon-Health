@@ -71,7 +71,7 @@ export function MensHealthCard({ patientId }: { patientId: string }) {
         </CardTitle>
         <CardDescription>
           Prevention, sexual and reproductive health, and the conditions that affect men
-          specifically — confidential, and never a diagnosis on its own.
+          specifically — confidential, and not a diagnosis on its own.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-5">

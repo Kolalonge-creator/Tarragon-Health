@@ -92,7 +92,7 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
     params.conversationId
   );
 
-  // Defense in depth: care/page.tsx and lifestyle/page.tsx only render the
+  // Defence in depth: care/page.tsx and lifestyle/page.tsx only render the
   // chat UI when hasCoachAccess() is true, but neither of them re-checks it
   // on every send, and this function is meant to be transport-agnostic (see
   // its docstring) — a future caller with no UI gate at all would otherwise

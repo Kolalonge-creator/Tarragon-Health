@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
-import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, Modal, ScrollView, Text, TextInput, View } from "react-native";
 import { postMentalHealthScreen } from "@/lib/api";
+import { TherapyNetworkScreen } from "@/screens/sections/therapy-network-screen";
 import {
   loadLatestWellbeingCheckin,
   loadWellbeingCheckinFrequencyDays,
@@ -105,12 +106,16 @@ interface WellbeingScreenProps {
  * wellbeing tiles, the quick self check-in, the mental-health summary, and
  * the full PHQ-9/GAD-7/AUDIT-C/EPDS screen. The screen's scoring and crisis
  * routing go through /api/mobile/mental-health-screen (see api.ts) — that
- * logic is never duplicated client-side. The education feed and "book a
- * therapy session" deep link stay on web for now; medications/appointments
- * link to their already-native screens.
+ * logic is never duplicated client-side. "Book a therapy session" opens the
+ * native TherapyNetworkScreen (mirrors therapy-network.tsx) — it used to
+ * just navigate to the generic Appointments screen, which has no
+ * therapist-picking logic at all, so the button promised a flow that did not
+ * exist. The education feed stays on web for now; medications link to its
+ * already-native screen.
  */
 export function WellbeingScreen({ patientId, organisationId, onNavigate }: WellbeingScreenProps) {
   const [checkin, setCheckin] = useState<WellbeingCheckin | null>(null);
+  const [therapyOpen, setTherapyOpen] = useState(false);
   const [frequencyDays, setFrequencyDays] = useState(7);
   const [nextReviewDue, setNextReviewDue] = useState<string | null>(null);
   const [screens, setScreens] = useState<Partial<Record<string, MentalHealthScreen>>>({});
@@ -187,7 +192,7 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
       <Card style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Talk to someone</Text>
         <MutedText>Book a session with one of our therapists, over telemedicine or in person, whichever suits you.</MutedText>
-        <SecondaryButton title="Book a therapy session" onPress={() => onNavigate("appointments")} />
+        <SecondaryButton title="Book a therapy session" onPress={() => setTherapyOpen(true)} />
       </Card>
 
       <Card style={{ gap: 6 }}>
@@ -199,6 +204,14 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
       </Card>
 
       <SecondaryButton title="See the full Learn library" onPress={() => onNavigate("learn")} />
+
+      <Modal visible={therapyOpen} animationType="slide" onRequestClose={() => setTherapyOpen(false)}>
+        <TherapyNetworkScreen
+          organisationId={organisationId}
+          patientId={patientId}
+          onClose={() => setTherapyOpen(false)}
+        />
+      </Modal>
     </ScrollView>
   );
 }

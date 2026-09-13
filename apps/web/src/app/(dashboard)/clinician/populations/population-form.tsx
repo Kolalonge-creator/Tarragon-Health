@@ -60,8 +60,8 @@ export function PopulationForm() {
         <CardTitle className="text-base">Build a custom population</CardTitle>
         <CardDescription>
           Combine any of the filters below — the population is every patient in your organisation
-          matching all of the axes you set. Membership is computed live every time you open it,
-          never a stored list.
+          matching all of the axes you set. Membership is computed live every time you open it, rather than
+          held as a stored list.
         </CardDescription>
       </CardHeader>
       <CardContent>

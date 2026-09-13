@@ -29,7 +29,7 @@ const METRIC_LABEL: Record<string, string> = {
   alert_response_minutes: "Avg. alert response time",
   escalation_resolution_hours: "Avg. escalation resolution time",
   alert_sla_met_rate: "Alert SLA met",
-  encounter_note_completion_rate: "Notes finalized",
+  encounter_note_completion_rate: "Notes finalised",
   referral_documentation_rate: "Referrals documented",
   result_acknowledgement_rate: "Results acknowledged",
   experience_punctuality: "Punctuality",
@@ -131,7 +131,7 @@ export function ProviderScorecardView() {
       <div>
         <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Your scorecard</h2>
         <p className="text-sm text-charcoal-ink/60">
-          Measured against a target, not against your colleagues. A quieter caseload never reads
+          Measured against a target, not against your colleagues. A quieter caseload does not read
           as worse here. Anything with too few cases this period to be a fair number says so
           instead of showing a rate.
         </p>

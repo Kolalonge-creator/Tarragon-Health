@@ -198,6 +198,7 @@ export function LifestyleClient({
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Lifestyle coaching"
         icon={NAV_ICON.lifestyle}
         description="Small, steady changes, logged here, supported by your care team."

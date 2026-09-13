@@ -46,8 +46,8 @@ export function CommunicationPreferencesForm({
           Communication preferences
         </CardTitle>
         <CardDescription>
-          Choose how you&apos;d like routine reminders and confirmations to reach you. This never
-          affects clinical or emergency alerts: a dangerous reading or an abnormal result always
+          Choose how you&apos;d like routine reminders and confirmations to reach you. This has no bearing
+          on clinical or emergency alerts: a dangerous reading or an abnormal result always
           reaches you on every channel we have, regardless of what you choose here.
         </CardDescription>
       </CardHeader>
@@ -101,8 +101,8 @@ export function CommunicationPreferencesForm({
             />
             <span>
               Send me occasional news and offers from Tarragon Health. This is separate from your
-              care reminders: turning it off never affects appointment, medication, or result
-              notifications.
+              care reminders: turning it off leaves your appointment, medication and result
+              notifications untouched.
             </span>
           </label>
 

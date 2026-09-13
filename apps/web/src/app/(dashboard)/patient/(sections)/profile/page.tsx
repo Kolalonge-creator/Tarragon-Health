@@ -7,6 +7,9 @@ import { HeightForm } from "@/app/(dashboard)/patient/height-form";
 import { AvatarUploadForm } from "@/app/(dashboard)/patient/avatar-upload-form";
 import { ChangePasswordForm } from "@/components/account/change-password-form";
 import { CommunicationPreferencesForm } from "@/app/(dashboard)/patient/communication-preferences-form";
+import { GlucoseUnitForm } from "@/app/(dashboard)/patient/glucose-unit-form";
+import { UiLanguageForm } from "@/app/(dashboard)/patient/ui-language-form";
+import { asUiLanguage } from "@tarragon/shared";
 import { CommunicationHistoryCard } from "@/app/(dashboard)/patient/communication-history-card";
 
 export default async function PatientProfilePage() {
@@ -46,6 +49,10 @@ export default async function PatientProfilePage() {
           <HeightForm initial={{ height_cm: profile.height_cm }} />
           <ConditionLanguageForm
             initial={{ condition_language_preference: profile.condition_language_preference }}
+          />
+          <UiLanguageForm initial={asUiLanguage(profile.language)} />
+          <GlucoseUnitForm
+            initial={profile.glucose_display_unit === "mmol_l" ? "mmol_l" : "mg_dl"}
           />
           <CommunicationPreferencesForm
             initial={{

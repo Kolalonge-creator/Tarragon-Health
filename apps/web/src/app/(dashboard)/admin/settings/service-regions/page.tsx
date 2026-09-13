@@ -7,7 +7,7 @@ export default async function ServiceRegionsSettingsPage() {
   const profile = await getCurrentProfile();
 
   // proxy.ts already blocks non-admins from any /admin/** route at the routing layer — this
-  // is defense-in-depth on top of that, matching the other admin settings pages.
+  // is defence-in-depth on top of that, matching the other admin settings pages.
   if (profile?.role !== "admin") {
     redirect("/admin");
   }

@@ -3,7 +3,8 @@
 import { useVitalsReadingsPage } from "@/lib/queries/vitals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { mmolLToMgDl, type Tables } from "@tarragon/shared";
+import { formatGlucose, type GlucoseDisplayUnit, type Tables } from "@tarragon/shared";
+import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { classifySpo2Level, SPO2_LEVEL_LABEL, type Spo2Level } from "@/lib/rules/spo2-classification";
@@ -92,14 +93,18 @@ function TemperatureLevelBadge({ reading }: { reading: Tables<"vitals_readings">
   );
 }
 
-function formatReading(reading: Tables<"vitals_readings">): string {
+function formatReading(reading: Tables<"vitals_readings">, unit: GlucoseDisplayUnit): string {
   switch (reading.vital_type) {
     case "blood_pressure":
       return `${reading.systolic}/${reading.diastolic} mmHg`;
     case "glucose": {
-      const mmolL = reading.glucose_mmol_l;
-      const mgDl = mmolL === null ? null : mmolLToMgDl(mmolL);
-      return `${mmolL} mmol/L (${mgDl} mg/dL), ${reading.glucose_context ?? "—"}`;
+      // Both units, but the reader's own leads. The secondary stays: a
+      // patient showing this screen to a doctor or pharmacist should not have
+      // to convert for whichever unit that person thinks in.
+      const primary = formatGlucose(reading.glucose_mmol_l, unit);
+      const secondary = formatGlucose(reading.glucose_mmol_l, unit === "mg_dl" ? "mmol_l" : "mg_dl");
+      if (primary === null) return `—, ${reading.glucose_context ?? "—"}`;
+      return `${primary} (${secondary}), ${reading.glucose_context ?? "—"}`;
     }
     case "weight":
       return `${reading.weight_kg} kg`;
@@ -121,6 +126,7 @@ function formatReading(reading: Tables<"vitals_readings">): string {
 }
 
 export function VitalsHistory({ patientId }: { patientId: string }) {
+  const glucoseUnit = useGlucoseUnit();
   const { data, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useVitalsReadingsPage(patientId);
   const readings = data?.pages.flatMap((p) => p.rows) ?? [];
@@ -147,7 +153,7 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
               <li key={reading.id} className="flex items-center justify-between py-2">
                 <div>
                   <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
-                    {formatReading(reading)}
+                    {formatReading(reading, glucoseUnit)}
                     {reading.vital_type === "blood_pressure" && (
                       <BpLevelBadge reading={reading} />
                     )}

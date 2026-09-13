@@ -34,7 +34,7 @@ import type { Tables } from "@tarragon/shared";
  *
  * interval_years also accepts an optional anchor_fallback_code, so a
  * recurring booster can start counting from a dose logged under a DIFFERENT
- * catalog entry when it has none of its own. The tetanus/Td booster uses
+ * catalogue entry when it has none of its own. The tetanus/Td booster uses
  * this: WHO's full lifetime tetanus-toxoid-containing-vaccine (TTCV)
  * schedule is 6 doses — the infant Pentavalent series (child_penta, 6/10/14
  * weeks) plus three further childhood boosters (child_tetanus_booster_1/2/3,
@@ -46,7 +46,7 @@ import type { Tables } from "@tarragon/shared";
  * still-outstanding 4-7yr/9-15yr boosters are due, which would wrongly read
  * as "you don't need another tetanus shot for a decade" while a childhood
  * dose is still owed. Each earlier stage still shows its own due/overdue
- * status on its own catalog row regardless — this fallback ONLY governs
+ * status on its own catalogue row regardless — this fallback ONLY governs
  * when the ongoing ADULT booster's clock starts.
  */
 
@@ -146,10 +146,10 @@ function dueOrOverdue(dueDate: string, today: string): VaccinationStatus {
 
 /**
  * Resolves anchor_fallback_code to the last dose date logged under that
- * OTHER catalog entry — e.g. lets the tetanus/Td booster start its 10-year
+ * OTHER catalogue entry — e.g. lets the tetanus/Td booster start its 10-year
  * clock from a patient's last childhood Pentavalent dose instead of
  * requiring a dose logged under the tetanus_td_booster code itself. Returns
- * null if the code is unset, doesn't match any catalog entry, or has no
+ * null if the code is unset, doesn't match any catalogue entry, or has no
  * doses logged (all of which fall through to the caller's own "never had a
  * dose" handling).
  */
@@ -297,7 +297,7 @@ export function computeVaccinationStatuses(
  * (vaccination_schedules.non_administration_reason, spec §43.3) onto the
  * computed statuses above. Deliberately a separate pass rather than a branch
  * inside computeVaccinationStatuses: that function is a pure projection of
- * catalog + records only, has no knowledge of vaccination_schedules, and
+ * catalogue + records only, has no knowledge of vaccination_schedules, and
  * every one of its existing due/overdue/up_to_date branches is already
  * covered by tests that would need to account for a third input — this
  * keeps that engine, and its tests, untouched.

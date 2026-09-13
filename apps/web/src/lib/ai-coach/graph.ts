@@ -210,7 +210,7 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     // available on demand via the read-only tools below instead of being
     // pushed into every single prompt regardless of relevance — see the
     // architecture doc's §4.1 comparison of "wide static context" against
-    // "retrieval tools" and its PHI-minimization reasoning for preferring
+    // "retrieval tools" and its PHI-minimisation reasoning for preferring
     // tools. loadPatientContext's fuller snapshot is also what the Phase C
     // composed surfaces (explain-record, this-month, appointment-prep)
     // read directly, deterministically, with no LLM involved.
@@ -226,8 +226,8 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
         `The patient currently has an elevated risk tier for: ${context.elevatedConditions.join(", ")}.`
       );
     }
-    // §78.17 safety-layer signals — bias toward caution, never toward false
-    // reassurance. These only ever push the classification toward
+    // §78.17 safety-layer signals — bias towards caution, never towards false
+    // reassurance. These only ever push the classification towards
     // clinician_review; the tier-classification instructions in the system
     // prompt remain the real enforcement, this just gives the model the
     // fact it needs to apply "when in doubt, pick the more cautious tier"

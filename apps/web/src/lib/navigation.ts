@@ -138,6 +138,19 @@ export function getNavSections(
       // Health Check (/patient/health-check). Both were being missed, which
       // is the same failure the Learn tab had before it was promoted.
       return [
+        // The everyday jobs, and the only band that is never collapsed on any
+        // surface. Previously this top group held just Overview and My
+        // actions, and the four things a patient actually opens the app to do
+        // — log a reading, tick off today's medicines, read a result, message
+        // the care team — were spread across "Your health" and "Support",
+        // where "Your health" alone ran to twelve entries. Even a patient who
+        // opened the right group still had to find Vitals among Women's
+        // Health, Healthy ageing, Find a specialist and Get a device.
+        //
+        // Nothing is removed or demoted by this; every link below still
+        // exists, one heading away. This band answers "what do I do today",
+        // and everything under it answers "where is that thing I need
+        // occasionally".
         {
           items: [
             {
@@ -153,17 +166,6 @@ export function getNavSections(
             // individual cards. First-class nav entry, not just a link off
             // Overview, since it's meant to be reachable directly.
             { label: "My actions", href: "/patient/actions", icon: "approvals" },
-          ],
-        },
-        {
-          label: "Your health",
-          items: [
-            // Spec §76.3 ("personal health summary") — conditions,
-            // allergies, medications, measurements, investigations, care
-            // programmes, appointments, referrals and preventive tasks in
-            // one place, composed from the record the sections below already
-            // hold rather than a second copy of it.
-            { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
             {
               label: "Vitals & symptoms",
               href: "/patient/vitals",
@@ -179,6 +181,25 @@ export function getNavSections(
               shortLabel: "Meds",
             },
             { label: "Labs & results", href: "/patient/labs", icon: "labs" },
+            {
+              label: "Messages",
+              href: "/patient/messages",
+              icon: "messages",
+              primary: true,
+              shortLabel: "Messages",
+            },
+            { label: "Appointments", href: "/patient/appointments", icon: "booking" },
+          ],
+        },
+        {
+          label: "Your health",
+          items: [
+            // Spec §76.3 ("personal health summary") — conditions,
+            // allergies, medications, measurements, investigations, care
+            // programmes, appointments, referrals and preventive tasks in
+            // one place, composed from the record the sections below already
+            // hold rather than a second copy of it.
+            { label: "Health summary", href: "/patient/health-summary", icon: "carePlan" },
             { label: "Prevention", href: "/patient/prevention", icon: "preventive" },
             { label: "Women's Health", href: "/patient/womens-health", icon: "family" },
             {
@@ -205,15 +226,7 @@ export function getNavSections(
         {
           label: "Support",
           items: [
-            {
-              label: "Messages",
-              href: "/patient/messages",
-              icon: "messages",
-              primary: true,
-              shortLabel: "Messages",
-            },
             { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
-            { label: "Appointments", href: "/patient/appointments", icon: "booking" },
             { label: "Family", href: "/patient/family", icon: "family" },
             // Real feature a single-persona mock doesn't happen to show (that
             // patient supports nobody) — kept reachable rather than regressed.

@@ -57,11 +57,11 @@ const BOOKING_ASSURANCES = [
   },
   {
     title: "You confirm the price first",
-    body: "You pick the lab, see its exact price, and confirm before anything is charged. You can walk away anytime before that.",
+    body: "You pick the lab, see its exact price, and confirm before anything is charged. You can walk away at any time before that.",
   },
   {
-    title: "We never see your card",
-    body: "Payment is handled by Paystack on their own checkout. Your card number never reaches Tarragon, so it is not ours to lose.",
+    title: "Your card stays with Paystack",
+    body: "Payment is handled by Paystack on their own checkout. Your card number stays with them and does not reach Tarragon, so it is not ours to lose.",
   },
 ];
 

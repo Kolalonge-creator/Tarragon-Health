@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { buyServiceProduct } from "@/app/(dashboard)/patient/subscription/actions";
 import { Button } from "@/components/ui/button";
+import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 
 /**
  * Retrying a stuck service_purchases checkout is literally the same
@@ -10,16 +11,34 @@ import { Button } from "@/components/ui/button";
  * always opens a fresh pending row, so this reuses buyServiceProduct
  * unchanged rather than a bespoke "resume this checkout" action.
  */
-export function RetryPaymentButton({ serviceProductCode }: { serviceProductCode: string }) {
-  const [state, formAction, pending] = useActionState(buyServiceProduct, undefined);
+export function RetryPaymentButton({
+  serviceProductCode,
+}: {
+  serviceProductCode: string;
+}) {
+  const [state, formAction, pending] = useActionState(
+    buyServiceProduct,
+    undefined,
+  );
 
   return (
     <form action={formAction}>
-      <input type="hidden" name="serviceProductCode" value={serviceProductCode} />
+      <input
+        type="hidden"
+        name="serviceProductCode"
+        value={serviceProductCode}
+      />
       <Button type="submit" size="sm" disabled={pending}>
         {pending ? "Redirecting…" : "Retry payment"}
       </Button>
-      {state?.error && <p className="pt-1 text-xs text-red-600 dark:text-red-300">{state.error}</p>}
+      <div className="pt-1">
+        <PaystackFeeNotice />
+      </div>
+      {state?.error && (
+        <p className="pt-1 text-xs text-red-600 dark:text-red-300">
+          {state.error}
+        </p>
+      )}
     </form>
   );
 }

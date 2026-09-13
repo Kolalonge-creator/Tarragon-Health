@@ -1,10 +1,19 @@
 "use client";
 
-import { usePatientReceipts, type PatientReceipt, type PatientReceiptServiceType, type PatientReceiptStatus } from "@/lib/queries/receipts";
+import {
+  usePatientReceipts,
+  type PatientReceipt,
+  type PatientReceiptServiceType,
+  type PatientReceiptStatus,
+} from "@/lib/queries/receipts";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { APP_ICON } from "@/lib/icons";
-import { fromMinorUnits, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
+import {
+  fromMinorUnits,
+  CURRENCY_SYMBOL,
+  type Currency,
+} from "@tarragon/shared";
 
 const INVOICEABLE_STATUSES: PatientReceiptStatus[] = ["successful", "refunded"];
 
@@ -25,7 +34,10 @@ const STATUS_LABEL: Record<PatientReceiptStatus, string> = {
   pending_refund: "Refund pending",
 };
 
-const STATUS_VARIANT: Record<PatientReceiptStatus, "green" | "amber" | "red" | "grey"> = {
+const STATUS_VARIANT: Record<
+  PatientReceiptStatus,
+  "green" | "amber" | "red" | "grey"
+> = {
   successful: "green",
   pending: "amber",
   failed: "red",
@@ -34,34 +46,66 @@ const STATUS_VARIANT: Record<PatientReceiptStatus, "green" | "amber" | "red" | "
 };
 
 function formatAmount(amountMinor: number, currency: string): string {
-  const cur = (["NGN", "GBP", "USD"] as const).includes(currency as Currency) ? (currency as Currency) : "NGN";
+  const cur = (["NGN", "GBP", "USD"] as const).includes(currency as Currency)
+    ? (currency as Currency)
+    : "NGN";
   return `${CURRENCY_SYMBOL[cur]}${fromMinorUnits(amountMinor, cur).toLocaleString()}`;
 }
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso.slice(0, 10);
-  return d.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString("en-GB", {
+    timeZone: "Africa/Lagos",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 function ReceiptRow({ receipt }: { receipt: PatientReceipt }) {
   const Icon = APP_ICON[SERVICE_ICON[receipt.service_type] ?? "billing"];
+  // The headline figure is what actually left the patient's card, not our
+  // listed price — those two only ever differ for a 'membership' row where
+  // Paystack passed its own transaction fee on to the customer (this
+  // account's fee-bearer setting). Falls back to the listed price for
+  // every other service_type, and for a free/voucher-covered activation
+  // with no real Paystack charge behind it (charged_amount_minor is null
+  // there too).
+  const headlineAmount = receipt.charged_amount_minor ?? receipt.amount_minor;
+  const hasFee = receipt.fee_minor !== null && receipt.fee_minor > 0;
   return (
     <div className="flex items-center justify-between gap-4 border-b border-charcoal-ink/5 dark:border-night-ink/10 py-3 last:border-b-0">
       <div className="flex items-center gap-3">
-        <Icon className="h-5 w-5 shrink-0 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
+        <Icon
+          className="h-5 w-5 shrink-0 text-deep-forest dark:text-brand-green-bright"
+          strokeWidth={2}
+          aria-hidden
+        />
         <div>
-          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{receipt.service_label}</p>
-          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-            {formatDate(receipt.occurred_at)} · Ref {receipt.reference.slice(0, 18)}
+          <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+            {receipt.service_label}
           </p>
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+            {formatDate(receipt.occurred_at)} · Ref{" "}
+            {receipt.reference.slice(0, 18)}
+          </p>
+          {hasFee && (
+            <p className="mt-0.5 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+              {formatAmount(receipt.amount_minor, receipt.currency)} for the
+              service + {formatAmount(receipt.fee_minor!, receipt.currency)}{" "}
+              card processing fee
+            </p>
+          )}
         </div>
       </div>
       <div className="text-right">
         <p className="text-sm font-semibold tabular-nums text-charcoal-ink dark:text-night-ink">
-          {formatAmount(receipt.amount_minor, receipt.currency)}
+          {formatAmount(headlineAmount, receipt.currency)}
         </p>
-        <Badge variant={STATUS_VARIANT[receipt.status]}>{STATUS_LABEL[receipt.status]}</Badge>
+        <Badge variant={STATUS_VARIANT[receipt.status]}>
+          {STATUS_LABEL[receipt.status]}
+        </Badge>
         {INVOICEABLE_STATUSES.includes(receipt.status) && (
           <a
             href={`/api/patient/receipts/${receipt.service_type}/${receipt.id}/invoice`}
@@ -81,7 +125,9 @@ export function ReceiptsList() {
   if (isLoading) {
     return (
       <Card>
-        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">Loading your receipts…</CardContent>
+        <CardContent className="py-8 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
+          Loading your receipts…
+        </CardContent>
       </Card>
     );
   }

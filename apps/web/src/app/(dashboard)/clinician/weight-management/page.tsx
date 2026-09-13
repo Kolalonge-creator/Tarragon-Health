@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { WeightManagementQueue } from "./queue";
+import { WeightManagementEligibilityQueue } from "./eligibility-queue";
 
 export default async function ClinicianWeightManagementPage() {
   const profile = await getCurrentProfile();
@@ -19,6 +20,7 @@ export default async function ClinicianWeightManagementPage() {
           does not prescribe or supply it; what is being supervised is how it is used.
         </p>
       </div>
+      <WeightManagementEligibilityQueue />
       <WeightManagementQueue />
     </div>
   );

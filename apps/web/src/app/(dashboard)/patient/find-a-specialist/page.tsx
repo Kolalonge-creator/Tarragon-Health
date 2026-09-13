@@ -19,7 +19,7 @@ export default async function FindASpecialistPage() {
         title="Find a specialist"
         icon={NAV_ICON.referral}
         backTo={{ href: "/patient", label: "Dashboard" }}
-        description="Browse Tarragon's specialist network by specialty, location, and language. Your care team still arranges the actual referral and booking."
+        description="Browse Tarragon's specialist network by speciality, location, and language. Your care team still arranges the actual referral and booking."
       />
       <FindASpecialist patientLocation={{ state: profile.state, city: profile.city, area: profile.area }} />
     </div>

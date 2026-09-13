@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables, Enums } from "@tarragon/shared";
 import type { CommissionRateValue } from "@/components/admin/commission-rate-editor";
@@ -635,6 +636,88 @@ export function useUpdateLabProviderLicense() {
         .update(license)
         .eq("id", id);
       if (error) throw error;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
+  });
+}
+
+export type LabProviderCostBasis = "published_list" | "contracted_invoice";
+
+// Mirrors lab_providers_contracted_basis_needs_evidence
+// (20260910054444_lab_provider_cost_basis.sql): claiming a contracted basis
+// requires a non-empty note naming the document. Validated here too so a
+// blank note comes back as a real form error rather than a raw Postgres
+// CHECK-violation string.
+const costBasisInputSchema = z.discriminatedUnion("costBasis", [
+  z.object({
+    id: z.string().uuid(),
+    costBasis: z.literal("published_list"),
+    note: z.string().trim().max(2000).optional().default(""),
+  }),
+  z.object({
+    id: z.string().uuid(),
+    costBasis: z.literal("contracted_invoice"),
+    note: z
+      .string()
+      .trim()
+      .min(
+        1,
+        'Name the document you checked — e.g. "SynLab contracted rate sheet, sighted 2026-09-10".',
+      ),
+  }),
+]);
+
+/**
+ * Records WHERE a lab's recorded lab_tests prices came from — see the
+ * migration header for why this exists (a "contracted rate" that was
+ * actually SynLab's own published consumer price, unnoticed for weeks).
+ * Only ever stamps cost_basis_verified_at/verified_by for a contracted
+ * claim, and stamps them from the caller's own auth session (never a
+ * passed-in id) so the record can't be attributed to anyone but whoever
+ * actually clicked save. The RLS write policy
+ * (lab_providers_cost_basis_admin_write) restricts this to private.is_admin()
+ * regardless of what this hook sends — the app-layer isSuperAdmin gate on
+ * CostBasisEditor is defence in depth, not the real enforcement.
+ */
+export function useUpdateLabProviderCostBasis() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      id: string;
+      costBasis: LabProviderCostBasis;
+      note: string;
+    }) => {
+      const parsed = costBasisInputSchema.safeParse(input);
+      if (!parsed.success) {
+        throw new Error(
+          parsed.error.issues[0]?.message ?? "Check the values and try again.",
+        );
+      }
+      const supabase = createClient();
+      const { data: auth, error: authError } = await supabase.auth.getUser();
+      if (authError || !auth.user) throw new Error("Not signed in.");
+
+      const isContracted = parsed.data.costBasis === "contracted_invoice";
+      const { error } = await supabase
+        .from("lab_providers")
+        .update({
+          cost_basis: parsed.data.costBasis,
+          cost_basis_note: parsed.data.note.trim() || null,
+          cost_basis_verified_at: isContracted ? new Date().toISOString() : null,
+          cost_basis_verified_by: isContracted ? auth.user.id : null,
+        })
+        .eq("id", parsed.data.id);
+      if (error) {
+        if (error.code === "23514") {
+          throw new Error(
+            "A contracted cost basis needs a verifier and a non-empty note naming the document.",
+          );
+        }
+        if (error.code === "42501") {
+          throw new Error("Only an admin can record a lab's cost basis.");
+        }
+        throw error;
+      }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["lab-providers"] }),
   });

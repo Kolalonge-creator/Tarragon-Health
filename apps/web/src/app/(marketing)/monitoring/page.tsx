@@ -76,7 +76,7 @@ const FAQ = [
   {
     question: "What happens to my readings if I do not buy this?",
     answer:
-      "They are still checked against care protocols, every single one, and you still get the full emergency safety net: immediate guidance, your emergency contact notified, and a check-in afterwards. That has never depended on payment. What you do not get is a doctor being told and following up personally.",
+      "They are still checked against care protocols, every single one, and you still get the full emergency safety net: immediate guidance, your emergency contact notified, and a check-in afterwards. That has always been yours, whatever you pay. What you do not get is a doctor being told and following up personally.",
   },
   {
     question: "Is this insurance?",
@@ -86,7 +86,7 @@ const FAQ = [
   {
     question: "Does it renew automatically?",
     answer:
-      "No. You pay once for the term you choose and it stops at the end. There is no card kept on file and nothing to cancel. We tell you before it runs out so it is never a surprise.",
+      "No. You pay once for the term you choose and it stops at the end. There is no card kept on file and nothing to cancel. We tell you before it runs out, so it comes as no surprise.",
   },
   {
     question: "What counts as a dangerous reading?",

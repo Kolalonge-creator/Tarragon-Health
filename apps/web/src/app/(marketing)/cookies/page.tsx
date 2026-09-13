@@ -51,11 +51,11 @@ export default function CookiesPage() {
             <ul className="mt-3 list-disc space-y-2 pl-5 leading-relaxed text-charcoal-ink/80">
               <li>are set only once you sign in (or start signing up), not while you&apos;re
                 browsing the public marketing site anonymously;</li>
-              <li>are used only to identify your logged-in session, never for advertising or
+              <li>are used only to identify your logged-in session, and not for advertising or
                 tracking you across other websites;</li>
               <li>expire automatically, or when you sign out; and</li>
               <li>are required for the app to work, so if you block them, you won&apos;t be able
-                to stay signed in. They&apos;re never gated by the cookie banner below.</li>
+                to stay signed in. They sit outside the cookie banner below.</li>
             </ul>
           </section>
 
@@ -67,17 +67,17 @@ export default function CookiesPage() {
               By default, your browser stores a random, anonymous identifier (not a cookie, just
               browser local storage) and sends us, on each page you visit: the page path, which
               site referred you, any campaign tags in the link you followed, your approximate
-              country/region/city (derived from network routing, never your exact location or IP
+              country/region/city (derived from network routing, rather than your exact location or IP
               address), and your device type (mobile, tablet, desktop). If you&apos;re signed in,
               it&apos;s linked to your account so our team can see overall engagement, like how
-              many people are actively using TarragonHealth week to week, never to build an
+              many people are actively using TarragonHealth week to week, and not to build an
               advertising profile of you. Because this is ordinary first-party product analytics
               and not third-party tracking, it also runs while you&apos;re signed in to the app
               itself, without repeating the banner on every page.
             </p>
             <p className="mt-3 leading-relaxed text-charcoal-ink/80">
               This data stays inside TarragonHealth, for our own product and clinical-operations
-              team. We never sell it, share it with advertisers, or hand it to a third-party
+              team. We do not sell it, share it with advertisers, or hand it to a third-party
               analytics or ad network, because there isn&apos;t one plugged in. If your browser
               sends a &quot;Do Not Track&quot; signal, we record nothing at all, immediately,
               regardless of anything else. Choosing &quot;Reject Non-Essential&quot; on the banner
@@ -94,7 +94,7 @@ export default function CookiesPage() {
               TarragonHealth can be installed as an app on your phone. To make that possible, your
               browser stores one small, branded offline page locally so that if you open the app
               with no internet connection, you see a clear &quot;you&apos;re offline&quot; screen
-              instead of a browser error. That local cache never stores your vitals, medications,
+              instead of a browser error. That local cache holds none of your vitals, medications,
               messages, or any other clinical or personal data. Every real page you view is
               always fetched fresh from our servers over your live session.
             </p>
@@ -109,7 +109,7 @@ export default function CookiesPage() {
               cookie we use is strictly necessary for signing in, blocking or deleting it will
               sign you out and may prevent you from using the patient, clinician, or partner
               areas of TarragonHealth. Browsing the public marketing pages doesn&apos;t require
-              any cookie at all. You can change your analytics choice anytime here:
+              any cookie at all. You can change your analytics choice at any time here:
             </p>
             <div className="mt-4">
               <ManageCookiePreferencesButton />

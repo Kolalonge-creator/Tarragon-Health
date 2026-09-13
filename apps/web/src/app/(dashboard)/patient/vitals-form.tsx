@@ -1,4 +1,5 @@
 "use client";
+import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -30,7 +31,11 @@ export function VitalsForm({
   title?: string;
 }) {
   const [vitalType, setVitalType] = useState<VitalType>(lockedType ?? "blood_pressure");
-  const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>("mmol_l");
+  // Defaults to the unit this patient actually reads, instead of mmol_l for
+  // everyone. Before this, a patient on a mg/dL meter had to re-pick the unit
+  // on every single entry, and forgetting once stored a reading 18x wrong.
+  const preferredUnit = useGlucoseUnit();
+  const [glucoseUnit, setGlucoseUnit] = useState<GlucoseUnit>(preferredUnit);
   const [ketoneKind, setKetoneKind] = useState<KetoneKind>("blood");
   const [state, formAction, pending] = useActionState(logVital, undefined);
   const queryClient = useQueryClient();

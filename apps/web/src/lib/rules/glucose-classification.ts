@@ -8,7 +8,7 @@ export type GlucoseLevel = BpLevel;
 /**
  * Single-reading-only mirror of the authoritative multi-reading glucose
  * engine (lib/vitals/glucose-red-flags.ts / assess-glucose.ts), for
- * presentation only (a tile color) — the same "non-clinical presentation
+ * presentation only (a tile colour) — the same "non-clinical presentation
  * copy of the real engine" pattern bp/spo2/temperature-classification.ts
  * already use, just built by calling the real engine with a window of one
  * rather than re-deriving its thresholds by hand.

@@ -152,7 +152,7 @@ export const ANALYTICS_SECTIONS: AnalyticsSection[] = [
     id: "facilities",
     href: "/analytics/facilities",
     label: "Facilities",
-    subtitle: "Utilization across labs, pharmacies and hospitals",
+    subtitle: "Utilisation across labs, pharmacies and hospitals",
     icon: "facilities",
     group: "Operations",
   },

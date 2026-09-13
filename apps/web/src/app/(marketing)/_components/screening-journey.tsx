@@ -198,7 +198,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Results & what's next",
-        body: "Results go only to you and the reviewing doctor, never shared elsewhere on the platform without your consent. Support and next steps are arranged privately if a result needs it.",
+        body: "Results go only to you and the reviewing doctor, and are shared elsewhere on the platform only with your consent. Support and next steps are arranged privately if a result needs it.",
       },
     ],
   },
@@ -208,7 +208,7 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "all",
     ageBands: ALL_BANDS,
     category: "Know your basics",
-    summary: "Blood group and sickle cell genotype (AA/AS/SS): useful for marriage counselling, pregnancy planning, and emergencies, and something most Nigerians never get told plainly.",
+    summary: "Blood group and sickle cell genotype (AA/AS/SS): useful for marriage counselling, pregnancy planning, and emergencies, and something few Nigerians are ever told plainly.",
     price: "Paid to the lab, not to us",
     steps: [
       {
@@ -225,7 +225,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Results & what's next",
-        body: "Saved to your Health Passport for good, so you (or a partner planning a family with you) never have to ask 'do you know your genotype?' and get a shrug.",
+        body: "Saved to your Health Passport for good, so you (or a partner planning a family with you) can answer 'do you know your genotype?' without a shrug.",
       },
     ],
   },

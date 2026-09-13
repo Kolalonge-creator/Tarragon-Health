@@ -64,7 +64,7 @@ export function useActivityEntries(patientId: string, limit = 30) {
   });
 }
 
-/** Real progress toward WHO's weekly activity guideline (150 min moderate,
+/** Real progress towards WHO's weekly activity guideline (150 min moderate,
  * or 75 vigorous counting double), summed from the patient's actual logged
  * workouts over the trailing 7 days — cumulative, not the single-session
  * estimate the marketing activity calculator gives an anonymous visitor. */

@@ -1,4 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatGlucose } from "@tarragon/shared";
+import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
 import { loadMedicationEffectiveness } from "@/lib/clinical/patient-clinical-context";
 import { MEDICATION_EFFECTIVENESS_DISCLAIMER } from "@/lib/rules/medication-effectiveness";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
  * glucose-lowering drug has nothing this card can say.
  */
 export async function MedicationEffectivenessCard({ patientId }: { patientId: string }) {
+  const glucoseUnit = await getGlucoseDisplayUnit();
   const supabase = await createClient();
   const rows = await loadMedicationEffectiveness(supabase, patientId);
   if (rows.length === 0) return null;
@@ -40,9 +43,14 @@ export async function MedicationEffectivenessCard({ patientId }: { patientId: st
                 </p>
               ) : (
                 <p className="text-sm text-charcoal-ink/80 dark:text-night-ink/80">
-                  Before: <span className="font-medium">{row.summary.beforeGlucoseMmolL} mmol/L</span>{" "}
+                  Before:{" "}
+                  <span className="font-medium">
+                    {formatGlucose(row.summary.beforeGlucoseMmolL, glucoseUnit)}
+                  </span>{" "}
                   ({row.summary.beforeCount} readings) → After:{" "}
-                  <span className="font-medium">{row.summary.afterGlucoseMmolL} mmol/L</span>{" "}
+                  <span className="font-medium">
+                    {formatGlucose(row.summary.afterGlucoseMmolL, glucoseUnit)}
+                  </span>{" "}
                   ({row.summary.afterCount} readings)
                 </p>
               )}

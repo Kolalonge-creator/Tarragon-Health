@@ -63,3 +63,20 @@ population_health_engine.sql
 # which is how this platform once shipped a doctor-escalation gate that
 # resolved false for every patient with its tests green.
 b2c_revenue_reset_invariants.sql
+
+# --- Added 2026-09-10 (second pass) -----------------------------------------
+# specialist_providers had a SELECT policy of `using (true)`, so every logged-in
+# patient could read commission rates and partner contact details. Proves the
+# table is closed to patients, that the directory view they read instead still
+# works AND still carries the licence number (deliberately patient-visible), and
+# that the admin console is not broken by the lockdown.
+specialist_providers_commercial_columns_hidden.sql
+
+# --- Added 2026-09-10 (third pass) ------------------------------------------
+# 20260910011851 shipped the Supervised Weight Management product and its full
+# clinician-side machinery, but nothing ever created a weight_management_enrolments
+# row when a purchase activated -- a paying patient saw the empty state forever.
+# Proves activation creates the row with the right shape, a duplicate purchase
+# while one is already live is a no-op rather than a failed payment, and an
+# unrelated product's activation does not touch this table at all.
+weight_management_enrolment_on_purchase.sql

@@ -288,7 +288,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Can I connect a fitness tracker, smartwatch, or Bluetooth device?",
     answer:
-      "That's part of the platform, and we're bringing connections online one at a time: Apple Health, Health Connect, and trackers including Fitbit, Garmin, Oura, WHOOP, and Dexcom. Manual logging works today, in seconds, for everyone, so you're never waiting on a connection to keep your record current.",
+      "That's part of the platform, and we're bringing connections online one at a time: Apple Health, Health Connect, and trackers including Fitbit, Garmin, Oura, WHOOP, and Dexcom. Manual logging works today, in seconds, for everyone, so you are not left waiting on a connection to keep your record current.",
   },
   {
     category: "general",
@@ -306,7 +306,7 @@ export const HOMEPAGE_FAQS = [
     category: "general",
     question: "Will my health data be kept private?",
     answer:
-      "Your health record is protected by access controls enforced at the database level: only your own care team can see it, and it's never shared with an employer, insurer, or anyone else without your consent. If a relative or institution can see your care, it's because you granted that access, not by default.",
+      "Your health record is protected by access controls enforced at the database level: only your own care team can see it, and it is shared with an employer, insurer or anyone else only with your consent. If a relative or institution can see your care, it's because you granted that access, not by default.",
   },
   {
     category: "general",
@@ -348,7 +348,7 @@ export const HOMEPAGE_FAQS = [
     category: "clinical",
     question: "Is a real doctor actually reviewing my results?",
     answer:
-      "Yes. Any result, escalation, or verified document that shows a doctor's name reflects a real review by a real doctor on that date, never a placeholder. Care is delivered by a team with coverage shared across shifts, so it won't always be the same individual, but every review is still genuinely theirs.",
+      "Yes. Any result, escalation, or verified document that shows a doctor's name reflects a real review by a real doctor on that date, rather than a placeholder. Care is delivered by a team with coverage shared across shifts, so it won't always be the same individual, but every review is still genuinely theirs.",
   },
 ] as const;
 

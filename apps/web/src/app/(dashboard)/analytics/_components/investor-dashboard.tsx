@@ -124,7 +124,7 @@ export function InvestorDashboard() {
         doctor work rather than subscriptions, so there is no MRR, ARR, net or gross revenue
         retention, and no LTV: each of those is a function of a recurring contract and a churn
         rate this business does not have. CAC, burn, runway and Rule of 40 use the finance inputs
-        below and are modeled figures, not audited.
+        below and are modelled figures, not audited.
       </p>
 
       {summaryState === "stale" && (
@@ -151,7 +151,7 @@ export function InvestorDashboard() {
 
       <SectionCard
         title="Unit economics"
-        description={ue?.inputs_present ? "Modeled from platform data + your finance inputs." : "Add finance inputs below to compute CAC / burn / runway."}
+        description={ue?.inputs_present ? "Modelled from platform data + your finance inputs." : "Add finance inputs below to compute CAC / burn / runway."}
       >
         <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {[

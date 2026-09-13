@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import {
@@ -32,12 +33,25 @@ const STARTABLE: { key: LpeConditionKey; title: string; description: string }[] 
   },
 ];
 
-const MORE_TRACKERS: { label: string; path: string }[] = [
-  { label: "Meals", path: "/patient/nutrition" },
+/** Now native screens, not browser hand-offs. See tracker-screens.tsx. */
+const NATIVE_TRACKERS: {
+  label: string;
+  section: SectionId;
+  icon: keyof typeof Ionicons.glyphMap;
+}[] = [
+  { label: "Meals", section: "meals", icon: "restaurant-outline" },
+  { label: "Sleep", section: "sleep", icon: "moon-outline" },
+  { label: "Movement", section: "activity", icon: "walk-outline" },
+  { label: "Smoking", section: "smoking", icon: "flame-outline" },
+  { label: "Alcohol", section: "alcohol", icon: "wine-outline" },
+];
+
+/** Still web: structured exercise programmes (readiness screening, enrolment)
+ * have no native screen yet. Listed separately from the native trackers above
+ * so the "opens in your browser" caption sits only on the one entry it is
+ * true of. Meals is native now, minus the AI photo estimate -- see logMeal. */
+const WEB_TRACKERS: { label: string; path: string }[] = [
   { label: "Exercise programmes", path: "/patient/exercise" },
-  { label: "Sleep", path: "/patient/sleep" },
-  { label: "Smoking", path: "/patient/smoking" },
-  { label: "Alcohol", path: "/patient/alcohol" },
 ];
 
 interface LifestyleScreenProps {
@@ -133,7 +147,17 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
 
       <View style={{ gap: 8 }}>
         <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>More ways to track</Text>
-        {MORE_TRACKERS.map((tracker) => (
+        {NATIVE_TRACKERS.map((tracker) => (
+          <CalloutCard
+            key={tracker.section}
+            icon={tracker.icon}
+            title={tracker.label}
+            subtitle="Log it here, in the app."
+            ctaLabel="Open"
+            onPress={() => onNavigate(tracker.section)}
+          />
+        ))}
+        {WEB_TRACKERS.map((tracker) => (
           <CalloutCard
             key={tracker.path}
             icon="leaf-outline"

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
+import { asUiLanguage } from "@tarragon/shared";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { getNavSections } from "@/lib/navigation";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
@@ -9,6 +10,7 @@ import { cookies } from "next/headers";
 import { THEME_COOKIE, parseThemePreference } from "@/lib/theme";
 import { Providers } from "./providers";
 import { signOut } from "../auth/actions";
+import { updateUiLanguage } from "./patient/ui-language-actions";
 
 export default async function DashboardLayout({
   children,
@@ -25,7 +27,7 @@ export default async function DashboardLayout({
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url"
+      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url, language"
     )
     .eq("id", user.id)
     .single();
@@ -104,6 +106,11 @@ export default async function DashboardLayout({
         // role) get the Warm Ivory ground the mobile app already ships;
         // staff and clinical consoles keep the white canvas.
         surface={profile?.role === "patient" ? "warm" : "default"}
+        // Patients only. Staff consoles stay English: the clinical vocabulary
+        // they work in has no Pidgin register, and a half-translated clinical
+        // console is a safety problem rather than an accessibility win.
+        uiLanguage={profile?.role === "patient" ? asUiLanguage(profile?.language) : "en"}
+        uiLanguageAction={profile?.role === "patient" ? updateUiLanguage : undefined}
         initialTheme={theme}
         signOutAction={signOut}
       >

@@ -468,6 +468,40 @@ Deno.serve(async (req) => {
             .eq("id", row.id);
 
           await markProcessed({ organisation_id: row.organisation_id, subscription_id: row.id });
+        } else if (metadata.kind === "service_purchase") {
+          // Activation itself already happened synchronously: the
+          // payment_transactions insert above fires
+          // payment_transactions_apply_service_purchase (private.apply_
+          // service_purchase_payment) as an AFTER INSERT trigger, before
+          // this switch statement ever runs, using this same raw_payload.
+          // service_purchases has no FK column on payment_transactions to
+          // record here (deliberately — see that trigger's migration
+          // header: a new CheckoutKind is read by the trigger only, never
+          // by this Edge Function), so this branch exists purely to record
+          // an accurate outcome instead of falling into the
+          // subscription_add_ons branch below. That branch used to run for
+          // every service_purchase event and always failed there ("no
+          // subscription_add_ons row..."), a false failure that gave no
+          // signal about whether the trigger actually activated anything —
+          // a real refusal (e.g. an amount/currency mismatch) shows up in
+          // payment_integrity_flags, not this table's error column.
+          const { data: row } = await supabase
+            .from("service_purchases")
+            .select("id, organisation_id, status")
+            .or(
+              `payment_provider_ref.eq.${event.data.reference},pending_payment_provider_ref.eq.${event.data.reference}`,
+            )
+            .maybeSingle();
+
+          if (!row) {
+            await markFailed(`no service_purchases row for reference=${event.data.reference}`);
+          } else if (row.status !== "active") {
+            await markFailed(
+              `service_purchases ${row.id} still ${row.status} after trigger — see payment_integrity_flags`,
+            );
+          } else {
+            await markProcessed({ organisation_id: row.organisation_id });
+          }
         } else {
           const { data: row } = await supabase
             .from("subscription_add_ons")

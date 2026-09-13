@@ -2,7 +2,11 @@ import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 import type { Tables, Enums } from "@tarragon/shared";
 
-export type SpecialistProvider = Tables<"specialist_providers">;
+/** public.specialist_directory, not the base table: specialist_providers became
+ * admin-only on 2026-09-10 (its SELECT policy was `using (true)`, exposing
+ * commission rates and partner contact details to every patient). The view
+ * carries the licence fields, which patients are meant to see. */
+export type SpecialistProvider = Tables<"specialist_directory">;
 export type SpecialistType = Enums<"specialist_type">;
 
 export const SPECIALIST_TYPES: SpecialistType[] = [
@@ -43,10 +47,11 @@ export async function searchSpecialistProviders(
   filters: SpecialistSearchFilters
 ): Promise<QueryResult<SpecialistProvider[]>> {
   let query = supabase
-    .from("specialist_providers")
+    .from("specialist_directory")
     .select("*")
-    .eq("specialist_type", filters.specialistType)
-    .eq("is_active", true);
+    // No .eq("is_active", true): the view already filters to active providers,
+    // and the column is not projected onto it.
+    .eq("specialist_type", filters.specialistType);
   if (filters.requireTelemedicine) query = query.eq("supports_telemedicine", true);
   if (typeof filters.maxFeeKobo === "number") query = query.lte("consultation_fee_kobo", filters.maxFeeKobo);
   if (filters.language) query = query.contains("languages", [filters.language]);
@@ -63,7 +68,11 @@ export async function searchSpecialistProviders(
   };
   return {
     ok: true,
-    data: [...providers].sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name)),
+    // Every column on a view is nullable as far as the generated types are
+    // concerned, so name is coalesced rather than asserted.
+    data: [...providers].sort(
+      (a, b) => score(a) - score(b) || (a.name ?? "").localeCompare(b.name ?? "")
+    ),
   };
 }
 

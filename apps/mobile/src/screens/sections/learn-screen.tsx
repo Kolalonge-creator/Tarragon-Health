@@ -180,7 +180,7 @@ export function LearnScreen({ userId, organisationId }: LearnScreenProps) {
           {lockedCount > 0 && (
             <MutedText>
               {lockedCount} more personalised lesson{lockedCount === 1 ? "" : "s"} unlock over the coming
-              weeks, paced so each one sticks. The full library below is never locked.
+              weeks, paced so each one sticks. The full library below stays open.
             </MutedText>
           )}
         </Card>

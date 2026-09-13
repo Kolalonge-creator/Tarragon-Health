@@ -23,7 +23,7 @@ export function bookingTableFor(orderType: BookingOrderType) {
 
 /**
  * Every booking-payment server action re-checks the caller owns the order
- * being paid for (patient_id = auth.uid()) as defense-in-depth on top of
+ * being paid for (patient_id = auth.uid()) as defence-in-depth on top of
  * RLS, before ever calling out to Paystack/Stripe — money-moving calls
  * don't get to lean on RLS alone. Mirrors requireOwnedSubscription() in
  * patient/subscription/actions.ts.

@@ -12,10 +12,19 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import type { Enums } from "@tarragon/shared";
 
-const DOCUMENT_TYPE_LABEL: Record<string, string> = {
+/** Typed off the enum, not a hand-written union — see the matching map in
+ * apps/web/src/app/(dashboard)/patient/verified-documents-card.tsx, which
+ * this mirrors so a doctor sees the same label the patient picked. */
+const DOCUMENT_TYPE_LABEL: Record<Enums<"verified_document_type">, string> = {
   fit_to_work: "Fit-to-work letter",
+  return_to_work: "Return-to-work letter",
   travel_health_certificate: "Travel health certificate",
+  medication_carry_letter: "Medication carry letter",
+  specialist_referral_letter: "Specialist referral letter",
+  school_health_form: "School health form",
+  insurance_medical_summary: "Insurance medical summary",
 };
 
 function today(): string {
@@ -117,8 +126,8 @@ export default function VerifiedDocumentsWorklistPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Verified documents</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Fit-to-work letters and travel health certificates awaiting your review. What you write
-          here is exactly what prints on the patient&apos;s signed PDF.
+          Verified document requests awaiting your review. What you write here is exactly what
+          prints on the patient&apos;s signed PDF.
         </p>
       </div>
       <Card>

@@ -12,7 +12,7 @@ export interface QuotaCheckResult {
  * Enforces protocol_api_licenses.calls_included_per_month, admin-provisioned
  * flat monthly tiers (20260901181314_protocol_api_licenses.sql) — a hard
  * cap, not a soft degrade, so overage is visible for manual invoicing per
- * the founder's chosen scope. A partner with no license row at all (every
+ * the founder's chosen scope. A partner with no licence row at all (every
  * partner set up before this existed, or one on the 'unlimited' tier) is
  * always allowed — this only ever restricts a partner an admin has
  * explicitly capped. Queried directly against the table via the service

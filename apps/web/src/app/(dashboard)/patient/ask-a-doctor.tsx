@@ -8,6 +8,7 @@ import {
 } from "@/lib/queries/async-consults";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 import {
   asyncConsultSchema,
   ASYNC_CONSULT_CATEGORIES,
@@ -18,7 +19,12 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
+import {
+  FormError,
+  FormSuccess,
+  fieldErrorId,
+  fieldErrorProps,
+} from "@/components/ui/form-error";
 
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 const ASYNC_CONSULT_CREDIT_CODE = "async_consult_credit";
@@ -33,7 +39,9 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
   return (
     <li className="space-y-1 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{consult.question}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+          {consult.question}
+        </p>
         {answered ? (
           <Badge variant="green">Answered</Badge>
         ) : (
@@ -47,7 +55,9 @@ function ConsultRow({ consult }: { consult: AsyncConsultWithAnswerer }) {
       )}
       {answered && consult.answer && (
         <div className="rounded-lg border border-brand-green/20 bg-brand-green/[0.04] p-3">
-          <p className="text-sm text-charcoal-ink dark:text-night-ink">{consult.answer}</p>
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">
+            {consult.answer}
+          </p>
           {/* Attribution is null-gated on the trigger-stamped answered_by record —
               never rendered without a real clinical_staff match. */}
           {consult.answerer && consult.answered_at && (
@@ -83,10 +93,8 @@ export function AskADoctor({
   hasPlanAccess: boolean;
 }) {
   const { data: consults } = useMyAsyncConsults(patientId);
-  const { data: hasCredit, isLoading: isCheckingCredit } = useHasAvailableServicePurchase(
-    patientId,
-    ASYNC_CONSULT_CREDIT_CODE
-  );
+  const { data: hasCredit, isLoading: isCheckingCredit } =
+    useHasAvailableServicePurchase(patientId, ASYNC_CONSULT_CREDIT_CODE);
   const submit = useSubmitAsyncConsult();
   const [category, setCategory] = useState<string>("general");
   const [question, setQuestion] = useState("");
@@ -106,7 +114,9 @@ export function AskADoctor({
       durationNote: durationNote || undefined,
     });
     if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? "Check your question and try again");
+      setFormError(
+        parsed.error.issues[0]?.message ?? "Check your question and try again",
+      );
       return;
     }
     submit.mutate(
@@ -122,7 +132,7 @@ export function AskADoctor({
           setQuestion("");
           setDurationNote("");
         },
-      }
+      },
     );
   };
 
@@ -154,8 +164,13 @@ export function AskADoctor({
   const creditErrorId = fieldErrorId("ask-a-doctor-credit");
   const questionErrorId = fieldErrorId("consult-question");
   const questionError =
-    (canAsk && formError) || (submit.isError && "Could not send your question. Try again.") || null;
-  const questionErrorProps = fieldErrorProps(questionErrorId, Boolean(questionError));
+    (canAsk && formError) ||
+    (submit.isError && "Could not send your question. Try again.") ||
+    null;
+  const questionErrorProps = fieldErrorProps(
+    questionErrorId,
+    Boolean(questionError),
+  );
 
   return (
     <Card id="ask-a-doctor">
@@ -164,16 +179,18 @@ export function AskADoctor({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Send a written question and a doctor on your care team answers here, usually
-          within 72 hours. Not for emergencies: if something feels urgent, use the
-          symptom check at the top of this page or go to a hospital.
+          Send a written question and a doctor on your care team answers here,
+          usually within 72 hours. Not for emergencies: if something feels
+          urgent, use the symptom check at the top of this page or go to a
+          hospital.
         </p>
 
         {!isCheckingCredit && !canAsk && (
           <div className="space-y-2 rounded-md border border-brand-green/30 bg-brand-green/5 p-3">
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
-              Ask a doctor isn&apos;t included on your current plan. Buy a one-off credit to send this
-              question, or upgrade for unlimited access.
+              Ask a doctor isn&apos;t included on your current plan. Buy a
+              one-off credit to send this question, or upgrade for unlimited
+              access.
             </p>
             <FormError id={creditErrorId} message={formError} />
             <div className="flex flex-wrap gap-2">
@@ -184,6 +201,7 @@ export function AskADoctor({
                 <a href="/patient/subscription">See plans</a>
               </Button>
             </div>
+            <PaystackFeeNotice />
           </div>
         )}
 
@@ -194,7 +212,8 @@ export function AskADoctor({
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             disabled={!canAsk}
-           {...questionErrorProps}>
+            {...questionErrorProps}
+          >
             {ASYNC_CONSULT_CATEGORIES.map((c) => (
               <option key={c.value} value={c.value}>
                 {c.label}
@@ -211,16 +230,20 @@ export function AskADoctor({
             rows={3}
             placeholder="e.g. I've felt dizzy in the mornings since my dose changed. Is that expected?"
             disabled={!canAsk}
-           {...questionErrorProps}/>
+            {...questionErrorProps}
+          />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="consult-duration">How long has this been going on? (optional)</Label>
+          <Label htmlFor="consult-duration">
+            How long has this been going on? (optional)
+          </Label>
           <Select
             id="consult-duration"
             value={durationNote}
             onChange={(e) => setDurationNote(e.target.value)}
             disabled={!canAsk}
-           {...questionErrorProps}>
+            {...questionErrorProps}
+          >
             <option value="">Prefer not to say</option>
             <option value="today">Just today</option>
             <option value="days">A few days</option>
@@ -230,7 +253,10 @@ export function AskADoctor({
         </div>
         <FormError id={questionErrorId} message={questionError} />
         <FormSuccess
-          message={submit.isSuccess && "Sent. A doctor will answer here within 72 hours."}
+          message={
+            submit.isSuccess &&
+            "Sent. A doctor will answer here within 72 hours."
+          }
         />
         <Button onClick={onSubmit} disabled={submit.isPending || !canAsk}>
           {submit.isPending ? "Sending…" : "Send to my care team"}

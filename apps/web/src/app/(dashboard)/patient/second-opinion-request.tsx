@@ -8,6 +8,7 @@ import {
 } from "@/lib/queries/second-opinion";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
 import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
+import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
 import { secondOpinionRequestSchema } from "@/lib/validation/second-opinion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +20,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { formatPatientDate, formatPatientDateTime } from "@/lib/format-date";
 const SECOND_OPINION_CREDIT_CODE = "second_opinion_credit";
 
-function RequestRow({ request }: { request: SecondOpinionRequestWithAnswerer }) {
+function RequestRow({
+  request,
+}: {
+  request: SecondOpinionRequestWithAnswerer;
+}) {
   const answered = request.status === "answered" || request.status === "closed";
   const credential =
     request.answerer?.credential_type && request.answerer?.credential_number
@@ -29,8 +34,14 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithAnswerer }) 
   return (
     <li className="space-y-1 py-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{request.existing_diagnosis_or_result}</p>
-        {answered ? <Badge variant="green">Answered</Badge> : <Badge variant="blue">With your care team</Badge>}
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+          {request.existing_diagnosis_or_result}
+        </p>
+        {answered ? (
+          <Badge variant="green">Answered</Badge>
+        ) : (
+          <Badge variant="blue">With your care team</Badge>
+        )}
       </div>
       {!answered && (
         <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
@@ -39,7 +50,9 @@ function RequestRow({ request }: { request: SecondOpinionRequestWithAnswerer }) 
       )}
       {answered && request.answer && (
         <div className="rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 bg-brand-green/[0.04] dark:bg-brand-green/15 p-3">
-          <p className="text-sm text-charcoal-ink dark:text-night-ink">{request.answer}</p>
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">
+            {request.answer}
+          </p>
           {/* Attribution is null-gated on the trigger-stamped answered_by record —
               never rendered without a real clinical_staff match. */}
           {request.answerer && request.answered_at && (
@@ -70,12 +83,11 @@ export function SecondOpinionRequestCard({
   organisationId: string | null;
 }) {
   const { data: requests } = useMySecondOpinionRequests(patientId);
-  const { data: hasCredit, isLoading: isCheckingCredit } = useHasAvailableServicePurchase(
-    patientId,
-    SECOND_OPINION_CREDIT_CODE
-  );
+  const { data: hasCredit, isLoading: isCheckingCredit } =
+    useHasAvailableServicePurchase(patientId, SECOND_OPINION_CREDIT_CODE);
   const submit = useSubmitSecondOpinionRequest();
-  const [existingDiagnosisOrResult, setExistingDiagnosisOrResult] = useState("");
+  const [existingDiagnosisOrResult, setExistingDiagnosisOrResult] =
+    useState("");
   const [sourceDescription, setSourceDescription] = useState("");
   const [specificQuestion, setSpecificQuestion] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -91,7 +103,10 @@ export function SecondOpinionRequestCard({
       specificQuestion: specificQuestion || undefined,
     });
     if (!parsed.success) {
-      setFormError(parsed.error.issues[0]?.message ?? "Check what you've entered and try again");
+      setFormError(
+        parsed.error.issues[0]?.message ??
+          "Check what you've entered and try again",
+      );
       return;
     }
     submit.mutate(
@@ -112,10 +127,10 @@ export function SecondOpinionRequestCard({
           setFormError(
             (error as Error).message?.includes("second opinion credit")
               ? "Buy a second opinion credit first."
-              : (error as Error).message || "Could not send this request."
+              : (error as Error).message || "Could not send this request.",
           );
         },
-      }
+      },
     );
   };
 
@@ -147,8 +162,9 @@ export function SecondOpinionRequestCard({
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Already have a result or diagnosis from somewhere else? A doctor on your care team reviews
-          it and writes back their own assessment, no visit needed.
+          Already have a result or diagnosis from somewhere else? A doctor on
+          your care team reviews it and writes back their own assessment, no
+          visit needed.
         </p>
 
         {!isCheckingCredit && !hasCredit && (
@@ -159,11 +175,14 @@ export function SecondOpinionRequestCard({
             <Button size="sm" disabled={isBuying} onClick={buyCredit}>
               {isBuying ? "Redirecting to payment…" : "Buy a credit"}
             </Button>
+            <PaystackFeeNotice />
           </div>
         )}
 
         <div className="space-y-2">
-          <Label htmlFor="second-opinion-diagnosis">The result or diagnosis</Label>
+          <Label htmlFor="second-opinion-diagnosis">
+            The result or diagnosis
+          </Label>
           <Textarea
             id="second-opinion-diagnosis"
             value={existingDiagnosisOrResult}
@@ -174,7 +193,9 @@ export function SecondOpinionRequestCard({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="second-opinion-source">Where is this from? (optional)</Label>
+          <Label htmlFor="second-opinion-source">
+            Where is this from? (optional)
+          </Label>
           <Input
             id="second-opinion-source"
             value={sourceDescription}
@@ -184,7 +205,9 @@ export function SecondOpinionRequestCard({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="second-opinion-question">A specific question? (optional)</Label>
+          <Label htmlFor="second-opinion-question">
+            A specific question? (optional)
+          </Label>
           <Input
             id="second-opinion-question"
             value={specificQuestion}
@@ -193,9 +216,13 @@ export function SecondOpinionRequestCard({
             disabled={!hasCredit}
           />
         </div>
-        {formError && <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>}
+        {formError && (
+          <p className="text-sm text-red-600 dark:text-red-300">{formError}</p>
+        )}
         {submit.isSuccess && (
-          <p className="text-sm text-brand-green dark:text-brand-green-bright">Sent. A doctor will answer here within 72 hours.</p>
+          <p className="text-sm text-brand-green dark:text-brand-green-bright">
+            Sent. A doctor will answer here within 72 hours.
+          </p>
         )}
         <Button onClick={onSubmit} disabled={submit.isPending || !hasCredit}>
           {submit.isPending ? "Sending…" : "Send for review"}

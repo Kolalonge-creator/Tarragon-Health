@@ -30,7 +30,7 @@ const GENERAL_STEPS = [
   },
   {
     title: "A doctor reads every result",
-    body: "A doctor reviews every result against your history, never just a printout. An abnormal result triggers an immediate alert and follow-up within a day, or within 12 hours if it's critical.",
+    body: "A doctor reviews every result against your history, rather than reading a printout on its own. An abnormal result triggers an immediate alert and follow-up within a day, or within 12 hours if it's critical.",
   },
 ];
 

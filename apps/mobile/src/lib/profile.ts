@@ -1,4 +1,7 @@
 import { supabase } from "./supabase";
+import { type GlucoseDisplayUnit, type UiLanguage } from "@tarragon/shared";
+import { clearGlucoseUnitCache } from "./glucose-unit";
+import { clearUiLanguageCache } from "./ui-language";
 import type { Tables } from "@tarragon/shared";
 
 export type ProfileRow = Tables<"profiles">;
@@ -94,6 +97,35 @@ export async function updateConditionLanguage(
     .update({ condition_language_preference: value })
     .eq("id", userId);
   if (error) throw error;
+}
+
+/**
+ * The unit this patient reads their own glucose figures in. Display and
+ * entry-form default only -- vitals_readings always stores mmol/L, so this
+ * never converts a stored reading. See profiles.glucose_display_unit.
+ */
+export async function updateGlucoseDisplayUnit(
+  userId: string,
+  value: GlucoseDisplayUnit
+): Promise<void> {
+  const { error } = await supabase
+    .from("profiles")
+    .update({ glucose_display_unit: value })
+    .eq("id", userId);
+  if (error) throw error;
+  // The unit is cached per session for the screens that only read it.
+  clearGlucoseUnitCache();
+}
+
+/**
+ * Interface language. Wayfinding only -- clinical guidance, emergency copy,
+ * dosing and consent text are never translated. See profiles.language and
+ * packages/shared/src/ui-language.ts.
+ */
+export async function updateUiLanguage(userId: string, value: UiLanguage): Promise<void> {
+  const { error } = await supabase.from("profiles").update({ language: value }).eq("id", userId);
+  if (error) throw error;
+  clearUiLanguageCache();
 }
 
 export interface EmergencyContactInput {

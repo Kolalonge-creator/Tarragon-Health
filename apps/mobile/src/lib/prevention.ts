@@ -22,7 +22,7 @@ import type { Tables } from "@tarragon/shared";
  * instead shows the persisted vaccination_schedules rows the engine already
  * materialised (due/overdue/booked) plus the patient's actual dose history
  * (vaccination_records) — real data, just not a re-derivation of "not yet
- * due" for every catalog entry the patient hasn't been scheduled for yet.
+ * due" for every catalogue entry the patient hasn't been scheduled for yet.
  * Likewise not ported: lab-order creation/partner-billing for a due
  * screening (createLabOrder, PartnerLabBillingOption) — booking a lab test
  * involves catalogue/pricing lookups and partner-billing branches genuinely

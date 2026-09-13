@@ -9,7 +9,7 @@ export default async function FeatureFlagsSettingsPage() {
   const { isSuperAdmin, keys } = await getCallerPermissions();
 
   // proxy.ts already blocks non-admins from any /admin/** route at the routing layer — this
-  // is defense-in-depth on top of that, matching the other admin settings pages.
+  // is defence-in-depth on top of that, matching the other admin settings pages.
   if (!profile || (!isSuperAdmin && !keys.has("feature_flags.manage"))) {
     redirect("/admin");
   }

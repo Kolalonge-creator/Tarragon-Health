@@ -42,7 +42,7 @@ const STAGE_LABEL: Record<ProviderRestrictionStage, string> = {
 };
 
 const REASON_LABEL: Record<ProviderRestrictionReason, string> = {
-  license_expiry: "License expiry",
+  license_expiry: "Licence expiry",
   indemnity_expiry: "Indemnity expiry",
   attestation_lapse: "Attestation lapse",
   complaint_outcome: "Complaint outcome",
@@ -97,7 +97,7 @@ function RestrictionRow({ restriction }: { restriction: ProviderRestriction }) {
               id={`lift_reason_${restriction.id}`}
               value={liftReason}
               onChange={(e) => setLiftReason(e.target.value)}
-              placeholder="e.g. License renewed, verified 2026-08-30"
+              placeholder="e.g. Licence renewed, verified 2026-08-30"
             />
           </div>
           <Button

@@ -135,7 +135,7 @@ async function resolveNextAction(patientId: string): Promise<NextAction> {
     action = {
       icon: "medication",
       title: `${refill.data.drug_name} is due for a refill soon`,
-      body: "Sort the refill now so you never run out.",
+      body: "Sort the refill now so your supply keeps going.",
       href: "/patient/medications",
       cta: "Sort my refill",
     };

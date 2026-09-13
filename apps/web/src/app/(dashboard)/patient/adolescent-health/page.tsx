@@ -85,7 +85,7 @@ export default async function AdolescentHealthPage() {
         title="Adolescent Health"
         icon={NAV_ICON.review}
         backTo={{ href: "/patient", label: "Dashboard" }}
-        description="A private, whole-life check-in (home, school, activity, and how you're really doing), plus your path toward looking after your own care as you get older."
+        description="A private, whole-life check-in (home, school, activity, and how you're really doing), plus your path towards looking after your own care as you get older."
       />
 
       {(ageBand === "younger_adolescent" || ageBand === "older_adolescent") && lastScreen && (

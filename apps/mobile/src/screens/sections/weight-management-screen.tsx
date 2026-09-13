@@ -15,6 +15,7 @@ import {
 import type { SectionId } from "@/lib/sections";
 import { colors, radius, spacing } from "@/ui/theme";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { SupervisedWeightManagementCard } from "@/screens/sections/supervised-weight-management-card";
 
 const textInputStyle = {
   borderWidth: 1,
@@ -73,6 +74,7 @@ function Checkbox({ checked, onToggle, label }: { checked: boolean; onToggle: ()
 
 interface WeightManagementScreenProps {
   userId: string;
+  organisationId: string;
   onNavigate: (section: SectionId) => void;
 }
 
@@ -88,7 +90,7 @@ interface WeightManagementScreenProps {
  * evaluation that must not be reimplemented client-side; goal create/resolve
  * are plain RLS-scoped RPCs, called directly.
  */
-export function WeightManagementScreen({ userId, onNavigate }: WeightManagementScreenProps) {
+export function WeightManagementScreen({ userId, organisationId, onNavigate }: WeightManagementScreenProps) {
   const [assessment, setAssessment] = useState<ObesityAssessment | null>(null);
   const [referral, setReferral] = useState<BariatricReferral | null>(null);
   const [enrollment, setEnrollment] = useState<LifestyleEnrollment | null>(null);
@@ -130,6 +132,12 @@ export function WeightManagementScreen({ userId, onNavigate }: WeightManagementS
         <ScreenTitle>Weight management</ScreenTitle>
         <MutedText>Your assessment, your programme, your trackers, and what your care team is doing for you, all in one place.</MutedText>
       </View>
+
+      {/* A separate, paid track from the free lifestyle coaching below: a
+          doctor supervising weight-loss medication you obtained yourself.
+          Placed first so the two don't get confused — mirrors
+          weight-management-panel.tsx, which lives on its own web route. */}
+      <SupervisedWeightManagementCard organisationId={organisationId} patientId={userId} />
 
       {assessment && (
         <Card style={{ gap: 8 }}>

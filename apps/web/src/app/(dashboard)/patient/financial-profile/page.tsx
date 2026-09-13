@@ -114,6 +114,7 @@ export default async function FinancialProfilePage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Your finances"
         icon={NAV_ICON.finance}
         description="Your services, vouchers, transactions, and anything still being refunded, all in one place."
@@ -155,7 +156,7 @@ export default async function FinancialProfilePage() {
           <CardHeader>
             <CardTitle as="h2">Recent payment issues</CardTitle>
             <CardDescription>
-              We never store your card. A failed charge means Paystack declined it, not that
+              Your card details are not stored with us. A failed charge means Paystack declined it, not that
               anything on our side went wrong.
             </CardDescription>
           </CardHeader>

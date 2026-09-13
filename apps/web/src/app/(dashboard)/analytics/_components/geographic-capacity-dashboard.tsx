@@ -56,7 +56,7 @@ export function GeographicCapacityDashboard() {
   return (
     <div className="space-y-6">
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        Provider counts are catalogue aggregates only, never a patient-facing recommendation or
+        Provider counts are catalogue aggregates only, not a patient-facing recommendation or
         ranking (see docs/CLINICAL_NETWORK_SPEC.md §3/§4.17). &ldquo;Live&rdquo; reflects
         service_regions.is_active, the same state-rollout switch the app itself enforces.
       </p>
@@ -68,8 +68,8 @@ export function GeographicCapacityDashboard() {
           label="States live"
           value={`${formatNumber(activeStates)} / ${formatNumber(coverageRows.length)}`}
         />
-        <StatTile icon={Users} label="Specialties tracked" value={formatNumber(specialties.length)} />
-        <StatTile icon={AlertTriangle} label="Specialties with zero coverage" value={formatNumber(shortageCount)} />
+        <StatTile icon={Users} label="Specialities tracked" value={formatNumber(specialties.length)} />
+        <StatTile icon={AlertTriangle} label="Specialities with zero coverage" value={formatNumber(shortageCount)} />
       </div>
 
       {isLoading ? (
@@ -132,7 +132,7 @@ export function GeographicCapacityDashboard() {
 
       <SectionCard
         title="All zones, raw"
-        description="Every specialty/state pairing with an active provider, flat and exportable."
+        description="Every speciality/state pairing with an active provider, flat and exportable."
         actions={<ExportButton filename="provider-capacity-by-zone" rows={exportRows} />}
       >
         {bySpecialtyState.length === 0 ? (
@@ -144,7 +144,7 @@ export function GeographicCapacityDashboard() {
                 <tr className="border-b border-charcoal-ink/10 text-left text-xs text-charcoal-ink/50">
                   <th className="py-2 pr-4 font-medium">Zone</th>
                   <th className="py-2 pr-4 font-medium">State</th>
-                  <th className="py-2 pr-4 font-medium">Specialty</th>
+                  <th className="py-2 pr-4 font-medium">Speciality</th>
                   <th className="py-2 text-right font-medium">Active providers</th>
                 </tr>
               </thead>

@@ -114,11 +114,20 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
     ],
     queryFn: async () => {
       const supabase = createClient();
+      // public.specialist_directory, NOT specialist_providers. The table became
+      // admin-and-partner-manager only on 2026-09-10 because its SELECT policy
+      // was `using (true)`, handing every logged-in patient the commission
+      // rates and the partner contact details. The view carries everything both
+      // callers of this hook actually render, plus the licence fields, which
+      // are deliberately patient-visible so a registration can be checked with
+      // the regulator. Do not repoint this back at the table to fix an empty
+      // list; add the column to the view instead.
       let query = supabase
-        .from("specialist_providers")
+        .from("specialist_directory")
         .select("*")
-        .eq("specialist_type", specialistType!)
-        .eq("is_active", true);
+        // No .eq("is_active", true): the view already filters to active
+        // providers and does not project the column.
+        .eq("specialist_type", specialistType!);
       if (requireTelemedicine) {
         query = query.eq("supports_telemedicine", true);
       }
@@ -141,23 +150,29 @@ export function useMatchedSpecialistProviders(filters: SpecialistProviderMatchFi
         if (p.state !== state) return 2;
         return city && p.city === city ? 0 : 1;
       };
-      return [...providers].sort((a, b) => score(a) - score(b) || a.name.localeCompare(b.name));
+      // Every column on a view is nullable to the generated types, so name is
+      // coalesced rather than asserted.
+      return [...providers].sort(
+        (a, b) => score(a) - score(b) || (a.name ?? "").localeCompare(b.name ?? "")
+      );
     },
     enabled: !!specialistType,
   });
 }
 
-export type SpecialistProvider = Tables<"specialist_providers">;
+/** The patient- and clinician-safe projection. Never the base table: see the
+ * note in useMatchedSpecialistProviders. */
+export type SpecialistProvider = Tables<"specialist_directory">;
 
 /**
- * Assigns a real, active, specialty-matched specialist_providers row to a
+ * Assigns a real, active, speciality-matched specialist_providers row to a
  * pending/waitlisted referral — the partner-booking path (as opposed to the
  * self-arranged default every referral otherwise stays on). Routed through
  * public.set_referral_specialist_provider (RPC), not a raw `.update()` — a
  * plain update would violate specialist_referrals_enforce_fulfilment's
  * self_arranged guard, since every referral defaults to self_arranged and
  * only this RPC flips fulfilment to 'partner' as part of assigning. The RPC
- * re-validates the provider is genuinely active and specialty-matched
+ * re-validates the provider is genuinely active and speciality-matched
  * server-side and locks in the fee from the provider's own row — never a
  * client-supplied value. No scoring/ranking here or in the RPC — org staff
  * still pick manually from useMatchedSpecialistProviders' plain filtered

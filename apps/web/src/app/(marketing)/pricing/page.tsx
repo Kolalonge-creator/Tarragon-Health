@@ -88,7 +88,7 @@ Just want one blood test? You do not need an account for that.
           <p className="mt-1.5 text-sm text-charcoal-ink/75">
             You pay laboratories and pharmacies directly, at their price, for every test, including a
             one-off Health Check. We tell you what&apos;s worth doing and a doctor reads the result; we
-            never set the price and never take a cut.
+            neither set the price nor take a cut.
           </p>
           <Button asChild variant="outline" size="sm" className="mt-3">
             <Link href={MARKETING_ROUTES.annualHealthCheck}>Book a one-off check instead</Link>

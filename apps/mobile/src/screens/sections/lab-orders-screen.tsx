@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Image, Linking, Pressable, RefreshControl, ScrollView, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import {
   getAnalyteTrends,
   getLabCatalogue,
@@ -17,11 +18,124 @@ import {
   type ResultStatus,
 } from "@/lib/lab-orders";
 import { groupBundlesByCategory, testCodeLabels } from "@/lib/lab-catalogue-content";
-import { testTypeLabel } from "@/lib/labs";
+import { replaceLabResult, testTypeLabel } from "@/lib/labs";
 import { resolveSubjectId } from "@/lib/acting";
 import { supabase } from "@/lib/supabase";
-import { colors, spacing } from "@/ui/theme";
-import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, SectionLabel } from "@/ui/components";
+import { colors, radius, spacing } from "@/ui/theme";
+import {
+  Card,
+  ErrorText,
+  GroupedList,
+  GroupedListRow,
+  MutedText,
+  PrimaryButton,
+  SecondaryButton,
+  SectionLabel,
+} from "@/ui/components";
+
+interface CapturedPhoto {
+  uri: string;
+  mimeType: string;
+  fileName: string;
+}
+
+/**
+ * "I photographed the wrong result" — lets a patient swap the file on a
+ * document they uploaded themselves, before anyone has reviewed it. Only
+ * rendered by the result-documents list below, which already gates on
+ * doc.source === "patient" && !doc.reviewedAt — the same condition the DB
+ * itself enforces (20260912220345_lab_result_documents_patient_self_replace.sql).
+ */
+function ReplaceDocumentControl({ documentId, onReplaced }: { documentId: string; onReplaced: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function takePhoto() {
+    setError(null);
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setError("Camera access is off. Enable it in your phone's Settings to photograph a result.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setPhoto({
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? "image/jpeg",
+      fileName: asset.fileName ?? `result-${Date.now()}.jpg`,
+    });
+  }
+
+  async function chooseFromLibrary() {
+    setError(null);
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setError("Photo access is off. Enable it in your phone's Settings to choose a photo.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ quality: 0.8 });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setPhoto({
+      uri: asset.uri,
+      mimeType: asset.mimeType ?? "image/jpeg",
+      fileName: asset.fileName ?? `result-${Date.now()}.jpg`,
+    });
+  }
+
+  async function replace() {
+    if (!photo) return;
+    setUploading(true);
+    setError(null);
+    const result = await replaceLabResult(documentId, photo);
+    setUploading(false);
+    if (result.error) {
+      setError(result.error);
+      return;
+    }
+    setPhoto(null);
+    setOpen(false);
+    onReplaced();
+  }
+
+  if (!open) {
+    return (
+      <Text
+        onPress={() => setOpen(true)}
+        style={{ fontSize: 12.5, fontWeight: "600", color: colors.faint }}
+      >
+        Uploaded the wrong file? Replace it
+      </Text>
+    );
+  }
+
+  return (
+    <View style={{ gap: 8 }}>
+      {photo ? (
+        <>
+          <Image
+            source={{ uri: photo.uri }}
+            style={{ width: "100%", height: 160, borderRadius: radius.control, backgroundColor: colors.border }}
+            resizeMode="cover"
+          />
+          {error ? <ErrorText>{error}</ErrorText> : null}
+          <PrimaryButton title="Replace this upload" onPress={replace} loading={uploading} />
+          <SecondaryButton title="Retake" onPress={takePhoto} disabled={uploading} />
+        </>
+      ) : (
+        <>
+          {error ? <ErrorText>{error}</ErrorText> : null}
+          <PrimaryButton title="Take a photo" onPress={takePhoto} />
+          <SecondaryButton title="Choose from library" onPress={chooseFromLibrary} />
+          <SecondaryButton title="Cancel" onPress={() => setOpen(false)} />
+        </>
+      )}
+    </View>
+  );
+}
 
 /** Groups result documents by their known test type, in first-seen order,
  * with unknown-type documents trailing under "Other results" — mirrors
@@ -387,6 +501,9 @@ export function LabOrdersScreen() {
                             The values in this file look consistent with the ranges printed on the report. A doctor
                             hasn&apos;t reviewed this yet.
                           </MutedText>
+                        ) : null}
+                        {doc.source === "patient" && !doc.reviewedAt ? (
+                          <ReplaceDocumentControl documentId={doc.id} onReplaced={() => patientId && load(patientId)} />
                         ) : null}
                       </>
                     )}

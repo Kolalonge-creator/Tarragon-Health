@@ -25,7 +25,7 @@ const LADDER: { step: number; regimen: string; note: string }[] = [
 
 const SAFETY_NOTES = [
   "ARB preferred over ACE inhibitor throughout (Black-African evidence, §12.4).",
-  "Never combine an ACE inhibitor and an ARB (system-blocked).",
+  "Do not combine an ACE inhibitor and an ARB (system-blocked).",
   "Check U&E + potassium before and 1–2 weeks after starting/increasing an ARB or diuretic; hold & refer if creatinine rises >30%, eGFR falls >25%, or K⁺ >5.5.",
   "Advance one step if not at target after ~4 weeks and adherence/technique are good.",
 ];

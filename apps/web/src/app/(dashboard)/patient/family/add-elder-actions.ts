@@ -39,7 +39,7 @@ import { ageFromDateOfBirth } from "@tarragon/shared";
  */
 export async function addElderProxyDependentAction(
   input: unknown
-): Promise<{ message: string } | { error: string }> {
+): Promise<{ message: string; profileId: string } | { error: string }> {
   const parsed = addElderProxyDependentSchema.safeParse(input);
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid details" };
@@ -130,7 +130,13 @@ export async function addElderProxyDependentAction(
   const age = ageFromDateOfBirth(date_of_birth);
   revalidatePath("/patient/family");
   revalidatePath("/patient");
+  revalidatePath("/patient/supporting");
   return {
     message: `Added ${full_name} (${age}) to your family. You can book appointments, log care and manage reminders for them from here.`,
+    // Additive: the sponsor purchase flow (/patient/supporting/new) needs the
+    // newly created profile's id immediately, to chain straight into product
+    // selection without a refetch-and-match-by-name round trip. Existing
+    // callers (AddElderProxyForm) only read `message`, so this is safe.
+    profileId: elderId,
   };
 }

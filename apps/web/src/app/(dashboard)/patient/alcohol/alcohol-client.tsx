@@ -12,12 +12,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { LifestyleBarrierPicker } from "@/components/lifestyle-barrier-picker";
+import { useT } from "@/components/ui-language-provider";
 
 import { formatPatientDate } from "@/lib/format-date";
 const GOAL_KEY = "alcohol-goal";
 const LOGS_KEY = "alcohol-consumption-logs";
 
 export function AlcoholClient({ patientId }: { patientId: string }) {
+  const t = useT();
   const goal = useAlcoholGoal(patientId);
   const logs = useAlcoholConsumptionLogs(patientId);
   const weekTotal = useMemo(() => drinksThisWeek(logs.data ?? []), [logs.data]);
@@ -30,15 +32,15 @@ export function AlcoholClient({ patientId }: { patientId: string }) {
       <Card>
         <CardContent className="flex items-center justify-between gap-3 pt-6">
           <div>
-            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">Not sure where you stand?</p>
-            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Retake the AUDIT-C screen, or read up on cutting back.</p>
+            <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{t("Not sure where you stand?")}</p>
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{t("Retake the AUDIT-C screen, or read up on cutting back.")}</p>
           </div>
           <div className="flex gap-2">
             <Link href="/patient/health-check" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-              Screening
+              {t("Screening")}
             </Link>
             <Link href="/patient/learn" className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline">
-              Learn
+              {t("Learn")}
             </Link>
           </div>
         </CardContent>
@@ -48,12 +50,12 @@ export function AlcoholClient({ patientId }: { patientId: string }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>History</CardTitle>
+          <CardTitle>{t("History")}</CardTitle>
         </CardHeader>
         <CardContent>
-          {logs.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+          {logs.isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("Loading…")}</p>}
           {!logs.isLoading && (logs.data?.length ?? 0) === 0 && (
-            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Nothing logged yet.</p>
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("Nothing logged yet.")}</p>
           )}
           <ul className="space-y-2">
             {(logs.data ?? []).map((entry) => (
@@ -81,6 +83,7 @@ function GoalCard({
   goal: ReturnType<typeof useAlcoholGoal>["data"];
   weekTotal: number;
 }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState(!goal);
   const [state, formAction, pending] = useActionState<AlcoholActionState, FormData>(
@@ -98,9 +101,9 @@ function GoalCard({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
-        <CardTitle>Weekly goal</CardTitle>
+        <CardTitle>{t("Weekly goal")}</CardTitle>
         <Button size="sm" variant="outline" onClick={() => setEditing((v) => !v)}>
-          {editing ? "Close" : goal ? "Update" : "Set a goal"}
+          {editing ? t("Close") : goal ? t("Update") : t("Set a goal")}
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -110,12 +113,12 @@ function GoalCard({
           </p>
         )}
         {!goal && !editing && (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No goal set yet. Set one whenever you&apos;re ready.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">{t("No goal set yet. Set one whenever you're ready.")}</p>
         )}
         {editing && (
           <form action={formAction} className="flex items-end gap-3">
             <div className="grid gap-1">
-              <Label htmlFor="target_drinks_per_week">Target drinks per week</Label>
+              <Label htmlFor="target_drinks_per_week">{t("Target drinks per week")}</Label>
               <Input
                 id="target_drinks_per_week"
                 name="target_drinks_per_week"
@@ -126,7 +129,7 @@ function GoalCard({
               />
             </div>
             <Button type="submit" disabled={pending}>
-              {pending ? "Saving…" : "Save goal"}
+              {pending ? t("Saving…") : t("Save goal")}
             </Button>
           </form>
         )}
@@ -137,6 +140,7 @@ function GoalCard({
 }
 
 function LogCard({ patientId }: { patientId: string }) {
+  const t = useT();
   const queryClient = useQueryClient();
   const [state, formAction, pending] = useActionState<AlcoholActionState, FormData>(
     async (prev, formData) => {
@@ -152,18 +156,18 @@ function LogCard({ patientId }: { patientId: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log today&apos;s drinks</CardTitle>
+        <CardTitle>{t("Log today's drinks")}</CardTitle>
       </CardHeader>
       <CardContent>
         <form action={formAction} className="grid gap-3 sm:grid-cols-3 sm:items-end">
           <div className="grid gap-1">
-            <Label htmlFor="drinks_count">Standard drinks</Label>
+            <Label htmlFor="drinks_count">{t("Standard drinks")}</Label>
             <Input id="drinks_count" name="drinks_count" type="number" min={0} defaultValue={0} required />
           </div>
           <div className="grid gap-1">
-            <Label htmlFor="context">Context</Label>
+            <Label htmlFor="context">{t("Context")}</Label>
             <Select id="context" name="context" defaultValue="">
-              <option value="">Not specified</option>
+              <option value="">{t("Not specified")}</option>
               {ALCOHOL_CONTEXTS.map((c) => (
                 <option key={c} value={c}>
                   {ALCOHOL_CONTEXT_LABELS[c]}
@@ -172,11 +176,11 @@ function LogCard({ patientId }: { patientId: string }) {
             </Select>
           </div>
           <Button type="submit" disabled={pending}>
-            {pending ? "Saving…" : "Save"}
+            {pending ? t("Saving…") : t("Save")}
           </Button>
         </form>
         {state?.error && <p className="mt-2 text-sm text-destructive dark:text-red-400">{state.error}</p>}
-        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">Logged.</p>}
+        {state?.success && <p className="mt-2 text-sm text-brand-green dark:text-brand-green-bright">{t("Logged.")}</p>}
       </CardContent>
     </Card>
   );

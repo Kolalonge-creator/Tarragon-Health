@@ -50,7 +50,7 @@ export interface ResultSnapshot {
  * recorded yet for this kind+key, same "degrade to no explanation" shape as
  * case-briefs/snapshot.ts. Deliberately reads only the single latest+previous
  * value for the requested key, never the patient's whole chart -- the same
- * minimized-snapshot discipline as case briefs, just narrower since this is
+ * minimised-snapshot discipline as case briefs, just narrower since this is
  * patient-facing and about ONE number, not a whole case.
  */
 export async function buildResultSnapshot(

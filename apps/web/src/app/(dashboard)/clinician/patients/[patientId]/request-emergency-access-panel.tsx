@@ -62,7 +62,7 @@ export function RequestEmergencyAccessPanel({
               minute: "2-digit",
             })}
             . Their home-organisation clinical director has been notified and will review this
-            request afterward.
+            request afterwards.
           </p>
         </CardContent>
       </Card>
@@ -76,7 +76,7 @@ export function RequestEmergencyAccessPanel({
         <CardDescription>
           You can request time-boxed emergency access if you&apos;re treating them now. This is
           logged, expires in 8 hours, and their home-organisation clinical director reviews it
-          afterward. Use it for a genuine emergency, not routine care.
+          afterwards. Use it for a genuine emergency, not routine care.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

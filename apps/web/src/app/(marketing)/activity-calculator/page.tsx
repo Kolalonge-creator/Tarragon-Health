@@ -4,13 +4,14 @@ import { Section, SectionHeading } from "../_components/section";
 import { ActivityIntensityCalculator } from "../_components/activity-intensity-calculator";
 import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
+import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export const metadata: Metadata = pageMetadata({
   title: "Physical Activity Intensity Calculator",
   description:
-    "Free physical activity intensity calculator. Estimate calories burned and see how a session counts toward WHO's weekly activity guideline. No sign-up.",
+    "Free physical activity intensity calculator. Estimate calories burned and see how a session counts towards WHO's weekly activity guideline. No sign-up.",
   path: MARKETING_ROUTES.activityCalculator,
 });
 
@@ -20,8 +21,8 @@ const FAQS = [
     a: "It's based on MET (Metabolic Equivalent of Task) values: how many times more energy an activity takes compared to sitting still. Light activity is under 3 METs, moderate is 3-6 METs (you can talk but not sing), and vigorous is above 6 METs (hard to hold a conversation).",
   },
   {
-    q: "Why does vigorous activity count double toward the weekly target?",
-    a: "The World Health Organization's guideline is 150-300 minutes of moderate activity a week, or 75-150 minutes of vigorous, because vigorous produces roughly the same benefit in half the time. This tool counts vigorous minutes twice toward that target.",
+    q: "Why does vigorous activity count double towards the weekly target?",
+    a: "The World Health Organization's guideline is 150-300 minutes of moderate activity a week, or 75-150 minutes of vigorous, because vigorous produces roughly the same benefit in half the time. This tool counts vigorous minutes twice towards that target.",
   },
   {
     q: "Is this exact?",
@@ -33,7 +34,8 @@ const FAQS = [
   },
 ];
 
-export default function ActivityCalculatorPage() {
+export default async function ActivityCalculatorPage() {
+  const priceOverrides = await fetchServicePriceOverrides();
   return (
     <>
       <Section className="pt-20">
@@ -43,7 +45,7 @@ export default function ActivityCalculatorPage() {
           title="Physical Activity Intensity Calculator"
           description="Estimate the calories burned and intensity of what you just did, and see how it stacks up against WHO's weekly activity guideline. No account, no email required."
         />
-        <ActivityIntensityCalculator />
+        <ActivityIntensityCalculator priceOverrides={priceOverrides} />
       </Section>
 
       <Section variant="sage">

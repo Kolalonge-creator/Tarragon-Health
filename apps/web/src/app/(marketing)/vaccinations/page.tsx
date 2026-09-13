@@ -70,14 +70,14 @@ export default function VaccinationsPage() {
       <Section className="pt-16 sm:pt-24">
         <div className="mx-auto max-w-3xl text-center">
           <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
-            Never lose track again
+            Keep track for good
           </p>
           <h1 className="mt-4 font-heading text-4xl font-bold leading-tight text-charcoal-ink sm:text-5xl">
             Vaccinations, tracked and verified
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
             A personal vaccination schedule, a reminder before each dose is due, and a
-            doctor-verified certificate you&apos;ll never lose, even if the paper one is. Get the
+            doctor-verified certificate that stays safe, even if the paper one does not. Get the
             dose wherever suits you and pay them directly; we take nothing on it.
           </p>
           <div className="mt-8 flex flex-wrap justify-center gap-3">
@@ -158,7 +158,7 @@ export default function VaccinationsPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             Caring for an adult relative, like a parent? They keep their own Tarragon account and
             their own vaccination schedule; you follow it as next of kin once they&apos;ve agreed,
-            never by adding them to yours. See{" "}
+            rather than by adding them to yours. See{" "}
             <Link href={MARKETING_ROUTES.parentcare} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Caring for a parent
             </Link>{" "}

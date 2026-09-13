@@ -60,8 +60,8 @@ export default async function CoveragePage() {
             TarragonHealth works anywhere in Nigeria. We tell you which tests
             are worth doing and when, write you a request to take to any lab
             you like, read the result with you, and follow up. None of that
-            waits on us signing a partner in your state, so it&apos;s never
-            switched off where you live.
+            waits on us signing a partner in your state, so it stays
+            switched on wherever you live.
           </p>
           <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
             You pay the lab or the pharmacy directly, at their price. We take

@@ -134,7 +134,7 @@ export function TaxConsole() {
         )}
       </SectionCard>
 
-      <SectionCard title="Tax rates" description="Editable configuration, never hard-coded. Effective-dated.">
+      <SectionCard title="Tax rates" description="Editable configuration, not hard-coded. Effective-dated.">
         {/* An empty rate table reads as "no VAT or WHT rate is configured",
             which invites someone to add a duplicate of one that already
             exists and is merely unread. */}

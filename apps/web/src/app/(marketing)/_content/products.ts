@@ -137,7 +137,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
       },
       {
         title: "You cover the cost, if you want to",
-        body: "Buy them a named health check or a doctor's time whenever suits you, in one go or in instalments. It's for their account alone and never exchangeable for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a test costs if you want to help with that too.",
+        body: "Buy them a named health check or a doctor's time whenever suits you, in one go or in instalments. It is for their account alone, and it cannot be exchanged for cash. Their lab tests are still paid straight to the laboratory, at that lab's price; send them what a test costs if you want to help with that too.",
       },
     ],
     metadata: {
@@ -202,7 +202,7 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         body: "A WhatsApp or app reminder lands at the right time; logging your dose in the app takes seconds and keeps your record accurate.",
       },
       {
-        title: "Never run out, never go quiet",
+        title: "Keep your supply going, and stay in touch",
         body: "Refill alerts arrive before you're out, and a doctor checks in if doses are consistently missed.",
       },
     ],
@@ -234,8 +234,8 @@ export const PRODUCT_PAGES: Record<string, ProductPageContent> = {
         body: "Pick whichever laboratory suits you, pay them directly, and upload the result, keeping every result in one record instead of scattered reports.",
       },
       {
-        title: "Never lose a result",
-        body: "A doctor reviews every result. Abnormal findings trigger immediate follow-up; never a forgotten report.",
+        title: "Every result accounted for",
+        body: "A doctor reviews every result. Abnormal findings trigger immediate follow-up, so no report is left forgotten.",
       },
     ],
     metadata: {

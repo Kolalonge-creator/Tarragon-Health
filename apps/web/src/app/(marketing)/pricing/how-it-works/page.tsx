@@ -18,7 +18,7 @@ import {
   FREE_TRIAL_INTRO,
   FREE_TRIAL_TERMS,
   FREE_TRIALS,
-  NEVER_DO,
+  OUR_UNDERTAKINGS,
   PRICING_PROMISES,
 } from "../../_content/pricing";
 
@@ -249,12 +249,12 @@ export default function HowPricingWorksPage() {
 
       <Section variant="navy">
         <SectionHeading
-          eyebrow="What we will never do"
+          eyebrow="What we undertake"
           title="Trust, spelled out"
           invert
         />
         <ul className="mx-auto grid max-w-3xl gap-3">
-          {NEVER_DO.map((item) => (
+          {OUR_UNDERTAKINGS.map((item) => (
             <li
               key={item}
               className="rounded-xl border border-white/15 bg-white/5 p-4 text-sm leading-relaxed text-white/80"

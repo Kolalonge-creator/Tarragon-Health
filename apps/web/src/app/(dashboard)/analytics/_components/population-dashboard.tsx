@@ -215,7 +215,7 @@ export function PopulationDashboard() {
 
       <SectionCard
         title="Geographic distribution"
-        description="State-level risk concentration and overdue-screening load, never anyone's own location. A state with fewer than 10 patients shows as insufficient data, not a number."
+        description="State-level risk concentration and overdue-screening load, not anyone's own location. A state with fewer than 10 patients shows as insufficient data, not a number."
         actions={<ExportButton filename="geographic-health" rows={geo ?? []} />}
       >
         {geoLoading ? (

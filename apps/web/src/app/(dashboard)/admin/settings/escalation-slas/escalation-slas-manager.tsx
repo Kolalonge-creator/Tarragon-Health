@@ -89,7 +89,7 @@ function CreateDraftForm({
         <form action={action} className="space-y-3">
           <p className="text-sm text-charcoal-ink/70">
             Change any SLA below and save a draft, or save with nothing changed to re-attest the
-            current configuration. Editing here never touches what is in force: it writes a new,
+            current configuration. Editing here leaves what is in force untouched: it writes a new,
             unsigned version. Nothing takes effect until a Clinical Director signs it, which is
             what actually makes the number a commitment.
           </p>

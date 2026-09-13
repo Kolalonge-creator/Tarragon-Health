@@ -79,7 +79,7 @@ export default async function ProviderOrgReferralsPage({
                 <thead className="text-charcoal-ink/60">
                   <tr>
                     <th className="py-2 pr-4">Patient</th>
-                    <th className="py-2 pr-4">Specialty</th>
+                    <th className="py-2 pr-4">Speciality</th>
                     <th className="py-2 pr-4">Urgency</th>
                     <th className="py-2 pr-4">Status</th>
                     <th className="py-2 pr-4">Appointment</th>

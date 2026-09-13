@@ -1,4 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
+import {
+  asUiLanguage,
+  GLUCOSE_UNIT_LABEL,
+  UI_LANGUAGE_LABEL,
+  UI_LANGUAGES,
+  type GlucoseDisplayUnit,
+  type UiLanguage,
+} from "@tarragon/shared";
 import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
@@ -26,6 +34,8 @@ import {
   loadLatestIdentityVerification,
   loadProfile,
   updateConditionLanguage,
+  updateGlucoseDisplayUnit,
+  updateUiLanguage,
   updateEmergencyContact,
   updateLocation,
   type CorrectionRequestRow,
@@ -149,6 +159,139 @@ function LocationSection({
   );
 }
 
+function UiLanguageSection({
+  userId,
+  profile,
+  onSaved,
+}: {
+  userId: string;
+  profile: ProfileRow;
+  onSaved: (patch: Partial<ProfileRow>) => void;
+}) {
+  const [value, setValue] = useState<UiLanguage>(asUiLanguage(profile.language));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function choose(next: UiLanguage) {
+    if (next === value) return;
+    const previous = value;
+    setValue(next);
+    setSaving(true);
+    setError(null);
+    try {
+      await updateUiLanguage(userId, next);
+      onSaved({ language: next });
+    } catch (e) {
+      setValue(previous);
+      setError(e instanceof Error ? e.message : "Couldn't save that just now. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      <SectionLabel>App language</SectionLabel>
+      <MutedText>
+        Which language the menus and buttons use as you move around the app. Your health
+        information, anything a doctor writes to you, and every safety message stay in English,
+        whichever you pick.
+      </MutedText>
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        {UI_LANGUAGES.map((option) => (
+          <Pressable
+            key={option}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: value === option, checked: value === option }}
+            onPress={() => void choose(option)}
+            disabled={saving}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: radius.control,
+              alignItems: "center",
+              backgroundColor: value === option ? colors.brand : colors.groupBg,
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? "#FFFFFF" : colors.ink }}>
+              {UI_LANGUAGE_LABEL[option]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {error ? <ErrorText>{error}</ErrorText> : null}
+    </View>
+  );
+}
+
+function GlucoseUnitSection({
+  userId,
+  profile,
+  onSaved,
+}: {
+  userId: string;
+  profile: ProfileRow;
+  onSaved: (patch: Partial<ProfileRow>) => void;
+}) {
+  const [value, setValue] = useState<GlucoseDisplayUnit>(
+    profile.glucose_display_unit === "mmol_l" ? "mmol_l" : "mg_dl"
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function choose(next: GlucoseDisplayUnit) {
+    if (next === value) return;
+    const previous = value;
+    setValue(next);
+    setSaving(true);
+    setError(null);
+    try {
+      await updateGlucoseDisplayUnit(userId, next);
+      onSaved({ glucose_display_unit: next });
+    } catch (e) {
+      setValue(previous);
+      setError(e instanceof Error ? e.message : "Couldn't save that just now. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <View style={{ gap: 10 }}>
+      <SectionLabel>Blood sugar unit</SectionLabel>
+      <MutedText>
+        Pick whichever one your own meter shows, so there is nothing to convert. This only changes
+        how readings are shown; nothing you have already logged is altered.
+      </MutedText>
+      <View style={{ flexDirection: "row", gap: 10 }}>
+        {(["mg_dl", "mmol_l"] as const).map((option) => (
+          <Pressable
+            key={option}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: value === option, checked: value === option }}
+            onPress={() => void choose(option)}
+            disabled={saving}
+            style={{
+              flex: 1,
+              paddingVertical: 12,
+              borderRadius: radius.control,
+              alignItems: "center",
+              backgroundColor: value === option ? colors.brand : colors.groupBg,
+              opacity: saving ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ fontSize: 13.5, fontWeight: "700", color: value === option ? "#FFFFFF" : colors.ink }}>
+              {GLUCOSE_UNIT_LABEL[option]}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {error ? <ErrorText>{error}</ErrorText> : null}
+    </View>
+  );
+}
+
 function ConditionLanguageSection({
   userId,
   profile,
@@ -186,7 +329,7 @@ function ConditionLanguageSection({
       <SectionLabel>How we describe your condition</SectionLabel>
       <MutedText>
         Choose the wording we use across your dashboard — a gentler everyday term ("weight") or the
-        clinical term ("obesity"). This never changes your actual record.
+        clinical term ("obesity"). This does not change your actual record.
       </MutedText>
       <View style={{ flexDirection: "row", gap: 10 }}>
         {(["gentle", "clinical"] as const).map((option) => (
@@ -831,6 +974,10 @@ export function ProfileScreen() {
       <LocationSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
       <ConditionLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
+      <SectionDivider />
+      <GlucoseUnitSection userId={userId} profile={profile} onSaved={patchProfile} />
+      <SectionDivider />
+      <UiLanguageSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />
       <EmergencyContactSection userId={userId} profile={profile} onSaved={patchProfile} />
       <SectionDivider />

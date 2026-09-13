@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getActingFor as getActingForUncached } from "@/lib/acting/acting-for";
 import { createClient } from "@/lib/supabase/server";
+import { asUiLanguage, DEFAULT_GLUCOSE_DISPLAY_UNIT, type GlucoseDisplayUnit } from "@tarragon/shared";
 
 // getCurrentProfile/getCurrentUser are already React cache()-wrapped
 // (lib/supabase/server.ts); getActingFor is not, and both the shared layout
@@ -81,9 +82,24 @@ export async function getPatientDashboardContext() {
     subjectSex = subjectProfile?.sex ?? null;
   }
 
+  // Deliberately the CALLER's preference, not the subject's -- unlike state,
+  // date of birth or emergency contact above, this is not a fact about the
+  // subject's body or safety, it is how the person actually looking at the
+  // screen reads a number. A supporter whose own meter reads mg/dL should not
+  // have to convert in their head because the relative they are helping once
+  // ticked mmol/L.
+  const glucoseUnit: GlucoseDisplayUnit =
+    profile.glucose_display_unit === "mmol_l" ? "mmol_l" : DEFAULT_GLUCOSE_DISPLAY_UNIT;
+
+  // Same "the CALLER's preference" rule as glucoseUnit above: this is the
+  // language of whoever is reading the screen, not a fact about the subject.
+  const uiLanguage = asUiLanguage(profile.language);
+
   return {
     profile,
     acting,
+    glucoseUnit,
+    uiLanguage,
     subjectId,
     subjectState,
     subjectSex,

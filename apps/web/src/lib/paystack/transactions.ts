@@ -1,6 +1,9 @@
 import { paystackFetch, type PaystackResult } from "./client";
 import type { CheckoutMetadata } from "@/lib/billing/checkout-metadata";
-export type { CheckoutKind, CheckoutMetadata } from "@/lib/billing/checkout-metadata";
+export type {
+  CheckoutKind,
+  CheckoutMetadata,
+} from "@/lib/billing/checkout-metadata";
 
 export interface PaystackTransactionSummary {
   reference: string;
@@ -66,21 +69,27 @@ export async function initializeTransaction(args: {
   callbackUrl: string;
   metadata: CheckoutMetadata;
 }): Promise<PaystackResult<{ authorizationUrl: string; reference: string }>> {
-  const result = await paystackFetch<InitializeTransactionData>("/transaction/initialize", {
-    method: "POST",
-    body: {
-      email: args.email,
-      amount: args.amountMinor,
-      currency: args.currency,
-      plan: args.paystackPlanCode,
-      callback_url: args.callbackUrl,
-      metadata: args.metadata,
+  const result = await paystackFetch<InitializeTransactionData>(
+    "/transaction/initialize",
+    {
+      method: "POST",
+      body: {
+        email: args.email,
+        amount: args.amountMinor,
+        currency: args.currency,
+        plan: args.paystackPlanCode,
+        callback_url: args.callbackUrl,
+        metadata: args.metadata,
+      },
     },
-  });
+  );
   if (!result.ok) return result;
   return {
     ok: true,
-    data: { authorizationUrl: result.data.authorization_url, reference: result.data.reference },
+    data: {
+      authorizationUrl: result.data.authorization_url,
+      reference: result.data.reference,
+    },
   };
 }
 
@@ -99,20 +108,26 @@ export async function initializeOneOffTransaction(args: {
   callbackUrl: string;
   metadata: CheckoutMetadata;
 }): Promise<PaystackResult<{ authorizationUrl: string; reference: string }>> {
-  const result = await paystackFetch<InitializeTransactionData>("/transaction/initialize", {
-    method: "POST",
-    body: {
-      email: args.email,
-      amount: args.amountMinor,
-      currency: args.currency,
-      callback_url: args.callbackUrl,
-      metadata: args.metadata,
+  const result = await paystackFetch<InitializeTransactionData>(
+    "/transaction/initialize",
+    {
+      method: "POST",
+      body: {
+        email: args.email,
+        amount: args.amountMinor,
+        currency: args.currency,
+        callback_url: args.callbackUrl,
+        metadata: args.metadata,
+      },
     },
-  });
+  );
   if (!result.ok) return result;
   return {
     ok: true,
-    data: { authorizationUrl: result.data.authorization_url, reference: result.data.reference },
+    data: {
+      authorizationUrl: result.data.authorization_url,
+      reference: result.data.reference,
+    },
   };
 }
 
@@ -122,6 +137,12 @@ interface VerifyTransactionData {
   amount: number;
   currency: string;
   metadata: CheckoutMetadata | null;
+  /** Paystack's own transaction fee, in the same minor unit as `amount` —
+   * present once a charge completes, never before (it depends on which
+   * channel — card, bank transfer, USSD — the customer picked on Paystack's
+   * page). This account's fee-bearer setting passes it on to the customer,
+   * so `amount` here is price-plus-fee, not price alone. */
+  fees?: number;
 }
 
 /**
@@ -133,12 +154,17 @@ interface VerifyTransactionData {
  */
 export async function verifyTransaction(
   reference: string,
-): Promise<PaystackResult<{ status: string; metadata: CheckoutMetadata | null }>> {
+): Promise<
+  PaystackResult<{ status: string; metadata: CheckoutMetadata | null }>
+> {
   const result = await paystackFetch<VerifyTransactionData>(
     `/transaction/verify/${encodeURIComponent(reference)}`,
   );
   if (!result.ok) return result;
-  return { ok: true, data: { status: result.data.status, metadata: result.data.metadata } };
+  return {
+    ok: true,
+    data: { status: result.data.status, metadata: result.data.metadata },
+  };
 }
 
 /**
@@ -155,7 +181,14 @@ export async function verifyTransaction(
  * source of truth for that.
  */
 export async function verifyTransactionDetail(reference: string): Promise<
-  PaystackResult<{ status: string; amountMinor: number | null; currency: string | null }>
+  PaystackResult<{
+    status: string;
+    amountMinor: number | null;
+    currency: string | null;
+    /** Paystack's own fee for this charge, same minor unit as amountMinor —
+     * null before a charge completes or if Paystack's response omits it. */
+    feeMinor: number | null;
+  }>
 > {
   const result = await paystackFetch<VerifyTransactionData>(
     `/transaction/verify/${encodeURIComponent(reference)}`,
@@ -165,8 +198,10 @@ export async function verifyTransactionDetail(reference: string): Promise<
     ok: true,
     data: {
       status: result.data.status,
-      amountMinor: typeof result.data.amount === "number" ? result.data.amount : null,
+      amountMinor:
+        typeof result.data.amount === "number" ? result.data.amount : null,
       currency: result.data.currency ?? null,
+      feeMinor: typeof result.data.fees === "number" ? result.data.fees : null,
     },
   };
 }
@@ -187,10 +222,13 @@ export async function disableSubscription(args: {
   subscriptionCode: string;
   emailToken: string;
 }): Promise<PaystackResult<{ status: string }>> {
-  const result = await paystackFetch<DisableSubscriptionData>("/subscription/disable", {
-    method: "POST",
-    body: { code: args.subscriptionCode, token: args.emailToken },
-  });
+  const result = await paystackFetch<DisableSubscriptionData>(
+    "/subscription/disable",
+    {
+      method: "POST",
+      body: { code: args.subscriptionCode, token: args.emailToken },
+    },
+  );
   if (!result.ok) return result;
   return { ok: true, data: { status: result.data.status } };
 }
@@ -206,10 +244,13 @@ export async function enableSubscription(args: {
   subscriptionCode: string;
   emailToken: string;
 }): Promise<PaystackResult<{ status: string }>> {
-  const result = await paystackFetch<DisableSubscriptionData>("/subscription/enable", {
-    method: "POST",
-    body: { code: args.subscriptionCode, token: args.emailToken },
-  });
+  const result = await paystackFetch<DisableSubscriptionData>(
+    "/subscription/enable",
+    {
+      method: "POST",
+      body: { code: args.subscriptionCode, token: args.emailToken },
+    },
+  );
   if (!result.ok) return result;
   return { ok: true, data: { status: result.data.status } };
 }

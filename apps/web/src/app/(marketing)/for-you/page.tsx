@@ -50,7 +50,7 @@ const CARE_COMPARISON: {
     },
     withTarragon: {
       label: "A team that keeps watching",
-      body: "Message your care team anytime, get an async doctor's answer within 72 hours, and book a paid 15-minute online consultation only when you need one.",
+      body: "Message your care team at any time, get an async doctor's answer within 72 hours, and book a paid 15-minute online consultation only when you need one.",
     },
   },
   {
@@ -118,7 +118,7 @@ const MONTH_WITH_TARRAGON = [
   },
   {
     title: "Escalation only when it's needed",
-    body: "Steady numbers get calm follow-up. A worrying pattern gets escalated through a defined clinical pathway, quickly and without drama; you are never left wondering whether anyone noticed.",
+    body: "Steady numbers get calm follow-up. A worrying pattern gets escalated through a defined clinical pathway, quickly and without drama, so you always know that someone has noticed.",
   },
 ];
 

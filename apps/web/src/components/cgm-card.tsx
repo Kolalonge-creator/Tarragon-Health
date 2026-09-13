@@ -1,4 +1,6 @@
 "use client";
+import { formatGlucose } from "@tarragon/shared";
+import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 
 import { useCgmConnections, useActiveCgmPartners, useCgmReadings } from "@/lib/queries/cgm";
 import { computeTimeInRange } from "@/lib/cgm/time-in-range";
@@ -12,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
  * judgement, never an escalation.
  */
 export function CgmCard({ patientId }: { patientId: string }) {
+  const glucoseUnit = useGlucoseUnit();
   const { data: connections } = useCgmConnections(patientId);
   const { data: partners } = useActiveCgmPartners();
   const { data: readings } = useCgmReadings(patientId);
@@ -73,7 +76,8 @@ export function CgmCard({ patientId }: { patientId: string }) {
               </li>
             </ul>
             <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-              A coaching summary of your time in range (3.9–10.0 mmol/L), not a medical assessment.
+              A coaching summary of your time in range ({formatGlucose(3.9, glucoseUnit, { withUnit: false })}–
+              {formatGlucose(10.0, glucoseUnit)}), not a medical assessment.
             </p>
           </div>
         )}

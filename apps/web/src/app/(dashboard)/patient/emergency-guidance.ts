@@ -27,7 +27,7 @@ export function emergencyHospitalGuidance(clinicianAlertId: string | null | unde
     return "Go to the nearest hospital's emergency department. Your care team has been told about this and will follow up, but please don't wait to hear from them first.";
   }
   // No alert was raised, so no clinician has seen this. The line still has to
-  // move the patient toward a hospital now; it just must not imply anyone
+  // move the patient towards a hospital now; it just must not imply anyone
   // here is on the way.
   return "Go to the nearest hospital's emergency department. Please go now rather than waiting to hear from anyone here first.";
 }

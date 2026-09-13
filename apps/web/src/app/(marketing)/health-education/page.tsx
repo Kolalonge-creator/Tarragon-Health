@@ -52,7 +52,7 @@ const HOW_IT_WORKS = [
   {
     step: 4,
     title: "It keeps up as your care changes",
-    body: "New condition, new result, new risk level: your list updates with it, so it's never stale advice from months ago.",
+    body: "New condition, new result, new risk level: your list updates with it, so the advice stays current rather than going stale.",
   },
 ];
 

@@ -15,7 +15,7 @@ import { createServiceRoleClient } from "@/lib/supabase/service-role";
  * session (never service role), so private.enforce_vaccination_non_administration
  * derives real, un-spoofable attribution and enforces that only a
  * clinical-tier care-team member may set 'contraindicated' — this function
- * only routes the write; it is not itself the authorization boundary.
+ * only routes the write; it is not itself the authorisation boundary.
  */
 export async function setVaccinationNonAdministration(input: {
   patientId: string;

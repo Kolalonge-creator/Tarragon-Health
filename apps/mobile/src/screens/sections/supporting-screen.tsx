@@ -4,9 +4,11 @@ import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerso
 import { colors, spacing } from "@/ui/theme";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/components";
 import { SupportingManageScreen } from "@/screens/sections/supporting-manage-screen";
+import { SponsorSharingControl } from "@/screens/sections/sponsor-sharing-control";
 
 interface SupportingScreenProps {
   userId: string;
+  organisationId: string;
   acting: ActingFor | null;
   onActingChange: () => void;
 }
@@ -26,7 +28,7 @@ interface SupportingScreenProps {
  * messaging) still open the real web page in the system browser rather than
  * being rebuilt natively, and why.
  */
-export function SupportingScreen({ userId, acting, onActingChange }: SupportingScreenProps) {
+export function SupportingScreen({ userId, organisationId, acting, onActingChange }: SupportingScreenProps) {
   const [people, setPeople] = useState<SupportedPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState<string | null>(null);
@@ -134,6 +136,14 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
       )}
 
       {error ? <ErrorText>{error}</ErrorText> : null}
+
+      {/* The other half of the same relationship, on the same screen on
+          purpose — mirrors web's /patient/supporting page, which renders
+          SupportedPeople and SponsorSharingControl together. Someone who
+          both supports a person and is supported by one should be able to
+          see and change what they share without hunting through settings.
+          Renders nothing when nobody is paying for this patient's care. */}
+      <SponsorSharingControl organisationId={organisationId} />
 
       <CalloutCard
         icon="wallet-outline"

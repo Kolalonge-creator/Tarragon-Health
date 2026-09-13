@@ -38,6 +38,7 @@ export default async function PatientAppointmentsPage({
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Appointments"
         icon={SEMANTIC_ICON.booking}
         description="Book a video or audio visit, or a result consultation, with a Tarragon doctor, request a second opinion, and manage your upcoming appointments."

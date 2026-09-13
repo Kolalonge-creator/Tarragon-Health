@@ -6,9 +6,9 @@ import type { PriceBreakdown } from "@/lib/billing/price-breakdown";
 import { koboToNaira } from "@tarragon/shared";
 
 /**
- * §91.6 itemized price transparency. Renders the trigger/confirm buttons for
+ * §91.6 itemised price transparency. Renders the trigger/confirm buttons for
  * a checkout form that submits via useActionState elsewhere — this
- * component only controls which button shows (a trigger, or the itemized
+ * component only controls which button shows (a trigger, or the itemised
  * breakdown plus a real submit button); it never owns the form's
  * pending/submit state itself, so it must be rendered inside the same
  * `<form action={formAction}>` the trigger used to submit directly.

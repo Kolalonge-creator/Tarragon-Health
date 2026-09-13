@@ -7,7 +7,7 @@ export default async function ScreeningDaysSettingsPage() {
   const profile = await getCurrentProfile();
 
   // proxy.ts already blocks non-admins from reaching any /admin/** route at
-  // the routing layer — this is a defense-in-depth check on top of that.
+  // the routing layer — this is a defence-in-depth check on top of that.
   if (profile?.role !== "admin") {
     redirect("/admin");
   }

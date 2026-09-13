@@ -357,9 +357,19 @@ declare v_org uuid := (select v from p3f where k='org')::uuid;
         v_pur uuid := (select v from p3f where k='pur')::uuid;
         v_status text; v_def text;
 begin
+  -- Condition text updated by
+  -- 20260910215431_service_purchase_activation_tolerates_customer_borne_fee:
+  -- a strict "must equal net or gross exactly" became "must be at least the
+  -- smaller of the two", so a passed-through processor fee (Paystack, on
+  -- this account) no longer wrongly refuses a genuine overpayment. This
+  -- sabotage step's neutering target has to track that exact condition text
+  -- or `replace()` finds nothing, silently leaves the real check in place,
+  -- and the test fails as a false negative -- not because the guard is
+  -- broken, but because the sabotage never fired. See that migration for
+  -- the amount-mismatch bug this test still needs to keep proving is caught.
   v_def := pg_get_functiondef('private.apply_service_purchase_payment()'::regprocedure);
   execute replace(v_def,
-    'if new.amount_minor <> v_expected_net and new.amount_minor <> v_expected_gross then',
+    'if new.amount_minor < least(v_expected_net, v_expected_gross) then',
     'if false then');
 
   update public.service_purchases

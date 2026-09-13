@@ -2,14 +2,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 /**
- * A minimized, structured picture of why a video visit was booked -- never
+ * A minimised, structured picture of why a video visit was booked -- never
  * the patient's full chart. Same "one narrow snapshot, never the whole
  * record" discipline as patient-explainer/case-briefs.
  */
 export interface AppointmentPrepSnapshot {
   context: string;
   scheduledAt: string | null;
-  /** Humanized condition names from the patient's active care plans. */
+  /** Humanised condition names from the patient's active care plans. */
   conditions: string[];
   /** The reason an escalation-triggered visit was raised, when this
    * consultation was linked to one -- never fabricated if absent. */

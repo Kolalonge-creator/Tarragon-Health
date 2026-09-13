@@ -117,7 +117,7 @@ export function ProtocolApiManager({ partners }: { partners: PartnerRow[] }) {
                         month
                       </>
                     ) : (
-                      "No license set: calls are unrestricted"
+                      "No licence set: calls are unrestricted"
                     )}
                   </p>
                 </div>

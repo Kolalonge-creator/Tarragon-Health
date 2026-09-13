@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { formatGlucose, type GlucoseDisplayUnit } from "@tarragon/shared";
+import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
@@ -30,12 +32,18 @@ function labResultLabel(code: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
 }
 
-function formatVitalValue(vitalType: string, latest: Record<string, unknown>): string {
+function formatVitalValue(
+  vitalType: string,
+  latest: Record<string, unknown>,
+  glucoseUnit: GlucoseDisplayUnit
+): string {
   switch (vitalType) {
     case "blood_pressure":
       return `${latest.systolic}/${latest.diastolic} mmHg`;
     case "glucose":
-      return `${latest.glucose_mmol_l} mmol/L`;
+      return (
+        formatGlucose(latest.glucose_mmol_l as number | null, glucoseUnit) ?? "—"
+      );
     case "weight":
       return `${latest.weight_kg} kg`;
     case "pulse":
@@ -50,6 +58,7 @@ function formatVitalValue(vitalType: string, latest: Record<string, unknown>): s
 }
 
 export default async function HealthPassportPage() {
+  const glucoseUnit = await getGlucoseDisplayUnit();
   const profile = await getCurrentProfile();
   if (!profile) {
     redirect("/login");
@@ -72,6 +81,7 @@ export default async function HealthPassportPage() {
   return (
     <div className="space-y-6">
       <PageHeader
+        backTo={{ href: "/patient", label: "Dashboard" }}
         title="Your Health Passport"
         icon={NAV_ICON.passport}
         description={`A summary of your health record for ${periodLabel}, for your own records or to share with another doctor. Not a substitute for your full medical record.`}
@@ -110,7 +120,7 @@ export default async function HealthPassportPage() {
                       {VITAL_LABEL[v.vitalType] ?? v.vitalType.replace(/_/g, " ")}
                     </span>
                     <span className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-                      {formatVitalValue(v.vitalType, v.latest)} · {v.readingCount} readings this
+                      {formatVitalValue(v.vitalType, v.latest, glucoseUnit)} · {v.readingCount} readings this
                       period · last logged {formatPatientDate(v.takenAt)}
                     </span>
                   </li>

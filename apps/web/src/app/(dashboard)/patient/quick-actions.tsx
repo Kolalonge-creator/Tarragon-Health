@@ -1,3 +1,5 @@
+"use client";
+import { useT } from "@/components/ui-language-provider";
 import Link from "next/link";
 import { type AppIconName, APP_ICON } from "@/lib/icons";
 import { cn } from "@/lib/utils";
@@ -92,6 +94,7 @@ const CYCLE_ACTION: QuickAction = {
 };
 
 export function QuickActions({ showCycle = false }: { showCycle?: boolean }) {
+  const tr = useT();
   const actions = showCycle ? [...ACTIONS, CYCLE_ACTION] : ACTIONS;
   return (
     <section aria-labelledby="quick-actions-heading">
@@ -99,7 +102,7 @@ export function QuickActions({ showCycle = false }: { showCycle?: boolean }) {
         id="quick-actions-heading"
         className="mb-3 text-[11px] font-semibold uppercase tracking-wider text-charcoal-ink/45 dark:text-night-ink/55"
       >
-        Quick actions
+        {tr("Quick actions")}
       </h2>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {actions.map((action) => {
@@ -125,10 +128,10 @@ export function QuickActions({ showCycle = false }: { showCycle?: boolean }) {
                 </span>
                 <span className="min-w-0">
                   <span className="block text-sm font-semibold leading-snug text-charcoal-ink dark:text-night-ink">
-                    {action.label}
+                    {tr(action.label)}
                   </span>
                   <span className="mt-0.5 block text-xs leading-snug text-charcoal-ink/55 dark:text-night-ink/60">
-                    {action.hint}
+                    {tr(action.hint)}
                   </span>
                 </span>
               </Link>

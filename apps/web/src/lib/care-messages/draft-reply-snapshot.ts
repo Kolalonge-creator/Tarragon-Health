@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
 /**
- * The minimized, structured data a reply draft is grounded in -- the recent
+ * The minimised, structured data a reply draft is grounded in -- the recent
  * messages in the thread, already visible to the staff member on the same
  * page. Stored verbatim as care_message_draft_replies.input_snapshot, so it
  * doubles as the audit record of what the model actually saw (same

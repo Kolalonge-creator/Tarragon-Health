@@ -13,8 +13,8 @@ import { usePatientNextPreventiveReview } from "@/lib/queries/preventive-reviews
 import { useScreeningSchedules } from "@/lib/queries/screening";
 import {
   computePreventiveProgrammeRecommendations,
+  toRiskTier,
   type ProgrammeRiskInput,
-  type RiskTier,
 } from "@/lib/rules/preventive-programme-recommendations";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -22,20 +22,6 @@ import { Button } from "@/components/ui/button";
 import { SEMANTIC_ICON } from "@/lib/icons";
 
 import { formatPatientDate } from "@/lib/format-date";
-/**
- * prevention_risk_scores.tier is risk_level (has very_high and unknown); the
- * programme-recommendation engine only works in three tiers. very_high
- * collapses into high; unknown collapses into low — a programme suggestion
- * driven by absent data should never read as more urgent than one driven by
- * an actual low reading, and the patient can still browse/enrol manually
- * regardless (see risk-assessment-display.tsx for where unknown surfaces
- * honestly instead of being hidden).
- */
-function toRiskTier(tier: Enums<"risk_level">): RiskTier {
-  if (tier === "very_high") return "high";
-  if (tier === "unknown") return "low";
-  return tier;
-}
 
 const SCREENING_STATUS_LABEL: Record<Enums<"screening_status">, string> = {
   pending: "Due",
@@ -127,8 +113,9 @@ export function PreventiveProgrammes({
       </CardHeader>
       <CardContent className="space-y-3">
         <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
-          Choose a prevention track to follow. Each one bundles the right
-          screenings and a periodic review with your care team.
+          We automatically enrol you in the prevention tracks that fit your
+          profile — each one bundles the right screenings and a periodic
+          review with your care team. You can leave any track at any time.
         </p>
         {nextReview.data && (
           <p className="text-xs text-brand-green dark:text-brand-green-bright">
@@ -159,6 +146,11 @@ export function PreventiveProgrammes({
                   </div>
                   {programme.description && (
                     <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{programme.description}</p>
+                  )}
+                  {enrolment && enrolment.source === "recommended" && (
+                    <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                      Enrolled automatically based on your profile. Withdraw any time.
+                    </p>
                   )}
                   {!enrolment && rationale && (
                     <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{rationale}</p>

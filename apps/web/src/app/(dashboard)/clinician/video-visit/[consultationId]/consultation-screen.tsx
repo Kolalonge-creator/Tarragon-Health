@@ -105,7 +105,7 @@ function PublishSummarySection({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-charcoal-ink/60">
-            Sign and finalize a clinical note for this call above before publishing a summary for
+            Sign and finalise a clinical note for this call above before publishing a summary for
             the patient.
           </p>
         </CardContent>

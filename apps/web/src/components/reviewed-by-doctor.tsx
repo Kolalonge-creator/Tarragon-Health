@@ -12,7 +12,7 @@ function formatReviewedDate(reviewedAt: string): string {
  * reviewing doctor's own resolve action). If reviewed_by is set but no
  * matching clinical_staff record exists, falls back to a generic
  * clinician-attributed line rather than guessing a name — the guardrail
- * that makes false attribution structurally impossible. Photo/specialty are
+ * that makes false attribution structurally impossible. Photo/speciality are
  * per-case attribution only (this case's reviewer), never a standing "your
  * doctor" profile — see CLAUDE.md's no-continuous-named-doctor correction.
  */

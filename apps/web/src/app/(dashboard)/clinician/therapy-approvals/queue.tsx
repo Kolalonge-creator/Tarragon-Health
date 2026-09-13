@@ -156,7 +156,7 @@ export function TherapyApprovalQueue() {
         <CardTitle className="text-base">Psychiatry requests waiting</CardTitle>
         <CardDescription>
           A patient has asked to see a psychiatrist from the verified network. Counselling with a
-          psychologist needs no approval and never appears here. You are deciding whether psychiatry
+          psychologist needs no approval and does not appear here. You are deciding whether psychiatry
           is the right next step, not which practitioner they should see; they have already chosen.
         </CardDescription>
       </CardHeader>

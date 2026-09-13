@@ -20,7 +20,7 @@ const FACILITY_MATCH_LIMIT = 5;
  * reads from (queries/facilities.ts) -- "curated, admin-maintained
  * directory, no organisation_id scoping". Capped at
  * FACILITY_MATCH_LIMIT: this feeds an AI-phrased answer, not a full
- * results page, and the minimized-snapshot discipline used everywhere
+ * results page, and the minimised-snapshot discipline used everywhere
  * else in this codebase's AI features applies here too.
  */
 export async function findRelevantFacilities(

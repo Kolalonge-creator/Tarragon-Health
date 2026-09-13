@@ -17,7 +17,7 @@ const STATE_TINT: Record<StepperStepState, keyof typeof SEVERITY_TILE_TINT> = {
 
 /**
  * Horizontal on desktop, stacked on mobile — no existing stepper/timeline
- * component in this codebase, so this reuses the same Badge-adjacent color
+ * component in this codebase, so this reuses the same Badge-adjacent colour
  * tokens (SEVERITY_TILE_TINT) rather than inventing a new palette.
  */
 export function Stepper({ steps }: { steps: StepperStep[] }) {

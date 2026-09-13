@@ -129,7 +129,7 @@ export function RequestPartnerLabVisit({
           {requestVisit.isPending ? "Sending…" : "Request this visit"}
         </Button>
         <Button type="button" size="sm" variant="ghost" onClick={() => setExpanded(false)}>
-          Never mind
+          Not now
         </Button>
       </div>
     </div>

@@ -155,7 +155,7 @@ export function PayablesAndVendors() {
         Accounts payable for operating spend that isn&apos;t already automated: rent, SaaS, marketing
         agencies, indemnity cover, professional/legal fees. A bill moves draft → approved (books the
         expense + payable, withholding tax if the vendor is WHT-applicable) → paid (books the cash out).
-        Correct an approved/paid bill by reversing its journal entry on the ledger, never by editing it.
+        Correct an approved/paid bill by reversing its journal entry on the ledger, rather than by editing it.
       </p>
 
       {msg && <p className={`text-sm ${msg.ok ? "text-brand-green" : "text-red-600"}`}>{msg.text}</p>}

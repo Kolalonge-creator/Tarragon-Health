@@ -7,7 +7,7 @@ export default async function HealthEducationSettingsPage() {
   const profile = await getCurrentProfile();
 
   // proxy.ts already blocks non-admins from any /admin/** route at the routing
-  // layer — this is defense-in-depth, matching the other admin settings pages.
+  // layer — this is defence-in-depth, matching the other admin settings pages.
   if (profile?.role !== "admin") {
     redirect("/admin");
   }

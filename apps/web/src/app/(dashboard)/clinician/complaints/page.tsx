@@ -13,7 +13,7 @@ export default function ClinicianComplaintsPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Complaints</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Every open complaint should have an accountable owner and move toward governance review.
+          Every open complaint should have an accountable owner and move towards governance review.
         </p>
       </div>
       <ComplaintWorklist />
