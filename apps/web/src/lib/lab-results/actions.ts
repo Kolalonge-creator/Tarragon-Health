@@ -165,7 +165,7 @@ export async function uploadResultDocumentForPatient(
       p_uploaded_by: user.id,
       p_note: (note ?? null) as unknown as string,
       p_actor_id: user.id,
-    }
+    },
   );
   const inserted = insertedId ? { id: insertedId } : null;
   if (insertError || !inserted) {
@@ -258,7 +258,10 @@ export async function uploadResultDocumentAsPatient(
     .eq("id", user.id)
     .single();
   if (!me?.organisation_id) {
-    return { error: "Your account isn't set up for uploads yet. Message your care team." };
+    return {
+      error:
+        "Your account isn't set up for uploads yet. Message your care team.",
+    };
   }
 
   // If an order is named, confirm it is genuinely theirs. RLS would already
@@ -282,7 +285,10 @@ export async function uploadResultDocumentAsPatient(
   let claimedRequestId: string | null = null;
   const { data: claimed, error: claimError } = await supabase.rpc(
     "claim_lab_result_consult_credit",
-    { p_patient_id: user.id, p_lab_order_id: (labOrderId ?? null) as unknown as string },
+    {
+      p_patient_id: user.id,
+      p_lab_order_id: (labOrderId ?? null) as unknown as string,
+    },
   );
   if (claimError) {
     if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
@@ -514,7 +520,12 @@ export async function markResultDocumentReviewed(input: {
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
   }
-  const { document_id: documentId, interpretation, next_steps: nextSteps, note } = parsed.data;
+  const {
+    document_id: documentId,
+    interpretation,
+    next_steps: nextSteps,
+    note,
+  } = parsed.data;
 
   const user = await getCurrentUser();
   if (!user) return { error: "Not signed in" };
@@ -527,7 +538,9 @@ export async function markResultDocumentReviewed(input: {
     .eq("active", true)
     .maybeSingle();
   if (!staff) {
-    return { error: "Only a Tarragon care-team doctor can mark a result reviewed." };
+    return {
+      error: "Only a Tarragon care-team doctor can mark a result reviewed.",
+    };
   }
 
   const { data: doc, error: docError } = await supabase
@@ -536,7 +549,8 @@ export async function markResultDocumentReviewed(input: {
     .eq("id", documentId)
     .maybeSingle();
   if (docError || !doc) return { error: "Document not found." };
-  if (doc.reviewed_at) return { error: "This result was already marked reviewed." };
+  if (doc.reviewed_at)
+    return { error: "This result was already marked reviewed." };
 
   const now = new Date().toISOString();
   const { error: updateError } = await supabase
@@ -635,14 +649,17 @@ export async function uploadResultAsLabPartner(
   // Re-verifies ownership independently (defence in depth) and derives
   // patient_id/organisation_id itself from the order row — never trusts the
   // lookup above for the write. Also advances the order to 'resulted'.
-  const { error: insertError } = await supabase.rpc("lab_partner_upload_result", {
-    p_order_id: orderId,
-    p_file_path: path,
-    p_original_filename: file.name,
-    p_mime_type: file.type,
-    p_file_size_bytes: file.size,
-    p_note: (note ?? null) as unknown as string,
-  });
+  const { error: insertError } = await supabase.rpc(
+    "lab_partner_upload_result",
+    {
+      p_order_id: orderId,
+      p_file_path: path,
+      p_original_filename: file.name,
+      p_mime_type: file.type,
+      p_file_size_bytes: file.size,
+      p_note: (note ?? null) as unknown as string,
+    },
+  );
   if (insertError) {
     await service.storage.from(RESULT_DOC_BUCKET).remove([path]);
     return { error: insertError.message };

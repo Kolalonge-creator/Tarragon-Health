@@ -57,9 +57,13 @@ export interface ResultDocumentView {
  * CALLER must already have read the row through their own RLS-scoped session
  * before asking for a URL. Never returns a public URL.
  */
-export async function signResultDocumentPath(path: string): Promise<string | null> {
+export async function signResultDocumentPath(
+  path: string,
+): Promise<string | null> {
   const service = createServiceRoleClient();
-  const { data } = await service.storage.from(RESULT_DOC_BUCKET).createSignedUrl(path, 300);
+  const { data } = await service.storage
+    .from(RESULT_DOC_BUCKET)
+    .createSignedUrl(path, 300);
   return data?.signedUrl ?? null;
 }
 

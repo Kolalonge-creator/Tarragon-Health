@@ -516,19 +516,26 @@ function CareVisibilityCard({ followers, onChanged }: { followers: CareFollower[
   );
 }
 
+const ACCESS_LOG_PAGE_SIZE = 5;
+
 /** "What's happened with your access" — every time someone's access to a
  * record changed, on the caller's own record or one they help look after.
  * Mirrors care-access-log.tsx's describe() via describeCareAccessEvent, so
  * the same event reads as the same sentence on both platforms. Read-only,
- * capped at the same 30 rows web shows. */
+ * capped at the same 30 rows web shows, paginated 5 at a time so a long
+ * history doesn't dump the whole card onto the screen at once. */
 function CareAccessLogCard({ events }: { events: CareAccessLogRow[] }) {
+  const [visibleCount, setVisibleCount] = useState(ACCESS_LOG_PAGE_SIZE);
+  const visible = events.slice(0, visibleCount);
+  const hasMore = visibleCount < events.length;
+
   return (
     <Card style={{ gap: 8 }}>
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>What&apos;s happened with your access</Text>
       <MutedText>
         Every time someone&apos;s access to a record changed, on your record or one you help look after.
       </MutedText>
-      {events.map((row) => (
+      {visible.map((row) => (
         <View
           key={row.id}
           style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 8 }}
@@ -537,6 +544,9 @@ function CareAccessLogCard({ events }: { events: CareAccessLogRow[] }) {
           <Text style={{ fontSize: 11, color: colors.faint, flexShrink: 0 }}>{shortDate(row.occurredAt)}</Text>
         </View>
       ))}
+      {hasMore && (
+        <SecondaryButton title="Show more" onPress={() => setVisibleCount((count) => count + ACCESS_LOG_PAGE_SIZE)} />
+      )}
     </Card>
   );
 }

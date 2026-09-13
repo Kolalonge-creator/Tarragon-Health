@@ -1,4 +1,8 @@
-import { API_BASE_URL, fetchWithTimeoutAndRetry, NETWORK_ERROR_MESSAGE } from "./api";
+import {
+  API_BASE_URL,
+  fetchWithTimeoutAndRetry,
+  NETWORK_ERROR_MESSAGE,
+} from "./api";
 import { supabase } from "./supabase";
 import { testCodeLabel } from "./lab-catalogue-content";
 import type { Tables } from "@tarragon/shared";
@@ -52,7 +56,10 @@ const RESULT_DOCUMENT_TEST_CODES = [
 ] as const;
 
 export const RESULT_DOCUMENT_TEST_TYPE_OPTIONS: TestTypeOption[] = [
-  ...RESULT_DOCUMENT_TEST_CODES.map((code) => ({ value: code, label: testCodeLabel(code) })),
+  ...RESULT_DOCUMENT_TEST_CODES.map((code) => ({
+    value: code,
+    label: testCodeLabel(code),
+  })),
   { value: OTHER_TEST_TYPE_VALUE, label: "Something else / not sure" },
 ];
 
@@ -61,7 +68,10 @@ export const RESULT_DOCUMENT_TEST_TYPE_OPTIONS: TestTypeOption[] = [
  * already-uploaded result document. */
 export function testTypeLabel(code: string | null): string | null {
   if (!code) return null;
-  return RESULT_DOCUMENT_TEST_TYPE_OPTIONS.find((option) => option.value === code)?.label ?? null;
+  return (
+    RESULT_DOCUMENT_TEST_TYPE_OPTIONS.find((option) => option.value === code)
+      ?.label ?? null
+  );
 }
 
 export type PanelBundle = Tables<"panel_bundles">;
@@ -72,7 +82,11 @@ export type PanelBundle = Tables<"panel_bundles">;
  * that lets a patient self-book a panel bundle (the Sexual Health testing
  * tab today). */
 export async function loadLabPanelBundles(): Promise<PanelBundle[]> {
-  const { data } = await supabase.from("panel_bundles").select("*").eq("is_active", true).order("name", { ascending: true });
+  const { data } = await supabase
+    .from("panel_bundles")
+    .select("*")
+    .eq("is_active", true)
+    .order("name", { ascending: true });
   return data ?? [];
 }
 
@@ -85,11 +99,7 @@ export async function loadLabPanelBundles(): Promise<PanelBundle[]> {
  * same storage-then-insert-then-extract path a web upload takes.
  */
 export async function uploadLabResult(
-  photo: {
-    uri: string;
-    mimeType: string;
-    fileName: string;
-  },
+  photo: { uri: string; mimeType: string; fileName: string },
   /** Omit, or pass OTHER_TEST_TYPE_VALUE, for "not sure" — either way no
    * test_code is sent, same as before this field existed. */
   testCode?: string,
@@ -105,7 +115,11 @@ export async function uploadLabResult(
   // React Native's fetch/FormData accepts { uri, type, name } for a local-file
   // upload (see convertRequestBody.js) — the DOM FormData.append() typings TS
   // resolves here don't know that shape, hence the cast.
-  formData.append("file", { uri: photo.uri, type: photo.mimeType, name: photo.fileName } as unknown as Blob);
+  formData.append("file", {
+    uri: photo.uri,
+    type: photo.mimeType,
+    name: photo.fileName,
+  } as unknown as Blob);
   if (testCode && testCode !== OTHER_TEST_TYPE_VALUE) {
     formData.append("test_code", testCode);
   }
@@ -114,14 +128,23 @@ export async function uploadLabResult(
     // Same timeout + single-retry policy as every JSON request in api.ts —
     // a raw fetch here previously had no timeout at all, so a stalled
     // connection hung the upload button indefinitely.
-    const response = await fetchWithTimeoutAndRetry(`${API_BASE_URL}/api/mobile/lab-result-upload`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${session.access_token}` },
-      body: formData,
-    });
-    const json = (await response.json()) as { success?: boolean; error?: string };
+    const response = await fetchWithTimeoutAndRetry(
+      `${API_BASE_URL}/api/mobile/lab-result-upload`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: formData,
+      },
+    );
+    const json = (await response.json()) as {
+      success?: boolean;
+      error?: string;
+    };
     if (!response.ok) {
-      return { success: false, error: json.error ?? `Upload failed (${response.status})` };
+      return {
+        success: false,
+        error: json.error ?? `Upload failed (${response.status})`,
+      };
     }
     return { success: true };
   } catch {

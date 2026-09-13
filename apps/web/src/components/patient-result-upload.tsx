@@ -23,8 +23,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { FormError, FormSuccess, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
-import { OTHER_TEST_TYPE_VALUE, RESULT_DOCUMENT_TEST_TYPE_OPTIONS } from "@/lib/labs/test-code-labels";
+import {
+  FormError,
+  FormSuccess,
+  fieldErrorId,
+  fieldErrorProps,
+} from "@/components/ui/form-error";
+import {
+  OTHER_TEST_TYPE_VALUE,
+  RESULT_DOCUMENT_TEST_TYPE_OPTIONS,
+} from "@/lib/labs/test-code-labels";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 /** Thrown by the upload mutation specifically when the DB-enforced
@@ -43,7 +51,10 @@ function formatPrice(amountMinor: number, currency: string): string {
   return `${symbol}${koboToNaira(amountMinor).toLocaleString()}`;
 }
 
-const STATUS_LABEL: Record<string, { label: string; tone: "blue" | "amber" | "green" | "red" | "grey" }> = {
+const STATUS_LABEL: Record<
+  string,
+  { label: string; tone: "blue" | "amber" | "green" | "red" | "grey" }
+> = {
   payment_confirmed: { label: "Paid, upload your result", tone: "blue" },
   document_uploaded: { label: "Uploaded, waiting for a doctor", tone: "amber" },
   accepted: { label: "Consult booked", tone: "green" },
@@ -63,7 +74,9 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
   const cancel = useMutation({
     mutationFn: (requestId: string) => cancelLabResultConsultRequest(requestId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: labResultConsultKeys.myRequests(patientId) });
+      queryClient.invalidateQueries({
+        queryKey: labResultConsultKeys.myRequests(patientId),
+      });
     },
   });
 
@@ -73,10 +86,18 @@ function MyConsultRequestsStatus({ patientId }: { patientId: string }) {
   return (
     <ul className="space-y-1.5 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-2">
       {requests.map((req) => {
-        const status = STATUS_LABEL[req.status] ?? { label: req.status, tone: "grey" as const };
-        const cancellable = !["cancelled", "refunded", "expired"].includes(req.status);
+        const status = STATUS_LABEL[req.status] ?? {
+          label: req.status,
+          tone: "grey" as const,
+        };
+        const cancellable = !["cancelled", "refunded", "expired"].includes(
+          req.status,
+        );
         return (
-          <li key={req.id} className="flex flex-wrap items-center gap-2 text-xs">
+          <li
+            key={req.id}
+            className="flex flex-wrap items-center gap-2 text-xs"
+          >
             <Badge variant={status.tone}>{status.label}</Badge>
             <span className="text-charcoal-ink/50 dark:text-night-ink/55">
               {formatPrice(req.amount_minor, req.currency)} consultation fee
@@ -203,7 +224,8 @@ export function PatientResultUpload({
   }
 
   const uploadErrorInstance = upload.error as Error | null;
-  const requiresPayment = uploadErrorInstance instanceof ConsultFeeRequiredError;
+  const requiresPayment =
+    uploadErrorInstance instanceof ConsultFeeRequiredError;
   const displayError = validationError ?? uploadErrorInstance?.message ?? null;
   const errorId = fieldErrorId(`${fieldId}-file`);
   const hintId = `${fieldId}-file-hint`;
@@ -225,9 +247,16 @@ export function PatientResultUpload({
               setValidationError(null);
               setSuccess(null);
             }}
-            {...fieldErrorProps(errorId, Boolean(displayError) && !requiresPayment, hintId)}
+            {...fieldErrorProps(
+              errorId,
+              Boolean(displayError) && !requiresPayment,
+              hintId,
+            )}
           />
-          <p id={hintId} className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+          <p
+            id={hintId}
+            className="text-xs text-charcoal-ink/50 dark:text-night-ink/55"
+          >
             A photo of the printout is fine. PDF or image, up to 10 MB.
           </p>
         </div>
@@ -254,7 +283,8 @@ export function PatientResultUpload({
               ))}
             </Select>
             <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
-              Helps your care team read it correctly and group it with related results.
+              Helps your care team read it correctly and group it with related
+              results.
             </p>
           </div>
         )}
@@ -266,7 +296,12 @@ export function PatientResultUpload({
           onChange={(event) => setNote(event.target.value)}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" size="sm" variant="outline" disabled={!file || (needsTestType && !testType) || upload.isPending}>
+          <Button
+            type="submit"
+            size="sm"
+            variant="outline"
+            disabled={!file || (needsTestType && !testType) || upload.isPending}
+          >
             {upload.isPending ? "Sending…" : "Send to my care team"}
           </Button>
           <FormSuccess message={success} className="text-xs font-medium" />
@@ -284,12 +319,16 @@ export function PatientResultUpload({
             {displayError}
             {price.data && (
               <>
-                {" "}The fee is {formatPrice(price.data.amount_minor, price.data.currency)}.
+                {" "}
+                The fee is{" "}
+                {formatPrice(price.data.amount_minor, price.data.currency)}.
               </>
             )}
           </p>
           <form action={payAction}>
-            {labOrderId && <input type="hidden" name="lab_order_id" value={labOrderId} />}
+            {labOrderId && (
+              <input type="hidden" name="lab_order_id" value={labOrderId} />
+            )}
             <Button type="submit" size="sm" disabled={payPending}>
               {payPending ? "Redirecting to payment…" : "Pay & continue"}
             </Button>

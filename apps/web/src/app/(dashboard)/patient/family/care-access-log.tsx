@@ -1,4 +1,10 @@
+"use client";
+
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+
+const PAGE_SIZE = 5;
 
 export interface CareAccessLogRow {
   id: string;
@@ -84,7 +90,12 @@ function describe(row: CareAccessLogRow): string {
  * that in front of a patient.
  */
 export function CareAccessLog({ events }: { events: CareAccessLogRow[] }) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
   if (events.length === 0) return null;
+
+  const visible = events.slice(0, visibleCount);
+  const hasMore = visibleCount < events.length;
 
   return (
     <Card>
@@ -97,7 +108,7 @@ export function CareAccessLog({ events }: { events: CareAccessLogRow[] }) {
       </CardHeader>
       <CardContent>
         <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
-          {events.map((row) => (
+          {visible.map((row) => (
             <li key={row.id} className="flex items-center justify-between gap-4 py-3">
               <span className="text-sm text-charcoal-ink dark:text-night-ink">{describe(row)}</span>
               <span className="shrink-0 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
@@ -106,6 +117,17 @@ export function CareAccessLog({ events }: { events: CareAccessLogRow[] }) {
             </li>
           ))}
         </ul>
+        {hasMore && (
+          <div className="pt-3">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}
+            >
+              Show more
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

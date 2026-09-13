@@ -1,8 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ReviewedResultLine } from "@/components/reviewed-result-line";
-import { loadResultDocuments, type ResultDocumentView } from "@/lib/lab-results/documents";
+import {
+  loadResultDocuments,
+  type ResultDocumentView,
+} from "@/lib/lab-results/documents";
 import { testCodeLabel } from "@/lib/labs/test-code-labels";
 import { UploadResultForm } from "./upload-result-form";
 import { ReplaceResultDocumentForm } from "./replace-result-document-form";
@@ -10,7 +19,9 @@ import { ResultDocumentsDownloadPicker } from "./result-documents-download-picke
 import { AiResultSummary } from "./ai-result-summary";
 
 function sourceLabel(source: string): string {
-  return source === "patient" ? "You uploaded this" : "Uploaded by your care team";
+  return source === "patient"
+    ? "You uploaded this"
+    : "Uploaded by your care team";
 }
 
 /** Groups documents by their known test type, most-recently-updated group
@@ -18,7 +29,9 @@ function sourceLabel(source: string): string {
  * or "something else / not sure") trailing under "Other results" — grouping
  * only ever reorders within what test-type data exists, it never hides a
  * document or changes its own review state. */
-function groupByTestType(documents: ResultDocumentView[]): { label: string; documents: ResultDocumentView[] }[] {
+function groupByTestType(
+  documents: ResultDocumentView[],
+): { label: string; documents: ResultDocumentView[] }[] {
   const order: string[] = [];
   const byLabel = new Map<string, ResultDocumentView[]>();
   for (const doc of documents) {
@@ -38,7 +51,12 @@ function groupByTestType(documents: ResultDocumentView[]): { label: string; docu
 }
 
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" });
+  return new Date(value).toLocaleDateString("en-GB", {
+    timeZone: "Africa/Lagos",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
 }
 
 /**
@@ -55,7 +73,9 @@ function formatDate(value: string): string {
 export async function ResultDocuments({ patientId }: { patientId: string }) {
   const supabase = await createClient();
   const documents = await loadResultDocuments(supabase, patientId);
-  const interpreted = documents.filter((doc) => doc.interpretationSentAt && doc.patientInterpretation);
+  const interpreted = documents.filter(
+    (doc) => doc.interpretationSentAt && doc.patientInterpretation,
+  );
   const groups = groupByTestType(documents);
 
   return (
@@ -63,13 +83,15 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
       <CardHeader>
         <CardTitle>Result documents</CardTitle>
         <CardDescription>
-          Lab result files on your record. Once a doctor has read one, their interpretation and any
-          next steps appear here.
+          Lab result files on your record. Once a doctor has read one, their
+          interpretation and any next steps appear here.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {documents.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No result documents yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
+            No result documents yet.
+          </p>
         ) : (
           <div className="space-y-5">
             {groups.map((group) => (
@@ -90,10 +112,18 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                           {doc.originalFilename ?? "Result"}
                         </p>
                         <div className="flex shrink-0 items-center gap-2">
-                          <Badge variant={doc.interpretationSentAt ? "green" : "amber"}>
-                            {doc.interpretationSentAt ? "Interpreted" : "Awaiting review"}
+                          <Badge
+                            variant={
+                              doc.interpretationSentAt ? "green" : "amber"
+                            }
+                          >
+                            {doc.interpretationSentAt
+                              ? "Interpreted"
+                              : "Awaiting review"}
                           </Badge>
-                          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">{formatDate(doc.createdAt)}</p>
+                          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                            {formatDate(doc.createdAt)}
+                          </p>
                         </div>
                       </div>
                       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
@@ -107,21 +137,31 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                           rel="noopener noreferrer"
                           className="inline-block text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
                         >
-                          {doc.isPdf ? "Open original (PDF) →" : "View original →"}
+                          {doc.isPdf
+                            ? "Open original (PDF) →"
+                            : "View original →"}
                         </a>
                       ) : (
-                        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">File unavailable.</p>
+                        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                          File unavailable.
+                        </p>
                       )}
                       {doc.interpretationSentAt && doc.patientInterpretation ? (
                         <div className="rounded-lg border border-brand-green/20 dark:border-brand-green-bright/20 bg-brand-green/5 dark:bg-brand-green/15 p-3">
-                          <p className="text-sm text-charcoal-ink dark:text-night-ink">{doc.patientInterpretation}</p>
+                          <p className="text-sm text-charcoal-ink dark:text-night-ink">
+                            {doc.patientInterpretation}
+                          </p>
                           {doc.nextSteps && (
                             <p className="mt-2 text-sm text-charcoal-ink dark:text-night-ink">
-                              <span className="font-medium">Next steps:</span> {doc.nextSteps}
+                              <span className="font-medium">Next steps:</span>{" "}
+                              {doc.nextSteps}
                             </p>
                           )}
                           <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                            <ReviewedResultLine reviewedBy={doc.reviewedBy} reviewedAt={doc.reviewedAt} />
+                            <ReviewedResultLine
+                              reviewedBy={doc.reviewedBy}
+                              reviewedAt={doc.reviewedAt}
+                            />
                             <a
                               href={`/api/patient/lab-result/${doc.id}/pdf`}
                               className="text-sm font-medium text-brand-green dark:text-brand-green-bright hover:underline"
@@ -133,8 +173,8 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                       ) : (
                         <>
                           <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-                            Your care team hasn&apos;t reviewed this yet. We&apos;ll let you know here as soon
-                            as they have.
+                            Your care team hasn&apos;t reviewed this yet.
+                            We&apos;ll let you know here as soon as they have.
                           </p>
                           <AiResultSummary status={doc.aiSummaryStatus} />
                           {doc.source === "patient" && !doc.reviewedAt && (

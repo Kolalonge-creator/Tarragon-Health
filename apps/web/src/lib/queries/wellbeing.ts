@@ -30,6 +30,41 @@ export function useLatestWellbeingCheckin(patientId: string) {
   });
 }
 
+const WELLBEING_TREND_WINDOW_DAYS = 90;
+
+export type WellbeingTrendPoint = Pick<
+  WellbeingCheckin,
+  "checked_in_at" | "mood_score" | "stress_score" | "sleep_quality"
+>;
+
+/** Un-suffixed by windowDays on purpose — invalidateQueries matches by
+ * prefix, so passing just `wellbeingTrendKey(patientId)` (no windowDays)
+ * clears every window variant a caller might have queried. */
+export const wellbeingTrendKey = (patientId: string) => ["wellbeing-trend", patientId] as const;
+
+/** Ascending-order check-ins for the Wellbeing trend chart — same 90-day
+ * window and left-to-right ordering as useVitalsTrend (vitals.ts). Still pure
+ * engagement telemetry per the wellbeing_checkins migration note: never fed
+ * into escalation/risk scoring, purely descriptive here too. */
+export function useWellbeingTrend(patientId: string, windowDays: number = WELLBEING_TREND_WINDOW_DAYS) {
+  return useQuery({
+    queryKey: [...wellbeingTrendKey(patientId), windowDays],
+    queryFn: async () => {
+      const supabase = createClient();
+      const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabase
+        .from("wellbeing_checkins")
+        .select("checked_in_at, mood_score, stress_score, sleep_quality")
+        .eq("patient_id", patientId)
+        .gte("checked_in_at", since)
+        .order("checked_in_at", { ascending: true });
+      if (error) throw error;
+      return data as WellbeingTrendPoint[];
+    },
+    enabled: !!patientId,
+  });
+}
+
 export const wellbeingPreferenceKey = (patientId: string) =>
   ["wellbeing-checkin-preference", patientId] as const;
 

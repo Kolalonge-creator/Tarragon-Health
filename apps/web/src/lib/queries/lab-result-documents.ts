@@ -56,21 +56,26 @@ export function useUploadOwnResultDocument() {
 
       const { error: uploadError } = await supabase.storage
         .from(RESULT_DOC_BUCKET)
-        .upload(path, input.file, { contentType: input.file.type, upsert: false });
+        .upload(path, input.file, {
+          contentType: input.file.type,
+          upsert: false,
+        });
       if (uploadError) throw uploadError;
 
-      const { error: insertError } = await supabase.from("lab_result_documents").insert({
-        organisation_id: profile.organisation_id,
-        patient_id: user.id,
-        file_path: path,
-        original_filename: input.file.name,
-        mime_type: input.file.type,
-        file_size_bytes: input.file.size,
-        source: "patient",
-        note: input.note?.trim() || null,
-        test_code: input.testCode ?? null,
-        screening_completion_id: input.screeningCompletionId ?? null,
-      });
+      const { error: insertError } = await supabase
+        .from("lab_result_documents")
+        .insert({
+          organisation_id: profile.organisation_id,
+          patient_id: user.id,
+          file_path: path,
+          original_filename: input.file.name,
+          mime_type: input.file.type,
+          file_size_bytes: input.file.size,
+          source: "patient",
+          note: input.note?.trim() || null,
+          test_code: input.testCode ?? null,
+          screening_completion_id: input.screeningCompletionId ?? null,
+        });
       if (insertError) {
         await supabase.storage.from(RESULT_DOC_BUCKET).remove([path]);
         throw insertError;
@@ -90,7 +95,13 @@ export function useUploadOwnResultDocument() {
 export function useMatchResultDocumentToOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ documentId, labOrderId }: { documentId: string; labOrderId: string }) => {
+    mutationFn: async ({
+      documentId,
+      labOrderId,
+    }: {
+      documentId: string;
+      labOrderId: string;
+    }) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("lab_result_documents")
@@ -99,7 +110,9 @@ export function useMatchResultDocumentToOrder() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["result-documents-unmatched"] });
+      queryClient.invalidateQueries({
+        queryKey: ["result-documents-unmatched"],
+      });
       queryClient.invalidateQueries({ queryKey: ["lab-orders"] });
     },
   });
