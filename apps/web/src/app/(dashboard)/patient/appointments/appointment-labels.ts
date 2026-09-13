@@ -16,11 +16,11 @@ export const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
   imaging: "Imaging",
   vaccination: "Vaccination",
   physical_clinic: "Physical clinic visit",
-  telemedicine: "Telemedicine check-in",
+  telemedicine: "Video or audio visit",
   follow_up: "Follow-up",
   procedure: "Procedure",
   therapy: "Therapy session",
-  result_interpretation: "Result interpretation session",
+  result_interpretation: "Result Consultation",
 };
 
 /** The only appointment types a patient can currently book for themselves,
