@@ -48,7 +48,7 @@ function ReviewRow({ review }: { review: SeniorCaseReviewWithPatient }) {
 
       <div className="space-y-2 rounded-md bg-charcoal-ink/5 p-3">
         <p className="text-xs font-medium text-charcoal-ink/70">
-          Written plan (only a Tier 3+ doctor or Clinical Director can submit this)
+          Written plan (only a Senior Medical Officer or the Chief Medical Officer can submit this)
         </p>
         <Textarea
           value={plan}
@@ -100,7 +100,7 @@ export default function SeniorCaseReviewsPage() {
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Senior case reviews</h1>
         <p className="text-sm text-charcoal-ink/60">
           Complex, often multi-condition cases awaiting a coordinated written plan. Completing one
-          is restricted server-side to Tier 3+ doctors and Clinical Directors. Everyone can see
+          is restricted server-side to Senior Medical Officers and the Chief Medical Officer. Everyone can see
           the queue, but only a senior doctor&apos;s account can actually submit a plan.
         </p>
       </div>
