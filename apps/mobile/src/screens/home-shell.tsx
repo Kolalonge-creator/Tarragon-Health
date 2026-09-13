@@ -195,6 +195,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         onOpenDrawer={() => setDrawerOpen(true)}
         onOpenSettings={() => setSection("settings")}
         onSignOut={() => supabase.auth.signOut()}
+        onNavigate={handleSelect}
       />
 
       {(section === "overview" || section === "vitals" || section === "medications" || section === "passport") && (
