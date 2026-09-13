@@ -8,19 +8,25 @@ import type { RiskAssessmentInput } from "@/lib/validation/risk-assessment";
 /**
  * Proves the config-driven engine reproduces risk-scoring.ts's hardcoded
  * CONDITION_RULES exactly, tier-for-tier, across the same scenarios
- * risk-scoring.test.ts covers. Loads the seeded v1 config straight out of
- * migration 20260828183044_risk_questionnaire_configs.sql (the actual
- * $config$...$config$ jsonb literal, not a hand-copied TS re-transcription)
- * so there is exactly one source of truth for what "v1" contains — a typo
- * in either the SQL or a separate TS fixture could otherwise drift
- * unnoticed.
+ * risk-scoring.test.ts covers. Loads the seeded config straight out of its
+ * migration file (the actual $config$...$config$ jsonb literal, not a
+ * hand-copied TS re-transcription) so there is exactly one source of truth
+ * for what the config contains — a typo in either the SQL or a separate TS
+ * fixture could otherwise drift unnoticed.
+ *
+ * Points at v2 (20260913201802_prevention_intake_v2_add_ckd_condition.sql),
+ * not v1: v1 predates risk-scoring.ts's "ckd" condition (added in 267aaa16)
+ * and this test caught that gap for real — v1 alone fails parity, silently
+ * missing a whole risk domain in the config-driven engine that IS active in
+ * production. v2 is v1 plus a verbatim-ported ckd condition; nothing else
+ * changed. See v2's migration header for the full story.
  */
 const MIGRATION_PATH = path.resolve(
   __dirname,
-  "../../../../../supabase/migrations/20260828183044_risk_questionnaire_configs.sql",
+  "../../../../../supabase/migrations/20260913201802_prevention_intake_v2_add_ckd_condition.sql",
 );
 
-function loadSeededV1Config(): RiskQuestionnaireConfigPayload {
+function loadSeededConfig(): RiskQuestionnaireConfigPayload {
   const sql = fs.readFileSync(MIGRATION_PATH, "utf8");
   const match = sql.match(/\$config\$\n([\s\S]*?)\n\$config\$::jsonb/);
   if (!match) {
@@ -29,7 +35,7 @@ function loadSeededV1Config(): RiskQuestionnaireConfigPayload {
   return JSON.parse(match[1]) as RiskQuestionnaireConfigPayload;
 }
 
-const PREVENTION_INTAKE_V1 = loadSeededV1Config();
+const PREVENTION_INTAKE_V2 = loadSeededConfig();
 
 const baseResponses: RiskAssessmentInput = {
   family_diabetes: false,
@@ -60,14 +66,14 @@ const baseProfile: RiskScoringProfile = { sex: "female", ageYears: 30, weightKg:
 
 function tiersOf(responses: RiskAssessmentInput, profile: RiskScoringProfile) {
   const legacy = computeRiskTiers(responses, profile);
-  const configDriven = computeRiskFromConfig(PREVENTION_INTAKE_V1, responses as unknown as Record<string, unknown>, profile);
+  const configDriven = computeRiskFromConfig(PREVENTION_INTAKE_V2, responses as unknown as Record<string, unknown>, profile);
   return { legacy, configDriven };
 }
 
-describe("seeded v1 config structure", () => {
-  it("ports all 7 legacy conditions and all 22 legacy questions", () => {
-    expect(PREVENTION_INTAKE_V1.conditions).toHaveLength(7);
-    expect(PREVENTION_INTAKE_V1.questions).toHaveLength(22);
+describe("seeded v2 config structure", () => {
+  it("ports all 8 legacy conditions (including ckd) and all 22 legacy questions", () => {
+    expect(PREVENTION_INTAKE_V2.conditions).toHaveLength(8);
+    expect(PREVENTION_INTAKE_V2.questions).toHaveLength(22);
   });
 });
 
@@ -91,6 +97,12 @@ describe("config-driven engine parity with the legacy hardcoded engine", () => {
     ["male profile", {}, { sex: "male" }],
     ["existing diabetes diagnosis", { existing_diagnoses: ["diabetes"] }, {}],
     ["existing heart_disease diagnosis", { existing_diagnoses: ["heart_disease"] }, {}],
+    [
+      "ckd: existing diabetes + existing hypertension + age 60+ (high)",
+      { existing_diagnoses: ["diabetes", "hypertension"] },
+      { ageYears: 65 },
+    ],
+    ["ckd: family history only (moderate)", { family_diabetes: true, family_hypertension: true }, {}],
     ["cervical_ca: not HPV vaccinated", { hpv_vaccinated: false }, {}],
     ["colorectal_ca: family history + smoking + low fibre + heavy alcohol", {
       family_cancer_types: ["colorectal"], smoking_status: "current", cigarettes_per_day: "20_plus",
