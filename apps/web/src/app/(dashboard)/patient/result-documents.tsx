@@ -14,6 +14,7 @@ import {
 } from "@/lib/lab-results/documents";
 import { testCodeLabel } from "@/lib/labs/test-code-labels";
 import { UploadResultForm } from "./upload-result-form";
+import { ReplaceResultDocumentForm } from "./replace-result-document-form";
 import { ResultDocumentsDownloadPicker } from "./result-documents-download-picker";
 import { AiResultSummary } from "./ai-result-summary";
 
@@ -176,6 +177,9 @@ export async function ResultDocuments({ patientId }: { patientId: string }) {
                             We&apos;ll let you know here as soon as they have.
                           </p>
                           <AiResultSummary status={doc.aiSummaryStatus} />
+                          {doc.source === "patient" && !doc.reviewedAt && (
+                            <ReplaceResultDocumentForm documentId={doc.id} />
+                          )}
                         </>
                       )}
                     </li>

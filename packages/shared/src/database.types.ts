@@ -22374,6 +22374,7 @@ export type Database = {
           channels: Database["public"]["Enums"]["notification_channel"][]
           created_at: string
           created_by: string
+          email_content: Json | null
           id: string
           is_marketing: boolean
           recipient_count: number
@@ -22389,6 +22390,7 @@ export type Database = {
           channels: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
           created_by: string
+          email_content?: Json | null
           id?: string
           is_marketing?: boolean
           recipient_count?: number
@@ -22404,6 +22406,7 @@ export type Database = {
           channels?: Database["public"]["Enums"]["notification_channel"][]
           created_at?: string
           created_by?: string
+          email_content?: Json | null
           id?: string
           is_marketing?: boolean
           recipient_count?: number
@@ -39274,6 +39277,15 @@ export type Database = {
         Args: { p_key_id: string }
         Returns: undefined
       }
+      admin_search_patients: {
+        Args: { p_query: string }
+        Returns: {
+          email: string
+          full_name: string
+          id: string
+          phone: string
+        }[]
+      }
       admin_send_broadcast: {
         Args: { p_broadcast_id: string }
         Returns: number
@@ -43151,6 +43163,7 @@ export type Database = {
         | "subscribers_by_plan"
         | "all_partners"
         | "partners_by_type"
+        | "specific_patients"
       broadcast_status: "draft" | "sent"
       care_access_category:
         | "appointments_care_plan"
@@ -45383,6 +45396,7 @@ export const Constants = {
         "subscribers_by_plan",
         "all_partners",
         "partners_by_type",
+        "specific_patients",
       ],
       broadcast_status: ["draft", "sent"],
       care_access_category: [
