@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useWeeklyPlan, useMarkGoalDone } from "@/lib/queries/lpe";
 import { LPE_MODULE_LABEL } from "@/lib/lpe/module-labels";
 import { sortGoalsByPriority, getPriorityWeeklyGoal, type WeeklyPlanGoal } from "@/lib/lpe/weekly-plan";
@@ -38,6 +39,44 @@ function TrendDots({ goal }: { goal: WeeklyPlanGoal }) {
   );
 }
 
+/** Vitals-type metrics get a one-purpose quick-log page (same route the
+ * WhatsApp/SMS vitals-reminder deep link uses); the vitals-form's own
+ * `VitalType` spells blood pressure differently than the LPE metric_key
+ * does, so `bp` needs the one explicit remap. Diet/activity route to their
+ * full section (meal planning, activity logging) rather than a bare form,
+ * since those are richer pages, not a single-field quick log. */
+const QUICK_LOG_VITAL_TYPE: Partial<Record<string, string>> = {
+  weight: "weight",
+  bp: "blood_pressure",
+  glucose: "glucose",
+};
+
+/** Where clicking a goal's title should take a patient — the page they'd
+ * actually plan/log that goal from, e.g. Meal Pal for a diet goal. Falls
+ * back to the goal's module when it has no loggable metric (only `stress`
+ * goals hit this today; nothing seeds one yet, see the LPE seed migration). */
+function goalHref(goal: WeeklyPlanGoal): string {
+  if (goal.measurementType === "food_log") return "/patient/nutrition";
+  if (goal.measurementType === "activity_minutes") return "/patient/activity";
+  const quickLogType = goal.measurementType ? QUICK_LOG_VITAL_TYPE[goal.measurementType] : undefined;
+  if (quickLogType) return `/patient/quick-log/${quickLogType}`;
+
+  switch (goal.module) {
+    case "diet":
+      return "/patient/nutrition";
+    case "activity":
+      return "/patient/activity";
+    case "sleep":
+      return "/patient/sleep";
+    case "stress":
+      return "/patient/wellbeing";
+    case "smoking":
+      return "/patient/smoking";
+    case "behaviour":
+      return "/patient/medications";
+  }
+}
+
 function GoalRow({ goal, patientId }: { goal: WeeklyPlanGoal; patientId: string }) {
   const markDone = useMarkGoalDone(patientId);
   const done = goal.cadence === "weekly" ? goal.doneThisWeek : goal.doneToday;
@@ -51,7 +90,12 @@ function GoalRow({ goal, patientId }: { goal: WeeklyPlanGoal; patientId: string 
             <span className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">this week</span>
           )}
         </div>
-        <p className="mt-1 text-sm font-medium text-charcoal-ink dark:text-night-ink">{goal.title}</p>
+        <Link
+          href={goalHref(goal)}
+          className="mt-1 block text-sm font-medium text-charcoal-ink hover:underline dark:text-night-ink"
+        >
+          {goal.title}
+        </Link>
         {goal.measurementType && (
           <div className="mt-1">
             <TrendDots goal={goal} />
