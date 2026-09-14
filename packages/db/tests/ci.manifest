@@ -80,3 +80,12 @@ specialist_providers_commercial_columns_hidden.sql
 # while one is already live is a no-op rather than a failed payment, and an
 # unrelated product's activation does not touch this table at all.
 weight_management_enrolment_on_purchase.sql
+
+# --- Added 2026-09-14 --------------------------------------------------------
+# private.auto_assign_escalation() and the reassignment-authority pair had
+# zero test coverage -- the migration's own closing assertion block only
+# proved the objects exist and don't error on a dummy uuid. Mints its own
+# fresh org/doctors/patients (never borrows the shared seeded org or the QA
+# roster) so it runs correctly against both a clean `supabase db reset` and
+# the live project.
+escalation_auto_assignment_and_reassignment_authority.sql
