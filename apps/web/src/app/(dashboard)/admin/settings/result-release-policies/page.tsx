@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { LoadFailure } from "@/components/ui/load-failure";
 import {
   ResultReleasePoliciesManager,
   type ResultReleasePolicyVersionRow,
@@ -26,7 +27,7 @@ export default async function ResultReleasePoliciesSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data: versions } = await supabase
+  const { data: versions, error } = await supabase
     .from("result_release_policies")
     .select("id, version, config, notes, is_active, approved_at, created_at")
     .order("version", { ascending: false });
@@ -50,11 +51,22 @@ export default async function ResultReleasePoliciesSettingsPage() {
           been reviewed and approved.
         </p>
       </div>
-      <ResultReleasePoliciesManager
-        versions={versionRows}
-        activeVersion={activeVersion}
-        nextVersion={nextVersion}
-      />
+      {/* A failed read here must never render as "no active configuration found —
+          every result releases immediately": that is the same string a genuinely
+          unconfigured table would show, on the one page that governs whether an
+          abnormal result waits for a doctor. */}
+      {error ? (
+        <LoadFailure>
+          The result release policy could not be loaded. This is not proof that no
+          restriction is active — reload before assuming results are releasing immediately.
+        </LoadFailure>
+      ) : (
+        <ResultReleasePoliciesManager
+          versions={versionRows}
+          activeVersion={activeVersion}
+          nextVersion={nextVersion}
+        />
+      )}
     </div>
   );
 }

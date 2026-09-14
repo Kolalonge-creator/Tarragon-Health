@@ -3,6 +3,7 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { IntegrationsManager } from "./integrations-manager";
 import { IntegrationMonitoringPanel } from "./monitoring-panel";
 
@@ -13,12 +14,12 @@ export default async function IntegrationsSettingsPage() {
 
   const supabase = await createClient();
   const [
-    { data: apiKeys },
-    { data: partners },
-    { data: webhookEndpoints },
-    { data: catalogue },
-    { data: health },
-    { data: deadLettered },
+    { data: apiKeys, error: apiKeysError },
+    { data: partners, error: partnersError },
+    { data: webhookEndpoints, error: webhookEndpointsError },
+    { data: catalogue, error: catalogueError },
+    { data: health, error: healthError },
+    { data: deadLettered, error: deadLetteredError },
   ] = await Promise.all([
     supabase
       .from("api_keys")
@@ -44,12 +45,27 @@ export default async function IntegrationsSettingsPage() {
       .limit(50),
   ]);
 
+  const firstError =
+    apiKeysError ??
+    partnersError ??
+    webhookEndpointsError ??
+    catalogueError ??
+    healthError ??
+    deadLetteredError;
+
   return (
     <div className="space-y-6">
       <PageHeader
         title="Integrations"
         description="Inbound API keys let device clouds and partner platforms push data into TarragonHealth (see docs/INTEGRATIONS_API.md for the partner-facing spec). Outbound connections register partner APIs this platform calls, and webhook endpoints receive events (a result becoming available, an appointment being cancelled) as they happen."
       />
+      {firstError && (
+        <LoadFailure>
+          Some integration data could not be loaded ({firstError.message}). The lists and health
+          panel below may be missing rows, not genuinely empty — reload before trusting a
+          &ldquo;none registered&rdquo; state.
+        </LoadFailure>
+      )}
       <IntegrationMonitoringPanel
         catalogue={catalogue ?? []}
         health={health?.[0] ?? null}

@@ -61,12 +61,18 @@ export async function createEscalationSlaDraftAction(
   if (activeError) return { error: activeError.message };
   if (!active) return { error: "No active escalation SLA config found to draft from." };
 
-  const { data: latest } = await supabase
+  const { data: latest, error: latestError } = await supabase
     .from("escalation_slas")
     .select("version")
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
+  // escalation_slas has no unique constraint on `version` (unlike the other
+  // versioned governance tables), so a failed lookup here would silently
+  // compute version 1 and insert a duplicate/wrong version number with no
+  // DB-level backstop to catch it — this table is the one CLAUDE.md names as
+  // the live SLA source of truth, so fail closed rather than guess.
+  if (latestError) return { error: latestError.message };
   const nextVersion = (latest?.version ?? 0) + 1;
 
   // Apply any edited minutes onto a copy of the active config.

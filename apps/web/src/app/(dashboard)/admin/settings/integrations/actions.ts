@@ -59,8 +59,13 @@ export async function createApiKeyAction(input: {
     revalidatePath("/admin/settings/integrations");
     // The one and only time the full key exists outside the partner's hands.
     return { key };
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -76,8 +81,13 @@ export async function revokeApiKeyAction(keyId: string): Promise<{ error?: strin
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -130,8 +140,13 @@ export async function savePartnerIntegrationAction(input: {
     }
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -149,8 +164,13 @@ export async function setPartnerIntegrationActiveAction(
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -177,8 +197,8 @@ export async function testPartnerConnectionAction(
     return ok
       ? { ok: true, detail: `Reachable: HTTP ${result.status}` }
       : { ok: false, detail: result.error };
-  } catch {
-    return { ok: false, detail: "Not authorised" };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -271,8 +291,13 @@ export async function saveWebhookEndpointAction(input: {
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return { secret };
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -284,8 +309,13 @@ export async function setWebhookEndpointActiveAction(id: string, isActive: boole
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -297,8 +327,13 @@ export async function deleteWebhookEndpointAction(id: string): Promise<{ error?:
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -318,8 +353,13 @@ export async function requeueIntegrationEventAction(id: string): Promise<{ error
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -331,7 +371,12 @@ export async function cancelIntegrationEventAction(id: string): Promise<{ error?
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }

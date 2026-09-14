@@ -166,7 +166,7 @@ export async function upsertEmployerContractAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid contract details" };
 
   const supabase = await createClient();
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("corporate_contracts")
     .select("id")
     .eq("organisation_id", parsed.data.organisationId)
@@ -174,6 +174,10 @@ export async function upsertEmployerContractAction(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  // A failed lookup here must not fall through to the insert branch below —
+  // that would create a second "active" contract row for an employer that
+  // already has one, splitting billing terms across two rows silently.
+  if (existingError) return { error: existingError.message };
 
   const patch = {
     billing_model: parsed.data.billingModel,

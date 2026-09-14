@@ -48,17 +48,21 @@ export default async function ClinicalRulesSettingsPage() {
   // Sign button can never render for them — private.guard_clinical_rule_immutable
   // refuses to let those two fields be added once a row leaves draft. Fixing
   // that needs a fresh draft version, which needs these two pickers.
-  const { data: staff } = await supabase
+  const { data: staff, error: staffError } = await supabase
     .from("clinical_staff")
     .select("id, full_name, doctor_tier")
     .eq("active", true)
     .order("full_name", { ascending: true });
-  const { data: protocols } = await supabase
+  const { data: protocols, error: protocolsError } = await supabase
     .from("protocol_versions")
     .select("id, protocol_id, title, version_number")
     .not("approved_by", "is", null)
     .order("protocol_id", { ascending: true })
     .order("version_number", { ascending: false });
+  // A failed picker read must not look like "no active clinical staff" or
+  // "no signed protocols exist" — either would silently block the only
+  // recovery path for the shadow rules described above.
+  const pickersFailed = Boolean(staffError || protocolsError);
 
   return (
     <div className="space-y-6">
@@ -75,11 +79,20 @@ export default async function ClinicalRulesSettingsPage() {
           none are active. Do not draft or activate a rule from here until it loads.
         </LoadFailure>
       ) : (
-        <ClinicalRulesManager
-          rules={rows}
-          clinicalStaff={staff ?? []}
-          signedProtocols={protocols ?? []}
-        />
+        <>
+          {pickersFailed && (
+            <LoadFailure>
+              The owner/protocol picker lists could not be fully loaded. If the &ldquo;assign owner
+              &amp; link protocol&rdquo; form below shows no options, that is a failed read, not
+              proof none exist — reload before assuming a rule has nothing to link to.
+            </LoadFailure>
+          )}
+          <ClinicalRulesManager
+            rules={rows}
+            clinicalStaff={staff ?? []}
+            signedProtocols={protocols ?? []}
+          />
+        </>
       )}
     </div>
   );
