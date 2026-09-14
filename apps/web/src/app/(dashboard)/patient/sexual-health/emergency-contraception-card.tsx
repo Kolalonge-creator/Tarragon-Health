@@ -15,6 +15,14 @@ import { NAV_ICON } from "@/lib/icons";
  * Prominent means a bolder brand accent (sprout-gold, the mark's own warm
  * tone), never fear-based/red "WARNING" styling — this is urgent, not scary,
  * and there is almost always still something a clinician can do.
+ *
+ * Guidance-only, not a fulfilment request: Tarragon has no owned clinics or
+ * pharmacy that could dispense emergency contraception itself (see
+ * CLAUDE.md's Care Coordination model). What this actually does is tell the
+ * patient what to buy (an over-the-counter pill, or a copper IUD a clinician
+ * can fit) based on how much time has passed, and flag a clinician to follow
+ * up fast in case they have questions or need the IUD route — never a
+ * promise that Tarragon is sourcing or handing over the product.
  */
 export function EmergencyContraceptionCard() {
   const [state, formAction, pending] = useActionState(requestEmergencyContraception, undefined);
@@ -26,13 +34,14 @@ export function EmergencyContraceptionCard() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-deep-forest dark:text-brand-green-bright">
             <NAV_ICON.warning className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
-            Request received
+            Here&apos;s your guidance
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-sm text-charcoal-ink/80 dark:text-night-ink/80">
           <p>{state.guidance}</p>
           <p className="rounded-md bg-white dark:bg-night-card p-3 font-medium text-deep-forest dark:text-brand-green-bright">
-            Your care team has been notified and will follow up quickly.
+            Your care team has been notified and will follow up quickly if you have questions or
+            want help arranging the copper IUD.
           </p>
         </CardContent>
       </Card>
@@ -48,7 +57,8 @@ export function EmergencyContraceptionCard() {
         </CardTitle>
         <CardDescription className="text-charcoal-ink/70 dark:text-night-ink/70">
           Timing matters here, but there is almost always still something that can help. Tell us
-          roughly when, and your care team will follow up fast.
+          roughly when, and we&apos;ll tell you what to get and where — plus your care team will
+          follow up fast.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -83,7 +93,7 @@ export function EmergencyContraceptionCard() {
             disabled={pending}
             className="w-full bg-sprout-gold text-clinical-navy dark:text-night-ink hover:bg-sprout-gold/90"
           >
-            {pending ? "Sending…" : "Request emergency contraception"}
+            {pending ? "Sending…" : "Get emergency contraception guidance"}
           </Button>
         </form>
       </CardContent>

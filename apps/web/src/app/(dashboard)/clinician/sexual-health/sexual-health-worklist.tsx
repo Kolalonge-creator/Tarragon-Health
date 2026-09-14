@@ -334,7 +334,7 @@ function EcRequestRow({ request }: { request: EcRequestWithPatient }) {
   const [methodAdvised, setMethodAdvised] = useState("");
   const { label, breached } = elapsedSince(request.requested_at);
 
-  function act(status: "reviewed" | "dispensed" | "declined") {
+  function act(status: "reviewed" | "advised" | "declined") {
     setError(null);
     startTransition(async () => {
       const result = await actionEmergencyContraceptionRequest(
@@ -383,8 +383,8 @@ function EcRequestRow({ request }: { request: EcRequestWithPatient }) {
         <Button type="button" size="sm" disabled={pending} onClick={() => act("reviewed")}>
           Reviewed
         </Button>
-        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => act("dispensed")}>
-          Dispensed
+        <Button type="button" size="sm" variant="outline" disabled={pending} onClick={() => act("advised")}>
+          Advised
         </Button>
         <Button type="button" size="sm" variant="ghost" disabled={pending} onClick={() => act("declined")}>
           Declined

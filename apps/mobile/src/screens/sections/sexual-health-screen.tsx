@@ -354,9 +354,9 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
   if (guidance) {
     return (
       <Card style={{ borderColor: colors.brand, backgroundColor: colors.brandTint, gap: 8 }}>
-        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Request received</Text>
+        <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Here&apos;s your guidance</Text>
         <Text style={{ fontSize: 13, color: colors.ink }}>{guidance}</Text>
-        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>Your care team has been notified and will follow up quickly.</Text>
+        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.brandPressed }}>Your care team has been notified and will follow up quickly if you have questions or want help arranging the copper IUD.</Text>
       </Card>
     );
   }
@@ -366,7 +366,7 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
       <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Need emergency contraception?</Text>
       <MutedText>
         Timing matters here, but there is almost always still something that can help. Tell us roughly
-        when, and your care team will follow up fast.
+        when, and we&apos;ll tell you what to get and where — plus your care team will follow up fast.
       </MutedText>
       <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>Hours since intercourse</Text>
       <TextInput
@@ -382,7 +382,7 @@ function EmergencyContraceptionCard({ userId, organisationId }: { userId: string
         I&apos;m not sure
       </Text>
       {error && <ErrorText>{error}</ErrorText>}
-      <PrimaryButton title="Request emergency contraception" onPress={submit} loading={submitting} />
+      <PrimaryButton title="Get emergency contraception guidance" onPress={submit} loading={submitting} />
     </Card>
   );
 }

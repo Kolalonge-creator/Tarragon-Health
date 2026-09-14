@@ -128,14 +128,17 @@ export async function updatePartnerNotificationOutcome(
 
 const ecActionSchema = z.object({
   requestId: z.string().uuid("Invalid request reference"),
-  status: z.enum(["reviewed", "dispensed", "declined"]),
+  status: z.enum(["reviewed", "advised", "declined"]),
   methodAdvised: z.string().trim().min(1).max(100).optional(),
 });
 
 /**
  * Actions a pending emergency contraception request (spec §47.8) — reviewed,
- * dispensed, or declined, with an optional method_advised
- * (contraception_methods.code). The BEFORE UPDATE trigger
+ * advised, or declined, with an optional method_advised
+ * (contraception_methods.code). "Advised" (not "dispensed" — see
+ * 20260914180529) means the clinician talked the patient through their
+ * options; Tarragon has no pharmacy fulfilment for this pathway, so nothing
+ * is ever actually dispensed here. The BEFORE UPDATE trigger
  * (enforce_ec_request_update) requires an active clinical_staff row for
  * every transition off 'pending' (unlike the STI ladder's declined_care
  * carve-out) and rejects re-actioning an already-actioned request, so both
@@ -144,7 +147,7 @@ const ecActionSchema = z.object({
  */
 export async function actionEmergencyContraceptionRequest(
   requestId: string,
-  status: "reviewed" | "dispensed" | "declined",
+  status: "reviewed" | "advised" | "declined",
   methodAdvised?: string
 ): Promise<SexualHealthActionState> {
   const parsed = ecActionSchema.safeParse({ requestId, status, methodAdvised });

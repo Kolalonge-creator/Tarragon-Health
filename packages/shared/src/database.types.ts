@@ -43553,7 +43553,7 @@ export type Database = {
       ec_request_status:
         | "pending"
         | "reviewed"
-        | "dispensed"
+        | "advised"
         | "declined"
         | "expired"
       ecg_report_document_source:
