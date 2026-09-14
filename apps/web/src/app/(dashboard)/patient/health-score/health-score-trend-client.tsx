@@ -1,17 +1,15 @@
 "use client";
 
-import Link from "next/link";
-import { CartesianGrid, Line, LineChart, ReferenceLine, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 import { useLatestHealthScore, useHealthScoreHistory } from "@/lib/queries/health-score";
-import { usePatientChronologicalAge } from "@/lib/queries/patient-demographics";
 import {
   computeHealthScoreTrend,
-  getPriorityHealthScoreTip,
+  describeHealthScoreTrend,
   getHealthScoreTips,
+  getPriorityHealthScoreTip,
   type HealthScoreComponent,
   type HealthScoreRiskLevel,
 } from "@/lib/rules/health-score";
-import { computeBiologicalAge, describeBiologicalAgeTrend } from "@/lib/rules/biological-age";
 import { RISK_LEVEL_RING } from "@/lib/rules/risk-level-style";
 import { HEALTH_SCORE_COMPONENT_LABEL } from "@/lib/rules/health-score-labels";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,8 +22,8 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-const AGE_CONFIG: ChartConfig = {
-  estimated_age: { label: "Biological age (yrs)", color: "var(--color-brand-green)" },
+const SCORE_CONFIG: ChartConfig = {
+  score: { label: "Health Score", color: "var(--color-brand-green)" },
 };
 
 const RISK_LEVEL_BADGE: Record<
@@ -42,44 +40,30 @@ function formatDate(computedAt: string): string {
   return new Date(computedAt).toLocaleDateString(undefined, { month: "short", year: "2-digit" });
 }
 
-export function BiologicalAgeTrendClient({ patientId }: { patientId: string }) {
+export function HealthScoreTrendClient({ patientId }: { patientId: string }) {
   const { data: latest, isLoading: isLatestLoading, isError: isLatestError } =
     useLatestHealthScore(patientId);
   const { data: history, isLoading: isHistoryLoading, isError: isHistoryError } =
     useHealthScoreHistory(patientId);
-  const { data: chronologicalAge, isLoading: isAgeLoading } =
-    usePatientChronologicalAge(patientId);
 
-  const isLoading = isLatestLoading || isHistoryLoading || isAgeLoading;
+  const isLoading = isLatestLoading || isHistoryLoading;
   const isError = isLatestError || isHistoryError;
 
   const scoredHistory = (history ?? []).filter(
     (h): h is { score: number; inputs: typeof h.inputs; computed_at: string } => h.score !== null,
   );
-  const points =
-    chronologicalAge != null
-      ? scoredHistory.map((h) => ({
-          date: formatDate(h.computed_at),
-          estimated_age: computeBiologicalAge(chronologicalAge, h.score).estimatedAge,
-        }))
-      : [];
+  const points = scoredHistory.map((h) => ({ date: formatDate(h.computed_at), score: h.score }));
 
   const trend = scoredHistory.length >= 2 ? computeHealthScoreTrend(scoredHistory) : null;
-  const trendLine =
-    trend && chronologicalAge != null ? describeBiologicalAgeTrend(trend, chronologicalAge) : null;
+  const trendLine = trend ? describeHealthScoreTrend(trend) : null;
 
-  const ages = points.map((p) => p.estimated_age);
-  const yValues = chronologicalAge != null ? [...ages, chronologicalAge] : ages;
+  const scores = points.map((p) => p.score);
   const yDomain: [number, number] | undefined =
-    yValues.length > 0 ? [Math.min(...yValues) - 2, Math.max(...yValues) + 2] : undefined;
+    scores.length > 0 ? [Math.max(0, Math.min(...scores) - 5), Math.min(100, Math.max(...scores) + 5)] : undefined;
 
   const riskLevel = latest?.risk_level as HealthScoreRiskLevel | null;
   const badgeStyle = riskLevel ? RISK_LEVEL_BADGE[riskLevel] : null;
   const ringColorVar = riskLevel ? RISK_LEVEL_RING[riskLevel] : RISK_LEVEL_RING.low;
-  const estimate =
-    latest?.score != null && chronologicalAge != null
-      ? computeBiologicalAge(chronologicalAge, latest.score)
-      : null;
 
   const components =
     (latest?.inputs as { components?: HealthScoreComponent[] } | null)?.components ?? [];
@@ -92,31 +76,21 @@ export function BiologicalAgeTrendClient({ patientId }: { patientId: string }) {
         <CardContent className="pt-6">
           {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
           {isError && (
-            <p className="text-sm text-red-600 dark:text-red-300">Could not load your Biological Age.</p>
+            <p className="text-sm text-red-600 dark:text-red-300">Could not load your Health Score.</p>
           )}
-          {!isLoading && !isError && chronologicalAge == null && (
+          {!isLoading && !isError && !latest && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              We need your date of birth to estimate this — add it to your{" "}
-              <Link href="/patient/profile" className="text-brand-green dark:text-brand-green-bright hover:underline">
-                profile
-              </Link>
-              .
+              Log a reading or finish your risk assessment to get your first Health Score.
             </p>
           )}
-          {!isLoading && !isError && chronologicalAge != null && !latest && (
-            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-              Log a reading or finish your risk assessment to see your first Biological Age
-              estimate.
-            </p>
-          )}
-          {!isLoading && !isError && estimate && badgeStyle && (
+          {!isLoading && !isError && latest && badgeStyle && (
             <div className="flex flex-col items-center gap-3">
-              <ScoreRing value={latest?.score ?? 0} colorVar={ringColorVar}>
+              <ScoreRing value={latest.score ?? 0} colorVar={ringColorVar}>
                 <span className="font-heading text-[42px] font-semibold leading-none tracking-tight text-charcoal-ink dark:text-night-ink">
-                  {estimate.estimatedAge}
+                  {latest.score}
                 </span>
                 <span className="mt-0.5 text-[13px] font-medium text-charcoal-ink/55 dark:text-night-ink/55">
-                  yrs, estimated
+                  out of 100
                 </span>
               </ScoreRing>
               <Badge variant={badgeStyle.variant}>{badgeStyle.label}</Badge>
@@ -130,11 +104,11 @@ export function BiologicalAgeTrendClient({ patientId }: { patientId: string }) {
           <CardTitle>Over time</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          {!isLoading && !isError && chronologicalAge != null && points.length < 2 && (
+          {!isLoading && !isError && points.length < 2 && (
             <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               {points.length === 0
                 ? "Not enough check-ins yet to show a trend. Come back after your next monthly check-in."
-                : `You've logged one check so far (${points[0].estimated_age} years). We'll start charting your trend after your next monthly check-in.`}
+                : `You've logged one score so far (${points[0].score}/100). We'll start charting your trend after your next monthly check-in.`}
             </p>
           )}
 
@@ -145,38 +119,21 @@ export function BiologicalAgeTrendClient({ patientId }: { patientId: string }) {
           )}
 
           {points.length >= 2 && (
-            <ChartContainer config={AGE_CONFIG}>
+            <ChartContainer config={SCORE_CONFIG}>
               <LineChart data={points}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="date" fontSize={12} />
-                <YAxis fontSize={12} domain={yDomain ?? ["dataMin - 2", "dataMax + 2"]} />
+                <YAxis fontSize={12} domain={yDomain ?? [0, 100]} />
                 <ChartTooltip content={<ChartTooltipContent />} />
-                {chronologicalAge != null && (
-                  <ReferenceLine
-                    y={chronologicalAge}
-                    stroke="rgba(23,23,23,0.35)"
-                    strokeDasharray="4 4"
-                    label={{
-                      value: `Birth age · ${chronologicalAge}`,
-                      fontSize: 11,
-                      position: "insideTopRight",
-                    }}
-                  />
-                )}
-                <Line
-                  type="monotone"
-                  dataKey="estimated_age"
-                  stroke="var(--color-estimated_age)"
-                  dot={{ r: 3 }}
-                />
+                <Line type="monotone" dataKey="score" stroke="var(--color-score)" dot={{ r: 3 }} />
               </LineChart>
             </ChartContainer>
           )}
 
           <p className="border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-            Recalculated monthly from your latest vitals and screening records — the same Health
-            Score shown elsewhere on your dashboard, reframed as an age. Not a lab-based or genetic
-            biological-age test, and not a medical diagnosis.
+            Recalculated monthly from your latest vitals and screening records. A non-diagnostic
+            summary of a few everyday habits and numbers we already have on file — not a medical
+            diagnosis.
           </p>
         </CardContent>
       </Card>
@@ -184,7 +141,7 @@ export function BiologicalAgeTrendClient({ patientId }: { patientId: string }) {
       {components.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>What&apos;s behind your estimate</CardTitle>
+            <CardTitle>What&apos;s behind your score</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
