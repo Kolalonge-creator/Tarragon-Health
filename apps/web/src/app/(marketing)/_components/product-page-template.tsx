@@ -64,6 +64,7 @@ export function ProductPageTemplate({
           imageSrc={heroMedia.imageSrc ?? ""}
           imageAlt={heroMedia.imageAlt ?? ""}
           imagePosition={heroMedia.imageFocus}
+          videoSrc={heroMedia.videoSrc}
         />
       ) : (
         <Section className="pt-20">
