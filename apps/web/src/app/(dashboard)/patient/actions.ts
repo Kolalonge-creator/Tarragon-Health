@@ -12,6 +12,7 @@ import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
+import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
 import { medicationAccessBarrierSchema } from "@/lib/validation/medication-access-barriers";
 import { patientLocationSchema } from "@/lib/validation/patient-location";
@@ -142,6 +143,42 @@ export async function logVital(
   // pairs with the latest glucose to catch suspected DKA (§15.3).
   if (row.vital_type === "glucose" || row.vital_type === "ketones") {
     await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
+  }
+
+  // Bridges into the Weekly Plan card's own completion tracking — a no-op
+  // for a patient with no active goal for this metric. Only when subjectId
+  // is the caller's own id: lpe_measurements RLS lets a patient insert only
+  // their own rows, with no supporter-acting-for-dependent path (unlike
+  // vitals_readings above), so a supporter logging for someone they
+  // support must not attempt this write. Deliberately does not re-run
+  // red-flag evaluation — that's already handled by the assess*BestEffort
+  // calls above, specific to this reading; see the helper's own comment.
+  if (subjectId === user.id) {
+    if (row.vital_type === "weight") {
+      await recordWeeklyPlanProgress(supabase, {
+        patientId: subjectId,
+        organisationId: profile.organisation_id,
+        metric: "weight",
+        valueNum: row.weight_kg,
+        unit: "kg",
+      });
+    } else if (row.vital_type === "blood_pressure") {
+      await recordWeeklyPlanProgress(supabase, {
+        patientId: subjectId,
+        organisationId: profile.organisation_id,
+        metric: "bp",
+        valueJson: { systolic: row.systolic, diastolic: row.diastolic },
+        unit: "mmHg",
+      });
+    } else if (row.vital_type === "glucose") {
+      await recordWeeklyPlanProgress(supabase, {
+        patientId: subjectId,
+        organisationId: profile.organisation_id,
+        metric: "glucose",
+        valueNum: row.glucose_mmol_l,
+        unit: "mmol/L",
+      });
+    }
   }
   // subjectId, not user.id: a supporter logging for someone they act for
   // must reassess THAT person's health score, not their own.

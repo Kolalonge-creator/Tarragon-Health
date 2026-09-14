@@ -7,6 +7,7 @@ import {
   logStepsSchema,
   logWorkoutSchema,
 } from "@/lib/validation/activity";
+import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
 
 export type ActivityActionState = { error?: string; success?: boolean } | undefined;
 
@@ -95,6 +96,18 @@ export async function logStepsAction(
     if (insertErr) return { error: insertErr.message };
   }
 
+  // Bridges into the Weekly Plan card's own completion tracking — a no-op
+  // for a patient with no active activity goal. Steps carry no minutes
+  // value, so this marks presence only; logWorkoutAction below records a
+  // real value when the workout has a duration.
+  await recordWeeklyPlanProgress(ctx.supabase, {
+    patientId: ctx.userId,
+    organisationId: ctx.organisationId,
+    metric: "activity_minutes",
+    valueJson: { step_count: parsed.data.step_count },
+    unit: "check",
+  });
+
   revalidatePath("/patient/activity");
   return { success: true };
 }
@@ -121,6 +134,14 @@ export async function logWorkoutAction(
     logged_on: lagosToday(),
   });
   if (error) return { error: error.message };
+
+  await recordWeeklyPlanProgress(ctx.supabase, {
+    patientId: ctx.userId,
+    organisationId: ctx.organisationId,
+    metric: "activity_minutes",
+    valueNum: parsed.data.duration_minutes,
+    unit: "min",
+  });
 
   revalidatePath("/patient/activity");
   return { success: true };
