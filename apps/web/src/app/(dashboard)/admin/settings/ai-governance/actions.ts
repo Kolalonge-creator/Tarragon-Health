@@ -165,6 +165,82 @@ export async function activateAiPromptVersionAction(
   return { success: "Activated. The runtime picks it up within a minute." };
 }
 
+const versionApprovalSchema = z.object({
+  versionId: z.string().uuid(),
+  note: z.string().trim().optional(),
+});
+
+/**
+ * Approve an `ai_system_versions` row (40.9's release gate, 40.2's per-
+ * version record). `public.approve_ai_system_version` is the real gate: it
+ * requires an admin or an active Clinical Director (a Clinical Director
+ * specifically for anything clinically meaningful or high-risk), and refuses
+ * outright unless every required evaluation suite already has a completed
+ * passing run against this exact version — this action surfaces that refusal
+ * rather than working around it. Approving is what satisfies the 40.20
+ * "validation" acceptance criterion for the system.
+ */
+export async function approveAiSystemVersionAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = versionApprovalSchema.safeParse({
+    versionId: formData.get("versionId"),
+    note: formData.get("note") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("approve_ai_system_version", {
+    p_version_id: parsed.data.versionId,
+    p_note: parsed.data.note,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(PATH);
+  return { success: "Approved. This version now satisfies the platform's validation acceptance criterion." };
+}
+
+const labelCaseTierSchema = z.object({
+  caseId: z.string().uuid(),
+  tier: z.enum(["routine", "clinician_review", "emergency"]),
+  rationale: z.string().trim().optional(),
+});
+
+/**
+ * Records a Chief Medical Officer's own independent tier judgement for one
+ * clinical-accuracy scenario (40.20/40.9). `public.label_ai_evaluation_case_tier`
+ * is the real gate: only an active Chief Medical Officer's call is accepted,
+ * and this action never sees or infers a tier itself — it only forwards
+ * whatever the form submitted.
+ */
+export async function labelAiEvaluationCaseTierAction(
+  _prev: AiGovernanceActionState,
+  formData: FormData
+): Promise<AiGovernanceActionState> {
+  const parsed = labelCaseTierSchema.safeParse({
+    caseId: formData.get("caseId"),
+    tier: formData.get("tier"),
+    rationale: formData.get("rationale") || undefined,
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Choose a tier and try again." };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("label_ai_evaluation_case_tier", {
+    p_case_id: parsed.data.caseId,
+    p_tier: parsed.data.tier,
+    p_rationale: parsed.data.rationale,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath(PATH);
+  return { success: "Recorded. Once every case in this suite is labelled, it can be run against the coach." };
+}
+
 const staffReportSchema = z.object({
   systemCode: z.string().trim().min(1),
   category: z.enum(AI_INCIDENT_CATEGORIES),

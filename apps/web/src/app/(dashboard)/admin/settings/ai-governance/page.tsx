@@ -9,6 +9,8 @@ import {
   type AiModelObservationRow,
   type AiPromptVersionRow,
   type AiSystemRow,
+  type AiSystemVersionRow,
+  type AiClinicalAccuracyCaseRow,
 } from "./ai-governance-console";
 
 /**
@@ -41,29 +43,52 @@ export default async function AiGovernancePage() {
 
   const supabase = await createClient();
 
-  const [{ data: dashboardData, error: dashboardError }, incidentsResult, promptsResult, observationsResult] =
-    await Promise.all([
-      supabase.rpc("ai_governance_dashboard", { p_days: 30 }),
-      supabase
-        .from("ai_safety_incidents")
-        .select(
-          "id, ai_system_id, interaction_id, reporter_kind, category, severity, status, description, clinical_review_summary, corrective_action, patient_harm_occurred, created_at, resolved_at"
-        )
-        .order("created_at", { ascending: false })
-        .limit(50),
-      supabase
-        .from("ai_prompt_versions")
-        .select("id, ai_system_id, version, is_active, approved_at, change_summary, created_at")
-        .order("version", { ascending: false }),
-      supabase
-        .from("ai_vendor_model_observations")
-        .select(
-          "id, ai_system_id, observed_model_identifier, expected_model_identifier, is_expected, first_seen_at, last_seen_at, observation_count, acknowledged_at"
-        )
-        .eq("is_expected", false)
-        .order("last_seen_at", { ascending: false })
-        .limit(25),
-    ]);
+  const [
+    { data: dashboardData, error: dashboardError },
+    incidentsResult,
+    promptsResult,
+    observationsResult,
+    versionsResult,
+    clinicalAccuracyCasesResult,
+  ] = await Promise.all([
+    supabase.rpc("ai_governance_dashboard", { p_days: 30 }),
+    supabase
+      .from("ai_safety_incidents")
+      .select(
+        "id, ai_system_id, interaction_id, reporter_kind, category, severity, status, description, clinical_review_summary, corrective_action, patient_harm_occurred, created_at, resolved_at"
+      )
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("ai_prompt_versions")
+      .select("id, ai_system_id, version, is_active, approved_at, change_summary, created_at")
+      .order("version", { ascending: false }),
+    supabase
+      .from("ai_vendor_model_observations")
+      .select(
+        "id, ai_system_id, observed_model_identifier, expected_model_identifier, is_expected, first_seen_at, last_seen_at, observation_count, acknowledged_at"
+      )
+      .eq("is_expected", false)
+      .order("last_seen_at", { ascending: false })
+      .limit(25),
+    supabase
+      .from("ai_system_versions")
+      .select(
+        "id, ai_system_id, version, model_identifier, intended_population, excluded_population, validation_summary, validation_completed_at, approved_at, deployed_at, retired_at, review_due_on, change_summary, created_at, validated_by_staff:clinical_staff!ai_system_versions_validated_by_fkey(full_name), approved_by_staff:clinical_staff!ai_system_versions_approved_by_fkey(full_name)"
+      )
+      .order("created_at", { ascending: false }),
+    // Cases for any "clinical" evaluation suite (40.20's clinical-accuracy
+    // kind) — the ground-truth tier lives only where an active Chief
+    // Medical Officer actually wrote it (public.label_ai_evaluation_case_tier),
+    // never inferred here.
+    supabase
+      .from("ai_evaluation_cases")
+      .select(
+        "id, suite_id, case_code, scenario, expected_tier, labeled_at, label_rationale, ai_evaluation_suites!inner(name, kind, ai_system_id), labeled_by_staff:clinical_staff!ai_evaluation_cases_labeled_by_fkey(full_name)"
+      )
+      .eq("ai_evaluation_suites.kind", "clinical")
+      .order("case_code"),
+  ]);
 
   // ai_systems is a small, non-PHI registry table readable by any signed-in
   // account, so this join happens here rather than inside the dashboard RPC's
@@ -120,6 +145,8 @@ export default async function AiGovernancePage() {
       incidents={(incidentsResult.data ?? []) as AiIncidentRow[]}
       promptVersions={(promptsResult.data ?? []) as AiPromptVersionRow[]}
       modelObservations={(observationsResult.data ?? []) as AiModelObservationRow[]}
+      systemVersions={(versionsResult.data ?? []) as AiSystemVersionRow[]}
+      clinicalAccuracyCases={(clinicalAccuracyCasesResult.data ?? []) as unknown as AiClinicalAccuracyCaseRow[]}
     />
   );
 }
