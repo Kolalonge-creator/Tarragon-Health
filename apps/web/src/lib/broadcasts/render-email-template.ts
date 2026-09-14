@@ -87,3 +87,18 @@ export function renderBroadcastEmailHtml(
     `</div>`
   );
 }
+
+// Illustrative only (non-functional `#` href) — every real patient email
+// (never a partner/billing email) gets a real, working signed unsubscribe
+// link appended by send-pending-notifications's broadcast_announcement
+// handler AFTER calling its own copy of renderBroadcastEmailHtml, exactly
+// the same way the composer appends this after calling the function above —
+// so what the admin sees in the confirm-dialog preview matches what a real
+// recipient gets. Deliberately NOT baked into renderBroadcastEmailHtml
+// itself: that function's whole point is staying structurally identical to
+// the Edge Function's copy (see the file-level KEEP IN SYNC comment), and
+// the real link needs a notification id/recipient id neither copy of that
+// function has access to.
+export const UNSUBSCRIBE_FOOTER_PREVIEW_HTML =
+  `<p style="color:#5b6b78;font-size:12px;margin-top:16px">` +
+  `<a href="#" style="color:#5b6b78;text-decoration:underline">Unsubscribe from marketing emails</a></p>`;
