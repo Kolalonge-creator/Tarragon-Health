@@ -3579,6 +3579,76 @@ export type Database = {
           },
         ]
       }
+      broadcast_email_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          notification_id: string
+          url: string | null
+          variant: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          notification_id: string
+          url?: string | null
+          variant?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          notification_id?: string
+          url?: string | null
+          variant?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_email_events_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      broadcast_email_templates: {
+        Row: {
+          content: Json
+          created_at: string
+          created_by: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          content: Json
+          created_at?: string
+          created_by: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "broadcast_email_templates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_templates: {
         Row: {
           actions: Json
@@ -22375,13 +22445,16 @@ export type Database = {
           created_at: string
           created_by: string
           email_content: Json | null
+          email_content_b: Json | null
           id: string
           is_marketing: boolean
           recipient_count: number
+          scheduled_for: string | null
           sent_at: string | null
           status: Database["public"]["Enums"]["broadcast_status"]
           title: string
           updated_at: string
+          variant_split_pct: number
         }
         Insert: {
           audience: Database["public"]["Enums"]["broadcast_audience"]
@@ -22391,13 +22464,16 @@ export type Database = {
           created_at?: string
           created_by: string
           email_content?: Json | null
+          email_content_b?: Json | null
           id?: string
           is_marketing?: boolean
           recipient_count?: number
+          scheduled_for?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["broadcast_status"]
           title: string
           updated_at?: string
+          variant_split_pct?: number
         }
         Update: {
           audience?: Database["public"]["Enums"]["broadcast_audience"]
@@ -22407,13 +22483,16 @@ export type Database = {
           created_at?: string
           created_by?: string
           email_content?: Json | null
+          email_content_b?: Json | null
           id?: string
           is_marketing?: boolean
           recipient_count?: number
+          scheduled_for?: string | null
           sent_at?: string | null
           status?: Database["public"]["Enums"]["broadcast_status"]
           title?: string
           updated_at?: string
+          variant_split_pct?: number
         }
         Relationships: [
           {
@@ -39197,12 +39276,28 @@ export type Database = {
         Args: {
           p_audience: Database["public"]["Enums"]["broadcast_audience"]
           p_filter: Json
+          p_marketing?: boolean
         }
         Returns: number
       }
       admin_broadcast_content_check: {
         Args: { p_text: string }
         Returns: string[]
+      }
+      admin_broadcast_stats: {
+        Args: { p_broadcast_id: string }
+        Returns: {
+          click_rate: number
+          clicked: number
+          open_rate: number
+          opened: number
+          sent: number
+          variant: string
+        }[]
+      }
+      admin_cancel_scheduled_broadcast: {
+        Args: { p_broadcast_id: string }
+        Returns: undefined
       }
       admin_create_institution_org: {
         Args: { p_name: string; p_type: string }
