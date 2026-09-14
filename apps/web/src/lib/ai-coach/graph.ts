@@ -409,8 +409,18 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
 
       for (let iteration = 0; iteration < MAX_TOOL_ITERATIONS; iteration++) {
         const response = await modelWithTools.invoke(messages);
-        messages.push(response);
+        // Only pushed when it actually carries a tool call. A response with
+        // none ends the loop, and pushing it anyway would leave `messages`
+        // ending in an assistant turn going into the structuredModel call
+        // below — claude-sonnet-5 and the rest of the 4.6+ family reject
+        // that as unsupported assistant-message prefill ("the conversation
+        // must end with a user message"), which silently degraded every
+        // turn that used at least one tool call before settling on its
+        // final answer to clinician_review. The draft text in a dropped
+        // response was never shown to the patient anyway — Phase 2 always
+        // regenerates the real reply from the tool-result history.
         if (!response.tool_calls || response.tool_calls.length === 0) break;
+        messages.push(response);
 
         for (const call of response.tool_calls) {
           const matchedTool = toolsByName.get(call.name);
