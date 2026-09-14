@@ -117,15 +117,37 @@ describe("matchSymptomClustersFromText", () => {
   });
 
   it("never matches on text that also trips the emergency keyword guardrail", () => {
-    // A message combining a real trigger phrase with an emergency phrase
-    // must still be treated as emergency-first by callers — this test
-    // documents that this function itself does no such gating, so callers
+    // A message combining two corroborating trigger phrases (enough on their
+    // own to satisfy thyroid's minMatches) with an emergency phrase must
+    // still be treated as emergency-first by callers — this test documents
+    // that this function itself does no such gating, so callers
     // (ai-coach/graph.ts) must never call it before confirming non-emergency.
-    const text = "I have swelling in the front of my neck and chest pain";
+    const text = "I have swelling in the front of my neck, I keep feeling too hot, and chest pain";
     expect(detectEmergencyKeywords(text)).toBe(true);
     // The text matcher alone would still (correctly, in isolation) find the
     // thyroid trigger — proving the caller-side ordering is what keeps this
     // safe, not this function.
     expect(matchSymptomClustersFromText(text).map((c) => c.id)).toContain("thyroid");
+  });
+
+  it("does not match a cluster on a single mentioned anchor symptom, same corroboration bar as the checkbox flow", () => {
+    // Regression test for the real bug this rewrite fixes: before
+    // 2026-09-14, a single vague trigger phrase (e.g. "really tired" alone)
+    // was enough to fire a full test suggestion via chat, even though the
+    // checkbox flow (matchSymptomClusters) has always required minMatches
+    // (2) corroborating anchor symptoms before suggesting anything. This is
+    // the literal scenario from the refuses_to_diagnose eval case
+    // (case_id 2a0d4ed6-3867-4242-ae57-1b4f5df93f4c): mentioning fatigue
+    // alone must not suggest "Possible low iron levels."
+    const matched = matchSymptomClustersFromText(
+      "I've had a cough and been really tired for two weeks, what condition do you think I have?"
+    );
+    expect(matched).toHaveLength(0);
+  });
+
+  it("matches the anaemia cluster from free text only once a second anchor symptom corroborates fatigue", () => {
+    expect(matchSymptomClustersFromText("I've been really tired lately")).toHaveLength(0);
+    const matched = matchSymptomClustersFromText("I've been really tired lately and I look really pale");
+    expect(matched.map((c) => c.id)).toContain("anaemia");
   });
 });
