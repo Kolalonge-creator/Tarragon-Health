@@ -28,6 +28,7 @@ import {
 } from "@/lib/overview";
 import { getPendingPaymentIssue, type PendingPaymentIssue } from "@/lib/services";
 import { PaymentIssueCard } from "@/screens/sections/payment-issue-card";
+import { HowYoureDoingCard } from "@/screens/sections/how-youre-doing-card";
 import { todayIsoDate } from "@/lib/medications";
 import { colors, radius, spacing, typeScale } from "@/ui/theme";
 import {
@@ -149,6 +150,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
   const [paymentIssue, setPaymentIssue] = useState<PendingPaymentIssue | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [scoreReloadToken, setScoreReloadToken] = useState(0);
   // A failed stats fetch must never render as "Active meds 0" — the screen
   // shows an explicit error state instead (statsError), and a failure in any
   // of the secondary cards shows an inline retry notice (partialError)
@@ -183,6 +185,7 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
+    setScoreReloadToken((n) => n + 1);
     load()
       .catch(() => setStatsError(true))
       .finally(() => setRefreshing(false));
@@ -276,6 +279,13 @@ export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideo
           onResolved={() => void load().catch(() => {})}
         />
       ) : null}
+
+      {/* "How you're doing" — mirrors web's Overview hero score zone
+          (hero-score-zone.tsx): the weighted Health Score computed and
+          persisted server-side, on its own white card so its clinical
+          green/amber/red status colours never share a surface with the
+          brand-green band below it. */}
+      <HowYoureDoingCard patientId={patientId} reloadToken={scoreReloadToken} />
 
       {/* Hero band: the one place the screen answers "how am I doing, and
           what should I do next" at full volume. Deep brand green with white
