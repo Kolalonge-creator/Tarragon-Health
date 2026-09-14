@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 
 export type CreateTriageProtocolDraftState = { error?: string; success?: boolean } | undefined;
 export type SignTriageProtocolsState = { error?: string; success?: boolean } | undefined;
@@ -22,7 +23,16 @@ export async function createTriageProtocolDraftAction(
   formData: FormData
 ): Promise<CreateTriageProtocolDraftState> {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  const staff = await getCurrentClinicalStaff();
+  // Dual-gated the same way admin/provider-quality/page.tsx and
+  // /clinician/team-caseload are: an admin login OR the org's Chief Medical
+  // Officer / Clinical Director. Found 2026-09-14 — this action was
+  // admin-only even though the DB's own gate on the row this drafts
+  // (triage_protocols_insert) was separately broadened to the same pair in
+  // the migration accompanying this fix, and the actual sign-off RPC
+  // (signTriageProtocolsAction below) already required a Clinical Director,
+  // never admin -- a CMO could sign a version but never draft one.
+  if (profile?.role !== "admin" && !canAssignCases(staff)) {
     return { error: "Not authorised" };
   }
 
@@ -39,7 +49,7 @@ export async function createTriageProtocolDraftAction(
   const nextVersion = latest.version + 1;
   const notes =
     String(formData.get("notes") ?? "").trim() ||
-    `Re-attested by admin, version ${nextVersion}, config unchanged from version ${latest.version}. Sign to bring into force.`;
+    `Re-attested by ${profile?.role === "admin" ? "admin" : "the Clinical Director"}, version ${nextVersion}, config unchanged from version ${latest.version}. Sign to bring into force.`;
 
   const { error } = await supabase.from("triage_protocols").insert({
     version: nextVersion,

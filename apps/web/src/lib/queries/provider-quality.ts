@@ -135,7 +135,12 @@ const credentialRowSchema = z.object({
 });
 export type ProviderCredentialRow = z.infer<typeof credentialRowSchema>;
 
-const credentialMonitorSchema = z.object({
+// Exported (not just the inferred type below) so a server component reading
+// this RPC directly -- e.g. the Clinical Director panel on /clinician's
+// shared page -- can reuse the exact same parsing/defaulting logic instead
+// of re-deriving it, rather than duplicating a second zod shape for the
+// same RPC.
+export const credentialMonitorSchema = z.object({
   ladder: z.record(z.string(), z.unknown()).optional(),
   generated_at: z.string().optional(),
   providers: z.array(credentialRowSchema).default([]),

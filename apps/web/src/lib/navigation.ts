@@ -476,6 +476,24 @@ export function getNavSections(
                 { label: "Team caseload", href: "/clinician/team-caseload", icon: "analytics" },
               ],
             },
+            // Chief Medical Officer / Clinical Director governance surfaces
+            // (canAssignCases in lib/clinical/doctor-tier.ts) — first-class
+            // /clinician/* equivalents of admin/settings/protocols,
+            // admin/settings/triage-protocols and admin/provider-quality,
+            // reachable without an admin login (a CMO's account role is
+            // always `clinician`, per CLAUDE.md's "never re-split the
+            // account role" rule, and proxy.ts's /admin/* gate is
+            // deliberately admin-only). Shown to every clinician tier per
+            // this file's own gating philosophy above; each page
+            // redirects/shows a friendly message for anyone below CMO.
+            {
+              label: "Clinical governance",
+              items: [
+                { label: "Clinical protocols", href: "/clinician/protocols", icon: "review" },
+                { label: "Symptom triage protocols", href: "/clinician/triage-protocols", icon: "review" },
+                { label: "Provider quality", href: "/clinician/provider-quality", icon: "analytics" },
+              ],
+            },
             // Only reachable for a clinician holding a delegated
             // ops.console.view/incidents.* grant (the "Clinical
             // administrator" role preset) — self-gated, safe to always show.

@@ -21,7 +21,18 @@ const SECTIONS: { key: SectionKey; label: string }[] = [
   { key: "complaints", label: "Complaints" },
 ];
 
-export function ProviderQualityDashboard() {
+export function ProviderQualityDashboard({
+  complaintsBasePath = "/admin/provider-quality/complaints",
+}: {
+  /**
+   * Where a complaint row links to. Defaults to the admin console's own
+   * path; /clinician/provider-quality (added 2026-09-14, CMO
+   * governance-surface audit) passes its own base so a Chief Medical
+   * Officer reading this same dashboard under /clinician/* doesn't get
+   * bounced into the admin-only complaint detail route by proxy.ts.
+   */
+  complaintsBasePath?: string;
+}) {
   const [section, setSection] = useState<SectionKey>("network");
 
   return (
@@ -45,7 +56,7 @@ export function ProviderQualityDashboard() {
 
       {section === "network" ? <NetworkSummarySection /> : null}
       {section === "credentials" ? <CredentialMonitorSection /> : null}
-      {section === "complaints" ? <ComplaintsSection /> : null}
+      {section === "complaints" ? <ComplaintsSection complaintsBasePath={complaintsBasePath} /> : null}
     </div>
   );
 }
@@ -316,7 +327,7 @@ const COMPLAINT_STAGE_TONE: Record<string, "green" | "amber" | "red" | "grey" | 
   withdrawn: "grey",
 };
 
-function ComplaintsSection() {
+function ComplaintsSection({ complaintsBasePath }: { complaintsBasePath: string }) {
   const { data, isLoading, isError } = useProviderComplaints();
 
   if (isLoading) return <p className="text-sm text-charcoal-ink/60">Loading…</p>;
@@ -339,7 +350,7 @@ function ComplaintsSection() {
             {data.map((c) => (
               <Link
                 key={c.id}
-                href={`/admin/provider-quality/complaints/${c.id}`}
+                href={`${complaintsBasePath}/${c.id}`}
                 className="flex items-center justify-between gap-3 py-3 hover:bg-charcoal-ink/5"
               >
                 <div>

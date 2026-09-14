@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-profile";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
 import {
@@ -21,7 +22,12 @@ import {
  */
 export default async function TriageProtocolsSettingsPage() {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "admin") {
+  // proxy.ts blocks a plain `clinician` login from /admin/** entirely, so a
+  // CMO's real reachable path is /clinician/triage-protocols (found + built
+  // 2026-09-14, CMO governance-surface audit) — this dual-gate is
+  // belt-and-suspenders defence-in-depth on the admin route only.
+  const staff = await getCurrentClinicalStaff();
+  if (profile?.role !== "admin" && !canAssignCases(staff)) {
     redirect("/admin");
   }
 
