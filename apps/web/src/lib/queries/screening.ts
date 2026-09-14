@@ -39,7 +39,8 @@ export function useScreeningSchedules(patientId: string) {
  * performed_date — not from today, and not a fixed cadence — mirroring
  * generateVaccinationScheduleBestEffort's "next dose off the logged date"
  * contract. Returns the new completion id so the caller can immediately link
- * an uploaded result document to it (see useUploadOwnResultDocument).
+ * an uploaded result document to it (see PatientResultUpload's
+ * screeningCompletionId prop).
  */
 export function useLogScreeningCompletion() {
   const queryClient = useQueryClient();
