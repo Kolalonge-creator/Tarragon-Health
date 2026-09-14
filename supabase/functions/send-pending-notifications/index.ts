@@ -33,6 +33,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { createHmac } from "node:crypto";
 
 const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
@@ -341,12 +342,78 @@ function renderBroadcastEmailHtml(
   );
 }
 
+// ---------------------------------------------------------------------------
+// Broadcast link signing — KEEP IN SYNC WITH
+// apps/web/src/lib/broadcasts/link-token.ts (the Node copy the unsubscribe/
+// track-open/track-click routes verify against). Uses node:crypto's
+// synchronous createHmac (Deno's own crypto.subtle API — see
+// supabase/functions/zoom-webhook/index.ts's hmacHex — is async, which would
+// force every TEMPLATE_MAP handler to become async just for this one
+// template; the Node-compat createHmac keeps this handler, and every other
+// one, synchronous). Every message is namespaced by purpose so a token
+// minted for one purpose can never be replayed as another; a click token
+// signs the destination URL itself so a valid signature can't be reused to
+// redirect somewhere the admin never set. No expiry — these links are
+// mailed out and must keep working whenever the recipient opens the email,
+// days or months later.
+// ---------------------------------------------------------------------------
+function broadcastLinkSecret(): string {
+  return Deno.env.get("BROADCAST_LINK_SECRET") ?? "";
+}
+
+// Returns null (never a token signed with an empty/missing secret) when
+// BROADCAST_LINK_SECRET isn't configured — the caller below then simply
+// omits the corresponding link/pixel rather than emitting a broken or
+// forgeable one. Matches this file's established graceful-degradation
+// posture for a missing credential (see RESEND_API_KEY et al.).
+function signBroadcastLinkMessage(message: string): string | null {
+  const secret = broadcastLinkSecret();
+  if (!secret) return null;
+  const signature = createHmac("sha256", secret).update(message).digest("base64url");
+  return `${message}.${signature}`;
+}
+
+function buildBroadcastUnsubscribeUrl(profileId: string): string | null {
+  const token = signBroadcastLinkMessage(`unsub:${profileId}`);
+  if (!token) return null;
+  return appUrl(
+    `/api/broadcasts/unsubscribe?profile_id=${encodeURIComponent(profileId)}&token=${encodeURIComponent(token)}`
+  );
+}
+
+function buildBroadcastOpenTrackingUrl(notificationId: string): string | null {
+  const token = signBroadcastLinkMessage(`open:${notificationId}`);
+  if (!token) return null;
+  return appUrl(
+    `/api/broadcasts/track-open?notification_id=${encodeURIComponent(notificationId)}&token=${encodeURIComponent(token)}`
+  );
+}
+
+function buildBroadcastClickTrackingUrl(notificationId: string, targetUrl: string): string | null {
+  const token = signBroadcastLinkMessage(`click:${notificationId}:${targetUrl}`);
+  if (!token) return null;
+  return appUrl(
+    `/api/broadcasts/track-click?notification_id=${encodeURIComponent(notificationId)}&url=${encodeURIComponent(targetUrl)}&token=${encodeURIComponent(token)}`
+  );
+}
+
+// Second argument every TEMPLATE_MAP handler now COULD receive — only
+// broadcast_announcement actually uses it today. Existing handlers keep
+// their original 1-argument signatures unchanged: a function with fewer
+// declared parameters than a type's call signature is structurally
+// assignable to it (JS silently drops extra call arguments), so none of the
+// ~25 other entries below needed touching.
+interface TemplateRenderContext {
+  notificationId: string;
+  recipientId: string;
+}
+
 // Meta-approved WhatsApp template names must match these keys exactly once
 // submitted for approval (docs/ARCHITECTURE.md §8: ~2 week lead time).
 // Unknown template keys are never guessed at — see the caller below.
 const TEMPLATE_MAP: Record<
   string,
-  (payload: Record<string, unknown>) => TemplateRender
+  (payload: Record<string, unknown>, ctx: TemplateRenderContext) => TemplateRender
 > = {
   vitals_reminder: (payload) => {
     const dueDate = String(payload.due_date ?? "soon");
@@ -914,7 +981,7 @@ const TEMPLATE_MAP: Record<
   // subject + body chosen by an admin, fanned out to a resolved audience. Email
   // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement
   // template, falling back to SMS meanwhile.
-  broadcast_announcement: (payload) => {
+  broadcast_announcement: (payload, ctx) => {
     const subject = String(payload.subject ?? "A message from Tarragon Health");
     const body = String(payload.body ?? "");
     // email_content is optional/nullable (see admin_send_broadcast) — absent
@@ -926,7 +993,44 @@ const TEMPLATE_MAP: Record<
       rawEmailContent && typeof rawEmailContent === "object" && !Array.isArray(rawEmailContent)
         ? (rawEmailContent as BroadcastEmailContent)
         : null;
-    const html = renderBroadcastEmailHtml(emailContent, subject, body);
+    // is_partner distinguishes a patient recipient from a pharmacy/
+    // specialist partner billing contact (private.broadcast_targets, threaded
+    // into this payload by admin_send_broadcast/private.execute_broadcast).
+    // Unsubscribe and tracking are patient-only: marketing_opt_in is a
+    // patient-only column, and a partner billing address has no notification
+    // row's own recipient that "unsubscribing" would mean anything for.
+    const isPartner = payload.is_partner === true;
+    const notificationId = ctx.notificationId;
+    const recipientId = ctx.recipientId;
+
+    // Click-through tracking on the CTA button, if any: reroute its href
+    // through track-click (carrying the real destination as the `url`
+    // param) BEFORE rendering, so the sent HTML's button looks and behaves
+    // identically to the admin's preview except for where the link actually
+    // goes. Building a modified content object rather than post-processing
+    // the rendered HTML string keeps this handler and
+    // apps/web/.../render-email-template.ts's renderBroadcastEmailHtml
+    // producing byte-for-byte identical markup for the same input.
+    let renderedContent = emailContent;
+    if (!isPartner && emailContent?.buttonUrl) {
+      const clickUrl = buildBroadcastClickTrackingUrl(notificationId, emailContent.buttonUrl);
+      if (clickUrl) {
+        renderedContent = { ...emailContent, buttonUrl: clickUrl };
+      }
+    }
+
+    let html = renderBroadcastEmailHtml(renderedContent, subject, body);
+    if (!isPartner) {
+      const unsubUrl = buildBroadcastUnsubscribeUrl(recipientId);
+      if (unsubUrl) {
+        html += `<p style="color:#5b6b78;font-size:12px;margin-top:16px"><a href="${escapeHtmlForBroadcast(unsubUrl)}" style="color:#5b6b78;text-decoration:underline">Unsubscribe from marketing emails</a></p>`;
+      }
+      const openUrl = buildBroadcastOpenTrackingUrl(notificationId);
+      if (openUrl) {
+        html += `<img src="${escapeHtmlForBroadcast(openUrl)}" width="1" height="1" alt="" style="display:none;border:0" />`;
+      }
+    }
+
     const plainText = emailContent
       ? `${emailContent.headline}\n\n${emailContent.bodyText}` +
         (emailContent.footerNote ? `\n\n${emailContent.footerNote}` : "") +
@@ -2882,7 +2986,9 @@ Deno.serve(async () => {
 
     const labels = group.map((row) => {
       const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
-      return renderFn ? renderFn(row.payload ?? {}).smsText : (row.template ?? "an update");
+      return renderFn
+        ? renderFn(row.payload ?? {}, { notificationId: row.id, recipientId: row.recipient_id }).smsText
+        : (row.template ?? "an update");
     });
 
     const { error: digestError } = await supabase.from("notifications").insert({
@@ -2962,7 +3068,9 @@ Deno.serve(async () => {
 
     const payload = row.payload ?? {};
     const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
-    let render: TemplateRender | undefined = renderFn ? renderFn(payload) : undefined;
+    let render: TemplateRender | undefined = renderFn
+      ? renderFn(payload, { notificationId: row.id, recipientId: row.recipient_id })
+      : undefined;
 
     if (!render && row.template && row.channel !== "whatsapp") {
       // DB-driven fallback (17.5) — a template that was registered in
