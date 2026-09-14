@@ -33,7 +33,6 @@ function toStateCoverage(raw: unknown): StateCoverage | null {
     displayName: typeof row.display_name === "string" ? row.display_name : row.state,
     isActive: row.is_active === true,
     services: {
-      lab: services.lab === true,
       pharmacy: services.pharmacy === true,
       specialist: services.specialist === true,
       home_visit: services.home_visit === true,

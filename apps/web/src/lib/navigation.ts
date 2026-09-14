@@ -226,6 +226,11 @@ export function getNavSections(
         {
           label: "Support",
           items: [
+            // Promoted to just below Appointments (2026-09-11) — this is
+            // where the paid-per-service doctor-time revenue lives (video
+            // visits, Ask a doctor, second opinions, verified documents,
+            // senior case review), so it deserves more prominence than the
+            // bottom of Support once someone has already found Appointments.
             { label: "Care & support", href: "/patient/care", icon: "clinicianFollowUp" },
             // Promoted out of "Your account" (2026-09-11) to sit right beside
             // Care & support — this is the buy page for the same paid-per-

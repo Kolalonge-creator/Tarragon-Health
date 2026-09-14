@@ -12,11 +12,15 @@
  * whichever provider they choose, and pays them directly, in any state.
  * Home sample collection and medication delivery still depend entirely on a
  * real logistics partner being contracted, and none exists yet in any
- * state. Labs gained a second, genuinely optional path on 2026-08-21: where
- * a contracted lab (Synlab) prices a test, a patient can instead let
- * Tarragon arrange and bill it directly — that specific path is what
- * `gatedBy: "lab"` tracks, not the self-arranged default, which keeps
- * working everywhere regardless. The other half of the product —
+ * state. Labs briefly gained a second, optional path on 2026-08-21 — a
+ * contracted lab (Synlab) pricing a test so Tarragon could arrange and bill
+ * it directly — but every panel_bundles row became guidance_only on
+ * 2026-09-10 (migration 20260910011846_catalogue_becomes_guidance_not_
+ * commerce.sql), and private.enforce_guidance_only_is_never_billed now
+ * refuses that kind of insert at the database level for any bundle, in any
+ * state. That path no longer exists, so labs carry no `gatedBy` any more —
+ * the self-arranged default is the only path, and it already works
+ * everywhere. The other half of the product —
  * monitoring, doctors over video and text, the record itself, and paying
  * for someone else's care — never needed Nigeria at all.
  *
@@ -43,7 +47,7 @@ export type CoverageItem = {
    * whether this works in a given state. Null where the item needs Nigeria but
    * no partner (a vaccination logged at any centre, say).
    */
-  gatedBy: "lab" | "pharmacy" | "specialist" | "home_visit" | "delivery" | null;
+  gatedBy: "pharmacy" | "specialist" | "home_visit" | "delivery" | null;
 };
 
 export const COVERAGE_ITEMS: CoverageItem[] = [
@@ -119,9 +123,9 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
     key: "labs",
     label: "Lab tests and health check packages",
     detail:
-      "We write the request; you take it to any lab in Nigeria you choose and pay them directly — that always works, everywhere, and never waits on a partner. Where we have a contracted lab, you can instead let us arrange and bill certain tests directly; that part depends on the state below.",
+      "We write the request; you take it to any lab in Nigeria you choose and pay them directly. That's the only path — we don't bill or book any test ourselves — and it works everywhere, in every state, without waiting on a partner.",
     locality: "in_nigeria",
-    gatedBy: "lab",
+    gatedBy: null,
   },
   {
     key: "pharmacy",
@@ -167,7 +171,6 @@ export function gatedServices(): NonNullable<CoverageItem["gatedBy"]>[] {
 }
 
 export const SERVICE_LABEL: Record<NonNullable<CoverageItem["gatedBy"]>, string> = {
-  lab: "Lab tests billed directly by us",
   pharmacy: "Pharmacy",
   specialist: "Specialists",
   home_visit: "Home sample collection",

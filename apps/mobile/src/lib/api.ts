@@ -337,25 +337,64 @@ export async function postSexualWellnessScreen(
   return result.ok ? result.data : { error: result.error };
 }
 
-export interface LabOrderCheckoutResult {
-  checkoutUrl?: string;
+/* postLabOrderCheckout (and its route, apps/web/src/app/api/mobile/lab-orders/
+ * checkout/route.ts) is removed: every panel_bundles row is guidance_only as
+ * of migration 20260910011846_catalogue_becomes_guidance_not_commerce.sql, so
+ * a partner-billed lab_orders insert is refused at the database level
+ * regardless of what this called. Had no remaining callers — the Sexual
+ * Health testing tab moved to guidance-only text with no "Book & pay" button
+ * (see sexual-health-testing-tab.tsx's StiBookingPanel). */
+
+export interface CoachTurnResponse {
+  success?: boolean;
+  conversationId?: string;
+  reply?: string;
+  tier?: "routine" | "clinician_review" | "emergency";
+  aiInteractionId?: string | null;
   error?: string;
 }
 
-/** Mirrors apps/web/src/app/api/mobile/lab-orders/checkout/route.ts, the
- * mobile wrapper around createAndPayForLabOrder (the same function the web
- * "Book & pay" button uses) — same reasoning as postServicesCheckout:
- * initiating the Paystack checkout needs the secret key, never shipped to
- * a client. Deliberately not sexual-health-specific — any self-bookable
- * panel_bundle can be checked out through this one route. */
-export async function postLabOrderCheckout(
-  panelBundleId: string,
-  callbackUrl: string
-): Promise<LabOrderCheckoutResult> {
-  const result = await request<LabOrderCheckoutResult>("/api/mobile/lab-orders/checkout", "POST", {
-    panelBundleId,
-    callbackUrl,
+/** Mirrors apps/web/.../patient/ai-coach-actions.ts's sendCoachMessage --
+ * see apps/web/src/app/api/mobile/ai-coach/message/route.ts. Entitlement,
+ * rate-limiting, the governed Claude call, and the emergency-keyword safety
+ * net all happen server-side; this is a thin passthrough. */
+export async function postCoachMessage(
+  message: string,
+  conversationId?: string
+): Promise<CoachTurnResponse> {
+  const result = await request<CoachTurnResponse>("/api/mobile/ai-coach/message", "POST", {
+    message,
+    conversationId,
   });
+  return result.ok ? result.data : { error: result.error };
+}
+
+export type CoachQuickActionKind = "explain_record" | "care_plan_summary" | "appointment_prep";
+
+/** Mirrors ai-coach-quick-action.ts's runAiCoachQuickAction -- see
+ * apps/web/src/app/api/mobile/ai-coach/quick-action/route.ts. These three
+ * surfaces are deterministic and never call Claude. */
+export async function postCoachQuickAction(
+  kind: CoachQuickActionKind,
+  conversationId?: string
+): Promise<CoachTurnResponse> {
+  const result = await request<CoachTurnResponse>("/api/mobile/ai-coach/quick-action", "POST", {
+    kind,
+    conversationId,
+  });
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** Mirrors handoff-actions.ts's requestCareTeamHandoffAction (§78.12 "I want
+ * to speak to someone") -- see apps/web/src/app/api/mobile/ai-coach/handoff/route.ts. */
+export async function postCoachHandoffToCareTeam(
+  conversationId?: string
+): Promise<{ success?: boolean; threadId?: string; error?: string }> {
+  const result = await request<{ success?: boolean; threadId?: string }>(
+    "/api/mobile/ai-coach/handoff",
+    "POST",
+    { conversationId }
+  );
   return result.ok ? result.data : { error: result.error };
 }
 

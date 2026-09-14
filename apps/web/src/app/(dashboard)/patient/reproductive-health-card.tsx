@@ -7,6 +7,7 @@ import {
   useSaveReproductiveHealthProfile,
   type ReproductiveLifeStage,
 } from "@/lib/queries/reproductive-health";
+import { Droplet } from "lucide-react";
 import { computeCycleNudges } from "@/lib/rules/cycle-nudges";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -91,20 +92,37 @@ export function ReproductiveHealthCard({
       <CardContent className="space-y-4">
         {/* The tracker is the real feature; this card is now the life-stage
             half of it. Linking rather than embedding keeps the Prevention hub
-            from growing a calendar. */}
+            from growing a calendar. A round, filled badge (rather than a plain
+            text link) is the first thing the eye lands on when this card
+            opens, so the tracker isn't missed under the form below it. */}
         <Link
           href="/patient/cycle"
-          className="flex items-center justify-between rounded-lg border border-brand-green/25 dark:border-brand-green-bright/25 bg-brand-green/5 dark:bg-brand-green/15 p-3 hover:bg-brand-green/10 dark:hover:bg-brand-green/20"
+          className="group flex items-center gap-3 rounded-xl border border-brand-green/25 dark:border-brand-green-bright/25 bg-brand-green/5 dark:bg-brand-green/15 p-3 pr-4 hover:bg-brand-green/10 dark:hover:bg-brand-green/20"
         >
-          <span>
-            <span className="block text-sm font-medium text-charcoal-ink dark:text-night-ink">
+          <span className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+            <span
+              aria-hidden
+              className="absolute inset-0 rounded-full bg-brand-green/20 dark:bg-brand-green-bright/25 animate-ping"
+            />
+            <span
+              aria-hidden
+              className="relative flex h-12 w-12 items-center justify-center rounded-full bg-brand-green shadow-md dark:bg-brand-green-bright"
+            >
+              <Droplet className="h-6 w-6 text-white dark:text-charcoal-ink" strokeWidth={2} fill="currentColor" />
+            </span>
+          </span>
+          <span className="flex-1">
+            <span className="block text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Open your cycle tracker
             </span>
             <span className="block text-xs text-charcoal-ink/70 dark:text-night-ink/70">
               Log your period, see what to expect next, and track how you feel.
             </span>
           </span>
-          <span aria-hidden className="text-brand-green dark:text-brand-green-bright">
+          <span
+            aria-hidden
+            className="text-lg text-brand-green transition-transform group-hover:translate-x-0.5 dark:text-brand-green-bright"
+          >
             &rarr;
           </span>
         </Link>

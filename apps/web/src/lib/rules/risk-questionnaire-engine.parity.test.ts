@@ -9,22 +9,21 @@ import type { RiskAssessmentInput } from "@/lib/validation/risk-assessment";
  * Proves the config-driven engine reproduces risk-scoring.ts's hardcoded
  * CONDITION_RULES exactly, tier-for-tier, across the same scenarios
  * risk-scoring.test.ts covers. Loads the seeded config straight out of its
- * migration (the actual $config$...$config$ jsonb literal, not a hand-copied
- * TS re-transcription) so there is exactly one source of truth for what a
- * given version contains — a typo in either the SQL or a separate TS
+ * migration file (the actual $config$...$config$ jsonb literal, not a
+ * hand-copied TS re-transcription) so there is exactly one source of truth
+ * for what the config contains — a typo in either the SQL or a separate TS
  * fixture could otherwise drift unnoticed.
  *
- * Pinned to v2 (20260913200833_risk_questionnaire_configs_v2_add_ckd.sql),
- * not v1: v1 is a frozen, byte-for-byte port of the hardcoded engine AS IT
- * STOOD on 2026-08-28 and is deliberately never retroactively edited when
- * the hardcoded engine gains a new condition — see that migration's own
- * "a change means a new version" comment. This file's whole point is
- * "config parity with TODAY's hardcoded engine", so it must track whichever
- * version is the latest full snapshot, not stay pinned to v1 forever.
+ * Points at v2 (20260913201802_prevention_intake_v2_add_ckd_condition.sql),
+ * not v1: v1 predates risk-scoring.ts's "ckd" condition (added in 267aaa16)
+ * and this test caught that gap for real — v1 alone fails parity, silently
+ * missing a whole risk domain in the config-driven engine that IS active in
+ * production. v2 is v1 plus a verbatim-ported ckd condition; nothing else
+ * changed. See v2's migration header for the full story.
  */
 const MIGRATION_PATH = path.resolve(
   __dirname,
-  "../../../../../supabase/migrations/20260913200833_risk_questionnaire_configs_v2_add_ckd.sql",
+  "../../../../../supabase/migrations/20260913201802_prevention_intake_v2_add_ckd_condition.sql",
 );
 
 function loadSeededConfig(): RiskQuestionnaireConfigPayload {
@@ -72,7 +71,7 @@ function tiersOf(responses: RiskAssessmentInput, profile: RiskScoringProfile) {
 }
 
 describe("seeded v2 config structure", () => {
-  it("ports all 8 legacy conditions (7 original + ckd) and all 22 legacy questions", () => {
+  it("ports all 8 legacy conditions (including ckd) and all 22 legacy questions", () => {
     expect(PREVENTION_INTAKE_V2.conditions).toHaveLength(8);
     expect(PREVENTION_INTAKE_V2.questions).toHaveLength(22);
   });
@@ -98,6 +97,12 @@ describe("config-driven engine parity with the legacy hardcoded engine", () => {
     ["male profile", {}, { sex: "male" }],
     ["existing diabetes diagnosis", { existing_diagnoses: ["diabetes"] }, {}],
     ["existing heart_disease diagnosis", { existing_diagnoses: ["heart_disease"] }, {}],
+    [
+      "ckd: existing diabetes + existing hypertension + age 60+ (high)",
+      { existing_diagnoses: ["diabetes", "hypertension"] },
+      { ageYears: 65 },
+    ],
+    ["ckd: family history only (moderate)", { family_diabetes: true, family_hypertension: true }, {}],
     ["cervical_ca: not HPV vaccinated", { hpv_vaccinated: false }, {}],
     ["colorectal_ca: family history + smoking + low fibre + heavy alcohol", {
       family_cancer_types: ["colorectal"], smoking_status: "current", cigarettes_per_day: "20_plus",
@@ -105,7 +110,6 @@ describe("config-driven engine parity with the legacy hardcoded engine", () => {
     }, { ageYears: 50 }],
     ["prostate_ca family history, male", { family_cancer_types: ["prostate"] }, { sex: "male", ageYears: 55 }],
     ["cvd age threshold, female under 55 (should not trigger)", {}, { sex: "female", ageYears: 50 }],
-    ["ckd: family diabetes + family hypertension + age 60+", { family_diabetes: true, family_hypertension: true }, { ageYears: 62 }],
   ];
 
   it.each(scenarios)("%s — same tier for every emitted condition", (_label, responseOverrides, profileOverrides) => {

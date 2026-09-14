@@ -131,6 +131,30 @@ export function UploadResultForm() {
           results.
         </p>
       </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${fieldId}-test-type`}>What type of test is this?</Label>
+        <Select
+          id={`${fieldId}-test-type`}
+          value={testType}
+          onChange={(event) => {
+            setTestType(event.target.value);
+            setValidationError(null);
+          }}
+        >
+          <option value="" disabled>
+            Select the test type
+          </option>
+          {RESULT_DOCUMENT_TEST_TYPE_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+        <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+          Helps your care team read it correctly and group it with related
+          results.
+        </p>
+      </div>
       {/* This had no label at all: a screen reader announced an unlabelled
           text box, because the only description was a placeholder. */}
       <div className="space-y-1.5">

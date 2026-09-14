@@ -254,6 +254,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         icon: NAV_ICON.wellness,
         visible: adminOnly,
       },
+      {
+        href: "/admin/settings/reproductive-health-analytics",
+        label: "Reproductive health analytics",
+        blurb: "Aggregate, de-identified profile and cycle-tracking stats for internal research.",
+        icon: SEMANTIC_ICON.preventive,
+        visible: adminOnly,
+      },
     ],
   },
   {

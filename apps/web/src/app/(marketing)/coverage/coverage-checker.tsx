@@ -14,13 +14,13 @@ import { cn } from "@/lib/utils";
  * labs, pharmacy collection and specialist referrals is self-arranged and
  * works nationwide already, waiting on no partner at all. Home sample
  * collection and medication delivery still depend entirely on a contracted
- * logistics partner, and neither is live in any state yet. Labs also carry a
- * second, genuinely optional path since 2026-08-21: where a contracted lab
- * (Synlab) prices a test, a patient can let Tarragon arrange and bill it
- * directly instead of paying the lab themselves — that specific option is
- * what "lab" tracks in gatedServices() (see @/lib/coverage/what-works-where),
- * not the self-arranged default, which is never gated and never appears
- * as "not yet" here.
+ * logistics partner, and neither is live in any state yet — those are the
+ * only two services gatedServices() tracks (see
+ * @/lib/coverage/what-works-where). Labs briefly carried a second, optional
+ * partner-billed path (Synlab) from 2026-08-21, but every panel_bundles row
+ * became guidance_only on 2026-09-10 and the database now refuses that kind
+ * of insert outright, in any state — so labs are never gated here, only the
+ * self-arranged default, which works everywhere.
  *
  * The list is rendered from the same predicate the app itself enforces, so this
  * page cannot promise something the product will then refuse.
@@ -92,11 +92,10 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
               ))}
           </div>
           <p className="mt-3 text-xs text-charcoal-ink/65">
-            The dot tracks home sample collection and medication delivery (which still wait on a
-            contracted logistics partner everywhere) plus the optional &ldquo;let us bill a lab
-            directly&rdquo; path, where we have a contracted lab. Everything else on this page,
-            including the self-arranged default for labs, already works the same way in all 37
-            states.
+            The dot tracks home sample collection and medication delivery, which still wait on a
+            contracted logistics partner everywhere. Everything else on this page, including labs,
+            pharmacy collection and specialist referrals, already works the same way in all 36
+            states and the FCT.
           </p>
         </div>
       )}
@@ -148,7 +147,7 @@ export function CoverageChecker({ coverage }: { coverage: StateCoverage[] }) {
             <p className="mt-1 text-sm text-charcoal-ink/70">
               {liveCount > 0
                 ? "Everything else on this page works there today regardless, because it does not depend on a local partner."
-                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. So do lab tests, pharmacy collection and specialist referrals, self-arranged: you take the request to a lab or pharmacy of your choice and pay them directly, in every state, without waiting on a partner. What's still waiting, below: home sample collection, medication delivery, and the optional \"let us bill a lab directly\" path for tests our contracted lab prices."}
+                : "Monitoring, doctors over video and text, reminders and the health record all still work there today. So do lab tests, pharmacy collection and specialist referrals, self-arranged: you take the request to a lab or pharmacy of your choice and pay them directly, in every state, without waiting on a partner. What's still waiting, below: home sample collection and medication delivery."}
             </p>
 
             <ul className="mt-4 space-y-2">
