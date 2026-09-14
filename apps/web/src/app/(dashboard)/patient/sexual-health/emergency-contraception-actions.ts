@@ -25,6 +25,15 @@ const ecRequestSchema = z.object({
  * always still something that can help, and "not sure" always routes to a
  * clinician rather than a dead end.
  *
+ * Guidance only — Tarragon has no owned clinics or pharmacy fulfilment for
+ * this pathway (see CLAUDE.md's Care Coordination model), so every branch
+ * below tells the patient what to buy and where (the emergency pill is
+ * over-the-counter at any pharmacy, no prescription needed) rather than
+ * implying Tarragon will source or hand over the product itself. The copper
+ * IUD is the one option that does need a clinician, since it has to be
+ * fitted, not bought — hence "your care team will help arrange that" only
+ * for the IUD, never for the pill.
+ *
  * Deliberately NOT exported: every top-level export of a "use server" file
  * is treated as a Server Action, and Next.js requires every one of those to
  * be async — a plain synchronous helper like this one fails the production
@@ -37,10 +46,10 @@ function computeEcGuidance(hoursSinceIntercourse: number | null): string {
     return "No exact time needed. A clinician will review with you directly and help you find the right option quickly.";
   }
   if (hoursSinceIntercourse < 72) {
-    return "Good news: the emergency pill and the copper IUD are both effective right now. The sooner you can act, the more effective they are.";
+    return "Good news: you're still in the window. The emergency pill is available over the counter at any pharmacy, no prescription needed — the sooner you take it, the more effective it is. A copper IUD is also an option if you'd rather have a clinician fit one; your care team can help arrange that.";
   }
   if (hoursSinceIntercourse <= 120) {
-    return "The copper IUD is still effective, and some emergency pills may still work too. A clinician will confirm the best option with you quickly.";
+    return "The copper IUD is still effective, and some emergency pills (available over the counter at any pharmacy) may still work too. A clinician will confirm the best option with you quickly.";
   }
   return "A clinician will review with you directly to talk through what's still possible and the best next step.";
 }

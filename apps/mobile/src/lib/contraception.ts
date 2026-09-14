@@ -75,16 +75,21 @@ export async function requestContraceptionMethod(patientId: string, organisation
  * "safe direct," so computing it client-side before the insert (rather than
  * needing a new API route) matches web's own "doesn't need service role,
  * only RLS" classification.
+ *
+ * Guidance only — Tarragon has no owned clinics or pharmacy fulfilment for
+ * this pathway, so this tells the patient what to buy and where (the
+ * emergency pill is over-the-counter at any pharmacy, no prescription
+ * needed) rather than implying Tarragon sources or hands over the product.
  */
 export function computeEcGuidance(hoursSinceIntercourse: number | null): string {
   if (hoursSinceIntercourse == null) {
     return "No exact time needed. A clinician will review with you directly and help you find the right option quickly.";
   }
   if (hoursSinceIntercourse < 72) {
-    return "Good news: the emergency pill and the copper IUD are both effective right now. The sooner you can act, the more effective they are.";
+    return "Good news: you're still in the window. The emergency pill is available over the counter at any pharmacy, no prescription needed — the sooner you take it, the more effective it is. A copper IUD is also an option if you'd rather have a clinician fit one; your care team can help arrange that.";
   }
   if (hoursSinceIntercourse <= 120) {
-    return "The copper IUD is still effective, and some emergency pills may still work too. A clinician will confirm the best option with you quickly.";
+    return "The copper IUD is still effective, and some emergency pills (available over the counter at any pharmacy) may still work too. A clinician will confirm the best option with you quickly.";
   }
   return "A clinician will review with you directly to talk through what's still possible and the best next step.";
 }
