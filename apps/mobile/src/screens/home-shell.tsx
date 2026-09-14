@@ -31,7 +31,6 @@ import { NotificationSettingsScreen } from "@/screens/sections/notification-sett
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
 import { TimelineScreen } from "@/screens/sections/timeline-screen";
-import { AdolescentHealthScreen } from "@/screens/sections/adolescent-health-screen";
 import { ExerciseScreen } from "@/screens/sections/exercise-screen";
 import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
@@ -227,9 +226,6 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
     timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
-    adolescentHealth: () => (
-      <AdolescentHealthScreen isActingFor={acting !== null} actingForName={acting?.fullName ?? null} />
-    ),
     exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
     devices: () =>
       openDevice ? (

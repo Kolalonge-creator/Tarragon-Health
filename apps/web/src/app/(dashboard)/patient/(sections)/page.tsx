@@ -1,9 +1,7 @@
 import { Suspense } from "react";
-import Link from "next/link";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
 import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientSummaryStats, getPatientPreventionStats } from "@/app/(dashboard)/patient/summary";
-import { adolescentAgeBandFromDateOfBirth } from "@tarragon/shared";
 import { formatGlucose, GLUCOSE_UNIT_LABEL } from "@tarragon/shared";
 import {
   GetStartedCard,
@@ -72,7 +70,7 @@ function CardSkeleton({ className = "h-40" }: { className?: string }) {
 }
 
 export default async function PatientOverviewPage() {
-  const { subjectId, acting, subjectSex, subjectDateOfBirth, glucoseUnit, uiLanguage } =
+  const { subjectId, acting, subjectSex, glucoseUnit, uiLanguage } =
     await getPatientDashboardContext();
   const stats = await getPatientSummaryStats(subjectId);
   const prevention = await getPatientPreventionStats(subjectId);
@@ -82,13 +80,6 @@ export default async function PatientOverviewPage() {
   const weekSummaryLine = `Good ${greetingWord}. Here's how ${
     actingSubject ? `${actingSubject} week` : "this week"
   } is going.`;
-
-  // Age-aware framing (spec §49.3: younger child = parent-managed, older
-  // adolescent = increasing direct engagement, young adult = independent).
-  // Framing only — nothing here is a security boundary, and nothing changes
-  // what data loads; see private.adolescent_age_band for the real gate.
-  const subjectAgeBand = adolescentAgeBandFromDateOfBirth(subjectDateOfBirth);
-  const isAdolescentBand = subjectAgeBand === "younger_adolescent" || subjectAgeBand === "older_adolescent";
 
   // Day-one state. Every analytic card below is right for a patient with a
   // history and useless for one without: on an empty account they collectively
@@ -136,31 +127,6 @@ export default async function PatientOverviewPage() {
           the hero deliberately: OverviewHero is the one actionable/status
           thing the page leads with, this is informational context. */}
       <SinceYouWereLastHere patientId={subjectId} acting={!!acting} />
-
-      {/* Age-aware framing (spec §49.3/§49.4) — a single soft line, never an
-          urgent banner: a self-harm/safety-adjacent check-in doesn't belong
-          in the same visual register as "refill due" or "screening
-          overdue" (CLAUDE.md brand voice: no fear-based urgency). Two
-          mutually exclusive cases: the teen looking at their own dashboard
-          gets a low-key nudge towards the check-in; a parent/guardian
-          looking at a teen's dashboard while acting for them gets a
-          reminder that some things stay private even from them. Neither
-          renders for a child-band dependent (parent-managed, no carve-out)
-          or an adult/unknown band (no adolescent framing needed). */}
-      {isAdolescentBand && !acting && (
-        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-          <Link href="/patient/adolescent-health" className="text-brand-green dark:text-brand-green-bright hover:underline">
-            Your private whole-life check-in
-          </Link>{" "}
-          is there whenever you want it, just for you, on your own time.
-        </p>
-      )}
-      {isAdolescentBand && acting && (
-        <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
-          Some things, like {acting.fullName ?? "their"} own private wellbeing check-in, stay just
-          between them and their care team.
-        </p>
-      )}
 
       {/* Above Quick actions, not below it: while these steps are outstanding
           they are the most useful thing on the page, and two of the three are
