@@ -91,9 +91,13 @@ export default async function PatientOverviewPage() {
     hasRiskAssessment: prevention.hasRiskAssessment,
     hasAnyVitals: stats.hasAnyVitals,
     hasMedications: stats.activeMedicationCount > 0,
+    // A patient with no chronic signal yet, and nothing logged, has no
+    // reading/medication step to do -- see PatientPreventionStats.hasChronicCondition.
+    needsMonitoringSteps:
+      prevention.hasChronicCondition || stats.hasAnyVitals || stats.activeMedicationCount > 0,
   };
   const showGetStarted = shouldShowGetStarted(progress);
-  const firstRun = isFirstRun(progress) && !prevention.hasActiveCarePlan;
+  const firstRun = isFirstRun(progress) && !prevention.hasChronicCondition;
 
   const bpLevel = classifyBpLevel(stats.latestBp?.systolic, stats.latestBp?.diastolic);
   const bpTileProps =

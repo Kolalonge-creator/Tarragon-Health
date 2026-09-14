@@ -1,7 +1,17 @@
 import { isFirstRun, shouldShowGetStarted } from "./get-started-card";
 
-const NONE = { hasRiskAssessment: false, hasAnyVitals: false, hasMedications: false };
-const ALL = { hasRiskAssessment: true, hasAnyVitals: true, hasMedications: true };
+const NONE = {
+  hasRiskAssessment: false,
+  hasAnyVitals: false,
+  hasMedications: false,
+  needsMonitoringSteps: true,
+};
+const ALL = {
+  hasRiskAssessment: true,
+  hasAnyVitals: true,
+  hasMedications: true,
+  needsMonitoringSteps: true,
+};
 
 describe("shouldShowGetStarted", () => {
   it("shows on a brand-new account", () => {
@@ -19,6 +29,32 @@ describe("shouldShowGetStarted", () => {
 
   it("removes itself once all three are done", () => {
     expect(shouldShowGetStarted(ALL)).toBe(false);
+  });
+});
+
+describe("shouldShowGetStarted — no chronic signal yet", () => {
+  // A patient with no self-reported diagnosis, no clinician-recorded
+  // condition, no care plan, no enrolment, and nothing logged: "log a
+  // reading"/"add a medicine" have no destination and must not be asked for.
+  const healthy = {
+    hasRiskAssessment: false,
+    hasAnyVitals: false,
+    hasMedications: false,
+    needsMonitoringSteps: false,
+  };
+
+  it("still shows for the health profile step alone", () => {
+    expect(shouldShowGetStarted(healthy)).toBe(true);
+  });
+
+  it("removes itself once the health profile is done, never requiring a reading or medication", () => {
+    expect(shouldShowGetStarted({ ...healthy, hasRiskAssessment: true })).toBe(false);
+  });
+
+  it("brings the reading/medication steps back the moment a chronic signal appears", () => {
+    expect(
+      shouldShowGetStarted({ ...healthy, hasRiskAssessment: true, needsMonitoringSteps: true })
+    ).toBe(true);
   });
 });
 

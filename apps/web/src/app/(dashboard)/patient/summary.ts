@@ -87,7 +87,35 @@ export interface PatientPreventionStats {
   nextScreening: { name: string; dueDate: string } | null;
   vaccinationsDueCount: number;
   hasRiskAssessment: boolean;
+  /**
+   * Any signal — clinician-recorded or self-reported — that this patient has
+   * an ongoing condition to manage, as opposed to a purely preventive account
+   * with nothing yet to monitor. `hasActiveCarePlan` alone under-counts this:
+   * a care plan is clinician-created, so a patient is never chronic by this
+   * measure before a clinician has acted, even the moment they self-report an
+   * existing diagnosis on their own health profile. Checked, in order of how
+   * early each can appear in a patient's lifecycle: the self-reported
+   * `existing_diagnoses` answer on the risk assessment (available from minute
+   * one, before any clinician has seen the patient), an open `patient_conditions`
+   * problem-list entry, an active care plan, and a live chronic-programme
+   * enrolment. Drives whether the Get Started checklist (get-started-card.tsx)
+   * asks for a reading/medications at all — those two steps are just
+   * unreachable busywork for a genuinely healthy account.
+   */
+  hasChronicCondition: boolean;
 }
+
+/** condition_clinical_status values that mean "still open" — excludes
+ * 'resolved'/'historical', which describe a condition no longer being
+ * actively managed and so shouldn't pull a patient into the chronic-steps
+ * checklist. */
+const OPEN_CONDITION_STATUSES = [
+  "suspected",
+  "under_investigation",
+  "active",
+  "controlled",
+  "uncontrolled",
+] as const;
 
 /** Prevention-side counterpart of getPatientSummaryStats — powers the
  * healthy-patient (dual-state) overview. All reads are RLS-scoped. */
@@ -101,6 +129,9 @@ export async function getPatientPreventionStats(
     { data: dueScreenings },
     { count: dueVaccinations },
     { count: riskScores },
+    { count: openConditions },
+    { count: activeEnrolments },
+    { data: existingDiagnosesRow },
   ] = await Promise.all([
     supabase
       .from("care_plans")
@@ -122,9 +153,33 @@ export async function getPatientPreventionStats(
       .from("prevention_risk_scores")
       .select("id", { count: "exact", head: true })
       .eq("profile_id", patientId),
+    supabase
+      .from("patient_conditions")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patientId)
+      .in("status", OPEN_CONDITION_STATUSES),
+    supabase
+      .from("chronic_programme_enrolments")
+      .select("id", { count: "exact", head: true })
+      .eq("patient_id", patientId)
+      .eq("status", "enrolled"),
+    // No unique constraint on (profile_id, question_key) — retaking the
+    // assessment keeps history rather than upserting — so the latest answer
+    // is whichever row was created most recently.
+    supabase
+      .from("risk_assessment_responses")
+      .select("response")
+      .eq("profile_id", patientId)
+      .eq("question_key", "existing_diagnoses")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const next = dueScreenings?.[0] ?? null;
+  const selfReportedDiagnoses = Array.isArray(existingDiagnosesRow?.response)
+    ? (existingDiagnosesRow.response as unknown[])
+    : [];
 
   return {
     hasActiveCarePlan: (activePlans ?? 0) > 0,
@@ -134,5 +189,10 @@ export async function getPatientPreventionStats(
       : null,
     vaccinationsDueCount: dueVaccinations ?? 0,
     hasRiskAssessment: (riskScores ?? 0) > 0,
+    hasChronicCondition:
+      selfReportedDiagnoses.length > 0 ||
+      (openConditions ?? 0) > 0 ||
+      (activePlans ?? 0) > 0 ||
+      (activeEnrolments ?? 0) > 0,
   };
 }
