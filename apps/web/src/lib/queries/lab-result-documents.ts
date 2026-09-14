@@ -11,10 +11,11 @@ import { createClient } from "@/lib/supabase/client";
  * inserting into lab_result_documents directly from the browser). It predated
  * the 2026-08-30 consultation-fee gate and was never updated when that gate
  * landed, so it silently bypassed both the fee and runLabReportExtraction for
- * every upload routed through it — removed in favour of the one gated, AI-
- * extracted action every other patient upload already used.
+ * every upload routed through it. A second session later extended it with a
+ * test_code field (the per-test-type prompt) without noticing the bypass
+ * either — that prompt now lives on PatientResultUpload itself, gated the
+ * same as everything else.
  */
-
 /**
  * Org-staff reconciliation action (module 57.12/57.13): attach an uploaded
  * result document that arrived with no order link to the lab_order it
@@ -26,7 +27,13 @@ import { createClient } from "@/lib/supabase/client";
 export function useMatchResultDocumentToOrder() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ documentId, labOrderId }: { documentId: string; labOrderId: string }) => {
+    mutationFn: async ({
+      documentId,
+      labOrderId,
+    }: {
+      documentId: string;
+      labOrderId: string;
+    }) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("lab_result_documents")
@@ -35,7 +42,9 @@ export function useMatchResultDocumentToOrder() {
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["result-documents-unmatched"] });
+      queryClient.invalidateQueries({
+        queryKey: ["result-documents-unmatched"],
+      });
       queryClient.invalidateQueries({ queryKey: ["lab-orders"] });
     },
   });

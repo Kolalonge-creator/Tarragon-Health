@@ -57,6 +57,33 @@ export async function loadLatestWellbeingCheckin(patientId: string): Promise<Wel
   return data ?? null;
 }
 
+export interface WellbeingTrendPoint {
+  checked_in_at: string;
+  mood_score: number;
+  stress_score: number;
+  sleep_quality: number;
+}
+
+const WELLBEING_TREND_WINDOW_DAYS = 90;
+
+/** Ascending-order check-ins for the wellbeing trend chart — same 90-day
+ * window and left-to-right ordering as web's useWellbeingTrend (apps/web/
+ * .../lib/queries/wellbeing.ts). Still pure engagement telemetry, never fed
+ * into escalation/risk scoring. */
+export async function loadWellbeingCheckinHistory(
+  patientId: string,
+  windowDays: number = WELLBEING_TREND_WINDOW_DAYS
+): Promise<WellbeingTrendPoint[]> {
+  const since = new Date(Date.now() - windowDays * 24 * 60 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from("wellbeing_checkins")
+    .select("checked_in_at, mood_score, stress_score, sleep_quality")
+    .eq("patient_id", patientId)
+    .gte("checked_in_at", since)
+    .order("checked_in_at", { ascending: true });
+  return data ?? [];
+}
+
 export async function loadWellbeingCheckinFrequencyDays(patientId: string): Promise<number> {
   const { data } = await supabase
     .from("wellbeing_checkin_preferences")

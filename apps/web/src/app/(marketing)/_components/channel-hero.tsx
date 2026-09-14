@@ -24,10 +24,12 @@ export function ChannelHero({
   imageSrc,
   imageAlt,
   imagePosition,
+  videoSrc,
 }: {
   imageSrc: string;
   imageAlt: string;
   imagePosition?: string;
+  videoSrc?: string;
 }) {
   const searchParams = useSearchParams();
   const hero = getChannelHero(searchParams.get("channel") ?? undefined);
@@ -44,6 +46,7 @@ export function ChannelHero({
       imageSrc={imageSrc}
       imageAlt={imageAlt}
       imagePosition={imagePosition}
+      videoSrc={videoSrc}
     />
   );
 }

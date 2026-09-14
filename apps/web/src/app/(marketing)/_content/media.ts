@@ -90,6 +90,15 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/homepage-family-phone.jpg",
       imageAlt: "An adult daughter and her mother smiling together while looking at a phone",
       imageFocus: "center 20%",
+      // 2026-09-14: image-to-video cinemagraph of the hero photo above
+      // (fal.ai Kling v3 Pro, start_image_url = the same JPEG), NOT a
+      // from-scratch generation of people -- that approach already failed
+      // once on this codebase (see git history: 60dd2190 / 043f0d17,
+      // "anatomically-wrong prevention hero clip"). Prompted for static
+      // camera and zero anatomy change, reviewed frame-by-frame before
+      // committing. Same brand rule as every other ambient clip: decorative
+      // motion only, never implying a real Tarragon patient/family.
+      videoSrc: "/marketing/video/homepage-family-phone-ambient.mp4",
     } as MarketingMediaSlot,
     problem: {
       imageSrc: "/marketing/photos/body/problem-medication-organiser.jpg",

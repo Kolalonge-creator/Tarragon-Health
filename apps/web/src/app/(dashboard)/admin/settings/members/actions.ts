@@ -100,7 +100,7 @@ const createInstitutionOrgSchema = z.object({
  * permission check here, same discipline as protocol-api's
  * createProtocolPartnerAction — the real gate is inside
  * admin_create_institution_org itself (20260805234029), so a caller who
- * fails this early check still can't have gotten anywhere via a bypassed
+ * fails this early check still can't have got anywhere via a bypassed
  * client. Whoever creates the org should provision its first
  * corporate_admin/hmo_admin login with the "Create a login" form above,
  * now that the org exists to attach it to.

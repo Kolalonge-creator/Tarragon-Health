@@ -24,6 +24,11 @@ import {
   type PaediatricDangerSign,
 } from "@/lib/validation/pediatric-emergency";
 import {
+  symptomCheckerDangerReportSchema,
+  symptomCheckerDangerSignsSummary,
+  type SymptomCheckerDangerSign,
+} from "@/lib/validation/symptom-checker-danger";
+import {
   hospitalAdmissionSchema,
   hospitalAdmissionUpdateSchema,
 } from "@/lib/validation/hospital-admissions";
@@ -956,6 +961,64 @@ export async function reportPaediatricDangerSymptoms(
       organisation_id: profile.organisation_id,
       source: "danger_symptom_checklist",
       trigger_detail: paediatricDangerSignsSummary(parsed.data.signs as PaediatricDangerSign[]),
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true, eventId: data.id };
+}
+
+/**
+ * Escalates a danger-symptom selection from the dashboard Symptom-to-Test
+ * checker (symptom-to-test-check.tsx) the same way reportDangerSymptoms
+ * does: a real emergency_events row, so private.handle_emergency_event
+ * raises the Priority-1 clinician_alerts row (on plans with
+ * vitals_red_flag_doctor_escalation) or the free-tier self-care suggestion,
+ * and the site-wide EmergencyAlert dialog picks it up. Closes a gap where
+ * that checker's own danger flag only ever rendered a static "see a doctor"
+ * card, with no clinician_alerts row, no emergency_events row, and no audit
+ * trail anywhere.
+ */
+export async function reportSymptomCheckerDangerFlag(
+  _prevState: ReportDangerState,
+  formData: FormData
+): Promise<ReportDangerState> {
+  const parsed = symptomCheckerDangerReportSchema.safeParse({
+    signs: formData.getAll("signs"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Select at least one sign" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const subjectId = await resolveSubjectId(user.id);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", subjectId)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "No organisation on file" };
+  }
+
+  const { data, error } = await supabase
+    .from("emergency_events")
+    .insert({
+      patient_id: subjectId,
+      organisation_id: profile.organisation_id,
+      source: "symptom_to_test_checker",
+      trigger_detail: symptomCheckerDangerSignsSummary(parsed.data.signs as SymptomCheckerDangerSign[]),
       status: "active",
     })
     .select("id")

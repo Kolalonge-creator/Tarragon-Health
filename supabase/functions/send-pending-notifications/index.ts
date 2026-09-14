@@ -254,6 +254,93 @@ interface TemplateRender {
   pushUrl?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Broadcast branded-email template builder — KEEP IN SYNC WITH
+// apps/web/src/lib/broadcasts/render-email-template.ts (the admin composer's
+// live preview in the confirm dialog). Both must produce structurally
+// identical HTML for the same input, or an admin's preview lies about what
+// recipients actually get. No react-email here (not installed, and this file
+// runs on Deno while the web app is Node/Next) — plain template-literal HTML,
+// matching this file's own established no-shared-module pattern (every other
+// TEMPLATE_MAP entry below inlines its own HTML rather than importing a
+// shared renderer). See notification_broadcasts.email_content's column
+// comment (migration 20260912220307) for the full field contract.
+// ---------------------------------------------------------------------------
+interface BroadcastEmailContent {
+  headline: string;
+  bodyText: string;
+  imageUrl?: string;
+  bandColor?: "green" | "navy" | "none";
+  buttonText?: string;
+  buttonUrl?: string;
+  footerNote?: string;
+}
+
+function escapeHtmlForBroadcast(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderBroadcastEmailHtml(
+  content: BroadcastEmailContent | null | undefined,
+  fallbackSubject: string,
+  fallbackBody: string,
+): string {
+  const escapeHtml = escapeHtmlForBroadcast;
+
+  // No email_content: today's exact plain rendering, byte-for-byte, so a
+  // broadcast drafted/queued before this column existed (or any admin who
+  // just leaves the email-design section untouched) is unaffected.
+  if (!content) {
+    const bodyHtml = escapeHtml(fallbackBody).replace(/\n/g, "<br>");
+    return (
+      `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+      `<h2 style="color:#0E7C52;margin:0 0 12px">${escapeHtml(fallbackSubject)}</h2>` +
+      `<p>${bodyHtml}</p>` +
+      `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
+      `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+      `</div>`
+    );
+  }
+
+  const band = content.bandColor ?? "none";
+  const bandBg = band === "green" ? "#0E7C52" : band === "navy" ? "#12324B" : null;
+
+  const imageHtml = content.imageUrl
+    ? `<img src="${escapeHtml(content.imageUrl)}" alt="" style="width:100%;display:block;margin:0 0 16px;border-radius:8px" />`
+    : "";
+
+  const headlineHtml = bandBg
+    ? `<div style="background:${bandBg};padding:16px 20px;border-radius:8px;margin:0 0 16px"><h2 style="color:#ffffff;margin:0">${escapeHtml(content.headline)}</h2></div>`
+    : `<h2 style="color:#0E7C52;margin:0 0 12px">${escapeHtml(content.headline)}</h2>`;
+
+  const bodyParagraphs = content.bodyText
+    .split(/\n\s*\n/)
+    .filter((para) => para.trim().length > 0)
+    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+
+  const buttonHtml =
+    content.buttonText && content.buttonUrl
+      ? `<p style="margin-top:20px"><a href="${escapeHtml(content.buttonUrl)}" style="background:#0E7C52;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">${escapeHtml(content.buttonText)}</a></p>`
+      : "";
+
+  const footerNoteHtml = content.footerNote
+    ? `<p style="color:#5b6b78;font-size:13px;margin-top:4px">${escapeHtml(content.footerNote)}</p>`
+    : "";
+
+  return (
+    `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5;max-width:600px">` +
+    imageHtml +
+    headlineHtml +
+    bodyParagraphs +
+    buttonHtml +
+    `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
+    `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+    footerNoteHtml +
+    `</div>`
+  );
+}
+
 // Meta-approved WhatsApp template names must match these keys exactly once
 // submitted for approval (docs/ARCHITECTURE.md §8: ~2 week lead time).
 // Unknown template keys are never guessed at — see the caller below.
@@ -830,12 +917,21 @@ const TEMPLATE_MAP: Record<
   broadcast_announcement: (payload) => {
     const subject = String(payload.subject ?? "A message from Tarragon Health");
     const body = String(payload.body ?? "");
-    const escapeHtml = (s: string) =>
-      s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    const bodyHtml = escapeHtml(body).replace(/\n/g, "<br>");
+    // email_content is optional/nullable (see admin_send_broadcast) — absent
+    // for every broadcast queued before this column existed, or when an
+    // admin leaves the email-design section untouched. renderBroadcastEmailHtml
+    // falls back to the exact plain rendering this handler always produced.
+    const rawEmailContent = payload.email_content;
+    const emailContent: BroadcastEmailContent | null =
+      rawEmailContent && typeof rawEmailContent === "object" && !Array.isArray(rawEmailContent)
+        ? (rawEmailContent as BroadcastEmailContent)
+        : null;
+    const html = renderBroadcastEmailHtml(emailContent, subject, body);
+    const plainText = emailContent
+      ? `${emailContent.headline}\n\n${emailContent.bodyText}` +
+        (emailContent.footerNote ? `\n\n${emailContent.footerNote}` : "") +
+        `\n\nTarragon Health`
+      : `${subject}\n\n${body}\n\nTarragon Health`;
     return {
       metaTemplateName: "broadcast_announcement",
       languageCode: "en",
@@ -851,14 +947,8 @@ const TEMPLATE_MAP: Record<
       smsText: `${subject}: ${body} Tarragon Health`,
       email: {
         subject,
-        html:
-          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-          `<h2 style="color:#0E7C52;margin:0 0 12px">${escapeHtml(subject)}</h2>` +
-          `<p>${bodyHtml}</p>` +
-          `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
-          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
-          `</div>`,
-        text: `${subject}\n\n${body}\n\nTarragon Health`,
+        html,
+        text: plainText,
       },
     };
   },

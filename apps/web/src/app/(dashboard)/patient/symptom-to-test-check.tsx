@@ -1,14 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { cn } from "@/lib/utils";
 import { useLabCatalogue, useCreateLabOrder, type PanelBundle } from "@/lib/queries/lab-orders";
+import { activeEmergencyKey } from "@/lib/queries/emergency";
+import { reportSymptomCheckerDangerFlag } from "./actions";
 import {
   matchSymptomClusters,
+  selectedDangerSymptoms,
   SYMPTOM_OPTIONS,
   type SymptomCluster,
 } from "@/lib/symptom-check/symptom-clusters";
@@ -21,6 +26,13 @@ import {
  * AnnualHealthCheckBooking does; a non-self-bookable cluster routes to
  * messaging the care team instead of a fake/disabled button, since not
  * every screen_type has a self-bookable single-test bundle today.
+ *
+ * A danger-symptom selection is escalated for real, the same acknowledge-
+ * gated pathway as DangerSymptomCheck/SymptomLogForm/SymptomTriageCheck: a
+ * genuine emergency_events row (reportSymptomCheckerDangerFlag), raised the
+ * moment "See my suggestion" is submitted, not a second explicit step — this
+ * used to be a static "see a doctor" card with no clinician_alerts row, no
+ * emergency_events row, and no audit trail at all.
  */
 export function SymptomToTestCheck({
   patientId,
@@ -33,6 +45,18 @@ export function SymptomToTestCheck({
   const [submitted, setSubmitted] = useState(false);
   const { data: bundles } = useLabCatalogue();
   const createOrder = useCreateLabOrder();
+  const [dangerState, dangerFormAction] = useActionState(reportSymptomCheckerDangerFlag, undefined);
+  const queryClient = useQueryClient();
+  // Guards against re-firing the escalation on an unrelated re-render while
+  // the danger card is showing — the write itself only ever happens from the
+  // explicit "See my suggestion" submit below, never from this effect.
+  const reportedRef = useRef(false);
+
+  useEffect(() => {
+    if (dangerState?.success) {
+      queryClient.invalidateQueries({ queryKey: activeEmergencyKey(patientId) });
+    }
+  }, [dangerState?.success, queryClient, patientId]);
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -43,9 +67,22 @@ export function SymptomToTestCheck({
     });
   }
 
+  function submit() {
+    const ids = [...selected];
+    setSubmitted(true);
+    const dangerIds = selectedDangerSymptoms(ids);
+    if (dangerIds.length > 0 && !reportedRef.current) {
+      reportedRef.current = true;
+      const formData = new FormData();
+      dangerIds.forEach((id) => formData.append("signs", id));
+      dangerFormAction(formData);
+    }
+  }
+
   function reset() {
     setSelected(new Set());
     setSubmitted(false);
+    reportedRef.current = false;
   }
 
   const result = submitted ? matchSymptomClusters([...selected]) : null;
@@ -91,7 +128,7 @@ export function SymptomToTestCheck({
             </fieldset>
             <div className="flex items-center justify-between gap-4">
               <p className="text-xs text-charcoal-ink/50">{selected.size} selected</p>
-              <Button type="button" disabled={selected.size === 0} onClick={() => setSubmitted(true)}>
+              <Button type="button" disabled={selected.size === 0} onClick={submit}>
                 See my suggestion
               </Button>
             </div>
@@ -105,8 +142,10 @@ export function SymptomToTestCheck({
             </p>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/75">
               What you&apos;ve selected isn&apos;t something to figure out from a symptom
-              checklist. Please reach out to your care team now.
+              checklist. We&apos;ve flagged this to your care team, and you&apos;ll also see
+              emergency guidance on this page.
             </p>
+            <FormError id={fieldErrorId("symptom-checker-danger")} message={dangerState?.error} />
             <Button asChild className="mt-4">
               <Link href="/patient/care">Talk to your care team</Link>
             </Button>

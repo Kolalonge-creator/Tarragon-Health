@@ -268,7 +268,11 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
           wellness nudge, so it renders above the hero band, same as web's
           Overview. Renders nothing when there's no payment problem. */}
       {paymentIssue ? (
-        <PaymentIssueCard issue={paymentIssue} onResolved={() => void load().catch(() => {})} />
+        <PaymentIssueCard
+          key={paymentIssue.id}
+          issue={paymentIssue}
+          onResolved={() => void load().catch(() => {})}
+        />
       ) : null}
 
       {/* Hero band: the one place the screen answers "how am I doing, and
@@ -409,6 +413,27 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
           <QuickActionButton icon="chatbox-ellipses-outline" label={tr("Messages")} onPress={() => onNavigate("messages")} />
           <QuickActionButton icon="flask-outline" label={tr("Labs & results")} onPress={() => onNavigate("labs")} />
         </QuickActionGrid>
+      </View>
+
+      {/* This is where the paid-per-service doctor-time revenue actually
+          gets bought, and until now the only way in was drilling into "Your
+          account" in the drawer. Mirrors web's ServicesPromoCard on Overview
+          (2026-09-11): placed right after the clinical snapshot rather than
+          above it (brand voice: no upsell-first dashboard). Opens the native
+          "My services" section rather than a WebView, same as any other
+          drawer destination. Not tr()-wrapped, matching the untranslated
+          CalloutCard pair further down this file (Message your care
+          team/Care & support) rather than the newer tr()-wrapped strings
+          above -- this screen's Pidgin coverage is partial today. */}
+      <View style={{ gap: 10 }}>
+        <SectionLabel>Doctor time &amp; services</SectionLabel>
+        <CalloutCard
+          icon="card-outline"
+          title="My services"
+          subtitle="The app is free. You only pay for a doctor's time — one service at a time, nothing auto-renews."
+          ctaLabel="See services"
+          onPress={() => onNavigate("services")}
+        />
       </View>
 
       {schedule.length > 0 ? (

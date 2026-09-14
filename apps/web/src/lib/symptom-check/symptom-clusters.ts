@@ -189,9 +189,14 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
   },
 ];
 
+/** The subset of `selectedIds` that are DANGER_SYMPTOM_IDS entries. */
+export function selectedDangerSymptoms(selectedIds: string[]): string[] {
+  return selectedIds.filter((id) => (DANGER_SYMPTOM_IDS as readonly string[]).includes(id));
+}
+
 /** True if selecting `selectedIds` should suppress every test suggestion. */
 export function hasDangerSymptom(selectedIds: string[]): boolean {
-  return selectedIds.some((id) => (DANGER_SYMPTOM_IDS as readonly string[]).includes(id));
+  return selectedDangerSymptoms(selectedIds).length > 0;
 }
 
 export interface SymptomMatchResult {
@@ -222,14 +227,47 @@ export function matchSymptomClusters(selectedIds: string[]): SymptomMatchResult 
 }
 
 /**
+ * Free-text patterns for the vocabulary that appears in a cluster's own
+ * excludeSymptomIds (currently: fever/flank_pain/blood_in_urine for uti,
+ * jaundice for liver_concern) — lets matchSymptomClustersFromText honour the
+ * same per-cluster exclusion matchSymptomClusters already enforces on the
+ * checkbox side. Deliberately NOT a general danger/emergency gate: a caller
+ * must already have confirmed the message non-emergency via
+ * detectEmergencyKeywords + the LLM's own tier classification before ever
+ * calling matchSymptomClustersFromText (see its doc comment below), so this
+ * only covers the narrower "this specific wording is a step up in
+ * seriousness from this specific cluster's suggestion" case a cluster's own
+ * excludeSymptomIds encodes — it does not suppress unrelated clusters.
+ */
+const EXCLUSION_TEXT_TRIGGERS: Partial<Record<string, RegExp[]>> = {
+  fever: [/\bfever(ish)?\b/i],
+  flank_pain: [/(flank|side|back) pain/i, /pain in (my |your )?(side|flank)/i],
+  blood_in_urine: [/blood in (my |the |your )?urine/i, /urine.{0,10}(is |looks |was )?(bloody|red|pink)/i],
+  jaundice: [
+    /\bjaundice\b/i,
+    /yellow(ing)?.{0,20}(skin|eyes|whites)/i,
+    /(skin|eyes|whites).{0,20}yellow/i,
+    /turning yellow/i,
+  ],
+};
+
+/**
  * Free-text matcher for the AI Coach. Deliberately independent of
  * `detectEmergencyKeywords` (apps/web/src/lib/ai-coach/keyword-guardrail.ts)
  * — callers must only invoke this once a message has already been confirmed
  * non-emergency, both by the deterministic keyword guardrail and by the
  * LLM's own tier classification. This function itself never classifies
  * emergency vs. not; it only ever adds a test suggestion on top of an
- * already-safe turn.
+ * already-safe turn. It does, however, still honour each cluster's own
+ * excludeSymptomIds via EXCLUSION_TEXT_TRIGGERS above, so wording like
+ * "my skin looks yellow" never gets a liver-function-test suggestion
+ * stapled onto it, matching the checkbox matcher's jaundice exclusion.
  */
 export function matchSymptomClustersFromText(text: string): SymptomCluster[] {
-  return SYMPTOM_CLUSTERS.filter((cluster) => cluster.textTriggers.some((pattern) => pattern.test(text)));
+  return SYMPTOM_CLUSTERS.filter((cluster) => {
+    if (!cluster.textTriggers.some((pattern) => pattern.test(text))) return false;
+    return !cluster.excludeSymptomIds.some((id) =>
+      (EXCLUSION_TEXT_TRIGGERS[id] ?? []).some((pattern) => pattern.test(text))
+    );
+  });
 }

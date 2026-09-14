@@ -70,7 +70,9 @@ Rules, no exceptions:
   same, in plain language.
 - Always end with one short sentence encouraging them to bring any questions to their care team --
   this explanation is for understanding, not a diagnosis or a substitute for their doctor.
-- If the data is thin (no previous value), say so plainly rather than inventing a trend.${KIND_EXTRA_RULE[kind] ?? ""}`;
+- If the data is thin (no previous value), say so plainly rather than inventing a trend.
+- Never use the em dash character (—) anywhere in your answer. Rewrite the sentence grammatically
+  instead -- a comma, a period, or "and"/"but" reads more naturally to a patient anyway.${KIND_EXTRA_RULE[kind] ?? ""}`;
 
 /** Named so runGovernedAi can be parameterised on it. */
 export interface ExplainerResult {
@@ -99,7 +101,9 @@ Rules, no exceptions:
 - Always end with one short sentence encouraging the patient to bring any questions or side effects
   to their care team or pharmacist before changing anything.
 - If you are not confident about general facts for a medication with this exact name, say so plainly
-  and encourage the patient to ask their care team or pharmacist, rather than guessing.`;
+  and encourage the patient to ask their care team or pharmacist, rather than guessing.
+- Never use the em dash character (—) anywhere in your answer. Rewrite the sentence grammatically
+  instead -- a comma, a period, or "and"/"but" reads more naturally to a patient anyway.`;
 
 type GenerateParams = {
   patientId: string;

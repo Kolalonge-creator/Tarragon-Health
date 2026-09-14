@@ -18,6 +18,40 @@ import { FertilityRequestCard } from "@/app/(dashboard)/patient/fertility-reques
 import { formatPatientDate } from "@/lib/format-date";
 
 /**
+ * `appointments` has no category/specialty column (see the `service`
+ * comment in 20260828000637_appointment_engine_core.sql — deliberately
+ * free text, not a catalogue FK), so there is no real field marking an
+ * appointment as "women's health". This keyword match over the free-text
+ * `reason`/`service` columns is a heuristic, not a guarantee — it can miss
+ * a genuinely relevant appointment logged with different wording, and it
+ * intentionally only affects what this stat highlights, never what the
+ * patient can actually book or see on the real Appointments page.
+ */
+const WOMENS_HEALTH_APPOINTMENT_KEYWORDS = [
+  "women",
+  "gyn",
+  "pregnan",
+  "antenatal",
+  "prenatal",
+  "postnatal",
+  "postpartum",
+  "cervical",
+  "breast",
+  "menstrual",
+  "period",
+  "contracept",
+  "menopause",
+  "fertility",
+  "pelvic",
+  "obstetric",
+] as const;
+
+function isWomensHealthAppointment(appt: { reason: string | null; service: string | null }): boolean {
+  const text = `${appt.reason ?? ""} ${appt.service ?? ""}`.toLowerCase();
+  return WOMENS_HEALTH_APPOINTMENT_KEYWORDS.some((keyword) => text.includes(keyword));
+}
+
+/**
  * Women's Health (spec §44) — one destination integrating prevention,
  * reproductive health, pregnancy, postnatal and long-term intersecting
  * conditions (§44.16). Only sections relevant to the patient's own
@@ -89,7 +123,7 @@ export default async function WomensHealthPage() {
     { data: reproProfile, error: reproError },
     { data: pregnancy, error: pregnancyError },
     { data: activePlans },
-    { data: nextAppointment },
+    { data: upcomingAppointments },
   ] = await Promise.all([
     supabase
       .from("reproductive_health_profiles")
@@ -104,14 +138,15 @@ export default async function WomensHealthPage() {
     supabase.from("care_plans").select("condition").eq("patient_id", subjectId).eq("status", "active"),
     supabase
       .from("appointments")
-      .select("scheduled_for")
+      .select("scheduled_for, reason, service")
       .eq("patient_id", subjectId)
       .neq("status", "cancelled")
       .gte("scheduled_for", new Date().toISOString())
       .order("scheduled_for", { ascending: true })
-      .limit(1)
-      .maybeSingle(),
+      .limit(20),
   ]);
+
+  const nextAppointment = (upcomingAppointments ?? []).find(isWomensHealthAppointment) ?? null;
 
   const activeConditions = (activePlans ?? []).map((p) => p.condition as CarePlanCondition);
 
@@ -172,18 +207,24 @@ export default async function WomensHealthPage() {
           {gestationalEstimate && (
             <SummaryStat label="Antenatal" value={`Week ${gestationalEstimate.weeks}`} />
           )}
-          <SummaryStat
-            label="Next appointment"
-            value={
-              nextAppointment?.scheduled_for
-                ? formatPatientDate(nextAppointment.scheduled_for, {
-                    weekday: "short",
-                    month: "short",
-                    day: "numeric",
-                  })
-                : "None booked"
-            }
-          />
+          <Link
+            href="/patient/appointments"
+            className="-m-1 rounded-md p-1 transition hover:bg-charcoal-ink/5 dark:hover:bg-night-ink/10"
+          >
+            <SummaryStat
+              label="Next appointment"
+              value={
+                nextAppointment?.scheduled_for
+                  ? formatPatientDate(nextAppointment.scheduled_for, {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "Book a women's health visit"
+              }
+              valueClassName="text-brand-green dark:text-brand-green-bright"
+            />
+          </Link>
         </CardContent>
       </Card>
 
@@ -257,11 +298,19 @@ export default async function WomensHealthPage() {
   );
 }
 
-function SummaryStat({ label, value }: { label: string; value: string }) {
+function SummaryStat({
+  label,
+  value,
+  valueClassName,
+}: {
+  label: string;
+  value: string;
+  valueClassName?: string;
+}) {
   return (
     <div>
       <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">{label}</p>
-      <p className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">{value}</p>
+      <p className={`text-sm font-semibold ${valueClassName ?? "text-charcoal-ink dark:text-night-ink"}`}>{value}</p>
     </div>
   );
 }

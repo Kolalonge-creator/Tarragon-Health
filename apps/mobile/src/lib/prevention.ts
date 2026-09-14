@@ -1,7 +1,8 @@
 import { supabase } from "./supabase";
 import { todayIsoDate } from "./medications";
 import type { QueryResult } from "./medications";
-import type { Tables } from "@tarragon/shared";
+import { loadLabPanelBundles, type PanelBundle } from "./labs";
+import type { Enums, Tables } from "@tarragon/shared";
 
 /**
  * Native data layer for the Prevention screen — risk tiers, the screening
@@ -346,6 +347,168 @@ export async function getAnalyteTrends(patientId: string): Promise<QueryResult<A
     }));
     trends.sort((a, b) => (a.latestTakenAt < b.latestTakenAt ? 1 : -1));
     return { ok: true, data: trends };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/**
+ * Cancer screening guidance — mirrors apps/web/.../patient/cancer-screening-card.tsx
+ * (CANCER_SCREENING_CODES + isOfferedFor), which was rewritten 2026-09-10 to
+ * stop selling these as bookable/payable bundles (three of the four were
+ * charging for tests, e.g. an HPV DNA co-test, the platform could not
+ * actually order) and instead say what to ask a laboratory for and roughly
+ * what it costs. Sex-specific tracks, same as web — sex unknown hides all
+ * four rather than guessing.
+ */
+const CANCER_SCREENING_CODES = [
+  "cancer_screen_cervical_under30",
+  "cancer_screen_cervical_30plus",
+  "cancer_screen_women_45plus",
+  "cancer_screen_men_45plus",
+] as const;
+
+function isCancerScreeningOfferedFor(code: string, sex: Enums<"sex"> | null): boolean {
+  if (sex === null) return false;
+  if (code === "cancer_screen_men_45plus") return sex === "male";
+  return sex === "female"; // the other three are all cervical/women's-track
+}
+
+export interface CancerScreeningGuidance {
+  sex: Enums<"sex"> | null;
+  bundles: PanelBundle[];
+}
+
+/** The patient's sex plus the cancer-screening panel_bundles relevant to it —
+ * same underlying `panel_bundles` rows and guidance-only copy as web's
+ * CancerScreeningCard, just read directly rather than through React Query. */
+export async function getCancerScreeningGuidance(
+  patientId: string
+): Promise<QueryResult<CancerScreeningGuidance>> {
+  try {
+    const [{ data: profile, error: profileError }, bundles] = await Promise.all([
+      supabase.from("profiles").select("sex").eq("id", patientId).maybeSingle(),
+      loadLabPanelBundles(),
+    ]);
+    if (profileError) return { ok: false, error: profileError.message };
+
+    const sex = profile?.sex ?? null;
+    const byCode = new Map(bundles.map((b) => [b.code, b] as const));
+    const cancerBundles = CANCER_SCREENING_CODES.filter((code) => isCancerScreeningOfferedFor(code, sex))
+      .map((code) => byCode.get(code))
+      .filter((b): b is PanelBundle => !!b && b.is_active);
+
+    return { ok: true, data: { sex, bundles: cancerBundles } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export interface ProgrammeItem {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+}
+
+/** Global reference catalogue — mirrors usePreventiveProgrammes, active only. */
+export async function getPreventiveProgrammes(): Promise<QueryResult<ProgrammeItem[]>> {
+  try {
+    const { data, error } = await supabase
+      .from("preventive_programmes")
+      .select("id, code, name, description")
+      .eq("is_active", true)
+      .order("name", { ascending: true });
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: data ?? [] };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+export interface ProgrammeEnrolmentItem {
+  id: string;
+  programmeId: string;
+  source: Tables<"preventive_programme_enrolments">["source"];
+}
+
+/** The patient's active (enrolled) preventive-programme enrolments — mirrors
+ * usePreventiveEnrolments. */
+export async function getPreventiveEnrolments(
+  patientId: string
+): Promise<QueryResult<ProgrammeEnrolmentItem[]>> {
+  try {
+    const { data, error } = await supabase
+      .from("preventive_programme_enrolments")
+      .select("id, programme_id, source")
+      .eq("patient_id", patientId)
+      .eq("status", "enrolled");
+    if (error) return { ok: false, error: error.message };
+    return {
+      ok: true,
+      data: (data ?? []).map((row) => ({ id: row.id, programmeId: row.programme_id, source: row.source })),
+    };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Self-enrol the patient in a preventive programme — mirrors
+ * useEnrolPreventiveProgramme. Written through the patient's own RLS-scoped
+ * session, same as confirmScreeningDone above. */
+export async function enrolPreventiveProgramme(
+  patientId: string,
+  programmeId: string,
+  organisationId?: string
+): Promise<QueryResult<{ id: string }>> {
+  try {
+    let orgId = organisationId ?? null;
+    if (!orgId) {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", patientId)
+        .single();
+      if (profileError) return { ok: false, error: profileError.message };
+      if (!profile?.organisation_id) return { ok: false, error: "This patient has no organisation on file" };
+      orgId = profile.organisation_id;
+    }
+    const { data, error } = await supabase
+      .from("preventive_programme_enrolments")
+      .insert({ patient_id: patientId, organisation_id: orgId, programme_id: programmeId, source: "self" })
+      .select("id")
+      .single();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: { id: data.id } };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** Withdraw from a programme — mirrors useWithdrawPreventiveProgramme
+ * (append-only status change; the periodic-review scheduler only rolls
+ * while enrolled). */
+export async function withdrawPreventiveProgramme(enrolmentId: string): Promise<QueryResult<null>> {
+  try {
+    const { error } = await supabase
+      .from("preventive_programme_enrolments")
+      .update({ status: "withdrawn", withdrawn_at: new Date().toISOString() })
+      .eq("id", enrolmentId);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: null };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** The patient's recorded sex — used only to hide the sex-specific Men's/
+ * Women's Health tracks from the other sex, mirroring the web page's
+ * visibleProgrammes filter. Sex unknown hides both rather than guessing. */
+export async function getPatientSex(patientId: string): Promise<QueryResult<Tables<"profiles">["sex"]>> {
+  try {
+    const { data, error } = await supabase.from("profiles").select("sex").eq("id", patientId).maybeSingle();
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, data: data?.sex ?? null };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
