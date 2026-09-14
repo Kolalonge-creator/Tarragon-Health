@@ -7,10 +7,11 @@ import { HealthScoreTrendClient } from "./health-score-trend-client";
 /**
  * Full trend view for the Health Score — reached from "See your trend over time" on
  * HealthScoreCard. Same auth/redirect shape as /patient/weight and
- * /patient/biological-age; no entitlement gate, since the Health Score card it's
- * reached from has none either (free-tier-visible). Unlike /patient/biological-age,
+ * /patient/heart-age; no entitlement gate, since the Health Score card it's
+ * reached from has none either (free-tier-visible). Unlike /patient/heart-age,
  * this route needs no feature-flag gate — the Health Score itself has been fully
- * shipped since v1, only the age reframe of it is what's still pending sign-off.
+ * shipped since v1; Heart Age (a separate, SCORE2-based feature) is what's still
+ * pending sign-off.
  */
 export default async function HealthScorePage() {
   const profile = await getCurrentProfile();
