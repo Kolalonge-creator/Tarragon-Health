@@ -112,11 +112,18 @@ export function IncidentDetail({
 
   async function refreshUpdates() {
     const supabase = createClient();
-    const { data } = await supabase
+    const { data, error: fetchError } = await supabase
       .from("ops_incident_updates")
       .select("id, note, status_from, status_to, created_at, author_id")
       .eq("incident_id", incident.id)
       .order("created_at", { ascending: false });
+    if (fetchError) {
+      // Keep whatever was already on screen — a failed refresh is not proof
+      // the update timeline is empty, and wiping it would hide a real audit
+      // trail on a safety incident.
+      setError(`The update timeline could not be refreshed: ${fetchError.message}`);
+      return;
+    }
     setUpdates((data ?? []) as OpsIncidentUpdateRow[]);
   }
 

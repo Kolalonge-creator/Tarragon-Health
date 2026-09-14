@@ -18,17 +18,21 @@ import { MergeTool, type MergeCandidate, type RecordWeight } from "./merge-tool"
  * Counts only, never the content: this page never needed to read a patient's
  * readings or medications, and should not start.
  */
-async function recordWeight(
+export async function recordWeight(
   supabase: Awaited<ReturnType<typeof createClient>>,
   profileId: string
 ): Promise<RecordWeight> {
   const count = async (
     table: "vitals_readings" | "medications" | "screening_results" | "lab_result_documents" | "appointments"
   ) => {
-    const { count: rows } = await supabase
+    const { count: rows, error } = await supabase
       .from(table)
       .select("id", { count: "exact", head: true })
       .eq("patient_id", profileId);
+    // A failed count must not read as "this record has no history" — that is
+    // exactly the wrong signal on the page that decides which record survives
+    // a merge. Throw and let the caller fail the whole comparison closed.
+    if (error) throw error;
     return rows ?? 0;
   };
   const [vitals, medications, screeningResults, resultDocuments, appointments] = await Promise.all([
@@ -77,12 +81,20 @@ export default async function AdminPatientMergePage({
     const rowA = (data ?? []).find((p) => p.id === a && p.role === "patient") ?? null;
     const rowB = (data ?? []).find((p) => p.id === b && p.role === "patient") ?? null;
     if (rowA && rowB) {
-      const [weightA, weightB] = await Promise.all([
-        recordWeight(supabase, rowA.id),
-        recordWeight(supabase, rowB.id),
-      ]);
-      candidateA = { ...rowA, weight: weightA };
-      candidateB = { ...rowB, weight: weightB };
+      try {
+        const [weightA, weightB] = await Promise.all([
+          recordWeight(supabase, rowA.id),
+          recordWeight(supabase, rowB.id),
+        ]);
+        candidateA = { ...rowA, weight: weightA };
+        candidateB = { ...rowB, weight: weightB };
+      } catch {
+        // Same fail-closed reasoning as the profiles read above: a partial
+        // weight (say, medications counted but vitals silently failed) would
+        // understate one record's real history right when that comparison
+        // decides which record gets kept.
+        candidatesFailed = true;
+      }
     }
   }
 

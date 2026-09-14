@@ -65,7 +65,26 @@ export default async function AiGovernancePage() {
         .limit(25),
     ]);
 
+  // ai_systems is a small, non-PHI registry table readable by any signed-in
+  // account, so this join happens here rather than inside the dashboard RPC's
+  // per-system subselects.
+  const { data: systemRows, error: systemsError } = await supabase
+    .from("ai_systems")
+    .select(
+      "id, system_code, name, purpose, owner_role, owner_profile_id, fallback_behaviour, code_reference, disabled_reason, disabled_at, runtime_governed, grandfather_note"
+    )
+    .order("system_code");
+
   const parsed = aiGovernanceDashboardSchema.safeParse(dashboardData);
+  // Deliberately a visible failure rather than empty tiles, and now covers
+  // every read the page makes, not just the dashboard RPC: a failed
+  // ai_safety_incidents/ai_prompt_versions/ai_vendor_model_observations/
+  // ai_systems read must never fall through to rendering an empty, "nothing
+  // open" console — that is the exact wrong message the comment below
+  // already warns against, just previously only enforced for one of five
+  // reads.
+  const secondaryError =
+    incidentsResult.error ?? promptsResult.error ?? observationsResult.error ?? systemsError;
 
   if (dashboardError || !parsed.success) {
     // Deliberately a visible failure rather than empty tiles. A blank AI
@@ -82,15 +101,17 @@ export default async function AiGovernancePage() {
     );
   }
 
-  // ai_systems is a small, non-PHI registry table readable by any signed-in
-  // account, so this join happens here rather than inside the dashboard RPC's
-  // per-system subselects.
-  const { data: systemRows } = await supabase
-    .from("ai_systems")
-    .select(
-      "id, system_code, name, purpose, owner_role, owner_profile_id, fallback_behaviour, code_reference, disabled_reason, disabled_at, runtime_governed, grandfather_note"
-    )
-    .order("system_code");
+  if (secondaryError) {
+    return (
+      <div className="space-y-4">
+        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">AI governance</h1>
+        <p className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          The governance dashboard could not be loaded, so nothing on this page can be trusted as
+          current. {secondaryError.message}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <AiGovernanceConsole

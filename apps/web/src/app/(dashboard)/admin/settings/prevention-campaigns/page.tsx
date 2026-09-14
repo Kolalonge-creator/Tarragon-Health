@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
 import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { CampaignForm } from "./campaign-form";
 import {
   CampaignManager,
@@ -21,7 +22,10 @@ export default async function PreventionCampaignsSettingsPage() {
   }
 
   const supabase = await createClient();
-  const [{ data: campaigns }, { data: requested }] = await Promise.all([
+  const [
+    { data: campaigns, error: campaignsError },
+    { data: requested, error: requestedError },
+  ] = await Promise.all([
     supabase
       .from("prevention_campaigns")
       .select("id, code, name, description, starts_on, ends_on, status, actions, population_id")
@@ -67,6 +71,12 @@ export default async function PreventionCampaignsSettingsPage() {
         description="Time-boxed, population-level initiatives: education, screening invitations, extra assessments, partner offers, and challenges targeted at an eligible subset of patients based on their own risk profile."
       />
       <CampaignForm populations={populations ?? []} />
+      {(campaignsError || requestedError) && (
+        <LoadFailure>
+          Some campaigns could not be loaded ({(campaignsError ?? requestedError)?.message}). The
+          list below may be missing rows, not genuinely empty.
+        </LoadFailure>
+      )}
       <CampaignManager
         campaigns={rows}
         requestedCampaigns={requestedRows}
