@@ -30,6 +30,10 @@ import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
 import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
 import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
 import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
+import { TimelineScreen } from "@/screens/sections/timeline-screen";
+import { AdolescentHealthScreen } from "@/screens/sections/adolescent-health-screen";
+import { ExerciseScreen } from "@/screens/sections/exercise-screen";
+import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
 import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
 import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
 import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
@@ -154,6 +158,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
   const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
+  const [openVideoVisitId, setOpenVideoVisitId] = useState<string | null>(null);
 
   const refreshActing = useCallback(() => {
     // Best-effort: a failed read (e.g. SecureStore hiccup) falls back to the
@@ -196,13 +201,17 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
   // matching `section` is ever invoked, same as the branch chain this
   // replaces.
   const sectionRenderers: Record<SectionId, () => ReactNode> = {
-    overview: () => (
-      <OverviewScreen
-        patientId={subjectId}
-        patientName={acting?.fullName ?? patientName}
-        onNavigate={handleSelect}
-      />
-    ),
+    overview: () =>
+      openVideoVisitId ? (
+        <VideoVisitScreen consultationId={openVideoVisitId} onBack={() => setOpenVideoVisitId(null)} />
+      ) : (
+        <OverviewScreen
+          patientId={subjectId}
+          patientName={acting?.fullName ?? patientName}
+          onNavigate={handleSelect}
+          onOpenVideoVisit={setOpenVideoVisitId}
+        />
+      ),
     vitals: () => <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />,
     medications: () => (
       <MedicationsScreen
@@ -217,6 +226,11 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     care: () => <CareSupportScreen patientId={userId} organisationId={organisationId} />,
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
+    timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
+    adolescentHealth: () => (
+      <AdolescentHealthScreen isActingFor={acting !== null} actingForName={acting?.fullName ?? null} />
+    ),
+    exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
     devices: () =>
       openDevice ? (
         <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />

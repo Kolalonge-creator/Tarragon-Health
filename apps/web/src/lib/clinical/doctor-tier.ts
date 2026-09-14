@@ -43,17 +43,14 @@ export function hasPrescribingAuthority(staff: PrescribingAuthority | null): boo
 }
 
 /**
- * Every clinical tier, in ladder order. `care_coordinator` is deliberately
- * absent: it is a doctor_tier value but is explicitly non-clinical and must
- * never gain medication write access. Listing the clinical tiers rather than
- * excluding the one non-clinical value means a tier added to the enum later is
- * excluded by default instead of silently admitted.
+ * CLINICAL_TIERS/isClinicalTier re-exported from @tarragon/shared (moved
+ * 2026-09-12) -- mobile needed the identical allowlist for timeline-event
+ * attribution, and duplicating it by hand is exactly the kind of drift the
+ * tier-authority-monotonic-invariant memory warns about. Behaviour here is
+ * unchanged; this is a re-export, not a rewrite.
  */
-const CLINICAL_TIERS: DoctorTier[] = [
-  "medical_officer",
-  "senior_medical_officer",
-  "chief_medical_officer",
-];
+import { CLINICAL_TIERS, isClinicalTier } from "@tarragon/shared";
+export { isClinicalTier, CLINICAL_TIERS };
 
 /**
  * Same tier list as PRESCRIBING_TIERS today, deliberately a separate
@@ -82,20 +79,6 @@ const GOVERNANCE_TIERS: DoctorTier[] = ["chief_medical_officer"];
  * above.
  */
 const SAFEGUARDING_REVIEW_TIERS: DoctorTier[] = ["senior_medical_officer", "chief_medical_officer"];
-
-/**
- * True for anyone who may act as a doctor in the clinical sense: any tier on
- * the ladder. False for `care_coordinator` (a doctor_tier value, but
- * explicitly non-clinical — see CLINICAL_TIERS above) and for a null tier.
- * Use this, not a bare truthy `staff` check, to gate any UI that must never
- * reach a Care Coordinator even though they carry an active clinical_staff
- * row (added alongside the doctor-tier ladder, 20260715172711) — a plain
- * `staff &&` gate silently admits them.
- */
-export function isClinicalTier(staff: PrescribingAuthority | null): boolean {
-  if (!staff) return false;
-  return staff.doctor_tier !== null && CLINICAL_TIERS.includes(staff.doctor_tier);
-}
 
 /**
  * Mirrors private.can_confirm_medication_refill()

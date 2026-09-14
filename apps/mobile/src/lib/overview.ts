@@ -245,6 +245,7 @@ export function daysLabel(dateStr: string): string {
 }
 
 export interface UpcomingVideoVisit {
+  id: string;
   scheduledAt: string;
   joinUrl: string | null;
 }
@@ -264,7 +265,7 @@ export async function getUpcomingVideoVisit(patientId: string): Promise<QueryRes
   try {
     const { data, error } = await supabase
       .from("video_consultations")
-      .select("scheduled_at, join_url, status")
+      .select("id, scheduled_at, join_url, status")
       .eq("patient_id", patientId)
       .eq("context", "general_checkin")
       .gte("scheduled_at", new Date().toISOString())
@@ -274,7 +275,7 @@ export async function getUpcomingVideoVisit(patientId: string): Promise<QueryRes
       .maybeSingle();
     if (error) return { ok: false, error: error.message };
     if (!data?.scheduled_at) return { ok: true, data: null };
-    return { ok: true, data: { scheduledAt: data.scheduled_at, joinUrl: data.join_url } };
+    return { ok: true, data: { id: data.id, scheduledAt: data.scheduled_at, joinUrl: data.join_url } };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }

@@ -39,6 +39,7 @@ import {
   PrimaryButton,
   QuickActionButton,
   QuickActionGrid,
+  SecondaryButton,
   SectionLabel,
 } from "@/ui/components";
 import type { SectionId } from "@/lib/sections";
@@ -48,6 +49,7 @@ interface OverviewScreenProps {
   patientId: string;
   patientName: string;
   onNavigate: (section: SectionId) => void;
+  onOpenVideoVisit: (consultationId: string) => void;
 }
 
 interface NextBestStep {
@@ -135,7 +137,7 @@ function formatVisitTime(iso: string): string {
   );
 }
 
-export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewScreenProps) {
+export function OverviewScreen({ patientId, patientName, onNavigate, onOpenVideoVisit }: OverviewScreenProps) {
   const glucoseUnit = useGlucoseDisplayUnit();
   const uiLanguage = useUiLanguage();
   const tr = useT();
@@ -369,19 +371,26 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
               </Text>
             </View>
           </View>
-          {videoVisit.joinUrl ? (
-            // A standard Zoom join link (Universal/App Link) — Linking.openURL
-            // hands off to the native Zoom app if installed, or the Zoom web
-            // client otherwise. Same handoff the Care & support WebView
-            // already does for this link; surfaced here too since Overview is
-            // the screen a patient opens most (MOBILE_APP_SPEC.md §8).
-            <PrimaryButton
-              title="Join call"
-              onPress={() => void Linking.openURL(videoVisit.joinUrl!).catch(() => {})}
-            />
-          ) : (
-            <MutedText>Your join link will appear here once your doctor confirms the time.</MutedText>
-          )}
+          <View style={{ flexDirection: "row", gap: 8 }}>
+            {videoVisit.joinUrl ? (
+              // A standard Zoom join link (Universal/App Link) — Linking.openURL
+              // hands off to the native Zoom app if installed, or the Zoom web
+              // client otherwise. Same handoff the Care & support WebView
+              // already does for this link; surfaced here too since Overview is
+              // the screen a patient opens most (MOBILE_APP_SPEC.md §8).
+              <View style={{ flex: 1 }}>
+                <PrimaryButton
+                  title="Join call"
+                  onPress={() => void Linking.openURL(videoVisit.joinUrl!).catch(() => {})}
+                />
+              </View>
+            ) : (
+              <MutedText>Your join link will appear here once your doctor confirms the time.</MutedText>
+            )}
+            <View style={{ flex: 1 }}>
+              <SecondaryButton title="Details" onPress={() => onOpenVideoVisit(videoVisit.id)} />
+            </View>
+          </View>
         </Card>
       ) : null}
 
@@ -488,16 +497,21 @@ export function OverviewScreen({ patientId, patientName, onNavigate }: OverviewS
             <MutedText>No activity yet. Readings, medications and results will appear here.</MutedText>
           </Card>
         ) : (
-          <GroupedList>
-            {activity.map((item) => (
-              <GroupedListRow
-                key={item.id}
-                title={item.title}
-                subtitle={relativeTime(item.occurredAt)}
-                trailing="none"
-              />
-            ))}
-          </GroupedList>
+          <>
+            <GroupedList>
+              {activity.map((item) => (
+                <GroupedListRow
+                  key={item.id}
+                  title={item.title}
+                  subtitle={relativeTime(item.occurredAt)}
+                  trailing="none"
+                />
+              ))}
+            </GroupedList>
+            <Pressable onPress={() => onNavigate("timeline")} style={{ alignSelf: "flex-start" }}>
+              <Text style={{ color: colors.brand, fontSize: 13.5, fontWeight: "600" }}>View full timeline</Text>
+            </Pressable>
+          </>
         )}
       </View>
 

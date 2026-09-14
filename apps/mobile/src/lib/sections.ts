@@ -5,6 +5,7 @@ export type SectionId =
   | "meals"
   | "sleep"
   | "activity"
+  | "exercise"
   | "smoking"
   | "alcohol"
   | "myActions"
@@ -14,8 +15,10 @@ export type SectionId =
   | "devices"
   | "prevention"
   | "healthSummary"
+  | "timeline"
   | "womensHealth"
   | "sexualHealth"
+  | "adolescentHealth"
   | "wellbeing"
   | "healthCheck"
   | "findASpecialist"
@@ -119,6 +122,12 @@ export const SECTIONS: SectionDef[] = [
     group: "Your health",
   },
   {
+    id: "timeline",
+    label: "Full activity timeline",
+    icon: "time-outline",
+    group: "Your health",
+  },
+  {
     id: "womensHealth",
     label: "Women's Health",
     icon: "female-outline",
@@ -128,6 +137,12 @@ export const SECTIONS: SectionDef[] = [
     id: "sexualHealth",
     label: "Sexual & reproductive health",
     icon: "heart-outline",
+    group: "Your health",
+  },
+  {
+    id: "adolescentHealth",
+    label: "Adolescent Health",
+    icon: "sparkles-outline",
     group: "Your health",
   },
   {
@@ -162,6 +177,7 @@ export const SECTIONS: SectionDef[] = [
   { id: "meals", label: "Meals", icon: "restaurant-outline", group: "Stay well" },
   { id: "sleep", label: "Sleep", icon: "moon-outline", group: "Stay well" },
   { id: "activity", label: "Movement", icon: "walk-outline", group: "Stay well" },
+  { id: "exercise", label: "Exercise programmes", icon: "barbell-outline", group: "Stay well" },
   { id: "smoking", label: "Smoking", icon: "flame-outline", group: "Stay well" },
   { id: "alcohol", label: "Alcohol", icon: "wine-outline", group: "Stay well" },
   {

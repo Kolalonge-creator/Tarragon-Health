@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
-import * as WebBrowser from "expo-web-browser";
 import {
   loadLifestyleState,
   loadPastLifestyleGoals,
@@ -11,7 +10,6 @@ import {
 } from "@/lib/weight-management";
 import { EnrollCta, EnrollmentCard, when } from "@/screens/sections/lifestyle-shared";
 import type { SectionId } from "@/lib/sections";
-import { PLATFORM_URL } from "@/lib/platform-url";
 import { colors, spacing } from "@/ui/theme";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
 
@@ -44,14 +42,7 @@ const NATIVE_TRACKERS: {
   { label: "Movement", section: "activity", icon: "walk-outline" },
   { label: "Smoking", section: "smoking", icon: "flame-outline" },
   { label: "Alcohol", section: "alcohol", icon: "wine-outline" },
-];
-
-/** Still web: structured exercise programmes (readiness screening, enrolment)
- * have no native screen yet. Listed separately from the native trackers above
- * so the "opens in your browser" caption sits only on the one entry it is
- * true of. Meals is native now, minus the AI photo estimate -- see logMeal. */
-const WEB_TRACKERS: { label: string; path: string }[] = [
-  { label: "Exercise programmes", path: "/patient/exercise" },
+  { label: "Exercise programmes", section: "exercise", icon: "barbell-outline" },
 ];
 
 interface LifestyleScreenProps {
@@ -66,11 +57,11 @@ interface LifestyleScreenProps {
  * Enrolment/check-in/goal UI is shared with weight-management-screen.tsx via
  * lifestyle-shared.tsx, so obesity behaves identically whichever screen a
  * patient reaches it from. Weight management and Wellness rewards already
- * have their own native homes (link-outs, not rebuilds); the five
- * standalone trackers below (meals, exercise, sleep, smoking, alcohol) have
- * no native home yet, so tapping one hands off to the equivalent web page in
- * the system browser (expo-web-browser) — never an embedded WebView, so the
- * app never re-wraps a section it just went native on.
+ * have their own native homes (link-outs, not rebuilds); the six standalone
+ * trackers below (meals, exercise, sleep, smoking, alcohol, movement) are
+ * all native now too -- exercise programmes (readiness screening,
+ * enrolment) was the last of these still hand-offing to the web page in the
+ * system browser, closed 2026-09-12 (exercise-screen.tsx).
  */
 export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps) {
   const [loading, setLoading] = useState(true);
@@ -155,16 +146,6 @@ export function LifestyleScreen({ patientId, onNavigate }: LifestyleScreenProps)
             subtitle="Log it here, in the app."
             ctaLabel="Open"
             onPress={() => onNavigate(tracker.section)}
-          />
-        ))}
-        {WEB_TRACKERS.map((tracker) => (
-          <CalloutCard
-            key={tracker.path}
-            icon="leaf-outline"
-            title={tracker.label}
-            subtitle="Opens in your browser, signed in as you."
-            ctaLabel="Open"
-            onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}${tracker.path}`)}
           />
         ))}
       </View>
