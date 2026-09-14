@@ -7,6 +7,7 @@ import { useIsFeatureEnabled } from "@/lib/queries/feature-flags";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScoreRing } from "@/components/ui/score-ring";
+import { HealthScoreComponentGrid } from "@/components/health-score-component-grid";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import {
   getHealthScoreTips,
@@ -17,7 +18,6 @@ import {
 } from "@/lib/rules/health-score";
 import { computeBiologicalAge, describeBiologicalAgeTrend } from "@/lib/rules/biological-age";
 import { RISK_LEVEL_RING } from "@/lib/rules/risk-level-style";
-import { HEALTH_SCORE_COMPONENT_LABEL } from "@/lib/rules/health-score-labels";
 
 /**
  * A reframe of the existing Health Score (lib/rules/biological-age.ts) as an age
@@ -29,9 +29,13 @@ import { HEALTH_SCORE_COMPONENT_LABEL } from "@/lib/rules/health-score-labels";
  * migration 20260914180424) rather than shown unconditionally: presenting a derived
  * "age" is a stronger patient-facing clinical claim than the 0-100 score it reframes
  * (health-score.ts's own v1 scope note flags this), and as of this card's introduction
- * no real Clinical Director sign-off exists for it — only the code. Do not remove this
- * gate or flip the flag's live-DB row to 'on'/'rollout' without that sign-off actually
- * happening first; see lib/rules/biological-age.ts's module doc for the full history.
+ * no real Clinical Director sign-off exists for it — only the code. That underlying
+ * score now folds in real, clinician-reviewed lab-panel findings (heart/kidney/liver —
+ * see health-score.ts's 2026-09-14 update), which makes the claim behind this card
+ * stronger still, not weaker — more reason the gate stays on, not less. Do not remove
+ * this gate or flip the flag's live-DB row to 'on'/'rollout' without that sign-off
+ * actually happening first; see lib/rules/biological-age.ts's module doc for the full
+ * history.
  *
  * Uses the shared ScoreRing component/RISK_LEVEL_RING tokens (also used by
  * health-score-card.tsx's own ring) so the two cards look like one visual system
@@ -140,7 +144,8 @@ export function BiologicalAgeCard({ patientId }: { patientId: string }) {
 
             <p className="text-center text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               An illustrative estimate built from the same Health Score shown elsewhere on your
-              dashboard — not a lab-based or genetic biological-age test, and not a medical
+              dashboard — including your care team&apos;s review of any lab results on file, when
+              you have them. Not a dedicated biological-age panel or genetic test, and not a medical
               diagnosis. Updated {new Date(score.computed_at).toLocaleDateString()}.
             </p>
 
@@ -158,32 +163,9 @@ export function BiologicalAgeCard({ patientId }: { patientId: string }) {
               <NAV_ICON.chevronRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             </Link>
 
-            {components.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                {components.map((component, index) => {
-                  const isLastOdd =
-                    components.length % 2 === 1 && index === components.length - 1;
-                  return (
-                    <div
-                      key={component.key}
-                      className={`flex flex-col gap-0.5 rounded-lg bg-warm-ivory dark:bg-night-ink/10 px-3 py-2.5 ${
-                        isLastOdd ? "col-span-2" : ""
-                      }`}
-                    >
-                      <span className="text-[11px] text-charcoal-ink/55 dark:text-night-ink/55">
-                        {HEALTH_SCORE_COMPONENT_LABEL[component.key]}
-                      </span>
-                      <span className="text-[17px] font-semibold text-charcoal-ink dark:text-night-ink">
-                        {Math.round(component.value)}
-                        <span className="text-[11px] font-medium text-charcoal-ink/40 dark:text-night-ink/40">
-                          /100
-                        </span>
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <div className="pt-2">
+              <HealthScoreComponentGrid components={components} />
+            </div>
 
             {priorityTip && (
               <div className="space-y-1 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">

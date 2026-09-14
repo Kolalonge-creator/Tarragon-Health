@@ -5,6 +5,7 @@ import { useLatestHealthScore, useHealthScoreHistory } from "@/lib/queries/healt
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScoreRing } from "@/components/ui/score-ring";
+import { HealthScoreComponentGrid } from "@/components/health-score-component-grid";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 import {
   getHealthScoreTips,
@@ -15,7 +16,6 @@ import {
   type HealthScoreRiskLevel,
 } from "@/lib/rules/health-score";
 import { RISK_LEVEL_RING } from "@/lib/rules/risk-level-style";
-import { HEALTH_SCORE_COMPONENT_LABEL } from "@/lib/rules/health-score-labels";
 
 import { formatPatientDate } from "@/lib/format-date";
 // Clinical-dashboard status colours (green/amber/red) — a separate system
@@ -83,8 +83,9 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
               <Badge variant={badgeStyle.variant}>{badgeStyle.label}</Badge>
             </div>
             <p className="text-center text-xs text-charcoal-ink/60 dark:text-night-ink/60">
-              A non-diagnostic summary of a few everyday habits and numbers we already have on
-              file, not a medical diagnosis. Updated {formatPatientDate(data.computed_at)}.
+              A non-diagnostic summary of a few everyday habits, numbers, and (when you have them)
+              your care team&apos;s reviewed lab results — not a medical diagnosis. Updated{" "}
+              {formatPatientDate(data.computed_at)}.
             </p>
             {trend && (
               <p className="rounded-md bg-soft-sage dark:bg-brand-green/20 px-3 py-2 text-sm text-deep-forest dark:text-brand-green-bright">
@@ -98,36 +99,9 @@ export function HealthScoreCard({ patientId }: { patientId: string }) {
               See your trend over time
               <NAV_ICON.chevronRight className="h-3.5 w-3.5" strokeWidth={2} aria-hidden />
             </Link>
-            {components.length > 0 && (
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                {components.map((component, index) => {
-                  const isLastOdd = components.length % 2 === 1 && index === components.length - 1;
-                  return (
-                    <div
-                      key={component.key}
-                      className={`flex flex-col gap-0.5 rounded-lg bg-warm-ivory dark:bg-night-ink/10 px-3 py-2.5 ${
-                        isLastOdd ? "col-span-2" : ""
-                      }`}
-                    >
-                      <span className="text-[11px] text-charcoal-ink/55 dark:text-night-ink/55">
-                        {HEALTH_SCORE_COMPONENT_LABEL[component.key]}
-                      </span>
-                      <span className="text-[17px] font-semibold text-charcoal-ink dark:text-night-ink">
-                        {Math.round(component.value)}
-                        <span className="text-[11px] font-medium text-charcoal-ink/40 dark:text-night-ink/40">
-                          /100
-                        </span>
-                      </span>
-                      {component.detail && (
-                        <span className="text-[11px] text-charcoal-ink/50 dark:text-night-ink/50">
-                          {component.detail}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <div className="pt-2">
+              <HealthScoreComponentGrid components={components} />
+            </div>
             {priorityTip && (
               <div className="space-y-1 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
                 <p className="text-xs font-medium text-charcoal-ink/70 dark:text-night-ink/70">

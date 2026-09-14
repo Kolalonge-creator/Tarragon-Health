@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { computeHealthScore, type HealthScoreInputs } from "@/lib/rules/health-score";
 import { fetchLatestBmi } from "@/lib/health-metrics/bmi";
+import { getBiomarkerCategories } from "@/lib/lab-reports/biomarker-categories";
 import type { Database, Json } from "@tarragon/shared";
 
 const BP_CONTROL_WINDOW_DAYS = 90;
@@ -106,6 +107,34 @@ async function fetchSmoking(
 }
 
 /**
+ * Heart/kidney/liver panel status for the three biomarker_* components,
+ * reusing biomarker-categories.ts's existing rollup wholesale rather than
+ * re-querying lab_result_interpretations here — one source of truth for
+ * "what does a reviewed lab panel say about this patient," shared with
+ * BiomarkerCategoriesCard on the dashboard. `blood_sugar` is fetched too
+ * (getBiomarkerCategories always returns all four) but deliberately
+ * discarded — see health-score.ts's module doc for why.
+ */
+async function fetchBiomarkerStatuses(
+  supabase: SupabaseClient<Database>,
+  patientId: string
+): Promise<
+  Pick<
+    HealthScoreInputs,
+    "heartBiomarkerStatus" | "kidneyBiomarkerStatus" | "liverBiomarkerStatus"
+  >
+> {
+  const categories = await getBiomarkerCategories(supabase, patientId);
+  const statusOf = (key: "heart" | "kidney" | "liver") =>
+    categories.find((c) => c.key === key)?.status ?? null;
+  return {
+    heartBiomarkerStatus: statusOf("heart"),
+    kidneyBiomarkerStatus: statusOf("kidney"),
+    liverBiomarkerStatus: statusOf("liver"),
+  };
+}
+
+/**
  * Best-effort Health Score (re)computation — mirrors assessBpControlBestEffort's
  * never-throws, silent-no-op-on-missing-data contract. Called after events
  * that change one of the score's inputs (a vitals log, a risk assessment
@@ -126,6 +155,7 @@ export async function assessHealthScoreBestEffort(
     vaccinationCompliancePercent,
     bmi,
     smoking,
+    biomarkers,
   ] = await Promise.all([
     fetchBpControlPercent(supabase, patientId),
     fetchLatestHba1c(supabase, patientId),
@@ -133,6 +163,7 @@ export async function assessHealthScoreBestEffort(
     fetchVaccinationCompliancePercent(supabase, patientId),
     fetchLatestBmi(supabase, patientId),
     fetchSmoking(supabase, patientId),
+    fetchBiomarkerStatuses(supabase, patientId),
   ]);
 
   const result = computeHealthScore({
@@ -142,6 +173,7 @@ export async function assessHealthScoreBestEffort(
     vaccinationCompliancePercent,
     bmi,
     ...smoking,
+    ...biomarkers,
   });
   if (!result) return;
 
@@ -153,7 +185,7 @@ export async function assessHealthScoreBestEffort(
       score_type: "health_score",
       score: result.score,
       risk_level: result.riskLevel,
-      model_version: "health_score_rule_based_v2",
+      model_version: "health_score_rule_based_v3",
       inputs: { components: result.components } as unknown as Json,
     });
 }

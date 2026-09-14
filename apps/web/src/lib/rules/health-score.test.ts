@@ -16,6 +16,22 @@ const allUnavailable: HealthScoreInputs = {
   bmi: null,
   smokingStatus: null,
   cigarettesPerDay: null,
+  heartBiomarkerStatus: null,
+  kidneyBiomarkerStatus: null,
+  liverBiomarkerStatus: null,
+};
+
+const fullyHealthy: HealthScoreInputs = {
+  bpControlPercent: 100,
+  latestHba1cPercent: 5.2,
+  screeningCompliancePercent: 100,
+  vaccinationCompliancePercent: 100,
+  bmi: 22,
+  smokingStatus: "never",
+  cigarettesPerDay: null,
+  heartBiomarkerStatus: "good",
+  kidneyBiomarkerStatus: "good",
+  liverBiomarkerStatus: "good",
 };
 
 describe("computeHealthScore", () => {
@@ -24,15 +40,7 @@ describe("computeHealthScore", () => {
   });
 
   it("scores a fully healthy profile near 100", () => {
-    const result = computeHealthScore({
-      bpControlPercent: 100,
-      latestHba1cPercent: 5.2,
-      screeningCompliancePercent: 100,
-      vaccinationCompliancePercent: 100,
-      bmi: 22,
-      smokingStatus: "never",
-      cigarettesPerDay: null,
-    });
+    const result = computeHealthScore(fullyHealthy);
     expect(result).not.toBeNull();
     expect(result!.score).toBeGreaterThanOrEqual(95);
     expect(result!.riskLevel).toBe("low");
@@ -47,6 +55,9 @@ describe("computeHealthScore", () => {
       bmi: 34,
       smokingStatus: "current",
       cigarettesPerDay: "20_plus",
+      heartBiomarkerStatus: "needs_attention",
+      kidneyBiomarkerStatus: "needs_attention",
+      liverBiomarkerStatus: "needs_attention",
     });
     expect(result).not.toBeNull();
     expect(result!.score).toBeLessThan(40);
@@ -65,23 +76,11 @@ describe("computeHealthScore", () => {
   });
 
   it("does not penalise a missing HbA1c reading", () => {
-    const withHba1c = computeHealthScore({
-      bpControlPercent: 100,
-      latestHba1cPercent: 5.2,
-      screeningCompliancePercent: 100,
-      vaccinationCompliancePercent: null,
-      bmi: 22,
-      smokingStatus: "never",
-      cigarettesPerDay: null,
-    });
+    const withHba1c = computeHealthScore({ ...fullyHealthy, vaccinationCompliancePercent: null });
     const withoutHba1c = computeHealthScore({
-      bpControlPercent: 100,
+      ...fullyHealthy,
       latestHba1cPercent: null,
-      screeningCompliancePercent: 100,
       vaccinationCompliancePercent: null,
-      bmi: 22,
-      smokingStatus: "never",
-      cigarettesPerDay: null,
     });
     expect(withoutHba1c!.score).toBeGreaterThanOrEqual(withHba1c!.score - 2);
   });
@@ -112,19 +111,43 @@ describe("computeHealthScore", () => {
     const hba1c = result.components.find((c) => c.key === "hba1c");
     expect(hba1c?.detail).toBe("41 mmol/mol (5.9%, Prediabetic range)");
   });
+
+  it("scores each biomarker category only when a reviewed status exists for it", () => {
+    const heartOnly = computeHealthScore({ ...allUnavailable, heartBiomarkerStatus: "good" })!;
+    expect(heartOnly.components).toHaveLength(1);
+    expect(heartOnly.components[0].key).toBe("biomarker_heart");
+    expect(heartOnly.components[0].value).toBe(100);
+    expect(heartOnly.components[0].detail).toBe("From your reviewed lab results");
+    // no reviewed panel for any category yet: none of the three appear, and
+    // a patient with nothing else logged still gets no score at all
+    expect(computeHealthScore(allUnavailable)).toBeNull();
+  });
+
+  it("scores a needs_attention biomarker category well below good, but not to zero", () => {
+    const result = computeHealthScore({
+      ...allUnavailable,
+      kidneyBiomarkerStatus: "needs_attention",
+    })!;
+    const kidney = result.components.find((c) => c.key === "biomarker_kidney");
+    expect(kidney?.value).toBe(40);
+  });
+
+  it("scores heart/kidney/liver independently — one flagged category doesn't affect the others", () => {
+    const result = computeHealthScore({
+      ...allUnavailable,
+      heartBiomarkerStatus: "needs_attention",
+      kidneyBiomarkerStatus: "good",
+      liverBiomarkerStatus: "good",
+    })!;
+    expect(result.components.find((c) => c.key === "biomarker_heart")?.value).toBe(40);
+    expect(result.components.find((c) => c.key === "biomarker_kidney")?.value).toBe(100);
+    expect(result.components.find((c) => c.key === "biomarker_liver")?.value).toBe(100);
+  });
 });
 
 describe("getHealthScoreTips", () => {
   it("returns no tips when every component is already at/above threshold", () => {
-    const result = computeHealthScore({
-      bpControlPercent: 100,
-      latestHba1cPercent: 5.2,
-      screeningCompliancePercent: 100,
-      vaccinationCompliancePercent: 100,
-      bmi: 22,
-      smokingStatus: "never",
-      cigarettesPerDay: null,
-    })!;
+    const result = computeHealthScore(fullyHealthy)!;
     expect(getHealthScoreTips(result.components)).toEqual([]);
   });
 
@@ -137,11 +160,24 @@ describe("getHealthScoreTips", () => {
       bmi: 22,
       smokingStatus: "current",
       cigarettesPerDay: "20_plus",
+      heartBiomarkerStatus: null,
+      kidneyBiomarkerStatus: null,
+      liverBiomarkerStatus: null,
     })!;
     const tips = getHealthScoreTips(result.components);
     expect(tips).toHaveLength(2);
     expect(tips.some((t) => t.toLowerCase().includes("blood pressure"))).toBe(true);
     expect(tips.some((t) => t.toLowerCase().includes("smoking"))).toBe(true);
+  });
+
+  it("returns a tip for a flagged biomarker category", () => {
+    const result = computeHealthScore({
+      ...allUnavailable,
+      liverBiomarkerStatus: "needs_attention",
+    })!;
+    const tips = getHealthScoreTips(result.components);
+    expect(tips).toHaveLength(1);
+    expect(tips[0].toLowerCase()).toContain("liver panel");
   });
 });
 

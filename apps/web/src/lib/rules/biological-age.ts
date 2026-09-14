@@ -2,24 +2,31 @@ import type { HealthScoreTrend } from "./health-score";
 
 /**
  * Biological Age v1 — an illustrative, non-diagnostic reframe of the existing 0-100
- * Health Score (lib/rules/health-score.ts) as an age estimate. This is NOT a validated
- * biological-age test: there is no biomarker panel behind it (no DNA methylation clock
- * like PhenoAge/GrimAge, no blood-panel composite like the ones Function Health/
- * Elysium/TruAge market). It is a fixed, transparent linear transform of the same score
- * already shown on HealthScoreCard — same inputs, same weighting, same "simple rule,
- * not a black box" posture health-score.ts documents for the score it reframes. Every
- * UI surface that shows this number must say so explicitly, not just imply it via a
+ * Health Score (lib/rules/health-score.ts) as an age estimate. This is NOT a validated,
+ * dedicated biological-age test: there is no DNA-methylation clock (PhenoAge/GrimAge)
+ * and no purpose-built biomarker composite like the ones Function Health/Elysium/TruAge
+ * market. It IS, as of 2026-09-14, informed by real clinician-reviewed lab-panel status
+ * (heart/kidney/liver — health-score.ts's biomarker_heart/kidney/liver components,
+ * themselves reused wholesale from lib/lab-reports/biomarker-categories.ts, never a raw
+ * value classified here or anywhere in this file). So "no biomarker panel behind it" is
+ * no longer accurate and must not be said in any UI copy — say instead that this is not
+ * a *dedicated, validated* biological-age panel/genetic test, since that's the actual
+ * gap. It remains a fixed, transparent linear transform of the same score already shown
+ * on HealthScoreCard — same inputs, same weighting, same "simple rule, not a black box"
+ * posture health-score.ts documents for the score it reframes. Every UI surface that
+ * shows this number must state the real distinction explicitly, not just imply it via a
  * "non-diagnostic" footnote — "biological age" is an established category of consumer
- * health product with real lab work behind it, and presenting a reframed wellness score
- * under the same name without that distinction being stated plainly would overstate
- * what this platform is actually measuring.
+ * health product, and presenting a reframed wellness score under the same name without
+ * that distinction stated plainly would overstate what this platform is measuring.
  *
  * health-score.ts's own v1 scope note flagged this exact gap: presenting a derived
  * "age" is a stronger patient-facing clinical claim than a 0-100 score and needs its
  * own sign-off before going live to patients — not a drive-by addition. That sign-off
- * has NOT happened as of this file's introduction (2026-09-14) — no protocol_drafts
- * row, no Clinical Director review, nothing beyond this code existing. So the
- * patient-facing card built around this module is gated behind the
+ * has NOT happened as of this file's introduction (2026-09-14), nor as of the
+ * biomarker-panel expansion the same day — no protocol_drafts row, no Clinical Director
+ * review, nothing beyond this code existing. If anything the expansion raises the bar
+ * for that review, since the underlying score now reflects more real clinical signal
+ * than it did. So the patient-facing card built around this module is gated behind the
  * `biological_age_card` feature flag (migration
  * 20260914180424_biological_age_card_feature_flag.sql), defaulting to `status = 'off'`
  * — see apps/web/src/components/biological-age-card.tsx. Do not flip that flag on for

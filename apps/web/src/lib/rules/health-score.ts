@@ -27,6 +27,20 @@ import { formatHba1cWithBracket } from "./hba1c-bracket";
  * `biological_age_card` feature flag, default off, until a real Clinical
  * Director review happens. Do not treat the existence of that module as
  * the sign-off this comment is about.
+ *
+ * Blood-test components added 2026-09-14 (biomarker_heart/kidney/liver,
+ * founder-requested expansion for Biological Age): same v2-addition pattern
+ * as vaccination compliance below, and the same safety discipline as
+ * everything else in this file — no new clinical thresholds invented. Each
+ * reuses `lib/lab-reports/biomarker-categories.ts`'s existing rollup, which
+ * itself only ever surfaces `lab_result_interpretations` rows a clinician
+ * has actually reviewed (`source = 'clinician'`), never a raw value against
+ * `analyte-catalogue.ts`'s reference ranges — that file's own header is
+ * explicit those bands are "ORIENTATION ONLY... never used to classify a
+ * result." `blood_sugar` (the biomarker-categories.ts group covering
+ * fasting/random/OGTT glucose) is deliberately excluded here: HbA1c already
+ * scores the same glycaemic signal via its own component below, and folding
+ * both in would double-count one underlying clinical fact.
  */
 
 export type HealthScoreRiskLevel = "low" | "moderate" | "high" | "very_high";
@@ -44,10 +58,27 @@ export interface HealthScoreInputs {
   bmi: number | null;
   smokingStatus: "never" | "former" | "current" | null;
   cigarettesPerDay: "1_5" | "6_10" | "11_20" | "20_plus" | null;
+  /** From biomarker-categories.ts's rollup of clinician-reviewed lab results.
+   * Null when no reviewed order has touched that category yet — never
+   * inferred, matching every other input in this file. */
+  heartBiomarkerStatus: "good" | "needs_attention" | null;
+  kidneyBiomarkerStatus: "good" | "needs_attention" | null;
+  liverBiomarkerStatus: "good" | "needs_attention" | null;
 }
 
+export type HealthScoreComponentKey =
+  | "bp_control"
+  | "hba1c"
+  | "screening_compliance"
+  | "vaccination"
+  | "bmi"
+  | "smoking"
+  | "biomarker_heart"
+  | "biomarker_kidney"
+  | "biomarker_liver";
+
 export interface HealthScoreComponent {
-  key: "bp_control" | "hba1c" | "screening_compliance" | "vaccination" | "bmi" | "smoking";
+  key: HealthScoreComponentKey;
   /** 0–100 sub-score for this component alone. */
   value: number;
   /** Weight actually used (redistributed if some components are unavailable). */
@@ -67,6 +98,10 @@ export interface ComputedHealthScore {
 // as v2 (2026-07-23, prevention-first pass): same shape as screening
 // compliance, only scored once something is actually due — never penalises
 // a patient whose schedule hasn't been generated yet.
+// biomarker_heart/kidney/liver weighted at 15 each (2026-09-14) — the same
+// weight as bmi: a real, clinician-reviewed finding, but each covers only
+// one body system, so no single panel should swing the overall score as
+// hard as blood pressure or smoking can.
 const BASE_WEIGHTS = {
   bp_control: 25,
   hba1c: 20,
@@ -74,6 +109,9 @@ const BASE_WEIGHTS = {
   vaccination: 10,
   bmi: 15,
   smoking: 20,
+  biomarker_heart: 15,
+  biomarker_kidney: 15,
+  biomarker_liver: 15,
 } as const;
 
 /** Normal range 18.5–24.9; score tapers off symmetrically outside it. */
@@ -109,6 +147,18 @@ function smokingSubScore(
     default:
       return 30;
   }
+}
+
+/** A clinician has already reviewed and flagged this body system's panel as
+ * outside normal — a confirmed finding, not a raw-value guess, so it scores
+ * meaningfully below "good" without a further severity grade to work from
+ * (biomarker-categories.ts's rollup is binary, by design — see its own
+ * header on why it never grades severity itself). 40 sits in the same
+ * register as a diabetic-range HbA1c (hba1cSubScore's floor above 6.5%),
+ * not as low as heavy current smoking, which this file already treats as
+ * the single worst input it scores. */
+function biomarkerCategorySubScore(status: "good" | "needs_attention"): number {
+  return status === "good" ? 100 : 40;
 }
 
 function riskLevelFor(score: number): HealthScoreRiskLevel {
@@ -156,6 +206,30 @@ export function computeHealthScore(inputs: HealthScoreInputs): ComputedHealthSco
       weight: BASE_WEIGHTS.smoking,
     });
   }
+  if (inputs.heartBiomarkerStatus !== null) {
+    available.push({
+      key: "biomarker_heart",
+      value: biomarkerCategorySubScore(inputs.heartBiomarkerStatus),
+      weight: BASE_WEIGHTS.biomarker_heart,
+      detail: "From your reviewed lab results",
+    });
+  }
+  if (inputs.kidneyBiomarkerStatus !== null) {
+    available.push({
+      key: "biomarker_kidney",
+      value: biomarkerCategorySubScore(inputs.kidneyBiomarkerStatus),
+      weight: BASE_WEIGHTS.biomarker_kidney,
+      detail: "From your reviewed lab results",
+    });
+  }
+  if (inputs.liverBiomarkerStatus !== null) {
+    available.push({
+      key: "biomarker_liver",
+      value: biomarkerCategorySubScore(inputs.liverBiomarkerStatus),
+      weight: BASE_WEIGHTS.biomarker_liver,
+      detail: "From your reviewed lab results",
+    });
+  }
 
   if (available.length === 0) return null;
 
@@ -180,6 +254,12 @@ const COMPONENT_TIP: Record<HealthScoreComponent["key"], string> = {
   bmi: "Small, sustainable shifts in activity or diet tend to move this in the right direction over time — no need to rush it.",
   smoking:
     "Cutting back on smoking, even gradually, is one of the fastest ways to lift both this score and your long-term health.",
+  biomarker_heart:
+    "Your latest reviewed heart panel flagged something worth a closer look — a chat with your care team is the natural next step.",
+  biomarker_kidney:
+    "Your latest reviewed kidney panel flagged something worth a closer look — a chat with your care team is the natural next step.",
+  biomarker_liver:
+    "Your latest reviewed liver panel flagged something worth a closer look — a chat with your care team is the natural next step.",
 };
 
 /**
