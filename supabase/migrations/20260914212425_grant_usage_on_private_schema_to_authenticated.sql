@@ -1,0 +1,42 @@
+-- Fixes a live, previously-silent production bug: the admin Integrations
+-- page (apps/web/src/app/(dashboard)/admin/settings/integrations/page.tsx)
+-- was rendering "no partner connections registered" for every admin,
+-- unconditionally, because its two backing RPCs (public.integration_catalogue,
+-- public.integration_health_metrics) are SECURITY INVOKER functions that call
+-- into the private schema (private.current_org_id(), private.is_admin(),
+-- private.has_permission()) — running as the CALLING role, not the function
+-- owner. `authenticated` already had EXECUTE on each of those private
+-- functions individually (the standing default-privilege discipline this
+-- project already has — see CLAUDE.md's "private schema authenticated
+-- default is intentional"), but never USAGE on the `private` SCHEMA itself,
+-- which Postgres also requires before it will even resolve a schema-qualified
+-- name for a SECURITY INVOKER caller. The error ("permission denied for
+-- schema private") was only surfaced once the admin app-code side of this
+-- (a separate PR, #600) stopped silently swallowing Supabase query errors.
+--
+-- Confirmed via a live audit that only 3 functions in the whole database
+-- share this SECURITY INVOKER + private.* shape: the two above (live,
+-- user-facing, actually broken) and public.lookup_concept (verified dead
+-- code — zero references anywhere in apps/web or apps/mobile), so this one
+-- grant closes the entire gap rather than papering over one call site.
+--
+-- USAGE ON SCHEMA is the weakest schema-level grant: it only lets a role
+-- resolve/reference objects by name in that schema. It does not itself grant
+-- SELECT on any table or EXECUTE on any function in `private` — those already
+-- have their own separate, already-correct grants. `anon` is deliberately
+-- NOT granted this (verified: anon has neither this nor per-function EXECUTE
+-- on the private functions these two RPCs call), consistent with this
+-- project's standing "never grant anon on public schema objects" discipline
+-- (20260731232750_default_privileges_never_grant_anon_on_public_tables.sql)
+-- extended to schema-level USAGE too.
+--
+-- Applied directly to the live project (koiplnmbgnqnbywhpjlf) before this
+-- file was committed, per this repo's own standing rule that CI does not
+-- push migrations and a merge to main-dev deploys immediately — this file
+-- exists so git does not drift from what production already has. Verified
+-- live in the browser (a real admin session) before and after: the
+-- Integrations page's "Some integration data could not be loaded (permission
+-- denied for schema private)" banner is gone post-grant, with no other
+-- change.
+
+grant usage on schema private to authenticated;
