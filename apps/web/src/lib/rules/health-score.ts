@@ -18,9 +18,15 @@ import { formatHba1cWithBracket } from "./hba1c-bracket";
  * data; the other components' weights are redistributed to fill 100.
  *
  * Heart Age / Metabolic Age (mentioned in the spec as optional additions
- * inspired by Hello Heart) are deliberately out of v1 scope — presenting a
- * derived "age" is a stronger patient-facing clinical claim than a 0–100
- * score and deserves its own sign-off, not a drive-by addition here.
+ * inspired by Hello Heart) were deliberately left out of this file's v1
+ * scope — presenting a derived "age" is a stronger patient-facing clinical
+ * claim than a 0–100 score and needs its own sign-off, not a drive-by
+ * addition here. lib/rules/biological-age.ts now reframes this same score
+ * as an age estimate, but that reframe is code only, not a sign-off — its
+ * patient-facing surface (BiologicalAgeCard) is gated behind the
+ * `biological_age_card` feature flag, default off, until a real Clinical
+ * Director review happens. Do not treat the existence of that module as
+ * the sign-off this comment is about.
  */
 
 export type HealthScoreRiskLevel = "low" | "moderate" | "high" | "very_high";

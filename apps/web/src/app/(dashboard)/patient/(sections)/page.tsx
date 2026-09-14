@@ -26,6 +26,7 @@ import { RiskSignalsCard } from "@/app/(dashboard)/patient/risk-signals-card";
 import { HealthTrendsCard } from "@/components/patient/health-trends-card";
 import { CareScheduleCard } from "@/app/(dashboard)/patient/care-schedule-card";
 import { HealthScoreCard } from "@/components/health-score-card";
+import { BiologicalAgeCard } from "@/components/biological-age-card";
 import { PreventionCompletionCard } from "@/app/(dashboard)/patient/prevention-completion-card";
 import { HealthProgressCard } from "@/app/(dashboard)/patient/health-progress-card";
 import { ServicesPromoCard } from "@/app/(dashboard)/patient/services-promo-card";
@@ -286,6 +287,17 @@ export default async function PatientOverviewPage() {
           <PreventionCompletionCard patientId={subjectId} />
         </Suspense>
       </div>
+
+      {/* Gated off by default behind the `biological_age_card` feature flag
+          (see biological-age-card.tsx's module doc) — a reframe of the score
+          above as an age estimate, deliberately NOT paired into the grid
+          above it: this page already documents "avoid presenting a
+          misleading single health score" as the reason HealthScoreCard isn't
+          the page's only number, and a second age-framed number sitting
+          right next to it would cut against that same reasoning. Renders
+          null entirely while the flag is off, so this is inert until a
+          Clinical Director actually reviews and enables it. */}
+      <BiologicalAgeCard patientId={subjectId} />
 
       {/* Behavioural engagement across areas (Patient Engagement Engine
           spec §16.5) — distinct from both cards above: HealthScoreCard is
