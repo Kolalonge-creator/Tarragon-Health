@@ -61,6 +61,7 @@ export default async function ChronicCarePage() {
         imageSrc={MARKETING_MEDIA.pageHero.chronicCare.imageSrc ?? ""}
         imageAlt={MARKETING_MEDIA.pageHero.chronicCare.imageAlt ?? ""}
         imagePosition={MARKETING_MEDIA.pageHero.chronicCare.imageFocus}
+        videoSrc={MARKETING_MEDIA.pageHero.chronicCare.videoSrc}
       />
 
       <Section className="pt-14">

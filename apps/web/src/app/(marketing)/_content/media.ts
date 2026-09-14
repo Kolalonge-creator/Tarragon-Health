@@ -129,11 +129,20 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/hypertension.jpg",
       imageAlt: "An older man reading his blood pressure monitor at home",
       imageFocus: "center 58%",
+      // 2026-09-14: image-to-video cinemagraph, same provenance/review process
+      // as homepage.hero.videoSrc above -- see that comment.
+      videoSrc: "/marketing/video/hypertension-ambient.mp4",
     } as MarketingMediaSlot,
     diabetes: {
       imageSrc: "/marketing/photos/hero/diabetes.jpg",
       imageAlt: "A woman preparing a meal at home with her glucometer on the counter beside her",
       imageFocus: "center 42%",
+      // 2026-09-14: second attempt -- the first morphed the knife/glucometer
+      // between frames and was rejected (caught in review, never shipped);
+      // this one drops the "continue chopping" motion instruction in favour
+      // of near-stillness on hands/objects, which held the knife and
+      // glucometer consistent across every sampled frame.
+      videoSrc: "/marketing/video/diabetes-ambient.mp4",
     } as MarketingMediaSlot,
     obesity: {
       imageSrc: "/marketing/photos/hero/obesity.jpg",
@@ -149,6 +158,7 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/prevention.jpg",
       imageAlt: "A woman reviewing her personal health notes at home",
       imageFocus: "center 28%",
+      videoSrc: "/marketing/video/prevention-ambient.mp4",
     } as MarketingMediaSlot,
     medication: {
       imageSrc: "/marketing/photos/hero/medication.jpg",
@@ -199,6 +209,7 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/services.jpg",
       imageAlt: "A hand holding a phone beside a blood pressure cuff on a table",
       imageFocus: "center 45%",
+      videoSrc: "/marketing/video/services-ambient.mp4",
     } as MarketingMediaSlot,
     /**
      * Illustration, not a photograph, on purpose. who-its-for.jpg was a
@@ -218,6 +229,7 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/chronic-care.jpg",
       imageAlt: "A clinician reviewing a tablet with a seated older patient",
       imageFocus: "center 20%",
+      videoSrc: "/marketing/video/chronic-care-ambient.mp4",
     } as MarketingMediaSlot,
     careCoordination: {
       imageSrc: "/marketing/photos/hero/care-coordination.jpg",

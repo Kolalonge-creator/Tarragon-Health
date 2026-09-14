@@ -36,6 +36,7 @@ export default function ServicesPage() {
         imageSrc={MARKETING_MEDIA.pageHero.services.imageSrc ?? ""}
         imageAlt={MARKETING_MEDIA.pageHero.services.imageAlt ?? ""}
         imagePosition={MARKETING_MEDIA.pageHero.services.imageFocus}
+        videoSrc={MARKETING_MEDIA.pageHero.services.videoSrc}
       />
 
       <Section className="pt-14">
