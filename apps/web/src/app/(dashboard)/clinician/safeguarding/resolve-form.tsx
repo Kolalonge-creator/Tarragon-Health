@@ -108,7 +108,7 @@ export function ResolveSafeguardingConcernForm({
         </>
       ) : (
         <span className="text-xs text-charcoal-ink/60">
-          Only a Tier 3+ clinician or the Clinical Director can move this into review or close it
+          Only a Senior Medical Officer or the Chief Medical Officer can move this into review or close it
         </span>
       )}
       {state?.error && <p className="w-full text-xs text-red-600">{state.error}</p>}

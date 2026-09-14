@@ -6,14 +6,21 @@ import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 export type BuyProgrammeAddonState = { error?: string; message?: string } | undefined;
 
 /**
- * Buys the 12-week doctor-supported add-on for one specific chronic-programme
+ * Buys entry to the doctor-supported track for one specific chronic-programme
  * enrolment — same checkout path as any other service_products purchase
  * (see purchase-service-product.ts), scoped to this enrolment via
  * scopedEntityType/scopedEntityId so it's unambiguous which 12-week window
- * it covers. private.derive_chronic_programme_track picks this up
- * automatically the next time the enrolment transitions into 'enrolled'
- * (re-enrolling), or immediately for a brand-new enrolment created after
- * the purchase activates.
+ * it covers.
+ *
+ * Sells continuous_monitoring_3m (₦7,500 / 90 days), not the old
+ * chronic_doctor_supported_pack — that flat bundle was retired 2026-09-10
+ * and unbundled; the chronic_doctor_supported_track feature (what actually
+ * flips an enrolment's track) now lives on the continuous_monitoring_*
+ * products instead. private.activate_chronic_programme_doctor_supported_track
+ * upgrades the scoped enrolment the moment this purchase activates (checked
+ * generically by feature grant, not by product code — see the
+ * fix_stale_chronic_doctor_supported_track_activation_check migration), for
+ * both a brand-new enrolment and one already mid-programme.
  */
 export async function buyProgrammeDoctorSupportedAddon(
   enrolmentId: string,
@@ -21,7 +28,7 @@ export async function buyProgrammeDoctorSupportedAddon(
   _formData: FormData
 ): Promise<BuyProgrammeAddonState> {
   const result = await purchaseServiceProduct({
-    serviceProductCode: "chronic_doctor_supported_pack",
+    serviceProductCode: "continuous_monitoring_3m",
     scopedEntityType: "chronic_programme_enrolments",
     scopedEntityId: enrolmentId,
     callbackPath: "/patient/subscription/checkout-callback",

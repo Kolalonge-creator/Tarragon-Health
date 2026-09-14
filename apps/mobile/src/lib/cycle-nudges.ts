@@ -57,7 +57,7 @@ export function computeCycleNudges(input: CycleNudgeInput): CycleNudge[] {
       nudges.push({
         id: "menopause_checkin",
         label:
-          "Perimenopause and menopause shift some health risks (bone, heart) — worth a conversation with your care team.",
+          "Perimenopause and menopause shift some health risks (bone, heart), worth a conversation with your care team.",
       });
       break;
     case "not_applicable":

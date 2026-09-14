@@ -94,7 +94,7 @@ export default async function SafeguardingPage({
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Safeguarding</h1>
         <p className="text-sm text-charcoal-ink/60">
           Restricted worklist: not visible to the patient or a family member. Moving a concern
-          into review, or resolving/closing it, needs a Tier 3+ clinician or the Clinical Director.
+          into review, or resolving/closing it, needs a Senior Medical Officer or the Chief Medical Officer.
         </p>
       </div>
 

@@ -30,6 +30,7 @@ import {
 import type { SectionId } from "@/lib/sections";
 import { colors, radius, spacing } from "@/ui/theme";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { WellbeingTrendChart } from "./wellbeing-trend-chart";
 
 const textInputStyle = {
   borderWidth: 1,
@@ -121,6 +122,10 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
   const [screens, setScreens] = useState<Partial<Record<string, MentalHealthScreen>>>({});
   const [loading, setLoading] = useState(true);
   const [showScreenForm, setShowScreenForm] = useState(false);
+  // Bumped on every refresh() (mount + after a check-in is saved) so
+  // WellbeingTrendChart — which fetches its own history independently, there
+  // being no shared query cache to invalidate on mobile — knows to refetch.
+  const [trendReloadToken, setTrendReloadToken] = useState(0);
 
   const refresh = useCallback(async () => {
     const [c, f, r, s] = await Promise.all([
@@ -133,6 +138,7 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
     setFrequencyDays(f);
     setNextReviewDue(r);
     setScreens(s);
+    setTrendReloadToken((t) => t + 1);
   }, [patientId]);
 
   useEffect(() => {
@@ -173,6 +179,8 @@ export function WellbeingScreen({ patientId, organisationId, onNavigate }: Wellb
         {nextReviewDue && <MutedText>Next review: {new Date(nextReviewDue).toLocaleDateString("en-GB", { day: "numeric", month: "long" })}</MutedText>}
         {!checkin && <MutedText>Log your first check-in below to see your mood, stress and sleep at a glance.</MutedText>}
       </Card>
+
+      <WellbeingTrendChart patientId={patientId} reloadToken={trendReloadToken} />
 
       <CheckinForm
         patientId={patientId}

@@ -39,6 +39,10 @@ export type StaffResultUploadInput = z.infer<typeof staffResultUploadSchema>;
 export const patientResultUploadSchema = z.object({
   lab_order_id: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
+  /** Scopes this upload to one test within a multi-test lab_order_id (the
+   * per-test checklist, lab-order-test-checklist.tsx). Omitted for a loose
+   * upload or a single-test order — there's nothing to disambiguate. */
+  test_code: z.string().trim().min(1).max(100).optional(),
 });
 export type PatientResultUploadInput = z.infer<typeof patientResultUploadSchema>;
 

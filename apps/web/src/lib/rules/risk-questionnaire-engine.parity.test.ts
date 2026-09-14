@@ -8,19 +8,26 @@ import type { RiskAssessmentInput } from "@/lib/validation/risk-assessment";
 /**
  * Proves the config-driven engine reproduces risk-scoring.ts's hardcoded
  * CONDITION_RULES exactly, tier-for-tier, across the same scenarios
- * risk-scoring.test.ts covers. Loads the seeded v1 config straight out of
- * migration 20260828183044_risk_questionnaire_configs.sql (the actual
- * $config$...$config$ jsonb literal, not a hand-copied TS re-transcription)
- * so there is exactly one source of truth for what "v1" contains — a typo
- * in either the SQL or a separate TS fixture could otherwise drift
- * unnoticed.
+ * risk-scoring.test.ts covers. Loads the seeded config straight out of its
+ * migration (the actual $config$...$config$ jsonb literal, not a hand-copied
+ * TS re-transcription) so there is exactly one source of truth for what a
+ * given version contains — a typo in either the SQL or a separate TS
+ * fixture could otherwise drift unnoticed.
+ *
+ * Pinned to v2 (20260913200833_risk_questionnaire_configs_v2_add_ckd.sql),
+ * not v1: v1 is a frozen, byte-for-byte port of the hardcoded engine AS IT
+ * STOOD on 2026-08-28 and is deliberately never retroactively edited when
+ * the hardcoded engine gains a new condition — see that migration's own
+ * "a change means a new version" comment. This file's whole point is
+ * "config parity with TODAY's hardcoded engine", so it must track whichever
+ * version is the latest full snapshot, not stay pinned to v1 forever.
  */
 const MIGRATION_PATH = path.resolve(
   __dirname,
-  "../../../../../supabase/migrations/20260828183044_risk_questionnaire_configs.sql",
+  "../../../../../supabase/migrations/20260913200833_risk_questionnaire_configs_v2_add_ckd.sql",
 );
 
-function loadSeededV1Config(): RiskQuestionnaireConfigPayload {
+function loadSeededConfig(): RiskQuestionnaireConfigPayload {
   const sql = fs.readFileSync(MIGRATION_PATH, "utf8");
   const match = sql.match(/\$config\$\n([\s\S]*?)\n\$config\$::jsonb/);
   if (!match) {
@@ -29,7 +36,7 @@ function loadSeededV1Config(): RiskQuestionnaireConfigPayload {
   return JSON.parse(match[1]) as RiskQuestionnaireConfigPayload;
 }
 
-const PREVENTION_INTAKE_V1 = loadSeededV1Config();
+const PREVENTION_INTAKE_V2 = loadSeededConfig();
 
 const baseResponses: RiskAssessmentInput = {
   family_diabetes: false,
@@ -60,14 +67,14 @@ const baseProfile: RiskScoringProfile = { sex: "female", ageYears: 30, weightKg:
 
 function tiersOf(responses: RiskAssessmentInput, profile: RiskScoringProfile) {
   const legacy = computeRiskTiers(responses, profile);
-  const configDriven = computeRiskFromConfig(PREVENTION_INTAKE_V1, responses as unknown as Record<string, unknown>, profile);
+  const configDriven = computeRiskFromConfig(PREVENTION_INTAKE_V2, responses as unknown as Record<string, unknown>, profile);
   return { legacy, configDriven };
 }
 
-describe("seeded v1 config structure", () => {
-  it("ports all 7 legacy conditions and all 22 legacy questions", () => {
-    expect(PREVENTION_INTAKE_V1.conditions).toHaveLength(7);
-    expect(PREVENTION_INTAKE_V1.questions).toHaveLength(22);
+describe("seeded v2 config structure", () => {
+  it("ports all 8 legacy conditions (7 original + ckd) and all 22 legacy questions", () => {
+    expect(PREVENTION_INTAKE_V2.conditions).toHaveLength(8);
+    expect(PREVENTION_INTAKE_V2.questions).toHaveLength(22);
   });
 });
 
@@ -98,6 +105,7 @@ describe("config-driven engine parity with the legacy hardcoded engine", () => {
     }, { ageYears: 50 }],
     ["prostate_ca family history, male", { family_cancer_types: ["prostate"] }, { sex: "male", ageYears: 55 }],
     ["cvd age threshold, female under 55 (should not trigger)", {}, { sex: "female", ageYears: 50 }],
+    ["ckd: family diabetes + family hypertension + age 60+", { family_diabetes: true, family_hypertension: true }, { ageYears: 62 }],
   ];
 
   it.each(scenarios)("%s — same tier for every emitted condition", (_label, responseOverrides, profileOverrides) => {

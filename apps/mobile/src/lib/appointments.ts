@@ -22,8 +22,8 @@ export type AvailableSlot = {
  * offers no in-person appointment right now; every bookable type here is
  * telemedicine with a Tarragon-employed doctor. */
 export const PATIENT_BOOKABLE_APPOINTMENT_TYPES: { type: AppointmentType; label: string }[] = [
-  { type: "telemedicine", label: "Telemedicine check-in" },
-  { type: "result_interpretation", label: "Result interpretation session" },
+  { type: "telemedicine", label: "Video or audio visit" },
+  { type: "result_interpretation", label: "Result Consultation" },
 ];
 
 /** Which service_products code pays for a given appointment type — mirrors
