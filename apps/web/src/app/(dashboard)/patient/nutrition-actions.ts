@@ -17,6 +17,7 @@ import { analyseNutrition, type NutritionAnalysisResult } from "@/lib/nutrition/
 import { detectNutritionRisk, RISK_REASON_LABELS } from "@/lib/nutrition/referral-risk";
 import { suggestBudgetAlternative } from "@/lib/nutrition/substitutions";
 import { generateMealPlan, type MealPlanGenerationResult } from "@/lib/nutrition/meal-plan-generate";
+import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
 
 const MEAL_PHOTO_BUCKET = "meal-photos";
 
@@ -169,6 +170,18 @@ export async function logMealAction(
 
   const { error } = await ctx.supabase.from("nutrition_log_entries").insert(row);
   if (error) return { error: error.message };
+
+  // Bridges into the Weekly Plan card's own completion tracking — a no-op
+  // for a patient with no active diet goal. See the helper's own comment
+  // for why this doesn't go through ingestMeasurement().
+  await recordWeeklyPlanProgress(ctx.supabase, {
+    patientId: ctx.userId,
+    organisationId: ctx.organisationId,
+    metric: "food_log",
+    valueJson: { meal_type },
+    unit: "check",
+  });
+
   return { success: true, aiStatus };
 }
 
