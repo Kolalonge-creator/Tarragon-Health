@@ -47,12 +47,19 @@ begin
   -- A real, active clinical_staff row for the clinician. Created here because
   -- the QA roster has none since the 2026-07-29 database rebuild.
   -- license_verified_at is required by clinical_staff_active_requires_verification;
-  -- indemnity is not, because Tier 2 is employed and covered institutionally.
+  -- indemnity is not, because Medical Officer is employed and covered
+  -- institutionally. Upserted (not a plain insert): v_clin may already carry
+  -- a real clinical_staff row, and profile_id is UNIQUE.
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, active, doctor_tier,
      credential_type, credential_number, license_verified_at)
-  values (v_org, v_clin, 'Dr Extraction Test', true, 'tier_2',
+  values (v_org, v_clin, 'Dr Extraction Test', true, 'medical_officer',
           'MDCN', 'TEST-EXTRACT-1', now())
+  on conflict (profile_id) do update
+    set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
+        active = excluded.active, doctor_tier = excluded.doctor_tier,
+        credential_type = excluded.credential_type, credential_number = excluded.credential_number,
+        license_verified_at = excluded.license_verified_at
   returning id into v_staff;
 
   ------------------------------------------------------------------

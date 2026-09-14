@@ -7,7 +7,7 @@
 -- emergency_escalation_tier_gate.sql) — a blocked-everything trigger would
 -- otherwise pass a negatives-only test:
 --   1. Close a referral with NO outcome recorded            -> BLOCKED (23514, CHECK)
---   2. Tier 1 closes a referral WITH an outcome + note      -> ALLOWED, closed_by/closed_at stamped
+--   2. Medical Officer closes a referral WITH an outcome + note -> ALLOWED, closed_by/closed_at stamped
 --   3. Org staff with NO active clinical_staff row closes   -> BLOCKED (42501) even though outcome+note present
 --      (control: outcome present alone is not sufficient — closing is gated to clinical tier, not just org-staff RLS)
 --   4. Reopening an already-closed referral                 -> BLOCKED (42501)
@@ -16,7 +16,7 @@
 --      UPDATE policy is staff-only, confirmed live)             app passed (auth.uid() is null under
 --                                                                 service-role, so the trigger does not
 --                                                                 overwrite it — see case 5 below)
---   6. Clinical Director (no doctor_tier, is_clinical_director) closes a fresh referral -> ALLOWED (control: the gate accepts either path, same as is_clinical_tier itself)
+--   6. Chief Medical Officer closes a fresh referral -> ALLOWED (control: any clinical tier satisfies the gate, same as is_clinical_tier itself)
 --
 -- Only ONE clinical_staff row is guaranteed to exist platform-wide (per
 -- emergency_escalation_tier_gate.sql's own note), so this test builds every
@@ -40,9 +40,9 @@ do $$
 declare
   v_org        uuid := '00000000-0000-0000-0000-000000000001';
   v_pat        uuid;
-  v_t1         uuid;  -- profile that will hold a Tier 1 clinical_staff row
+  v_t1         uuid;  -- profile that will hold a Medical Officer clinical_staff row
   v_noclin     uuid;  -- org-staff profile with NO clinical_staff row at all
-  v_dir        uuid;  -- profile that will hold a Clinical Director row, no tier
+  v_dir        uuid;  -- profile that will hold a Chief Medical Officer clinical_staff row
   v_ref_a      uuid;
   v_ref_b      uuid;
   v_ref_c      uuid;
@@ -72,26 +72,33 @@ begin
   -- Upsert rather than delete-then-insert: a real clinical_staff row can be
   -- referenced elsewhere (e.g. patient_timeline.actor_clinical_staff_id),
   -- which a plain DELETE would violate on live data with real history.
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, is_clinical_director)
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
   values
-    (v_org, v_t1,  'Referral Engine Tier One Fixture', true, now(), 'tier_1', false),
-    (v_org, v_dir, 'Referral Engine Director Fixture',  true, now(), null,    true)
+    (v_org, v_t1,  'Referral Engine Medical Officer Fixture', true, now(), 'medical_officer'),
+    (v_org, v_dir, 'Referral Engine Director Fixture',        true, now(), 'chief_medical_officer')
   on conflict (profile_id) do update set
     organisation_id = excluded.organisation_id,
     active = true,
     license_verified_at = now(),
-    doctor_tier = excluded.doctor_tier,
-    is_clinical_director = excluded.is_clinical_director;
+    doctor_tier = excluded.doctor_tier;
 
   -- v_noclin must have NO ACTIVE clinical_staff row for case 3's negative
   -- control — deactivate rather than delete, for the same reason as above.
   update public.clinical_staff set active = false where profile_id = v_noclin;
 
+  -- 20260829160522_specialist_referral_create_gate.sql (postdates this file)
+  -- requires the caller to be a clinical-tier session (private.is_clinical_tier)
+  -- to INSERT a specialist_referrals row at all -- run this fixture setup as
+  -- v_t1 rather than as the unauthenticated connecting role.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_t1, 'role', 'authenticated')::text, true);
+  perform set_config('role', 'authenticated', true);
   insert into public.specialist_referrals (organisation_id, patient_id, specialist_type, referral_reason, status)
   values
     (v_org, v_pat, 'cardiology', 'referral engine proof: no outcome yet', 'completed'),
     (v_org, v_pat, 'endocrinology', 'referral engine proof: outcome present', 'completed'),
     (v_org, v_pat, 'nephrology', 'referral engine proof: director close', 'completed');
+  perform set_config('role', 'postgres', true);
+  perform set_config('request.jwt.claims', '', true);
 
   select id into v_ref_a from public.specialist_referrals where referral_reason = 'referral engine proof: no outcome yet';
   select id into v_ref_b from public.specialist_referrals where referral_reason = 'referral engine proof: outcome present';
@@ -117,7 +124,7 @@ begin
     case when v_blocked then 'BLOCKED (correct)' else 'ALLOWED (BUG)' end, coalesce(v_err, 'no exception'));
 
   ---------------------------------------------------------------------------
-  -- 2. Record an outcome, then Tier 1 closes with a care-plan note -> ALLOWED
+  -- 2. Record an outcome, then Medical Officer closes with a care-plan note -> ALLOWED
   ---------------------------------------------------------------------------
   update public.specialist_referrals
     set treatment_plan_received_at = now(), treatment_plan_note = 'Started ACE inhibitor, review in 4 weeks'
@@ -138,7 +145,7 @@ begin
   perform set_config('request.jwt.claims', '', true);
 
   select closed_by into v_closed_by from public.specialist_referrals where id = v_ref_b;
-  insert into test_result values (2, 'Tier 1 closes with outcome + care-plan note', 'ALLOWED',
+  insert into test_result values (2, 'Medical Officer closes with outcome + care-plan note', 'ALLOWED',
     case when not v_blocked and v_closed_by = (select id from public.clinical_staff where profile_id = v_t1)
       then 'ALLOWED, closed_by correct (correct)' else 'FAILED (BUG)' end,
     'blocked=' || v_blocked || ' err=' || coalesce(v_err, 'none') || ' closed_by=' || coalesce(v_closed_by::text, 'null'));
@@ -210,7 +217,7 @@ begin
     'blocked=' || v_blocked || ' uploaded_by=' || coalesce(v_uploaded_by::text, 'null') || ' expected=' || v_pat::text);
 
   ---------------------------------------------------------------------------
-  -- 6. Clinical Director (no doctor_tier, is_clinical_director) closes
+  -- 6. Chief Medical Officer closes
   --    -> ALLOWED (control: is_clinical_tier's OR-branch)
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;

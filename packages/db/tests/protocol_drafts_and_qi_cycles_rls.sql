@@ -9,14 +9,14 @@
 -- packages/db/tests/medication_issues_rls.sql.
 --
 -- Checks:
---   1. A Tier 1 clinician can draft a protocol; a patient cannot.
+--   1. A Medical Officer clinician can draft a protocol; a patient cannot.
 --   2. authored_by_staff is server-stamped, spoof-resisted.
---   3. A Tier 1 clinician CANNOT promote or reject their own draft
+--   3. A Medical Officer clinician CANNOT promote or reject their own draft
 --      (Director-only), whether or not the row is even visible to them.
 --   4. The org's Director CAN promote a draft — it lands in
 --      protocol_versions with the draft's evidence_basis carried over, and
 --      the draft is marked promoted with the right link.
---   5. A patient cannot open a quality_improvement_cycles row; a Tier 1
+--   5. A patient cannot open a quality_improvement_cycles row; a Medical Officer
 --      clinician can.
 -- ===========================================================================
 
@@ -53,15 +53,15 @@ begin
   end loop;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
-    values (v_org, (select v from pq_fixture where k = 'tier1'), 'PQ Test Tier1', 'tier_1'::public.doctor_tier, true, now())
+    values (v_org, (select v from pq_fixture where k = 'tier1'), 'PQ Test Tier1', 'medical_officer'::public.doctor_tier, true, now())
   on conflict do nothing;
 
   -- indemnity_exempt_by must differ from the record's own profile_id
-  -- (clinical_staff_no_self_indemnity_exemption) -- uses the Tier 1
+  -- (clinical_staff_no_self_indemnity_exemption) -- uses the Medical Officer
   -- fixture profile as the (fictional, test-only) grantor rather than the
   -- director's own id.
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, is_clinical_director, active, license_verified_at, indemnity_exempt, indemnity_exempt_by)
-    values (v_org, (select v from pq_fixture where k = 'director'), 'PQ Test Director', 'tier_4_senior_registrar'::public.doctor_tier, true, true, now(), true, (select v from pq_fixture where k = 'tier1'))
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at, indemnity_exempt, indemnity_exempt_by)
+    values (v_org, (select v from pq_fixture where k = 'director'), 'PQ Test Director', 'chief_medical_officer'::public.doctor_tier, true, now(), true, (select v from pq_fixture where k = 'tier1'))
   on conflict do nothing;
 end $$;
 
@@ -103,7 +103,7 @@ begin
     raise exception 'GAP: a patient was able to insert into protocol_drafts';
   end if;
 
-  -- Tier 1 can draft; authored_by_staff spoof-resisted.
+  -- Medical Officer can draft; authored_by_staff spoof-resisted.
   perform set_config('request.jwt.claims', json_build_object('sub', v_tier1::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   insert into public.protocol_drafts (organisation_id, protocol_id, title, change_summary, authored_by_staff)
@@ -114,14 +114,14 @@ begin
   insert into pq_fixture(k, v) values ('draft_id', v_draft_id);
 
   insert into pq_result values
-    ('Tier 1 drafts, authored_by_staff spoof resisted', 'tier1',
+    ('Medical Officer drafts, authored_by_staff spoof resisted', 'tier1',
      v_actual_author::text, v_expected_staff::text,
      case when v_actual_author = v_expected_staff then 'PASS' else 'FAIL' end);
   if v_actual_author is distinct from v_expected_staff then
     raise exception 'SPOOFABLE: protocol_drafts.authored_by_staff = % (expected %)', v_actual_author, v_expected_staff;
   end if;
 
-  -- Tier 1 (the author) cannot promote their own draft.
+  -- Medical Officer (the author) cannot promote their own draft.
   perform set_config('request.jwt.claims', json_build_object('sub', v_tier1::text, 'role', 'authenticated')::text, true);
   set local role authenticated;
   begin
@@ -132,11 +132,11 @@ begin
   reset role;
 
   insert into pq_result values
-    ('Tier 1 (author) cannot promote own draft', 'tier1',
+    ('Medical Officer (author) cannot promote own draft', 'tier1',
      case when v_tier1_promote_rejected then 'rejected' else 'allowed' end, 'rejected',
      case when v_tier1_promote_rejected then 'PASS' else 'FAIL' end);
   if not v_tier1_promote_rejected then
-    raise exception 'GAP: Tier 1 clinician promoted their own protocol draft -- should require Director';
+    raise exception 'GAP: Medical Officer clinician promoted their own protocol draft -- should require Director';
   end if;
 end $$;
 
@@ -182,7 +182,7 @@ begin
 end $$;
 
 -- ==========================================================================
--- 5. quality_improvement_cycles: patient denied, Tier 1 allowed.
+-- 5. quality_improvement_cycles: patient denied, Medical Officer allowed.
 -- ==========================================================================
 do $$
 declare
@@ -218,11 +218,11 @@ begin
   reset role;
 
   insert into pq_result values
-    ('Tier 1 can open a QI cycle', 'tier1',
+    ('Medical Officer can open a QI cycle', 'tier1',
      case when v_cycle_id is not null then 'inserted' else 'null' end, 'inserted',
      case when v_cycle_id is not null then 'PASS' else 'FAIL' end);
   if v_cycle_id is null then
-    raise exception 'GAP: Tier 1 clinician could not open a quality_improvement_cycles row';
+    raise exception 'GAP: Medical Officer clinician could not open a quality_improvement_cycles row';
   end if;
 end $$;
 

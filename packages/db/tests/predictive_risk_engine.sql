@@ -129,11 +129,11 @@ begin
   update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'PRT Test Director'
     where id = v_director_profile;
 
-  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, is_clinical_director, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
-  values (v_nondirector_profile, v_org, 'PRT Test Nondirector', 'tier_1', false, true, 'MDCN', 'PRTTEST-001', true, v_verifier, v_verifier, now());
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
+  values (v_nondirector_profile, v_org, 'PRT Test Nondirector', 'medical_officer', true, 'MDCN', 'PRTTEST-001', true, v_verifier, v_verifier, now());
 
-  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, is_clinical_director, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
-  values (v_director_profile, v_org, 'PRT Test Director', 'tier_4_senior_registrar', true, true, 'MDCN', 'PRTTEST-002', true, v_verifier, v_verifier, now())
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
+  values (v_director_profile, v_org, 'PRT Test Director', 'chief_medical_officer', true, 'MDCN', 'PRTTEST-002', true, v_verifier, v_verifier, now())
   returning id into v_director_staff;
 
   insert into public.risk_models
@@ -303,7 +303,7 @@ begin
      jsonb_build_object('moderate', 0.3, 'high', 0.6, 'very_high', 0.9),
      jsonb_build_object('low', 'nothing notable observed', 'moderate', 'worth a light check-in',
                          'high', 'open a coordinator task', 'very_high', 'proactive contact warranted'),
-     (select id from public.clinical_staff where organisation_id = v_org and is_clinical_director and active limit 1),
+     (select id from public.clinical_staff where organisation_id = v_org and doctor_tier = 'chief_medical_officer' and active limit 1),
      now())
   returning id into v_active_model;
 

@@ -58,12 +58,12 @@ begin
   on conflict (id) do update
     set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
-  -- Tier 2 (not just an org-staff profile) so private.has_prescribing_authority
-  -- lets this staff member actually flip is_active — otherwise
-  -- enforce_medication_confirm_only would reject the update outright and
-  -- case 3 below would test nothing.
+  -- Senior Medical Officer (not just an org-staff profile) so
+  -- private.has_prescribing_authority lets this staff member actually flip
+  -- is_active — otherwise enforce_medication_confirm_only would reject the
+  -- update outright and case 3 below would test nothing.
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, doctor_tier, license_verified_at, verified_by)
-  values (v_org, v_staff_c, 'PSMR Test Staff', true, 'tier_2', now(), v_patient_a);
+  values (v_org, v_staff_c, 'PSMR Test Staff', true, 'senior_medical_officer', now(), v_patient_a);
 
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source)
   values (v_org, v_patient_a, 'PSMR Test Lisinopril', '10mg', 'once daily', true, 'clinician')

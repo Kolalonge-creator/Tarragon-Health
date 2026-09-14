@@ -78,10 +78,10 @@ begin
   on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role,
     full_name = excluded.full_name;
 
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, is_clinical_director, license_verified_at)
-  values (v_org_b, v_cross_clinician, 'CAT Test Cross Org Clinician', 'tier_1', true, false, now());
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, is_clinical_director, license_verified_at)
-  values (v_org_a, v_home_director, 'CAT Test Home Director', 'tier_4_senior_registrar', true, true, now());
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
+  values (v_org_b, v_cross_clinician, 'CAT Test Cross Org Clinician', 'medical_officer', true, now());
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
+  values (v_org_a, v_home_director, 'CAT Test Home Director', 'chief_medical_officer', true, now());
 
   -- Category grants.
   insert into public.profile_access (profile_id, grantee_user_id, permission_level, granted_by)

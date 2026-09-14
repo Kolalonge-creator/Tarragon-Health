@@ -45,9 +45,9 @@ begin
     set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.clinical_staff (organisation_id, profile_id, full_name, active, doctor_tier, license_verified_at, verified_by)
-  values (v_org, v_doctor, 'MREC Test Doctor', true, 'tier_2', now(), v_patient);
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, verified_by)
-  values (v_org, v_coordinator, 'MREC Test Coordinator', true, now(), v_patient);
+  values (v_org, v_doctor, 'MREC Test Doctor', true, 'medical_officer', now(), v_patient);
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, doctor_tier, license_verified_at, verified_by)
+  values (v_org, v_coordinator, 'MREC Test Coordinator', true, 'care_coordinator', now(), v_patient);
 
   insert into public.medications (organisation_id, patient_id, drug_name, dose, frequency, is_active, source)
   values (v_org, v_patient, 'MREC Test Lisinopril', '10mg', 'once daily', true, 'clinician');

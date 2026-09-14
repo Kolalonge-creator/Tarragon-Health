@@ -5,8 +5,11 @@
 -- be internally consistent (old row flagged, new row correctly linked).
 --
 -- Cases:
---   1. Tier 1 attempts to amend      -> BLOCKED (not authorised)
---   2. Tier 2 amends                 -> old row superseded + inactive; new row
+--   1. Medical Officer attempts to amend  -> BLOCKED (not authorised; Medical
+--                                             Officer has no prescribing
+--                                             authority, only Senior Medical
+--                                             Officer+ does)
+--   2. Senior Medical Officer amends -> old row superseded + inactive; new row
 --                                        version=2, previous_version_id=old.id,
 --                                        a fresh rx_number, amendment_reason stored
 --   3. Amending an already-superseded row (the old v1) -> BLOCKED (already amended)
@@ -15,7 +18,7 @@
 --
 -- TO CONFIRM THIS TEST DISCRIMINATES, break it on purpose: change
 -- amend_medication's SECURITY INVOKER to SECURITY DEFINER. Case 1 must FAIL,
--- showing a Tier 1 amending a prescription under an elevated identity.
+-- showing a Medical Officer amending a prescription under an elevated identity.
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/amend_medication_versioning.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
@@ -54,11 +57,11 @@ begin
 
   insert into public.clinical_staff (
     organisation_id, profile_id, full_name, active, license_verified_at,
-    is_clinical_director, doctor_tier,
+    doctor_tier,
     indemnity_insurer, indemnity_policy_number, indemnity_expires_at
   ) values (
     v_org, v_clin, 'Amend Medication Probe', true, now(),
-    false, 'tier_1',
+    'medical_officer',
     'Probe Indemnity Ltd', 'PROBE-AMEND-RX', now() + interval '1 year'
   ) returning id into v_staff_id;
 
@@ -81,12 +84,12 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (1, 'Tier 1 attempts to amend -> BLOCKED',
+  insert into test_result values (1, 'Medical Officer attempts to amend -> BLOCKED',
     case when v_raised is not null and (select version from public.medications where id = v_med) = 1
       then 'PASS' else 'FAIL' end, coalesce(v_raised, 'no error raised'));
 
   ---------------------------------------------------------------- case 2
-  update public.clinical_staff set doctor_tier = 'tier_2' where id = v_staff_id;
+  update public.clinical_staff set doctor_tier = 'senior_medical_officer' where id = v_staff_id;
 
   perform set_config('request.jwt.claims',
     json_build_object('sub', v_clin, 'role', 'authenticated')::text, true);
@@ -95,7 +98,7 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
 
-  insert into test_result values (2, 'Tier 2 amends -> old superseded, new v2 correctly linked',
+  insert into test_result values (2, 'Senior Medical Officer amends -> old superseded, new v2 correctly linked',
     case when v_new_id is not null
       and (select is_active from public.medications where id = v_med) = false
       and (select superseded_at from public.medications where id = v_med) is not null

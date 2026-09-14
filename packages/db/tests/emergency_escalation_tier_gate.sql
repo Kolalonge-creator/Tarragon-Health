@@ -1,21 +1,22 @@
 -- Tarragon Health
 -- Live proof for 20260731021500_emergency_escalation_tier_gate.sql --
--- emergency escalations can only be CLAIMED or RESOLVED by Tier 2+ or the
--- org's Clinical Director, after the doctor->clinician account role merge
+-- emergency escalations can only be CLAIMED or RESOLVED by a Senior Medical
+-- Officer or the Chief Medical Officer (updated by the 2026-08-31 doctor-tier
+-- collapse migration), after the doctor->clinician account role merge
 -- (20260731020000) removed the accidental authority gate that the old
 -- role split was providing.
 --
 -- Eight cases in one rolled-back transaction. Every negative is paired with
 -- a positive control, per CLAUDE.md's own rule -- a blocked-everything
 -- trigger would otherwise pass a negatives-only test:
---   1. Tier 1 claims an EMERGENCY escalation            -> BLOCKED (42501)
---   2. Tier 1 claims a clinician_review escalation      -> ALLOWED (control: gate is emergency-only)
---   3. Tier 2 claims the same emergency escalation      -> ALLOWED (control: the gate is about tier, not about emergencies being unclaimable)
---   4. Tier 1 resolves an emergency escalation          -> BLOCKED, and blocked by the TIER trigger, not I5's synchronous-contact trigger
---   5. Tier 1 marks an emergency escalation 'referred'  -> ALLOWED (handing it on is not closing it)
---   6. level=clinician_review, override_level=emergency -> Tier 1 claim BLOCKED (an override UP engages the gate)
---   7. level=emergency, override_level=routine          -> Tier 1 claim STILL BLOCKED (the override-down bypass is closed)
---   8. Clinical Director (no doctor_tier at all)        -> ALLOWED (control: is_clinical_director alone satisfies the gate)
+--   1. Medical Officer claims an EMERGENCY escalation    -> BLOCKED (42501)
+--   2. Medical Officer claims a clinician_review escalation -> ALLOWED (control: gate is emergency-only)
+--   3. Senior Medical Officer claims the same emergency escalation -> ALLOWED (control: the gate is about tier, not about emergencies being unclaimable)
+--   4. Medical Officer resolves an emergency escalation  -> BLOCKED, and blocked by the TIER trigger, not I5's synchronous-contact trigger
+--   5. Medical Officer marks an emergency escalation 'referred' -> ALLOWED (handing it on is not closing it)
+--   6. level=clinician_review, override_level=emergency -> Medical Officer claim BLOCKED (an override UP engages the gate)
+--   7. level=emergency, override_level=routine          -> Medical Officer claim STILL BLOCKED (the override-down bypass is closed)
+--   8. Chief Medical Officer                            -> ALLOWED (control: chief_medical_officer alone satisfies the gate)
 --
 -- NOTE: as of 2026-07-31 only ONE clinical_staff row exists platform-wide
 -- (the founder's own) -- the 2026-07-27 QA roster lost its clinical_staff
@@ -37,9 +38,9 @@ do $$
 declare
   v_org        uuid := '00000000-0000-0000-0000-000000000001';
   v_pat        uuid;
-  v_t1         uuid;  -- profile that will hold a Tier 1 clinical_staff row
-  v_t2         uuid;  -- profile that will hold a Tier 2 clinical_staff row
-  v_dir        uuid;  -- profile that will hold a Clinical Director row, no tier
+  v_t1         uuid;  -- profile that will hold a Medical Officer clinical_staff row
+  v_t2         uuid;  -- profile that will hold a Senior Medical Officer clinical_staff row
+  v_dir        uuid;  -- profile that will hold a Chief Medical Officer clinical_staff row
   v_alert_emg  uuid;
   v_alert_rev  uuid;
   v_alert_up   uuid;
@@ -85,17 +86,30 @@ begin
     raise exception 'need at least 3 org-staff profiles (clinician/admin/doctor) in org 0001 to build this fixture';
   end if;
 
-  -- Clear any pre-existing clinical_staff rows for these three profiles for
-  -- the life of this transaction, so the fixture below is the only thing the
-  -- gate can see (the founder's real Director row would otherwise make a
-  -- "Tier 1" fixture silently pass).
-  delete from public.clinical_staff where profile_id in (v_t1, v_t2, v_dir);
-
-  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, is_clinical_director)
+  -- Pin any pre-existing clinical_staff row for these three profiles to this
+  -- fixture's tier for the life of this transaction, so the fixture below is
+  -- the only thing the gate can see (the founder's real Director row would
+  -- otherwise make a "Medical Officer" fixture silently pass). Upserted in
+  -- place (not delete+reinsert): profile_id may belong to a real staff member
+  -- whose clinical_staff.id is FK-referenced elsewhere (e.g. patient_timeline)
+  -- -- deleting the row would fail with a foreign-key violation unrelated to
+  -- what this test proves.
+  -- employment_type pinned to 'employed' -- chief_medical_officer always
+  -- needs indemnity regardless of employment_type, so v_dir carries an
+  -- explicit exemption instead; medical_officer/senior_medical_officer need
+  -- indemnity only when contracted, which 'employed' avoids.
+  insert into public.clinical_staff
+    (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier, employment_type,
+     indemnity_exempt, indemnity_exempt_by)
   values
-    (v_org, v_t1,  'Tier One Gate Fixture',   true, now(), 'tier_1', false),
-    (v_org, v_t2,  'Tier Two Gate Fixture',   true, now(), 'tier_2', false),
-    (v_org, v_dir, 'Director Gate Fixture',   true, now(), null,     true);
+    (v_org, v_t1,  'Medical Officer Gate Fixture',       true, now(), 'medical_officer',        'employed', false, null),
+    (v_org, v_t2,  'Senior Medical Officer Gate Fixture', true, now(), 'senior_medical_officer', 'employed', false, null),
+    (v_org, v_dir, 'Director Gate Fixture',              true, now(), 'chief_medical_officer',  'employed', true,  v_t1)
+  on conflict (profile_id) do update
+    set organisation_id = excluded.organisation_id, full_name = excluded.full_name,
+        active = excluded.active, license_verified_at = excluded.license_verified_at,
+        doctor_tier = excluded.doctor_tier, employment_type = excluded.employment_type,
+        indemnity_exempt = excluded.indemnity_exempt, indemnity_exempt_by = excluded.indemnity_exempt_by;
 
   insert into public.clinician_alerts (organisation_id, patient_id, level, status, title)
   values (v_org, v_pat, 'emergency', 'open', 'tier gate proof: emergency')
@@ -130,7 +144,7 @@ begin
   select id into v_esc_dir  from public.escalations where reason = 'emergency, for director test';
 
   ---------------------------------------------------------------------------
-  -- 1. Tier 1 claims an emergency -> BLOCKED
+  -- 1. Medical Officer claims an emergency -> BLOCKED
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null; v_state := null;
   perform set_config('request.jwt.claims', json_build_object('sub', v_t1, 'role', 'authenticated')::text, true);
@@ -143,13 +157,13 @@ begin
   end;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
-  insert into test_result values (1, 'Tier 1 claims EMERGENCY', 'BLOCKED 42501',
+  insert into test_result values (1, 'Medical Officer claims EMERGENCY', 'BLOCKED 42501',
     case when v_blocked and v_state = '42501' then 'BLOCKED (correct)'
          when v_blocked then 'BLOCKED but wrong sqlstate ' || v_state
          else 'ALLOWED (BUG)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
-  -- 2. CONTROL: Tier 1 claims a clinician_review escalation -> ALLOWED
+  -- 2. CONTROL: Medical Officer claims a clinician_review escalation -> ALLOWED
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;
   perform set_config('request.jwt.claims', json_build_object('sub', v_t1, 'role', 'authenticated')::text, true);
@@ -163,11 +177,11 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
   select assigned_doctor_id into v_assigned from public.escalations where id = v_esc_rev;
-  insert into test_result values (2, 'CONTROL Tier 1 claims clinician_review', 'ALLOWED',
+  insert into test_result values (2, 'CONTROL Medical Officer claims clinician_review', 'ALLOWED',
     case when not v_blocked and v_assigned = v_t1 then 'ALLOWED (correct)' else 'BLOCKED (BUG)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
-  -- 3. CONTROL: Tier 2 claims the emergency -> ALLOWED
+  -- 3. CONTROL: Senior Medical Officer claims the emergency -> ALLOWED
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;
   perform set_config('request.jwt.claims', json_build_object('sub', v_t2, 'role', 'authenticated')::text, true);
@@ -181,11 +195,11 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
   select assigned_doctor_id into v_assigned from public.escalations where id = v_esc_emg;
-  insert into test_result values (3, 'CONTROL Tier 2 claims EMERGENCY', 'ALLOWED',
+  insert into test_result values (3, 'CONTROL Senior Medical Officer claims EMERGENCY', 'ALLOWED',
     case when not v_blocked and v_assigned = v_t2 then 'ALLOWED (correct)' else 'BLOCKED (BUG)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
-  -- 4. Tier 1 resolves an emergency (now claimed by Tier 2) -> BLOCKED,
+  -- 4. Medical Officer resolves an emergency (now claimed by Senior Medical Officer) -> BLOCKED,
   --    and specifically by the TIER trigger, not I5's synchronous-contact
   --    trigger. Asserted on the message, since both would block.
   ---------------------------------------------------------------------------
@@ -194,7 +208,7 @@ begin
   perform set_config('role', 'authenticated', true);
   begin
     update public.escalations
-    set status = 'resolved', resolution_note = 'Tier 1 attempting to close an emergency',
+    set status = 'resolved', resolution_note = 'Medical Officer attempting to close an emergency',
         reviewed_by = v_t1, reviewed_at = now()
     where id = v_esc_emg;
   exception when others then
@@ -203,13 +217,13 @@ begin
   end;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
-  insert into test_result values (4, 'Tier 1 resolves EMERGENCY', 'BLOCKED 42501, tier message wins over I5',
-    case when v_blocked and v_state = '42501' and v_err like '%Tier 2 doctor or above%' then 'BLOCKED by tier gate (correct)'
+  insert into test_result values (4, 'Medical Officer resolves EMERGENCY', 'BLOCKED 42501, tier message wins over I5',
+    case when v_blocked and v_state = '42501' and v_err like '%Senior Medical Officer or the Chief Medical Officer%' then 'BLOCKED by tier gate (correct)'
          when v_blocked then 'BLOCKED but by the wrong trigger (' || v_state || ')'
          else 'ALLOWED (BUG)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
-  -- 5. CONTROL: Tier 1 marks an emergency 'referred' -> ALLOWED
+  -- 5. CONTROL: Medical Officer marks an emergency 'referred' -> ALLOWED
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;
   perform set_config('request.jwt.claims', json_build_object('sub', v_t1, 'role', 'authenticated')::text, true);
@@ -224,11 +238,11 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
   select status into v_status from public.escalations where id = v_esc_ref;
-  insert into test_result values (5, 'CONTROL Tier 1 REFERS an emergency', 'ALLOWED',
+  insert into test_result values (5, 'CONTROL Medical Officer REFERS an emergency', 'ALLOWED',
     case when not v_blocked and v_status = 'referred' then 'ALLOWED (correct)' else 'BLOCKED (BUG)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
-  -- 6. Overridden UP (clinician_review -> emergency): Tier 1 claim BLOCKED
+  -- 6. Overridden UP (clinician_review -> emergency): Medical Officer claim BLOCKED
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;
   perform set_config('request.jwt.claims', json_build_object('sub', v_t1, 'role', 'authenticated')::text, true);
@@ -241,12 +255,12 @@ begin
   end;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
-  insert into test_result values (6, 'Tier 1 claims alert overridden UP to emergency', 'BLOCKED',
+  insert into test_result values (6, 'Medical Officer claims alert overridden UP to emergency', 'BLOCKED',
     case when v_blocked then 'BLOCKED (correct)' else 'ALLOWED (BUG)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
-  -- 7. Overridden DOWN (emergency -> routine): Tier 1 claim STILL BLOCKED.
-  --    This is the bypass case -- a Tier 1 can legitimately override, so
+  -- 7. Overridden DOWN (emergency -> routine): Medical Officer claim STILL BLOCKED.
+  --    This is the bypass case -- a Medical Officer can legitimately override, so
   --    coalesce(override_level, level) alone would hand them the case.
   ---------------------------------------------------------------------------
   v_blocked := false; v_err := null;
@@ -260,7 +274,7 @@ begin
   end;
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
-  insert into test_result values (7, 'Tier 1 claims emergency overridden DOWN to routine', 'BLOCKED (bypass closed)',
+  insert into test_result values (7, 'Medical Officer claims emergency overridden DOWN to routine', 'BLOCKED (bypass closed)',
     case when v_blocked then 'BLOCKED (correct)' else 'ALLOWED (BUG -- override bypass is open)' end, coalesce(v_err, ''));
 
   ---------------------------------------------------------------------------
@@ -278,7 +292,7 @@ begin
   perform set_config('role', 'postgres', true);
   perform set_config('request.jwt.claims', '', true);
   select assigned_doctor_id into v_assigned from public.escalations where id = v_esc_dir;
-  insert into test_result values (8, 'CONTROL Clinical Director (no tier) claims EMERGENCY', 'ALLOWED',
+  insert into test_result values (8, 'CONTROL Chief Medical Officer claims EMERGENCY', 'ALLOWED',
     case when not v_blocked and v_assigned = v_dir then 'ALLOWED (correct)' else 'BLOCKED (BUG)' end, coalesce(v_err, ''));
 end $$;
 

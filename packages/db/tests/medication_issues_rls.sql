@@ -103,7 +103,7 @@ begin
   insert into public.clinical_staff
     (organisation_id, profile_id, full_name, doctor_tier, active, license_verified_at)
   values (v_org, (select v from mi_fixture where k = 'clinician'), 'MI Test clinician',
-          'tier_1'::public.doctor_tier, true, now())
+          'medical_officer'::public.doctor_tier, true, now())
   on conflict do nothing;
 end $$;
 
