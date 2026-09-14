@@ -76,7 +76,8 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
 
   const load = useCallback(
     async (nextLimit: number, isMore: boolean) => {
-      isMore ? setLoadingMore(true) : setLoading(true);
+      if (isMore) setLoadingMore(true);
+      else setLoading(true);
       const result = await loadPatientTimeline(patientId, nextLimit);
       if (result.ok) {
         setEvents(result.data);
@@ -84,7 +85,8 @@ export function TimelineScreen({ patientId, onNavigate }: TimelineScreenProps) {
       } else {
         setError(result.error);
       }
-      isMore ? setLoadingMore(false) : setLoading(false);
+      if (isMore) setLoadingMore(false);
+      else setLoading(false);
     },
     [patientId]
   );
