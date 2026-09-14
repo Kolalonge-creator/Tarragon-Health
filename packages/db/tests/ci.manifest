@@ -89,3 +89,23 @@ weight_management_enrolment_on_purchase.sql
 # roster) so it runs correctly against both a clean `supabase db reset` and
 # the live project.
 escalation_auto_assignment_and_reassignment_authority.sql
+
+# --- Added 2026-09-14 (second pass) ------------------------------------------
+# The Platform Analytics & Audit Console (apps/web .../analytics/) has ~55
+# SECURITY DEFINER RPCs individually gated by private.is_analyst(), but only
+# one had ever been exercised by any test, and only on the positive path (an
+# analyst session gets an answer) -- nothing had ever proven a patient,
+# clinician, or anonymous caller is actually refused. Discovers its target
+# set live from pg_proc rather than a hardcoded list, so it keeps covering
+# the console as it grows. Two independent proofs per function: a structural
+# check that its is_analyst()/is_admin() guard precedes any data access in
+# the live function body, and a behavioural probe of each function under
+# simulated sessions. Found and fixed a real gap in itself while being
+# written (a naive "did it raise 42501" check flagged an already-safe
+# silent-empty-return function as a false leak) before landing on the
+# two-layer design here. public_service_coverage() is the one function with
+# no gate at all -- confirmed intentional (state-level service-availability
+# flags only, no PHI) -- and its lack of a gate is what proves the
+# structural check actually discriminates (sabotage control) rather than
+# passing vacuously.
+analytics_console_rpc_authorization_gate.sql
