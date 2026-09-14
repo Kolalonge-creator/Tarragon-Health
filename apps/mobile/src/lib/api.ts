@@ -276,36 +276,6 @@ export async function postMentalHealthScreen(
   return result.ok ? result.data : { error: result.error };
 }
 
-export type AdolescentHealthScreenAnswers = {
-  home_feels_safe: "yes" | "no";
-  home_hurt_or_threatened: "yes" | "no";
-  education_note?: string;
-  days_active_per_week: number;
-  sleep_hours_per_night: number;
-  substance_use_last_month: "yes" | "no";
-  sexual_health_support_requested: "yes" | "no";
-  self_harm_thoughts: "yes" | "no";
-  unsafe_elsewhere: "yes" | "no";
-  immediate_danger: "yes" | "no";
-  notes?: string;
-};
-
-/** Mirrors apps/web/src/app/api/mobile/adolescent-health/route.ts (the
- * mobile equivalent of submitAdolescentPsychosocialScreen). Scoring and the
- * service-role insert happen server-side — this is a thin, unmodified
- * passthrough, not a second implementation of that logic. */
-export async function postAdolescentHealthScreen(
-  answers: AdolescentHealthScreenAnswers
-): Promise<{ success?: boolean; selfHarmFlagged?: boolean; immediateDangerFlagged?: boolean; abuseNeglectExploitationFlagged?: boolean; error?: string }> {
-  const result = await request<{
-    success?: boolean;
-    selfHarmFlagged?: boolean;
-    immediateDangerFlagged?: boolean;
-    abuseNeglectExploitationFlagged?: boolean;
-  }>("/api/mobile/adolescent-health", "POST", answers);
-  return result.ok ? result.data : { error: result.error };
-}
-
 /** Mirrors apps/web/.../patient/health-check-video-consult-actions.ts's
  * confirmHealthCheckVideoConsultSlot (the mobile equivalent) — a real Zoom
  * meeting + service-role write + notification all happen server-side, so

@@ -64,10 +64,10 @@ export async function loadExerciseEnrollments(patientId: string): Promise<QueryR
 }
 
 /** Same shape as web's submitReadinessScreenAction -- a plain RLS-scoped
- * insert, no service-role route needed (unlike the adolescent/mental-health
- * check-ins, nothing here computes a safety flag client-side that a
- * malicious client could spoof; private.enforce_exercise_readiness is the
- * DB-side gate and is re-checked on every enrollment attempt regardless). */
+ * insert, no service-role route needed (unlike the mental-health check-in,
+ * nothing here computes a safety flag client-side that a malicious client
+ * could spoof; private.enforce_exercise_readiness is the DB-side gate and
+ * is re-checked on every enrollment attempt regardless). */
 export async function submitReadinessScreen(
   patientId: string,
   organisationId: string,
