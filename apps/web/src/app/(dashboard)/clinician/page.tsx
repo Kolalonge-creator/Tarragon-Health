@@ -10,6 +10,7 @@ import { formatNumber } from "@/lib/analytics/format";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
 import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { credentialMonitorSchema } from "@/lib/queries/provider-quality";
 import { Worklist } from "./worklist";
 import { RedFlagAttestation } from "./red-flag-attestation";
 import { AttestationCard } from "./attestation-card";
@@ -146,6 +147,43 @@ export default async function ClinicianPage() {
   ).length;
   const reviewsDue = (medReviewsRes.count ?? 0) + (carePlanReviewsRes.count ?? 0);
 
+  // Clinical Director governance panel (Gap E, CMO governance-surface audit
+  // 2026-09-14) — additive to the shared worklist above, not a fork of it:
+  // every tier still sees the same page, this section just renders when
+  // doctor_tier === 'chief_medical_officer'. Only fetched for a CMO — these
+  // three queries are governance-only and would be wasted reads for every
+  // other tier landing on this same shared page.
+  const isClinicalDirector = staff?.doctor_tier === "chief_medical_officer";
+  let protocolDraftsPending = 0;
+  let triageProtocolsUnsigned = 0;
+  let credentialsNeedingAttention = 0;
+  let governancePanelFailed = false;
+  if (isClinicalDirector) {
+    const [protocolDraftsRes, triageProtocolsRes, credentialMonitorRes] = await Promise.all([
+      supabase.from("protocol_drafts").select("id", { count: "exact", head: true }).eq("status", "in_review"),
+      supabase.from("triage_protocols").select("id", { count: "exact", head: true }).is("approved_at", null),
+      supabase.rpc("provider_credential_monitor"),
+    ]);
+    governancePanelFailed =
+      protocolDraftsRes.error !== null || triageProtocolsRes.error !== null || credentialMonitorRes.error !== null;
+    protocolDraftsPending = protocolDraftsRes.count ?? 0;
+    triageProtocolsUnsigned = triageProtocolsRes.count ?? 0;
+    if (!governancePanelFailed) {
+      const parsed = credentialMonitorSchema.safeParse(credentialMonitorRes.data);
+      if (!parsed.success) {
+        governancePanelFailed = true;
+      } else {
+        credentialsNeedingAttention = parsed.data.providers.filter(
+          (p) =>
+            p.license_state === "expiring_soon" ||
+            p.license_state === "expired" ||
+            p.indemnity_state === "expiring_soon" ||
+            p.indemnity_state === "expired"
+        ).length;
+      }
+    }
+  }
+
   const urgentEscalations = openEscalations
     .slice()
     .sort((a, b) => {
@@ -178,6 +216,65 @@ export default async function ClinicianPage() {
           Clinical Director
         </span>
       )}
+
+      {/* Additive to the shared worklist, not a separate landing page or
+          account role — see CLAUDE.md's "never re-split the account role"
+          rule. Links go to /clinician/* pages built alongside this panel
+          (2026-09-14), not /admin/*, which a CMO's `clinician` login can
+          never reach. */}
+      {isClinicalDirector && (
+        <Card variant="soft">
+          <CardHeader>
+            <CardTitle className="text-base">For the Clinical Director</CardTitle>
+            <CardDescription>Governance items only you can act on, at a glance.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {governancePanelFailed ? (
+              <LoadFailure>
+                Part of this panel could not be loaded. Open each governance page directly rather
+                than trusting a count below.
+              </LoadFailure>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Link
+                  href="/clinician/protocols"
+                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
+                >
+                  <p className="text-xs text-charcoal-ink/50">Protocol drafts in review</p>
+                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                    {formatNumber(protocolDraftsPending)}
+                  </p>
+                </Link>
+                <Link
+                  href="/clinician/triage-protocols"
+                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
+                >
+                  <p className="text-xs text-charcoal-ink/50">Triage protocol versions unsigned</p>
+                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                    {formatNumber(triageProtocolsUnsigned)}
+                  </p>
+                </Link>
+                <Link
+                  href="/clinician/provider-quality"
+                  className="rounded-lg border border-charcoal-ink/10 p-3 hover:bg-charcoal-ink/[0.02]"
+                >
+                  <p className="text-xs text-charcoal-ink/50">Provider credentials needing attention</p>
+                  <p className="font-heading text-xl font-semibold text-charcoal-ink">
+                    {formatNumber(credentialsNeedingAttention)}
+                  </p>
+                </Link>
+              </div>
+            )}
+            <Link
+              href="/clinician/team-caseload"
+              className="mt-3 inline-block text-sm font-medium text-brand-green hover:underline"
+            >
+              View the whole team&apos;s caseload →
+            </Link>
+          </CardContent>
+        </Card>
+      )}
+
       {!staff && <ClinicalStaffSetupWarning roleLabel={roleLabel} />}
       {authorityBlurb && (
         <Card variant="soft">
