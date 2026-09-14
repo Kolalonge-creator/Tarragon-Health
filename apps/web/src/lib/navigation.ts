@@ -525,6 +525,7 @@ export function getNavSections(
         {
           label: "Operations",
           items: [
+            { label: "Patients", href: "/admin/patients", icon: "members" },
             { label: "Facilities", href: "/admin/facilities", icon: "hmo" },
             { label: "Bookings", href: "/admin/bookings", icon: "booking" },
             { label: "Doctor caseload", href: "/admin/staffing/caseload", icon: "caseload" },
