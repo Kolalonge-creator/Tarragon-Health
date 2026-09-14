@@ -21,12 +21,23 @@ import { type UiLanguage } from "@tarragon/shared";
  * reads as progress; two items with no explanation of the missing third
  * reads as a shorter list.
  *
- * The card removes itself once all three are done (see shouldShowGetStarted).
+ * The card removes itself once every step that applies is done (see
+ * shouldShowGetStarted). The last two steps only apply at all once
+ * `needsMonitoringSteps` is true -- a genuinely healthy account has nothing
+ * to log a reading or a medicine against, and nagging for either is just
+ * unreachable busywork. The moment that flips (a self-reported diagnosis, a
+ * clinician-recorded condition, or the patient logging something anyway)
+ * both steps rejoin the checklist on the next load -- this is recomputed
+ * fresh every render, never cached from signup, so a patient who becomes
+ * chronically managed after onboarding needs no special re-trigger.
  */
 export interface GetStartedProgress {
   hasRiskAssessment: boolean;
   hasAnyVitals: boolean;
   hasMedications: boolean;
+  /** See PatientPreventionStats.hasChronicCondition (summary.ts) for what
+   * feeds this. */
+  needsMonitoringSteps: boolean;
 }
 
 /**
@@ -34,9 +45,11 @@ export interface GetStartedProgress {
  * analytic stack. Deliberately "any step outstanding", not "nothing at all
  * done": somebody who logged a reading but never filled in a health profile
  * still has no screening calendar, and the old dashboard gave them no route
- * to one.
+ * to one. A healthy account (no monitoring steps) only ever has one step to
+ * clear.
  */
 export function shouldShowGetStarted(p: GetStartedProgress): boolean {
+  if (!p.needsMonitoringSteps) return !p.hasRiskAssessment;
   return !(p.hasRiskAssessment && p.hasAnyVitals && p.hasMedications);
 }
 
@@ -71,7 +84,11 @@ interface Step {
 function stepCopy(language: UiLanguage, subject: string, them: string) {
   if (language === "pcm") {
     return {
-      intro: `This app dey keep ${subject} health record for one place, e dey tell ${them} which check don due, and e dey put ${subject} readings for front of a care team wey fit do something about am. These three steps na wetin go turn am on.`,
+      introBase: `This app dey keep ${subject} health record for one place, e dey tell ${them} which check don due, and e dey put ${subject} readings for front of a care team wey fit do something about am.`,
+      introCloseOne: "This one step na wetin go turn am on.",
+      introCloseMany: "These three steps na wetin go turn am on.",
+      headingOne: "One thing wey you go set up",
+      headingMany: "Three things wey you go set up",
       steps: [
         {
           title: "Fill your health profile",
@@ -93,7 +110,11 @@ function stepCopy(language: UiLanguage, subject: string, them: string) {
     };
   }
   return {
-    intro: `This app keeps ${subject} health record in one place, tells ${them} which checks are due, and puts ${subject} readings in front of a care team who can act on them. These three steps are what switch that on.`,
+    introBase: `This app keeps ${subject} health record in one place, tells ${them} which checks are due, and puts ${subject} readings in front of a care team who can act on them.`,
+    introCloseOne: "This step is what switches that on.",
+    introCloseMany: "These three steps are what switch that on.",
+    headingOne: "One thing to set up",
+    headingMany: "Three things to set up",
     steps: [
       {
         title: "Fill in the health profile",
@@ -133,11 +154,17 @@ export function GetStartedCard({
   const hrefs = ["/patient/prevention", "/patient/vitals", "/patient/medications"];
   const dones = [progress.hasRiskAssessment, progress.hasAnyVitals, progress.hasMedications];
 
-  const steps: Step[] = copy.steps.map((step, i) => ({
+  const allSteps: Step[] = copy.steps.map((step, i) => ({
     ...step,
     href: hrefs[i]!,
     done: dones[i]!,
   }));
+  // A genuinely healthy account has nothing to log a reading or a medicine
+  // against yet, so those two steps drop out entirely rather than sitting
+  // there as permanently-outstanding busywork with nowhere useful to send
+  // the patient.
+  const steps = progress.needsMonitoringSteps ? allSteps : allSteps.slice(0, 1);
+  const single = steps.length === 1;
 
   const doneCount = steps.filter((s) => s.done).length;
 
@@ -151,13 +178,15 @@ export function GetStartedCard({
           id="get-started-heading"
           className="font-heading text-lg font-semibold text-charcoal-ink dark:text-night-ink"
         >
-          {pidgin ? "Three things wey you go set up" : "Three things to set up"}
+          {single ? copy.headingOne : copy.headingMany}
         </h2>
         <p className="text-xs font-medium text-charcoal-ink/55 dark:text-night-ink/60">
           {doneCount} {pidgin ? "out of" : "of"} {steps.length} done
         </p>
       </div>
-      <p className="mb-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">{copy.intro}</p>
+      <p className="mb-4 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+        {copy.introBase} {single ? copy.introCloseOne : copy.introCloseMany}
+      </p>
 
       <ol className="space-y-2.5">
         {steps.map((step, index) => (
