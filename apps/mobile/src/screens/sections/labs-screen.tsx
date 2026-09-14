@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Image, Modal, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { uploadLabResult } from "@/lib/labs";
+import { Ionicons } from "@expo/vector-icons";
+import { RESULT_DOCUMENT_TEST_TYPE_OPTIONS, testTypeLabel, uploadLabResult } from "@/lib/labs";
 import { colors, radius, spacing } from "@/ui/theme";
-import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { CalloutCard, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 import { LabOrdersScreen } from "@/screens/sections/lab-orders-screen";
 
 interface CapturedPhoto {
@@ -25,6 +26,8 @@ interface CapturedPhoto {
  */
 export function LabsScreen() {
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
+  const [testType, setTestType] = useState<string | null>(null);
+  const [testTypePickerOpen, setTestTypePickerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -68,15 +71,20 @@ export function LabsScreen() {
 
   async function upload() {
     if (!photo) return;
+    if (!testType) {
+      setError("Choose the type of test this result is for.");
+      return;
+    }
     setUploading(true);
     setError(null);
-    const result = await uploadLabResult(photo);
+    const result = await uploadLabResult(photo, testType);
     setUploading(false);
     if (result.error) {
       setError(result.error);
       return;
     }
     setPhoto(null);
+    setTestType(null);
     setSuccess(true);
   }
 
@@ -96,8 +104,16 @@ export function LabsScreen() {
               style={{ width: "100%", height: 220, borderRadius: radius.control, backgroundColor: colors.border }}
               resizeMode="cover"
             />
+            <GroupedList>
+              <GroupedListRow
+                title="Type of test"
+                subtitle={testType ? testTypeLabel(testType) ?? undefined : "Select the test type"}
+                onPress={() => setTestTypePickerOpen(true)}
+                disabled={uploading}
+              />
+            </GroupedList>
             {error ? <ErrorText>{error}</ErrorText> : null}
-            <PrimaryButton title="Upload this photo" onPress={upload} loading={uploading} />
+            <PrimaryButton title="Upload this photo" onPress={upload} loading={uploading} disabled={!testType} />
             <SecondaryButton title="Retake" onPress={takePhoto} disabled={uploading} />
           </>
         ) : (
@@ -125,6 +141,35 @@ export function LabsScreen() {
             <SecondaryButton title="Close" onPress={() => setLabDetailOpen(false)} />
           </View>
           <LabOrdersScreen />
+        </View>
+      </Modal>
+
+      <Modal visible={testTypePickerOpen} animationType="slide" onRequestClose={() => setTestTypePickerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{ padding: spacing.screen, paddingTop: 56 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink, marginBottom: 4 }}>
+              What type of test is this?
+            </Text>
+            <MutedText>Helps your care team read it correctly and group it with related results.</MutedText>
+          </View>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.screen, paddingBottom: 32, gap: 14 }}>
+            <GroupedList>
+              {RESULT_DOCUMENT_TEST_TYPE_OPTIONS.map((option) => (
+                <GroupedListRow
+                  key={option.value}
+                  title={option.label}
+                  trailing={
+                    testType === option.value ? <Ionicons name="checkmark" size={18} color={colors.brand} /> : "chevron"
+                  }
+                  onPress={() => {
+                    setTestType(option.value);
+                    setTestTypePickerOpen(false);
+                  }}
+                />
+              ))}
+            </GroupedList>
+            <SecondaryButton title="Cancel" onPress={() => setTestTypePickerOpen(false)} />
+          </ScrollView>
         </View>
       </Modal>
     </ScrollView>

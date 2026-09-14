@@ -14,6 +14,9 @@ export type HealthEducationFeedItem =
 export type HealthEducationLibraryItem =
   Database["public"]["Functions"]["health_education_library"]["Returns"][number];
 
+export type HealthEducationContentDetail =
+  Database["public"]["Functions"]["health_education_content_detail"]["Returns"][number];
+
 export type HealthEducationCategoryCount =
   Database["public"]["Functions"]["health_education_category_counts"]["Returns"][number];
 
@@ -109,6 +112,27 @@ export function useHealthEducationCategoryCounts() {
       if (error) throw error;
       return (data ?? []) as HealthEducationCategoryCount[];
     },
+  });
+}
+
+/**
+ * A single content item by code, full body included — the data source for
+ * the dedicated full-page topic view (as opposed to the in-place accordion
+ * `EducationItem` uses everywhere else). Returns `undefined` for a code that
+ * doesn't match any active item (unpublished, retired, or mistyped).
+ */
+export function useHealthEducationContentDetail(code: string) {
+  return useQuery({
+    queryKey: ["health-education-content-detail", code] as const,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("health_education_content_detail", {
+        p_code: code,
+      });
+      if (error) throw error;
+      return (data as HealthEducationContentDetail[] | null)?.[0];
+    },
+    enabled: !!code,
   });
 }
 

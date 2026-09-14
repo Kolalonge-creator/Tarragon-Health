@@ -325,55 +325,18 @@ export function useOrderLabTest() {
   });
 }
 
-/**
- * Patient opts in to having Tarragon arrange and bill this bundle through
- * the active contracted partner lab (Synlab), instead of the default
- * self-arranged path — never a required step, same "opt-in upgrade"
- * precedent as useRequestLabOrderPartnerVisit below, but this one actually
- * bills: fulfilment='partner' + status='pending_payment' on insert satisfies
- * private.enforce_lab_order_origin (which only special-cases
- * fulfilment='self_arranged') and fires private.set_lab_order_computed_price
- * (BEFORE INSERT only), which authoritatively computes total_kobo,
- * partner_cost_kobo and resolves the provider — the client never sends a
- * price. Only offered for a bundle bundleIsPartnerBillable() said yes to;
- * the trigger re-validates regardless.
- */
-export function useCreatePartnerLabOrder() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      organisationId,
-      patientId,
-      panelBundleId,
-      screeningScheduleId,
-    }: {
-      organisationId: string;
-      patientId: string;
-      panelBundleId: string;
-      screeningScheduleId?: string;
-    }) => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("lab_orders")
-        .insert({
-          organisation_id: organisationId,
-          patient_id: patientId,
-          panel_bundle_id: panelBundleId,
-          fulfilment: "partner",
-          status: "pending_payment",
-          screening_schedule_id: screeningScheduleId ?? null,
-        })
-        .select("id, total_kobo")
-        .single();
-      if (error) throw error;
-      return data;
-    },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["lab-orders", variables.patientId] });
-      queryClient.invalidateQueries({ queryKey: ["screening-schedules", variables.patientId] });
-    },
-  });
-}
+/* useCreatePartnerLabOrder (patient opts in to having Tarragon arrange and
+ * bill a catalogue bundle through the contracted partner lab, e.g. Synlab)
+ * is removed: every panel_bundles row is guidance_only as of migration
+ * 20260910011846_catalogue_becomes_guidance_not_commerce.sql, and
+ * private.enforce_guidance_only_is_never_billed refuses a partner-billed
+ * lab_orders insert for any of them at the database level regardless of what
+ * the client sends. It had no remaining callers — the AHC booking UI's own
+ * partner-billed branch was removed 2026-09-11 (see
+ * annual-health-check-booking.tsx) once that DB cutover made it a doomed
+ * insert behind a generic error. The Care Voucher gift-a-health-check
+ * product is a separate, deliberate partner-billed flow (vouchers/actions.ts)
+ * and is unaffected. */
 
 /* useSetLabOrderFacility and its ChooseLabFacility card are removed: a
  * self-arranged order has no facility to set, and public.set_lab_order_facility
