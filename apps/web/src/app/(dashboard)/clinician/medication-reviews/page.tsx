@@ -76,7 +76,7 @@ function ReviewRow({ review }: { review: MedicationReviewWithContext }) {
           id={`outcome_${review.id}`}
           value={outcome}
           onChange={(event) => setOutcome(event.target.value as MedicationReviewOutcome | "")}
-          className="h-9 w-64 text-sm"
+          className="h-9 w-full text-sm sm:w-64"
         >
           <option value="">Select an outcome…</option>
           {(Object.keys(OUTCOME_LABEL) as MedicationReviewOutcome[]).map((value) => (

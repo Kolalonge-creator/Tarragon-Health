@@ -242,7 +242,7 @@ function StiCaseRow({ episode }: { episode: StiCaseEpisodeWithDetails }) {
             onChange={(event) => setNote(event.target.value)}
             rows={2}
           />
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               type="button"
               size="sm"
@@ -461,7 +461,7 @@ function ContraceptionPlanRow({
         </p>
         {error && <p className="text-xs text-red-600">{error}</p>}
       </div>
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button type="button" size="sm" disabled={pending} onClick={() => act("active")}>
           Activate
         </Button>

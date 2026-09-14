@@ -39,7 +39,7 @@ export function AssignSpecialistProviderForm({
       {providers && providers.length > 0 && (
         <ul className="divide-y divide-charcoal-ink/10">
           {providers.map((provider) => (
-            <li key={provider.id} className="flex items-center justify-between gap-2 py-2">
+            <li key={provider.id} className="flex flex-col gap-2 py-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <p className="text-sm text-charcoal-ink">{provider.name}</p>
                 <p className="text-xs text-charcoal-ink/60">

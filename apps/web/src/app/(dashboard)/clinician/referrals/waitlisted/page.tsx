@@ -26,7 +26,7 @@ export default function WaitlistedReferralsPage() {
 
   return (
     <Card>
-      <CardHeader className="flex items-center justify-between">
+      <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <CardTitle>Waitlisted referrals</CardTitle>
         <Link href="/clinician/referrals" className="text-xs text-brand-green hover:underline">
           Back to all referrals

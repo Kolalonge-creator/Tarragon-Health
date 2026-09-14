@@ -123,7 +123,7 @@ function CycleCard({ cycle }: { cycle: QualityImprovementCycle }) {
             <Label>Outcome note</Label>
             <Textarea value={outcomeNote} onChange={(e) => setOutcomeNote(e.target.value)} />
             {remeasure.isError && <p className="text-sm text-red-600">{(remeasure.error as Error).message}</p>}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 variant="outline"

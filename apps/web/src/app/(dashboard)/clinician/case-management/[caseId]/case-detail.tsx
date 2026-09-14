@@ -633,11 +633,11 @@ function EscalationSection({ caseId, organisationId, patientId }: { caseId: stri
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Select
             value={targetLevel}
             onChange={(event) => setTargetLevel(event.target.value as typeof targetLevel)}
-            className="h-8 w-48 text-xs"
+            className="h-8 w-full text-xs sm:w-48"
           >
             <option value="clinician">Clinician review</option>
             <option value="senior_doctor">Senior doctor</option>

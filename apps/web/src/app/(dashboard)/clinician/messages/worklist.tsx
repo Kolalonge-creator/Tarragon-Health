@@ -116,7 +116,7 @@ export function ClinicianMessagesWorklist() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-col gap-3 space-y-0 md:flex-row md:items-center md:justify-between">
         <div>
           <CardTitle>Patient messages</CardTitle>
           <p className="mt-1 text-sm text-charcoal-ink/60">
@@ -125,7 +125,7 @@ export function ClinicianMessagesWorklist() {
               : `${awaitingCount} waiting on a reply, longest wait first.`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {awaitingCount > 0 && (
             <Button
               type="button"

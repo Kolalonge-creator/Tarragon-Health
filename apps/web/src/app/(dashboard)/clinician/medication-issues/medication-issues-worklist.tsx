@@ -100,7 +100,7 @@ function AffordabilityReportRow({ report }: { report: AffordabilityReportWithDet
 
   return (
     <li className="space-y-1 py-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge variant={report.status === "in_progress" ? "amber" : "grey"}>
           {report.status === "in_progress" ? "In progress" : "Open"}
         </Badge>
@@ -174,7 +174,7 @@ function DispenseFlagRow({
 
   return (
     <li className="space-y-1 py-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Badge variant="blue">{FLAG_TYPE_LABEL[flag.flag_type] ?? flag.flag_type}</Badge>
         <Badge variant={flag.status === "reviewed" ? "amber" : "grey"}>
           {flag.status === "reviewed" ? "Reviewed" : "Open"}

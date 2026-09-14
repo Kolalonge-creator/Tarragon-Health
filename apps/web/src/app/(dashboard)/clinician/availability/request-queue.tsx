@@ -172,7 +172,7 @@ function RequestRow({ request }: { request: QueueRequest }) {
         />
       )}
 
-      <form action={declineAction} className="flex flex-1 items-end gap-2">
+      <form action={declineAction} className="flex flex-1 flex-wrap items-end gap-2">
         <input type="hidden" name="request_id" value={request.id} />
         <Input
           name="reason"
