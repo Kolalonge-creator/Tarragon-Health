@@ -109,9 +109,9 @@ function ReviewRow({ review }: { review: PendingReview }) {
   const overdue = new Date(review.dueDate) < new Date();
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-col gap-2 space-y-0 md:flex-row md:items-center md:justify-between">
         <CardTitle className="text-base">{review.patientName}</CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant="grey" className="capitalize">
             {review.condition}
           </Badge>

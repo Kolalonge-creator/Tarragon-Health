@@ -50,7 +50,7 @@ function DeclineForm({ referral }: { referral: SpecialistReferralWithDetails }) 
         onChange={(e) => setReason(e.target.value)}
         placeholder="Why is this referral being declined? (required)"
       />
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button
           size="sm"
           variant="outline"
@@ -82,7 +82,7 @@ export default function ClinicianReferralsPage() {
         </p>
       </div>
       <Card>
-      <CardHeader className="flex items-center justify-between">
+      <CardHeader className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
         <CardTitle>Specialist referrals</CardTitle>
         <Link href="/clinician/referrals/waitlisted" className="text-xs text-brand-green hover:underline">
           View waitlisted referrals

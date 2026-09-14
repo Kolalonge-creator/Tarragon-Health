@@ -191,7 +191,10 @@ export function EscalationWorklist({
                 "Unassigned";
 
               return (
-                <li key={escalation.id} className="flex items-center justify-between gap-4 py-3">
+                <li
+                  key={escalation.id}
+                  className="flex flex-col gap-4 py-3 md:flex-row md:items-center md:justify-between"
+                >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       {resultBadge && (
@@ -221,7 +224,7 @@ export function EscalationWorklist({
                       {caseOwnerName}
                     </p>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
+                  <div className="flex flex-col items-start gap-1 md:items-end">
                     {escalation.assigned_doctor_id === null ? (
                       // The rare case auto-assignment couldn't route (no
                       // qualifying doctor was active in the org at the

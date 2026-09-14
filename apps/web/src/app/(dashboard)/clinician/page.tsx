@@ -7,6 +7,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { ClinicalStaffSetupWarning } from "@/components/clinical/clinical-staff-setup-warning";
 import { formatNumber } from "@/lib/analytics/format";
+import { getLagosGreetingWord, type GreetingWord } from "@/lib/greeting";
 import { LEVEL_BADGE, ESCALATION_STATUS_BADGE } from "@/lib/worklist/level-badge";
 import { createClient } from "@/lib/supabase/server";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -32,18 +33,17 @@ const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
   routine: 4,
 };
 
-/** Lagos-local time of day (CLAUDE.md: timezone always Africa/Lagos), not the server's own. */
+const GREETING_LABEL: Record<GreetingWord, string> = {
+  morning: "Good morning",
+  afternoon: "Good afternoon",
+  evening: "Good evening",
+};
+
+/** Lagos-local time of day (CLAUDE.md: timezone always Africa/Lagos), not the
+ * server's own — shares lib/greeting.ts with the patient dashboard rather
+ * than a second local implementation of the same Lagos-hour bucketing. */
 function greetingWord(now: Date): string {
-  const hour = Number(
-    new Intl.DateTimeFormat("en-GB", {
-      hour: "numeric",
-      hour12: false,
-      timeZone: "Africa/Lagos",
-    }).format(now)
-  );
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
+  return GREETING_LABEL[getLagosGreetingWord(now)];
 }
 
 function initials(name: string | null | undefined): string {

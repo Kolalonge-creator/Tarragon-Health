@@ -75,7 +75,7 @@ function AlertRow({ alert }: { alert: OperationsQueueAlert }) {
   return (
     <li className="flex items-center justify-between gap-4 py-3">
       <div className="space-y-1">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant={TIER_BADGE_VARIANT[tier]}>{TIER_LABEL[tier]}</Badge>
           {alert.type_code && <Badge variant="grey">{alert.type_code.replace(/_/g, " ")}</Badge>}
           <Badge variant={status.variant}>{status.label}</Badge>

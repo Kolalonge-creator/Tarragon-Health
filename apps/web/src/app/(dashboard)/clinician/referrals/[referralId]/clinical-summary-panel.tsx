@@ -132,7 +132,7 @@ export function ClinicalSummaryPanel({
           <CardTitle>Clinical summary</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex gap-2 print:hidden">
+          <div className="flex flex-wrap gap-2 print:hidden">
             <Button
               size="sm"
               variant="outline"

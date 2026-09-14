@@ -53,9 +53,9 @@ function FlagRow({ flag }: { flag: OpenFlag }) {
   );
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0">
+      <CardHeader className="flex flex-col gap-2 space-y-0 md:flex-row md:items-center md:justify-between">
         <CardTitle className="text-base">{flag.patientName}</CardTitle>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant={lifestyleSeverityVariant(flag.severity)}>
             {lifestyleSeverityLabel(flag.severity)}
           </Badge>

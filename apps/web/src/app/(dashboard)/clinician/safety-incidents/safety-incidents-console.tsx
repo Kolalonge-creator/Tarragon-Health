@@ -140,7 +140,7 @@ function FileIncidentForm({ organisationId }: { organisationId: string }) {
           />
         </div>
         {file.isError && <p className="text-sm text-red-600">{(file.error as Error).message}</p>}
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             size="sm"
             disabled={form.description.trim().length === 0 || file.isPending}

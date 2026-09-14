@@ -34,7 +34,10 @@ export function CaseWorklist({ organisationId }: { organisationId: string }) {
           {cases && cases.length > 0 && (
             <ul className="divide-y divide-charcoal-ink/10">
               {cases.map((c) => (
-                <li key={c.id} className="flex items-center justify-between gap-4 py-3">
+                <li
+                  key={c.id}
+                  className="flex flex-col gap-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+                >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-charcoal-ink">
@@ -82,7 +85,10 @@ function CaseCandidates({ organisationId }: { organisationId: string }) {
       <CardContent>
         <ul className="divide-y divide-charcoal-ink/10">
           {candidates.map((patient) => (
-            <li key={patient.id} className="flex items-center justify-between gap-4 py-2.5">
+            <li
+              key={patient.id}
+              className="flex flex-col gap-2 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4"
+            >
               <span className="text-sm text-charcoal-ink">{patient.full_name ?? "Unknown patient"}</span>
               <Button
                 type="button"
