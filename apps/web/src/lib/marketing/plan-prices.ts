@@ -89,6 +89,13 @@ export function formatPrice(minor: number, currency: "NGN" | "USD"): string {
  * page fell back to static dollar strings and advertised prices nobody could
  * buy. Reading the codes off PAID_SERVICES means a service can only be priced
  * here if it is actually listed, and only overridden if it is actually on sale.
+ *
+ * A PAID_SERVICES entry's own `.terms` (e.g. continuous-monitoring's 6/12
+ * month options) are walked too, not just its top-level `.code` — the 3-month
+ * term happens to equal the top-level code so it was covered, but the 6m/12m
+ * codes were never read, and pricing-services.tsx's per-term `priceOverrides
+ * [term.code] ?? term.price` lookup silently fell back to the static price on
+ * every one of them regardless of the live service_products row.
  */
 export function servicePriceOverridesFrom(prices: PlanPriceMap): Record<string, string> {
   if (prices.size === 0) return {};
@@ -98,6 +105,12 @@ export function servicePriceOverridesFrom(prices: PlanPriceMap): Record<string, 
     const price = prices.get(service.code);
     if (price !== undefined) {
       out[service.code] = formatPrice(price, "NGN");
+    }
+    for (const term of service.terms ?? []) {
+      const termPrice = prices.get(term.code);
+      if (termPrice !== undefined) {
+        out[term.code] = formatPrice(termPrice, "NGN");
+      }
     }
   }
   return out;
