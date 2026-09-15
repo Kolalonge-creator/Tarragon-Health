@@ -383,13 +383,15 @@ taken on faith:**
   (Redeployed again from `main-dev` on 2026-09-03, v39, after being found ~344 lines stale; the
   release-integrity edge-drift job diffs every deployed function against `origin/main-dev` on each
   push and every 6 hours — trust that job's current status over any dated claim, this line included.)
+- **RESOLVED 2026-09-15** — NDPC registration is approved and the founder's DPO appointment has been
+  accepted by NDPC. Both halves of what was previously the "NDPC registration and a DPO appointment"
+  open item are closed; do not list it as outstanding.
 - Several regulatory/compliance items were still open the last time they were touched: MDCN/NMCN
   confirmation that the five-tier doctor-authority split is compliant; a Nigerian fintech counsel
-  opinion on the Care Voucher structuring; NDPC registration and a DPO appointment; Meta WhatsApp
-  template approval (blocked on Meta's own support process) and Termii sender-ID carrier approval
-  (blocked on submitting several business documents) — both meaning WhatsApp/SMS delivery for
-  several reminder templates is pending, with in-app notification as the working fallback in the
-  meantime.
+  opinion on the Care Voucher structuring; Meta WhatsApp template approval (blocked on Meta's own
+  support process) and Termii sender-ID carrier approval (blocked on submitting several business
+  documents) — both meaning WhatsApp/SMS delivery for several reminder templates is pending, with
+  in-app notification as the working fallback in the meantime.
 - A production-quality Nigerian-language voice/TTS vendor was deliberately never built — the
   platform is English-only by founder decision (2026-08-03). Revisit only on an explicit ask.
 - **2026-08-29 — modules 27 (insurer/payer platform) and 28 (provider organisation platform) are
