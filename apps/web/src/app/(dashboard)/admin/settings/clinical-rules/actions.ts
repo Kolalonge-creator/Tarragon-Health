@@ -6,6 +6,11 @@ import { createClient } from "@/lib/supabase/server";
 export type ClinicalRuleActionState = { error?: string; success?: string } | undefined;
 
 const REVALIDATE_PATH = "/admin/settings/clinical-rules";
+// This manager also renders inline on the sign-off hub — see
+// admin/settings/clinical-protocols/page.tsx — which must see the same
+// fresh state as this page after any lifecycle action below, not a cached
+// queue count from before the action ran.
+const HUB_PATH = "/admin/settings/clinical-protocols";
 
 /**
  * §32.13. The DB RPC (public.promote_clinical_rule_to_shadow) is the real
@@ -23,6 +28,7 @@ export async function promoteToShadowAction(
   const { error } = await supabase.rpc("promote_clinical_rule_to_shadow", { p_id: id });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(HUB_PATH);
   return { success: "Promoted to shadow. It will now be evaluated against real events without acting on any patient." };
 }
 
@@ -41,6 +47,7 @@ export async function signClinicalRuleAction(
   const { error } = await supabase.rpc("sign_clinical_rule", { p_id: id, p_activate: activate });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(HUB_PATH);
   return { success: activate ? "Signed and activated." : "Signed (not yet activated)." };
 }
 
@@ -62,6 +69,7 @@ export async function rollbackClinicalRuleAction(
   });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(HUB_PATH);
   return { success: `Rolled back to version ${toVersion}.` };
 }
 
@@ -77,6 +85,7 @@ export async function retireClinicalRuleAction(
   const { error } = await supabase.rpc("retire_clinical_rule", { p_id: id, p_reason: reason });
   if (error) return { error: error.message };
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(HUB_PATH);
   return { success: "Retired." };
 }
 
@@ -147,6 +156,7 @@ export async function draftNextClinicalRuleVersionAction(
   if (error) return { error: error.message };
 
   revalidatePath(REVALIDATE_PATH);
+  revalidatePath(HUB_PATH);
   return { success: `Draft v${nextVersion} created for ${source.rule_key}.` };
 }
 

@@ -35,6 +35,10 @@ export async function editContentBlockAction(
   if (error) return { error: error.message };
 
   revalidatePath("/admin/settings/lpe-content-library");
+  // This manager also renders inline on the sign-off hub — see
+  // admin/settings/clinical-protocols/page.tsx — which must see the same
+  // fresh state whether the edit happened there or on this page directly.
+  revalidatePath("/admin/settings/clinical-protocols");
   return { success: true };
 }
 
@@ -50,5 +54,6 @@ export async function signContentBlockAction(blockId: string): Promise<ContentAc
   const { error } = await supabase.rpc("sign_lpe_content_block", { p_block_id: blockId });
   if (error) return { error: error.message };
   revalidatePath("/admin/settings/lpe-content-library");
+  revalidatePath("/admin/settings/clinical-protocols");
   return { success: true };
 }

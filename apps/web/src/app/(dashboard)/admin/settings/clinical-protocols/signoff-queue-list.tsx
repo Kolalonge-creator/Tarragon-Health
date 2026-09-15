@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { NAV_ICON } from "@/lib/icons";
@@ -18,7 +19,20 @@ const SEVERITY_BADGE: Record<SignoffQueueItem["severity"], { variant: BadgeProps
  * find out. Read fresh on every page load (no caching): a stale "nothing to
  * sign" here is the one wrong thing this list could say.
  */
-export function SignoffQueueList({ items }: { items: SignoffQueueItem[] }) {
+export function SignoffQueueList({
+  items,
+  inlinePanels = {},
+}: {
+  items: SignoffQueueItem[];
+  /**
+   * Keyed by `SignoffQueueItem.key`. When a panel is present for an item,
+   * that item renders as an expandable `<details>` with the panel (the
+   * actual reviewer/signer UI) inline, instead of a link away to a separate
+   * settings page — the whole point being that "needs your signature" and
+   * "here's the thing to sign" are the same click, not two.
+   */
+  inlinePanels?: Partial<Record<string, ReactNode>>;
+}) {
   if (items.length === 0) {
     return (
       <Card className="border-brand-green/30 bg-brand-green/5">
@@ -36,12 +50,37 @@ export function SignoffQueueList({ items }: { items: SignoffQueueItem[] }) {
         <CardTitle className="text-base">Needs your signature ({items.length})</CardTitle>
         <CardDescription>
           Every live-unsigned config, pending protocol draft, and clinical rule missing a signature —
-          read fresh from the database, not a cached count.
+          read fresh from the database, not a cached count. Where the actual reviewer is available, it
+          opens right here — no second page to go find it on.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         {items.map((item) => {
           const badge = SEVERITY_BADGE[item.severity];
+          const panel = inlinePanels[item.key];
+
+          if (panel) {
+            return (
+              <details
+                key={item.key}
+                className="group rounded-md border border-mist-grey/40 p-3 text-sm open:border-brand-green/50 open:bg-brand-green/5"
+              >
+                <summary className="flex cursor-pointer list-none items-start justify-between gap-3 [&::-webkit-details-marker]:hidden">
+                  <div className="min-w-0">
+                    <p className="font-medium text-charcoal-ink">{item.title}</p>
+                    <p className="mt-0.5 text-xs text-charcoal-ink/60">{item.detail}</p>
+                  </div>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <Badge variant={badge.variant}>{badge.label}</Badge>
+                    <span className="text-xs font-medium text-brand-green group-open:hidden">Review &amp; sign ↓</span>
+                    <span className="hidden text-xs font-medium text-charcoal-ink/50 group-open:inline">Collapse ↑</span>
+                  </span>
+                </summary>
+                <div className="mt-4 border-t border-mist-grey/30 pt-4">{panel}</div>
+              </details>
+            );
+          }
+
           return (
             <Link
               key={item.key}
