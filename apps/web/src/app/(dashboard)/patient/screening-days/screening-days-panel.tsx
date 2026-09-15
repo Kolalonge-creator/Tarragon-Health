@@ -68,7 +68,14 @@ function RequestForm() {
                 </option>
                 {(bundles ?? []).map((bundle) => (
                   <option key={bundle.id} value={bundle.id}>
-                    {bundle.name} ({bundle.price_kobo ? naira(bundle.price_kobo) : "price on request"})
+                    {/* The laboratory's indicative price, not Tarragon's:
+                        panel_bundles.price_kobo stopped being a Tarragon price
+                        on 2026-09-10. Reading price_kobo here would quote a
+                        figure nobody charges. */}
+                    {bundle.name}
+                    {bundle.indicative_price_kobo
+                      ? ` (about ${naira(bundle.indicative_price_kobo)} at the lab)`
+                      : ""}
                   </option>
                 ))}
               </Select>
