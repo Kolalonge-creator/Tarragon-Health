@@ -119,6 +119,17 @@ begin
     from public.diagnostic_episodes where screening_result_id = v_result_b;
 
   -- ---- Case 3: referral linkage ----
+  -- Re-established here: case 2's begin/exception block above deliberately
+  -- triggers and catches a real exception, and PL/pgSQL's implicit
+  -- savepoint rollback on a caught exception reverts any transaction-local
+  -- GUC set since the enclosing block was entered -- including this
+  -- request.jwt.claims set with is_local=true at case 2's start. Confirmed
+  -- live: without this, auth.uid() silently returns null from here on,
+  -- and this insert (now gated by private.enforce_specialist_referral_create()
+  -- requiring a clinical-tier session) fails with a permission error
+  -- instead of exercising the referral-linkage logic this case exists to test.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_clin_profile)::text, true);
+
   insert into public.specialist_referrals
     (organisation_id, patient_id, screening_upgrade_id, specialist_type, referral_reason)
   values (v_org, v_pat, v_upgrade_b, 'endocrinology', 'diagnostic episode test referral')
