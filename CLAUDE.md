@@ -361,7 +361,16 @@ taken on faith:**
   (management-API auth instead of a DB password it never had) and now fails only on loss-risk
   classes (UNTRACED / UNPUSHED / LOCAL-NOT-APPLIED) while listing branch-owned drift as a warning
   inventory — the remaining bulk of the 124/148 is that branch-owned class, which merges away with
-  the open-PR backlog rather than needing a reconciliation PR of its own.
+  the open-PR backlog rather than needing a reconciliation PR of its own. **Corrected 2026-09-15 —
+  #341 and #313 are both CLOSED**, not open (closed 2026-09-06, confirmed live via `gh pr view`
+  against GitHub, not assumed from this file); the "rebase one of these / close both as superseded"
+  guidance above is moot, there is nothing open to rebase or close. **No reconciliation PR is
+  currently open at all** — a future session starting one would be the first live attempt since
+  those two closed, not a third/fourth duplicate. Re-measured the same day: 158 `main-dev` files
+  with no matching live version, 164 live versions with no matching file — up from 124/148 on
+  2026-09-03, consistent with this being the actively-growing branch-owned class described above,
+  not a regression. Re-run `list_migrations` vs local files yourself before trusting either count
+  as current.
 - **2026-09-02 — a single day, ~70 previously-built feature branches merged into `main-dev` at once**,
   closing most of the outstanding spec-module backlog this file's "Where to Look" section still
   describes as design/reconciliation-only (product of the deliberate large concurrent-worktree
