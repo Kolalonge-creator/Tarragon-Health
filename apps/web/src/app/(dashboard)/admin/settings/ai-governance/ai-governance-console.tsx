@@ -17,11 +17,19 @@ import {
 } from "./dashboard-schema";
 import {
   activateAiPromptVersionAction,
+  approveAiSystemVersionAction,
+  labelAiEvaluationCaseTierAction,
   resolveAiIncidentAction,
   setAiSystemEnabledAction,
   triageAiIncidentAction,
   type AiGovernanceActionState,
 } from "./actions";
+
+const COACH_TIER_OPTIONS = [
+  { value: "routine", label: "Routine" },
+  { value: "clinician_review", label: "Clinician review" },
+  { value: "emergency", label: "Emergency" },
+] as const;
 
 export interface AiSystemRow {
   id: string;
@@ -62,6 +70,37 @@ export interface AiPromptVersionRow {
   approved_at: string | null;
   change_summary: string | null;
   created_at: string;
+}
+
+export interface AiSystemVersionRow {
+  id: string;
+  ai_system_id: string;
+  version: string;
+  model_identifier: string;
+  intended_population: string;
+  excluded_population: string;
+  validation_summary: string | null;
+  validation_completed_at: string | null;
+  approved_at: string | null;
+  deployed_at: string | null;
+  retired_at: string | null;
+  review_due_on: string | null;
+  change_summary: string | null;
+  created_at: string;
+  validated_by_staff: { full_name: string } | null;
+  approved_by_staff: { full_name: string } | null;
+}
+
+export interface AiClinicalAccuracyCaseRow {
+  id: string;
+  suite_id: string;
+  case_code: string;
+  scenario: string;
+  expected_tier: "routine" | "clinician_review" | "emergency" | null;
+  labeled_at: string | null;
+  label_rationale: string | null;
+  ai_evaluation_suites: { name: string; kind: string; ai_system_id: string | null };
+  labeled_by_staff: { full_name: string } | null;
 }
 
 export interface AiModelObservationRow {
@@ -191,6 +230,174 @@ function PromptActivationForm({ promptVersionId }: { promptVersionId: string }) 
   );
 }
 
+function VersionApprovalForm({ versionId }: { versionId: string }) {
+  const [state, action, pending] = useActionState<AiGovernanceActionState, FormData>(
+    approveAiSystemVersionAction,
+    undefined
+  );
+  return (
+    <form action={action} className="mt-2 space-y-2">
+      <input type="hidden" name="versionId" value={versionId} />
+      <Textarea name="note" rows={2} placeholder="What was reviewed, and any conditions (optional)" />
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Approving…" : "Approve version"}
+      </Button>
+      <ActionFeedback state={state} />
+    </form>
+  );
+}
+
+function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
+  const status = version.retired_at
+    ? { variant: "grey" as const, label: `Retired ${formatDate(version.retired_at)}` }
+    : version.approved_at
+      ? { variant: "green" as const, label: `Approved ${formatDate(version.approved_at)}` }
+      : { variant: "amber" as const, label: "Awaiting Clinical Director approval" };
+
+  return (
+    <div className="rounded-lg border border-charcoal-ink/10 bg-white p-3 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="font-medium text-charcoal-ink">
+          {version.version} · <span className="font-mono text-charcoal-ink/70">{version.model_identifier}</span>
+        </p>
+        <Badge variant={status.variant}>{status.label}</Badge>
+      </div>
+
+      <dl className="mt-2 grid gap-2 sm:grid-cols-2">
+        <div>
+          <dt className="text-charcoal-ink/50">Intended population</dt>
+          <dd className="text-charcoal-ink/90">{version.intended_population}</dd>
+        </div>
+        <div>
+          <dt className="text-charcoal-ink/50">Excluded population</dt>
+          <dd className="text-charcoal-ink/90">{version.excluded_population}</dd>
+        </div>
+      </dl>
+
+      {version.validation_summary && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs font-medium text-brand-green">
+            Validation summary
+          </summary>
+          <p className="mt-1 whitespace-pre-wrap text-charcoal-ink/80">{version.validation_summary}</p>
+        </details>
+      )}
+
+      <p className="mt-2 text-xs text-charcoal-ink/50">
+        {version.approved_at
+          ? `Approved by ${version.approved_by_staff?.full_name ?? "unknown"} on ${formatDate(version.approved_at)}`
+          : "Not yet approved — the platform's validation acceptance criterion stays unmet until a Clinical Director approves a version of this system."}
+        {version.validated_by_staff && (
+          <> · Validated by {version.validated_by_staff.full_name}</>
+        )}
+      </p>
+
+      {version.change_summary && (
+        <p className="mt-1 text-xs text-charcoal-ink/60">{version.change_summary}</p>
+      )}
+
+      {!version.approved_at && !version.retired_at && <VersionApprovalForm versionId={version.id} />}
+    </div>
+  );
+}
+
+function ClinicalAccuracyLabelForm({ caseId }: { caseId: string }) {
+  const [state, action, pending] = useActionState<AiGovernanceActionState, FormData>(
+    labelAiEvaluationCaseTierAction,
+    undefined
+  );
+  return (
+    <form action={action} className="mt-2 space-y-2">
+      <input type="hidden" name="caseId" value={caseId} />
+      <div>
+        <Label htmlFor={`tier-${caseId}`}>Tier you would assign</Label>
+        <Select id={`tier-${caseId}`} name="tier" defaultValue="" required>
+          <option value="" disabled>
+            Choose a tier
+          </option>
+          {COACH_TIER_OPTIONS.map((t) => (
+            <option key={t.value} value={t.value}>
+              {t.label}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <Textarea name="rationale" rows={2} placeholder="Why this tier (optional, kept on the record)" />
+      <Button type="submit" size="sm" disabled={pending}>
+        {pending ? "Recording…" : "Record my tier judgement"}
+      </Button>
+      <ActionFeedback state={state} />
+    </form>
+  );
+}
+
+/**
+ * 40.20's "validation" acceptance criterion for AI-001 has one required
+ * suite ("AI Coach clinical accuracy") that measures whether the tier a
+ * clinician would assign matches the tier the coach assigns. That ground
+ * truth can only be an active Chief Medical Officer's own independent
+ * judgement of the message below — never inferred by whoever wrote the
+ * scenario, and never derived from what the coach itself said. This section
+ * shows each scenario blind (no hint at an expected answer) so labelling
+ * here is a real, independent second opinion, not a rubber stamp.
+ */
+function ClinicalAccuracyReviewSection({ cases }: { cases: AiClinicalAccuracyCaseRow[] }) {
+  if (cases.length === 0) return null;
+  const unlabeled = cases.filter((c) => !c.expected_tier);
+  const labeled = cases.filter((c) => c.expected_tier);
+
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="font-heading text-lg font-semibold text-charcoal-ink">
+          Clinical accuracy review
+        </h2>
+        <p className="max-w-3xl text-sm text-charcoal-ink/60">
+          For each patient message below, read it and record the tier you would assign yourself —
+          routine, clinician review, or emergency — before checking what the AI Coach said. This is
+          the ground truth the &ldquo;AI Coach clinical accuracy&rdquo; suite compares the coach
+          against; only an active Chief Medical Officer&rsquo;s own judgement counts.
+        </p>
+      </div>
+
+      {unlabeled.length > 0 && (
+        <div className="space-y-3">
+          {unlabeled.map((c) => (
+            <Card key={c.id}>
+              <CardContent className="space-y-2 pt-6">
+                <p className="text-sm text-charcoal-ink">&ldquo;{c.scenario}&rdquo;</p>
+                <ClinicalAccuracyLabelForm caseId={c.id} />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {labeled.length > 0 && (
+        <details className="rounded-lg border border-charcoal-ink/10 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+            Labelled ({labeled.length} of {cases.length})
+          </summary>
+          <ul className="mt-3 space-y-3">
+            {labeled.map((c) => (
+              <li key={c.id} className="text-sm">
+                <p className="text-charcoal-ink">&ldquo;{c.scenario}&rdquo;</p>
+                <p className="mt-1 text-charcoal-ink/70">
+                  <Badge variant="blue">
+                    {COACH_TIER_OPTIONS.find((t) => t.value === c.expected_tier)?.label ?? c.expected_tier}
+                  </Badge>{" "}
+                  — by {c.labeled_by_staff?.full_name ?? "unknown"} on {formatDate(c.labeled_at)}
+                </p>
+                {c.label_rationale && <p className="mt-1 text-charcoal-ink/60">{c.label_rationale}</p>}
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </section>
+  );
+}
+
 function IncidentTriageForm({ incidentId }: { incidentId: string }) {
   const [state, action, pending] = useActionState<AiGovernanceActionState, FormData>(
     triageAiIncidentAction,
@@ -271,12 +478,16 @@ export function AiGovernanceConsole({
   incidents,
   promptVersions,
   modelObservations,
+  systemVersions,
+  clinicalAccuracyCases,
 }: {
   dashboard: AiGovernanceDashboard;
   systems: AiSystemRow[];
   incidents: AiIncidentRow[];
   promptVersions: AiPromptVersionRow[];
   modelObservations: AiModelObservationRow[];
+  systemVersions: AiSystemVersionRow[];
+  clinicalAccuracyCases: AiClinicalAccuracyCaseRow[];
 }) {
   const systemById = new Map(systems.map((s) => [s.id, s]));
   const systemByCode = new Map(systems.map((s) => [s.system_code, s]));
@@ -398,6 +609,9 @@ export function AiGovernanceConsole({
             const observations = row
               ? modelObservations.filter((o) => o.ai_system_id === row.id)
               : [];
+            const versions = row
+              ? systemVersions.filter((v) => v.ai_system_id === row.id)
+              : [];
 
             return (
               <Card key={entry.system_code}>
@@ -487,6 +701,17 @@ export function AiGovernanceConsole({
                     )}
                   </div>
 
+                  {versions.length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-sm text-charcoal-ink/50">Model versions</p>
+                      <div className="space-y-2">
+                        {versions.map((v) => (
+                          <AiSystemVersionCard key={v.id} version={v} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {observations.length > 0 && (
                     <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
                       <p className="font-medium">A model we did not approve answered for this system</p>
@@ -529,6 +754,8 @@ export function AiGovernanceConsole({
           })}
         </div>
       </section>
+
+      <ClinicalAccuracyReviewSection cases={clinicalAccuracyCases} />
 
       {/* 40.12 — incidents */}
       <section className="space-y-3">

@@ -746,8 +746,12 @@ export type Database = {
           case_code: string
           created_at: string
           expected_behaviour: string
+          expected_tier: string | null
           id: string
           is_adversarial: boolean
+          label_rationale: string | null
+          labeled_at: string | null
+          labeled_by: string | null
           notes: string | null
           population_group: string | null
           redteam_category:
@@ -761,8 +765,12 @@ export type Database = {
           case_code: string
           created_at?: string
           expected_behaviour: string
+          expected_tier?: string | null
           id?: string
           is_adversarial?: boolean
+          label_rationale?: string | null
+          labeled_at?: string | null
+          labeled_by?: string | null
           notes?: string | null
           population_group?: string | null
           redteam_category?:
@@ -776,8 +784,12 @@ export type Database = {
           case_code?: string
           created_at?: string
           expected_behaviour?: string
+          expected_tier?: string | null
           id?: string
           is_adversarial?: boolean
+          label_rationale?: string | null
+          labeled_at?: string | null
+          labeled_by?: string | null
           notes?: string | null
           population_group?: string | null
           redteam_category?:
@@ -788,6 +800,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "ai_evaluation_cases_labeled_by_fkey"
+            columns: ["labeled_by"]
+            isOneToOne: false
+            referencedRelation: "clinical_staff"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ai_evaluation_cases_suite_id_fkey"
             columns: ["suite_id"]
@@ -41277,6 +41296,10 @@ export type Database = {
           provider_name: string
           suppressed: boolean
         }[]
+      }
+      label_ai_evaluation_case_tier: {
+        Args: { p_case_id: string; p_rationale?: string; p_tier: string }
+        Returns: Database["public"]["Tables"]["ai_evaluation_cases"]["Row"]
       }
       lift_provider_restriction: {
         Args: { p_reason: string; p_restriction_id: string }
