@@ -623,7 +623,6 @@ function PregnancyRedFlagCheck({ patientId, organisationId }: { patientId: strin
   const [guidanceVisible, setGuidanceVisible] = useState(false);
   const [detail, setDetail] = useState("");
   const [emergencyContact, setEmergencyContact] = useState<{ name: string; phone: string | null; relationship: string | null } | null>(null);
-  const [state, setState] = useState<string | null>(null);
 
   function toggle(sign: PregnancyDangerSign) {
     setSelected((prev) => {
@@ -646,7 +645,6 @@ function PregnancyRedFlagCheck({ patientId, organisationId }: { patientId: strin
     }
     const context = await loadPregnancyEmergencyContext(patientId).catch(() => null);
     setEmergencyContact(context?.emergencyContact ?? null);
-    setState(context?.state ?? null);
     setDetail(`Pregnancy warning sign(s): ${signs.map((s) => PREGNANCY_DANGER_SIGN_LABEL[s]).join(", ")}`);
     setSelected(new Set());
     setExpanded(false);
@@ -681,7 +679,6 @@ function PregnancyRedFlagCheck({ patientId, organisationId }: { patientId: strin
         detail={detail}
         synced
         emergencyContact={emergencyContact}
-        state={state}
         onDismiss={() => setGuidanceVisible(false)}
       />
     </Card>

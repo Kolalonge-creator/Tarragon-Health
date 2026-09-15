@@ -8,7 +8,6 @@ import {
   type SupportTicketStatus,
 } from "@/lib/technical-support";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
-import { loadPatientState } from "@/lib/vitals";
 import { EmergencyGuidanceModal } from "@/screens/emergency-guidance-modal";
 import { colors, radius, spacing } from "@/ui/theme";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SectionDivider } from "@/ui/components";
@@ -62,7 +61,6 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
   const [loading, setLoading] = useState(true);
   const [emergencyVisible, setEmergencyVisible] = useState(false);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
-  const [patientState, setPatientState] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await loadMySupportTickets(patientId);
@@ -76,7 +74,6 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
     loadCachedEmergencyFacts()
       .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
       .catch(() => {});
-    loadPatientState(patientId).then(setPatientState);
   }, [refresh, patientId]);
 
   async function submit() {
@@ -158,7 +155,6 @@ export function TechnicalSupportScreen({ patientId, organisationId }: TechnicalS
         detail="What you described may be a medical emergency."
         synced
         emergencyContact={emergencyContact}
-        state={patientState}
         onDismiss={() => setEmergencyVisible(false)}
       />
     </ScrollView>

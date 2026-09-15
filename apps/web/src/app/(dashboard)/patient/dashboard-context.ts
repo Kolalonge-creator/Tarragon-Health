@@ -53,15 +53,13 @@ export async function getPatientDashboardContext() {
   // private.stamp_acting_supporter.
   const subjectId = acting?.profileId ?? profile.id;
 
-  // The emergency safety net must show the SUBJECT's state, date of birth
-  // (for age-band-aware framing — spec §49.3 — and the paediatric surfaces
-  // below), and emergency contact, not the caller's — a supporter in Lagos
-  // acting for a parent in Kano needs Kano's (or the national default's)
-  // emergency number, and "alert my emergency contact" must alert the
-  // SUBJECT's contact, not the caller's own. ActingFor only carries id/name,
-  // so fetch these separately in the rare acting case; when not acting, the
-  // caller's own already-loaded profile fields are correct.
-  let subjectState = profile.state ?? null;
+  // The emergency safety net must show the SUBJECT's date of birth (for
+  // age-band-aware framing — spec §49.3 — and the paediatric surfaces
+  // below) and emergency contact, not the caller's — "alert my emergency
+  // contact" must alert the SUBJECT's contact, not the caller's own.
+  // ActingFor only carries id/name, so fetch these separately in the rare
+  // acting case; when not acting, the caller's own already-loaded profile
+  // fields are correct.
   let subjectDateOfBirth: string | null = profile.date_of_birth ?? null;
   let subjectHasEmergencyContact = !!profile.emergency_contact_phone;
   // Sex belongs in the same set and for the same reason: it decides whether
@@ -73,10 +71,9 @@ export async function getPatientDashboardContext() {
     const supabase = await createClient();
     const { data: subjectProfile } = await supabase
       .from("profiles")
-      .select("state, date_of_birth, emergency_contact_phone, sex")
+      .select("date_of_birth, emergency_contact_phone, sex")
       .eq("id", subjectId)
       .maybeSingle();
-    subjectState = subjectProfile?.state ?? null;
     subjectDateOfBirth = subjectProfile?.date_of_birth ?? null;
     subjectHasEmergencyContact = !!subjectProfile?.emergency_contact_phone;
     subjectSex = subjectProfile?.sex ?? null;
@@ -101,7 +98,6 @@ export async function getPatientDashboardContext() {
     glucoseUnit,
     uiLanguage,
     subjectId,
-    subjectState,
     subjectSex,
     subjectDateOfBirth,
     subjectHasEmergencyContact,

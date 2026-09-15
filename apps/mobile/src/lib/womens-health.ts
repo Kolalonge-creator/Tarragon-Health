@@ -425,18 +425,16 @@ export async function requestFertilityAssessment(
 // ---------------------------------------------------------------------------
 
 export interface PregnancyEmergencyContext {
-  state: string | null;
   emergencyContact: { name: string; phone: string | null; relationship: string | null } | null;
 }
 
 export async function loadPregnancyEmergencyContext(patientId: string): Promise<PregnancyEmergencyContext> {
   const { data } = await supabase
     .from("profiles")
-    .select("state, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship")
+    .select("emergency_contact_name, emergency_contact_phone, emergency_contact_relationship")
     .eq("id", patientId)
     .maybeSingle();
   return {
-    state: data?.state ?? null,
     emergencyContact: data?.emergency_contact_name
       ? { name: data.emergency_contact_name, phone: data.emergency_contact_phone, relationship: data.emergency_contact_relationship }
       : null,
