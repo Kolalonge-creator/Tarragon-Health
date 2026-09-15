@@ -80,8 +80,16 @@ overrides:
   # (cosmiconfig wants ^3.13.1, @expo/xcpretty wants ^4.1.0) — scoped
   # per-range so each stays on the major it was actually shipped against,
   # patched at the point release the advisory calls out.
-  "js-yaml@^3.13.1": "3.15.1" # GHSA-5p4m-2wfm-xmqj (quadratic CPU via !!omap resolution)
-  "js-yaml@^4.1.0": "4.3.1" # GHSA-5p4m-2wfm-xmqj (quadratic CPU via !!omap resolution)
+  # Raised again 2026-09-16: a DIFFERENT advisory (CVE-2026-84375,
+  # "maxTotalMergeKeys does not limit CPU use for empty merge sources") was
+  # open against both 3.15.1 and 4.3.1 above — the omap fix below didn't
+  # cover it. First-patched is 3.15.2 / 4.3.2 respectively; diffed both
+  # loader.js files against the pinned versions before bumping (identical
+  # fix in each line: an empty-mapping merge source now still charges
+  # chargeMergeWork(), plus a new "abnormal merge sequence size" cap) —
+  # pure patch-level safety accounting, no API change.
+  "js-yaml@^3.13.1": "3.15.2" # GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
+  "js-yaml@^4.1.0": "4.3.2" # GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
   # brace-expansion: four different minimatch majors in apps/mobile's build
   # tooling (metro/@expo/cli/react-native codegen/eas-cli) each pin their own
   # brace-expansion major — selector after the @ is minimatch's own declared
@@ -101,11 +109,33 @@ overrides:
   "fast-xml-parser@^4.0.12": "5.7.0" # GHSA-gh4j-gqv2-49f6 (XMLBuilder comment/CDATA injection via unescaped delimiters)
   # image-size (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq — ICNS/JXL/HEIF
   # parser infinite loops, via apps/mobile's metro bundler) deliberately has
-  # NO override: the advisories claim a fix at ">=2.0.3", but 2.0.3 does not
-  # exist on the npm registry or in the image-size GitHub repo's tags as of
-  # 2026-08-29 — 2.0.2 (already vulnerable per the advisory's own "<=2.0.2"
-  # range) is the latest real release. Forcing a version that doesn't exist
-  # would just fail to resolve. Re-check when a real 2.0.3 (or later) ships.
+  # NO override, for a DIFFERENT reason as of 2026-09-16 than the original
+  # 2026-08-29 note (2.0.3 didn't exist yet then — it does now, published
+  # 2026-09-14, and 2.0.4 the same day): downloaded and diffed the actual
+  # npm tarballs, and 2.0.4 genuinely fixes both bugs (ICNS's readImageHeader
+  # now throws instead of looping forever on a zero-length entry; HEIF's
+  # box-walk now throws if an ispe box doesn't advance the offset) — this is
+  # a real, verified fix, not a coincidental version bump.
+  #
+  # The reason it's still not usable here: image-size 2.x is a genuine
+  # breaking change, not just a version bump. v1.x's default export accepts
+  # EITHER a Buffer/Uint8Array OR a file-path string (reading the file
+  # itself via fs); v2.x split this into two entry points --
+  # `imageSize()` now takes ONLY a Buffer, file-path reading moved to a
+  # separate `image-size/fromFile` export metro@0.83.3 (pinned via
+  # expo@54.0.36, the only version in this workspace) never calls. Metro's
+  # own Assets.js:173 does
+  # `assetInfo.files[0].includes(".zip/") ? fs.readFileSync(...) :
+  # assetInfo.files[0]` -- for any non-zip asset (the overwhelming common
+  # case) it passes the raw file-path STRING straight into imageSize(),
+  # which is exactly the v1-only calling convention. Forcing 2.x here would
+  # silently break dimension detection for most bundled images rather than
+  # fixing a live vulnerability, since this code path is Metro's asset
+  # pipeline (build-time only) already, not something an attacker's input
+  # reaches. Revisit only once Metro itself ships a version that either
+  # reads the file before calling imageSize() or bumps its own image-size
+  # dependency to 2.x -- check metro's own package.json range at that
+  # point, don't just retry this override.
   # 2026-08-30 GitHub Dependabot sweep (19 alerts total; 8 of the 19 are in
   # reference/tarragon-control/ — a deliberately preserved, non-running
   # backup of the abandoned v3 repo per CLAUDE.md, not touched here). The
