@@ -60,10 +60,10 @@ begin
   if v_clin_staff_id is null then
     insert into public.clinical_staff
       (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-      values (v_org, v_clin_profile, 'Diagnostic Episode Test Clinician', true, now(), 'tier_1')
+      values (v_org, v_clin_profile, 'Diagnostic Episode Test Clinician', true, now(), 'medical_officer')
       returning id into v_clin_staff_id;
   else
-    update public.clinical_staff set doctor_tier = 'tier_1', active = true where id = v_clin_staff_id;
+    update public.clinical_staff set doctor_tier = 'medical_officer', active = true where id = v_clin_staff_id;
   end if;
 
   -- ---- Case 1: real abnormal result opens exactly one episode ----

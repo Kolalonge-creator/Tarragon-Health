@@ -109,3 +109,11 @@ escalation_auto_assignment_and_reassignment_authority.sql
 # structural check actually discriminates (sabotage control) rather than
 # passing vacuously.
 analytics_console_rpc_authorization_gate.sql
+
+# --- Added 2026-09-15 (main-dev -> main release reconciliation) ------------
+# Found unregistered while merging the Diagnostic Safety Pathway engine
+# (originally PR #317) into main-dev's current manifest-completeness check --
+# the proof itself already existed and covers four real migrations
+# (diagnostic_episode_core/closure_criteria/referral_linkage/
+# repeat_test_recalls), it just never got added to this list.
+diagnostic_episode_engine.sql
