@@ -66,9 +66,19 @@ begin
   -- exactly this situation -- profiles.id has a real FK to auth.users.
   if v_clin_profile is null then
     v_clin_profile := gen_random_uuid();
+    -- auth.users has an AFTER INSERT trigger (private.handle_new_user())
+    -- that already creates a matching public.profiles row with defaults —
+    -- confirmed live by a real duplicate-key hit on the first version of
+    -- this fix, which tried a plain insert. Upsert instead, exactly the
+    -- pattern analytics_console_rpc_authorization_gate.sql already uses
+    -- for the same reason.
     insert into auth.users (id, email) values (v_clin_profile, 'diagnostic.episode.test.clinician@example.com');
     insert into public.profiles (id, organisation_id, role, full_name)
-      values (v_clin_profile, v_org, 'clinician', 'Diagnostic Episode Test Clinician');
+      values (v_clin_profile, v_org, 'clinician', 'Diagnostic Episode Test Clinician')
+      on conflict (id) do update
+        set organisation_id = excluded.organisation_id,
+            role            = excluded.role,
+            full_name       = excluded.full_name;
   end if;
 
   select id into v_clin_staff_id from public.clinical_staff where profile_id = v_clin_profile;
