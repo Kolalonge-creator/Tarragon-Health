@@ -136,5 +136,39 @@ overrides:
   # the other already sits above the patched floor within the SAME major —
   # unlike the packages above, an unscoped bump here can't drag anything
   # onto an incompatible major, so no per-range scoping needed.
-  joi: ">=17.13.4" # CVE-2026-48038 (uncaught RangeError on deeply nested input via recursive link() schemas)
+  # joi raised again 2026-09-15: two more advisories (CVE-2026-84368,
+  # CVE-2026-84367 — prototype pollution via a __proto__ language key in
+  # custom messages, and via object().rename() with a template target) were
+  # open against the >=17.13.4 floor above. Their highest first-patched
+  # version is 17.13.6. Switched from an open floor to an exact pin here:
+  # ">=17.13.6" actually resolved to 18.2.9 on install (a real major, not
+  # verified compatible with the EAS/React Native CLI schema-validation
+  # code that consumes joi transitively) — pinned to the newest real 17.x
+  # release instead (17.13.8, confirmed published) to stay inside the same
+  # major this override has always intended.
+  joi: "17.13.8" # CVE-2026-48038, CVE-2026-84368, CVE-2026-84367
   yaml: ">=2.8.3" # CVE-2026-33532 (stack overflow via deeply nested YAML collections)
+  # browserslist (via babel-preset-expo's Babel target resolution, build-time
+  # only): CVE-2026-73089/73088 (unbounded query-result cache growth toward
+  # OOM; uncaught crash/prototype write from an untrusted
+  # browserslist-stats.json). Single resolved copy, same reasoning as
+  # joi/yaml above — no scoping needed.
+  browserslist: ">=4.28.7" # CVE-2026-73089, CVE-2026-73088
+  # baseline-browser-mapping (browserslist's own dependency, same chain):
+  # CVE-2026-45819, process termination on invalid input causing DoS.
+  baseline-browser-mapping: ">=2.11.0" # CVE-2026-45819
+  # @xmldom/xmldom (via @expo/plist -> @expo/config-plugins/@expo/cli,
+  # parsing Info.plist during `expo prebuild`/EAS builds only — never
+  # reachable by patient/attacker-controlled input): 23 open Dependabot
+  # alerts across the 0.7.x-0.8.14 and 0.9.0-0.9.11 lines (ReDoS,
+  # element/attribute/PI/doctype name injection bypassing
+  # requireWellFormed, quadratic memory/parsing). 0.9.12 is the highest
+  # first-patched version across all of them and closes every one. Pinned
+  # exact, not an open floor: this is a pre-1.0 package (0.8->0.9 is not a
+  # guaranteed-compatible bump under semver), and its own 0.9.x release
+  # notes add real behavioural changes (createCDATASection now throws on
+  # unsafe "]]>" content, XMLSerializer.serializeToString gained a fourth
+  # requireWellFormed argument) — narrow enough that well-formed,
+  # developer-authored plist XML is unaffected, but not something to leave
+  # to an open floor picking up whatever ships next.
+  "@xmldom/xmldom": "0.9.12" # GHSA-c7q8-3ch8-vqpv and 12 other GHSA ids, see the 2026-09-15 Dependabot sweep
