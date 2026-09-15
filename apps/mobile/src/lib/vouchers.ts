@@ -4,13 +4,16 @@ import type { Tables } from "@tarragon/shared";
 
 /**
  * Native equivalent of care-vouchers-card.tsx, scoped to what carries no
- * payment: viewing owned vouchers, redeeming an already-paid-for one
- * (redeem_service_voucher RPC), and the referral code. Buying a voucher and
- * paying an instalment toward one are both Paystack checkouts
- * (buyCareVoucher/buyHealthCheckVoucher/payTowardVoucher in
+ * payment: viewing owned vouchers and the referral code. Buying a voucher
+ * and paying an instalment toward one are both Paystack checkouts
+ * (buyHealthCheckVoucher/payTowardVoucher in
  * apps/web/.../patient/vouchers/actions.ts) -- those stay a system-browser
  * hand-off, same App Store 3.1.1 reasoning as every other one-off checkout
- * on this platform (see care-support-screen.tsx's own header comment).
+ * on this platform (see care-support-screen.tsx's own header comment). The
+ * generic redeemable-service-voucher purchase/redeem path
+ * (redeem_service_voucher) was removed 2026-09-15 -- zero live rows ever
+ * used it; a health-check or reward voucher is still redeemed elsewhere,
+ * against the order it's applied to.
  */
 export type CareVoucher = Tables<"care_vouchers">;
 
@@ -28,25 +31,6 @@ export async function loadMyVouchers(profileId: string): Promise<QueryResult<Car
     .order("created_at", { ascending: false });
   if (error) return { ok: false, error: error.message };
   return { ok: true, data };
-}
-
-export async function redeemServiceVoucher(
-  voucherId: string
-): Promise<{ error?: string; message?: string }> {
-  const { data, error } = await supabase.rpc("redeem_service_voucher", { p_voucher_id: voucherId });
-  if (error) return { error: error.message };
-  const result = data as { product_name?: string; covered_until?: string };
-  const until = result.covered_until
-    ? new Date(result.covered_until).toLocaleDateString("en-GB", {
-        timeZone: "Africa/Lagos",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
-    : null;
-  return {
-    message: `You're on ${result.product_name ?? "your plan"}${until ? ` until ${until}` : ""}. Nothing renews automatically, so there is no card to cancel.`,
-  };
 }
 
 export async function loadMyReferralCode(): Promise<QueryResult<string>> {

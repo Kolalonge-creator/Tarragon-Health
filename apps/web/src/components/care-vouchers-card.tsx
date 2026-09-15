@@ -2,14 +2,11 @@
 
 import { useActionState, useState } from "react";
 import {
-  buyCareVoucher,
   buyHealthCheckVoucher,
   payTowardVoucher,
-  redeemServiceVoucher,
 } from "@/app/(dashboard)/patient/vouchers/actions";
 import {
   useMyVouchers,
-  useVoucherCatalogue,
   useHealthCheckVoucherCatalogue,
   useVoucherConfig,
   useMyReferralCode,
@@ -63,7 +60,6 @@ function formatDate(iso: string) {
  */
 export function CareVouchersCard({ patientId }: { patientId: string }) {
   const { data: vouchers } = useMyVouchers(patientId);
-  const { data: catalogue } = useVoucherCatalogue();
   const { data: healthCheckCatalogue } = useHealthCheckVoucherCatalogue();
   const { data: sponsorable } = useSponsorableProfiles();
   const { data: config } = useVoucherConfig();
@@ -71,16 +67,10 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
 
   const [payingFor, setPayingFor] = useState<string | null>(null);
   const [payState, payAction, payPending] = useActionState(payTowardVoucher, undefined);
-  const [buyState, buyAction, buyPending] = useActionState(buyCareVoucher, undefined);
   const [buyHealthCheckState, buyHealthCheckAction, buyHealthCheckPending] = useActionState(
     buyHealthCheckVoucher,
     undefined
   );
-  const [redeemState, redeemAction, redeemPending] = useActionState(
-    redeemServiceVoucher,
-    undefined
-  );
-  const [buyOpen, setBuyOpen] = useState(false);
   const [buyHealthCheckOpen, setBuyHealthCheckOpen] = useState(false);
 
   const redeemCode = useRedeemReferralCode();
@@ -124,84 +114,6 @@ export function CareVouchersCard({ patientId }: { patientId: string }) {
             minInstalmentKobo={config?.min_instalment_kobo ?? 100000}
           />
         ))}
-
-        {/* Starting a gifted service is the recipient's own act, never the
-            purchaser's: public.redeem_service_voucher refuses anybody but
-            the beneficiary. If they already have it active, redeeming
-            extends it rather than opening a second grant. */}
-        {live
-          .filter((v) => v.service_product_id && isVoucherSpendable(v))
-          .map((v) => (
-            <form key={`redeem-${v.id}`} action={redeemAction} className="space-y-2">
-              <input type="hidden" name="voucherId" value={v.id} />
-              <Button type="submit" size="sm" disabled={redeemPending}>
-                {redeemPending ? "Starting…" : `Start my ${v.sku_name ?? "care"}`}
-              </Button>
-            </form>
-          ))}
-        {redeemState?.error && <p className="text-xs text-red-600 dark:text-red-300">{redeemState.error}</p>}
-        {redeemState?.message && (
-          <p className="text-xs text-emerald-700 dark:text-emerald-300">{redeemState.message}</p>
-        )}
-        {/* A voucher here buys a fixed window of a SERVICE, not an individual
-            test — most lab tests are paid straight to the laboratory, so
-            there is normally nothing to sell in advance. The one deliberate
-            exception is a Synlab-priced, self-bookable health check panel,
-            which has its own separate "Buy a health check" gift flow below
-            (public.purchase_care_voucher) rather than living in this form. */}
-        <div className="border-t border-slate-100 dark:border-night-ink/10 pt-4">
-          <Button type="button" size="sm" variant="outline" onClick={() => setBuyOpen(!buyOpen)}>
-            {buyOpen ? "Cancel" : "Buy care for someone"}
-          </Button>
-
-          {buyOpen && (
-            <form action={buyAction} className="space-y-3 pt-3">
-              <label className="block text-sm">
-                <span className="text-slate-700 dark:text-night-ink/80">Which service?</span>
-                <Select name="serviceProductId" required className="mt-1">
-                  <option value="">Choose a service</option>
-                  {(catalogue ?? []).map((plan) => (
-                    <option key={plan.id} value={plan.id}>
-                      {plan.name} ({naira(plan.price_kobo ?? 0)})
-                    </option>
-                  ))}
-                </Select>
-              </label>
-
-              {(sponsorable ?? []).length > 0 && (
-                <label className="block text-sm">
-                  <span className="text-slate-700 dark:text-night-ink/80">Who is it for?</span>
-                  <Select name="beneficiaryProfileId" className="mt-1">
-                    <option value={patientId}>Me</option>
-                    {(sponsorable ?? []).map((person) => (
-                      <option key={person.id} value={person.id}>
-                        {person.full_name}
-                      </option>
-                    ))}
-                  </Select>
-                </label>
-              )}
-
-              <label className="block text-sm">
-                <span className="text-slate-700 dark:text-night-ink/80">Add a note (optional)</span>
-                <Input name="giftMessage" className="mt-1" placeholder="Thinking of you" />
-              </label>
-
-              <p className="text-xs text-slate-500 dark:text-night-ink/60">
-                Reserving is free. You pay separately, in one go or bit by bit, and it becomes
-                usable once it is paid in full. Whoever it is for starts it when they are ready,
-                so nobody is put on a plan without choosing to be. Tests are still paid at the
-                laboratory.
-              </p>
-
-              <Button type="submit" size="sm" disabled={buyPending}>
-                {buyPending ? "Reserving…" : "Reserve this service"}
-              </Button>
-              {buyState?.error && <p className="text-xs text-red-600 dark:text-red-300">{buyState.error}</p>}
-              {buyState?.message && <p className="text-xs text-emerald-700 dark:text-emerald-300">{buyState.message}</p>}
-            </form>
-          )}
-        </div>
 
         {/* A health-check voucher buys ONE NAMED TEST — screen_core and
             friends, priced from the same self_bookable, Synlab-billed
