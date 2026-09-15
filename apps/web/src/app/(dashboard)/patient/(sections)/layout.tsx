@@ -34,7 +34,6 @@ export default async function PatientSectionsLayout({
     profile,
     acting,
     subjectId,
-    subjectState,
     subjectDateOfBirth,
     subjectHasEmergencyContact,
     glucoseUnit,
@@ -55,11 +54,7 @@ export default async function PatientSectionsLayout({
       <ActingForBanner acting={acting} />
 
       {/* Safety surfaces stay above everything, outside any section. */}
-      <EmergencyAlert
-        patientId={subjectId}
-        hasEmergencyContact={subjectHasEmergencyContact}
-        state={subjectState}
-      />
+      <EmergencyAlert patientId={subjectId} hasEmergencyContact={subjectHasEmergencyContact} />
       <DangerSymptomCheck patientId={subjectId} ageYears={ageFromDateOfBirth(subjectDateOfBirth)} />
 
       {/* Every glucose figure below this point renders in the reader's own

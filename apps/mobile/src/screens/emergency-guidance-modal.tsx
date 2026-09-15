@@ -2,7 +2,6 @@ import { Linking, Modal, Pressable, ScrollView, Text, View } from "react-native"
 import { Ionicons } from "@expo/vector-icons";
 import { colors, radius, spacing } from "@/ui/theme";
 import { SecondaryButton } from "@/ui/components";
-import { getEmergencyNumbers } from "@/lib/nigeria-emergency-numbers";
 import type { EmergencyContact } from "@/lib/emergency";
 
 /**
@@ -28,9 +27,6 @@ export interface EmergencyGuidanceModalProps {
    * own beyond what the caller already knows from the queue/flush result. */
   synced: boolean;
   emergencyContact: EmergencyContact | null;
-  /** Optional — only Lagos currently has a state-specific override; every
-   * other state resolves to the national line either way. */
-  state?: string | null;
   onDismiss: () => void;
 }
 
@@ -39,11 +35,8 @@ export function EmergencyGuidanceModal({
   detail,
   synced,
   emergencyContact,
-  state,
   onDismiss,
 }: EmergencyGuidanceModalProps) {
-  const numbers = getEmergencyNumbers(state);
-
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onDismiss}>
       <View
@@ -76,36 +69,10 @@ export function EmergencyGuidanceModal({
           <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 14 }}>
             <Text style={{ fontSize: 15, lineHeight: 22, color: colors.ink }}>
               TarragonHealth does not provide emergency care. If this is a medical emergency, please{" "}
-              <Text style={{ fontWeight: "700" }}>go to your nearest hospital or emergency department now</Text>,
-              or call one of the numbers below.
+              <Text style={{ fontWeight: "700" }}>go to your nearest hospital or emergency department now.</Text>
+              {" "}Nigeria has no single reliable emergency number to call instead — going in person is
+              the fastest, surest way to get help.
             </Text>
-
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {numbers.map((n) => (
-                <Pressable
-                  key={n.tel}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Call ${n.label}, ${n.number}`}
-                  hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-                  onPress={() => Linking.openURL(`tel:${n.tel}`)}
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    gap: 6,
-                    backgroundColor: colors.status.emergency,
-                    borderRadius: radius.control,
-                    minHeight: 44,
-                    paddingVertical: 9,
-                    paddingHorizontal: 14,
-                  }}
-                >
-                  <Ionicons name="call" size={14} color="#FFFFFF" />
-                  <Text style={{ color: "#FFFFFF", fontSize: 13, fontWeight: "600" }}>
-                    {n.label}: {n.number}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
 
             <Text style={{ fontSize: 13, color: colors.faint }}>Reported: {detail}</Text>
 

@@ -7,7 +7,6 @@ import { useActiveEmergency, activeEmergencyKey } from "@/lib/queries/emergency"
 import { acknowledgeEmergency, alertEmergencyContactNow } from "./actions";
 import { Button } from "@/components/ui/button";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
-import { getEmergencyNumbers } from "@/lib/nigeria-emergency-numbers";
 import { emergencyHospitalGuidance } from "./emergency-guidance";
 
 /**
@@ -23,11 +22,9 @@ import { emergencyHospitalGuidance } from "./emergency-guidance";
 export function EmergencyAlert({
   patientId,
   hasEmergencyContact,
-  state,
 }: {
   patientId: string;
   hasEmergencyContact: boolean;
-  state?: string | null;
 }) {
   const { data: event } = useActiveEmergency(patientId);
   const queryClient = useQueryClient();
@@ -48,8 +45,6 @@ export function EmergencyAlert({
   }, [open]);
 
   if (!event) return null;
-
-  const emergencyNumbers = getEmergencyNumbers(state);
 
   /**
    * Tab cycles inside the panel instead of walking out into the dashboard
@@ -108,12 +103,12 @@ export function EmergencyAlert({
       aria-modal="true"
       aria-labelledby="emergency-alert-title"
       onKeyDown={trapTab}
-      // items-start on a phone, centred from sm up: this panel is taller than
-      // a 375x667 viewport once a Lagos patient's three emergency-number pills
-      // wrap, and centring an over-tall panel in a `fixed` container pushes the
-      // buttons off both ends of the screen with nothing to scroll. Both the
-      // overlay and the panel scroll, so the acknowledge button is always
-      // reachable. Same shape as lifestyle/goals-dialog.tsx.
+      // items-start on a phone, centred from sm up: on a short viewport this
+      // panel can still be taller than the screen, and centring an over-tall
+      // panel in a `fixed` container pushes the buttons off both ends with
+      // nothing to scroll. Both the overlay and the panel scroll, so the
+      // acknowledge button is always reachable. Same shape as
+      // lifestyle/goals-dialog.tsx.
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-charcoal-ink/70 p-4 sm:items-center"
     >
       <div
@@ -135,22 +130,10 @@ export function EmergencyAlert({
         <div className="space-y-5 px-6 py-6">
           <p className="text-base leading-relaxed text-charcoal-ink dark:text-night-ink">
             TarragonHealth does not provide emergency care. If this is a medical emergency, please{" "}
-            <span className="font-semibold">go to your nearest hospital or emergency department now</span>
-            , or call one of the numbers below.
+            <span className="font-semibold">go to your nearest hospital or emergency department now.</span>
+            {" "}Nigeria has no single reliable emergency number to call instead — going in person is
+            the fastest, surest way to get help.
           </p>
-
-          <div className="flex flex-wrap gap-2">
-            {emergencyNumbers.map((n) => (
-              <a
-                key={n.tel}
-                href={`tel:${n.tel}`}
-                className="inline-flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-              >
-                <Phone className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
-                {n.label}: {n.number}
-              </a>
-            ))}
-          </div>
 
           <div className="flex items-start gap-3 rounded-lg bg-red-50 dark:bg-red-500/15 p-4 text-sm text-red-800 dark:text-red-300">
             <Hospital className="mt-0.5 h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />

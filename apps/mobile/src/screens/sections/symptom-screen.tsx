@@ -15,7 +15,6 @@ import {
   type DangerSign,
   type SymptomLog,
 } from "@/lib/symptoms";
-import { loadPatientState } from "@/lib/vitals";
 import { loadCachedEmergencyFacts, type EmergencyContact } from "@/lib/emergency";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SectionLabel } from "@/ui/components";
@@ -76,7 +75,6 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
 
   const [guidance, setGuidance] = useState<{ detail: string; synced: boolean } | null>(null);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
-  const [patientState, setPatientState] = useState<string | null>(null);
 
   const refreshHistory = useCallback(async () => {
     const result = await loadSymptomHistory(patientId);
@@ -95,7 +93,6 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
     loadCachedEmergencyFacts()
       .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
       .catch(() => {});
-    loadPatientState(patientId).then(setPatientState);
   }, [refreshHistory, patientId]);
 
   function toggleDangerSign(sign: DangerSign) {
@@ -373,7 +370,6 @@ export function SymptomScreen({ patientId, beneficiaryProfileId }: SymptomScreen
         detail={guidance?.detail ?? ""}
         synced={guidance?.synced ?? false}
         emergencyContact={emergencyContact}
-        state={patientState}
         onDismiss={() => setGuidance(null)}
       />
     </ScrollView>

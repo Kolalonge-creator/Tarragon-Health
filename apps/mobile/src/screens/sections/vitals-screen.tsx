@@ -6,7 +6,6 @@ import { useGlucoseDisplayUnit } from "@/lib/glucose-unit";
 import {
   classifyVitalOffline,
   computeSevenDayAverage,
-  loadPatientState,
   loadRecentBpReadings,
   logBpReading,
   logOtherVital,
@@ -179,7 +178,6 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
   const [guidance, setGuidance] = useState<GuidanceState | null>(null);
   const [urgentBanner, setUrgentBanner] = useState<string | null>(null);
   const [emergencyContact, setEmergencyContact] = useState<EmergencyContact | null>(null);
-  const [patientState, setPatientState] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setReadings(await loadRecentBpReadings(patientId));
@@ -197,9 +195,6 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
     loadCachedEmergencyFacts()
       .then((facts) => setEmergencyContact(facts?.emergencyContact ?? null))
       .catch(() => {});
-    // Best-effort — already null on failure/offline, which resolves to the
-    // national emergency line in EmergencyGuidanceModal either way.
-    loadPatientState(patientId).then(setPatientState);
   }, [load, refreshPending, patientId]);
 
   async function handleSave() {
@@ -372,7 +367,6 @@ export function VitalsScreen({ patientId, beneficiaryProfileId }: VitalsScreenPr
         detail={guidance?.detail ?? ""}
         synced={guidance?.synced ?? false}
         emergencyContact={emergencyContact}
-        state={patientState}
         onDismiss={() => setGuidance(null)}
       />
     </ScrollView>
