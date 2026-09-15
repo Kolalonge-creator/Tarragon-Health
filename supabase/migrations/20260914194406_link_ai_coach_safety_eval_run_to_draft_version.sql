@@ -26,6 +26,47 @@
 -- code can invent) and is out of scope for this migration -- see the
 -- accompanying conversation for the recommendation to scope that
 -- separately rather than fabricate a passing result for it here.
+--
+-- 2026-09-15 CI fix (editing this file after it already applied to
+-- production is safe -- a migration only ever runs once per environment,
+-- tracked by version, so this edit has zero effect on production, which
+-- already has both rows below from when this migration first ran there;
+-- it only changes what a FRESH replay, e.g. CI's `supabase db reset`,
+-- sees): both the ai_system_versions draft row (a896c72a, 2026-09-14.1)
+-- and this ai_evaluation_runs row (0ce87c58) were originally created by a
+-- prior session's direct SQL tool calls against the live project, never
+-- themselves captured in any migration -- an untraced *data* gap, not the
+-- untraced-*migration* gap this file's own header describes recovering.
+-- On a from-empty CI replay neither row exists yet when this migration
+-- runs, so its own assertions below (correctly) failed CI. Recreated here,
+-- verbatim from the live values, `on conflict do nothing` so this stays a
+-- no-op against production (which already has them) and only backfills a
+-- fresh database. See ai_system_versions.created_at below for this row's
+-- real original timestamp -- it is out of migration-filename order
+-- relative to this file's own version and that is expected: it reflects
+-- when the row was actually created, not when this recovery was written.
+
+insert into public.ai_system_versions
+  (id, ai_system_id, version, model_identifier, intended_population, excluded_population,
+   validation_summary, change_summary, created_at, updated_at)
+values
+  ('a896c72a-9df5-455f-982b-4e786897e41e'::uuid, 'e518572c-692d-4f1c-ad8f-62194b61a243'::uuid, '2026-09-14.1', 'claude-sonnet-5',
+   'Tarragon Health patients with an active app/web account using the AI Coach chat for education, general guidance, and triage support on chronic-disease and preventive-health topics.',
+   'Not validated for: diagnosing a condition (explicitly refused by system prompt and confirmed by eval suite AI-001 Safety & Scope Guardrail Eval); prescribing or recommending a specific medication/dose; replacing a doctor visit or care-team judgement; any patient whose date of birth suggests they are a minor (system prompt routes these to extra caution, not full support); emergencies (routed to the deterministic keyword guardrail + LLM tier classification safety net, never treated as the primary channel).',
+   'Real, run evaluation evidence -- not an assertion. ai_evaluation_runs id 0ce87c58-98ac-4f34-b02d-fa0410de79cc (suite "AI-001 Safety & Scope Guardrail Eval", id ca0b6499-09dc-4fe0-b5d3-8c19ac8a677f): 30/30 cases passed against the real coach code (scripts/ai-coach-safety-eval.ts) -- 15 deterministic emergency-keyword cases (10 positive across all EMERGENCY_PATTERNS categories + 5 negative controls), 10 scope-guardrail cases (8 adversarial diagnosis/dose/prescribing/replace-doctor probes + 2 helpful-answer controls, graded by a claude-haiku-4-5 judge), 5 referral-tool-discipline cases (explicit vs vague specialist requests, graded on the real tool-call trace). Building this suite found and fixed two real production defects, both now shipped on branch ai-coach/governance-eval-suite: (1) the tool-calling loop in graph.ts pushed a final no-tool-call assistant message onto the request before the structured classify+reply call, which claude-sonnet-5 rejects as unsupported assistant-message prefill -- this silently degraded any turn that used >=1 tool call before finalising its answer to clinician_review with an "I''m having trouble reaching the coach" reply; (2) keyword-guardrail.ts''s emergency regexes required literal adjacent substrings that missed natural patient phrasing for chest pain, suicidal ideation, stroke, and overdose -- widened, with the failing phrasings now permanent regression cases in keyword-guardrail.test.ts. NOT YET REVIEWED OR APPROVED BY A CLINICAL DIRECTOR -- validated_by/approved_by/approved_at are deliberately left null on this row; do not set them from this migration or this session, that sign-off belongs to a human.',
+   'Draft -- first ai_system_versions row for AI-001, created after finding no version record existed at all (the governance registry''s "validation" acceptance criterion had nothing behind it). Awaiting Clinical Director review of the linked evaluation run before activation.',
+   '2026-09-14T18:16:42.372611Z'::timestamptz, '2026-09-14T18:16:42.372611Z'::timestamptz)
+on conflict (id) do nothing;
+
+insert into public.ai_evaluation_runs
+  (id, ai_system_id, suite_id, environment, model_identifier, started_at, completed_at,
+   total_cases, passed_cases, failed_cases, outcome, notes)
+values
+  ('0ce87c58-98ac-4f34-b02d-fa0410de79cc'::uuid, 'e518572c-692d-4f1c-ad8f-62194b61a243'::uuid, 'ca0b6499-09dc-4fe0-b5d3-8c19ac8a677f'::uuid,
+   'evaluation', 'claude-sonnet-5', '2026-09-14T18:03:28.137Z'::timestamptz, '2026-09-14T18:05:35.761Z'::timestamptz,
+   30, 30, 0, 'pass'::public.ai_evaluation_outcome,
+   'Real run, not seeded. Two real defects were found and fixed while building this suite (see git history on ai-coach/governance-eval-suite): (1) graph.ts''s tool-calling loop pushed a final no-tool-call assistant response onto the message list before the structured classify+reply call, which claude-sonnet-5 rejects as unsupported assistant-message prefill -- this silently degraded every turn that used >=1 tool call before settling on its answer to clinician_review with an ''I''m having trouble reaching the coach'' reply, in production, until fixed. (2) keyword-guardrail.ts''s emergency-keyword regexes required literal adjacent substrings (''tight in my chest'', ''end my life'', ''slurred speech'', ''too many pills'') that missed natural patient phrasing (''tight, crushing feeling in my chest'', ''ending my life'', ''my speech is slurred'', ''too many of my tablets'') -- widened with bounded gaps, added as permanent regression cases in keyword-guardrail.test.ts. This run''s 30/30 pass rate reflects the coach AFTER both fixes.')
+on conflict (id) do nothing;
 
 do $$
 declare
