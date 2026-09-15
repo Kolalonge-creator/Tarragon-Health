@@ -8,6 +8,7 @@ import {
   relativeTime,
   type InAppNotification,
 } from "@/lib/notifications";
+import type { SectionId } from "@/lib/sections";
 import { colors, inkAlpha } from "./theme";
 
 interface TopBarProps {
@@ -17,11 +18,12 @@ interface TopBarProps {
   onOpenDrawer: () => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
+  onNavigate: (section: SectionId) => void;
 }
 
 /** Hamburger + wordmark + notification bell + profile avatar — the header
  * mounted above every section of the signed-in app. */
-export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSettings, onSignOut }: TopBarProps) {
+export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSettings, onSignOut, onNavigate }: TopBarProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifications, setNotifications] = useState<InAppNotification[]>([]);
@@ -165,20 +167,41 @@ export function TopBar({ userId, patientName, initials, onOpenDrawer, onOpenSett
           ) : notifications.length === 0 ? (
             <Text style={{ padding: 16, fontSize: 12.5, color: colors.muted }}>You&apos;re all caught up.</Text>
           ) : (
-            notifications.map((n) => (
-              <View
-                key={n.id}
-                style={{
-                  padding: 12,
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.border,
-                  backgroundColor: n.status !== "read" ? "rgba(14,124,82,0.04)" : "transparent",
-                }}
-              >
-                <Text style={{ fontSize: 12.5, color: colors.ink }}>{describeNotification(n)}</Text>
-                <Text style={{ fontSize: 10.5, color: colors.faint, marginTop: 2 }}>{relativeTime(n.createdAt)}</Text>
-              </View>
-            ))
+            notifications.map((n) => {
+              const { text, section } = describeNotification(n);
+              const body = (
+                <>
+                  <Text style={{ fontSize: 12.5, color: colors.ink }}>{text}</Text>
+                  <Text style={{ fontSize: 10.5, color: colors.faint, marginTop: 2 }}>{relativeTime(n.createdAt)}</Text>
+                </>
+              );
+              const itemStyle = {
+                padding: 12,
+                borderBottomWidth: 1,
+                borderBottomColor: colors.border,
+                backgroundColor: n.status !== "read" ? "rgba(14,124,82,0.04)" : "transparent",
+              } as const;
+              if (section) {
+                return (
+                  <Pressable
+                    key={n.id}
+                    accessibilityRole="button"
+                    onPress={() => {
+                      setNotifOpen(false);
+                      onNavigate(section);
+                    }}
+                    style={itemStyle}
+                  >
+                    {body}
+                  </Pressable>
+                );
+              }
+              return (
+                <View key={n.id} style={itemStyle}>
+                  {body}
+                </View>
+              );
+            })
           )}
         </ScrollView>
       </DropdownModal>
