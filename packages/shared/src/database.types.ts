@@ -41835,14 +41835,6 @@ export type Database = {
         }
         Returns: Json
       }
-      purchase_service_voucher: {
-        Args: {
-          p_beneficiary: string
-          p_gift_message?: string
-          p_service_product_id: string
-        }
-        Returns: Json
-      }
       raise_lab_extraction_alert: {
         Args: {
           p_document_id: string
@@ -41988,7 +41980,6 @@ export type Database = {
         Returns: Json
       }
       redeem_referral_code: { Args: { p_code: string }; Returns: Json }
-      redeem_service_voucher: { Args: { p_voucher_id: string }; Returns: Json }
       redeem_wellness_points: { Args: { p_points: number }; Returns: Json }
       refer_patient_to_specialist: {
         Args: {

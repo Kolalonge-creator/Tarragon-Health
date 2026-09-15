@@ -276,13 +276,6 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
         visible: adminOnly,
       },
       {
-        href: "/admin/settings/vouchers",
-        label: "Care vouchers",
-        blurb: "Validity windows, extensions, and reissues.",
-        icon: NAV_ICON.payables,
-        visible: anyOf("vouchers.manage"),
-      },
-      {
         href: "/admin/settings/screening-days",
         label: "Group screening days",
         blurb: "Confirm requests, set the cohort discount, and issue attendee vouchers.",

@@ -45,7 +45,6 @@ import {
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   loadMyVouchers,
-  redeemServiceVoucher,
   loadMyReferralCode,
   redeemReferralCode,
   isVoucherSpendable,
@@ -1010,8 +1009,6 @@ const STATUS_LABEL: Record<string, string> = {
 function VouchersSection({ patientId }: { patientId: string }) {
   const [vouchers, setVouchers] = useState<CareVoucher[]>([]);
   const [loading, setLoading] = useState(true);
-  const [redeeming, setRedeeming] = useState<string | null>(null);
-  const [redeemResult, setRedeemResult] = useState<{ voucherId: string; message?: string; error?: string } | null>(null);
 
   const [referralCode, setReferralCode] = useState<string | null>(null);
   const [redeemInput, setRedeemInput] = useState("");
@@ -1032,16 +1029,6 @@ function VouchersSection({ patientId }: { patientId: string }) {
   if (loading) return null;
 
   const live = vouchers.filter((v) => v.status === "reserved" || isVoucherSpendable(v));
-  const spendable = live.filter((v) => v.service_product_id && isVoucherSpendable(v));
-
-  async function handleRedeem(voucher: CareVoucher) {
-    setRedeeming(voucher.id);
-    setRedeemResult(null);
-    const res = await redeemServiceVoucher(voucher.id);
-    setRedeeming(null);
-    setRedeemResult({ voucherId: voucher.id, ...res });
-    if (res.message) await load();
-  }
 
   async function handleApplyCode() {
     if (!redeemInput) return;
@@ -1069,18 +1056,6 @@ function VouchersSection({ patientId }: { patientId: string }) {
           </View>
         ))
       )}
-
-      {spendable.map((v) => (
-        <View key={`redeem-${v.id}`} style={{ gap: 4 }}>
-          <SecondaryButton
-            title={`Start my ${v.sku_name ?? "care"}`}
-            loading={redeeming === v.id}
-            onPress={() => void handleRedeem(v)}
-          />
-          {redeemResult?.voucherId === v.id && redeemResult.error && <ErrorText>{redeemResult.error}</ErrorText>}
-          {redeemResult?.voucherId === v.id && redeemResult.message && <MutedText>{redeemResult.message}</MutedText>}
-        </View>
-      ))}
 
       <CalloutCard
         icon="pricetag-outline"
