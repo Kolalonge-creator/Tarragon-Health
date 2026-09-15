@@ -383,13 +383,27 @@ taken on faith:**
   (Redeployed again from `main-dev` on 2026-09-03, v39, after being found ~344 lines stale; the
   release-integrity edge-drift job diffs every deployed function against `origin/main-dev` on each
   push and every 6 hours — trust that job's current status over any dated claim, this line included.)
-- Several regulatory/compliance items were still open the last time they were touched: MDCN/NMCN
-  confirmation that the five-tier doctor-authority split is compliant; a Nigerian fintech counsel
-  opinion on the Care Voucher structuring; NDPC registration and a DPO appointment; Meta WhatsApp
-  template approval (blocked on Meta's own support process) and Termii sender-ID carrier approval
-  (blocked on submitting several business documents) — both meaning WhatsApp/SMS delivery for
-  several reminder templates is pending, with in-app notification as the working fallback in the
-  meantime.
+- **RESOLVED 2026-09-15** — NDPC registration is approved and the founder's DPO appointment has been
+  accepted by NDPC. Both halves of what was previously the "NDPC registration and a DPO appointment"
+  open item are closed; do not list it as outstanding.
+- **CHANGED 2026-09-15 — pursuing Meta WhatsApp template approval and Termii sender-ID carrier
+  approval is off the founder's near-term plan for now**, not merely blocked-and-pending as this
+  file previously said. In-app notification is the working channel for reminder templates by
+  current plan, not a temporary fallback while waiting on those approvals — don't frame it as
+  "pending" in copy or docs. This doesn't reopen the underlying architecture rule: WhatsApp/SMS
+  remains notification/follow-up only (see Non-Negotiable Business Rules), so nothing about how a
+  feature may depend on WhatsApp changes here. Revisit only if the founder resumes the approval
+  process.
+- **CLOSED 2026-09-15 — the Nigerian fintech counsel opinion on Care Voucher structuring is no
+  longer needed; the founder has removed the Care Voucher feature from the platform.** This is a
+  founder statement recorded here, not independently verified against the running code/DB in this
+  pass — the rest of this file (and the archive) still describes Care Vouchers extensively as the
+  live sponsor/diaspora payment mechanism (`public.purchase_care_voucher`, the "Care Voucher"
+  sponsor model, etc.). Before relying on any of that elsewhere in this file as still current, check
+  the live code/DB rather than assuming this one line already reconciled it — a full removal pass
+  (schema, RPCs, UI, other CLAUDE.md sections) has not been done as part of this edit.
+- Other regulatory/compliance items were still open the last time they were touched: MDCN/NMCN
+  confirmation that the five-tier doctor-authority split is compliant.
 - A production-quality Nigerian-language voice/TTS vendor was deliberately never built — the
   platform is English-only by founder decision (2026-08-03). Revisit only on an explicit ask.
 - **2026-08-29 — modules 27 (insurer/payer platform) and 28 (provider organisation platform) are
