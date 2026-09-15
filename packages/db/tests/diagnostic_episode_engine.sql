@@ -130,6 +130,10 @@ begin
   -- instead of exercising the referral-linkage logic this case exists to test.
   perform set_config('request.jwt.claims', json_build_object('sub', v_clin_profile)::text, true);
 
+  raise notice 'DEBUG case3: auth.uid()=% v_clin_profile=% v_org=% is_clinical_tier=% staff_row=%',
+    auth.uid(), v_clin_profile, v_org, private.is_clinical_tier(v_org),
+    (select row(id, profile_id, organisation_id, doctor_tier, active) from public.clinical_staff where id = v_clin_staff_id);
+
   insert into public.specialist_referrals
     (organisation_id, patient_id, screening_upgrade_id, specialist_type, referral_reason)
   values (v_org, v_pat, v_upgrade_b, 'endocrinology', 'diagnostic episode test referral')
