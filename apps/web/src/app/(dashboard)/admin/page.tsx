@@ -71,6 +71,7 @@ export default async function AdminPage() {
   const canViewOps =
     isSuperAdmin || profile?.role === "analyst" || keys.has("ops.console.view");
   const canViewIncidents = isSuperAdmin || keys.has("incidents.view") || keys.has("incidents.manage");
+  const canManageAiGovernance = isSuperAdmin || keys.has("ai_governance.manage");
 
   // Live platform KPIs for the welcome banner + stat row. The RPCs return
   // '{}' (parsed to all-zero defaults) for a caller who isn't analyst/admin,
@@ -86,6 +87,8 @@ export default async function AdminPage() {
     openBookingsRes,
     pendingBookingsRes,
     dependencyReport,
+    pendingAiVersionApprovalRes,
+    pendingClinicalAccuracyLabelRes,
   ] = await Promise.all([
     supabase.rpc("analytics_business_summary"),
     supabase.rpc("analytics_financial_summary"),
@@ -106,6 +109,21 @@ export default async function AdminPage() {
     // directly here rather than fetched, since this page already renders
     // server-side. See docs/BUSINESS_CONTINUITY_DR_SPEC.md.
     checkDependencies(),
+    // AI governance (Module 40) is easy to lose track of — it lives one tile
+    // among ~60 on this page, and the two actions below are real,
+    // time-sensitive work sitting on a Chief Medical Officer's desk, not
+    // background configuration. Surfaced in the welcome banner below rather
+    // than left for someone to happen across the tile.
+    supabase
+      .from("ai_system_versions")
+      .select("*", { count: "exact", head: true })
+      .is("approved_at", null)
+      .is("retired_at", null),
+    supabase
+      .from("ai_evaluation_cases")
+      .select("*, ai_evaluation_suites!inner(kind)", { count: "exact", head: true })
+      .eq("ai_evaluation_suites.kind", "clinical")
+      .is("expected_tier", null),
   ]);
 
   const business = businessSummarySchema.parse(businessRes.data ?? {});
@@ -114,6 +132,10 @@ export default async function AdminPage() {
   const pendingVerificationCount = pendingVerificationRes.count ?? 0;
   const openBookingsCount = openBookingsRes.count ?? 0;
   const pendingBookingsCount = pendingBookingsRes.count ?? 0;
+  const pendingAiVersionApprovalCount = pendingAiVersionApprovalRes.count ?? 0;
+  const pendingClinicalAccuracyLabelCount = pendingClinicalAccuracyLabelRes.count ?? 0;
+  const aiGovernanceFailed = anyQueryFailed([pendingAiVersionApprovalRes, pendingClinicalAccuracyLabelRes]);
+  const aiGovernanceAttentionCount = pendingAiVersionApprovalCount + pendingClinicalAccuracyLabelCount;
 
   // Six reads, four tiles and one welcome sentence, all of which used to
   // render a confident zero on failure. The `?? 0` and `?? {}` above are what
@@ -476,6 +498,42 @@ export default async function AdminPage() {
           </Link>
         )}
       </div>
+
+      {/* AI governance (Module 40) sits one tile among ~60 further down this
+          page — easy to land on this dashboard and never notice it, even
+          with real, time-sensitive work waiting there. Surfaced here,
+          top-of-page, whenever there is actually something to act on, and
+          silent otherwise so it never becomes ambient clutter once caught
+          up. Amber (needs-attention), not red (broken) — this is real work
+          waiting, not a failure, except in the aiGovernanceFailed branch. */}
+      {canManageAiGovernance && (aiGovernanceAttentionCount > 0 || aiGovernanceFailed) && (
+        <div className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          <p>
+            {aiGovernanceFailed ? (
+              "AI governance: pending-item counts could not be loaded, so this is not an all-clear — check the page directly."
+            ) : (
+              <>
+                <strong>AI governance needs you:</strong>{" "}
+                {[
+                  pendingAiVersionApprovalCount > 0 &&
+                    `${formatNumber(pendingAiVersionApprovalCount)} AI system version${pendingAiVersionApprovalCount === 1 ? "" : "s"} awaiting your approval`,
+                  pendingClinicalAccuracyLabelCount > 0 &&
+                    `${formatNumber(pendingClinicalAccuracyLabelCount)} clinical-accuracy scenario${pendingClinicalAccuracyLabelCount === 1 ? "" : "s"} awaiting your tier judgement`,
+                ]
+                  .filter(Boolean)
+                  .join(" and ")}
+                .
+              </>
+            )}
+          </p>
+          <Link
+            href="/admin/settings/ai-governance"
+            className="inline-flex shrink-0 items-center justify-center rounded-lg bg-amber-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-800"
+          >
+            Review AI governance
+          </Link>
+        </div>
+      )}
 
       {/* Unlike the clinician worklist strip, this one degrades per tile
           rather than replacing the whole row: these four figures come from
