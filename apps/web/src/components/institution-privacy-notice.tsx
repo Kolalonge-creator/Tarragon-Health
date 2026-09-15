@@ -15,14 +15,14 @@ export function InstitutionPrivacyNotice({
   const plural = entityLabel === "member" ? "members" : "staff";
 
   return (
-    <Card className="border-deep-forest/20 bg-deep-forest/[0.03]">
+    <Card className="border-deep-forest/20 dark:border-brand-green/30 bg-deep-forest/[0.03] dark:bg-brand-green/10">
       <CardContent className="flex gap-3 py-4">
-        <SEMANTIC_ICON.preventive className="mt-0.5 h-5 w-5 shrink-0 text-deep-forest" strokeWidth={2} />
+        <SEMANTIC_ICON.preventive className="mt-0.5 h-5 w-5 shrink-0 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} />
         <div className="space-y-1 text-sm">
-          <p className="font-medium text-charcoal-ink">
+          <p className="font-medium text-charcoal-ink dark:text-night-ink">
             Tarragon does not share individual health records with your organisation.
           </p>
-          <p className="text-charcoal-ink/70">
+          <p className="text-charcoal-ink/70 dark:text-night-ink/70">
             Everything here describes your {plural} as a group. You cannot see who has a
             condition, whose result was abnormal, or who has missed a screening, and neither
             can we show you on request. Figures covering too few people are withheld
@@ -53,8 +53,8 @@ export function CohortTooSmallNotice({
   return (
     <Card>
       <CardContent className="space-y-2 py-6 text-sm">
-        <p className="font-medium text-charcoal-ink">Not enough people yet to report safely.</p>
-        <p className="text-charcoal-ink/70">
+        <p className="font-medium text-charcoal-ink dark:text-night-ink">Not enough people yet to report safely.</p>
+        <p className="text-charcoal-ink/70 dark:text-night-ink/70">
           {cohortSize === 0
             ? `No ${plural} have enrolled yet.`
             : `${cohortSize} of your ${plural} ${cohortSize === 1 ? "has" : "have"} enrolled.`}{" "}

@@ -69,15 +69,18 @@ begin
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_clinician, v_org, 'clinician', 'RCPW Test Clinician')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_other_clinician, v_other_org, 'clinician', 'RCPW Test Other-Org Clinician')
-  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.profiles (id, organisation_id, role, full_name)
   values (v_admin, null, 'admin', 'RCPW Test Admin')
-  on conflict (id) do update set role = excluded.role;
+  on conflict (id) do update
+    set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
 
   insert into public.care_plans (organisation_id, patient_id, condition, status, assigned_clinician_id)
   values (v_org, v_patient, 'hypertension', 'active', v_clinician)

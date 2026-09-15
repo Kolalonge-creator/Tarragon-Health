@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
+import { PageHeader } from "@/components/ui/page-header";
 import { SpecialistsManager } from "./specialists-manager";
 
 export default async function SpecialistsPartnersPage() {
@@ -10,10 +11,7 @@ export default async function SpecialistsPartnersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Specialists</h1>
-        <p className="text-charcoal-ink/60">Add and manage specialist referral providers.</p>
-      </div>
+      <PageHeader title="Specialists" description="Add and manage specialist referral providers." />
       <SpecialistsManager />
     </div>
   );

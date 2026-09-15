@@ -9,7 +9,7 @@
     <key>EXUpdatesLaunchWaitMs</key>
     <integer>0</integer>
     <key>EXUpdatesRuntimeVersion</key>
-    <string>0.1.0</string>
+    <string>0.1.0-native2</string>
     <key>EXUpdatesURL</key>
     <string>https://u.expo.dev/70441d73-567d-445b-8d29-691afdb72d72</string>
   </dict>

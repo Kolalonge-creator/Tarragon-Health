@@ -1,0 +1,28 @@
+-- Tarragon Health — AI Health Assistant §36.10, referral-request path.
+--
+-- Adds 'referral_requested' to alert_type_code (care_management group,
+-- alongside 'missed_appointment'/'overdue_task'/'overdue_monitoring'/
+-- 'failed_referral' — a patient asking to see a specialist is coordination/
+-- routing, not itself a clinical deterioration signal, matching that
+-- group's existing members).
+--
+-- This is deliberately NOT a change to how public.specialist_referrals gets
+-- created. That table has always been staff/trigger-created only — stated
+-- explicitly in at least two prior migrations
+-- (20260724020810_referral_facility_activation.sql,
+-- 20260715125456_clinician_originated_orders.sql) and load-bearing for the
+-- protocol-scope-referral safety gate
+-- (20260826225042_protocol_scope_referral_gate.sql, which requires a REAL
+-- specialist_referrals row before an out-of-protocol-scope case can be
+-- marked 'referred') and several downstream triggers (commission recording,
+-- provider notifications, patient-timeline entries) that all assume a
+-- referral's provenance is a trusted staff/system action. Giving the AI
+-- Coach a tool that inserts directly into specialist_referrals would
+-- undermine that invariant. This enum value instead backs a REQUEST —
+-- lib/ai-coach/referral-request.ts writes a clinician_alerts row with this
+-- type_code, which a clinician (Tier 4 per CLAUDE.md's Clinical Tier
+-- Ladder — "approves referrals") reviews and, if appropriate, turns into a
+-- real specialist_referrals row through the existing, unchanged creation
+-- path. See docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md §3/§7 Phase E for the
+-- full reasoning.
+alter type public.alert_type_code add value if not exists 'referral_requested';

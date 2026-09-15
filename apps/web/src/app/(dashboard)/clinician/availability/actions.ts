@@ -120,7 +120,7 @@ export async function proposeVideoVisitAlternates(
     ]);
   }
 
-  return { message: "Times offered — the patient will pick one, or you can still decline." };
+  return { message: "Times offered. The patient will pick one, or you can still decline." };
 }
 
 /**

@@ -35,14 +35,34 @@ export type ConsentInput = z.infer<typeof consentSchema>;
 
 /**
  * Optional identity verification (KYC). NIN and BVN are both 11 digits in
- * Nigeria. Never a blocker — a patient can skip it entirely.
+ * Nigeria, checked against a live provider (see lib/identity/provider.ts).
+ * Document verification (passport/driver's licence/voter's card) has no
+ * provider — it always lands as `pending` for ops/staff manual review, same
+ * posture as a NIN/BVN submission when no provider is configured. Never a
+ * blocker — a patient can skip identity verification entirely.
  */
-export const identityVerificationSchema = z.object({
-  method: z.enum(["nin", "bvn"], { message: "Choose NIN or BVN" }),
-  idNumber: z
-    .string()
-    .trim()
-    .regex(/^\d{11}$/, "Enter the 11-digit number"),
-});
+export const identityDocumentTypes = ["passport", "drivers_license", "voters_card", "national_id_card"] as const;
+export type IdentityDocumentType = (typeof identityDocumentTypes)[number];
+
+export const identityVerificationSchema = z
+  .object({
+    method: z.enum(["nin", "bvn", "document"], { message: "Choose NIN, BVN, or a document" }),
+    idNumber: z.string().trim().min(1, "Enter the number"),
+    documentType: z.enum(identityDocumentTypes).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.method === "document") {
+      if (!value.documentType) {
+        ctx.addIssue({ code: "custom", path: ["documentType"], message: "Choose a document type" });
+      }
+      if (value.idNumber.length < 4) {
+        ctx.addIssue({ code: "custom", path: ["idNumber"], message: "Enter the document's reference number" });
+      }
+      return;
+    }
+    if (!/^\d{11}$/.test(value.idNumber)) {
+      ctx.addIssue({ code: "custom", path: ["idNumber"], message: "Enter the 11-digit number" });
+    }
+  });
 
 export type IdentityVerificationInput = z.infer<typeof identityVerificationSchema>;

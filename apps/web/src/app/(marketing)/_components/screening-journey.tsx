@@ -63,7 +63,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Results & what's next",
-        body: "A doctor reads every result against your history, usually within about two weeks, and adds it to your Health Passport. Most checks come back clear; that's the point, and it's worth paying for. If something needs attention, your doctor follows up the same day.",
+        body: "A doctor reads every result against your history, usually within about two weeks, and adds it to your Health Passport. Most checks come back clear; that's the point, and it's worth paying for. If something needs attention, a doctor follows up within a day, and within 12 hours if it's critical.",
       },
     ],
   },
@@ -198,7 +198,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Results & what's next",
-        body: "Results go only to you and the reviewing doctor, never shared elsewhere on the platform without your consent. Support and next steps are arranged privately if a result needs it.",
+        body: "Results go only to you and the reviewing doctor, and are shared elsewhere on the platform only with your consent. Support and next steps are arranged privately if a result needs it.",
       },
     ],
   },
@@ -208,7 +208,7 @@ export const SCREENINGS: ScreeningItem[] = [
     forSex: "all",
     ageBands: ALL_BANDS,
     category: "Know your basics",
-    summary: "Blood group and sickle cell genotype (AA/AS/SS): useful for marriage counselling, pregnancy planning, and emergencies, and something most Nigerians never get told plainly.",
+    summary: "Blood group and sickle cell genotype (AA/AS/SS): useful for marriage counselling, pregnancy planning, and emergencies, and something few Nigerians are ever told plainly.",
     price: "Paid to the lab, not to us",
     steps: [
       {
@@ -225,7 +225,7 @@ export const SCREENINGS: ScreeningItem[] = [
       },
       {
         title: "Results & what's next",
-        body: "Saved to your Health Passport for good, so you (or a partner planning a family with you) never have to ask 'do you know your genotype?' and get a shrug.",
+        body: "Saved to your Health Passport for good, so you (or a partner planning a family with you) can answer 'do you know your genotype?' without a shrug.",
       },
     ],
   },
@@ -330,7 +330,7 @@ export function ScreeningJourney() {
                     : "border-charcoal-ink/10 bg-white hover:border-charcoal-ink/25"
                 )}
               >
-                <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+                <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/65">
                   {item.category}
                 </p>
                 <h4 className="mt-1 font-heading text-base font-semibold text-charcoal-ink">

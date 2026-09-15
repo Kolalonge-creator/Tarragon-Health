@@ -159,7 +159,7 @@ begin
 end;
 $$;
 
-revoke execute on function public.pharmacist_flag_dispense(uuid, public.medication_flag_type, text) from public;
+revoke execute on function public.pharmacist_flag_dispense(uuid, public.medication_flag_type, text) from public, anon;
 revoke execute on function public.pharmacist_flag_dispense(uuid, public.medication_flag_type, text) from anon;
 grant execute on function public.pharmacist_flag_dispense(uuid, public.medication_flag_type, text) to authenticated;
 

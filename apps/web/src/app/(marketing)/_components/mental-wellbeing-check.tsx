@@ -79,7 +79,7 @@ export function MentalWellbeingCheck() {
             </button>
           </div>
         </div>
-        <p className="mt-4 text-center text-xs leading-relaxed text-charcoal-ink/50">
+        <p className="mt-4 text-center text-xs leading-relaxed text-charcoal-ink/65">
           This is a self-check, not a diagnosis, and nothing you answered was saved or sent
           anywhere.
         </p>
@@ -131,7 +131,7 @@ export function MentalWellbeingCheck() {
         ))}
       </div>
       <div className="mt-8 flex items-center justify-between gap-4">
-        <p className="text-xs text-charcoal-ink/50">
+        <p className="text-xs text-charcoal-ink/65">
           {answers.filter((v) => v !== undefined).length} of {WELLBEING_QUESTIONS.length} answered
         </p>
         <button

@@ -49,8 +49,7 @@ export function useAllClinicalStaff() {
       const { data, error } = await supabase
         .from("clinical_staff")
         .select("*")
-        .order("is_clinical_director", { ascending: false })
-        .order("doctor_tier", { ascending: true })
+        .order("doctor_tier", { ascending: false })
         .order("full_name", { ascending: true });
       if (error) throw error;
       return data as ClinicalStaff[];
@@ -85,22 +84,23 @@ export function useOrgAttestationStatuses() {
 
 /**
  * Adds a new clinical_staff record — starts inactive and unverified by
- * design (CLINICAL_TRUST_MODEL_SPEC.md §5: license verification, not
+ * design (CLINICAL_TRUST_MODEL_SPEC.md §5: licence verification, not
  * self-attestation). profilePhone is optional: links the record to an
  * existing login (needed for anyone who'll act in the system — sign
- * escalations, sign protocols); a Clinical Director can also exist as a
- * bio-only marketing record with no login. doctorTier and
- * isClinicalDirector are independent (docs/Tarragon_Health_Master_Operating_Plan_v4.md
- * §4: a Director can sit at any tier, or none) — never inferred/defaulted,
- * per the "never infer a doctor_tier in code" rule; an admin picks both
- * explicitly.
+ * escalations, sign protocols); the Chief Medical Officer can also exist as
+ * a bio-only marketing record with no login. doctorTier is never
+ * inferred/defaulted, per the "never infer a doctor_tier in code" rule — an
+ * admin picks it explicitly. employmentType decides, alongside tier,
+ * whether individual indemnity tracking is required (see
+ * useSetClinicalStaffEmploymentType).
  */
 export function useCreateClinicalStaff() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (input: {
       doctorTier: ClinicalStaff["doctor_tier"];
-      isClinicalDirector: boolean;
+      employmentType: ClinicalStaff["employment_type"];
+      specialistType?: ClinicalStaff["specialist_type"];
       fullName: string;
       credentialType?: string;
       credentialNumber?: string;
@@ -132,7 +132,8 @@ export function useCreateClinicalStaff() {
         organisation_id: organisationId,
         profile_id: profileId,
         doctor_tier: input.doctorTier,
-        is_clinical_director: input.isClinicalDirector,
+        employment_type: input.employmentType,
+        specialist_type: input.specialistType || null,
         full_name: input.fullName,
         credential_type: input.credentialType || null,
         credential_number: input.credentialNumber || null,
@@ -150,7 +151,7 @@ export function useCreateClinicalStaff() {
 }
 
 /**
- * Records license verification — sets license_verified_at + verified_by to
+ * Records licence verification — sets license_verified_at + verified_by to
  * the admin performing the check, now. A DB constraint (not just this app
  * code) blocks verified_by from ever equaling the record's own profile_id,
  * so a clinician/doctor structurally cannot verify themselves.
@@ -218,7 +219,7 @@ export function useSetClinicalStaffIndemnity() {
 
 /**
  * Records the real expiry date on the clinician's MDCN/NMCN Annual
- * Practicing License, read off the physical/PDF licence document — distinct
+ * Practising Licence, read off the physical/PDF licence document — distinct
  * from license_verified_at (when Tarragon last checked the record). Optional;
  * private.notify_clinical_staff_license_lapses() only warns once this is set.
  */
@@ -236,6 +237,72 @@ export function useSetClinicalStaffLicenseExpiry() {
       const { error } = await supabase
         .from("clinical_staff")
         .update({ license_expires_at: new Date(expiresAt).toISOString() })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Toggles employed/contracted — this is what decides, alongside tier,
+ * whether individual indemnity tracking is required
+ * (private.enforce_clinical_staff_indemnity): chief_medical_officer always
+ * needs it, senior_medical_officer only when contracted, medical_officer
+ * never does (employed staff stay under Tarragon's institutional policy).
+ * Editable post-creation since a Senior Medical Officer's employment
+ * relationship can change over time, unlike tier/name/credential.
+ */
+export function useSetClinicalStaffEmploymentType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clinicalStaffId,
+      employmentType,
+    }: {
+      clinicalStaffId: string;
+      employmentType: ClinicalStaff["employment_type"];
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ employment_type: employmentType })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Sets the credentialed speciality used to auto-match specialist_referrals
+ * (private.auto_match_internal_specialist, 20260831001458) — distinct from
+ * the free-text `specialty` display bio. Setting this on an active record
+ * (or activating a record that already has one — see useSetClinicalStaffActive)
+ * immediately sweeps and claims any currently-unmatched referral of that
+ * specialist_type (private.sweep_referrals_on_specialist_activation): a
+ * specialist is matchable the moment they're onboarded, not after some
+ * separate publish step. DB CHECK restricts this to Senior Medical
+ * Officer/Chief Medical Officer records.
+ */
+export function useSetClinicalStaffSpecialistType() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clinicalStaffId,
+      specialistType,
+    }: {
+      clinicalStaffId: string;
+      specialistType: ClinicalStaff["specialist_type"];
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ specialist_type: specialistType })
         .eq("id", clinicalStaffId);
       if (error) throw error;
     },
@@ -264,7 +331,38 @@ export function useSetClinicalStaffActive() {
 }
 
 /**
- * Edits specialty/bio/photo on an existing clinical_staff record — the
+ * Toggles whether this clinical_staff member is one of Tarragon's in-house
+ * therapists (Module 46 §46.8) — directory/admin display only. Actually
+ * being bookable for a therapy slot still requires the person to publish
+ * their own provider_availability_rules including the therapy appointment
+ * type (clinician-side, AvailabilityRulesManager) — this flag doesn't do
+ * that for them.
+ */
+export function useSetClinicalStaffOffersTherapy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      clinicalStaffId,
+      offersTherapySessions,
+    }: {
+      clinicalStaffId: string;
+      offersTherapySessions: boolean;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("clinical_staff")
+        .update({ offers_therapy_sessions: offersTherapySessions })
+        .eq("id", clinicalStaffId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ALL_STAFF_QUERY_KEY });
+    },
+  });
+}
+
+/**
+ * Edits speciality/bio/photo on an existing clinical_staff record — the
  * fields the admin manager had no way to change after creation (only
  * verify/activate existed). Name/credential/tier stay create-time-only:
  * changing those carries more weight (re-verification, tier authority) and
@@ -375,26 +473,23 @@ export function useOrgIndemnityExemptions() {
 }
 
 /**
- * Grants an org-wide, whole-tier, or whole-director indemnity exemption —
- * covers every current and future clinical_staff record in that scope, not
- * just one named record (contrast useSetClinicalStaffIndemnityExempt).
- * Exactly one of doctorTier/applyToDirector should be set (or neither, for
- * org-wide) — a DB CHECK constraint
- * (clinical_staff_indemnity_exemptions_single_scope) rejects setting both.
+ * Grants an org-wide or whole-tier indemnity exemption — covers every
+ * current and future clinical_staff record in that scope, not just one named
+ * record (contrast useSetClinicalStaffIndemnityExempt). doctorTier null
+ * means org-wide. Director-wide exemption no longer exists as a separate
+ * scope: Clinical Director authority is intrinsic to doctor_tier =
+ * 'chief_medical_officer', so a tier-wide exemption on that value covers it.
  * RLS restricts inserts here to admins only, since this waives a compliance
- * gate at organisation/tier/director scope rather than for one named
- * individual.
+ * gate at organisation/tier scope rather than for one named individual.
  */
 export function useAddIndemnityExemption() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       doctorTier,
-      applyToDirector,
       reason,
     }: {
       doctorTier: ClinicalStaff["doctor_tier"] | null;
-      applyToDirector: boolean;
       reason?: string;
     }) => {
       const supabase = createClient();
@@ -407,7 +502,6 @@ export function useAddIndemnityExemption() {
       const { error } = await supabase.from("clinical_staff_indemnity_exemptions").insert({
         organisation_id: organisationId,
         doctor_tier: doctorTier,
-        applies_to_director: applyToDirector,
         reason: reason || null,
         exempted_by: user.id,
       });
@@ -438,10 +532,11 @@ export function useRemoveIndemnityExemption() {
 }
 
 /**
- * Active Tier 1-3 clinicians in the caller's org (RLS-scoped) — populates
- * the care-team assignment select. Tier 1-3 is the day-to-day care-team
- * band per docs/Tarragon_Health_Master_Operating_Plan_v4.md §4 (Tier 4/5
- * are escalation/referral, not a per-patient assignment).
+ * Active Medical Officer / Senior Medical Officer clinicians in the caller's
+ * org (RLS-scoped) — populates the care-team assignment select. That band is
+ * the day-to-day care-team per docs/Tarragon_Health_Master_Operating_Plan_v4.md
+ * §4 (Chief Medical Officer is escalation/governance, not a per-patient
+ * assignment — same as old Tier 4/5).
  */
 export function useOrgClinicians() {
   return useQuery({
@@ -451,11 +546,41 @@ export function useOrgClinicians() {
       const { data, error } = await supabase
         .from("clinical_staff")
         .select("*")
-        .in("doctor_tier", ["tier_1", "tier_2", "tier_3"])
+        .in("doctor_tier", ["medical_officer", "senior_medical_officer"])
         .eq("active", true)
         .order("full_name", { ascending: true });
       if (error) throw error;
       return data as ClinicalStaff[];
+    },
+  });
+}
+
+/**
+ * Every active clinical-tier doctor in the caller's org (Medical Officer
+ * through Chief Medical Officer, `care_coordinator` excluded by name) —
+ * populates the Chief Medical Officer's "Assign to…" case-reassignment
+ * picker (see useAssignEscalation in lib/queries/escalations.ts,
+ * canAssignCases in lib/clinical/doctor-tier.ts). Deliberately broader than
+ * useOrgClinicians, which excludes Chief Medical Officer since that hook
+ * feeds the per-patient care-team assignment select, not case reassignment —
+ * a Chief Medical Officer can validly assign an escalation to another Chief
+ * Medical Officer covering a shift.
+ */
+export function useAssignableDoctors(options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: ["clinical-staff", "assignable-doctors"],
+    enabled: options.enabled ?? true,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinical_staff")
+        .select("profile_id, full_name, doctor_tier")
+        .neq("doctor_tier", "care_coordinator")
+        .eq("active", true)
+        .not("profile_id", "is", null)
+        .order("full_name", { ascending: true });
+      if (error) throw error;
+      return data;
     },
   });
 }
@@ -512,7 +637,7 @@ export function useAssignCareTeam() {
         .from("clinical_staff")
         .select("profile_id")
         .eq("organisation_id", organisationId)
-        .eq("is_clinical_director", true)
+        .eq("doctor_tier", "chief_medical_officer")
         .eq("active", true)
         .not("profile_id", "is", null)
         .maybeSingle();

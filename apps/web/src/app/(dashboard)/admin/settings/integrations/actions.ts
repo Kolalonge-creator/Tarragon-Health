@@ -8,6 +8,7 @@ import { hasPermission } from "@/lib/auth/permissions";
 import { API_KEY_SCOPES, generateApiKey } from "@/lib/integrations/api-key";
 import type { TablesUpdate } from "@tarragon/shared";
 import { callPartner } from "@/lib/integrations/partner-client";
+import { randomBytes } from "crypto";
 
 /**
  * Every action re-checks the integrations.manage gate itself (server
@@ -27,11 +28,13 @@ async function requireIntegrationsManager() {
 const createKeySchema = z.object({
   name: z.string().trim().min(2).max(80),
   scopes: z.array(z.enum(API_KEY_SCOPES)).min(1),
+  environment: z.enum(["sandbox", "live"]).default("live"),
 });
 
 export async function createApiKeyAction(input: {
   name: string;
   scopes: string[];
+  environment?: "sandbox" | "live";
 }): Promise<{ key: string } | { error: string }> {
   try {
     const profile = await requireIntegrationsManager();
@@ -40,7 +43,7 @@ export async function createApiKeyAction(input: {
       return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
     }
 
-    const { key, keyPrefix, keyHash } = generateApiKey();
+    const { key, keyPrefix, keyHash, environment } = generateApiKey(parsed.data.environment);
     const supabase = await createClient();
     const { error } = await supabase.from("api_keys").insert({
       organisation_id: profile.organisation_id,
@@ -48,6 +51,7 @@ export async function createApiKeyAction(input: {
       key_prefix: keyPrefix,
       key_hash: keyHash,
       scopes: parsed.data.scopes,
+      environment,
       created_by: profile.id,
     });
     if (error) return { error: error.message };
@@ -55,8 +59,13 @@ export async function createApiKeyAction(input: {
     revalidatePath("/admin/settings/integrations");
     // The one and only time the full key exists outside the partner's hands.
     return { key };
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -72,8 +81,13 @@ export async function revokeApiKeyAction(keyId: string): Promise<{ error?: strin
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -126,8 +140,13 @@ export async function savePartnerIntegrationAction(input: {
     }
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -145,8 +164,13 @@ export async function setPartnerIntegrationActiveAction(
     if (error) return { error: error.message };
     revalidatePath("/admin/settings/integrations");
     return {};
-  } catch {
-    return { error: "Not authorised" };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }
 
@@ -173,7 +197,186 @@ export async function testPartnerConnectionAction(
     return ok
       ? { ok: true, detail: `Reachable: HTTP ${result.status}` }
       : { ok: false, detail: result.error };
-  } catch {
-    return { ok: false, detail: "Not authorised" };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message : "Not authorised" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Partner webhook endpoints (§33.15). Same requireIntegrationsManager gate
+// as everything above; partner_webhook_endpoints RLS (org-scoped,
+// integrations.manage-gated) is what actually enforces it.
+// ---------------------------------------------------------------------------
+
+const EVENT_TYPES = [
+  "result.available",
+  "result.amended",
+  "lab_order.created",
+  "lab_order.cancelled",
+  "appointment.booked",
+  "appointment.cancelled",
+  "appointment.rescheduled",
+  "prescription.created",
+  "prescription.cancelled",
+  "dispense.completed",
+  "patient.registered",
+  "patient.consent_changed",
+  "payment.settled",
+  "payment.refunded",
+  "claim.status_changed",
+] as const;
+
+const webhookEndpointSchema = z.object({
+  id: z.string().uuid().optional(),
+  partnerIntegrationId: z.string().uuid(),
+  name: z.string().trim().min(2).max(120),
+  url: z.string().trim().url("URL must be a valid https:// URL"),
+  eventTypes: z.array(z.enum(EVENT_TYPES)).min(1),
+  environment: z.enum(["sandbox", "live"]).default("live"),
+  description: z.string().trim().max(500).optional(),
+});
+
+/** 32 bytes hex — matches partner_webhook_endpoints_secret_strength's
+ * length >= 32 CHECK with real margin. */
+function generateWebhookSecret(): string {
+  return randomBytes(32).toString("hex");
+}
+
+export async function saveWebhookEndpointAction(input: {
+  id?: string;
+  partnerIntegrationId: string;
+  name: string;
+  url: string;
+  eventTypes: string[];
+  environment?: "sandbox" | "live";
+  description?: string;
+}): Promise<{ secret?: string } | { error: string }> {
+  try {
+    const profile = await requireIntegrationsManager();
+    const parsed = webhookEndpointSchema.safeParse(input);
+    if (!parsed.success) {
+      return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    }
+
+    const supabase = await createClient();
+    if (parsed.data.id) {
+      const { error } = await supabase
+        .from("partner_webhook_endpoints")
+        .update({
+          name: parsed.data.name,
+          url: parsed.data.url,
+          event_types: parsed.data.eventTypes,
+          environment: parsed.data.environment,
+          description: parsed.data.description ?? null,
+        })
+        .eq("id", parsed.data.id);
+      if (error) return { error: error.message };
+      revalidatePath("/admin/settings/integrations");
+      return {};
+    }
+
+    // A brand-new endpoint gets a freshly generated secret, shown once —
+    // same "shown only at issue time" discipline as an API key.
+    const secret = generateWebhookSecret();
+    const { error } = await supabase.from("partner_webhook_endpoints").insert({
+      organisation_id: profile.organisation_id,
+      partner_integration_id: parsed.data.partnerIntegrationId,
+      name: parsed.data.name,
+      url: parsed.data.url,
+      secret,
+      event_types: parsed.data.eventTypes,
+      environment: parsed.data.environment,
+      description: parsed.data.description ?? null,
+    });
+    if (error) return { error: error.message };
+    revalidatePath("/admin/settings/integrations");
+    return { secret };
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
+  }
+}
+
+export async function setWebhookEndpointActiveAction(id: string, isActive: boolean): Promise<{ error?: string }> {
+  try {
+    await requireIntegrationsManager();
+    const supabase = await createClient();
+    const { error } = await supabase.from("partner_webhook_endpoints").update({ is_active: isActive }).eq("id", id);
+    if (error) return { error: error.message };
+    revalidatePath("/admin/settings/integrations");
+    return {};
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
+  }
+}
+
+export async function deleteWebhookEndpointAction(id: string): Promise<{ error?: string }> {
+  try {
+    await requireIntegrationsManager();
+    const supabase = await createClient();
+    const { error } = await supabase.from("partner_webhook_endpoints").delete().eq("id", id);
+    if (error) return { error: error.message };
+    revalidatePath("/admin/settings/integrations");
+    return {};
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Dead-letter queue recovery (§33.11). Both RPCs are SECURITY DEFINER and
+// re-check organisation_id + integrations.manage internally (see the
+// integration_outbound_queue_and_webhooks migration) — this action layer's
+// requireIntegrationsManager call is belt-and-braces, same discipline as
+// every other action in this file.
+// ---------------------------------------------------------------------------
+
+export async function requeueIntegrationEventAction(id: string): Promise<{ error?: string }> {
+  try {
+    await requireIntegrationsManager();
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("requeue_integration_event", { p_outbound_event_id: id });
+    if (error) return { error: error.message };
+    revalidatePath("/admin/settings/integrations");
+    return {};
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
+  }
+}
+
+export async function cancelIntegrationEventAction(id: string): Promise<{ error?: string }> {
+  try {
+    await requireIntegrationsManager();
+    const supabase = await createClient();
+    const { error } = await supabase.rpc("cancel_integration_event", { p_outbound_event_id: id });
+    if (error) return { error: error.message };
+    revalidatePath("/admin/settings/integrations");
+    return {};
+  } catch (e) {
+    // requireIntegrationsManager() throws exactly "Not authorised", so this
+    // preserves that message for a real auth failure — but a catch-all that
+    // hardcoded "Not authorised" here was also mislabeling every other
+    // unexpected exception (a bad key generation, a runtime bug) the same
+    // way, which hides the real error during troubleshooting.
+    return { error: e instanceof Error ? e.message : "Not authorised" };
   }
 }

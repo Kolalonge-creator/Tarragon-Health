@@ -56,7 +56,7 @@ export function ConditionsMarquee({ items }: { items: string[] }) {
           type="button"
           onClick={() => setPaused((p) => !p)}
           aria-pressed={paused}
-          className="rounded-full border border-charcoal-ink/15 bg-white px-4 py-1.5 text-xs font-medium uppercase tracking-wide text-charcoal-ink/55 transition-colors hover:border-brand-green/40 hover:text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
+          className="rounded-full border border-charcoal-ink/15 bg-white px-4 py-1.5 text-xs font-medium uppercase tracking-wide text-charcoal-ink/65 transition-colors hover:border-brand-green/40 hover:text-charcoal-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-green focus-visible:ring-offset-2"
         >
           {paused ? "Play motion" : "Pause motion"}
         </button>

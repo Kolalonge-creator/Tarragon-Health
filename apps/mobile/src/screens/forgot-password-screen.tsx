@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { COUNTRY_CALLING_CODES, E164_GENERIC } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, radius, spacing } from "@/ui/theme";
+import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
 type Tab = "phone" | "email";
@@ -18,6 +19,82 @@ const inputStyle = {
   color: colors.ink,
   backgroundColor: colors.card,
 } as const;
+
+/** Same principle as login-screen.tsx's friendlySignInError — Supabase auth
+ * error strings are developer-facing; map the common ones to warm plain
+ * language with a safe generic fallback so no raw API string reaches a
+ * patient. One mapper per step, since the helpful next action differs. */
+function friendlyCodeSendError(rawMessage: string): string {
+  const message = rawMessage.toLowerCase();
+  if (message.includes("rate limit") || message.includes("too many")) {
+    return "We've sent a few codes recently. Wait a couple of minutes, then try again.";
+  }
+  if (message.includes("network") || message.includes("fetch")) {
+    return "We couldn't reach the server. Check your connection and try again.";
+  }
+  return "We couldn't send a code to that number just now. Check the number and try again.";
+}
+
+function friendlyCodeVerifyError(rawMessage: string): string {
+  const message = rawMessage.toLowerCase();
+  if (message.includes("expired") || message.includes("invalid")) {
+    return "That code didn't match or has expired. Check the SMS and try again, or request a new code.";
+  }
+  if (message.includes("network") || message.includes("fetch")) {
+    return "We couldn't reach the server. Check your connection and try again.";
+  }
+  return "We couldn't check that code just now. Please try again.";
+}
+
+function friendlyPasswordUpdateError(rawMessage: string): string {
+  const message = rawMessage.toLowerCase();
+  if (message.includes("different from the old")) {
+    return "That's the same as your current password. Choose a new one.";
+  }
+  if (message.includes("weak") || (message.includes("password") && message.includes("at least"))) {
+    return "That password is too easy to guess. Try a longer one with a mix of letters and numbers.";
+  }
+  if (message.includes("network") || message.includes("fetch")) {
+    return "We couldn't reach the server. Check your connection and try again.";
+  }
+  return "We couldn't update your password just now. Please try again.";
+}
+
+/** Same show/hide affordance as login-screen.tsx's password field. */
+function PasswordField({
+  value,
+  onChangeText,
+  placeholder,
+  accessibilityLabel,
+}: {
+  value: string;
+  onChangeText: (v: string) => void;
+  placeholder: string;
+  accessibilityLabel: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <View style={{ justifyContent: "center" }}>
+      <TextInput
+        accessibilityLabel={accessibilityLabel}
+        placeholder={placeholder}
+        placeholderTextColor={colors.faint}
+        secureTextEntry={!visible}
+        value={value}
+        onChangeText={onChangeText}
+        style={[inputStyle, { paddingRight: 44 }]}
+      />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={visible ? "Hide password" : "Show password"}
+        onPress={() => setVisible((v) => !v)}
+        style={{ position: "absolute", right: 12, height: "100%", justifyContent: "center" }}
+      >
+        <Ionicons name={visible ? "eye-off" : "eye"} size={20} color={colors.faint} />
+      </Pressable>
+    </View>
+  );
+}
 
 /**
  * Native forgot/reset-password (spec §1). Phone is the primary path — it
@@ -58,7 +135,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
     const { error: otpError } = await supabase.auth.signInWithOtp({ phone: fullPhone });
     setLoading(false);
     if (otpError) {
-      setError(otpError.message);
+      setError(friendlyCodeSendError(otpError.message));
       return;
     }
     setPhoneStep("verify");
@@ -78,7 +155,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
     });
     setLoading(false);
     if (verifyError) {
-      setError(verifyError.message);
+      setError(friendlyCodeVerifyError(verifyError.message));
       return;
     }
     setPhoneStep("new-password");
@@ -98,7 +175,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
     const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
     setLoading(false);
     if (updateError) {
-      setError(updateError.message);
+      setError(friendlyPasswordUpdateError(updateError.message));
       return;
     }
     // The OTP verify above already signed this device in — App.tsx's
@@ -138,7 +215,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
         <View
           style={{
             flexDirection: "row",
-            backgroundColor: "rgba(23,23,23,0.05)",
+            backgroundColor: inkAlpha(0.05),
             borderRadius: radius.control,
             padding: 4,
             gap: 4,
@@ -168,6 +245,8 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
               <>
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Country code ${countryCode}. Opens the country list.`}
                     onPress={() => setCountryPickerOpen(true)}
                     style={[inputStyle, { width: 92, justifyContent: "center" }]}
                   >
@@ -213,23 +292,17 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
             ) : (
               <>
                 <MutedText>Choose a new password for your account.</MutedText>
-                <TextInput
+                <PasswordField
                   accessibilityLabel="New password"
                   placeholder="New password"
-                  placeholderTextColor={colors.faint}
-                  secureTextEntry
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  style={inputStyle}
                 />
-                <TextInput
+                <PasswordField
                   accessibilityLabel="Confirm new password"
                   placeholder="Confirm new password"
-                  placeholderTextColor={colors.faint}
-                  secureTextEntry
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
-                  style={inputStyle}
                 />
                 {error ? <ErrorText>{error}</ErrorText> : null}
                 <PrimaryButton
@@ -243,7 +316,7 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
         ) : emailSent ? (
           <MutedText>
             If an account exists for that email, we&apos;ve sent a link to reset your password.
-            Open it on your phone or computer to finish — check your inbox and spam folder.
+            Open it on your phone or computer to finish. Check your inbox and spam folder.
           </MutedText>
         ) : (
           <View style={{ gap: 10 }}>
@@ -271,30 +344,36 @@ export function ForgotPasswordScreen({ onClose }: { onClose: () => void }) {
       >
         <Pressable
           onPress={() => setCountryPickerOpen(false)}
-          style={{ flex: 1, backgroundColor: "rgba(23,23,23,0.4)", justifyContent: "flex-end" }}
+          style={{ flex: 1, backgroundColor: inkAlpha(0.4), justifyContent: "flex-end" }}
         >
           <View
             style={{
               backgroundColor: colors.card,
               borderTopLeftRadius: radius.card,
               borderTopRightRadius: radius.card,
-              padding: spacing.screen,
-              gap: 2,
+              // Scrolls rather than growing unbounded — on a small phone the
+              // full country list would otherwise render past the screen with
+              // no way to reach the bottom entries.
+              maxHeight: "60%",
             }}
           >
-            {COUNTRY_CALLING_CODES.map((country) => (
-              <Pressable
-                key={country.iso}
-                onPress={() => {
-                  setCountryCode(country.dialCode);
-                  setCountryPickerOpen(false);
-                }}
-                style={{ paddingVertical: 12, flexDirection: "row", justifyContent: "space-between" }}
-              >
-                <Text style={{ fontSize: 15, color: colors.ink }}>{country.label}</Text>
-                <Text style={{ fontSize: 15, color: colors.muted }}>{country.dialCode}</Text>
-              </Pressable>
-            ))}
+            <ScrollView contentContainerStyle={{ padding: spacing.screen, gap: 2 }}>
+              {COUNTRY_CALLING_CODES.map((country) => (
+                <Pressable
+                  key={country.iso}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${country.label}, ${country.dialCode}`}
+                  onPress={() => {
+                    setCountryCode(country.dialCode);
+                    setCountryPickerOpen(false);
+                  }}
+                  style={{ paddingVertical: 12, flexDirection: "row", justifyContent: "space-between" }}
+                >
+                  <Text style={{ fontSize: 15, color: colors.ink }}>{country.label}</Text>
+                  <Text style={{ fontSize: 15, color: colors.muted }}>{country.dialCode}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
           </View>
         </Pressable>
       </Modal>

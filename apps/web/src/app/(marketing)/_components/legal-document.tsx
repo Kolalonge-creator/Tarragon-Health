@@ -3,6 +3,15 @@ import { Section } from "./section";
 import type { LegalDocument } from "@/lib/marketing/legal-data";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
+/** "Deleting your account" -> "deleting-your-account"; stable, URL-safe. */
+export function legalSectionId(heading: string): string {
+  return heading
+    .toLowerCase()
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 /** All public legal pages, consent-versioned or static, in one cross-link set. */
 const LEGAL_PAGES = [
   { key: "privacy", href: MARKETING_ROUTES.privacy, label: "Data Processing Consent" },
@@ -58,7 +67,7 @@ export function LegalDocumentPage({
             <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-charcoal-ink sm:text-4xl">
               {document.title}
             </h1>
-            <p className="mt-4 text-xs text-charcoal-ink/50">
+            <p className="mt-4 text-xs text-charcoal-ink/65">
               Version {document.version} · last published{" "}
               {new Date(document.publishedAt).toLocaleDateString("en-NG", {
                 year: "numeric",
@@ -76,8 +85,11 @@ export function LegalDocumentPage({
             </p>
             <div className="mt-10 space-y-8">
               {document.sections.map((section) => (
-                <section key={section.heading}>
-                  <h2 className="font-heading text-xl font-semibold text-charcoal-ink">
+                // Anchored so a deep link such as /privacy#deleting-your-account
+                // (the account-deletion URL declared in the Google Play Data
+                // safety form) lands on the right section.
+                <section key={section.heading} id={legalSectionId(section.heading)}>
+                  <h2 className="font-heading text-xl font-semibold text-charcoal-ink scroll-mt-24">
                     {section.heading}
                   </h2>
                   {section.paragraphs.map((p, i) => (
@@ -90,13 +102,18 @@ export function LegalDocumentPage({
             </div>
           </>
         ) : (
-          <div className="mt-6 rounded-xl border border-charcoal-ink/10 bg-white p-6 text-sm text-charcoal-ink/70">
+          <>
+            <h1 className="mt-2 font-heading text-3xl font-bold leading-tight text-charcoal-ink sm:text-4xl">
+              {crumbLabel}
+            </h1>
+            <div className="mt-6 rounded-xl border border-charcoal-ink/10 bg-white p-6 text-sm text-charcoal-ink/70">
             This document is temporarily unavailable. Please try again shortly, or contact{" "}
             <a href="mailto:legal@tarragonhealth.ng" className="underline">
               legal@tarragonhealth.ng
             </a>
             .
-          </div>
+            </div>
+          </>
         )}
         <LegalCrossLinks current={documentKey} />
       </article>

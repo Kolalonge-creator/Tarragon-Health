@@ -93,7 +93,7 @@ begin
 end;
 $$;
 
-revoke all on function public.sponsor_care_status(uuid) from public;
+revoke all on function public.sponsor_care_status(uuid) from public, anon;
 revoke all on function public.sponsor_care_status(uuid) from anon;
 grant execute on function public.sponsor_care_status(uuid) to authenticated;
 
@@ -193,7 +193,7 @@ begin
 end;
 $$;
 
-revoke all on function public.sponsor_request_refill(uuid, uuid) from public;
+revoke all on function public.sponsor_request_refill(uuid, uuid) from public, anon;
 revoke all on function public.sponsor_request_refill(uuid, uuid) from anon;
 grant execute on function public.sponsor_request_refill(uuid, uuid) to authenticated;
 
@@ -262,7 +262,7 @@ begin
 end;
 $$;
 
-revoke all on function public.sponsor_payable_orders(uuid) from public;
+revoke all on function public.sponsor_payable_orders(uuid) from public, anon;
 revoke all on function public.sponsor_payable_orders(uuid) from anon;
 grant execute on function public.sponsor_payable_orders(uuid) to authenticated;
 

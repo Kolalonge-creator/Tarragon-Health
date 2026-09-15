@@ -6,7 +6,9 @@
 
 ## 0. Purpose
 
-Every category Tarragon competes in already has a well-funded, proven winner: Function Health and Omada in the US, Livongo (sold to Teladoc for $18.5B), Virta, Simple in emerging markets. None of them are built for Nigeria. This document takes the best mechanic from each — the thing that made them win — and maps it into Tarragon's existing five-category architecture, WhatsApp-first and clinician-led, without breaking the 16-week build or the capital-efficiency posture.
+Every category Tarragon competes in already has a well-funded, proven winner: Function Health and Omada in the US, Livongo (sold to Teladoc for $18.5B), Virta, Simple in emerging markets. None of them are built for Nigeria. This document takes the best mechanic from each — the thing that made them win — and maps it into Tarragon's existing five-category architecture, without breaking the capital-efficiency posture.
+
+**Corrected — "WhatsApp-first" is retired language, was never accurate to build against.** CLAUDE.md's Non-Negotiable Business Rules state plainly: app/web is the interface for every core action; WhatsApp/SMS is reminders/alerts/confirmations only, and two-way patient↔care-team conversation is in-app only, never WhatsApp (superseded 2026-07-30). §6 below ("New WhatsApp Bot Flows") describes exactly the pattern this rule forbids — treat it as historical framing to correct, not a build order, everywhere it appears in this document.
 
 The goal isn't to copy features. It's to take the *pattern that drove retention, trust, or ACV* in each company and localize it.
 
@@ -38,7 +40,7 @@ Nigeria's digital-first chronic disease, preventive health, and family care coor
 | Screening reminders as a list | **Personalized Health Timeline** — reframe from "Book your PSA" to "You're due in 3 months" / "Your mammogram is overdue" — a copy and UI change, not a new system | NHS App |
 | screening_results, abnormal flagging | **Health Score / biological age** shown on the patient dashboard, computed from screening + vitals + lab data | Function Health, Superpower, Hello Heart |
 | Annual Health Check bundle (₦60–65K) | **"Full Panel" premium AHC tier** — more biomarkers than the standard bundle, sold as an ADD-ON per the existing 4-label pricing system | Function Health (comprehensive biannual biomarker testing) |
-| — | **Whole-body imaging referral (MRI)** — partner-coordinated, BOOK & PAY, restricted to Premium ParentCare / diaspora / Corporate Gold tiers | Prenuvo |
+| — | **Whole-body imaging referral (MRI)** — some version shipped 2026-09-01 (`advanced_diagnostic_referral_scaffold.sql`, `annual_review_full_panel_upsell.sql`); confirm current gating before citing — "Premium ParentCare / diaspora / Corporate Gold" no longer exist as tiers (ParentCare deleted 2026-07-29, diaspora tiers removed 2026-09-02) | Prenuvo |
 | — | **Microbiome/nutrition testing — Phase 3 flag only**, not built now | Viome |
 
 ### 2.3 Category 3 — Care Coordination
@@ -109,10 +111,10 @@ Enforcement is a database trigger plus RLS, not a UX convention — `lab_orders`
 | 2. Preventive Screening Engine | Have | Broaden screen_types (vision, hearing, dental, osteoporosis, vaccination) |
 | 3. Personalized Health Timeline | Partial | UX/copy change — "due in 3 months" framing |
 | 4. Reminders | Have | None needed |
-| 5. Wearable Integration | **Missing** | New — Phase 3, diaspora/premium only |
+| 5. Wearable Integration | **Have — built, un-gated.** Corrected: 5 cloud-OAuth providers, Apple Health/Health Connect bridges, granular consent (2026-08-29). Not Phase 3, not diaspora/premium (that gating concept no longer exists). See `CLAUDE.md`'s Device & Wearable Integration section. | None needed |
 | 6. Laboratory Integration (trends, AI explanation) | Have | Add explicit historical trend charts to lab result view |
-| 7. Health Score | **Missing** | New — build rule-based v1 in Sprint 4 |
-| 8. Coaching | Partial (weekly AI messages exist) | Upgrade to daily WhatsApp coach — Phase 2 |
+| 7. Health Score | **Have — built.** `apps/web/src/lib/rules/health-score.ts` + `health-score-card.tsx`, wired into the patient dashboard. | None needed |
+| 8. Coaching | Partial (weekly AI messages exist) | Upgrade in-app coaching frequency — not a WhatsApp bot, see the top-of-file correction |
 | 9. Care Navigation | Partial (booking exists) | Add discovery/maps layer — Phase 2 |
 | 10. Population Analytics | Have | Extend with cost-savings projections for HMO pitch |
 
@@ -120,12 +122,12 @@ Enforcement is a database trigger plus RLS, not a UX convention — `lab_orders`
 
 | Capability | Tarragon status | Action |
 |---|---|---|
-| Remote Monitoring | Have (manual WhatsApp entry) | Add Bluetooth device sync — Phase 2 |
+| Remote Monitoring | Have (manual entry + Bluetooth device sync + wearables, built) | None needed |
 | Medication Management | Have | None needed |
-| Symptom Tracking | **Missing** | New — add in Sprint 2, cheap |
+| Symptom Tracking | **Have — built.** `supabase/migrations/20260714120000_symptom_tracking.sql`, well before this doc's "new" framing implied. | None needed |
 | Care Team Communication | Have | None needed |
-| Escalation | Have (4h SLA, AbnormalResultHandler) | None needed |
-| AI Decision Support | Have (ML risk models) | Extend with Health Score + coaching recommendations |
+| Escalation | Have (two-tier SLA: 120min critical / 24h non-critical, AbnormalResultHandler) | None needed |
+| AI Decision Support | Have (ML risk models + Health Score + AI Coach) | None needed |
 
 ---
 
@@ -145,7 +147,13 @@ All new tables inherit the existing rules: `organisation_id` filtering, RLS at t
 
 ---
 
-## 6. New WhatsApp Bot Flows
+## 6. New WhatsApp Bot Flows — RETIRED FRAMING, DO NOT BUILD AS WRITTEN
+
+**This entire section describes WhatsApp-bot-driven flows, which CLAUDE.md's Non-Negotiable Business
+Rules forbid** (no bot-driven data entry over WhatsApp; app/web is the required interface for every
+core action; WhatsApp/SMS is reminders/alerts/confirmations only). If any of the underlying ideas below
+are still wanted, they need to be rebuilt as in-app features with WhatsApp as an optional reminder
+only — not implemented as written.
 
 - **Daily coaching bot** (opt-in) — one nutrition/exercise/sleep/stress/smoking tip per day, aware of Nigerian food guidance already in the Brand Guide.
 - **Symptom check-in bot** — daily "how are you feeling today?" for amber/red-risk patients only, not the full base.
@@ -187,7 +195,7 @@ The 16-week build and solo-founder capital efficiency don't get renegotiated for
 - Published outcome evidence reports
 
 ### Phase 3 — Year 2+, once 100,000+ patient records exist
-- Full wearable ecosystem (Apple Health, Oura, WHOOP, Garmin, Fitbit) — diaspora/premium only
+- ~~Full wearable ecosystem (Apple Health, Oura, WHOOP, Garmin, Fitbit) — diaspora/premium only~~ — **already shipped, un-gated.** All 5 cloud-OAuth providers, Apple Health/Health Connect bridges, granular consent (2026-08-29). Not Phase 3. See `CLAUDE.md`'s Device & Wearable Integration section.
 - Respiratory/asthma-COPD module
 - Whole-body imaging (MRI) referral partnerships
 - Microbiome/nutrition testing
@@ -199,10 +207,16 @@ This mirrors the same principle already governing the monorepo-split decision: d
 
 ## 9. Pricing Implications
 
-All new features route through the existing 4-label transparency system (INCLUDED, BOOK & PAY, FREE ELSEWHERE, ADD-ON) — no new pricing framework needed.
+**Corrected 2026-09-03 — the 4-label transparency system and the tier/ADD-ON framing this section
+assumed are both gone.** The live label set is `FREE` / `YOU PAY THE LAB` / `FREE ELSEWHERE` / `PAID
+SERVICE` (`_content/pricing.ts`), not `INCLUDED`/`BOOK & PAY`/`FREE ELSEWHERE`/`ADD-ON`. There are no
+tiers to gate anything to — the app is free, Tarragon sells doctor time and specific paid services
+(`service_products`) individually, and Premium ParentCare/diaspora/Corporate Gold no longer exist as
+concepts at all. Re-derive pricing placement per-feature against the current model rather than this
+section's tier language.
 
-- Health Score, Personalized Timeline, symptom tracking, broadened screening types → **INCLUDED** in existing tiers, since they cost little to serve and raise engagement/retention.
-- Full Panel AHC, whole-body MRI referral → **ADD-ON**, gated to Premium ParentCare / diaspora / Corporate Gold.
+- Health Score, Personalized Timeline, symptom tracking, broadened screening types are all free, no clinician time involved.
+- Full Panel AHC, whole-body MRI referral → paid services, not gated to a retired tier.
 - ~~Bluetooth devices → sold as **device bundles**~~ **SHELVED 2026-08-02** — patient self-sources their own device instead; see CLAUDE.md's Device & Wearable Integration section for why (NAFDAC local-representative burden, not worth it pre-revenue).
 - Daily AI coaching, wearable digests → **INCLUDED** for paid tiers once built; never offered as part of the free 90-Day Health Reset, consistent with the existing "what should not be free" rules (nothing that implies active clinical responsibility).
 

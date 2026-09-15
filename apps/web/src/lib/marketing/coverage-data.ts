@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { marketingAnonClient as anonClient } from "./anon-client";
 import type { CoverageItem } from "@/lib/coverage/what-works-where";
 
 /**
@@ -23,13 +23,6 @@ export type StateCoverage = {
   services: Record<NonNullable<CoverageItem["gatedBy"]>, boolean>;
 };
 
-function anonClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
-
 function toStateCoverage(raw: unknown): StateCoverage | null {
   if (typeof raw !== "object" || raw === null) return null;
   const row = raw as Record<string, unknown>;
@@ -40,7 +33,6 @@ function toStateCoverage(raw: unknown): StateCoverage | null {
     displayName: typeof row.display_name === "string" ? row.display_name : row.state,
     isActive: row.is_active === true,
     services: {
-      lab: services.lab === true,
       pharmacy: services.pharmacy === true,
       specialist: services.specialist === true,
       home_visit: services.home_visit === true,

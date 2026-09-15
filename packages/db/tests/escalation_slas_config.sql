@@ -178,15 +178,15 @@ begin
 
   update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Esc SLA Test Nondirector'
     where id = v_nondirector_profile;
-  update public.profiles set organisation_id = v_org, role = 'doctor', full_name = 'Esc SLA Test Director'
+  update public.profiles set organisation_id = v_org, role = 'clinician', full_name = 'Esc SLA Test Director'
     where id = v_director_profile;
 
-  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, is_clinical_director, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
-  values (v_nondirector_profile, v_org, 'Esc SLA Test Nondirector', 'tier_1', false, true, 'MDCN', 'ESLATEST-001', true, v_verifier, v_verifier, now())
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
+  values (v_nondirector_profile, v_org, 'Esc SLA Test Nondirector', 'medical_officer', true, 'MDCN', 'ESLATEST-001', true, v_verifier, v_verifier, now())
   returning id into v_nondirector_staff;
 
-  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, is_clinical_director, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
-  values (v_director_profile, v_org, 'Esc SLA Test Director', 'tier_4_senior_registrar', true, true, 'MDCN', 'ESLATEST-002', true, v_verifier, v_verifier, now())
+  insert into public.clinical_staff (profile_id, organisation_id, full_name, doctor_tier, active, credential_type, credential_number, indemnity_exempt, indemnity_exempt_by, verified_by, license_verified_at)
+  values (v_director_profile, v_org, 'Esc SLA Test Director', 'chief_medical_officer', true, 'MDCN', 'ESLATEST-002', true, v_verifier, v_verifier, now())
   returning id into v_director_staff;
 
   insert into public.escalation_slas (version, config, notes)

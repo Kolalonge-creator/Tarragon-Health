@@ -2,6 +2,10 @@ node_modules/
 .expo/
 dist/
 web-build/
+# expo-prebuild-generated Android project — unlike ios/, this has never
+# been committed here, and its Gradle build output routinely carries a
+# debug keystore + google-services.json that must never land in git.
+/android/
 *.jks
 *.p8
 *.p12

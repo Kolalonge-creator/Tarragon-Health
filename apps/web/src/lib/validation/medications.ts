@@ -47,3 +47,64 @@ export const stopMedicationSchema = z.object({
   stopped_reason: z.string().trim().max(300).optional(),
 });
 export type StopMedicationInput = z.infer<typeof stopMedicationSchema>;
+
+/**
+ * Prescription amendment (spec §62.14) — the fields public.amend_medication()
+ * accepts. Every field but the reason is optional: only what actually
+ * changed needs to be sent, the RPC falls back to the current version's
+ * value for anything omitted (see 20260829010500_amend_medication.sql).
+ */
+export const amendMedicationSchema = z.object({
+  amendment_reason: z.string().trim().min(1, "A reason for the amendment is required").max(300),
+  drug_name: z.string().trim().min(1).max(200).optional(),
+  dose: z.string().trim().max(100).optional(),
+  frequency: z.string().trim().max(100).optional(),
+  route: z.string().trim().max(100).optional(),
+  duration_days: z.coerce.number().int().positive().optional(),
+  quantity: z.string().trim().max(100).optional(),
+  repeats_allowed: z.coerce.number().int().min(0).max(99).optional(),
+  indication: z.string().trim().max(300).optional(),
+  instructions: z.string().trim().max(1000).optional(),
+  refill_date: takenAtStyleDateField,
+  schedule_times: scheduleTimesField.optional(),
+});
+export type AmendMedicationInput = z.infer<typeof amendMedicationSchema>;
+
+/** Clinical review of a patient's repeat request (spec §62.12). */
+export const reviewMedicationRepeatRequestSchema = z
+  .object({
+    status: z.enum(["approved", "denied"]),
+    denial_reason: z.string().trim().max(500).optional(),
+    review_note: z.string().trim().max(500).optional(),
+  })
+  .refine((data) => data.status !== "denied" || !!data.denial_reason, {
+    message: "A reason is required to deny a repeat request",
+    path: ["denial_reason"],
+  });
+export type ReviewMedicationRepeatRequestInput = z.infer<
+  typeof reviewMedicationRepeatRequestSchema
+>;
+
+/** A patient's request to change an existing medication — what they want
+ * changed, and why. Never applies the change itself; see
+ * 20260907131424_medication_change_requests.sql. */
+export const requestMedicationChangeSchema = z.object({
+  requested_change: z.string().trim().min(1, "Say what you'd like changed").max(500),
+  reason: z.string().trim().min(1, "A reason is required").max(500),
+});
+export type RequestMedicationChangeInput = z.infer<typeof requestMedicationChangeSchema>;
+
+/** Clinical review of a patient's medication change request. */
+export const reviewMedicationChangeRequestSchema = z
+  .object({
+    status: z.enum(["approved", "denied"]),
+    denial_reason: z.string().trim().max(500).optional(),
+    review_note: z.string().trim().max(500).optional(),
+  })
+  .refine((data) => data.status !== "denied" || !!data.denial_reason, {
+    message: "A reason is required to deny a change request",
+    path: ["denial_reason"],
+  });
+export type ReviewMedicationChangeRequestInput = z.infer<
+  typeof reviewMedicationChangeRequestSchema
+>;

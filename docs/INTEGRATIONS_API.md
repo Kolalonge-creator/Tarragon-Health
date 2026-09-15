@@ -2,8 +2,10 @@
 
 Partner-facing specification for pushing data into TarragonHealth
 server-to-server. Hand this document to a device vendor or partner platform;
-the admin side (issuing keys, registering outbound connections) lives at
-`/admin/settings/integrations`.
+the admin side (issuing keys, registering outbound connections and webhook
+endpoints, and a live catalogue + health dashboard covering uptime,
+latency, failed/auth-failed requests, and the outbound delivery queue —
+spec §33.8/§33.9) lives at `/admin/settings/integrations`.
 
 Base URL: the platform deployment origin (currently
 `https://tarragon-health-web.vercel.app`).
@@ -21,10 +23,37 @@ Authorization: Bearer th_live_<64 hex characters>
 time, and only a hash is stored on our side — if a key is lost, revoke it
 and issue a new one. All requests must be HTTPS.
 
+### Sandbox vs live
+
+A key issued for certification carries the `th_test_` prefix instead of
+`th_live_` and is a **sandbox** credential — it behaves identically to a
+live key (same endpoints, same validation) but is a structurally separate
+credential family, so a sandbox key pasted into a production config fails
+authentication immediately rather than silently writing test data into a
+live record. Certify an integration against sandbox before switching to a
+live key (§33.17).
+
+### Rate limits
+
+Every key carries a per-minute request ceiling (120/min by default,
+adjustable per key by an admin). Exceeding it returns `429` with a
+`Retry-After`-style message; this is a fair-use limit, not a security
+boundary — it exists so one partner's retry storm can't degrade the
+platform for everyone else.
+
+### Idempotency
+
+Any inbound gateway request may carry an `Idempotency-Key` header (any
+stable string you choose, 8–200 characters). A repeated request with the
+same key and the same body within 24 hours replays the original response
+instead of re-running the request — safe to retry after a timeout or a
+dropped connection. Reusing a key with a **different** body returns `409
+Conflict` rather than silently discarding the difference.
+
 | Scope | Grants |
 |---|---|
 | `device_readings:write` | POST /api/integrations/device-readings |
-| `patients:read` | reserved for future read endpoints |
+| `patients:read` | GET /api/v1/patients |
 | `protocol_api:classify` | POST /api/protocol-api/v1/{bp-triage,diabetes-risk,cv-risk} |
 
 ## `GET /api/integrations/me`
@@ -96,6 +125,44 @@ Readings land in the same clinical record as the patient's own entries and
 run the same downstream review/escalation pipeline — an abnormal
 device-pushed blood pressure gets clinical attention exactly like one typed
 into the app.
+
+## `/api/v1` — the versioned gateway
+
+Every request under `/api/v1` runs through one shared pipeline
+(authenticate → authorise → idempotency check → validate → rate limit →
+log), so a new endpoint added here inherits the same key handling,
+idempotency, rate limiting, and request logging as every other one for
+free (spec §33.2). The three routes above predate this and keep their
+existing behaviour unchanged — `/api/v1` is where new integrations land
+going forward. Every response carries an `X-Request-Id` header; quote it
+when asking us to look into a specific call.
+
+### `GET /api/v1/me`
+
+Key self-test — works for any valid, unrevoked, unexpired key regardless
+of its scopes.
+
+```json
+{ "ok": true, "organisation": "Tarragon Health", "environment": "live", "scopes": ["patients:read"] }
+```
+
+### `GET /api/v1/patients?patient_number=TH-000123`
+
+Patient demographics lookup (§33.3 Patient category), scoped to
+`patients:read`. Deliberately minimal (§33.7 data minimisation) — identity
+and demographics only, never clinical fields:
+
+```json
+{
+  "patient_number": "TH-000123",
+  "full_name": "Adaeze Okafor",
+  "date_of_birth": "1988-04-12",
+  "sex": "female",
+  "phone": "+2348012345678"
+}
+```
+
+404 if the patient number doesn't belong to your organisation.
 
 ## Protocol API — licensed classifiers (no patient tenant required)
 
@@ -203,10 +270,56 @@ secondary-prevention/high-risk classification is structurally a flag for a
 human clinician to review, never an instruction to start a medication — the
 same guarantee this platform enforces for its own patients.
 
-## Outbound (TarragonHealth → your platform)
+## Outbound: partner-called APIs (TarragonHealth → your platform, request/response)
 
 If your platform exposes an API for us to call (order status, result
 delivery, etc.), a TarragonHealth admin registers your base URL + credential
 under `/admin/settings/integrations` → "Outbound partner connections", and a
 "Test connection" ping verifies reachability. Contact us with your API docs
 to design the specific calls.
+
+## Webhooks (TarragonHealth → your platform, event push)
+
+A TarragonHealth admin registers one or more webhook endpoints for your
+organisation under `/admin/settings/integrations` → "Webhook endpoints",
+choosing which event types you subscribe to and getting back a signing
+secret (shown once, like an API key).
+
+### Event types
+
+`result.available` · `result.amended` · `lab_order.created` ·
+`lab_order.cancelled` · `appointment.booked` · `appointment.cancelled` ·
+`appointment.rescheduled` · `prescription.created` ·
+`prescription.cancelled` · `dispense.completed` · `patient.registered` ·
+`patient.consent_changed` · `payment.settled` · `payment.refunded` ·
+`claim.status_changed`
+
+### Payload
+
+```
+POST <your endpoint>
+Content-Type: application/json
+X-Tarragon-Signature: sha256=<hex hmac>
+X-Tarragon-Event-Id: <uuid>
+X-Tarragon-Event-Type: result.available
+
+{ "event_id": "<uuid>", "event_type": "result.available", "data": { ... } }
+```
+
+**Verify the signature before trusting a delivery**: compute
+`HMAC-SHA256(your secret, raw request body)` and compare it (as
+`sha256=<hex>`) against `X-Tarragon-Signature` — a timing-safe comparison,
+not a plain string equality. A payload never carries more than your
+subscribed event needs (§33.7 data minimisation is applied at the point we
+build the event, not left to you to filter).
+
+### Retries and idempotency
+
+Return any `2xx` to acknowledge. Anything else — including a timeout — is
+retried with exponential backoff (30s, 1m, 2m, 4m, 8m, 16m, 32m, capped at
+1h) for up to 8 attempts before we stop and flag it for our own ops to
+investigate (§33.10/§33.11) — a temporary outage on your side never loses
+the underlying event, it just arrives late. Because of this, **the same
+`event_id` may arrive more than once**; use it to deduplicate on your side
+exactly as you'd expect us to deduplicate a repeated send from you (§33.12
+cuts both ways).

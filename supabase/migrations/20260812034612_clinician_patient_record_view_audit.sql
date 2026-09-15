@@ -50,7 +50,7 @@ comment on function public.log_patient_record_view(uuid) is
   '20260812034612_clinician_patient_record_view_audit.sql for why this exists instead of '
   'pgaudit-based read logging.';
 
-revoke all on function public.log_patient_record_view(uuid) from public;
+revoke all on function public.log_patient_record_view(uuid) from public, anon;
 grant execute on function public.log_patient_record_view(uuid) to authenticated;
 revoke execute on function public.log_patient_record_view(uuid) from anon;
 

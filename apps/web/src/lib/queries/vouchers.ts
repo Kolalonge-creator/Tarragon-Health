@@ -73,30 +73,24 @@ export function useVoucherPayments(voucherId: string | null | undefined) {
   });
 }
 
-/** The services that can actually be bought ahead of time. Same
- * self_bookable catalogue the booking card already uses, so a voucher can
- * never be sold for something a patient is not allowed to order directly. */
 /**
- * What can be bought as a voucher: a year of a plan.
- *
- * Yearly and naira only, matching public.purchase_subscription_voucher's own
- * guards, so the picker can never offer something the RPC will refuse. Tests
- * are gone from here entirely: they are paid straight to the laboratory, so
- * there is nothing for us to sell in advance.
+ * The health checks that can actually be bought as a gift ahead of time —
+ * the same self_bookable, Synlab-priced catalogue a patient books directly,
+ * so a voucher can never be sold for something they aren't allowed to order
+ * themselves. Backs buyHealthCheckVoucher / public.purchase_care_voucher.
  */
-export function useVoucherCatalogue() {
+export function useHealthCheckVoucherCatalogue() {
   return useQuery({
-    queryKey: ["care-vouchers", "plan-catalogue"],
+    queryKey: ["care-vouchers", "health-check-catalogue"],
     queryFn: async () => {
       const supabase = createClient();
       const { data, error } = await supabase
-        .from("subscription_plans")
-        .select("id, code, name, description, price_minor")
+        .from("panel_bundles")
+        .select("id, code, name, price_kobo")
         .eq("is_active", true)
-        .eq("interval", "yearly")
-        .eq("currency", "NGN")
-        .gt("price_minor", 0)
-        .order("price_minor");
+        .eq("self_bookable", true)
+        .gt("price_kobo", 0)
+        .order("price_kobo", { ascending: false });
       if (error) throw error;
       return data;
     },

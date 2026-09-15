@@ -91,7 +91,7 @@ begin
 end;
 $$;
 
-revoke all on function private.escalation_sla_minutes(text, public.alert_level) from public;
+revoke all on function private.escalation_sla_minutes(text, public.alert_level) from public, anon;
 
 -- ---------------------------------------------------------------------------
 -- Seed v1 — transcribed from the 8 live functions below, zero values changed.
@@ -183,7 +183,7 @@ $$;
 -- private.escalation_sla_minutes above is unaffected), which a
 -- public-only revoke does not remove. Revoke from both explicitly, then
 -- grant back to authenticated.
-revoke all on function public.sign_escalation_slas(uuid) from public;
+revoke all on function public.sign_escalation_slas(uuid) from public, anon;
 revoke all on function public.sign_escalation_slas(uuid) from anon;
 grant execute on function public.sign_escalation_slas(uuid) to authenticated;
 

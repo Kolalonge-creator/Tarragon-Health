@@ -1,12 +1,16 @@
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
+import { asUiLanguage } from "@tarragon/shared";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
 import { getNavSections } from "@/lib/navigation";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { isEmbeddedInApp } from "@/lib/embedded-webview";
+import { cookies } from "next/headers";
+import { THEME_COOKIE, parseThemePreference } from "@/lib/theme";
 import { Providers } from "./providers";
 import { signOut } from "../auth/actions";
+import { updateUiLanguage } from "./patient/ui-language-actions";
 
 export default async function DashboardLayout({
   children,
@@ -23,7 +27,7 @@ export default async function DashboardLayout({
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url"
+      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url, language"
     )
     .eq("id", user.id)
     .single();
@@ -61,11 +65,25 @@ export default async function DashboardLayout({
   // Inside the native app's WebView the shell is drawn natively around this
   // page, so rendering ours too gives the patient two headers and two tab
   // bars stacked. Content only.
+  // Cookie-persisted so the very first server render carries the right
+  // data-theme attribute (no flash). Only the patient surface consumes it.
+  const theme = parseThemePreference((await cookies()).get(THEME_COOKIE)?.value);
+
   const embedded = await isEmbeddedInApp();
   if (embedded) {
+    // The native shell paints #FAF7F2 around this WebView; the patient's
+    // embedded content carries the same warm ground so web pages don't sit
+    // as a white patch inside it. Staff roles have no native app, but the
+    // guard keeps this honest if that ever changes.
     return (
       <Providers>
-        <main className="mx-auto w-full max-w-6xl px-4 py-5 sm:px-6">{children}</main>
+        <main
+          className={`mx-auto min-h-screen w-full max-w-6xl px-4 py-5 sm:px-6 ${
+            profile?.role === "patient" ? "bg-warm-ivory" : "bg-white"
+          }`}
+        >
+          {children}
+        </main>
       </Providers>
     );
   }
@@ -84,6 +102,16 @@ export default async function DashboardLayout({
         idValue={idValue}
         profileHref={profileHref}
         navSections={getNavSections(profile?.role, profile?.receives_care)}
+        // Patient accounts (supporters included — they share the patient
+        // role) get the Warm Ivory ground the mobile app already ships;
+        // staff and clinical consoles keep the white canvas.
+        surface={profile?.role === "patient" ? "warm" : "default"}
+        // Patients only. Staff consoles stay English: the clinical vocabulary
+        // they work in has no Pidgin register, and a half-translated clinical
+        // console is a safety problem rather than an accessibility win.
+        uiLanguage={profile?.role === "patient" ? asUiLanguage(profile?.language) : "en"}
+        uiLanguageAction={profile?.role === "patient" ? updateUiLanguage : undefined}
+        initialTheme={theme}
         signOutAction={signOut}
       >
         <MfaNudgeBanner role={profile?.role ?? null} />

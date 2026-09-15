@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Enums } from "@tarragon/shared";
 import type { Embedder } from "./embed-content";
+import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
 
 export interface RelevantContentBlock {
   id: string;
@@ -30,6 +31,16 @@ export interface RelevantContentBlock {
  * proposer.ts's propose() (the daily nudge) — both pass their own embedder
  * (Voyage, or `null`/undefined to skip) and treat an empty result the same
  * as "retrieval unavailable": personalisation degrades, nothing breaks.
+ *
+ * GOVERNANCE (AI-009). The embedding provider is a registered AI system, so
+ * the kill switch is honoured here: switched off, this returns `[]` and the
+ * caller degrades exactly as it already does when VOYAGE_API_KEY is unset.
+ * Only a switched-off or unregistered outcome is written to
+ * ai_interaction_log, and only when a subject is known — AI-009 is not
+ * clinically meaningful (it retrieves clinician-approved educational text and
+ * reaches no patient directly), so 40.11's per-interaction audit requirement
+ * does not apply to its successful reads, and logging one row per retrieval
+ * would bury the interactions that do matter.
  */
 export async function findRelevantLifestyleContent(
   supabase: SupabaseClient<Database>,
@@ -39,8 +50,28 @@ export async function findRelevantLifestyleContent(
     matchCount?: number;
     conditionFilter?: Enums<"care_plan_condition"> | null;
     moduleFilter?: Enums<"lpe_module"> | null;
+    /** The patient the retrieval is for, where the caller knows it. Used only
+     * to attribute a switched-off outcome; omitting it skips that audit row
+     * rather than blocking retrieval. */
+    subjectProfileId?: string | null;
   } = {},
 ): Promise<RelevantContentBlock[]> {
+  const governance = await decideAiGovernance(supabase, AI_SYSTEMS.lifestyleEmbeddings.code);
+  if (!governance.allow) {
+    if (opts.subjectProfileId) {
+      await recordAiInteraction(supabase, {
+        systemCode: AI_SYSTEMS.lifestyleEmbeddings.code,
+        modelIdentifier: "none:fallback",
+        inputCategory: "lifestyle_content_retrieval",
+        status: "fallback",
+        subjectProfileId: opts.subjectProfileId,
+        fallbackReason: governance.message,
+        resultingAction: "no_reference_material_retrieved",
+      });
+    }
+    return [];
+  }
+
   let queryEmbedding: number[];
   try {
     queryEmbedding = await embedder.embed(queryText);

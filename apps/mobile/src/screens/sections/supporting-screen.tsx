@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Modal, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from "react-native";
 import { loadPeopleISupport, startActingFor, type ActingFor, type SupportedPerson } from "@/lib/acting";
 import { colors, spacing } from "@/ui/theme";
 import { Badge, CalloutCard, Card, ErrorText, MutedText, SectionLabel, SecondaryButton } from "@/ui/components";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { SupportingManageScreen } from "@/screens/sections/supporting-manage-screen";
+import { SponsorSharingControl } from "@/screens/sections/sponsor-sharing-control";
 
 interface SupportingScreenProps {
   userId: string;
+  organisationId: string;
   acting: ActingFor | null;
   onActingChange: () => void;
 }
@@ -19,19 +21,28 @@ interface SupportingScreenProps {
  * WebView: web's "Open their account" writes an httpOnly cookie, which a
  * WebView's own separate cookie jar can't hand back to the native app's
  * session (see webview-screen.tsx) — so the switch itself has to happen in
- * native code, even though the richer billing/voucher management for people
- * you support stays a WebView link out, same low-frequency/form-heavy
- * reasoning as every other WEBVIEW section in the spec.
+ * native code. The richer billing/voucher management for people you support
+ * (the "manage" modal below) is now SupportingManageScreen, a genuine native
+ * read-only summary of vouchers/funding — see that file's own doc comment
+ * for exactly which sub-flows (Paystack checkout, refills, booking,
+ * messaging) still open the real web page in the system browser rather than
+ * being rebuilt natively, and why.
  */
-export function SupportingScreen({ userId, acting, onActingChange }: SupportingScreenProps) {
+export function SupportingScreen({ userId, organisationId, acting, onActingChange }: SupportingScreenProps) {
   const [people, setPeople] = useState<SupportedPerson[]>([]);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manageOpen, setManageOpen] = useState(false);
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
-    setPeople(await loadPeopleISupport(userId));
+    setLoadError(false);
+    try {
+      setPeople(await loadPeopleISupport(userId));
+    } catch {
+      setLoadError(true);
+    }
   }, [userId]);
 
   useEffect(() => {
@@ -61,6 +72,24 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
 
       {loading ? (
         <ActivityIndicator color={colors.brand} />
+      ) : loadError ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Retry loading the people you support"
+          onPress={() => {
+            setLoading(true);
+            load()
+              .catch(() => {})
+              .finally(() => setLoading(false));
+          }}
+        >
+          <Card style={{ gap: 6 }}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
+              We couldn&apos;t load this right now
+            </Text>
+            <MutedText>Check your connection and tap to try again.</MutedText>
+          </Card>
+        </Pressable>
       ) : people.length === 0 ? (
         <Card style={{ gap: 6 }}>
           <Text style={{ fontSize: 14, fontWeight: "700", color: colors.ink }}>
@@ -86,7 +115,7 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
               {person.permissionLevel === "manage" ? (
                 isOpen ? (
                   <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.brand }}>
-                    Currently open — see the banner above to switch back.
+                    Currently open. See the banner above to switch back.
                   </Text>
                 ) : (
                   <SecondaryButton
@@ -108,10 +137,18 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
 
       {error ? <ErrorText>{error}</ErrorText> : null}
 
+      {/* The other half of the same relationship, on the same screen on
+          purpose — mirrors web's /patient/supporting page, which renders
+          SupportedPeople and SponsorSharingControl together. Someone who
+          both supports a person and is supported by one should be able to
+          see and change what they share without hunting through settings.
+          Renders nothing when nobody is paying for this patient's care. */}
+      <SponsorSharingControl organisationId={organisationId} />
+
       <CalloutCard
         icon="wallet-outline"
         title="What you've funded"
-        subtitle="Vouchers, subscriptions and statements for everyone you support open in the full patient app."
+        subtitle="Vouchers and statements for everyone you support open in the full patient app."
         ctaLabel="Manage what you fund"
         onPress={() => setManageOpen(true)}
       />
@@ -121,7 +158,7 @@ export function SupportingScreen({ userId, acting, onActingChange }: SupportingS
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
             <SecondaryButton title="Close" onPress={() => setManageOpen(false)} />
           </View>
-          <WebViewScreen path="/patient/supporting" />
+          <SupportingManageScreen userId={userId} />
         </View>
       </Modal>
     </ScrollView>

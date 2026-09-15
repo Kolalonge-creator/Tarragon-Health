@@ -6,7 +6,7 @@
 -- (private.escalate_unacknowledged_clinician_alerts).
 --
 -- Cases:
---   1. A non-director (any active clinical_staff without is_clinical_director)
+--   1. A non-director (any active clinical_staff below chief_medical_officer)
 --      cannot sign an alert_rules draft version -- blocked, matching
 --      sign_escalation_slas/sign_cv_risk_config/sign_vaccination_schedule's
 --      own forge-proof shape.
@@ -51,12 +51,12 @@ begin
 
   select cs.id into v_non_director
   from public.clinical_staff cs
-  where cs.organisation_id = v_org and cs.active and not cs.is_clinical_director
+  where cs.organisation_id = v_org and cs.active and cs.doctor_tier <> 'chief_medical_officer'
   limit 1;
 
   select cs.id, cs.profile_id into v_director_staff, v_director_profile
   from public.clinical_staff cs
-  where cs.organisation_id = v_org and cs.active and cs.is_clinical_director
+  where cs.organisation_id = v_org and cs.active and cs.doctor_tier = 'chief_medical_officer'
   limit 1;
 
   -- ---- Case 1/2 require both a non-director and a director fixture to exist ----
@@ -125,9 +125,15 @@ begin
     values (v_org, v_pat, 'urgent_escalation', 'Ack-ladder test: 10 min open', now() - interval '10 minutes')
     returning id into v_a3;
 
-  -- A backup clinician is required for hop 1 to fire.
+  -- A backup clinician is required for hop 1 to fire. Assigning
+  -- backup_clinician_id to someone other than the caller now requires
+  -- Chief Medical Officer authority (private.enforce_clinician_alert_
+  -- reassignment_authority, added by the 2026-08-31 escalation/specialist
+  -- auto-assignment migration) -- run this fixture setup as the director.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_director_profile)::text, true);
   update public.clinician_alerts set backup_clinician_id = coalesce(v_non_director, v_director_staff)
     where id in (v_a1, v_a2, v_a3);
+  perform set_config('request.jwt.claims', '', true);
 
   perform private.escalate_unacknowledged_clinician_alerts();
 

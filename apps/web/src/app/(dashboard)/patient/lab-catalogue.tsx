@@ -1,8 +1,11 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useLabCatalogue } from "@/lib/queries/lab-orders";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { testCodeLabels } from "@/lib/labs/test-code-labels";
+import { testPreparationForCodes } from "@/lib/labs/test-preparation";
+import { groupBundlesByCategory } from "@/lib/labs/lab-catalogue-categories";
 
 /**
  * Read-only per the clinician-originated-orders guardrail (see
@@ -13,12 +16,13 @@ import { testCodeLabels } from "@/lib/labs/test-code-labels";
  * PreventiveScreeningCalendar; anything else needs a clinician to generate
  * the order.
  *
- * No price shown: since the 2026-08-03 self-arranged-fulfilment decision,
- * Tarragon does not bill for tests — `bundle.price_kobo` is a stale
- * pre-pivot figure that would read as "this is what Tarragon charges,"
- * exactly the framing the marketing site (`YOU PAY THE LAB`, see
- * `_content/pricing.ts`) deliberately never shows. What a patient actually
- * pays depends on the lab they choose.
+ * No price shown here on purpose, even though some bundles now carry a real
+ * contracted price (2026-08-21, Synlab): this catalogue is self-arranged
+ * browsing only, and showing a price next to a bundle a patient cannot act
+ * on from here would misleadingly imply this view can charge them. Where a
+ * bundle genuinely can be billed by Tarragon, that option lives on the
+ * booking action itself (PreventiveScreeningCalendar / AnnualHealthCheckBooking),
+ * right next to the bundle it applies to — not here.
  */
 export function LabCatalogue() {
   const { data: bundles, isLoading, isError } = useLabCatalogue();
@@ -29,27 +33,64 @@ export function LabCatalogue() {
         <CardTitle>Lab tests</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load the lab catalogue.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load the lab catalogue.</p>}
         {bundles && bundles.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No lab tests available yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No lab tests available yet.</p>
         )}
         {bundles && bundles.length > 0 && (
           <>
-            <ul className="divide-y divide-charcoal-ink/10">
-              {bundles.map((bundle) => (
-                <li key={bundle.id} className="py-3">
-                  <p className="text-sm font-medium text-charcoal-ink">{bundle.name}</p>
-                  {bundle.description && (
-                    <p className="text-xs text-charcoal-ink/60">{bundle.description}</p>
-                  )}
-                  <p className="text-xs text-charcoal-ink/60">
-                    Includes: {testCodeLabels(bundle.test_codes).join(", ")}
-                  </p>
-                </li>
+            <div className="space-y-5">
+              {groupBundlesByCategory(bundles).map(({ category, bundles: groupBundles }) => (
+                <div key={category.key} className="space-y-2">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/50">
+                    {category.label}
+                  </h3>
+                  <div className="space-y-2">
+                    {groupBundles.map((bundle) => {
+                      const preparation = testPreparationForCodes(bundle.test_codes);
+                      return (
+                        <details
+                          key={bundle.id}
+                          className="group rounded-lg border border-charcoal-ink/10 bg-white px-4 py-3 dark:border-night-ink/15 dark:bg-charcoal-ink"
+                        >
+                          <summary className="flex cursor-pointer list-none items-start justify-between gap-3 marker:hidden">
+                            <div>
+                              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{bundle.name}</p>
+                              {bundle.description && (
+                                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{bundle.description}</p>
+                              )}
+                            </div>
+                            <ChevronDown
+                              className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/40 transition-transform group-open:rotate-180 dark:text-night-ink/40"
+                              aria-hidden="true"
+                            />
+                          </summary>
+                          <div className="mt-3 space-y-2 border-t border-charcoal-ink/10 pt-3 dark:border-night-ink/15">
+                            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                              Includes: {testCodeLabels(bundle.test_codes).join(", ")}
+                            </p>
+                            {preparation.length > 0 && (
+                              <ul className="space-y-0.5">
+                                {preparation.map((prep) => (
+                                  <li
+                                    key={prep.specimenType + prep.instructions}
+                                    className="text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+                                  >
+                                    <span className="font-medium">{prep.specimenType}.</span> {prep.instructions}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                          </div>
+                        </details>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
-            </ul>
-            <p className="text-sm text-charcoal-ink/70">
+            </div>
+            <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
               Due screenings can be booked directly from your screening calendar below. For
               anything else here, message your care team in the app and they&apos;ll write you a
               request to take to a laboratory of your choice. You pay the lab directly, at

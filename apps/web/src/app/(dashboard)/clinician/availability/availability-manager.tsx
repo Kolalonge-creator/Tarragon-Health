@@ -76,7 +76,7 @@ export function AvailabilityManager({ organisationId }: { organisationId: string
         {slots && slots.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
             {slots.map((slot) => (
-              <li key={slot.id} className="flex items-center gap-2 py-2">
+              <li key={slot.id} className="flex flex-wrap items-center gap-2 py-2">
                 <p className="text-sm text-charcoal-ink">
                   {new Date(slot.slot_start).toLocaleString(undefined, {
                     weekday: "short",

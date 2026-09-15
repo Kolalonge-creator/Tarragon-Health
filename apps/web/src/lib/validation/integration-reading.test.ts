@@ -60,6 +60,45 @@ describe("integrationReadingSchema", () => {
     expect(integrationReadingSchema.safeParse({ ...glucose, glucose_value: 700 }).success).toBe(false);
   });
 
+  // Mirrors the mobile BLE path: a partner cuff reporting a genuine
+  // hypertensive crisis (private.classify_bp_level → emergency at SBP >= 200
+  // or DBP >= 120) must pass validation and reach the escalation pipeline.
+  it("accepts a hypertensive-crisis blood pressure from a partner device", () => {
+    for (const bp of [
+      { systolic: 210, diastolic: 125 },
+      { systolic: 260, diastolic: 160 },
+    ]) {
+      expect(
+        integrationReadingSchema.safeParse({ ...base, vital_type: "blood_pressure", ...bp }).success
+      ).toBe(true);
+    }
+  });
+
+  it("rejects a blood pressure outside the plausible band", () => {
+    for (const bp of [
+      { systolic: 59, diastolic: 80 },
+      { systolic: 261, diastolic: 80 },
+      { systolic: 120, diastolic: 29 },
+      { systolic: 120, diastolic: 161 },
+      { systolic: 0, diastolic: 0 },
+      { systolic: -120, diastolic: -80 },
+    ]) {
+      expect(
+        integrationReadingSchema.safeParse({ ...base, vital_type: "blood_pressure", ...bp }).success
+      ).toBe(false);
+    }
+  });
+
+  it("accepts an emergency-band pulse and rejects impossible ones", () => {
+    const bp = { ...base, vital_type: "blood_pressure", systolic: 120, diastolic: 80 };
+    for (const pulse_bpm of [20, 30, 35, 150, 220, 300]) {
+      expect(integrationReadingSchema.safeParse({ ...bp, pulse_bpm }).success).toBe(true);
+    }
+    for (const pulse_bpm of [19, 301, 0, -72]) {
+      expect(integrationReadingSchema.safeParse({ ...bp, pulse_bpm }).success).toBe(false);
+    }
+  });
+
   it("rejects a malformed patient number", () => {
     expect(
       integrationReadingSchema.safeParse({

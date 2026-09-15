@@ -161,11 +161,11 @@ $$;
 -- grant, which anon inherits through; revoke it explicitly before granting to
 -- authenticated (see feedback_supabase_anon_execute_gotcha memory).
 -- ---------------------------------------------------------------------------
-revoke execute on function public.pharmacist_profile() from public;
+revoke execute on function public.pharmacist_profile() from public, anon;
 revoke execute on function public.pharmacist_profile() from anon;
-revoke execute on function public.pharmacist_update_profile(text, text[], text, text, text, text, boolean, text, timestamptz) from public;
+revoke execute on function public.pharmacist_update_profile(text, text[], text, text, text, text, boolean, text, timestamptz) from public, anon;
 revoke execute on function public.pharmacist_update_profile(text, text[], text, text, text, text, boolean, text, timestamptz) from anon;
-revoke execute on function public.pharmacist_dispense_history(int) from public;
+revoke execute on function public.pharmacist_dispense_history(int) from public, anon;
 revoke execute on function public.pharmacist_dispense_history(int) from anon;
 
 grant execute on function public.pharmacist_profile() to authenticated;

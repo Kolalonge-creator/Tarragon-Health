@@ -3,6 +3,7 @@ import {
   nominateNextOfKinSchema,
   eldercareAccessRequestSchema,
   inverseRelationship,
+  CAREGIVER_ACCESS_DURATIONS,
 } from "./care-access";
 
 describe("nominateNextOfKinSchema", () => {
@@ -31,6 +32,8 @@ describe("eldercareAccessRequestSchema", () => {
       phone: "+2348012345678",
       relationship: "child",
       direction: "i_will_manage",
+      permissions: ["book_appointments", "view_medication"],
+      duration: "permanent",
     });
     expect(result.success).toBe(true);
   });
@@ -40,8 +43,56 @@ describe("eldercareAccessRequestSchema", () => {
       phone: "+2348012345678",
       relationship: "child",
       direction: "i_will_take_over",
+      permissions: ["book_appointments"],
+      duration: "permanent",
     });
     expect(result.success).toBe(false);
+  });
+
+  it("rejects an empty permissions selection", () => {
+    const result = eldercareAccessRequestSchema.safeParse({
+      phone: "+2348012345678",
+      relationship: "child",
+      direction: "i_will_manage",
+      permissions: [],
+      duration: "permanent",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an unknown permission", () => {
+    const result = eldercareAccessRequestSchema.safeParse({
+      phone: "+2348012345678",
+      relationship: "child",
+      direction: "i_will_manage",
+      permissions: ["delete_everything"],
+      duration: "permanent",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects an unknown duration", () => {
+    const result = eldercareAccessRequestSchema.safeParse({
+      phone: "+2348012345678",
+      relationship: "child",
+      direction: "i_will_manage",
+      permissions: ["book_appointments"],
+      duration: "365",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts every named duration option", () => {
+    for (const duration of CAREGIVER_ACCESS_DURATIONS) {
+      const result = eldercareAccessRequestSchema.safeParse({
+        phone: "+2348012345678",
+        relationship: "child",
+        direction: "i_will_manage",
+        permissions: ["book_appointments"],
+        duration,
+      });
+      expect(result.success).toBe(true);
+    }
   });
 });
 

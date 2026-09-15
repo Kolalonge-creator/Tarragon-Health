@@ -5,6 +5,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database, Json } from "@tarragon/shared";
 import { buildCaseSnapshot, formatSnapshotForPrompt, type CaseSnapshot } from "./snapshot";
 import { resolveProtocolsForPatient, primaryProtocol } from "@/lib/case-cockpit/protocol";
+import { AI_SYSTEMS, governedSystemPrompt, runGovernedAi } from "@/lib/ai-governance";
 
 const briefSchema = z.object({
   summary: z.string(),
@@ -54,6 +55,14 @@ For the "draftReviewNote" field specifically:
 
 type GenerateParams = { clinicianAlertId: string; organisationId: string; patientId: string };
 
+/** Named so runGovernedAi can be parameterised on it. */
+export interface GenerateResult {
+  status: "generated" | "failed";
+  summary?: string;
+  suggestedAction?: string;
+  draftReviewNote?: string;
+}
+
 /**
  * Never throws. On any failure (missing/invalid API key, network error,
  * refused response, malformed structured output) this returns a 'failed'
@@ -75,12 +84,7 @@ export async function generateCaseBrief(
   escalationReason: string | null = null,
   /** Injectable for tests; defaults to a real Claude client. */
   model?: ChatAnthropic
-): Promise<{
-  status: "generated" | "failed";
-  summary?: string;
-  suggestedAction?: string;
-  draftReviewNote?: string;
-}> {
+): Promise<GenerateResult> {
   const { clinicianAlertId, organisationId, patientId } = params;
 
   let snapshot: CaseSnapshot | null = null;
@@ -120,68 +124,95 @@ export async function generateCaseBrief(
 
   const promptText = formatSnapshotForPrompt(snapshot);
 
-  try {
-    // Built inside the try block, not passed as a bare default param --
-    // a missing/invalid ANTHROPIC_API_KEY must degrade this call, not throw
-    // before we can catch it. Same shape as ai-coach/graph.ts's llmTurn.
-    const chatModel =
-      model ??
-      new ChatAnthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        model: MODEL_ID,
-        maxTokens: 400,
-        // Same claude-*-5-generation workaround as lib/ai-coach/graph.ts's
-        // buildModel() -- @langchain/anthropic@0.3.x unconditionally sends
-        // temperature/top_p/top_k, which this model generation rejects
-        // outright.
-        invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
-      });
-    const structuredModel = chatModel.withStructuredOutput(briefSchema);
+  // AI-004 in the registry. runGovernedAi checks the kill switch before the
+  // model is reached, records the interaction either way (40.11), and routes
+  // a switched-off or failed call to the same persistFailure path this
+  // function already used for a failed one -- so "the brief did not
+  // generate" behaves identically whether the cause was a bad API key or a
+  // deliberate governance decision, which is exactly what 40.18 asks for.
+  const governed = await runGovernedAi<GenerateResult>({
+    supabase,
+    systemCode: AI_SYSTEMS.caseBrief.code,
+    inputCategory: "clinician_alert_case_brief",
+    subjectProfileId: patientId,
 
-    const result = await structuredModel.invoke([
-      new SystemMessage(SYSTEM_PROMPT),
-      new HumanMessage(promptText),
-    ]);
+    run: async ({ config }) => {
+      // Built inside the run callback, not passed as a bare default param --
+      // a missing/invalid ANTHROPIC_API_KEY must degrade this call, not throw
+      // before we can catch it. Same shape as ai-coach/graph.ts's llmTurn.
+      const chatModel =
+        model ??
+        new ChatAnthropic({
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          model: MODEL_ID,
+          maxTokens: 400,
+          // Same claude-*-5-generation workaround as lib/ai-coach/graph.ts's
+          // buildModel() -- @langchain/anthropic@0.3.x unconditionally sends
+          // temperature/top_p/top_k, which this model generation rejects
+          // outright.
+          invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
+        });
+      const structuredModel = chatModel.withStructuredOutput(briefSchema);
 
-    const svc = getServiceRoleSupabase();
-    await svc.from("case_briefs").upsert(
-      {
-        organisation_id: organisationId,
-        clinician_alert_id: clinicianAlertId,
-        patient_id: patientId,
-        status: "generated",
-        model_id: MODEL_ID,
-        summary_text: result.summary,
-        suggested_action_text: result.suggestedAction,
-        draft_review_note: result.draftReviewNote,
-        // Null whenever the protocol was unsigned or absent -- the UI reads
-        // this column, not a boolean, so "drafted against protocol v3" can
-        // never render without a real signed row behind it.
-        protocol_version_id: signedProtocol?.id ?? null,
-        protocol_slug: signedProtocol && protocol ? protocol.protocolSlug : null,
-        input_snapshot: snapshot as unknown as Json,
-        error_message: null,
-        generated_at: new Date().toISOString(),
-      },
-      { onConflict: "clinician_alert_id" }
-    );
+      const result = await structuredModel.invoke([
+        new SystemMessage(governedSystemPrompt(config) ?? SYSTEM_PROMPT),
+        new HumanMessage(promptText),
+      ]);
 
-    return {
-      status: "generated",
-      summary: result.summary,
-      suggestedAction: result.suggestedAction,
-      draftReviewNote: result.draftReviewNote,
-    };
-  } catch (error) {
-    console.error("case-briefs: generation failed, degrading to no brief", error);
-    await persistFailure(
-      getServiceRoleSupabase(),
-      params,
-      snapshot,
-      error instanceof Error ? error.message : "Unknown error"
-    );
-    return { status: "failed" };
-  }
+      const svc = getServiceRoleSupabase();
+      await svc.from("case_briefs").upsert(
+        {
+          organisation_id: organisationId,
+          clinician_alert_id: clinicianAlertId,
+          patient_id: patientId,
+          status: "generated",
+          model_id: MODEL_ID,
+          summary_text: result.summary,
+          suggested_action_text: result.suggestedAction,
+          draft_review_note: result.draftReviewNote,
+          // Null whenever the protocol was unsigned or absent -- the UI reads
+          // this column, not a boolean, so "drafted against protocol v3" can
+          // never render without a real signed row behind it.
+          protocol_version_id: signedProtocol?.id ?? null,
+          protocol_slug: signedProtocol && protocol ? protocol.protocolSlug : null,
+          input_snapshot: snapshot as unknown as Json,
+          error_message: null,
+          generated_at: new Date().toISOString(),
+        },
+        { onConflict: "clinician_alert_id" }
+      );
+
+      return {
+        value: {
+          status: "generated",
+          summary: result.summary,
+          suggestedAction: result.suggestedAction,
+          draftReviewNote: result.draftReviewNote,
+        },
+        modelIdentifier: MODEL_ID,
+        outputSummary: result.summary,
+        resultingAction: "case_brief_drafted",
+        resultingEntityType: "clinician_alerts",
+        resultingEntityId: clinicianAlertId,
+      };
+    },
+
+    fallback: async (reason, error) => {
+      const detail =
+        reason === "ai_error"
+          ? error instanceof Error
+            ? error.message
+            : "Unknown error"
+          : `No brief drafted: ${reason}.`;
+      if (reason === "ai_error") {
+        console.error("case-briefs: generation failed, degrading to no brief", error);
+      }
+      await persistFailure(getServiceRoleSupabase(), params, snapshot, detail);
+      return { status: "failed" };
+    },
+  });
+
+  return governed.value;
 }
 
 async function persistFailure(

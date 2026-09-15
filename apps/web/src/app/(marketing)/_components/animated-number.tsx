@@ -8,7 +8,7 @@ const SINGLE_NUMBER = /^(\D*)(\d+(?:[.,]\d+)?)(\D*)$/;
  * Counts a single-number stat up from 0 when it scrolls into view (the
  * functionhealth.com/superpower.com stat-tile treatment). Only real,
  * already-authored values are ever passed in; this never fabricates a
- * number, it just animates toward the exact string the caller provided.
+ * number, it just animates towards the exact string the caller provided.
  * Anything that isn't a clean "prefix + one number + suffix" shape (e.g.
  * "124 / 79") renders as plain text, unchanged.
  */

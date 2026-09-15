@@ -75,7 +75,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What to actually do",
         paragraphs: [
-          "If you have never checked, check: at a pharmacy, a lab, or with a home cuff. If your readings sit at 140/90 or above more than once, see a doctor; hypertension is very treatable, and treatment is far cheaper than a stroke.",
+          "If you have not had it checked, do: at a pharmacy, a lab, or with a home cuff. If your readings sit at 140/90 or above more than once, see a doctor; hypertension is very treatable, and treatment is far cheaper than a stroke.",
           "If you are already diagnosed, the goal is control, not just tablets: take medicines consistently, cut salt, and keep measuring so you and your doctor can see whether the plan is working.",
         ],
       },
@@ -132,7 +132,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "First, an honest frame",
         paragraphs: [
-          "Lifestyle change genuinely lowers blood pressure, for many people by enough to matter. But if your readings are high, lifestyle work is usually a partner to medication, not a replacement for it. Never stop a prescribed medicine on your own; blood pressure rebounds quietly.",
+          "Lifestyle change genuinely lowers blood pressure, for many people by enough to matter. But if your readings are high, lifestyle work is usually a partner to medication, not a replacement for it. Do not stop a prescribed medicine on your own; blood pressure rebounds quietly.",
         ],
       },
       {
@@ -296,7 +296,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "The real risk isn't trying them, it's stopping what works",
         paragraphs: [
-          "Never replace a prescribed diabetes medicine with a herbal product without your doctor knowing. Tell your care team about anything you're taking alongside your prescription; some herbal products interact with medication in ways that are hard to predict on your own.",
+          "Do not replace a prescribed diabetes medicine with a herbal product without your doctor knowing. Tell your care team about anything you're taking alongside your prescription; some herbal products interact with medication in ways that are hard to predict on your own.",
         ],
       },
       {
@@ -617,7 +617,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "\"But I heard it damages your liver\"",
         paragraphs: [
-          "Serious liver injury from statins is rare; most people never need to stop for it, which is why a doctor checks liver function before starting and periodically after, not because harm is expected, but because checking is cheap and reassuring. Weigh that small, monitored risk against an unmonitored heart attack.",
+          "Serious liver injury from statins is rare; very few people ever need to stop for it, which is why a doctor checks liver function before starting and periodically after, not because harm is expected, but because checking is cheap and reassuring. Weigh that small, monitored risk against an unmonitored heart attack.",
         ],
       },
       {
@@ -689,13 +689,13 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why people stop anyway",
         paragraphs: [
-          "The most common reasons are almost never medical: running out and delaying a refill, a busy week that breaks the routine, hearing a rumour that the medicine 'damages the kidneys' or is only meant to be short-term, or simply feeling well enough to assume it's no longer needed. None of these are safe reasons to stop without telling a doctor first.",
+          "The most common reasons are rarely medical: running out and delaying a refill, a busy week that breaks the routine, hearing a rumour that the medicine 'damages the kidneys' or is only meant to be short-term, or simply feeling well enough to assume it's no longer needed. None of these are safe reasons to stop without telling a doctor first.",
         ],
       },
       {
         heading: "What actually happens when you stop",
         paragraphs: [
-          "For most blood pressure medicines, pressure rises back toward its untreated level within days to a couple of weeks, quietly, with no warning sign. The risk of stroke and heart attack rises with it. If a medicine genuinely isn't suiting you, side effects, cost, or difficulty remembering doses, that is a real reason to change the plan, but the answer is a different medicine or a different routine, not silence.",
+          "For most blood pressure medicines, pressure rises back towards its untreated level within days to a couple of weeks, quietly, with no warning sign. The risk of stroke and heart attack rises with it. If a medicine genuinely isn't suiting you, side effects, cost, or difficulty remembering doses, that is a real reason to change the plan, but the answer is a different medicine or a different routine, not silence.",
         ],
       },
       {
@@ -767,7 +767,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "How much is actually enough",
         paragraphs: [
-          "Roughly 150 minutes a week of brisk walking or similar activity, about 20-25 minutes most days, is the widely-used benchmark for general health. For weight maintenance specifically, some evidence points toward needing closer to 250-300 minutes a week. Either way, consistency across months matters far more than intensity on any single day.",
+          "Roughly 150 minutes a week of brisk walking or similar activity, about 20-25 minutes most days, is the widely-used benchmark for general health. For weight maintenance specifically, some evidence points towards needing closer to 250-300 minutes a week. Either way, consistency across months matters far more than intensity on any single day.",
         ],
       },
       {
@@ -833,7 +833,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Who should test, honestly",
         paragraphs: [
-          "Everyone benefits from knowing their status at least once; it is not a test reserved for people who feel at risk. Pregnancy, a new relationship, a family member's diagnosis, or simply never having been tested are all reasonable, unremarkable reasons to book it. A test result stays private between you and your care team.",
+          "Everyone benefits from knowing their status at least once; it is not a test reserved for people who feel at risk. Pregnancy, a new relationship, a family member's diagnosis, or simply not having been tested before are all reasonable, unremarkable reasons to book it. A test result stays private between you and your care team.",
         ],
       },
       {
@@ -845,7 +845,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "The test itself",
         paragraphs: [
-          "A simple blood test at any decent lab, results usually back within days, sometimes the same day for HIV. There is nothing to prepare, and no reason to wait for a symptom that, for these three conditions, may never clearly arrive on its own.",
+          "A simple blood test at any decent lab, results usually back within days, sometimes the same day for HIV. There is nothing to prepare, and no reason to wait for a symptom that, for these three conditions, may not clearly arrive at all.",
         ],
       },
     ],
@@ -863,7 +863,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Immunity doesn't always last forever",
         paragraphs: [
-          "Some childhood vaccines wane over decades and need a booster in adulthood to stay effective; tetanus is the clearest example, needing a top-up roughly every ten years, a detail most adults have never been told. A vaccination record kept from childhood through adulthood, not two separate untracked histories, is what actually lets a doctor spot a gap.",
+          "Some childhood vaccines wane over decades and need a booster in adulthood to stay effective; tetanus is the clearest example, needing a top-up roughly every ten years, a detail few adults are ever told. A vaccination record kept from childhood through adulthood, not two separate untracked histories, is what actually lets a doctor spot a gap.",
         ],
       },
       {
@@ -873,7 +873,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "Hepatitis B, if your series was never completed",
+        heading: "Hepatitis B, if your series was left unfinished",
         paragraphs: [
           "The Hepatitis B vaccine is a series of doses, not a single shot, and an incomplete series (a common gap when doses were given at different clinics with no shared record) doesn't give full protection. If you're not certain your series was completed, that's worth confirming rather than assuming.",
         ],
@@ -917,7 +917,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "How to actually get tested",
         paragraphs: [
-          "Both are simple blood tests at any decent laboratory, results typically back within a day, no special preparation needed. If you've never checked either, or you're planning a marriage or pregnancy and don't have a written result you trust, it is one of the cheapest, most consequential pieces of information you can gather about your family's future.",
+          "Both are simple blood tests at any decent laboratory, results typically back within a day, no special preparation needed. If you have not had either checked, or you are planning a marriage or pregnancy and don't have a written result you trust, it is one of the cheapest, most consequential pieces of information you can gather about your family's future.",
         ],
       },
     ],
@@ -1019,7 +1019,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "The basics that make it safe",
         paragraphs: [
-          "Rotate the injection site within the same general area to avoid lumps forming under the skin. Never share a pen or needle. Store insulin as instructed, most types need a fridge until opened. Know the signs of low blood sugar, shakiness, sweating, confusion, and keep something sugary nearby.",
+          "Rotate the injection site within the same general area to avoid lumps forming under the skin. Do not share a pen or a needle. Store insulin as instructed, most types need a fridge until opened. Know the signs of low blood sugar, shakiness, sweating, confusion, and keep something sugary nearby.",
         ],
       },
       {
@@ -1055,7 +1055,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What actually protects your feet",
         paragraphs: [
-          "Wash and dry feet properly, especially between the toes. Moisturise the skin, but not between the toes. Trim nails straight across, not curved into the corners. Never walk barefoot, even at home. Choose shoes that fit properly rather than ones that need breaking in.",
+          "Wash and dry feet properly, especially between the toes. Moisturise the skin, but not between the toes. Trim nails straight across, not curved into the corners. Keep your feet covered, even at home. Choose shoes that fit properly rather than ones that need breaking in.",
         ],
       },
       {
@@ -1161,7 +1161,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
         ],
       },
       {
-        heading: "\"You can never eat sweet things again\" and \"if I feel fine, my sugar must be fine\"",
+        heading: "\"Sweet things are off the menu for good\" and \"if I feel fine, my sugar must be fine\"",
         paragraphs: [
           "Nothing is banned outright; portion, pairing and frequency matter far more than any single food. A small piece of cake at a party, eaten occasionally and thoughtfully, is not the same as a daily habit.",
           "And type 2 diabetes is often symptomless for years, which is exactly why regular testing, not how you feel, is what actually tells you where your numbers stand.",
@@ -1339,7 +1339,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "A realistic starting point",
         paragraphs: [
-          "You don't need to remove all fat; a completely fat-free diet isn't the goal or even healthy. The practical shift is toward fish, beans and vegetable oils more often, and away from reused frying oil and heavily processed snack foods, most days rather than every single day.",
+          "You don't need to remove all fat; a completely fat-free diet isn't the goal or even healthy. The practical shift is towards fish, beans and vegetable oils more often, and away from reused frying oil and heavily processed snack foods, most days rather than every single day.",
         ],
       },
     ],
@@ -1467,7 +1467,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "What actually happens after you stop",
         paragraphs: [
-          "Within a year, the extra risk to your heart drops substantially. Over the following decade, cancer risk keeps falling the longer you stay smoke-free, though it takes longer to return fully to a never-smoker's baseline. The benefit starts almost immediately and keeps compounding, at any age you quit.",
+          "Within a year, the extra risk to your heart drops substantially. Over the following decade, cancer risk keeps falling the longer you stay smoke-free, though it takes longer to return fully to the baseline of someone who has not smoked. The benefit starts almost immediately and keeps compounding, at any age you quit.",
         ],
       },
       {
@@ -1519,7 +1519,7 @@ export const RESOURCE_ARTICLES: ResourceArticle[] = [
       {
         heading: "Why iron and folate deserve special attention here",
         paragraphs: [
-          "Iron matters more in Nigeria than the 14 milligram reference figure alone suggests. The last Nigeria Demographic and Health Survey found anaemia in well over half of women of reproductive age, and in more than three in five pregnant women, a gap the general adult reference number was never designed to close on its own.",
+          "Iron matters more in Nigeria than the 14 milligram reference figure alone suggests. The last Nigeria Demographic and Health Survey found anaemia in well over half of women of reproductive age, and in more than three in five pregnant women, a gap the general adult reference number was not designed to close on its own.",
           "Pregnancy needs more than the general figure, which is why antenatal iron-folate tablets exist as standard care: World Health Organisation guidance calls for 30 to 60 milligrams of iron and 400 micrograms of folic acid daily throughout pregnancy, with the higher end of that iron range specifically recommended wherever anaemia in pregnancy is already common, which, given the numbers above, describes most of Nigeria. It's a supplement layered on top of food, not a replacement for it.",
           "On the food side, iron from meat, liver and fish is absorbed more easily than iron from beans or leafy vegetables like ugu, but pairing a plant source with vitamin C, an orange after a bean meal, for instance, measurably improves how much of it the body actually takes up.",
         ],

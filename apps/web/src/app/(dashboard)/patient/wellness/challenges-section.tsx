@@ -15,7 +15,7 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 function ProgressBar({ value, target }: { value: number; target: number }) {
   const pct = target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0;
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10">
+    <div className="h-2 w-full overflow-hidden rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15">
       <div className="h-full rounded-full bg-brand-green transition-all" style={{ width: `${pct}%` }} />
     </div>
   );
@@ -27,9 +27,9 @@ function ActiveEnrolmentRow({ enrolment }: { enrolment: ChallengeEnrolment }) {
   if (!challenge) return null;
 
   return (
-    <li className="rounded-lg border border-charcoal-ink/10 p-3">
+    <li className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-charcoal-ink">{challenge.title}</p>
+        <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{challenge.title}</p>
         <Badge
           variant={
             enrolment.status === "completed" ? "green" : enrolment.status === "expired" ? "grey" : "blue"
@@ -41,7 +41,7 @@ function ActiveEnrolmentRow({ enrolment }: { enrolment: ChallengeEnrolment }) {
       {enrolment.status === "active" && progress && (
         <div className="mt-2 space-y-1">
           <ProgressBar value={progress.progress} target={progress.target} />
-          <p className="text-xs text-charcoal-ink/60">
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             {progress.progress} of {progress.target}
           </p>
         </div>
@@ -64,13 +64,13 @@ export function ChallengesSection({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.challenge className="h-5 w-5 text-sprout-gold" strokeWidth={2} />
+          <SEMANTIC_ICON.challenge className="h-5 w-5 text-sprout-gold" strokeWidth={2} aria-hidden />
           Challenges
         </CardTitle>
         <CardDescription>Time-boxed goals that pay a points bonus when you finish.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
 
         {enrolments && enrolments.length > 0 && (
           <ul className="space-y-2">
@@ -84,18 +84,18 @@ export function ChallengesSection({ patientId }: { patientId: string }) {
 
         {available.length > 0 && (
           <div>
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
               Available
             </p>
             <ul className="space-y-2">
               {available.map((challenge) => (
                 <li
                   key={challenge.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-charcoal-ink/10 p-3"
+                  className="flex items-center justify-between gap-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
                 >
                   <div>
-                    <p className="text-sm font-medium text-charcoal-ink">{challenge.title}</p>
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{challenge.title}</p>
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {challenge.description} · {challenge.points_reward} pts
                     </p>
                   </div>
@@ -114,7 +114,7 @@ export function ChallengesSection({ patientId }: { patientId: string }) {
         )}
 
         {enrol.isError && (
-          <p className="text-sm text-red-600">
+          <p className="text-sm text-red-600 dark:text-red-400">
             {enrol.error instanceof Error ? enrol.error.message : "Could not join that challenge."}
           </p>
         )}

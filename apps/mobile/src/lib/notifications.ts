@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import type { SectionId } from "./sections";
 
 export interface InAppNotification {
   id: string;
@@ -32,49 +33,58 @@ export async function loadNotifications(userId: string): Promise<InAppNotificati
   }));
 }
 
-export async function markNotificationRead(id: string): Promise<void> {
-  await supabase.from("notifications").update({ status: "read" }).eq("id", id);
-}
-
 export async function markAllNotificationsRead(userId: string): Promise<void> {
-  await supabase
+  const { error } = await supabase
     .from("notifications")
     .update({ status: "read" })
     .eq("recipient_id", userId)
     .eq("channel", "in_app")
     .neq("status", "read");
+  if (error) throw error;
 }
 
-/** Short line for the notification dropdown — covers the templates most
- * relevant to a patient; anything unmapped falls back to a humanised
- * template name rather than disappearing, same philosophy as
- * notification-bell.tsx's describe(). */
-export function describeNotification(n: InAppNotification): string {
+/** Short line for the notification dropdown, plus which section (if any)
+ * tapping it should open — covers the templates most relevant to a patient;
+ * anything unmapped falls back to a humanised template name and no
+ * navigation, same philosophy as notification-bell.tsx's describe(). */
+export function describeNotification(n: InAppNotification): { text: string; section: SectionId | null } {
   const payload = n.payload;
   switch (n.template) {
     case "health_education_unlock": {
       const title = String(payload.lesson_title ?? "a new lesson");
-      return `New lesson ready: "${title}"`;
+      return { text: `New lesson ready: "${title}"`, section: null };
     }
     case "new_care_message": {
       const role = payload.author_role;
       const who = String(payload.author_display ?? "").trim();
       const from = role === "care_team" ? "your care team" : who || "someone on your care circle";
-      return `New message from ${from}`;
+      return { text: `New message from ${from}`, section: null };
     }
     case "medication_refill_due":
     case "medication_refill_reminder": {
       const drug = String(payload.drug_name ?? "a medication");
-      return `Refill reminder: ${drug} is due soon`;
+      return { text: `Refill reminder: ${drug} is due soon`, section: null };
     }
     case "escalation_resolved":
-      return "A doctor has reviewed something on your record";
+      return { text: "A doctor has reviewed something on your record", section: null };
     case "family_access_request": {
       const name = String(payload.requester_name ?? "Someone");
-      return `${name} sent a request to view your care`;
+      return { text: `${name} sent a request to view your care`, section: null };
+    }
+    case "service_purchase_expiring": {
+      // From the same expiry-nudge migration as web's notification-bell.tsx
+      // "service_purchase_expiring" case — mirrors its copy and its href
+      // (/patient/subscription), routed here to services-screen.tsx, the
+      // native mirror of that page, instead of a URL.
+      const label = String(payload.label ?? "A paid service");
+      const on = String(payload.expires_on ?? "soon");
+      return { text: `${label} runs out on ${on}. Buy it again to keep it going.`, section: "services" };
     }
     default:
-      return n.template ? n.template.split("_").join(" ") : "You have a new notification";
+      return {
+        text: n.template ? n.template.split("_").join(" ") : "You have a new notification",
+        section: null,
+      };
   }
 }
 

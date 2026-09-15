@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { StatTile } from "@/components/ui/stat-tile";
 import { Activity, ListChecks, ScrollText } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,11 +15,30 @@ import { ExportButton } from "./export-button";
 
 const PAGE_SIZE = 50;
 
+/**
+ * Most audit_log rows come from the generic row-change trigger, whose event
+ * payload carries a `changed_columns` array of column-name strings — render
+ * that as a readable list rather than truncated JSON. Any other event shape
+ * (rows from other sources) falls back to the original raw-JSON preview.
+ */
 function eventPreview(event: unknown): string {
   if (event === null || event === undefined) return "";
+  if (typeof event === "object" && !Array.isArray(event)) {
+    const changed = (event as Record<string, unknown>).changed_columns;
+    if (Array.isArray(changed) && changed.every((c) => typeof c === "string")) {
+      const list = changed as string[];
+      return `changed: ${list.join(", ")}`;
+    }
+  }
   const s = JSON.stringify(event);
   return s.length > 80 ? `${s.slice(0, 79)}…` : s;
 }
+
+const RESULT_BADGE: Record<string, "green" | "red" | "amber" | "grey"> = {
+  success: "green",
+  denied: "red",
+  failed: "red",
+};
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString("en-NG", {
@@ -47,6 +67,8 @@ export function AuditDashboard() {
     entity_id: r.entity_id,
     actor_name: r.actor_name,
     organisation: r.organisation_name,
+    result: r.result,
+    reason: r.reason,
     event: JSON.stringify(r.event ?? {}),
   }));
 
@@ -165,6 +187,8 @@ export function AuditDashboard() {
                     <th className="py-2 pr-4 font-medium">Entity</th>
                     <th className="py-2 pr-4 font-medium">Actor</th>
                     <th className="py-2 pr-4 font-medium">Organisation</th>
+                    <th className="py-2 pr-4 font-medium">Result</th>
+                    <th className="py-2 pr-4 font-medium">Reason</th>
                     <th className="py-2 font-medium">Event</th>
                   </tr>
                 </thead>
@@ -178,6 +202,10 @@ export function AuditDashboard() {
                       <td className="py-2 pr-4 text-charcoal-ink/60">{r.entity_type ?? "—"}</td>
                       <td className="py-2 pr-4 text-charcoal-ink/60">{r.actor_name ?? "—"}</td>
                       <td className="py-2 pr-4 text-charcoal-ink/60">{r.organisation_name ?? "—"}</td>
+                      <td className="py-2 pr-4">
+                        <Badge variant={RESULT_BADGE[r.result] ?? "grey"}>{r.result}</Badge>
+                      </td>
+                      <td className="py-2 pr-4 text-charcoal-ink/60">{r.reason ?? "—"}</td>
                       <td className="py-2 font-mono text-xs text-charcoal-ink/50">
                         {eventPreview(r.event)}
                       </td>

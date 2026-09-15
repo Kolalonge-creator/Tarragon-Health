@@ -3,7 +3,9 @@
 -- order, screening_results.follow_up_action stores, an order auto-resolves
 -- to 'resulted' only once every APPLICABLE test_code has a result, and the
 -- once-per-lifetime (genotype/blood group) vs annual vs dormant-imaging vs
--- sex/age-gated (psa) distinctions all hold. Rolled back, no residue.
+-- sex/age-gated (psa) distinctions all hold. Also proves 20260829140114's
+-- widening of the bundled doctor video consult from screen_comprehensive-only
+-- to every tier (check4b, check8). Rolled back, no residue.
 --
 -- total_kobo is 0 and status is never 'pending_payment'/'payment_confirmed'
 -- throughout — every Screen-tier order is self-arranged fulfilment as of
@@ -89,6 +91,17 @@ begin
 
   insert into test_results select 'check4_resolves_on_last_code',
     (select status = 'resulted' and resulted_at is not null from public.lab_orders where id = v_order1);
+
+  -- 20260829140114 widened the bundled video consult from
+  -- screen_comprehensive-only to every Screen tier, and linked it to this
+  -- year's annual_health_checks row via lab_order_id (already set at order
+  -- insert time). A Core Screen order resolving should now create and link
+  -- one exactly like Comprehensive does (check8 below).
+  insert into test_results select 'check4b_core_video_consult_created_and_linked',
+    exists(select 1 from public.annual_health_checks ahc
+      join public.video_consultations vc on vc.id = ahc.video_consultation_id
+      where ahc.patient_id = v_patient and ahc.year = v_year and ahc.lab_order_id = v_order1
+        and vc.context = 'annual_review' and vc.created_at > now() - interval '1 minute');
 
   insert into test_results select 'check5_follow_up_action_persisted',
     (select follow_up_action = 'test follow-up action stored' from public.screening_results
@@ -237,7 +250,7 @@ end $$;
 
 select * from test_results order by case_name;
 
--- All 12 rows above should read passed = true. Zero residue below the
+-- All 13 rows above should read passed = true. Zero residue below the
 -- rollback: no lab_orders/screening_results/annual_health_checks/
 -- video_consultations/patient_shared_decisions row from this test survives.
 rollback;

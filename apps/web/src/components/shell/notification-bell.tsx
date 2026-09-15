@@ -13,6 +13,79 @@ import {
   type InAppNotification,
 } from "@/lib/queries/notifications";
 
+/**
+ * Spec §76.13 ("notification priority") — Critical/Important/Routine, so a
+ * patient can tell an appointment reminder apart from a clinical safety
+ * alert at a glance. Deliberately NOT a new DB column: `notifications.
+ * priority` (routine/critical) is live, load-bearing input to the critical-
+ * notification escalation engine (private.escalate_unconfirmed_critical_
+ * notifications) and is not touched here. This is a purely client-side
+ * DISPLAY tier: any row the DB already marked `priority = 'critical'`
+ * always displays "Critical"; a curated handful of templates that are
+ * known-safety-relevant but might reach this table via a plain (non-
+ * escalation-engine) insert are treated as critical too, defensively; every
+ * other routine row is split Important/Routine by template. Anything
+ * unmapped defaults to "important", never "routine" — the same
+ * never-silently-downgrade principle this codebase already applies to
+ * priority classification elsewhere.
+ */
+const ALWAYS_CRITICAL_TEMPLATES = new Set<string>([
+  "free_tier_reading_self_care_suggestion",
+  "emergency_followup",
+  "critical_notification_escalation_exhausted",
+  // The unacknowledged-alert escalation ladder. Live rows arrive with
+  // priority 'routine' as often as 'critical' (the escalation engine sets it
+  // per hop), and an alert nobody has picked up is exactly the thing that
+  // must not read as an ordinary update.
+  "clinician_alert_ack_timeout_backup",
+  "clinician_alert_ack_timeout_senior",
+  "clinician_alert_ack_timeout_admin",
+  "clinician_alert_sla_breach",
+  "abnormal_result_patient_followup",
+]);
+
+const ROUTINE_TEMPLATES = new Set<string>([
+  "health_education_unlock",
+  "health_reset_complete",
+  "voucher_gift_used",
+  "care_voucher_expiring",
+  "service_purchase_expiring",
+  "reward_voucher_issued",
+  "sponsor_monthly_report",
+  "sponsor_care_reviewed",
+  "sponsor_person_quiet",
+  "sponsored_plan_started",
+  "region_now_available",
+  "wellness_challenge_ending",
+  "second_condition_needs_upgrade",
+  "engagement_reengagement_nudge",
+]);
+
+type DisplayTier = "critical" | "important" | "routine";
+
+const TIER_STYLE: Record<DisplayTier, { label: string; className: string }> = {
+  critical: {
+    label: "Critical",
+    className: "bg-red-100 text-red-800 dark:bg-red-500/25 dark:text-red-300",
+  },
+  important: {
+    label: "Important",
+    className: "bg-amber-100 text-amber-800 dark:bg-amber-500/25 dark:text-amber-300",
+  },
+  routine: {
+    label: "Routine",
+    className:
+      "bg-charcoal-ink/10 text-charcoal-ink/60 dark:bg-night-ink/10 dark:text-night-ink/70",
+  },
+};
+
+function displayTier(n: InAppNotification): DisplayTier {
+  const template = n.template ?? "";
+  if (n.priority === "critical" || ALWAYS_CRITICAL_TEMPLATES.has(template)) return "critical";
+  if (ROUTINE_TEMPLATES.has(template)) return "routine";
+  return "important";
+}
+
 interface ResponseOption {
   label: string;
   value: string;
@@ -66,11 +139,51 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: `/clinician/patients/${String(payload.patient_id ?? "")}`,
     };
   }
+  if (n.template === "clinician_unread_care_message_alert") {
+    // From private.raise_unread_clinical_message_alerts() (77.13) — a
+    // clinical-category patient message has sat unread by the care team
+    // past the reminder window. Routes to the alerts worklist, same as
+    // every other clinician_alerts-backed notification, rather than
+    // straight into Messages — resolving the underlying clinician_alerts
+    // row is the accountable action, opening the thread is just step one.
+    // That worklist is /clinician (<Worklist />, reads clinician_alerts),
+    // NOT /clinician/escalations (EscalationWorklist, reads public.
+    // escalations — a row that only exists once a human clicks "escalate",
+    // so this alert can never appear there). Verified against the live
+    // function definition: raise_unread_clinical_message_alerts writes
+    // clinician_alerts and never touches escalations.
+    return {
+      text: "A patient's clinical message has gone unread",
+      href: "/clinician",
+    };
+  }
   if (n.template === "clinician_new_referral") {
     const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
     return {
       text: `New referral to triage: ${specialist}`,
       href: "/clinician/referrals",
+    };
+  }
+  if (n.template === "clinician_referral_outcome_received") {
+    const specialist = String(payload.specialist_type ?? "a specialist").replace(/_/g, " ");
+    const referralId = String(payload.referral_id ?? "");
+    return {
+      text: `Specialist outcome came back: ${specialist}`,
+      href: referralId ? `/clinician/referrals/${referralId}` : "/clinician/referrals",
+    };
+  }
+  if (n.template === "referral_closed") {
+    const specialist = String(payload.specialist_type ?? "your specialist").replace(/_/g, " ");
+    return {
+      text: `Your ${specialist} referral is closed. Your care plan was updated`,
+      href: "/patient",
+    };
+  }
+  if (n.template === "referral_reminder") {
+    const specialist = String(payload.specialist_type ?? "your specialist").replace(/_/g, " ");
+    return {
+      text: `Don't forget your ${specialist} referral. Bring back what they find`,
+      href: "/patient",
     };
   }
   if (n.template === "clinician_care_plan_task") {
@@ -82,7 +195,8 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "health_reset_complete") {
     return {
-      text: "Your 90-Day Health Reset is complete: claim your free trial",
+      // Plans were retired 2026-09-02; the completed Reset is its own win now.
+      text: "Your 90-Day Health Reset is complete. Well done",
       href: "/patient",
     };
   }
@@ -90,6 +204,31 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     return {
       text: "Your doctor offered a different time for your video visit: pick one",
       href: "/patient/care",
+    };
+  }
+  if (n.template === "lab_result_consult_request_pending") {
+    // From private.notify_new_lab_result_consult_request() — a patient just
+    // paid the self-arranged lab-result consultation fee. Org-wide (any
+    // active, non-Care-Coordinator clinician can pick it up), so this fires
+    // for every clinician on the team, not just one assigned doctor.
+    return {
+      text: "A patient paid for a lab-result consultation: pick a time",
+      href: "/clinician/lab-result-consults",
+    };
+  }
+  if (n.template === "lab_result_consult_booked" || n.template === "lab_result_consult_rescheduled") {
+    const rescheduled = n.template === "lab_result_consult_rescheduled";
+    return {
+      text: rescheduled
+        ? "Your lab-result consultation was rescheduled"
+        : "Your lab-result consultation is booked",
+      href: "/patient/labs",
+    };
+  }
+  if (n.template === "lab_result_consult_needs_rescheduling") {
+    return {
+      text: "Your doctor can no longer make your lab-result consultation, so it needs a new time",
+      href: "/patient/labs",
     };
   }
   if (n.template === "care_access_view_request" || n.template === "care_access_manage_request") {
@@ -112,6 +251,14 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     const drug = String(payload.drug_name ?? "your medication");
     return {
       text: `Refill reminder: ${drug} is due soon`,
+      href: "/patient/medications",
+    };
+  }
+  if (n.template === "medication_dose_reminder") {
+    const drug = String(payload.drug_name ?? "your medication");
+    const scheduledTime = String(payload.scheduled_time ?? "now");
+    return {
+      text: `It's ${scheduledTime}: time for your dose of ${drug}`,
       href: "/patient/medications",
     };
   }
@@ -149,11 +296,19 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/care",
     };
   }
+  if (n.template === "service_purchase_expiring") {
+    const label = String(payload.label ?? "A paid service");
+    const on = String(payload.expires_on ?? "soon");
+    return {
+      text: `${label} runs out on ${on}. Buy it again to keep it going.`,
+      href: "/patient/subscription",
+    };
+  }
   if (n.template === "reward_voucher_issued") {
     const label = String(payload.label ?? "A reward");
     const value = String(payload.value_naira ?? "");
     return {
-      text: value ? `${label}: a ₦${value} voucher toward your care` : `${label} added to your account`,
+      text: value ? `${label}: a ₦${value} voucher towards your care` : `${label} added to your account`,
       href: "/patient/care",
     };
   }
@@ -210,11 +365,34 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     // patient/sponsor care message matched the deterministic danger-phrase
     // safety screen. Always clinical content, always in_app-first per
     // private.notify_clinician_alert() — this is the proactive page, the
-    // clinician_alerts worklist entry is the record of it.
+    // clinician_alerts worklist entry is the record of it, and that worklist
+    // is /clinician. (after_care_message_insert_safety_screen writes
+    // clinician_alerts only — confirmed against the live definition — so
+    // /clinician/escalations would be a structurally empty queue.)
     return {
       text: "Priority 1: a care message may describe an emergency, needs review now",
-      href: "/clinician/escalations",
+      href: "/clinician",
     };
+  }
+  if (n.template === "security.new_device_signin") {
+    return {
+      text: "New sign-in to your account from a device we haven't seen before",
+      href: "/patient/settings/security",
+    };
+  }
+  if (
+    n.template === "vitals_monitoring_due" ||
+    n.template === "vitals_monitoring_overdue" ||
+    n.template === "vitals_monitoring_escalated"
+  ) {
+    const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
+    const copy =
+      n.template === "vitals_monitoring_due"
+        ? `Time to log your ${vitalLabel} reading`
+        : n.template === "vitals_monitoring_overdue"
+          ? `Your ${vitalLabel} reading is overdue: please log one when you can`
+          : `Your ${vitalLabel} reading is overdue and your care team has been notified`;
+    return { text: copy, href: "/patient/vitals" };
   }
   if (n.template === "critical_notification_escalation_exhausted") {
     // From private.escalate_unconfirmed_critical_notifications() —
@@ -225,13 +403,39 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     const sourceTable = String(payload.source_table ?? "");
     return {
       text: "A critical alert went unconfirmed on every channel: needs a look",
-      href: sourceTable === "clinician_alerts" ? "/clinician/escalations" : "/admin",
+      // source_table 'clinician_alerts' means the underlying row is in
+      // clinician_alerts, which the /clinician worklist renders — not
+      // public.escalations, which /clinician/escalations renders.
+      href: sourceTable === "clinician_alerts" ? "/clinician" : "/admin",
+    };
+  }
+  if (n.template === "abnormal_result_patient_followup") {
+    // From supabase/functions/abnormal-result-handler — the in-app copy of
+    // the patient follow-up message, always written for a NON-sensitive
+    // abnormal/critical result (a sensitive positive is never auto-messaged
+    // at all; a doctor breaks that news). Deliberately says only that a
+    // follow-up is needed, never the finding.
+    return {
+      text: "Your result needs a follow-up. Your care team will be in touch",
+      href: "/patient/labs",
     };
   }
   if (n.template === "result_interpretation_ready") {
     return {
       text: "A doctor sent you an interpretation of a lab result you uploaded",
       href: "/patient/labs",
+    };
+  }
+  if (n.template === "async_consult_answered") {
+    return {
+      text: "A doctor answered your question",
+      href: "/patient/care",
+    };
+  }
+  if (n.template === "second_opinion_answered") {
+    return {
+      text: "A doctor answered your second opinion request",
+      href: "/patient/care",
     };
   }
   if (n.template === "free_tier_reading_self_care_suggestion") {
@@ -281,11 +485,32 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "pharmacy_order_patient_confirmation") {
     const items = String(payload.items_summary ?? "your medication");
-    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/pharmacy" };
+    // /patient/pharmacy has no page — Medications is where a patient's
+    // pharmacy orders and refills actually live.
+    return { text: `Your pharmacy order is confirmed: ${items}`, href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_ready_for_collection") {
+    const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
+    return { text: `Your medication is ready for collection at ${pharmacy}`, href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_out_for_delivery") {
+    const courier = String(payload.courier_name ?? "your courier");
+    return { text: `Your medication order is out for delivery with ${courier}`, href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_delivered") {
+    return { text: "Your medication order has been delivered", href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_delivery_failed") {
+    return { text: "A delivery attempt for your medication order was unsuccessful", href: "/patient/medications" };
+  }
+  if (n.template === "pharmacy_order_unavailable") {
+    const pharmacy = String(payload.pharmacy_name ?? "the pharmacy");
+    return { text: `${pharmacy} could not fulfil your medication order as prescribed`, href: "/patient/medications" };
   }
   if (n.template === "referral_patient_confirmation") {
     const specialist = String(payload.specialist_name ?? "your specialist");
-    return { text: `Your referral to ${specialist} is confirmed`, href: "/patient/referrals" };
+    // /patient/referrals has no page — YourReferrals renders on Care & support.
+    return { text: `Your referral to ${specialist} is confirmed`, href: "/patient/care" };
   }
   if (n.template === "result_document_available") {
     return { text: "A new lab result document is available", href: "/patient/labs" };
@@ -310,6 +535,11 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "care_outreach_checkin") {
     return { text: "Your care team wants to check in with you", href: "/patient" };
+  }
+  if (n.template === "engagement_reengagement_nudge") {
+    // From private.compute_patient_engagement_tiers(). No clinical claim here —
+    // just an honest "we noticed" nudge back to the dashboard.
+    return { text: "We've missed seeing you around", href: "/patient" };
   }
   if (n.template === "diabetes_complication_check_due") {
     const checkType = String(payload.check_type ?? "complication");
@@ -353,9 +583,26 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     // a block: the condition itself, and any urgent escalation on it, are
     // never gated — only its own scheduled review cadence is.
     const condition = String(payload.condition ?? "a condition").replace(/_/g, " ");
+    // "Complete Care" (the retired plan) used to be named here; the
+    // doctor-supported programme is the pay-per-service successor that
+    // carries a scheduled review.
     return {
-      text: `We're now tracking ${condition} for you too. Complete Care adds a scheduled review for it`,
+      text: `We're now tracking ${condition} for you too. A doctor-supported programme adds a scheduled review for it`,
       href: "/patient/subscription",
+    };
+  }
+  if (n.template === "daily_digest") {
+    // Spec §76.14 (fatigue management) — supabase/functions/send-pending-
+    // notifications/index.ts folds several same-day routine reminders into
+    // one of these instead of sending each on its own external channel; the
+    // in-app row is always created individually so nothing is silently lost.
+    const count = Number(payload.count ?? 0);
+    return {
+      text: `${count} update${count === 1 ? "" : "s"} waiting for you today`,
+      // Deliberately not payload.action_centre_url — that's a full external
+      // URL (appUrl() in the edge function), useful for a WhatsApp/email
+      // link, but router.push() here needs an internal relative path.
+      href: "/patient/actions",
     };
   }
   if (n.template === "care_access_revoked") {
@@ -380,10 +627,31 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   }
   if (n.template === "clinician_alert_sla_breach") {
     // From clinician_alert_sla_breach_escalation.sql. Same pre-resolved
-    // payload.message shape.
+    // payload.message shape. The breached row is a clinician_alerts row, so
+    // it is worked on /clinician, not in the escalations queue.
     return {
       text: String(payload.message ?? "An open clinician alert breached its resolution SLA"),
-      href: "/clinician/escalations",
+      href: "/clinician",
+    };
+  }
+  if (
+    n.template === "clinician_alert_ack_timeout_backup" ||
+    n.template === "clinician_alert_ack_timeout_senior" ||
+    n.template === "clinician_alert_ack_timeout_admin"
+  ) {
+    // From private.escalate_unacknowledged_clinician_alerts() — the
+    // abnormal-screening-result pipeline's strongest backstop: an alert
+    // nobody acknowledged is re-pointed at a backup clinician, then a senior,
+    // then an admin. These three had no case at all, so they fell to the
+    // generic fallback below and rendered to a doctor as "You have an update"
+    // linking to /patient — discarding a payload.message that already reads
+    // 'Alert "Priority 1: abnormal screening result" (severity 4) has been
+    // open 90 minutes, past its 30-minute acknowledgement target.' Same
+    // pre-resolved payload.message shape as clinician_alert_sla_breach; the
+    // underlying row is a clinician_alerts row, worked on /clinician.
+    return {
+      text: String(payload.message ?? "An unacknowledged clinician alert needs picking up"),
+      href: "/clinician",
     };
   }
   if (n.template === "data_breach_deadline") {
@@ -393,7 +661,7 @@ export function describe(n: InAppNotification): { text: string; href: string } {
   if (n.template === "partner_license_expiry") {
     // From partner_regulatory_license_tracking.sql. Same pre-resolved
     // payload.message shape.
-    return { text: String(payload.message ?? "A partner facility's license needs review"), href: "/admin" };
+    return { text: String(payload.message ?? "A partner facility's licence needs review"), href: "/admin" };
   }
   if (n.template === "health_passport_attestation_declined") {
     const reason = String(payload.reason ?? "").trim();
@@ -441,6 +709,64 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       : n.template === "vaccination_overdue" ? "is overdue"
       : "is overdue: your care team may follow up";
     return { text: `${vaccine} ${label}`, href: "/patient/prevention" };
+  }
+  if (
+    n.template === "cycle_period_due_soon" ||
+    n.template === "cycle_period_due_today" ||
+    n.template === "cycle_period_late"
+  ) {
+    // From lib/cycle/reminders.ts. Worded softly on purpose: an estimate
+    // that turns out to be wrong should read as a guess that missed, not as
+    // the app telling somebody something is wrong with them.
+    const days = Number(payload.days_overdue ?? 0);
+    const text =
+      n.template === "cycle_period_due_soon"
+        ? "Your period is expected in a couple of days"
+        : n.template === "cycle_period_due_today"
+          ? "Your period is expected around today"
+          : `Your period is ${days} days later than expected. Cycles shift for all sorts of reasons.`;
+    return { text, href: "/patient/cycle" };
+  }
+  if (n.template === "finance_posting_failed") {
+    // From private.finance_record_posting_failure(). A payment landed but its
+    // general-ledger entry did not post, most often because the accounting
+    // period had already been closed. The money is real and the purchase is
+    // active; only the books are short, so this needs an accountant today,
+    // not a clinician now.
+    const code = String(payload.error_code ?? "");
+    return {
+      text:
+        code === "23514"
+          ? "A payment could not be posted to the ledger: its accounting period is closed"
+          : "A payment could not be posted to the ledger and needs a look",
+      href: "/finance/ledger",
+    };
+  }
+  if (n.template === "payment_integrity_flag_raised") {
+    // From private.record_payment_integrity_flag(). An activation was REFUSED
+    // because what was charged did not match what was owed, or because the
+    // event carried no provider reference. The purchase is deliberately still
+    // unactivated, so somebody has paid and is waiting.
+    const flagType = String(payload.flag_type ?? "");
+    return {
+      text:
+        flagType === "amount_mismatch"
+          ? "A payment was refused because the amount did not match what was owed"
+          : "A payment could not be matched to what it was paying for",
+      href: "/finance/reconciliation",
+    };
+  }
+  if (n.template === "payment_reconciliation_flags_open") {
+    // From the daily reconcile-payment-providers cron. Paystack and this
+    // platform disagree about something and nobody has resolved it yet.
+    const count = Number(payload.open_count ?? 0);
+    return {
+      text:
+        count === 1
+          ? "1 payment discrepancy is waiting to be reviewed"
+          : `${count} payment discrepancies are waiting to be reviewed`,
+      href: "/finance/reconciliation",
+    };
   }
   return { text: "You have an update", href: "/patient" };
 }
@@ -491,7 +817,7 @@ export function NotificationBell() {
         type="button"
         variant="ghost"
         size="sm"
-        className="relative h-9 w-9 p-0 text-charcoal-ink/60 hover:text-charcoal-ink"
+        className="relative h-9 w-9 p-0 text-charcoal-ink/60 hover:text-charcoal-ink dark:text-night-ink/60 dark:hover:text-night-ink"
         aria-label={unread.length > 0 ? `Notifications, ${unread.length} unread` : "Notifications"}
         onClick={() => setOpen((v) => !v)}
       >
@@ -501,18 +827,22 @@ export function NotificationBell() {
             aria-hidden
             className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-green px-1 text-[10px] font-semibold text-white"
           >
-            {unread.length > 9 ? "9+" : unread.length}
+            {/* Was capped at "9+" — with any double-digit unread count, opening
+                one notification (say 12 -> 11) still showed "9+", reading as
+                the badge not updating at all even though it was. 99 gives
+                real headroom for the count to visibly move before capping. */}
+            {unread.length > 99 ? "99+" : unread.length}
           </span>
         )}
       </Button>
       {open && (
-        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-charcoal-ink/10 bg-white shadow-lg">
-          <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-4 py-2.5">
-            <p className="text-sm font-semibold text-charcoal-ink">Notifications</p>
+        <div className="absolute right-0 z-50 mt-2 w-80 max-w-[90vw] rounded-xl border border-charcoal-ink/10 bg-white shadow-lg dark:border-night-ink/15 dark:bg-night-card dark:shadow-none">
+          <div className="flex items-center justify-between border-b border-charcoal-ink/10 px-4 py-2.5 dark:border-night-ink/15">
+            <p className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Notifications</p>
             {unread.length > 0 && (
               <button
                 type="button"
-                className="text-xs font-medium text-brand-green hover:underline"
+                className="text-xs font-medium text-brand-green hover:underline dark:text-brand-green-bright"
                 onClick={() => markAllRead.mutate(unread.map((n) => n.id))}
               >
                 Mark all read
@@ -521,13 +851,14 @@ export function NotificationBell() {
           </div>
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-charcoal-ink/50">
+              <p className="px-4 py-6 text-center text-sm text-charcoal-ink/50 dark:text-night-ink/55">
                 No notifications yet.
               </p>
             ) : (
-              <ul className="divide-y divide-charcoal-ink/10">
+              <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
                 {items.map((n) => {
                   const { text } = describe(n);
+                  const tier = TIER_STYLE[displayTier(n)];
                   // Two-way communication (17.9) — a quick-reply option set
                   // attached at send time (e.g. appointment_reminder's
                   // confirm/reschedule/cancel/need_help). Rendered as its
@@ -542,7 +873,7 @@ export function NotificationBell() {
                         type="button"
                         onClick={() => openItem(n)}
                         className={cn(
-                          "flex w-full items-start gap-2 px-4 py-3 text-left text-sm hover:bg-charcoal-ink/[0.03]",
+                          "flex w-full items-start gap-2 px-4 py-3 text-left text-sm hover:bg-charcoal-ink/[0.03] dark:hover:bg-night-ink/10",
                           n.status === "pending" && "bg-brand-green/[0.04]"
                         )}
                       >
@@ -553,8 +884,16 @@ export function NotificationBell() {
                           />
                         )}
                         <span className="min-w-0 flex-1">
-                          <span className="block text-charcoal-ink">{text}</span>
-                          <span className="mt-0.5 block text-xs text-charcoal-ink/50">
+                          <span
+                            className={cn(
+                              "mb-1 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide",
+                              tier.className
+                            )}
+                          >
+                            {tier.label}
+                          </span>
+                          <span className="block text-charcoal-ink dark:text-night-ink">{text}</span>
+                          <span className="mt-0.5 block text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                             {timeAgo(n.created_at)}
                           </span>
                         </span>
@@ -580,7 +919,7 @@ export function NotificationBell() {
                                   },
                                 );
                               }}
-                              className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-xs font-medium text-charcoal-ink hover:border-brand-green hover:text-brand-green disabled:opacity-50"
+                              className="rounded-full border border-charcoal-ink/15 px-2.5 py-1 text-xs font-medium text-charcoal-ink hover:border-brand-green hover:text-brand-green disabled:opacity-50 dark:border-night-ink/20 dark:text-night-ink dark:hover:text-brand-green-bright"
                             >
                               {o.label}
                             </button>
@@ -588,7 +927,7 @@ export function NotificationBell() {
                         </div>
                       )}
                       {n.responded_at && options.length > 0 && (
-                        <p className="px-4 pb-3 text-xs text-charcoal-ink/50">
+                        <p className="px-4 pb-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
                           You responded: {options.find((o) => o.value === n.response_value)?.label ?? n.response_value}
                         </p>
                       )}

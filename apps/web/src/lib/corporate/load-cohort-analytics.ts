@@ -3,11 +3,11 @@ import type { Database } from "@tarragon/shared";
 import { isCohortSuppressed } from "@/lib/institutions/suppression";
 import {
   ageFromDateOfBirth,
-  createMlClientFromEnv,
   type CohortAnalyticsResponse,
   type CohortChronicCondition,
   type CohortMemberIn,
 } from "@tarragon/shared";
+import { createGovernedMlClient } from "@/lib/ml/governed-ml-client";
 
 const COHORT_CHRONIC_CONDITIONS: readonly CohortChronicCondition[] = ["hypertension", "diabetes"];
 
@@ -122,7 +122,11 @@ export async function loadCohortAnalytics(
   // re-applied to what actually reaches the model.
   if (isCohortSuppressed(members.length, minCohortSize)) return null;
 
-  const mlClient = createMlClientFromEnv();
+  // No single subject: this is an anonymised aggregate over an employer
+  // cohort, so the audit row attributes to the caller's organisation only.
+  const mlClient = createGovernedMlClient(supabase, {
+    inputCategory: "employer_cohort_analytics",
+  });
   if (!mlClient) return null;
 
   return mlClient.analyseCohort({ members });

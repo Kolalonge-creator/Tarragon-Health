@@ -10,7 +10,7 @@ export type SignVaccinationScheduleState = { error?: string; success?: boolean }
 /**
  * Create a new sign-off draft, snapshotting the CURRENT active
  * vaccination_catalog rows so the record shows exactly what was reviewed at
- * this moment — never re-derived later from a catalog that may have since
+ * this moment — never re-derived later from a catalogue that may have since
  * changed. Inserted as unsigned/inactive (RLS forces this); a Clinical
  * Director then signs it via signVaccinationScheduleAction below.
  */
@@ -31,12 +31,13 @@ export async function createVaccinationScheduleDraftAction(
     .order("code", { ascending: true });
   if (catalogError) return { error: catalogError.message };
 
-  const { data: latest } = await supabase
+  const { data: latest, error: latestError } = await supabase
     .from("vaccination_schedule_signoffs")
     .select("version")
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (latestError) return { error: latestError.message };
   const nextVersion = (latest?.version ?? 0) + 1;
 
   const sourceUrl = String(formData.get("source_url") ?? "").trim() || null;

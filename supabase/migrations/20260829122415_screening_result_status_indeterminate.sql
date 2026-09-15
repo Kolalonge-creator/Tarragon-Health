@@ -1,0 +1,24 @@
+-- Tarragon Health — Result Lifecycle §58.3: a fourth result type,
+-- Indeterminate ("further assessment/repeat testing"), distinct from
+-- Normal/Abnormal/Critical and from the existing 'borderline' value
+-- (borderline means "near the edge of the normal range", a graded severity
+-- reading; indeterminate means "this specific test could not produce a
+-- clear reading at all" — an inconclusive ECG, unreadable imaging, an
+-- incomplete colonoscopy, a failed/void qualitative cassette). It is set by
+-- a clinician's own judgement on a procedural/imaging result
+-- (screening-result-form.tsx's manual "Result status" selector) — ML never
+-- derives it from a numeric analyte, since a number is always determinate.
+--
+-- Deliberately does NOT change private.handle_abnormal_screening_result —
+-- that trigger only escalates on ('abnormal','critical'), same as it
+-- already does for 'borderline'. An indeterminate result is not evidence of
+-- a clinical abnormality, so it must not page a doctor as if it were one;
+-- it is instead routed into the existing recall_months repeat-testing
+-- workflow (private.apply_screening_result_recall, 20260829121900) via the
+-- same action_type='repeat_test' path any reviewed abnormal result can also
+-- take (see the next migration).
+--
+-- ADD VALUE cannot be used in the same transaction as a statement that
+-- reads the new value, so this migration contains nothing else.
+
+alter type public.result_status add value if not exists 'indeterminate';

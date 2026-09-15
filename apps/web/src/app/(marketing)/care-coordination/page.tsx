@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { CtaBand } from "../_components/cta-band";
 import { MarketingMediaFrame } from "../_components/marketing-media-frame";
+import { PhoneMockup } from "../_components/phone-mockup";
 import { PhotoBannerHero } from "../_components/marketing-photo-banner-hero";
 import { Section, SectionHeading } from "../_components/section";
 import { ServiceCardLink } from "../_components/service-card";
@@ -12,7 +13,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Care coordination",
   description:
-    "TarragonHealth works out which tests you need and when, writes you a request to take to any laboratory you like, reads every result that comes back, and follows up. You pay the lab directly and we take nothing on it.",
+    "Free app: we work out which tests you need, write a request for any lab you choose, read every result and follow up. You pay the lab, we take no cut.",
   path: MARKETING_ROUTES.careCoordination,
 });
 
@@ -24,19 +25,19 @@ const COORDINATION_CARDS = SERVICE_CARDS.filter((card) =>
 const CONNECTS = [
   {
     title: "Hassle-free lab tests",
-    body: "No more guessing what you should be checking or when. Tarragon works out which tests are due for you, writes the request to take to whichever laboratory suits you, and makes sure a doctor reads every result: never a report that sits unread.",
+    body: "No more guessing what to check or when. Tarragon works out which tests are due, writes the request for whichever laboratory suits you, and makes sure a doctor reads every result.",
   },
   {
     title: "Refills tracked, wherever you buy",
-    body: "You buy your medication at whichever pharmacy suits you and pay them directly. Refill alerts arrive before you run out, you log what you collected, and your doctor follows up if doses are being missed.",
+    body: "Buy your medication at whichever pharmacy suits you and pay them directly. Refill alerts land before you run out, you log what you collect, and your doctor follows up on missed doses.",
   },
   {
     title: "Specialist referrals that carry your record",
-    body: "When your care team refers you to a specialist, you get a proper referral letter carrying your readings, medications, and the result that prompted it, so the specialist knows why you are there instead of asking you to explain. You choose which specialist to see and pay them directly. Bring their findings back and they go onto the same record.",
+    body: "When your care team refers you, the referral letter carries your readings, medications, and the result that prompted it, so the specialist doesn't start from zero. You choose the specialist and pay them directly, and their findings come back onto the same record.",
   },
   {
     title: "A doctor, when you need one directly",
-    body: "Send a written question and get a doctor's reply within 72 hours via the app, included on Complete Care, or book a 15-minute online consultation with a doctor on any plan. Your payment is only taken once a doctor accepts your slot, and refunded in full if none can.",
+    body: "Send a written question and a doctor on your care team replies in the app, usually within 72 hours, or book a one-off video or audio visit. Each is a simple pay-per-service booking: you see the exact price and confirm it before anything is charged, and nothing renews afterwards.",
   },
 ];
 
@@ -51,7 +52,7 @@ const JOURNEY = [
   },
   {
     title: "You get a request to take with you",
-    body: "A written request naming exactly which tests to run and why, so the laboratory knows what to do and nothing is left to a conversation at the counter.",
+    body: "A written request naming exactly which tests to run and why, so nothing is left to a conversation at the counter.",
   },
   {
     title: "The result comes back reviewed",
@@ -67,7 +68,7 @@ export default function CareCoordinationPage() {
       <PhotoBannerHero
         eyebrow="Care coordination"
         title="The pieces of your care, kept connected"
-        description="In most of Nigeria, you're your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication. Tarragon takes that job off you, one care team coordinating labs, pharmacies, and specialists from one shared record."
+        description="In most of Nigeria, you're your own care coordinator: finding a reliable lab, chasing results, hunting for genuine medication. Tarragon takes that job off you, coordinating labs, pharmacies, and specialists from one shared record."
         primaryHref="/signup"
         primaryLabel="Get started"
         secondaryHref={MARKETING_ROUTES.pricing}
@@ -96,8 +97,7 @@ export default function CareCoordinationPage() {
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Tarragon doesn&apos;t own a lab, a pharmacy, or a specialist practice. It coordinates the
-              ones you already use, wherever you like, so nothing you need falls through the gap
-              between providers.
+              ones you already use, so nothing you need falls through the gap between providers.
             </p>
           </div>
           <MarketingMediaFrame
@@ -161,10 +161,33 @@ export default function CareCoordinationPage() {
           ))}
         </ol>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          We do not set, quote, or collect a naira for any test. The laboratory tells you its own
-          price when you get there, and you pay them directly, so there is never a Tarragon price
-          to guess at beforehand.
+          We do not set, quote or collect a naira for any test: the laboratory tells you its own
+          price, and you pay them directly.
         </p>
+      </Section>
+
+      <Section>
+        <div className="mx-auto grid max-w-4xl items-center gap-10 lg:grid-cols-[0.85fr_1.15fr] lg:gap-14">
+          <PhoneMockup
+            className="relative mx-auto"
+            src="/marketing/photos/app-messages.png"
+            alt="The TarragonHealth app's Messages screen, showing a note from the care team about a recent blood pressure reading."
+            width={1080}
+            height={1819}
+          />
+          <div className="text-center lg:text-left">
+            <p className="text-sm font-medium uppercase tracking-wide text-deep-forest">
+              Your care team, a message away
+            </p>
+            <h2 className="mt-2 font-heading text-3xl font-semibold text-charcoal-ink sm:text-4xl">
+              A written question, a real reply, right in the app
+            </h2>
+            <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
+              No WhatsApp thread that disappears, no waiting for the next visit to ask something.
+              Message your care team in the app and hear back from the doctors reviewing your case.
+            </p>
+          </div>
+        </div>
       </Section>
 
       <Section variant="sage">

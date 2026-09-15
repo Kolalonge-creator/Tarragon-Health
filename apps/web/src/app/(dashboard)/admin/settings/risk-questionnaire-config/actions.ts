@@ -34,7 +34,7 @@ export async function createRiskQuestionnaireConfigDraftAction(
   const organisationId = profile.organisation_id;
 
   const supabase = await createClient();
-  const { data: latest } = await supabase
+  const { data: latest, error: latestError } = await supabase
     .from("risk_questionnaire_configs")
     .select("version")
     .eq("organisation_id", organisationId)
@@ -42,6 +42,7 @@ export async function createRiskQuestionnaireConfigDraftAction(
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (latestError) return { error: latestError.message };
   const nextVersion = (latest?.version ?? 0) + 1;
 
   const { error } = await supabase.from("risk_questionnaire_configs").insert({

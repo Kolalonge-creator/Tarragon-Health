@@ -1,4 +1,4 @@
-import { createClient } from "@supabase/supabase-js";
+import { marketingAnonClient as anonClient } from "./anon-client";
 import { parseLegalSections, type LegalSection } from "@/lib/legal/parse-sections";
 
 /**
@@ -26,13 +26,6 @@ export type LegalDocument = {
   publishedAt: string;
   sections: LegalSection[];
 };
-
-function anonClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
-  return createClient(url, key, { auth: { persistSession: false } });
-}
 
 export async function loadLegalDocument(
   consentType: LegalDocumentType

@@ -207,9 +207,9 @@ begin
 end;
 $$;
 
-revoke all on function public.extend_care_voucher(uuid, text) from public;
+revoke all on function public.extend_care_voucher(uuid, text) from public, anon;
 revoke all on function public.extend_care_voucher(uuid, text) from anon;
-revoke all on function public.cancel_care_voucher(uuid, text) from public;
+revoke all on function public.cancel_care_voucher(uuid, text) from public, anon;
 revoke all on function public.cancel_care_voucher(uuid, text) from anon;
 grant execute on function public.extend_care_voucher(uuid, text) to authenticated;
 grant execute on function public.cancel_care_voucher(uuid, text) to authenticated;

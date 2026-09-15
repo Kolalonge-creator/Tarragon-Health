@@ -5,6 +5,7 @@ import { PatientMonitoringCard } from "./patient-monitoring-card";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { ExportButton } from "@/app/(dashboard)/analytics/_components/export-button";
 import type { CsvRow } from "@/lib/analytics/to-csv";
 
@@ -41,13 +42,13 @@ export default async function PatientMonitoringPage({
   const supabase = await createClient();
   const currentUser = showMineOnly ? await getCurrentUser() : null;
 
-  const roster = await loadPatientMonitoringRoster(supabase, {
+  const { rows, rosterFailed, readingsFailed } = await loadPatientMonitoringRoster(supabase, {
     q,
     mineOnly: showMineOnly,
     callerId: currentUser?.id ?? null,
   });
 
-  const patients = roster.filter((p) => {
+  const patients = rows.filter((p) => {
     if (statusFilter !== "all" && p.status !== statusFilter) return false;
     if (genderFilter !== "all" && p.sex !== genderFilter) return false;
     if (ageFilter !== "all") {
@@ -91,7 +92,9 @@ export default async function PatientMonitoringPage({
         <div>
           <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Patient monitoring</h1>
           <p className="text-sm text-charcoal-ink/60">
-            Latest vitals across your roster. {exceptionCount} of {patients.length} need a look.
+            {rosterFailed
+              ? "Latest vitals across your roster."
+              : `Latest vitals across your roster. ${exceptionCount} of ${patients.length} need a look.`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -175,7 +178,26 @@ export default async function PatientMonitoringPage({
         </div>
       </form>
 
-      {patients.length === 0 ? (
+      {/* readingsFailed is deliberately shown ALONGSIDE the cards rather than
+          instead of them: the roster itself is real, and knowing which
+          patients exist is still useful. What must not stand unqualified is
+          every card reading "no readings logged" and "no open alerts", which
+          is what an unread vitals RPC draws. */}
+      {readingsFailed && !rosterFailed && (
+        <LoadFailure>
+          Vitals and alerts could not be loaded for this roster. Every card below is showing no
+          readings and no open alerts because the figures are missing, not because the patients
+          are quiet. Reload before acting on anything here.
+        </LoadFailure>
+      )}
+
+      {rosterFailed ? (
+        <LoadFailure>
+          This roster could not be loaded. It is not a report that no patients match, and no
+          patient here has been checked for an exception. Reload the page, and if it keeps
+          failing, raise it with the platform team.
+        </LoadFailure>
+      ) : patients.length === 0 ? (
         <p className="rounded-xl border border-charcoal-ink/10 bg-white p-6 text-sm text-charcoal-ink/60">
           {showMineOnly
             ? "No patients are assigned to you on the care team yet. Switch to “Everyone” to see the full roster."

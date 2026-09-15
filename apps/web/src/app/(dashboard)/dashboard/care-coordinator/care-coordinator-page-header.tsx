@@ -11,9 +11,17 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
     title: "Outreach worklist",
     subtitle: "Contact patients surfaced by risk scores and care gaps, and note the outcome.",
   },
+  "/dashboard/care-coordinator/support-requests": {
+    title: "Support requests",
+    subtitle: "Help patients have asked for, and where each request has got to.",
+  },
   "/dashboard/care-coordinator/follow-ups": {
     title: "Follow-ups",
-    subtitle: "Self-arranged lab tests that need a nudge — the patient books and pays their own lab.",
+    subtitle: "Self-arranged lab tests that need a nudge: the patient books and pays their own lab.",
+  },
+  "/dashboard/care-coordinator/programme-tasks": {
+    title: "Programme tasks",
+    subtitle: "Chase-ups and bookings due on the 12-week chronic-care programme.",
   },
   "/dashboard/care-coordinator/contact-log": {
     title: "Contact log",
@@ -24,8 +32,11 @@ const TITLES: Record<string, { title: string; subtitle: string }> = {
 /** Per-tab title + subtitle, matching the "Tarragon Health Care Coordinator
  * Portal" design's dynamic header (the mock's `{{ pageTitle }}` /
  * `{{ pageSubtitle }}`) — same pattern as dashboard/hmo/hmo-page-header.tsx.
- * Falls back to the Overview copy for any unmatched path so a stale link
- * never renders blank. */
+ *
+ * There must be an entry here for every tab in care-coordinator-nav.tsx.
+ * Support requests and Programme tasks were both missing, so each rendered
+ * "Overview: Today's coordinator snapshot" above a completely different
+ * worklist. The fallback exists for a stale bookmark, not for a live tab. */
 export function CareCoordinatorPageHeader() {
   const pathname = usePathname();
   const { title, subtitle } = TITLES[pathname] ?? TITLES["/dashboard/care-coordinator"];

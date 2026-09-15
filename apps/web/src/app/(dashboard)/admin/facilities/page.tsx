@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
+import { PageHeader } from "@/components/ui/page-header";
 import { FacilityManager } from "./facility-manager";
 
 export default async function AdminFacilitiesPage() {
@@ -15,15 +16,10 @@ export default async function AdminFacilitiesPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Facility directory
-        </h1>
-        <p className="text-charcoal-ink/60">
-          Add and maintain the curated facility directory patients browse, and what each
-          facility offers.
-        </p>
-      </div>
+      <PageHeader
+        title="Facility directory"
+        description="Add and maintain the curated facility directory patients browse, and what each facility offers."
+      />
       <FacilityManager />
     </div>
   );

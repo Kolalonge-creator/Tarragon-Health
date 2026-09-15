@@ -8,11 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useCompanyProfile } from "@/lib/finance/queries";
+import { lagosToday, lagosYear, lagosYearStart } from "@/lib/format-date";
 
 const CURRENCIES = ["NGN", "GBP", "USD"];
-const today = () => new Date().toISOString().slice(0, 10);
-const yearStart = (y: number) => `${y}-01-01`;
-const thisYear = new Date().getFullYear();
+const thisYear = lagosYear();
 const YEARS = [thisYear, thisYear - 1, thisYear - 2];
 
 function PackCard({
@@ -48,10 +47,10 @@ export function ReportsHub() {
   const profile = useCompanyProfile();
   const [govYear, setGovYear] = useState(thisYear);
   const [currency, setCurrency] = useState("NGN");
-  const [invFrom, setInvFrom] = useState(yearStart(thisYear));
-  const [invTo, setInvTo] = useState(today());
-  const [audFrom, setAudFrom] = useState(yearStart(thisYear));
-  const [audTo, setAudTo] = useState(today());
+  const [invFrom, setInvFrom] = useState(lagosYearStart(thisYear));
+  const [invTo, setInvTo] = useState(lagosToday());
+  const [audFrom, setAudFrom] = useState(lagosYearStart(thisYear));
+  const [audTo, setAudTo] = useState(lagosToday());
 
   const profileIncomplete = useMemo(() => {
     if (!profile.data) return false;
@@ -78,7 +77,7 @@ export function ReportsHub() {
       <div className="grid gap-6 lg:grid-cols-3">
         <PackCard
           title="Government filings pack"
-          description="Everything due to a Nigerian government agency for the year — CAC, FIRS (CIT/VAT/WHT), PAYE, pension, NHF, NSITF, ITF — with amounts read from the ledger where possible."
+          description="Everything due to a Nigerian government agency for the year: CAC, FIRS (CIT/VAT/WHT), PAYE, pension, NHF, NSITF, ITF, with amounts read from the ledger where possible."
           href={govHref}
         >
           <div>
@@ -139,7 +138,7 @@ export function ReportsHub() {
       </div>
 
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
-        These packs assemble what the ledger and the compliance calendar already know — they are not
+        These packs assemble what the ledger and the compliance calendar already know. They are not
         filing engines and don&apos;t submit anything to any agency, and none of this is tax or legal
         advice. Confirm figures with a licensed adviser before relying on them for an actual submission.
         Day-to-day tracking of individual filings (mark as filed, remittance references) still lives on

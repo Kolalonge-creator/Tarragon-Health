@@ -4,6 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { computeBmi, bmiCategory, type BmiCategory, type Sex } from "@/lib/obesity/classify";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
+import { ProductCtaCard } from "./product-cta-card";
+import type { ResolvedServicePrices } from "../_content/pricing";
 
 /**
  * Public, no-login BMI + daily calorie estimate. Reuses the same computeBmi/
@@ -74,7 +76,11 @@ function bmr(sex: Sex, weightKg: number, heightCm: number, age: number): number 
   return sex === "male" ? base + 5 : base - 161;
 }
 
-export function BmiCalorieCalculator() {
+export function BmiCalorieCalculator({
+  priceOverrides,
+}: {
+  priceOverrides?: ResolvedServicePrices;
+} = {}) {
   const [sex, setSex] = useState<Sex>("female");
   const [age, setAge] = useState(30);
   const [heightCm, setHeightCm] = useState(165);
@@ -230,7 +236,17 @@ export function BmiCalorieCalculator() {
         </div>
       ) : null}
 
-      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/50">
+      {wantsLoss ? (
+        <ProductCtaCard
+          code="weight_management_3m"
+          href="/checkout/weight_management_3m"
+          ctaLabel="Buy now — no account needed"
+          overrides={priceOverrides}
+          className="mt-6"
+        />
+      ) : null}
+
+      <p className="mt-4 text-xs leading-relaxed text-charcoal-ink/65">
         A general estimate, not a diagnosis or personalised medical advice. BMI doesn&apos;t
         account for muscle mass, pregnancy, or every body type, and calorie needs vary by
         individual. For a plan built around your real health picture, a doctor on Tarragon can

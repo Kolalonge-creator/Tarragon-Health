@@ -3,11 +3,14 @@
 import {
   useAdminBookingRequests,
   useUpdateBookingRequestStatus,
+  type AdminBookingRequest,
   type BookingRequest,
 } from "@/lib/queries/booking-admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
 import { Select } from "@/components/ui/select";
+import { ConfirmDialog, ConfirmDialogFacts } from "@/components/ui/confirm-dialog";
+import { useState } from "react";
 
 const STATUS_BADGE: Record<BookingRequest["status"], { variant: BadgeProps["variant"]; label: string }> = {
   requested: { variant: "amber", label: "Requested" },
@@ -21,6 +24,10 @@ const STATUS_OPTIONS: BookingRequest["status"][] = ["requested", "confirmed", "c
 export function BookingRequestsAdmin() {
   const bookingRequests = useAdminBookingRequests();
   const updateStatus = useUpdateBookingRequestStatus();
+  // Cancelling used to fire on the select's own onChange, from an unlabelled
+  // control, with no way back: a mis-scroll on a trackpad cancelled a real
+  // patient's appointment. Every other transition still applies directly.
+  const [cancelling, setCancelling] = useState<AdminBookingRequest | null>(null);
 
   return (
     <Card>
@@ -63,14 +70,18 @@ export function BookingRequestsAdmin() {
                     <div className="flex items-center gap-2">
                       <Badge variant={badge.variant}>{badge.label}</Badge>
                       <Select
+                        aria-label={`Status of ${request.patient?.full_name ?? "this patient"}'s booking`}
                         value={request.status}
                         disabled={updateStatus.isPending}
-                        onChange={(event) =>
-                          updateStatus.mutate({
-                            id: request.id,
-                            status: event.target.value as BookingRequest["status"],
-                          })
-                        }
+                        onChange={(event) => {
+                          const next = event.target.value as BookingRequest["status"];
+                          if (next === request.status) return;
+                          if (next === "cancelled") {
+                            setCancelling(request);
+                            return;
+                          }
+                          updateStatus.mutate({ id: request.id, status: next });
+                        }}
                         className="w-36"
                       >
                         {STATUS_OPTIONS.map((status) => (
@@ -86,7 +97,39 @@ export function BookingRequestsAdmin() {
             })}
           </ul>
         )}
+        {updateStatus.isError && (
+          <p className="mt-2 text-sm text-red-600">
+            {(updateStatus.error as Error)?.message ?? "Could not update that booking."}
+          </p>
+        )}
       </CardContent>
+
+      <ConfirmDialog
+        open={cancelling !== null}
+        title="Cancel this patient's booking?"
+        description="The booking is cancelled for the patient. Rebooking means a new request, not restoring this one."
+        confirmLabel="Cancel the booking"
+        cancelLabel="Leave it as it is"
+        destructive
+        onConfirm={() => {
+          const target = cancelling;
+          setCancelling(null);
+          if (target) updateStatus.mutate({ id: target.id, status: "cancelled" });
+        }}
+        onCancel={() => setCancelling(null)}
+      >
+        <ConfirmDialogFacts
+          rows={[
+            { label: "Patient", value: cancelling?.patient?.full_name ?? "Unknown patient" },
+            { label: "Facility", value: cancelling?.facilities?.name ?? "Facility" },
+            { label: "Service", value: cancelling?.service_type ?? "" },
+            {
+              label: "Requested for",
+              value: cancelling ? new Date(cancelling.requested_date).toLocaleDateString() : "",
+            },
+          ]}
+        />
+      </ConfirmDialog>
     </Card>
   );
 }

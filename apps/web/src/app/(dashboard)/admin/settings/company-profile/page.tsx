@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { companyProfileSchema } from "@/lib/finance/schemas";
 import { CompanyProfileForm } from "./company-profile-form";
 
@@ -20,23 +22,28 @@ export default async function CompanyProfileSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data } = await supabase.rpc("finance_company_profile_get");
+  const { data, error } = await supabase.rpc("finance_company_profile_get");
   const parsed = companyProfileSchema.safeParse(data);
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Company &amp; legal profile
-        </h1>
-        <p className="text-charcoal-ink/60">
-          The registered facts every printed report puts on its letterhead — CAC particulars, FIRS
-          TIN/VAT number, registered address, directors, auditor and settlement bank details. Kept
-          here rather than in Finance because this is company-secretarial data, not bookkeeping;
-          Finance&apos;s Reports &amp; Filings pack (Finance → Reports) reads it read-only.
-        </p>
-      </div>
-      <CompanyProfileForm initial={parsed.success ? parsed.data : companyProfileSchema.parse({})} />
+      <PageHeader
+        title="Company & legal profile"
+        description="The registered facts every printed report puts on its letterhead: CAC particulars, FIRS TIN/VAT number, registered address, directors, auditor and settlement bank details. Kept here rather than in Finance because this is company-secretarial data, not bookkeeping; Finance's Reports & Filings pack (Finance → Reports) reads it read-only."
+      />
+      {/* On a failed RPC the parse fell through to schema defaults, so the
+          form opened BLANK over real CAC/TIN/VAT particulars and saving it
+          would have erased the letterhead every printed report depends on.
+          Withheld rather than prefilled from defaults. */}
+      {error ? (
+        <LoadFailure>
+          The company profile could not be loaded. The registered particulars are not blank, and a
+          save from this screen would overwrite them with empty values. Reload before editing
+          anything here.
+        </LoadFailure>
+      ) : (
+        <CompanyProfileForm initial={parsed.success ? parsed.data : companyProfileSchema.parse({})} />
+      )}
     </div>
   );
 }

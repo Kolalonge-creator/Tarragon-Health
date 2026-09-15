@@ -2,6 +2,8 @@
 
 *Operational runbook, not a legal filing. The Nigeria Data Protection Act 2023 requires notifying the Nigeria Data Protection Commission (NDPC) within 72 hours of becoming aware of a personal data breach that is likely to result in a risk to a data subject's rights — this document is what an on-call person actually does in that window, and `/admin/settings/data-breach-incidents` is where the resulting record lives. Draft for legal review — the exact NDPC notification form/portal and the patient-notification threshold are marked below as counsel items, same discipline as `docs/legal/cover-memo-to-counsel.md`.*
 
+*For an availability/technical incident with no data-exposure component — the platform or a dependency is down, nothing was disclosed or accessed improperly — use `docs/PLATFORM_OUTAGE_RUNBOOK.md` instead. If an outage turns out to involve unauthorized data access along the way, switch back to this runbook.*
+
 ## What counts as a reportable incident
 
 A "personal data breach" is any confirmed or reasonably suspected unauthorised access to, disclosure of, loss of, or destruction of personal data we hold — not only a technical hack. On this platform, the categories most likely to trigger this runbook are:

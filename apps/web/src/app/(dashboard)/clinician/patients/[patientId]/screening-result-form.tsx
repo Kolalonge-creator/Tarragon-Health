@@ -201,11 +201,17 @@ export function ScreeningResultForm({
               <Select id="procedural_status" name="procedural_status" defaultValue="normal">
                 <option value="normal">Normal</option>
                 <option value="borderline">Borderline</option>
+                <option value="indeterminate">Indeterminate — needs repeat/further assessment</option>
                 <option value="abnormal">Abnormal</option>
                 <option value="critical">Critical</option>
               </Select>
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="laboratory">Laboratory (optional)</Label>
+            <Input id="laboratory" name="laboratory" placeholder="e.g. Synlab Nigeria" />
+          </div>
 
           {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
           {state?.success && <p className="text-sm text-brand-green">Result recorded.</p>}

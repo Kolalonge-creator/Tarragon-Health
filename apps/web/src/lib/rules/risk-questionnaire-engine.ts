@@ -191,7 +191,7 @@ export function isQuestionnaireComplete(
 }
 
 /**
- * A relevant_question_keys entry only counts toward a condition's
+ * A relevant_question_keys entry only counts towards a condition's
  * confidence denominator while it's actually in scope — a branched-out
  * question (e.g. cigarettes_per_day when smoking_status is "never") isn't
  * "missing data", it's correctly unasked, and must not drag confidence down.

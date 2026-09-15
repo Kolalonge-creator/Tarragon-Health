@@ -1011,7 +1011,7 @@ revoke all on function public.decline_health_passport_attestation(uuid, text) fr
 revoke all on function public.mint_health_passport(uuid) from public, anon;
 revoke all on function public.seal_health_passport(uuid, jsonb, text, text, text, text) from public, anon;
 revoke all on function public.revoke_health_passport(uuid, text) from public, anon;
-revoke all on function public.health_passport_by_serial(text, date) from public;
+revoke all on function public.health_passport_by_serial(text, date) from public, anon;
 
 grant execute on function public.request_health_passport_attestation(text, text) to authenticated;
 grant execute on function public.withdraw_health_passport_attestation(uuid) to authenticated;

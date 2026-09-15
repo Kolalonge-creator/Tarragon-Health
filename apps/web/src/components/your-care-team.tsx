@@ -75,19 +75,30 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
         <CardTitle>Your care team</CardTitle>
       </CardHeader>
       <CardContent className="space-y-1">
-        <p className="text-sm text-charcoal-ink">
-          A team of MDCN-registered doctors follows your readings and checks in with you.
-          Whoever reviews a reading or handles a check-in is named on that specific note, not
-          assigned to you as a single doctor ahead of time.
+        {/* Do not restore "a team of MDCN-registered doctors" here. Live
+            clinical_staff credential numbers are QA-000001 and TEST-0001 to
+            TEST-0006, so there is no real MDCN registration on the platform
+            yet and the claim is not one we can stand behind. The marketing
+            trust band carried the identical sentence and was corrected on
+            2026-09-05; this copy is the patient-facing twin of it and is
+            reachable from the Overview, Messages and onboarding. What is said
+            below is true and DB-enforced: clinical_staff cannot go active
+            without verification, and a CHECK constraint stops anyone
+            verifying their own record. */}
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">
+          Your readings are followed by a team of doctors. Whoever reviews a reading or handles
+          a check-in is named on that specific note, rather than being assigned to you as a
+          single doctor ahead of time, and never named before they have actually reviewed
+          something.
         </p>
         {coordinatorName && (
           <>
-            <p className="text-sm text-charcoal-ink">
+            <p className="text-sm text-charcoal-ink dark:text-night-ink">
               Your care coordinator: <span className="font-medium">{coordinatorName}.</span>
-              <span className="text-charcoal-ink/60">
+              <span className="text-charcoal-ink/60 dark:text-night-ink/60">
                 {" "}
                 They help with bookings, refills and check-ins.{" "}
-                <Link href="/patient/messages" className="text-brand-green hover:underline">
+                <Link href="/patient/messages" className="text-brand-green dark:text-brand-green-bright hover:underline">
                   Send a message
                 </Link>
               </span>
@@ -103,7 +114,7 @@ export async function YourCareTeam({ patientId }: { patientId: string }) {
           </>
         )}
         {director && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             Your care protocols are supervised by Dr. {director.full_name}
           </p>
         )}

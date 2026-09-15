@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "17658440935",
+    "project_id": "tarragonhealth-f19b3",
+    "storage_bucket": "tarragonhealth-f19b3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:17658440935:android:3ab2b9379a6139035f8642",
+        "android_client_info": {
+          "package_name": "com.tarragonhealth.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDOpyETzdchaWtQq1wJ2nkkoycqJTe1z7k"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getActingFor as getActingForUncached } from "@/lib/acting/acting-for";
 import { createClient } from "@/lib/supabase/server";
+import { asUiLanguage, DEFAULT_GLUCOSE_DISPLAY_UNIT, type GlucoseDisplayUnit } from "@tarragon/shared";
 
 // getCurrentProfile/getCurrentUser are already React cache()-wrapped
 // (lib/supabase/server.ts); getActingFor is not, and both the shared layout
@@ -52,21 +53,53 @@ export async function getPatientDashboardContext() {
   // private.stamp_acting_supporter.
   const subjectId = acting?.profileId ?? profile.id;
 
-  // The emergency safety net must show the SUBJECT's state, not the caller's —
-  // a supporter in Lagos acting for a parent in Kano needs Kano's (or the
-  // national default's) emergency number, not their own. ActingFor only
-  // carries id/name, so fetch state separately in the rare acting case; when
-  // not acting, the caller's own already-loaded profile.state is correct.
-  let subjectState = profile.state ?? null;
+  // The emergency safety net must show the SUBJECT's date of birth (for
+  // age-band-aware framing — spec §49.3 — and the paediatric surfaces
+  // below) and emergency contact, not the caller's — "alert my emergency
+  // contact" must alert the SUBJECT's contact, not the caller's own.
+  // ActingFor only carries id/name, so fetch these separately in the rare
+  // acting case; when not acting, the caller's own already-loaded profile
+  // fields are correct.
+  let subjectDateOfBirth: string | null = profile.date_of_birth ?? null;
+  let subjectHasEmergencyContact = !!profile.emergency_contact_phone;
+  // Sex belongs in the same set and for the same reason: it decides whether
+  // sex-specific surfaces (cycle tracking) are offered, and that question is
+  // about the SUBJECT. Testing the caller's sex meant a husband supporting
+  // his wife's account saw her cycle tracker suppressed on her own dashboard.
+  let subjectSex = profile.sex ?? null;
   if (acting) {
     const supabase = await createClient();
     const { data: subjectProfile } = await supabase
       .from("profiles")
-      .select("state")
+      .select("date_of_birth, emergency_contact_phone, sex")
       .eq("id", subjectId)
       .maybeSingle();
-    subjectState = subjectProfile?.state ?? null;
+    subjectDateOfBirth = subjectProfile?.date_of_birth ?? null;
+    subjectHasEmergencyContact = !!subjectProfile?.emergency_contact_phone;
+    subjectSex = subjectProfile?.sex ?? null;
   }
 
-  return { profile, acting, subjectId, subjectState };
+  // Deliberately the CALLER's preference, not the subject's -- unlike state,
+  // date of birth or emergency contact above, this is not a fact about the
+  // subject's body or safety, it is how the person actually looking at the
+  // screen reads a number. A supporter whose own meter reads mg/dL should not
+  // have to convert in their head because the relative they are helping once
+  // ticked mmol/L.
+  const glucoseUnit: GlucoseDisplayUnit =
+    profile.glucose_display_unit === "mmol_l" ? "mmol_l" : DEFAULT_GLUCOSE_DISPLAY_UNIT;
+
+  // Same "the CALLER's preference" rule as glucoseUnit above: this is the
+  // language of whoever is reading the screen, not a fact about the subject.
+  const uiLanguage = asUiLanguage(profile.language);
+
+  return {
+    profile,
+    acting,
+    glucoseUnit,
+    uiLanguage,
+    subjectId,
+    subjectSex,
+    subjectDateOfBirth,
+    subjectHasEmergencyContact,
+  };
 }

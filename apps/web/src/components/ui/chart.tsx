@@ -53,8 +53,8 @@ export function ChartTooltipContent({
   if (!active || !payload?.length) return null;
 
   return (
-    <div className="rounded-md border border-charcoal-ink/10 bg-white px-3 py-2 text-xs shadow-sm">
-      <p className="font-medium text-charcoal-ink">{label}</p>
+    <div className="rounded-md border border-charcoal-ink/10 bg-white px-3 py-2 text-xs shadow-sm dark:border-night-ink/15 dark:bg-night-card dark:shadow-none">
+      <p className="font-medium text-charcoal-ink dark:text-night-ink">{label}</p>
       {payload.map((entry) => {
         const key = String(entry.dataKey);
         return (

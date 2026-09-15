@@ -11,6 +11,7 @@ import {
   type BatchPredictionResponse,
   type MlHealth,
   type Score2Response,
+  type HeartAgeResponse,
 } from "./ml-client";
 
 const CONFIG = { baseUrl: "http://ml.test", serviceKey: "secret" };
@@ -144,6 +145,45 @@ describe("typed endpoint helpers", () => {
     const client = createMlClient({ ...CONFIG, fetchImpl });
 
     const result = await client.cvdRisk({
+      age: 55,
+      sex: "male",
+      is_smoker: false,
+      systolic_bp: 130,
+      total_cholesterol_mg_dl: 190,
+      hdl_cholesterol_mg_dl: 50,
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it("heartAge posts to /risk/heart-age and returns the parsed response", async () => {
+    const response: HeartAgeResponse = {
+      heart_age_years: 62,
+      cvd_risk_10yr_percent: 8.2,
+      reference_risk_10yr_percent: 4.1,
+      model: "SCORE2",
+    };
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(jsonResponse(response));
+    const client = createMlClient({ ...CONFIG, fetchImpl });
+
+    const result = await client.heartAge({
+      age: 55,
+      sex: "male",
+      is_smoker: false,
+      systolic_bp: 130,
+      total_cholesterol_mg_dl: 190,
+      hdl_cholesterol_mg_dl: 50,
+    });
+
+    expect(result).toEqual(response);
+    expect(fetchImpl.mock.calls[0][0]).toBe("http://ml.test/risk/heart-age");
+  });
+
+  it("heartAge returns null on a non-2xx response", async () => {
+    const fetchImpl = jest.fn<typeof fetch>().mockResolvedValue(new Response("nope", { status: 422 }));
+    const client = createMlClient({ ...CONFIG, fetchImpl });
+
+    const result = await client.heartAge({
       age: 55,
       sex: "male",
       is_smoker: false,

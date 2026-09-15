@@ -1,4 +1,6 @@
 import { Platform, Pressable, Text, View } from "react-native";
+import { useT } from "@/lib/ui-language";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { PRIMARY_SECTIONS, type SectionId } from "@/lib/sections";
 import { colors } from "./theme";
@@ -22,14 +24,16 @@ interface BottomTabBarProps {
  * Tabs come from PRIMARY_SECTIONS, so this file never decides what is
  * important — lib/sections.ts does, in one place shared with the drawer.
  */
-/** Room for the iOS home indicator. Hardcoded per platform rather than read
- * from safe-area insets, because react-native-safe-area-context is not a
- * dependency of this app and adding one would force a native rebuild — the
- * same convention the top bar and drawer already follow. */
-const BOTTOM_INSET = Platform.OS === "ios" ? 22 : 8;
+/** Floor for the iOS home indicator / Android gesture-nav clearance, used
+ * when the device reports no real inset (e.g. older Android with a hardware
+ * back button and no gesture bar). Real devices use useSafeAreaInsets()
+ * below instead of a guessed per-platform constant. */
+const MIN_BOTTOM_INSET = Platform.OS === "ios" ? 22 : 8;
 
 export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarProps) {
+  const tr = useT();
   const moreActive = !PRIMARY_SECTIONS.some((s) => s.id === activeSection);
+  const insets = useSafeAreaInsets();
 
   return (
     <View
@@ -38,7 +42,7 @@ export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarPr
         borderTopWidth: 1,
         borderTopColor: colors.border,
         backgroundColor: colors.card,
-        paddingBottom: BOTTOM_INSET,
+        paddingBottom: Math.max(insets.bottom, MIN_BOTTOM_INSET),
         paddingTop: 6,
       }}
     >
@@ -48,13 +52,13 @@ export function BottomTabBar({ activeSection, onSelect, onMore }: BottomTabBarPr
           <Tab
             key={section.id}
             icon={section.icon}
-            label={section.shortLabel ?? section.label}
+            label={tr(section.shortLabel ?? section.label)}
             active={active}
             onPress={() => onSelect(section.id)}
           />
         );
       })}
-      <Tab icon="menu-outline" label="More" active={moreActive} onPress={onMore} />
+      <Tab icon="menu-outline" label={tr("More")} active={moreActive} onPress={onMore} />
     </View>
   );
 }

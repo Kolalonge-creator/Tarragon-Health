@@ -2,7 +2,10 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { IntegrationsManager } from "./integrations-manager";
+import { IntegrationMonitoringPanel } from "./monitoring-panel";
 
 export default async function IntegrationsSettingsPage() {
   const profile = await getCurrentProfile();
@@ -10,27 +13,68 @@ export default async function IntegrationsSettingsPage() {
   if (!(await hasPermission("integrations.manage"))) redirect("/admin");
 
   const supabase = await createClient();
-  const [{ data: apiKeys }, { data: partners }] = await Promise.all([
+  const [
+    { data: apiKeys, error: apiKeysError },
+    { data: partners, error: partnersError },
+    { data: webhookEndpoints, error: webhookEndpointsError },
+    { data: catalogue, error: catalogueError },
+    { data: health, error: healthError },
+    { data: deadLettered, error: deadLetteredError },
+  ] = await Promise.all([
     supabase
       .from("api_keys")
-      .select("id, name, key_prefix, scopes, created_at, last_used_at, revoked_at")
+      .select("id, name, key_prefix, scopes, environment, rate_limit_per_minute, created_at, last_used_at, revoked_at, expires_at")
       .order("created_at", { ascending: false }),
     supabase
       .from("partner_integrations")
       .select("id, name, base_url, auth_header, notes, is_active, last_checked_at, last_check_ok, secret")
       .order("created_at", { ascending: false }),
+    supabase
+      .from("partner_webhook_endpoints")
+      .select(
+        "id, partner_integration_id, name, url, event_types, environment, is_active, last_success_at, last_failure_at, consecutive_failures, created_at"
+      )
+      .order("created_at", { ascending: false }),
+    supabase.rpc("integration_catalogue"),
+    supabase.rpc("integration_health_metrics", { p_window_hours: 24 }),
+    supabase
+      .from("integration_outbound_events")
+      .select("id, event_type, webhook_endpoint_id, attempt_count, last_status_code, last_error, created_at")
+      .eq("status", "dead_letter")
+      .order("created_at", { ascending: false })
+      .limit(50),
   ]);
+
+  const firstError =
+    apiKeysError ??
+    partnersError ??
+    webhookEndpointsError ??
+    catalogueError ??
+    healthError ??
+    deadLetteredError;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Integrations</h1>
-        <p className="text-charcoal-ink/60">
-          Inbound API keys let device clouds and partner platforms push data into
-          TarragonHealth (see docs/INTEGRATIONS_API.md for the partner-facing spec).
-          Outbound connections register partner APIs this platform calls.
-        </p>
-      </div>
+      <PageHeader
+        title="Integrations"
+        description="Inbound API keys let device clouds and partner platforms push data into TarragonHealth (see docs/INTEGRATIONS_API.md for the partner-facing spec). Outbound connections register partner APIs this platform calls, and webhook endpoints receive events (a result becoming available, an appointment being cancelled) as they happen."
+      />
+      {firstError && (
+        <LoadFailure>
+          Some integration data could not be loaded ({firstError.message}). The lists and health
+          panel below may be missing rows, not genuinely empty — reload before trusting a
+          &ldquo;none registered&rdquo; state.
+        </LoadFailure>
+      )}
+      <IntegrationMonitoringPanel
+        catalogue={catalogue ?? []}
+        health={health?.[0] ?? null}
+        deadLettered={(deadLettered ?? []).map((row) => ({
+          ...row,
+          webhook_endpoint_name:
+            (webhookEndpoints ?? []).find((w) => w.id === row.webhook_endpoint_id)?.name ?? "(deleted endpoint)",
+        }))}
+      />
       <IntegrationsManager
         apiKeys={(apiKeys ?? []).map((k) => ({ ...k }))}
         partners={(partners ?? []).map((p) => ({
@@ -44,6 +88,7 @@ export default async function IntegrationsSettingsPage() {
           last_check_ok: p.last_check_ok,
           has_secret: Boolean(p.secret),
         }))}
+        webhookEndpoints={(webhookEndpoints ?? []).map((w) => ({ ...w }))}
       />
     </div>
   );

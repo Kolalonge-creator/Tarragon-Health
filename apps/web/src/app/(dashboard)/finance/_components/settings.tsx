@@ -55,7 +55,7 @@ export function FinanceSettings() {
     if (!newCc.code || !newCc.name) return setCcMsg({ ok: false, text: "Code and name are required." });
     const res = await upsertCostCenterAction({ code: newCc.code.toUpperCase(), name: newCc.name, is_active: true, sort_order: 0 });
     if (!res.ok) return setCcMsg({ ok: false, text: res.error ?? "Could not save." });
-    setCcMsg({ ok: true, text: "Cost center saved." });
+    setCcMsg({ ok: true, text: "Cost centre saved." });
     setNewCc({ code: "", name: "" });
     invalidate();
   }
@@ -171,7 +171,7 @@ export function FinanceSettings() {
       </SectionCard>
 
       <SectionCard
-        title="Cost centers"
+        title="Cost centres"
         description="Tag journal lines so P&L can be sliced by department (clinical, marketing, partner network, etc.)."
       >
         {costCenters.isLoading ? (
@@ -206,7 +206,7 @@ export function FinanceSettings() {
         <div className="mt-4 grid gap-3 border-t border-charcoal-ink/10 pt-4 sm:grid-cols-3">
           <div><Label>Code</Label><Input value={newCc.code} onChange={(e) => setNewCc((p) => ({ ...p, code: e.target.value }))} placeholder="e.g. LEGAL" /></div>
           <div><Label>Name</Label><Input value={newCc.name} onChange={(e) => setNewCc((p) => ({ ...p, name: e.target.value }))} /></div>
-          <div className="flex items-end"><Button className="w-full" onClick={addCostCenter}>Add cost center</Button></div>
+          <div className="flex items-end"><Button className="w-full" onClick={addCostCenter}>Add cost centre</Button></div>
         </div>
         {ccMsg && <p className={`mt-2 text-sm ${ccMsg.ok ? "text-brand-green" : "text-red-600"}`}>{ccMsg.text}</p>}
       </SectionCard>

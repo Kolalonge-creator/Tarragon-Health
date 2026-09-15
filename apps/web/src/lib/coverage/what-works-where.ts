@@ -6,15 +6,23 @@
  * someone to physically be in Nigeria: labs, pharmacy collection, and
  * specialist visits, because a sample still has to be drawn and a person
  * still has to be examined somewhere. Since the 2026-08-03 self-arranged-
- * fulfilment change, none of those three wait on a contracted partner or the
- * state rollout (region_service_available) any more — Tarragon writes the
- * request or referral letter, the patient takes it to whichever provider they
- * choose, and pays them directly, in any state. Only home sample collection
- * and medication delivery still depend on a real logistics partner being
- * contracted, and none exists yet in any state, so `gatedBy` is reserved for
- * those two. The other half of the product — monitoring, doctors over video
- * and text, the record itself, and paying for someone else's care — never
- * needed Nigeria at all.
+ * fulfilment change, the DEFAULT path for all three never waits on a
+ * contracted partner or the state rollout (region_service_available) —
+ * Tarragon writes the request or referral letter, the patient takes it to
+ * whichever provider they choose, and pays them directly, in any state.
+ * Home sample collection and medication delivery still depend entirely on a
+ * real logistics partner being contracted, and none exists yet in any
+ * state. Labs briefly gained a second, optional path on 2026-08-21 — a
+ * contracted lab (Synlab) pricing a test so Tarragon could arrange and bill
+ * it directly — but every panel_bundles row became guidance_only on
+ * 2026-09-10 (migration 20260910011846_catalogue_becomes_guidance_not_
+ * commerce.sql), and private.enforce_guidance_only_is_never_billed now
+ * refuses that kind of insert at the database level for any bundle, in any
+ * state. That path no longer exists, so labs carry no `gatedBy` any more —
+ * the self-arranged default is the only path, and it already works
+ * everywhere. The other half of the product —
+ * monitoring, doctors over video and text, the record itself, and paying
+ * for someone else's care — never needed Nigeria at all.
  *
  * Before this, that split was a sentence at the bottom of the pricing page.
  * A buyer in Houston choosing a plan for a mother in Enugu had no way to see it
@@ -39,7 +47,7 @@ export type CoverageItem = {
    * whether this works in a given state. Null where the item needs Nigeria but
    * no partner (a vaccination logged at any centre, say).
    */
-  gatedBy: "lab" | "pharmacy" | "specialist" | "home_visit" | "delivery" | null;
+  gatedBy: "pharmacy" | "specialist" | "home_visit" | "delivery" | null;
 };
 
 export const COVERAGE_ITEMS: CoverageItem[] = [
@@ -115,7 +123,7 @@ export const COVERAGE_ITEMS: CoverageItem[] = [
     key: "labs",
     label: "Lab tests and health check packages",
     detail:
-      "We write the request; you take it to any lab in Nigeria you choose, pay them directly, and upload the result. Works in every state today, since it does not wait on us signing a partner.",
+      "We write the request; you take it to any lab in Nigeria you choose and pay them directly. That's the only path — we don't bill or book any test ourselves — and it works everywhere, in every state, without waiting on a partner.",
     locality: "in_nigeria",
     gatedBy: null,
   },
@@ -163,7 +171,6 @@ export function gatedServices(): NonNullable<CoverageItem["gatedBy"]>[] {
 }
 
 export const SERVICE_LABEL: Record<NonNullable<CoverageItem["gatedBy"]>, string> = {
-  lab: "Lab tests",
   pharmacy: "Pharmacy",
   specialist: "Specialists",
   home_visit: "Home sample collection",

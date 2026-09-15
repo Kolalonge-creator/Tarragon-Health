@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { SEMANTIC_ICON, type AppIconName, APP_ICON } from "@/lib/icons";
+import { EmptyHint } from "@/components/ui/empty-hint";
 
 type ScheduleItem = {
   icon: AppIconName;
@@ -25,6 +26,14 @@ function daysLabel(dateStr: string): string {
   if (days > 0) return `in ${days} day${days === 1 ? "" : "s"}`;
   if (days === 0) return "today";
   return `${-days} day${days === -1 ? "" : "s"} overdue`;
+}
+
+/** Same day-boundary arithmetic as daysLabel, so the two can never disagree
+ * about whether an item is overdue. */
+function isOverdue(dateStr: string): boolean {
+  const today = new Date(new Date().toDateString());
+  const target = new Date(new Date(dateStr).toDateString());
+  return target.getTime() < today.getTime();
 }
 
 function formatLabel(value: string): string {
@@ -169,34 +178,52 @@ async function resolveUpcomingSchedule(patientId: string): Promise<ScheduleItem[
   return items.sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, MAX_ITEMS);
 }
 
-export async function CareScheduleCard({ patientId }: { patientId: string }) {
+export async function CareScheduleCard({
+  patientId,
+  emptyHint,
+}: {
+  patientId: string;
+  /** A page that has already headed this section (Health summary) passes the
+   * line to show when there is nothing due, instead of leaving its heading
+   * standing over nothing. Omitted elsewhere, so this card still self-hides
+   * on the dashboard where it sits among other cards. */
+  emptyHint?: string;
+}) {
   const items = await resolveUpcomingSchedule(patientId);
-  if (items.length === 0) return null;
+  if (items.length === 0) return emptyHint ? <EmptyHint>{emptyHint}</EmptyHint> : null;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.carePlan className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           What&apos;s coming up
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {items.map((item, i) => {
             const Icon = APP_ICON[item.icon] ?? SEMANTIC_ICON.carePlan;
             return (
               <li key={i} className="flex items-start gap-3 py-2.5">
-                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/50" aria-hidden />
+                <Icon className="mt-0.5 h-4 w-4 shrink-0 text-charcoal-ink/50 dark:text-night-ink/55" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50">
+                  <p className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
                     {item.type}
                   </p>
-                  <Link href={item.href} className="text-sm text-charcoal-ink hover:underline">
+                  <Link href={item.href} className="text-sm text-charcoal-ink dark:text-night-ink hover:underline">
                     {item.title}
                   </Link>
                 </div>
-                <span className="shrink-0 whitespace-nowrap text-xs text-charcoal-ink/50">
+                {/* Overdue gets clinical amber emphasis; future dates stay
+                    muted so the two states read differently at a glance. */}
+                <span
+                  className={
+                    isOverdue(item.dueDate)
+                      ? "shrink-0 whitespace-nowrap text-xs font-medium text-amber-700 dark:text-amber-300"
+                      : "shrink-0 whitespace-nowrap text-xs text-charcoal-ink/50 dark:text-night-ink/55"
+                  }
+                >
                   {daysLabel(item.dueDate)}
                 </span>
               </li>

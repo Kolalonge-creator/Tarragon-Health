@@ -27,6 +27,21 @@ export const SITE = {
   founder: "Dr Kola Longe",
   /** X/Twitter @handle, no leading "@" trimmed off — used for the twitter:site meta tag. */
   twitterHandle: "Tarragonhealth",
+  /**
+   * Contact facts, all of them already published in the site footer. They
+   * feed the Organization structured data as well, which is what lets a
+   * search engine or an AI answer attach a phone number and a company
+   * registration to this brand instead of guessing.
+   *
+   * No street address: Tarragon has no public premises to publish (no owned
+   * clinics), so the postal address is country-level only. Do not invent one.
+   */
+  telephone: "+2348061197940",
+  email: "hello@tarragonhealth.ng",
+  supportEmail: "support@tarragonhealth.ng",
+  /** Corporate Affairs Commission registration number, as shown in the footer. */
+  registrationNumber: "RC 9702108",
+  addressCountry: "NG",
   /** External profiles for Organization structured data. Add real handles only. */
   sameAs: [
     "https://www.facebook.com/Tarragonhealth",

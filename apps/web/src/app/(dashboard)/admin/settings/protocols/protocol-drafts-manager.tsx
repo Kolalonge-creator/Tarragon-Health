@@ -17,6 +17,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge, type BadgeProps } from "@/components/ui/badge";
+import { protocolContentText } from "./protocol-content-text";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
+import { KNOWN_UNPROMOTED_PROTOCOL_DRAFTS } from "@/lib/protocol-draft-manifest";
 
 const STATUS_BADGE: Record<string, { variant: BadgeProps["variant"]; label: string }> = {
   draft: { variant: "grey", label: "Draft" },
@@ -104,6 +107,23 @@ function DraftCard({ draft }: { draft: ProtocolDraft }) {
           <p className="text-sm text-red-700">Rejected: {draft.rejected_reason}</p>
         )}
 
+        {/* Same defect as the signed-version list had before this file's
+            sibling fix: content was written by the create-draft form and
+            never rendered anywhere, so "Promote & sign" was a blind click.
+            Open by default here, unlike the signed list's disclosure --
+            reading the draft before approving it is the whole point of a
+            review step, not an optional extra. */}
+        {protocolContentText(draft.content) && (
+          <details className="mt-1" open>
+            <summary className="cursor-pointer text-xs font-medium text-brand-green">
+              Read this draft
+            </summary>
+            <pre className="mt-2 max-h-[32rem] overflow-auto whitespace-pre-wrap rounded-lg bg-warm-ivory p-3 font-sans text-sm leading-relaxed text-charcoal-ink/90">
+              {protocolContentText(draft.content)}
+            </pre>
+          </details>
+        )}
+
         {open && (
           <div className="flex flex-wrap gap-2">
             {draft.status === "draft" && (
@@ -119,7 +139,7 @@ function DraftCard({ draft }: { draft: ProtocolDraft }) {
             <Button
               size="sm"
               disabled={promote.isPending}
-              title="Signs this as a new protocol_versions row — Director only"
+              title="Signs this as a new protocol_versions row (Director only)"
               onClick={() => promote.mutate(draft.id)}
             >
               {promote.isPending ? "Promoting…" : "Promote & sign"}
@@ -190,8 +210,61 @@ export function ProtocolDraftsManager() {
   const open = drafts.filter((d) => d.status === "draft" || d.status === "in_review");
   const closed = drafts.filter((d) => d.status === "promoted" || d.status === "rejected");
 
+  const startedProtocolIds = new Set(drafts.map((d) => d.protocol_id));
+  const notYetStarted = KNOWN_UNPROMOTED_PROTOCOL_DRAFTS.filter(
+    (known) => !startedProtocolIds.has(known.protocolId)
+  );
+
   return (
     <div className="space-y-6">
+      {/* The sign-off queue on the settings hub links here for these — the
+          text has already been reviewed and lives in a source markdown file
+          under docs/protocol-drafts/, but until now reaching this page from
+          that link showed two blank forms with no visible connection to
+          what the queue said was "ready to sign". This loads the known
+          text into the form below (still nothing but a filled-in textarea
+          — a Director still has to read it, edit it, save it, and promote
+          it themselves). */}
+      {notYetStarted.length > 0 && (
+        <Card className="border-amber-400/50 bg-amber-50/50">
+          <CardHeader>
+            <CardTitle className="text-base">Known draft{notYetStarted.length === 1 ? "" : "s"} not started yet</CardTitle>
+            <CardDescription>
+              Reviewed text exists for {notYetStarted.length === 1 ? "this protocol" : "these protocols"} but no
+              draft row has been created here yet — that&apos;s why it looked like there was nothing to sign.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {notYetStarted.map((known) => (
+              <div
+                key={known.protocolId}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-400/40 bg-white p-3"
+              >
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-charcoal-ink">{known.title}</p>
+                  <p className="text-xs text-charcoal-ink/60">{known.sourceHint}</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setProtocolId(known.protocolId);
+                    setTitle(known.title);
+                    setChangeSummary(known.changeSummary);
+                    setContentText(known.content);
+                    document
+                      .getElementById("draft-content")
+                      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                >
+                  Load into form below
+                </Button>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Draft a protocol for review</CardTitle>
@@ -269,9 +342,11 @@ export function ProtocolDraftsManager() {
       {closed.length > 0 && (
         <div className="space-y-3">
           <h3 className="font-heading text-base font-semibold text-charcoal-ink">Promoted / rejected</h3>
-          {closed.map((d) => (
-            <DraftCard key={d.id} draft={d} />
-          ))}
+          <VersionHistoryList itemNoun="draft" defaultVisibleCount={5}>
+            {closed.map((d) => (
+              <DraftCard key={d.id} draft={d} />
+            ))}
+          </VersionHistoryList>
         </div>
       )}
     </div>

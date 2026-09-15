@@ -39,15 +39,15 @@ export function RoutineProfilePrompt({ patientId }: { patientId: string }) {
 
   if (profile.routine) {
     return (
-      <p className="mt-4 border-t border-charcoal-ink/10 pt-3 text-xs text-charcoal-ink/50">
+      <p className="mt-4 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         Your care team knows you keep {ROUTINE_LABEL[profile.routine]}.
       </p>
     );
   }
 
   return (
-    <div className="mt-4 space-y-2 border-t border-charcoal-ink/10 pt-3">
-      <p className="text-sm text-charcoal-ink/70">
+    <div className="mt-4 space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
+      <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
         Quick one: is your day usually more of a morning person or an evening person?
       </p>
       <div className="flex flex-wrap gap-2">
@@ -67,7 +67,7 @@ export function RoutineProfilePrompt({ patientId }: { patientId: string }) {
         ))}
       </div>
       {setRoutine.isError && (
-        <p className="text-xs text-red-600">Could not save that just now. Please try again.</p>
+        <p className="text-xs text-red-600 dark:text-red-300">Could not save that just now. Please try again.</p>
       )}
     </div>
   );

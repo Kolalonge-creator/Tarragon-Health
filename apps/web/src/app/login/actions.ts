@@ -10,10 +10,16 @@ import {
 import { resolveLoginDestination } from "@/lib/auth/redirect-after-login";
 import { recordLoginDevice } from "@/lib/auth/record-login-device";
 import { checkAuthRateLimit, RATE_LIMIT_MESSAGE } from "@/lib/rate-limit";
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
+import { firstIssue } from "@/lib/validation/first-issue";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
-export type LoginActionState = { error?: string; step?: "verify"; phone?: string } | undefined;
+/** `field` names the control that failed, so the form can mark exactly that
+ *  one `aria-invalid` and point its `aria-describedby` at the error text. */
+export type LoginActionState =
+  | { error?: string; field?: string; step?: "verify"; phone?: string }
+  | undefined;
 
 // If the account has a verified MFA factor, proxy.ts (the single choke
 // point for auth gating — see its own header comment) catches the
@@ -41,7 +47,7 @@ export async function signInWithEmail(
     password: formData.get("password"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+    return firstIssue(parsed.error, "Check your email and password, then try again.");
   }
 
   // IP-scoped (20/5min) catches one source hammering many accounts;
@@ -60,7 +66,9 @@ export async function signInWithEmail(
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signInWithPassword(parsed.data);
   if (error || !data.user) {
-    return { error: error?.message ?? "Could not sign in" };
+    // Never the raw GoTrue string, and never anything that would confirm
+    // whether this address has an account here.
+    return { error: authErrorMessage(error, "sign_in") };
   }
 
   await redirectAfterLogin(supabase, data.user.id, formData.get("redirectTo"));
@@ -75,7 +83,7 @@ export async function requestPhoneOtp(
     phone: formData.get("phone"),
   });
   if (!parsed.success) {
-    return { error: parsed.error.issues[0]?.message ?? "Invalid phone number" };
+    return firstIssue(parsed.error, "Check the phone number and try again.");
   }
 
   // Each request sends a real SMS (Termii cost + spam-bombing surface), so
@@ -93,7 +101,7 @@ export async function requestPhoneOtp(
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({ phone: parsed.data.phone });
   if (error) {
-    return { error: error.message };
+    return { error: authErrorMessage(error, "otp_send"), field: "phone" };
   }
 
   return { step: "verify", phone: parsed.data.phone };
@@ -109,7 +117,7 @@ export async function verifyPhoneOtp(
   });
   if (!parsed.success) {
     return {
-      error: parsed.error.issues[0]?.message ?? "Invalid code",
+      ...firstIssue(parsed.error, "Check the code and try again."),
       step: "verify",
       phone: formData.get("phone")?.toString(),
     };
@@ -136,7 +144,8 @@ export async function verifyPhoneOtp(
   });
   if (error || !data.user) {
     return {
-      error: error?.message ?? "Could not verify code",
+      error: authErrorMessage(error, "otp_verify"),
+      field: "token",
       step: "verify",
       phone: parsed.data.phone,
     };

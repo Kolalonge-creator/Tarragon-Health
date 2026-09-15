@@ -109,7 +109,7 @@ begin
   return p_signoff_id;
 end $$;
 
-revoke all on function public.sign_vaccination_schedule(uuid) from public;
+revoke all on function public.sign_vaccination_schedule(uuid) from public, anon;
 revoke all on function public.sign_vaccination_schedule(uuid) from anon;
 grant execute on function public.sign_vaccination_schedule(uuid) to authenticated;
 

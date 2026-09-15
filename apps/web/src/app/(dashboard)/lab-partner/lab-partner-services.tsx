@@ -29,7 +29,7 @@ export function LabPartnerServices() {
         <CardTitle>Your services</CardTitle>
         <CardDescription>
           Mark a test unavailable when you can&apos;t currently run it. Prices and commission rates
-          are set by Tarragon — contact support to change one.
+          are set by Tarragon. Contact support to change one.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

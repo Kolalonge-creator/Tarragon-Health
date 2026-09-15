@@ -6,6 +6,10 @@ import { requireInstitutionAggregateAccess } from "@/lib/institutions/aggregate-
 import { loadAgeBandDistribution } from "@/lib/corporate/load-age-band-distribution";
 import { estimateCostAvoided } from "@/lib/care-gaps/estimate-cost-avoided";
 import { loadMedicationOutcomes } from "@/lib/outcomes/medication-outcomes";
+import { loadEngagementOutcomeCorrelation } from "@/lib/outcomes/engagement-outcome-correlation";
+import { loadVaccinationCoverage } from "@/lib/vaccination/load-coverage-analytics";
+import { loadWellbeingCohortMetric } from "@/lib/corporate/load-wellbeing-cohort-metric";
+import { loadActivationFunnel, loadDepartmentBreakdown } from "@/lib/corporate/load-activation-funnel";
 
 /**
  * The corporate dashboard's single data-loading waterfall, extracted so the
@@ -48,10 +52,24 @@ async function loadCorporateDashboardDataUncached() {
     return { state: "no-analytics" as const, greeting, organisationId, access, contractPerformance };
   }
 
-  const [ageBands, costAvoided, medicationOutcomes] = await Promise.all([
+  const [
+    ageBands,
+    costAvoided,
+    medicationOutcomes,
+    engagementOutcomes,
+    vaccinationCoverage,
+    wellbeingCohortMetric,
+    activationFunnel,
+    departmentBreakdown,
+  ] = await Promise.all([
     loadAgeBandDistribution(access.client, access.organisationId),
     estimateCostAvoided(access.client, access.organisationId, analytics.abnormal_findings_count),
     loadMedicationOutcomes(access.client, access.organisationId),
+    loadEngagementOutcomeCorrelation(access.client, access.organisationId, access.minCohortSize),
+    loadVaccinationCoverage(access.client, access.organisationId, access.minCohortSize),
+    loadWellbeingCohortMetric(access.client, access.organisationId),
+    loadActivationFunnel(access.client, access.organisationId, access.minCohortSize),
+    loadDepartmentBreakdown(access.client, access.organisationId, access.minCohortSize),
   ]);
 
   return {
@@ -64,6 +82,11 @@ async function loadCorporateDashboardDataUncached() {
     ageBands,
     costAvoided,
     medicationOutcomes,
+    engagementOutcomes,
+    vaccinationCoverage,
+    wellbeingCohortMetric,
+    activationFunnel,
+    departmentBreakdown,
   };
 }
 

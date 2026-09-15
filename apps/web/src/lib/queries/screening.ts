@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 import type { LogScreeningCompletionInput } from "@/lib/validation/screening-completion";
+import type { DeclineScreeningInput } from "@/lib/validation/screening-decline";
 
 export type ScreeningSchedule = Tables<"screening_schedules"> & {
   screen_type: { name: string; code: string } | null;
@@ -38,7 +39,8 @@ export function useScreeningSchedules(patientId: string) {
  * performed_date — not from today, and not a fixed cadence — mirroring
  * generateVaccinationScheduleBestEffort's "next dose off the logged date"
  * contract. Returns the new completion id so the caller can immediately link
- * an uploaded result document to it (see useUploadOwnResultDocument).
+ * an uploaded result document to it (see PatientResultUpload's
+ * screeningCompletionId prop).
  */
 export function useLogScreeningCompletion() {
   const queryClient = useQueryClient();
@@ -71,6 +73,38 @@ export function useLogScreeningCompletion() {
         .single();
       if (error) throw error;
       return data.id;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: screeningSchedulesKey(variables.patientId) });
+    },
+  });
+}
+
+/**
+ * Patient declines a recommended screening, with a reason. Writes through
+ * the patient's own RLS-scoped session (screening_schedules_update already
+ * permits the owning patient to update their own row); the DB CHECK
+ * constraint screening_schedules_declined_requires_reason keeps status and
+ * declined_at/declined_reason consistent, and
+ * private.block_screening_schedule_after_decline stops the recommendation
+ * engine or any refresh trigger from silently reopening this screen type
+ * afterwards.
+ */
+export function useDeclineScreeningSchedule() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: DeclineScreeningInput & { patientId: string }): Promise<void> => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("screening_schedules")
+        .update({
+          status: "declined",
+          declined_at: new Date().toISOString(),
+          declined_reason: input.reason,
+        })
+        .eq("id", input.schedule_id)
+        .eq("patient_id", input.patientId);
+      if (error) throw error;
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: screeningSchedulesKey(variables.patientId) });

@@ -38,8 +38,8 @@ export function DiabetesTypeForm({
             <span className="font-medium text-deep-forest">
               {DIABETES_TYPE_LABEL[patientReportedType as keyof typeof DIABETES_TYPE_LABEL] ??
                 patientReportedType}
-            </span>{" "}
-            — confirm or correct it below.
+            </span>
+            . Confirm or correct it below.
           </p>
         )}
         <form action={action} className="flex flex-wrap items-end gap-3">

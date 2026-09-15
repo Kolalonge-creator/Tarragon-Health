@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { MarketingMediaSlot } from "./media";
+import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
 export type B2bStat = {
@@ -30,7 +31,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
     headline: "Help your workforce detect and manage chronic disease risk.",
     campaignLine: "Know your workforce health risks before they become costs.",
     intro:
-      "Tarragon enrols your staff into clinical monitoring for hypertension, diabetes, and preventive screening, then turns what we find into a clear, anonymised risk picture your HR and benefits team can act on.",
+      "Tarragon enrols your staff in clinical monitoring for hypertension, diabetes, and preventive screening, then turns what we find into an anonymised risk picture your HR and benefits team can act on.",
     hero: {
       imageSrc: "/marketing/photos/hero/corporate.jpg",
       imageAlt: "Colleagues chatting warmly together during a workplace break",
@@ -54,15 +55,15 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
     howItWorks: [
       {
         title: "Enrol your staff",
-        body: "We onboard your workforce with annual health checks and set up preventive screening and chronic disease monitoring where needed.",
+        body: "We onboard your workforce with annual health checks, then set up screening and chronic disease monitoring where needed.",
       },
       {
         title: "Monitor, review, escalate",
-        body: "The same clinical review and escalation pathway that runs for every Tarragon patient runs for your staff, individually, in confidence.",
+        body: "The same clinical review and escalation pathway as every Tarragon patient runs for your staff, individually and in confidence.",
       },
       {
         title: "See the cohort picture",
-        body: "Your HR and benefits team gets an anonymised risk dashboard and screening compliance reporting, with no individual health data exposed.",
+        body: "Your HR and benefits team gets an anonymised risk dashboard and screening compliance reporting, no individual health data exposed.",
       },
     ],
     ctaLabel: "Request employer health plan",
@@ -70,7 +71,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       title: "Corporate Health",
       description:
         "Corporate wellness plans that surface workforce chronic disease risk and close care gaps early, with anonymised reporting for HR.",
-      path: "/corporate",
+      path: MARKETING_ROUTES.corporate,
     }),
   },
   hmo: {
@@ -79,7 +80,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
     campaignLine: "Close care gaps. Monitor risk. Prove outcomes.",
     pullQuote: "We don't just manage chronic disease. We catch it earlier, and we can prove it.",
     intro:
-      "Tarragon gives your members the same clinical monitoring, reminders, and escalation as any Tarragon patient, and gives you population-level risk data, care-gap tracking, and outcome reporting built for renewal conversations.",
+      "Members get the same clinical monitoring, reminders, and escalation as any Tarragon patient. You get population-level risk data, care-gap tracking, and outcome reporting built for renewal conversations.",
     hero: {
       imageSrc: "/marketing/photos/hero/hmo.jpg",
       imageAlt: "Two business partners shaking hands and smiling in an office lobby",
@@ -98,7 +99,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       { label: "Members monitored", value: "4,820" },
       { label: "Care gaps closed (90d)", value: "", pill: { text: "+31%", tone: "green" } },
       { label: "Abnormal results caught early", value: "146" },
-      { label: "Claims impact", value: "Reporting live" },
+      { label: "Claims impact", value: "Included in your report" },
     ],
     howItWorks: [
       {
@@ -107,7 +108,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       },
       {
         title: "Close gaps, catch risk early",
-        body: "Care gaps are tracked to completion and abnormal results trigger immediate doctor follow-up, never left open.",
+        body: "Care gaps are tracked to completion and abnormal results trigger immediate doctor follow-up rather than being left open.",
       },
       {
         title: "Report on outcomes",
@@ -119,7 +120,7 @@ export const B2B_PAGES: Record<"corporate" | "hmo", B2bPageContent> = {
       title: "HMO Support",
       description:
         "Monitor member risk, close care gaps, and generate outcome evidence: chronic disease and preventive care for HMO members.",
-      path: "/hmo",
+      path: MARKETING_ROUTES.hmo,
     }),
   },
 };

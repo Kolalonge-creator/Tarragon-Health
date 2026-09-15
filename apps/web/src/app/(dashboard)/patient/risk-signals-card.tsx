@@ -9,11 +9,19 @@ import { SEMANTIC_ICON } from "@/lib/icons";
 import { ResultExplainer } from "@/components/result-explainer";
 import type { Enums } from "@tarragon/shared";
 
+import { formatPatientDate } from "@/lib/format-date";
 const SCORE_TYPE_LABEL: Record<string, string> = {
   cvd_10yr: "Heart & circulation risk",
   hba1c_trajectory: "Blood sugar trend",
   bp_control: "Blood pressure control",
   heart_rate_pattern: "Heart rate pattern",
+  // Predictive Risk & Early Warning Engine (spec §39) — an ACTIVE model's
+  // prediction mirrors here with score_type 'predictive_<domain>' (see
+  // private.record_risk_prediction, 20260829094021_risk_predictions_and_outcomes.sql).
+  // Only the one reference domain built so far has a label; an unmapped
+  // future domain falls back to its raw score_type below, same as any other
+  // unmapped score_type today.
+  predictive_missed_follow_up: "Staying on top of appointments",
 };
 
 /** Plain-language, non-alarmist gloss per risk_level — null for "low" means
@@ -40,6 +48,9 @@ const RISK_LEVEL_COPY: Record<Enums<"risk_level">, string | null> = {
 export function RiskSignalsCard({ patientId }: { patientId: string }) {
   const { data } = usePatientRiskSignals(patientId);
 
+  // Deliberate self-hide on error as well as on empty: this card is optional
+  // context, not care content, so a failed fetch should disappear quietly
+  // rather than show a patient an error about risk signals.
   if (!data || data.length === 0) return null;
 
   const elevated = data.filter(
@@ -52,27 +63,27 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
-          <SEMANTIC_ICON.escalation className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.escalation className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           What your care team is watching
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
         {elevated.length === 0 ? (
-          <p className="text-sm text-charcoal-ink/70">
-            Your recent readings and risk checks are within the normal range —
+          <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+            Your recent readings and risk checks are within the normal range:
             nothing here needs extra attention right now.
           </p>
         ) : (
           <>
-            <p className="text-sm text-charcoal-ink/60">
+            <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
               A plain-language look at what&apos;s shaping your care, not a diagnosis.
               If your care team reaches out, this is usually part of why.
             </p>
             <ul className="space-y-1.5">
               {elevated.map((row) => {
-                const label = SCORE_TYPE_LABEL[row.score_type] ?? row.score_type;
+                const label = SCORE_TYPE_LABEL[row.score_type] ?? row.score_type.replace(/_/g, " ");
                 return (
-                  <li key={row.score_type} className="text-sm text-charcoal-ink">
+                  <li key={row.score_type} className="text-sm text-charcoal-ink dark:text-night-ink">
                     <span className="font-medium">{label}</span>
                     {": "}
                     {RISK_LEVEL_COPY[row.risk_level]}
@@ -88,8 +99,8 @@ export function RiskSignalsCard({ patientId }: { patientId: string }) {
             </ul>
           </>
         )}
-        <p className="text-xs text-charcoal-ink/40">
-          Last updated {new Date(lastUpdated).toLocaleDateString()}
+        <p className="text-xs text-charcoal-ink/40 dark:text-night-ink/50">
+          Last updated {formatPatientDate(lastUpdated)}
         </p>
       </CardContent>
     </Card>

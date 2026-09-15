@@ -4,6 +4,7 @@ import type { Tables } from "@tarragon/shared";
 
 export type DataDeletionRequest = Tables<"data_deletion_requests">;
 export type DataCorrectionRequest = Tables<"data_correction_requests">;
+export type DataExportRequest = Tables<"data_export_requests">;
 
 function deletionKey(patientId: string) {
   return ["data-deletion-requests", patientId];
@@ -11,6 +12,10 @@ function deletionKey(patientId: string) {
 
 function correctionKey(patientId: string) {
   return ["data-correction-requests", patientId];
+}
+
+function exportKey(patientId: string) {
+  return ["data-export-requests", patientId];
 }
 
 /**
@@ -110,6 +115,49 @@ export function useCreateCorrectionRequest(organisationId: string, patientId: st
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: correctionKey(patientId) });
+    },
+  });
+}
+
+/** The caller's own data-export requests, newest first. Same RLS shape as
+ * deletion/correction requests. */
+export function usePatientExportRequests(patientId: string) {
+  return useQuery({
+    queryKey: exportKey(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("data_export_requests")
+        .select("*")
+        .order("requested_at", { ascending: false });
+      if (error) throw error;
+      return data as DataExportRequest[];
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * Opens a new data-export request. A patient asks admin for their data
+ * instead of self-serve downloading it directly — organisation_id/patient_id/
+ * status are all forced server-side by
+ * private.enforce_data_export_request_attribution; nothing is exported
+ * automatically, an admin fulfils the request out of band.
+ */
+export function useCreateExportRequest(organisationId: string, patientId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { note?: string }) => {
+      const supabase = createClient();
+      const { error } = await supabase.from("data_export_requests").insert({
+        organisation_id: organisationId,
+        patient_id: patientId,
+        note: input.note || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: exportKey(patientId) });
     },
   });
 }

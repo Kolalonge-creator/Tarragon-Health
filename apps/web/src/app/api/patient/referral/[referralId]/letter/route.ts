@@ -32,7 +32,7 @@ export async function GET(
   const { data: referral } = await supabase
     .from("specialist_referrals")
     .select(
-      "id, referral_number, created_at, patient_id, specialist_type, urgency, referral_reason, interim_management_plan, clinical_summary, set_by",
+      "id, referral_number, created_at, patient_id, specialist_type, urgency, referral_reason, requested_service, interim_management_plan, clinical_summary, set_by",
     )
     .eq("id", referralId)
     .maybeSingle();
@@ -90,6 +90,7 @@ export async function GET(
     specialistType: referral.specialist_type,
     urgency: referral.urgency,
     reason: referral.referral_reason ?? summary.clinical_question ?? null,
+    requestedService: referral.requested_service,
     interimPlan: referral.interim_management_plan,
     vitals: summary.vitals ?? [],
     medications: summary.medications ?? [],

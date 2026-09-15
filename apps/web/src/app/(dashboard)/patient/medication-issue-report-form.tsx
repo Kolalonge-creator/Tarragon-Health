@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 type ReportKind = "cost" | "concern";
 
@@ -38,6 +39,8 @@ export function MedicationIssueReportForm({
   const reportConcern = useReportMedicationConcern();
   const isPending = reportAffordability.isPending || reportConcern.isPending;
   const isError = reportAffordability.isError || reportConcern.isError;
+  const errorId = fieldErrorId(`medication-issue-${medication.id}`);
+  const errorProps = fieldErrorProps(errorId, isError);
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -67,8 +70,8 @@ export function MedicationIssueReportForm({
 
   if (done) {
     return (
-      <p className="text-xs font-medium text-brand-green">
-        Thanks for letting us know — your care team can see this.
+      <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">
+        Thanks for letting us know. Your care team can see this.
       </p>
     );
   }
@@ -79,7 +82,7 @@ export function MedicationIssueReportForm({
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/60"
+        className="min-h-11 px-2 text-xs text-charcoal-ink/60 dark:text-night-ink/60"
         onClick={() => setOpen(true)}
       >
         Report a problem
@@ -88,7 +91,7 @@ export function MedicationIssueReportForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
+    <form onSubmit={handleSubmit} className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
       <div className="space-y-1">
         <Label htmlFor={`issue_kind_${medication.id}`} className="text-xs">
           What&apos;s the problem?
@@ -98,9 +101,10 @@ export function MedicationIssueReportForm({
           className="h-8 text-xs"
           value={kind}
           onChange={(event) => setKind(event.target.value as ReportKind)}
+          {...errorProps}
         >
           <option value="cost">I couldn&apos;t afford it</option>
-          <option value="concern">Something else — a concern about this medication</option>
+          <option value="concern">Something else (a concern about this medication)</option>
         </Select>
       </div>
       <div className="space-y-1">
@@ -114,6 +118,7 @@ export function MedicationIssueReportForm({
           value={note}
           onChange={(event) => setNote(event.target.value)}
           required={kind === "concern"}
+          {...errorProps}
         />
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -127,9 +132,11 @@ export function MedicationIssueReportForm({
         <Button type="button" size="sm" variant="ghost" onClick={() => setOpen(false)}>
           Cancel
         </Button>
-        {isError && (
-          <p className="text-xs text-red-600">Could not send that. Please try again.</p>
-        )}
+        <FormError
+          id={errorId}
+          message={isError && "Could not send that. Please try again."}
+          className="text-xs"
+        />
       </div>
     </form>
   );

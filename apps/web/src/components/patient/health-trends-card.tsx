@@ -60,14 +60,14 @@ export async function HealthTrendsCard({
               <Badge variant={finding.significance === "outside_range" ? "amber" : "grey"}>
                 {finding.direction === "rising" ? "Up" : "Down"}
               </Badge>
-              <p className="text-sm text-charcoal-ink/85">
+              <p className="text-sm text-charcoal-ink/85 dark:text-night-ink/85">
                 {audience === "patient" ? describeForPatient(finding) : describeForClinician(finding)}
               </p>
             </li>
           ))}
         </ul>
         {audience === "patient" ? (
-          <p className="mt-3 text-xs text-charcoal-ink/55">
+          <p className="mt-3 text-xs text-charcoal-ink/55 dark:text-night-ink/60">
             Your care team sees these same patterns alongside everything else in your record.
           </p>
         ) : null}

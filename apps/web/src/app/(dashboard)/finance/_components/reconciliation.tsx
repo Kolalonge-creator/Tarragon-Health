@@ -15,15 +15,17 @@ import {
   postSettlementAction,
   resolveReconciliationFlagAction,
 } from "@/lib/finance/actions";
+import { lagosToday } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
-const PROVIDERS = ["paystack", "stripe"];
-const CURRENCIES = ["NGN", "GBP", "USD"];
-const BANKS = [
-  { code: "1000", label: "Bank: Paystack (NGN)" },
-  { code: "1010", label: "Bank: Stripe (diaspora)" },
-];
-const today = () => new Date().toISOString().slice(0, 10);
+// Paystack (NGN) is the only live payment rail. The Stripe option and its
+// diaspora bank account (GL 1010) were removed 2026-09-05: Stripe was never a
+// registered rail for Tarragon and the integration was deleted from the
+// codebase 2026-09-03, so a settlement posted against it would have moved
+// money in the ledger that never moved in the world.
+const SETTLEMENT_PROVIDER = "paystack" as const;
+const SETTLEMENT_CURRENCY = "NGN";
+const PAYSTACK_BANK_ACCOUNT = "1000";
 
 export function Reconciliation() {
   const qc = useQueryClient();
@@ -44,14 +46,11 @@ export function Reconciliation() {
 
   // import form
   const [f, setF] = useState({
-    provider: "paystack",
     external_ref: "",
-    settlement_date: today(),
-    currency: "NGN",
+    settlement_date: lagosToday(),
     gross: "",
     fees: "",
     net: "",
-    bank: "1000",
     notes: "",
   });
   const variance = useMemo(
@@ -64,14 +63,14 @@ export function Reconciliation() {
     setSaving(true);
     setMsg(null);
     const res = await importSettlementAction({
-      provider: f.provider,
+      provider: SETTLEMENT_PROVIDER,
       external_ref: f.external_ref,
       settlement_date: f.settlement_date,
-      currency: f.currency,
+      currency: SETTLEMENT_CURRENCY,
       gross_minor: majorToMinor(f.gross),
       fees_minor: majorToMinor(f.fees),
       net_minor: majorToMinor(f.net),
-      bank_account_code: f.bank,
+      bank_account_code: PAYSTACK_BANK_ACCOUNT,
       notes: f.notes,
     });
     setSaving(false);
@@ -106,7 +105,7 @@ export function Reconciliation() {
 
       <SectionCard
         title="Automated reconciliation flags"
-        description="Daily sweep against Paystack's and Stripe's own transaction records; detection only, nothing here is fixed automatically."
+        description="Daily sweep against Paystack's own transaction records; detection only, nothing here is fixed automatically."
       >
         {flagsLoading ? (
           <CenterNote>Loading…</CenterNote>
@@ -136,14 +135,14 @@ export function Reconciliation() {
 
       <SectionCard
         title="Import a settlement"
-        description="Enter a provider payout batch (gross / fees / net). Posting requires gross = net + fees."
+        description="Enter a Paystack payout batch (gross / fees / net). Posting requires gross = net + fees."
       >
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
             <Label>Provider</Label>
-            <Select value={f.provider} onChange={(e) => setF((p) => ({ ...p, provider: e.target.value, bank: e.target.value === "stripe" ? "1010" : "1000" }))}>
-              {PROVIDERS.map((p) => <option key={p} value={p}>{p}</option>)}
-            </Select>
+            <p className="mt-1 rounded-md border border-charcoal-ink/10 bg-soft-sage/40 px-3 py-2 text-sm text-charcoal-ink/70">
+              Paystack, into Bank: Paystack (NGN)
+            </p>
           </div>
           <div>
             <Label>Settlement date</Label>
@@ -151,21 +150,15 @@ export function Reconciliation() {
           </div>
           <div>
             <Label>Currency</Label>
-            <Select value={f.currency} onChange={(e) => setF((p) => ({ ...p, currency: e.target.value }))}>
-              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
-            </Select>
+            <p className="mt-1 rounded-md border border-charcoal-ink/10 bg-soft-sage/40 px-3 py-2 text-sm text-charcoal-ink/70">
+              {SETTLEMENT_CURRENCY}
+            </p>
           </div>
           <div>
             <Label>Provider reference</Label>
             <Input value={f.external_ref} onChange={(e) => setF((p) => ({ ...p, external_ref: e.target.value }))} placeholder="e.g. STL_xxx" />
           </div>
-          <div>
-            <Label>Bank account</Label>
-            <Select value={f.bank} onChange={(e) => setF((p) => ({ ...p, bank: e.target.value }))}>
-              {BANKS.map((b) => <option key={b.code} value={b.code}>{b.label}</option>)}
-            </Select>
-          </div>
-          <div>
+          <div className="sm:col-span-2">
             <Label>Notes</Label>
             <Input value={f.notes} onChange={(e) => setF((p) => ({ ...p, notes: e.target.value }))} />
           </div>
@@ -185,7 +178,7 @@ export function Reconciliation() {
         <div className="mt-3 flex items-center justify-between">
           <span className="text-sm">
             Variance:{" "}
-            <b className={variance === 0 ? "text-brand-green" : "text-red-600"}>{formatMinor(variance, f.currency)}</b>
+            <b className={variance === 0 ? "text-brand-green" : "text-red-600"}>{formatMinor(variance, SETTLEMENT_CURRENCY)}</b>
             {variance !== 0 && <span className="ml-1 text-xs text-charcoal-ink/50">(gross must equal net + fees to post)</span>}
           </span>
           <Button size="sm" onClick={importSettlement} disabled={saving}>{saving ? "Saving…" : "Import settlement"}</Button>

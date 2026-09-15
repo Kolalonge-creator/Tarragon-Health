@@ -140,7 +140,7 @@ $$;
 -- anon inherits EXECUTE through the PUBLIC pseudo-role, so `revoke from public`
 -- is the revoke that actually does anything; the `from anon` line is defence in
 -- depth and is a no-op on its own. See feedback_supabase_anon_execute_gotcha.
-revoke all on function public.revoke_care_access(uuid) from public;
+revoke all on function public.revoke_care_access(uuid) from public, anon;
 revoke execute on function public.revoke_care_access(uuid) from anon;
 grant execute on function public.revoke_care_access(uuid) to authenticated;
 
@@ -319,7 +319,7 @@ begin
 end;
 $$;
 
-revoke all on function public.my_care_graph() from public;
+revoke all on function public.my_care_graph() from public, anon;
 revoke execute on function public.my_care_graph() from anon;
 grant execute on function public.my_care_graph() to authenticated;
 

@@ -79,13 +79,13 @@ export function ConditionProtocolView({ protocol }: { protocol: ConditionProtoco
         </div>
       )}
 
-      <Domain label="Investigations — baseline" items={baseline} />
-      <Domain label="Investigations — ongoing" items={ongoing} />
+      <Domain label="Investigations: baseline" items={baseline} />
+      <Domain label="Investigations: ongoing" items={ongoing} />
 
       {(redFlags.length > 0 || sla) && (
         <div className="space-y-1 rounded-md border border-red-200 bg-red-50/60 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-red-700">
-            Escalation — red flags
+            Escalation: red flags
           </p>
           {redFlags.length > 0 && (
             <ul className="list-disc space-y-0.5 pl-5 text-sm text-charcoal-ink/80">
@@ -102,7 +102,7 @@ export function ConditionProtocolView({ protocol }: { protocol: ConditionProtoco
 
       <p className="text-xs text-charcoal-ink/50">
         Source: {protocol.source}
-        {protocol.source_reference ? ` — ${protocol.source_reference}` : ""}. Reference guidance,
+        {protocol.source_reference ? ` (${protocol.source_reference})` : ""}. Reference guidance,
         pending Clinical Director sign-off before activation.
       </p>
     </div>

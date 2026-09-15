@@ -113,7 +113,7 @@ begin
 end;
 $$;
 
-revoke all on function public.sponsor_pay_booking_order(uuid, text, uuid) from public;
+revoke all on function public.sponsor_pay_booking_order(uuid, text, uuid) from public, anon;
 revoke all on function public.sponsor_pay_booking_order(uuid, text, uuid) from anon;
 grant execute on function public.sponsor_pay_booking_order(uuid, text, uuid) to authenticated;
 

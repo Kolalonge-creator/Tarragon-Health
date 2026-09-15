@@ -114,3 +114,43 @@ describe("step totals reaching the patient-facing activity log", () => {
     expect(result.stepDaysRecorded).toBe(0);
   });
 });
+
+describe("consent gating (53.3/53.4)", () => {
+  it("drops a reading whose category the patient denied, never reaching the activity log", async () => {
+    const { svc, rpcCalls } = fakeSvc(true);
+    const denied = {
+      ...target,
+      consent: { activity: false, heart_rate: true, sleep: true, weight: true },
+    };
+    const result = await ingestReadings(svc, denied, [steps(9412, "2026-08-12T18:00:00.000Z")]);
+
+    expect(rpcCalls).toHaveLength(0);
+    expect(result.stepDaysRecorded).toBe(0);
+    expect(result.deniedByConsent).toBe(1);
+    expect(result.implausible).toBe(0);
+  });
+
+  it("still syncs every other consented category on the same connection", async () => {
+    const { svc, rpcCalls } = fakeSvc(true);
+    const activityOnlyDenied = {
+      ...target,
+      consent: { activity: false, heart_rate: true, sleep: true, weight: true },
+    };
+    const result = await ingestReadings(svc, activityOnlyDenied, [
+      steps(9412, "2026-08-12T18:00:00.000Z"),
+      { readingType: "hrv_ms", value: 42, unit: "ms", recordedAt: "2026-08-12T12:00:00.000Z", externalReadingId: "h1" },
+    ]);
+
+    expect(rpcCalls).toHaveLength(0); // the steps reading was denied
+    expect(result.deniedByConsent).toBe(1);
+    expect(result.wearableInserted).toBe(1); // hrv_ms still went through
+  });
+
+  it("defaults to full consent when the caller passes none (the mobile HealthKit/Health Connect bridge)", async () => {
+    const { svc, rpcCalls } = fakeSvc(true);
+    const result = await ingestReadings(svc, target, [steps(9412, "2026-08-12T18:00:00.000Z")]);
+
+    expect(rpcCalls).toHaveLength(1);
+    expect(result.deniedByConsent).toBe(0);
+  });
+});

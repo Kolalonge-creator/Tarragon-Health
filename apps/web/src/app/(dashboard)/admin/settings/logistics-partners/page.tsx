@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasAnyPermission } from "@/lib/auth/permissions";
+import { PageHeader } from "@/components/ui/page-header";
 import { LogisticsPartnersManager } from "./logistics-partners-manager";
 
 export default async function LogisticsPartnersSettingsPage() {
@@ -14,16 +15,10 @@ export default async function LogisticsPartnersSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Home visit &amp; delivery partners
-        </h1>
-        <p className="text-charcoal-ink/60">
-          There is no feature flag for home collection or delivery. Patients see a real
-          scheduling/tracking UI the moment an active partner row exists covering their region.
-          Adding or activating a row below is the entire mechanism.
-        </p>
-      </div>
+      <PageHeader
+        title="Home visit & delivery partners"
+        description="There is no feature flag for home collection or delivery. Patients see a real scheduling/tracking UI the moment an active partner row exists covering their region. Adding or activating a row below is the entire mechanism."
+      />
       <LogisticsPartnersManager />
     </div>
   );

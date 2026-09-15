@@ -17,13 +17,15 @@ export type EscalationWithDetails = Tables<"escalations"> & {
         overridden_by_staff: { full_name: string } | null;
         sla_due_at: string | null;
         screening_result: { result_status: ScreeningResultStatus } | null;
+        responsible_clinician: { full_name: string } | null;
+        backup_clinician: { full_name: string } | null;
       }
     | null;
   assigned_doctor: { full_name: string | null } | null;
 };
 
 const ESCALATION_SELECT =
-  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
+  "*, patient:profiles!escalations_patient_id_fkey(full_name), clinician_alert:clinician_alerts!escalations_clinician_alert_id_fkey(id, title, level, override_level, override_reason, overridden_at, overridden_by_staff:clinical_staff!clinician_alerts_overridden_by_fkey(full_name), sla_due_at, screening_result:screening_results!clinician_alerts_screening_result_id_fkey(result_status), responsible_clinician:clinical_staff!clinician_alerts_responsible_clinician_id_fkey(full_name), backup_clinician:clinical_staff!clinician_alerts_backup_clinician_id_fkey(full_name)), assigned_doctor:profiles!escalations_assigned_doctor_id_fkey(full_name)";
 
 /**
  * Open/under-review escalations — doctor worklist (unclaimed or claimed by
@@ -140,7 +142,16 @@ export function useRaiseEscalation() {
   });
 }
 
-/** Claims an unclaimed escalation for the current doctor; no-ops if already claimed. */
+/**
+ * Fallback path for the rare case private.auto_assign_escalation()
+ * (20260831001458) couldn't route to anyone (e.g. a brand-new org with no
+ * staff yet, or everyone inactive) — any qualifying-tier doctor may claim an
+ * unassigned case for themselves. Every escalation raised through the normal
+ * app paths (useEscalateAlert/useRaiseEscalation) is auto-assigned to a
+ * specific doctor's queue at creation, so this mutation is deliberately
+ * scoped to `assigned_doctor_id is null` only — it is not the everyday way
+ * work gets picked up any more, see useStartEscalationReview for that.
+ */
 export function useClaimEscalation() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -156,6 +167,7 @@ export function useClaimEscalation() {
         .update({ assigned_doctor_id: user.id, status: "under_review" })
         .eq("id", escalationId)
         .eq("status", "open")
+        .is("assigned_doctor_id", null)
         .select("clinician_alert_id")
         .maybeSingle();
       if (error) throw error;
@@ -174,6 +186,75 @@ export function useClaimEscalation() {
       if (data?.clinician_alert_id) {
         void generateCaseBriefAction(data.clinician_alert_id).catch(() => {});
       }
+    },
+  });
+}
+
+/**
+ * The everyday way a doctor starts working the case already routed to them
+ * by private.auto_assign_escalation() — sets status open -> under_review
+ * only, leaves assigned_doctor_id untouched. Gated by the DB
+ * (private.enforce_emergency_escalation_tier, 20260831001458) to the
+ * assigned doctor or the Chief Medical Officer; this mutation only decides
+ * whether to render the "Start review" control.
+ */
+export function useStartEscalationReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (escalationId: string) => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("escalations")
+        .update({ status: "under_review" })
+        .eq("id", escalationId)
+        .eq("status", "open")
+        .select("clinician_alert_id")
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["escalations"] });
+      if (data?.clinician_alert_id) {
+        void generateCaseBriefAction(data.clinician_alert_id).catch(() => {});
+      }
+    },
+  });
+}
+
+/**
+ * Reassigns an escalation to a chosen doctor — the Chief Medical Officer's
+ * case-assignment authority (docs/CLAUDE.md's Clinical Tier Ladder), an
+ * override on top of automatic routing rather than the everyday way work
+ * gets assigned (see private.auto_assign_escalation, 20260831001458).
+ * Resets status back to "open": the newly-assigned doctor starts their own
+ * review explicitly (useStartEscalationReview) rather than being marked as
+ * already reviewing something they haven't opened yet. Setting
+ * assigned_doctor_id to someone OTHER than the caller is gated by a DB
+ * trigger to doctor_tier = 'chief_medical_officer'; this mutation only
+ * decides whether to render the "Assign to…" control (see canAssignCases in
+ * lib/clinical/doctor-tier.ts) — the trigger is the real enforcement
+ * boundary.
+ */
+export function useAssignEscalation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      escalationId,
+      doctorProfileId,
+    }: {
+      escalationId: string;
+      doctorProfileId: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("escalations")
+        .update({ assigned_doctor_id: doctorProfileId, status: "open" })
+        .eq("id", escalationId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["escalations"] });
     },
   });
 }

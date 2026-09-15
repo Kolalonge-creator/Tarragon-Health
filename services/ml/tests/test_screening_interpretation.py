@@ -144,6 +144,18 @@ def test_mammography_procedural_passthrough_with_flag() -> None:
     assert result.abnormal_flags == ["mammography"]
 
 
+def test_mammography_indeterminate_passthrough_does_not_escalate_as_abnormal() -> None:
+    # Result Lifecycle spec §58.3 — Indeterminate ("further assessment/repeat
+    # testing") is distinct from Abnormal: this must round-trip as its own
+    # status, not get silently coerced into 'abnormal' just because it's the
+    # closest existing value.
+    result = interpret_screening_result(
+        screen_type_code="mammography", sex="female", age=52, procedural_status="indeterminate"
+    )
+    assert result.result_status == "indeterminate"
+    assert result.abnormal_flags == ["mammography"]
+
+
 def test_cervical_smear_flag_token_matches_trigger_vocabulary() -> None:
     result = interpret_screening_result(
         screen_type_code="cervical_smear", sex="female", age=30, procedural_status="abnormal"

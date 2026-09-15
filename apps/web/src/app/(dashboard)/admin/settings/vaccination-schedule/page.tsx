@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   VaccinationScheduleManager,
   type VaccinationScheduleSignoffRow,
@@ -10,10 +11,10 @@ import {
 /**
  * Clinical Director sign-off for the vaccination reference schedule that
  * drives vaccination_catalog's due/overdue computation and the vaccination_due
- * reminder cron. The catalog itself is edited via migrations (each dosing
+ * reminder cron. The catalogue itself is edited via migrations (each dosing
  * change is its own reviewed, tested change — see supabase/migrations for the
  * 2026-07-24 tetanus/shingles accuracy work); this page is where a Clinical
- * Director reviews the CURRENT catalog and puts a signed record of that
+ * Director reviews the CURRENT catalogue and puts a signed record of that
  * review on file, the same signing discipline as /admin/settings/cv-risk-config.
  */
 export default async function VaccinationScheduleSettingsPage() {
@@ -42,18 +43,10 @@ export default async function VaccinationScheduleSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Vaccination schedule
-        </h1>
-        <p className="text-charcoal-ink/60">
-          This is the reference immunisation schedule that drives every parent&apos;s due/overdue
-          calendar and the vaccination reminder notifications, {catalogRows.length} active entries.
-          The schedule itself changes only through reviewed, tested code changes; this page is where
-          a Clinical Director puts a signed record on file confirming the current schedule has been
-          reviewed and approved.
-        </p>
-      </div>
+      <PageHeader
+        title="Vaccination schedule"
+        description={`This is the reference immunisation schedule that drives every parent's due/overdue calendar and the vaccination reminder notifications, ${catalogRows.length} active entries. The schedule itself changes only through reviewed, tested code changes; this page is where a Clinical Director puts a signed record on file confirming the current schedule has been reviewed and approved.`}
+      />
       <VaccinationScheduleManager
         catalog={catalogRows}
         signoffs={signoffRows}

@@ -47,6 +47,14 @@ export const healthSampleBatchSchema = z.object({
   // Either health store can return a very long history on a first sync; the
   // app pages rather than posting everything at once.
   samples: z.array(healthSampleSchema).min(1).max(500),
+  // Reading types whose device-side query hit its per-type page limit, so
+  // the store may hold MORE samples of that type inside this batch's window.
+  // The server cannot detect that on its own — it only sees what arrived —
+  // and the sync cursor is a single timestamp across all types, so without
+  // this declaration a type with a deep backlog gets skipped over forever
+  // (see the cursor comment in api/mobile/health-samples/route.ts). Optional:
+  // app versions that predate it simply omit it and keep today's behaviour.
+  truncated_types: z.array(z.enum(WEARABLE_READING_TYPES)).max(WEARABLE_READING_TYPES.length).optional(),
 });
 
 export type HealthSampleInput = z.infer<typeof healthSampleSchema>;

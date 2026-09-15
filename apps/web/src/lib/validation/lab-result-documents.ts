@@ -35,12 +35,29 @@ export type StaffResultUploadInput = z.infer<typeof staffResultUploadSchema>;
 /** A patient uploading their own result from whichever lab they used. The
  * document `source` is pinned to 'patient' server-side and patient_id is taken
  * from the session, never from this input — the only thing the client chooses
- * is which of their own open orders (if any) it belongs to. */
+ * is which of their own open orders (if any) it belongs to, and/or which of
+ * their own self-reported screening_completions (if any) it belongs to. */
 export const patientResultUploadSchema = z.object({
   lab_order_id: z.string().uuid().optional(),
+  screening_completion_id: z.string().uuid().optional(),
   note: z.string().trim().max(500).optional(),
+  /** Scopes this upload to one test within a multi-test lab_order_id (the
+   * per-test checklist, lab-order-test-checklist.tsx). Omitted for a loose
+   * upload or a single-test order — there's nothing to disambiguate. */
+  test_code: z.string().trim().min(1).max(100).optional(),
 });
 export type PatientResultUploadInput = z.infer<typeof patientResultUploadSchema>;
+
+/** A patient replacing a result document they uploaded themselves, before
+ * anyone has reviewed it — "I attached the wrong file." Which document is
+ * being replaced is the only identifying input; ownership, source, and the
+ * unreviewed gate are all re-checked server-side from the row itself, never
+ * trusted from the client. */
+export const replaceResultDocumentSchema = z.object({
+  document_id: z.string().uuid(),
+  note: z.string().trim().max(500).optional(),
+});
+export type ReplaceResultDocumentInput = z.infer<typeof replaceResultDocumentSchema>;
 
 /** A clinician marking an uploaded document reviewed and sending the patient a
  * plain-language interpretation of it. `interpretation` is required — a

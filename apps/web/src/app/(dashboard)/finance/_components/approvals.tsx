@@ -54,7 +54,7 @@ export function ApprovalsQueue() {
       <p className="rounded-md bg-soft-sage/50 px-3 py-2 text-xs text-charcoal-ink/70">
         A four-eyes control: a manual journal entry at or above the configured threshold, and locking
         an accounting period, wait here for a <b>different</b> finance officer to review: the person
-        who requested it can never approve their own request (enforced at the database level, not just
+        who requested it cannot approve their own request (enforced at the database level, not just
         in this UI).
       </p>
 

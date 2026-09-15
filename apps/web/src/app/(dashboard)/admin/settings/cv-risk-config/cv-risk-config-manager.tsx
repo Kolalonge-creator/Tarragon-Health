@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
 import { signCvRiskConfigAction, type SignCvRiskConfigState } from "./actions";
 
 export type CvRiskConfigRow = {
@@ -42,7 +43,8 @@ export function CvRiskConfigManager({ configs }: { configs: CvRiskConfigRow[] })
   }
   return (
     <div className="space-y-4">
-      {configs.map((c) => (
+      <VersionHistoryList>
+        {configs.map((c) => (
         <Card key={c.id}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
@@ -75,7 +77,8 @@ export function CvRiskConfigManager({ configs }: { configs: CvRiskConfigRow[] })
             )}
           </CardContent>
         </Card>
-      ))}
+        ))}
+      </VersionHistoryList>
     </div>
   );
 }

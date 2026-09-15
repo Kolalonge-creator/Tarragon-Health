@@ -133,9 +133,9 @@ export function CardiovascularRiskPanel({
                   </Badge>
                 </div>
                 <p className="mt-1 text-xs text-blue-900/80">
-                  No SCORE2 result on file yet — this is a transparent, lab-optional{" "}
+                  No SCORE2 result on file yet. This is a transparent, lab-optional{" "}
                   {assessment.afroEstimate.labUsed ? "estimate that used the cholesterol on file" : "estimate (no cholesterol on file)"}, not the official WHO/ISH chart. It does not
-                  drive the risk badge, targets, or escalations above — confirm it clinically, and
+                  drive the risk badge, targets, or escalations above. Confirm it clinically, and
                   record a lipid panel + BP + smoking status to get a real SCORE2 result.
                 </p>
               </div>

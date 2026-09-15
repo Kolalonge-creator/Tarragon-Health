@@ -13,12 +13,11 @@ import {
   reverseJournalAction,
   type JournalLineInput,
 } from "@/lib/finance/actions";
+import { lagosToday, lagosDaysAgo } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
 const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "voucher", "manual", "adjustment"];
 const CURRENCIES = ["NGN", "GBP", "USD"];
-const today = () => new Date().toISOString().slice(0, 10);
-const daysAgo = (n: number) => new Date(Date.now() - n * 86400000).toISOString().slice(0, 10);
 
 interface DraftLine {
   account_code: string;
@@ -31,8 +30,8 @@ const emptyLine = (): DraftLine => ({ account_code: "", debit: "", credit: "", m
 
 export function LedgerBrowser() {
   const qc = useQueryClient();
-  const [from, setFrom] = useState(daysAgo(90));
-  const [to, setTo] = useState(today());
+  const [from, setFrom] = useState(lagosDaysAgo(90));
+  const [to, setTo] = useState(lagosToday());
   const [source, setSource] = useState("");
   const [showForm, setShowForm] = useState(false);
 
@@ -41,7 +40,7 @@ export function LedgerBrowser() {
   const costCenters = useCostCenters();
 
   // manual-entry draft
-  const [entryDate, setEntryDate] = useState(today());
+  const [entryDate, setEntryDate] = useState(lagosToday());
   const [currency, setCurrency] = useState("NGN");
   const [memo, setMemo] = useState("");
   const [lines, setLines] = useState<DraftLine[]>([emptyLine(), emptyLine()]);
@@ -145,7 +144,7 @@ export function LedgerBrowser() {
                   <Th>Account</Th>
                   <Th right>Debit</Th>
                   <Th right>Credit</Th>
-                  <Th>Cost center</Th>
+                  <Th>Cost centre</Th>
                   <Th>Line memo</Th>
                   <Th> </Th>
                 </tr>
@@ -221,7 +220,7 @@ export function LedgerBrowser() {
 
       <SectionCard
         title="General ledger"
-        description="Every posted journal entry and its lines. Corrections are made by reversing, never editing."
+        description="Every posted journal entry and its lines. Corrections are made by reversing, rather than editing."
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" />

@@ -5,12 +5,27 @@ import { loadImpactMetrics } from "@/lib/marketing/impact-data";
 import { pageMetadata } from "@/lib/marketing/site";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 
-export const metadata: Metadata = pageMetadata({
-  title: "Our impact",
-  description:
-    "Platform-wide numbers on what TarragonHealth's monitoring and doctor review actually catches, updated daily, with small numbers held back to protect patient privacy.",
-  path: MARKETING_ROUTES.impact,
-});
+/**
+ * Noindex while there is nothing to show. Every metric is currently either
+ * suppressed by the k-anonymity floor or zero, so the indexed page reads
+ * "Our impact" above a row of em dashes, which is a worse first impression
+ * from search than no result at all. The moment one real figure clears the
+ * floor this flips back to indexable on its own, with no code change needed:
+ * the check below is on live data, not a hardcoded flag.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const metrics = await loadImpactMetrics();
+  const anyVisible = metrics.some((m) => !m.suppressed && m.value !== null && m.value > 0);
+  return {
+    ...pageMetadata({
+      title: "Our impact",
+      description:
+        "Platform-wide numbers on what our monitoring and doctor review actually catches, updated daily, with small counts held back to protect patient privacy.",
+      path: MARKETING_ROUTES.impact,
+    }),
+    ...(anyVisible ? {} : { robots: { index: false, follow: true } }),
+  };
+}
 
 // The underlying table refreshes on a nightly cron; re-render at the same cadence.
 export const revalidate = 300;
@@ -22,7 +37,7 @@ function formatValue(value: number | null): string {
 
 export default async function ImpactPage() {
   const metrics = await loadImpactMetrics();
-  const anyVisible = metrics.some((m) => !m.suppressed && m.value !== null);
+  const anyVisible = metrics.some((m) => !m.suppressed && m.value !== null && m.value > 0);
   const computedAt = metrics.find((m) => m.computedAt)?.computedAt ?? null;
 
   return (
@@ -43,7 +58,7 @@ export default async function ImpactPage() {
           title={anyVisible ? "What the numbers show" : "We're just getting started"}
           description={
             anyVisible
-              ? "Every figure below is a real count from the platform, aggregated across every patient, institution and city, never broken down by organisation or individual."
+              ? "Every figure below is a real count, aggregated across every patient, institution and city, and not broken down by organisation or individual."
               : "TarragonHealth is early. We hold back any number small enough that showing it could identify a real person, so most figures here will fill in as more patients join. That's a privacy choice, not a bug."
           }
         />
@@ -51,7 +66,7 @@ export default async function ImpactPage() {
           {metrics.map((metric) => (
             <div
               key={metric.metricKey}
-              className="rounded-2xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
+              className="rounded-xl border border-charcoal-ink/10 bg-white p-6 shadow-sm"
             >
               <p className="font-heading text-3xl font-semibold text-brand-green">
                 {formatValue(metric.value)}
@@ -61,7 +76,7 @@ export default async function ImpactPage() {
                 <p className="mt-1 text-xs text-charcoal-ink/60">{metric.description}</p>
               )}
               {metric.suppressed && (
-                <p className="mt-2 text-xs text-charcoal-ink/50">
+                <p className="mt-2 text-xs text-charcoal-ink/65">
                   Not enough activity yet to show without risking anyone&apos;s privacy.
                 </p>
               )}
@@ -69,7 +84,7 @@ export default async function ImpactPage() {
           ))}
         </div>
         {computedAt && (
-          <p className="mx-auto mt-6 max-w-4xl text-center text-xs text-charcoal-ink/50">
+          <p className="mx-auto mt-6 max-w-4xl text-center text-xs text-charcoal-ink/65">
             Last updated {new Date(computedAt).toLocaleDateString("en-NG", {
               day: "numeric",
               month: "long",
@@ -86,10 +101,10 @@ export default async function ImpactPage() {
             How we protect privacy in these numbers
           </h2>
           <p className="mt-4 text-charcoal-ink/70">
-            Nothing here is broken down by employer, HMO, hospital or any other group smaller than
-            the whole platform. That&apos;s a stricter rule than we apply even to an institution
-            looking at its own aggregate data. Any count below 25 is held back entirely rather than
-            shown as a small, potentially identifying number.
+            Nothing here is broken down by employer, HMO, hospital or any group smaller than the
+            whole platform, a stricter rule than we apply even to an institution&apos;s own
+            aggregate data. Any count below 25 is held back entirely, rather than shown as a
+            small, potentially identifying number.
           </p>
         </div>
       </Section>

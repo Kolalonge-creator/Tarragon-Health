@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasScope, verifyApiKey } from "@/lib/integrations/api-key";
+import { checkProtocolApiQuota } from "@/lib/protocol-api/check-quota";
 import { logProtocolApiUsage } from "@/lib/protocol-api/log-usage";
 import { cvRiskSchema } from "@/lib/validation/protocol-api";
 import { assessCvRisk, PROVISIONAL_CV_RISK_CONFIG } from "@/lib/rules/cv-risk";
@@ -26,6 +27,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   if (!hasScope(verified, "protocol_api:classify")) {
     return NextResponse.json({ error: "API key lacks the protocol_api:classify scope" }, { status: 403 });
+  }
+  const quota = await checkProtocolApiQuota(verified);
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { error: `Monthly quota exceeded (${quota.used}/${quota.limit} calls) — contact your account manager.` },
+      { status: 429 }
+    );
   }
 
   let body: unknown;
@@ -73,6 +81,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     rationale: assessment.rationale,
     advisory: true,
     disclaimer:
-      "Advisory risk stratification only, never a prescription -- this engine never recommends a specific medication or dose, and a high-risk/secondary-prevention classification always means 'flag for clinician review', never 'treat automatically'.",
+      "Advisory risk stratification only, not a prescription -- this engine does not recommend a specific medication or dose, and a high-risk/secondary-prevention classification always means 'flag for clinician review', never 'treat automatically'.",
   });
 }
