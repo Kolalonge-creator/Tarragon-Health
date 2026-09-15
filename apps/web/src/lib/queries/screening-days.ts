@@ -56,7 +56,10 @@ export function useSelfBookablePanelBundles() {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("panel_bundles")
-        .select("id, code, name, price_kobo")
+        // indicative_price_kobo is what a LABORATORY charges; price_kobo
+        // stopped being a Tarragon price on 2026-09-10 and must not be
+        // rendered as one.
+        .select("id, code, name, price_kobo, indicative_price_kobo")
         .eq("is_active", true)
         .eq("self_bookable", true)
         .order("price_kobo", { ascending: false });
