@@ -42,6 +42,9 @@ import {
   type HospitalAdmission,
   type ReferralItem,
 } from "@/lib/care";
+import { SecondOpinionSection } from "./second-opinion-section";
+import { SeniorCaseReviewSection } from "./senior-case-review-section";
+import { VerifiedDocumentsSection } from "./verified-documents-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   loadMyVouchers,
@@ -97,19 +100,25 @@ interface CareSupportScreenProps {
  * opinions, vouchers, wellness points…) — this screen covers the pieces a
  * patient checking in on their care actually needs most: the doctor-set
  * care plan (tasks + goals), care follow-ups/escalations, specialist
- * referrals, hospital admissions, asking a doctor a written question, and
- * getting non-clinical help — all real native reads/writes against
- * Supabase, no embedded WebView anywhere on this screen (that used to be a
- * "open the full hub" Modal wrapping WebViewScreen; removed in favour of
- * building the content natively).
+ * referrals, hospital admissions, asking a doctor a written question,
+ * second opinions, senior case reviews, verified documents, and getting
+ * non-clinical help — all real native reads/writes against Supabase, no
+ * embedded WebView anywhere on this screen (that used to be a "open the
+ * full hub" Modal wrapping WebViewScreen; removed in favour of building
+ * the content natively).
  *
- * What's deliberately left as a system-browser hand-off, not rebuilt here:
- * the five one-off-paid, Paystack-checkout-shaped services (book a video
- * visit, second opinion, verified documents, senior case review, and
- * buying an Ask-a-doctor credit when one is needed) — same reasoning as
- * "My services" elsewhere in the app (App Store Review 3.1.1: embedding a
- * digital-purchase checkout in-app risks rejection, so checkout always
- * opens the system browser, never a WebView). Also left on web: proposing a
+ * Every one of the credit-gated paid services above follows the same
+ * shape: submit the request directly (a plain RLS-scoped insert), and only
+ * if a DB trigger rejects it for lack of a credit, offer to buy one in the
+ * system browser — same reasoning as "My services" elsewhere in the app
+ * (App Store Review 3.1.1: embedding a digital-purchase checkout in-app
+ * risks rejection, so the actual payment always opens the system browser,
+ * never a WebView or an in-app checkout form). Book Video Visit is the one
+ * remaining service still left as a full system-browser hand-off below,
+ * not rebuilt here — it isn't credit-based at all (a slot-pick-and-pay
+ * atomic action followed by a multi-stage doctor-acceptance lifecycle),
+ * a materially different shape that deserves its own native pass. Also
+ * left on web: proposing a
  * new care-plan goal (a form on top of an already sizeable screen) and the
  * discretionary/engagement cards (chronic programme timeline, care circle,
  * vouchers, wellness points, testimonials) that the web page itself treats
@@ -131,14 +140,17 @@ export function CareSupportScreen({ patientId, organisationId }: CareSupportScre
       <ReferralsSection patientId={patientId} />
       <HospitalAdmissionsSection patientId={patientId} organisationId={organisationId} />
       <AskADoctorSection patientId={patientId} organisationId={organisationId} />
+      <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
+      <SeniorCaseReviewSection patientId={patientId} organisationId={organisationId} />
+      <VerifiedDocumentsSection patientId={patientId} organisationId={organisationId} />
       <NeedHelpSection patientId={patientId} />
       <VouchersSection patientId={patientId} />
       <TestimonialSection />
 
       <CalloutCard
         icon="medkit-outline"
-        title="More ways to get care"
-        subtitle="Book a video visit, get a second opinion, or verify a document — one-off paid services, opened in your browser."
+        title="Book a video visit"
+        subtitle="A one-off online consultation with a doctor — booking and payment both happen in your browser."
         ctaLabel="Open"
         onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
       />
