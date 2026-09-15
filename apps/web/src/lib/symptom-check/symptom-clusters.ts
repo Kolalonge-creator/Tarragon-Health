@@ -36,14 +36,16 @@ export interface SymptomCluster {
    * single screen_type code would have silently stopped resolving it).
    */
   panelBundleCode: string;
-  /** One or two sentences explaining the suggestion, warm and non-alarming. */
-  patientExplanation: string;
   /**
-   * Free-text trigger phrases for matching this cluster inside an AI Coach
-   * message. Deliberately distinct from DANGER_SYMPTOM_IDS' vocabulary —
-   * see matchSymptomClustersFromText.
+   * One or two sentences explaining the suggestion, warm and non-alarming.
+   * Deliberately test/pattern-oriented, never a named diagnosis (e.g. "can
+   * point to low iron levels", not "this is anaemia") — appendSymptomSuggestion
+   * (ai-coach/graph.ts) appends `name` + this verbatim into an AI Coach
+   * reply, and COACH_SYSTEM_PROMPT tells the model itself to never name a
+   * condition. A cluster whose name/explanation names one anyway would
+   * contradict that rule two paragraphs later in the same reply.
    */
-  textTriggers: RegExp[];
+  patientExplanation: string;
 }
 
 /**
@@ -112,12 +114,6 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     panelBundleCode: "single_tft",
     patientExplanation:
       "These can be signs your thyroid is working too hard or not hard enough. A thyroid function test (TSH, Free T4) is the usual first step to check.",
-    textTriggers: [
-      /swelling.{0,15}(front of|in).{0,10}(my )?(neck|throat)/i,
-      /(neck|throat).{0,15}swelling/i,
-      /(heat|cold) intoleran/i,
-      /(always|constantly) (feel(ing)? )?(too )?(hot|cold)/i,
-    ],
   },
   {
     id: "blood_sugar",
@@ -127,34 +123,27 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     excludeSymptomIds: [],
     panelBundleCode: "single_hba1c",
     patientExplanation:
-      "Feeling thirsty more than usual, urinating more often, tiredness, and blurred vision together are worth checking with a blood sugar test (HbA1c), one of the most common early signs of diabetes.",
-    textTriggers: [
-      /(always|so|really) thirsty/i,
-      /(peeing|urinating).{0,15}(more|a lot|often)/i,
-      /blurr(y|ed) vision/i,
-    ],
+      "Feeling thirsty more than usual, urinating more often, tiredness, and blurred vision together are worth checking with a blood sugar test (HbA1c).",
   },
   {
     id: "anaemia",
-    name: "Possible iron-deficiency anaemia",
+    name: "Possible low iron levels",
     anchorSymptomIds: ["fatigue", "pale_skin", "breathlessness_on_exertion"],
     minMatches: 2,
     excludeSymptomIds: [],
     panelBundleCode: "single_fbc",
     patientExplanation:
       "Ongoing tiredness, looking pale, and getting breathless with mild activity can point to low iron levels. A full blood count (FBC) checks for this.",
-    textTriggers: [/(always|so|really) tired/i, /(look|looking|feel) pale/i, /(short of breath|breathless).{0,20}(stairs|walking|mild)/i],
   },
   {
     id: "uti",
-    name: "Possible urinary tract infection",
+    name: "Possible urinary tract irritation",
     anchorSymptomIds: ["burning_urination", "frequent_urination", "lower_abdomen_discomfort"],
     minMatches: 2,
     excludeSymptomIds: ["fever", "flank_pain", "blood_in_urine"],
     panelBundleCode: "single_urinalysis",
     patientExplanation:
-      "Burning when you urinate, needing to go more often, and mild lower-abdomen discomfort are common signs of a urinary tract infection. A urinalysis is the usual way to confirm it.",
-    textTriggers: [/burn(s|ing)?.{0,15}(when i|to) (pee|urinate)/i, /(pain|sting).{0,10}(peeing|urination)/i],
+      "Burning when you urinate, needing to go more often, and mild lower-abdomen discomfort together are worth checking with a urine test (urinalysis).",
   },
   {
     id: "kidney_concern",
@@ -165,12 +154,6 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     panelBundleCode: "single_kft",
     patientExplanation:
       "Swelling in your ankles or feet, foamy urine, and urinating less than usual together can point to how well your kidneys are filtering. A kidney function test (U&E, creatinine, eGFR) is the usual first step to check.",
-    textTriggers: [
-      /swelling.{0,15}(ankle|feet|leg)/i,
-      /(ankle|feet|leg).{0,15}swelling/i,
-      /foamy.{0,10}urine/i,
-      /(peeing|urinating).{0,15}less/i,
-    ],
   },
   {
     id: "liver_concern",
@@ -185,7 +168,6 @@ export const SYMPTOM_CLUSTERS: SymptomCluster[] = [
     panelBundleCode: "single_lft",
     patientExplanation:
       "Dark urine, discomfort on the upper right side of your abdomen, and ongoing tiredness together are worth checking with a liver function test.",
-    textTriggers: [/dark.{0,10}urine/i, /(pain|discomfort).{0,20}(upper right|right side).{0,15}(abdomen|stomach|belly)/i],
   },
 ];
 
@@ -252,6 +234,33 @@ const EXCLUSION_TEXT_TRIGGERS: Partial<Record<string, RegExp[]>> = {
 };
 
 /**
+ * Free-text phrasing for individual anchor symptoms (SYMPTOM_OPTIONS ids),
+ * used only by matchSymptomClustersFromText below to reconstruct which
+ * anchor symptoms a chat message actually mentions — one entry per symptom
+ * id, shared across every cluster that lists it in anchorSymptomIds, rather
+ * than a separate per-cluster copy. An id absent here simply has no
+ * chat-recognisable phrasing yet (palpitations, unexplained_weight_change,
+ * lower_abdomen_discomfort) — those anchors only ever count toward a match
+ * via the checkbox flow (matchSymptomClusters).
+ */
+const SYMPTOM_TEXT_TRIGGERS: Partial<Record<string, RegExp[]>> = {
+  neck_swelling: [/swelling.{0,15}(front of|in).{0,10}(my )?(neck|throat)/i, /(neck|throat).{0,15}swelling/i],
+  heat_cold_intolerance: [/(heat|cold) intoleran/i, /(always|constantly|keep) (feel(ing)? )?(too )?(hot|cold)/i],
+  increased_thirst: [/(always|so|really) thirsty/i],
+  frequent_urination: [/(peeing|urinating).{0,15}(more|a lot|often)/i],
+  blurred_vision: [/blurr(y|ed) vision/i],
+  fatigue: [/(always|so|really) tired/i],
+  pale_skin: [/(look|looking|feel).{0,10}pale/i],
+  breathlessness_on_exertion: [/(short of breath|breathless).{0,20}(stairs|walking|mild)/i],
+  burning_urination: [/burn(s|ing)?.{0,15}(when i|to) (pee|urinate)/i, /(pain|sting).{0,10}(peeing|urination)/i],
+  swelling_ankles_feet: [/swelling.{0,15}(ankle|feet|leg)/i, /(ankle|feet|leg).{0,15}swelling/i],
+  foamy_urine: [/foamy.{0,20}urine/i, /urine.{0,20}foamy/i],
+  reduced_urination: [/(peeing|urinating).{0,15}less/i],
+  dark_urine: [/dark.{0,20}urine/i, /urine.{0,20}dark/i],
+  right_upper_abdomen_discomfort: [/(pain|discomfort).{0,20}(upper right|right side).{0,15}(abdomen|stomach|belly)/i],
+};
+
+/**
  * Free-text matcher for the AI Coach. Deliberately independent of
  * `detectEmergencyKeywords` (apps/web/src/lib/ai-coach/keyword-guardrail.ts)
  * — callers must only invoke this once a message has already been confirmed
@@ -262,10 +271,25 @@ const EXCLUSION_TEXT_TRIGGERS: Partial<Record<string, RegExp[]>> = {
  * excludeSymptomIds via EXCLUSION_TEXT_TRIGGERS above, so wording like
  * "my skin looks yellow" never gets a liver-function-test suggestion
  * stapled onto it, matching the checkbox matcher's jaundice exclusion.
+ *
+ * Requires the same `minMatches` corroboration as the checkbox flow — at
+ * least that many of a cluster's *distinct* anchorSymptomIds must each have
+ * a SYMPTOM_TEXT_TRIGGERS hit, not just any one trigger anywhere. Before
+ * 2026-09-14 this matched on any single trigger hit regardless of
+ * minMatches, so one vague word (e.g. "I've been really tired") alone could
+ * fire a cluster the checkbox flow would only suggest given two or more
+ * corroborating symptoms — see the refuses_to_diagnose eval-case fix this
+ * function was rewritten alongside for the reproduction.
  */
 export function matchSymptomClustersFromText(text: string): SymptomCluster[] {
+  const mentionedSymptomIds = new Set(
+    Object.entries(SYMPTOM_TEXT_TRIGGERS)
+      .filter(([, patterns]) => patterns!.some((pattern) => pattern.test(text)))
+      .map(([id]) => id)
+  );
   return SYMPTOM_CLUSTERS.filter((cluster) => {
-    if (!cluster.textTriggers.some((pattern) => pattern.test(text))) return false;
+    const hits = cluster.anchorSymptomIds.filter((id) => mentionedSymptomIds.has(id)).length;
+    if (hits < cluster.minMatches) return false;
     return !cluster.excludeSymptomIds.some((id) =>
       (EXCLUSION_TEXT_TRIGGERS[id] ?? []).some((pattern) => pattern.test(text))
     );

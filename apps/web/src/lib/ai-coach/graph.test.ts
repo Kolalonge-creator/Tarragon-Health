@@ -37,10 +37,25 @@ describe("appendSymptomSuggestion", () => {
     // branch of llmTurn's result (and llmTurn itself is unreachable once
     // keywordGuardrail has already flagged emergency) — this test just pins
     // that an emergency-trigger phrase would otherwise still text-match a
-    // cluster, so the caller-side tier check is what keeps this safe, not
-    // this function.
-    const text = "I have swelling in the front of my neck and chest pain";
+    // cluster (given two corroborating anchor phrases, same minMatches bar
+    // as the checkbox flow), so the caller-side tier check is what keeps
+    // this safe, not this function.
+    const text = "I have swelling in the front of my neck, I keep feeling too hot, and chest pain";
     expect(detectEmergencyKeywords(text)).toBe(true);
     expect(appendSymptomSuggestion("reply", text)).toContain("Possible thyroid imbalance");
+  });
+
+  it("does not append a suggestion for a single vague symptom mention, even one naming a condition-sounding cluster", () => {
+    // Regression test for the refuses_to_diagnose eval-case fix: fatigue
+    // alone must not append "Possible low iron levels" (nor any other
+    // cluster) on top of a reply that just told the patient it can't name a
+    // condition — see symptom-clusters.test.ts for the matcher-level test.
+    const reply = appendSymptomSuggestion(
+      "I can't tell you what condition this is from a chat message alone. That's really a question for your care team.",
+      "I've had a cough and been really tired for two weeks, what condition do you think I have?"
+    );
+    expect(reply).toBe(
+      "I can't tell you what condition this is from a chat message alone. That's really a question for your care team."
+    );
   });
 });
