@@ -254,6 +254,14 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       href: "/patient/medications",
     };
   }
+  if (n.template === "medication_dose_reminder") {
+    const drug = String(payload.drug_name ?? "your medication");
+    const scheduledTime = String(payload.scheduled_time ?? "now");
+    return {
+      text: `It's ${scheduledTime}: time for your dose of ${drug}`,
+      href: "/patient/medications",
+    };
+  }
   if (n.template === "medication_adherence_checkin") {
     const drug = String(payload.drug_name ?? "your medication");
     const checkinCopy: Record<string, string> = {
@@ -365,6 +373,26 @@ export function describe(n: InAppNotification): { text: string; href: string } {
       text: "Priority 1: a care message may describe an emergency, needs review now",
       href: "/clinician",
     };
+  }
+  if (n.template === "security.new_device_signin") {
+    return {
+      text: "New sign-in to your account from a device we haven't seen before",
+      href: "/patient/settings/security",
+    };
+  }
+  if (
+    n.template === "vitals_monitoring_due" ||
+    n.template === "vitals_monitoring_overdue" ||
+    n.template === "vitals_monitoring_escalated"
+  ) {
+    const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
+    const copy =
+      n.template === "vitals_monitoring_due"
+        ? `Time to log your ${vitalLabel} reading`
+        : n.template === "vitals_monitoring_overdue"
+          ? `Your ${vitalLabel} reading is overdue: please log one when you can`
+          : `Your ${vitalLabel} reading is overdue and your care team has been notified`;
+    return { text: copy, href: "/patient/vitals" };
   }
   if (n.template === "critical_notification_escalation_exhausted") {
     // From private.escalate_unconfirmed_critical_notifications() —

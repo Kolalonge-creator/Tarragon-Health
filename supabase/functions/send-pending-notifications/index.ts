@@ -146,6 +146,7 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   medication_review_due: "medications",
   medication_prescribed_patient: "medications",
   pharmacy_order_patient_confirmation: "medications",
+  medication_dose_reminder: "medications",
 
   lab_order_patient_confirmation: "labs_results",
   lab_order_requested_patient: "labs_results",
@@ -169,6 +170,9 @@ const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
   sponsored_plan_started: "care_messages",
 
   vitals_reminder: "education_wellness",
+  vitals_monitoring_due: "education_wellness",
+  vitals_monitoring_overdue: "education_wellness",
+  vitals_monitoring_escalated: "education_wellness",
   lifestyle_nudge: "education_wellness",
   lifestyle_review_due: "education_wellness",
   wellness_challenge_ending: "education_wellness",
@@ -2454,6 +2458,104 @@ const TEMPLATE_MAP: Record<
       components: [{ type: "body", parameters: [{ type: "text", text: title }] }],
       smsText: `Hi, time for today's check-in on ${title}. Open the Tarragon Health app to log it. Tarragon Health`,
       pushUrl: "/patient/lifestyle",
+    };
+  },
+  // Same "registered, enqueued for real, never rendered" gap as the blocks
+  // above -- confirmed live 2026-09-15: 140 failed rows across these four
+  // keys, every one `last_error = 'unknown template'`, oldest from
+  // 2026-08-29 (the day each producer migration shipped). No TEMPLATE_MAP
+  // entry and no notification_template_locales row existed for any of
+  // them, so the DB-driven fallback (17.5) never had anything to catch
+  // this either.
+  //
+  // record_login_device() (known_device_login_notification.sql) queues this
+  // in_app + email, priority='critical' -- payload.message is a
+  // fully-resolved string already, same shape as the ack-timeout ladder
+  // above, so this stays a plain pass-through. Never gated by
+  // TEMPLATE_CATEGORY, matching every other critical-only security/safety
+  // template in this map.
+  "security.new_device_signin": (payload) => {
+    const message = String(
+      payload.message ?? "New sign-in to your Tarragon Health account from a device we haven't seen before.",
+    );
+    return {
+      metaTemplateName: "security_new_device_signin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+      pushUrl: "/patient/settings/security",
+      email: {
+        subject: "New sign-in to your Tarragon Health account",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${message}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">If this was you, there's nothing else to do. If it wasn't, change your password right away and reach out to your care team from the app.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+        text: message,
+      },
+    };
+  },
+  // private.queue_medication_dose_reminders() (medication_dose_time_
+  // reminders.sql) queues this whatsapp + in_app every 15 minutes at a
+  // medication's scheduled dose time. scheduled_time is already an
+  // Africa/Lagos local HH:MM string from the producer, not a timestamp --
+  // no formatLagosDateTime conversion needed or correct here.
+  medication_dose_reminder: (payload) => {
+    const drugName = String(payload.drug_name ?? "your medication");
+    const scheduledTime = String(payload.scheduled_time ?? "now");
+    return {
+      metaTemplateName: "medication_dose_reminder",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: drugName }, { type: "text", text: scheduledTime }] },
+      ],
+      smsText: `Hi, it's ${scheduledTime}: time for your dose of ${drugName}. Open the Tarragon Health app to log it. Tarragon Health`,
+      pushUrl: "/patient/medications",
+    };
+  },
+  // private.check_vitals_monitoring_adherence() (vitals_monitoring_
+  // adherence_and_gap_ladder.sql) queues these three whatsapp + in_app as a
+  // patient falls further behind their prescribed monitoring schedule for
+  // one vital. vital_type is the raw enum (e.g. 'blood_pressure'); the SQL
+  // producer's own label formatting (replace '_' with a space, used only
+  // through lower()) is mirrored here for the same reason it's mirrored
+  // there -- these three copies need to read as one continuing message as
+  // a patient moves through the ladder, not as independently-worded alerts.
+  vitals_monitoring_due: (payload) => {
+    const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
+    return {
+      metaTemplateName: "vitals_monitoring_due",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: vitalLabel }] }],
+      smsText: `Hi, it's time to log your ${vitalLabel} reading. Open the Tarragon Health app to log it. Tarragon Health`,
+      pushUrl: "/patient/vitals",
+    };
+  },
+  vitals_monitoring_overdue: (payload) => {
+    const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
+    const daysSince = String(payload.days_since ?? "a few");
+    return {
+      metaTemplateName: "vitals_monitoring_overdue",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: vitalLabel }, { type: "text", text: daysSince }] },
+      ],
+      smsText: `Hi, it's been ${daysSince} days since your last ${vitalLabel} reading. Please log one when you can. Tarragon Health`,
+      pushUrl: "/patient/vitals",
+    };
+  },
+  vitals_monitoring_escalated: (payload) => {
+    const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
+    const daysSince = String(payload.days_since ?? "several");
+    return {
+      metaTemplateName: "vitals_monitoring_escalated",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: vitalLabel }, { type: "text", text: daysSince }] },
+      ],
+      smsText: `Hi, it's been ${daysSince} days since your last ${vitalLabel} reading and your care team has been notified. Please log one as soon as you can. Tarragon Health`,
+      pushUrl: "/patient/vitals",
     };
   },
 };
