@@ -25,12 +25,12 @@ export function WeightEnrollCta({ label }: { label: string }) {
         <CardTitle className="text-lg">Start your {label.toLowerCase()} programme</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        <p className="text-sm text-charcoal-ink/70">
+        <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70">
           A structured programme with goals you set, weekly check-ins, and doctor review, at
           your pace.
         </p>
-        {state?.message && <p className="text-sm text-brand-green">{state.message}</p>}
-        {state?.error && <p className="text-sm text-destructive">{state.error}</p>}
+        {state?.message && <p className="text-sm text-brand-green dark:text-brand-green-bright">{state.message}</p>}
+        {state?.error && <p className="text-sm text-destructive dark:text-red-400">{state.error}</p>}
         <label className="flex items-start gap-2 text-sm">
           <input
             type="checkbox"
@@ -38,7 +38,7 @@ export function WeightEnrollCta({ label }: { label: string }) {
             checked={consented}
             onChange={(e) => setConsented(e.target.checked)}
           />
-          <span className="text-muted-foreground">
+          <span className="text-muted-foreground dark:text-night-ink/60">
             I agree that my logged readings and check-ins can be reviewed by my Tarragon care
             team to support this programme, and I can withdraw at any time.
           </span>

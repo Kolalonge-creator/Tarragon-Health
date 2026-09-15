@@ -5,6 +5,9 @@ import type { Enums, Tables } from "@tarragon/shared";
 export type ChronicProgramme = Tables<"chronic_condition_programmes">;
 export type ConditionProtocol = Tables<"condition_protocols">;
 export type ChronicEnrolment = Tables<"chronic_programme_enrolments">;
+export type ChronicScheduleOccurrence = Tables<"chronic_programme_schedule_occurrences">;
+export type ChronicProgrammeEndReview = Tables<"chronic_programme_end_reviews">;
+export type MedicationDoseHistoryRow = Tables<"medication_dose_history">;
 
 const enrolmentsKey = (patientId: string) =>
   ["chronic-enrolments", patientId] as const;
@@ -207,6 +210,133 @@ export function useWithdrawChronicEnrolment() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: enrolmentsKey(variables.patientId) });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// 12-week two-track programme: weekly schedule occurrences, the end-of-
+// programme review shell, and titration history. See
+// 20260831163544_chronic_programme_schedule_tables.sql /
+// 20260831170512_chronic_programme_end_reviews.sql /
+// 20260831165944_chronic_programme_pooled_booking_and_titration.sql.
+// ---------------------------------------------------------------------------
+
+const occurrencesKey = (enrolmentId: string) => ["chronic-schedule-occurrences", enrolmentId] as const;
+
+/** The 12-week schedule for one enrolment, in week order — everything a
+ * patient or clinician needs to render the programme timeline. */
+export function useProgrammeScheduleOccurrences(enrolmentId: string | null | undefined) {
+  return useQuery({
+    queryKey: occurrencesKey(enrolmentId ?? ""),
+    enabled: !!enrolmentId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("chronic_programme_schedule_occurrences")
+        .select("*")
+        .eq("enrolment_id", enrolmentId as string)
+        .order("week_number", { ascending: true });
+      if (error) throw error;
+      return data as ChronicScheduleOccurrence[];
+    },
+  });
+}
+
+/** Links a just-booked appointment back to its doctor_checkin occurrence —
+ * the patient can't write chronic_programme_schedule_occurrences.appointment_id
+ * directly (RLS is staff-only), so this goes through
+ * public.link_chronic_checkin_appointment instead. */
+export function useLinkChronicCheckinAppointment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      occurrenceId,
+      appointmentId,
+    }: {
+      occurrenceId: string;
+      appointmentId: string;
+      enrolmentId: string;
+    }) => {
+      const supabase = createClient();
+      const { error } = await supabase.rpc("link_chronic_checkin_appointment", {
+        p_occurrence_id: occurrenceId,
+        p_appointment_id: appointmentId,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: occurrencesKey(variables.enrolmentId) });
+    },
+  });
+}
+
+/** The (auto-created-empty) week-12 review shell for one enrolment. */
+export function useProgrammeEndReview(enrolmentId: string | null | undefined) {
+  return useQuery({
+    queryKey: ["chronic-end-review", enrolmentId],
+    enabled: !!enrolmentId,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("chronic_programme_end_reviews")
+        .select("*")
+        .eq("enrolment_id", enrolmentId as string)
+        .maybeSingle();
+      if (error) throw error;
+      return data as ChronicProgrammeEndReview | null;
+    },
+  });
+}
+
+/** The real appointments behind a set of doctor_checkin occurrences — real
+ * per-call attribution (whichever doctor actually took the call), never a
+ * promise of the same doctor across all 3 calls. */
+export function useProgrammeCheckinAppointments(appointmentIds: string[]) {
+  return useQuery({
+    queryKey: ["chronic-checkin-appointments", ...appointmentIds.slice().sort()],
+    enabled: appointmentIds.length > 0,
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("appointments")
+        .select("id, status, scheduled_for, completed_at, clinician:profiles!appointments_clinician_id_fkey(full_name)")
+        .in("id", appointmentIds);
+      if (error) throw error;
+      return data as {
+        id: string;
+        status: string;
+        scheduled_for: string;
+        completed_at: string | null;
+        clinician: { full_name: string | null } | null;
+      }[];
+    },
+  });
+}
+
+/** Titration history (medication_dose_history) for a patient, optionally
+ * scoped to a date window — the programme-end review shows only what
+ * changed during the 12-week enrolment. */
+export function useMedicationDoseHistory(
+  patientId: string | null | undefined,
+  window?: { from: string; to: string }
+) {
+  return useQuery({
+    queryKey: ["medication-dose-history", patientId, window?.from, window?.to],
+    enabled: !!patientId,
+    queryFn: async () => {
+      const supabase = createClient();
+      let query = supabase
+        .from("medication_dose_history")
+        .select("*, medication:medications(drug_name)")
+        .eq("patient_id", patientId as string)
+        .order("created_at", { ascending: false });
+      if (window) {
+        query = query.gte("created_at", window.from).lte("created_at", window.to);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return data as (MedicationDoseHistoryRow & { medication: { drug_name: string } | null })[];
     },
   });
 }

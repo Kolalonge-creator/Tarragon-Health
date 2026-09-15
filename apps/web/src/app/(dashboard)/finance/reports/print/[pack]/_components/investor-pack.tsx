@@ -9,6 +9,7 @@ import {
 } from "@/lib/finance/queries";
 import { ReportLetterhead } from "./letterhead";
 import { PrintToolbar } from "./print-toolbar";
+import { refreshQueryState } from "@/lib/queries/list-query-state";
 import {
   PrintSection,
   PrintTable,
@@ -31,12 +32,71 @@ function pct(v: number | null) {
   return v == null ? "—" : formatPercent(v);
 }
 
+/**
+ * The money counterpart to pct(). Every figure in this pack used to be
+ * written `money(x, currency)`, which turns "we have no number for
+ * this" into a printed zero on company letterhead. A missing figure prints as
+ * a dash, the same way a missing ratio already did.
+ */
+function money(v: number | null | undefined, currency: string) {
+  return v == null ? "—" : formatMinor(v, currency);
+}
+
 export function InvestorPack({ from, to, currency }: { from: string; to: string; currency: string }) {
   const kpi = useKpiSummary(currency);
   const pnl = useIncomeStatement(from, to, currency);
   const bs = useBalanceSheet(to, currency);
   const cf = useCashFlowStatement(from, to, currency);
   const tb = useTrialBalance(to, currency);
+
+  // This document is printed, signed off on, and handed to people outside the
+  // company. A failed RPC used to fall through every `?? 0` below and print
+  // "Cash on hand ₦0.00" and "Revenue, month to date ₦0.00" under the RC and
+  // TIN on the letterhead: not a gap in the pack, a false financial statement
+  // in it. So a source that never arrived still stops the pack rendering at
+  // all, and says on the page why it must not leave the building.
+  //
+  // A source that DID arrive and then failed to refresh is a different fact.
+  // React Query keeps the last good response and only flips status, so
+  // treating that as a missing source threw away a complete, correct pack
+  // because a window-focus refetch timed out. Those figures are real; they
+  // are simply as of the last successful read, which the printed banner below
+  // says on the page and therefore on the paper.
+  const sources: { label: string; isError: boolean; hasData: boolean }[] = [
+    { label: "key metrics", isError: kpi.isError, hasData: kpi.data !== undefined },
+    { label: "income statement", isError: pnl.isError, hasData: pnl.data !== undefined },
+    { label: "balance sheet", isError: bs.isError, hasData: bs.data !== undefined },
+    { label: "cash flow statement", isError: cf.isError, hasData: cf.data !== undefined },
+    { label: "trial balance", isError: tb.isError, hasData: tb.data !== undefined },
+  ];
+  const failedSources = sources
+    .filter((s) => refreshQueryState({ isLoading: false, isError: s.isError, hasData: s.hasData }) === "failed")
+    .map((s) => s.label);
+  const staleSources = sources
+    .filter((s) => refreshQueryState({ isLoading: false, isError: s.isError, hasData: s.hasData }) === "stale")
+    .map((s) => s.label);
+
+  if (failedSources.length > 0) {
+    return (
+      <div>
+        <PrintToolbar />
+        <ReportLetterhead
+          title="Fundraising / investor pack"
+          subtitle={`${from} to ${to} · ${currency}`}
+        />
+        <p className="mb-4 rounded-md border-2 border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-red-700">
+          Data unavailable: do not distribute
+        </p>
+        <p className="text-xs leading-relaxed text-charcoal-ink/70">
+          The pack could not be built: {failedSources.join(", ")} did not load from the general
+          ledger. No figures are shown, deliberately, because a missing source would print as zero
+          revenue and zero cash under the company letterhead, which reads as a statement of fact
+          rather than a gap. Reload this page, and if it keeps failing, take it up with whoever
+          maintains the finance reporting RPCs before sharing anything from this report.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -46,26 +106,35 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
         subtitle={`${from} to ${to} · ${currency} · balance sheet as of ${to}`}
       />
 
+      {/* Printed, not just shown: whoever holds the paper needs to know the
+          figures on it were not confirmed on the last attempt. */}
+      {staleSources.length > 0 && (
+        <p className="mb-4 rounded-md border-2 border-amber-300 bg-amber-50 px-4 py-3 text-sm font-semibold uppercase tracking-wide text-amber-800">
+          May be out of date: {staleSources.join(", ")} could not be refreshed. Figures shown are the
+          last read from the general ledger. Reload before distributing.
+        </p>
+      )}
+
       <Disclaimer>
-        Built from the same live general ledger the rest of Finance uses — not audited or reviewed by
+        Built from the same live general ledger the rest of Finance uses, not audited or reviewed by
         an external accountant. Say so to anyone you share it with, and have it reviewed before it goes
         into a formal data room.
       </Disclaimer>
 
-      <PrintSection title="Key metrics (as of today)" description="Point-in-time ratios — independent of the date range above.">
+      <PrintSection title="Key metrics (as of today)" description="Point-in-time ratios, independent of the date range above.">
         {kpi.isLoading ? (
           <PrintEmpty>Loading…</PrintEmpty>
         ) : (
           <div className="grid grid-cols-2 gap-x-8 sm:grid-cols-3">
-            <PrintKeyValue label="Revenue, month to date" value={formatMinor(kpi.data?.revenue_mtd_minor ?? 0, currency)} />
+            <PrintKeyValue label="Revenue, month to date" value={money(kpi.data?.revenue_mtd_minor, currency)} />
             <PrintKeyValue label="Gross margin" value={pct(kpi.data?.gross_margin_pct ?? null)} />
             <PrintKeyValue label="Net margin" value={pct(kpi.data?.net_margin_pct ?? null)} />
             <PrintKeyValue label="Month-on-month revenue growth" value={pct(kpi.data?.mom_revenue_growth_pct ?? null)} />
             <PrintKeyValue label="Year-on-year revenue growth" value={pct(kpi.data?.yoy_revenue_growth_pct ?? null)} />
             <PrintKeyValue label="Days sales outstanding" value={kpi.data?.dso_days != null ? `${kpi.data.dso_days} days` : "—"} />
             <PrintKeyValue label="Cash runway" value={kpi.data?.cash_runway_months != null ? `${kpi.data.cash_runway_months} months` : "—"} />
-            <PrintKeyValue label="Cash on hand" value={formatMinor(kpi.data?.cash_minor ?? 0, currency)} />
-            <PrintKeyValue label="Receivables" value={formatMinor(kpi.data?.receivable_minor ?? 0, currency)} />
+            <PrintKeyValue label="Cash on hand" value={money(kpi.data?.cash_minor, currency)} />
+            <PrintKeyValue label="Receivables" value={money(kpi.data?.receivable_minor, currency)} />
           </div>
         )}
       </PrintSection>
@@ -86,9 +155,9 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
               </tbody>
             </PrintTable>
             <div className="mt-2 max-w-sm">
-              <PrintKeyValue label="Net revenue" value={formatMinor(pnl.data?.net_revenue_minor ?? 0, currency)} />
-              <PrintKeyValue label="Expenses" value={formatMinor(pnl.data?.expense_minor ?? 0, currency)} />
-              <PrintKeyValue label="Net income" value={formatMinor(pnl.data?.net_income_minor ?? 0, currency)} strong />
+              <PrintKeyValue label="Net revenue" value={money(pnl.data?.net_revenue_minor, currency)} />
+              <PrintKeyValue label="Expenses" value={money(pnl.data?.expense_minor, currency)} />
+              <PrintKeyValue label="Net income" value={money(pnl.data?.net_income_minor, currency)} strong />
             </div>
           </>
         )}
@@ -119,9 +188,9 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
               );
             })}
             <div className="mt-2 max-w-sm">
-              <PrintKeyValue label="Total assets" value={formatMinor(bs.data?.assets_minor ?? 0, currency)} />
-              <PrintKeyValue label="Total liabilities" value={formatMinor(bs.data?.liabilities_minor ?? 0, currency)} />
-              <PrintKeyValue label="Total equity" value={formatMinor(bs.data?.total_equity_minor ?? 0, currency)} strong />
+              <PrintKeyValue label="Total assets" value={money(bs.data?.assets_minor, currency)} />
+              <PrintKeyValue label="Total liabilities" value={money(bs.data?.liabilities_minor, currency)} />
+              <PrintKeyValue label="Total equity" value={money(bs.data?.total_equity_minor, currency)} strong />
             </div>
           </>
         )}
@@ -132,11 +201,11 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
           <PrintEmpty>Loading…</PrintEmpty>
         ) : (
           <div className="max-w-sm">
-            <PrintKeyValue label="Net cash from operating" value={formatMinor(cf.data?.operating.net_cash_from_operating_minor ?? 0, currency)} />
-            <PrintKeyValue label="Net cash from investing" value={formatMinor(cf.data?.investing.net_cash_from_investing_minor ?? 0, currency)} />
-            <PrintKeyValue label="Net cash from financing" value={formatMinor(cf.data?.financing.net_cash_from_financing_minor ?? 0, currency)} />
-            <PrintKeyValue label="Net change in cash" value={formatMinor(cf.data?.net_change_in_cash_minor ?? 0, currency)} />
-            <PrintKeyValue label="Cash, end of period" value={formatMinor(cf.data?.cash_ending_minor ?? 0, currency)} strong />
+            <PrintKeyValue label="Net cash from operating" value={money(cf.data?.operating.net_cash_from_operating_minor, currency)} />
+            <PrintKeyValue label="Net cash from investing" value={money(cf.data?.investing.net_cash_from_investing_minor, currency)} />
+            <PrintKeyValue label="Net cash from financing" value={money(cf.data?.financing.net_cash_from_financing_minor, currency)} />
+            <PrintKeyValue label="Net change in cash" value={money(cf.data?.net_change_in_cash_minor, currency)} />
+            <PrintKeyValue label="Cash, end of period" value={money(cf.data?.cash_ending_minor, currency)} strong />
           </div>
         )}
       </PrintSection>
@@ -151,8 +220,8 @@ export function InvestorPack({ from, to, currency }: { from: string; to: string;
       <PrintSection title="Non-financial KPIs" description="Not included in this pack.">
         <p className="text-xs text-charcoal-ink/60">
           Active patients, retention, condition-programme enrolment and partner-network metrics live in
-          the Analytics console (Analytics → Overview and category pages) rather than duplicated here —
-          pull those separately for a complete data room.
+          the Analytics console (Analytics → Overview and category pages) rather than duplicated here.
+          Pull those separately for a complete data room.
         </p>
       </PrintSection>
 

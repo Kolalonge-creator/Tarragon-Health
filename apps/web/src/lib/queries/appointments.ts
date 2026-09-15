@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { ensureAppointmentVideoConsultation } from "@/app/(dashboard)/patient/appointments/video-actions";
+import { confirmAppointmentAndSetupVideo } from "@/lib/appointments/confirm-with-video-setup";
 import type { Tables, Enums } from "@tarragon/shared";
 
 export type Appointment = Tables<"appointments">;
@@ -123,6 +125,13 @@ export function useHoldAppointmentSlot() {
       location?: string;
       specialistReferralId?: string;
       carePlanId?: string;
+      /**
+       * Who this appointment is for, when that isn't the caller — a
+       * caregiver booking for someone they support. Omit for a patient
+       * booking their own appointment; hold_appointment_slot defaults
+       * p_patient_id to the caller when this is left out.
+       */
+      patientId?: string;
     }) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("hold_appointment_slot", {
@@ -137,6 +146,7 @@ export function useHoldAppointmentSlot() {
         p_location: input.location,
         p_specialist_referral_id: input.specialistReferralId,
         p_care_plan_id: input.carePlanId,
+        p_patient_id: input.patientId,
       });
       if (error) throw error;
       return data as Appointment;
@@ -145,34 +155,57 @@ export function useHoldAppointmentSlot() {
   });
 }
 
-/** 10.7 confirm — held -> booked/confirmed. */
+/** 10.7 confirm — held -> booked/confirmed. Routed through
+ * confirmAppointmentAndSetupVideo (not a raw RPC call) so a telemedicine/
+ * result_interpretation booking that reaches 'confirmed' also gets a real
+ * Zoom join link the moment it's genuinely confirmed — a no-op for every
+ * other appointment_type. */
 export function useConfirmAppointmentBooking() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (appointmentId: string) => {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("confirm_appointment_booking", { p_appointment_id: appointmentId });
-      if (error) throw error;
-      return data as Appointment;
-    },
+    mutationFn: async (appointmentId: string) => confirmAppointmentAndSetupVideo(appointmentId),
     onSuccess: () => invalidateAppointmentQueries(queryClient),
   });
 }
 
-/** 10.3 check-in / start / complete / no-show. */
+/** 10.3 check-in / start / complete / no-show. 68.15: an optional
+ * patient_no_show/clinician_no_show reason, only meaningful (and only sent)
+ * when `to` is 'no_show' — a technical-failure interruption is a
+ * cancellation (useCancelAppointment), not a no-show. */
 export function useAdvanceAppointmentStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { appointmentId: string; to: "checked_in" | "in_progress" | "completed" | "no_show" }) => {
+    mutationFn: async (input: {
+      appointmentId: string;
+      to: "checked_in" | "in_progress" | "completed" | "no_show";
+      noShowReason?: "patient_no_show" | "clinician_no_show";
+    }) => {
       const supabase = createClient();
       const { data, error } = await supabase.rpc("advance_appointment_status", {
         p_appointment_id: input.appointmentId,
         p_to: input.to,
+        p_no_show_reason: input.to === "no_show" ? input.noShowReason : undefined,
       });
       if (error) throw error;
       return data as Appointment;
     },
     onSuccess: () => invalidateAppointmentQueries(queryClient),
+  });
+}
+
+/**
+ * 68.3/68.5 — makes sure a telemedicine appointment has a real Zoom meeting
+ * behind it (creating one on first use if it doesn't yet) and returns the
+ * join link. Safe to call every time "Join call"/"Start video call" is
+ * clicked — idempotent on both the DB side and the Zoom-meeting side.
+ */
+export function useEnsureAppointmentVideoConsultation() {
+  return useMutation({
+    mutationFn: async (appointmentId: string) => {
+      const result = await ensureAppointmentVideoConsultation(appointmentId);
+      if ("error" in result) throw new Error(result.error);
+      return result;
+    },
   });
 }
 

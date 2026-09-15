@@ -5,6 +5,7 @@ import {
   usePatientPharmacyOrders,
   useOrderDispenses,
   useRecordDispense,
+  useOrderDeliveryAttempts,
   type PharmacyOrderItem,
   type PharmacyOrderWithLogistics,
 } from "@/lib/queries/pharmacy-orders";
@@ -16,9 +17,12 @@ import { Label } from "@/components/ui/label";
 import { koboToNaira, type PharmacyOrderStatus } from "@tarragon/shared";
 import { PayForPharmacyOrderButton } from "@/components/pay-for-pharmacy-order-button";
 import { RedeemVoucherButton } from "@/components/redeem-voucher-button";
-import { DeliveryAvailability } from "@/components/delivery-availability";
 import { DeliveryAddressForm } from "@/components/delivery-address-form";
-
+import { DeliveryStatusTimeline } from "@/components/delivery-status-timeline";
+import { PharmacyOrderCostBreakdown } from "@/components/pharmacy-order-cost-breakdown";
+import { LoadErrorCard } from "@/components/ui/load-error-card";
+import { listQueryState } from "@/lib/queries/list-query-state";
+import { formatPatientDate } from "@/lib/format-date";
 type DeliveryAddress = { street: string; area: string; state: string; phone: string };
 
 /** Patient records what they collected against an order (self-service, works
@@ -44,9 +48,9 @@ function OrderDispenses({
       {dispenses && dispenses.length > 0 && (
         <ul className="mb-1 space-y-0.5">
           {dispenses.map((d) => (
-            <li key={d.id} className="text-xs text-charcoal-ink/60">
+            <li key={d.id} className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
               Collected: {d.drug_name}
-              {d.quantity ? ` × ${d.quantity}` : ""} · {new Date(d.dispensed_on).toLocaleDateString()}
+              {d.quantity ? ` × ${d.quantity}` : ""} · {formatPatientDate(d.dispensed_on)}
             </li>
           ))}
         </ul>
@@ -56,13 +60,13 @@ function OrderDispenses({
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 px-2 text-xs text-charcoal-ink/70"
+          className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
           onClick={() => setOpen(true)}
         >
           Record what you collected
         </Button>
       ) : (
-        <div className="flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 p-2">
+        <div className="flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-2">
           <div className="min-w-40 flex-1 space-y-1">
             <Label htmlFor={`dispense_drug_${order.id}`} className="text-xs">
               Medication
@@ -127,7 +131,7 @@ function OrderDispenses({
             Cancel
           </Button>
           {record.isError && (
-            <p className="basis-full text-xs text-red-600">Could not save. Try again.</p>
+            <p className="basis-full text-xs text-red-600 dark:text-red-300">Could not save. Try again.</p>
           )}
         </div>
       )}
@@ -140,8 +144,10 @@ const PHARMACY_ORDER_STATUS_BADGE: Record<PharmacyOrderStatus, { variant: BadgeP
   payment_confirmed: { variant: "blue", label: "Booking confirmed" },
   requested: { variant: "blue", label: "In progress" },
   confirmed: { variant: "blue", label: "In progress" },
+  unavailable: { variant: "amber", label: "Medicine unavailable" },
   dispensed: { variant: "blue", label: "Dispensed" },
   out_for_delivery: { variant: "blue", label: "Out for delivery" },
+  delivery_failed: { variant: "red", label: "Delivery attempt failed" },
   delivered: { variant: "green", label: "Delivered" },
   cancelled: { variant: "grey", label: "Cancelled" },
 };
@@ -150,12 +156,40 @@ function itemsSummary(items: PharmacyOrderItem[]): string {
   return items.map((item) => `${item.drug_name} × ${item.quantity}`).join(", ");
 }
 
+/** Wraps DeliveryStatusTimeline with the dispense/delivery-attempt data it needs (spec §63.9, §63.10). */
+function OrderStatusTimeline({ order }: { order: PharmacyOrderWithLogistics }) {
+  const { data: dispenses } = useOrderDispenses(order.id);
+  const { data: attempts } = useOrderDeliveryAttempts(order.id);
+  const latestDispense = dispenses?.[0];
+  const latestFailedAttempt = attempts?.find((a) => a.result === "failed");
+
+  return (
+    <DeliveryStatusTimeline
+      orderNumber={order.order_number}
+      status={order.status}
+      fulfilmentMethod={order.fulfilment_method}
+      requestedAt={order.requested_at}
+      dispensedAt={latestDispense?.dispensed_on}
+      courierName={order.logistics_partner?.name}
+      courierAssignedAt={order.courier_assigned_at}
+      estimatedDeliveryAt={order.estimated_delivery_at}
+      deliveredAt={order.delivery_confirmed_at}
+      requiresColdChain={order.requires_cold_chain}
+      unavailableReason={order.unavailable_reason}
+      latestFailureReason={latestFailedAttempt?.failure_reason}
+    />
+  );
+}
+
 export function PharmacyOrdersList({ patientId }: { patientId: string }) {
   const { data: orders, isLoading, isError } = usePatientPharmacyOrders(patientId);
+  const state = listQueryState({ isLoading, isError, count: orders?.length });
 
-  if (isLoading || isError || !orders || orders.length === 0) {
-    return null;
-  }
+  // An order still awaiting payment, or a delivery on its way, must not read
+  // as "you have no orders" because one read failed.
+  if (state === "error")
+    return <LoadErrorCard title="Your pharmacy orders" what="your pharmacy orders" />;
+  if (state !== "ready" || !orders) return null;
 
   return (
     <Card>
@@ -163,7 +197,7 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
         <CardTitle>Your pharmacy orders</CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="divide-y divide-charcoal-ink/10">
+        <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {orders.map((order) => {
             const badge = PHARMACY_ORDER_STATUS_BADGE[order.status];
             const items = order.items as unknown as PharmacyOrderItem[];
@@ -172,14 +206,18 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                 <div className="flex items-center gap-2">
                   <Badge variant={badge.variant}>{badge.label}</Badge>
                   {order.order_number && (
-                    <span className="text-xs text-charcoal-ink/60">{order.order_number}</span>
+                    <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{order.order_number}</span>
                   )}
                 </div>
-                <p className="text-sm font-medium text-charcoal-ink">{itemsSummary(items)}</p>
-                <p className="text-xs text-charcoal-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{itemsSummary(items)}</p>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">₦{koboToNaira(order.total_kobo).toLocaleString()}</p>
                 {order.status === "pending_payment" && (
                   <>
-                    <PayForPharmacyOrderButton orderId={order.id} amountKobo={order.total_kobo} />
+                    <PayForPharmacyOrderButton
+                      orderId={order.id}
+                      amountKobo={order.payable_kobo ?? order.total_kobo}
+                      totalKobo={order.total_kobo}
+                    />
                     <RedeemVoucherButton
                       orderType="pharmacy"
                       orderId={order.id}
@@ -188,20 +226,19 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                     />
                   </>
                 )}
-                {order.status === "payment_confirmed" && !order.delivery_address && (
-                  <DeliveryAddressForm orderId={order.id} />
+                {order.fulfilment_method === "delivery" &&
+                  order.status === "payment_confirmed" &&
+                  !order.delivery_address && <DeliveryAddressForm orderId={order.id} />}
+                {order.status !== "pending_payment" && order.status !== "cancelled" && (
+                  <OrderStatusTimeline order={order} />
                 )}
-                {(order.delivery_address ||
-                  order.status === "confirmed" ||
-                  order.status === "dispensed" ||
-                  order.status === "out_for_delivery" ||
-                  order.status === "delivered") && (
-                  <DeliveryAvailability
-                    region={(order.delivery_address as unknown as DeliveryAddress | null)?.state ?? null}
-                    logisticsPartnerName={order.logistics_partner?.name ?? null}
-                    estimatedDeliveryAt={order.estimated_delivery_at}
-                    courierReference={order.courier_reference}
-                    deliveryConfirmedAt={order.delivery_confirmed_at}
+                {order.status === "delivery_failed" && <DeliveryAddressForm orderId={order.id} />}
+                {order.status !== "pending_payment" && order.status !== "cancelled" && (
+                  <PharmacyOrderCostBreakdown
+                    items={items}
+                    totalKobo={order.total_kobo}
+                    deliveryFeeKobo={order.logistics_partner?.delivery_fee_kobo ?? null}
+                    fulfilmentMethod={order.fulfilment_method}
                   />
                 )}
                 {order.status !== "pending_payment" && order.status !== "cancelled" && (

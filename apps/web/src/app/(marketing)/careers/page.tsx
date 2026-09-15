@@ -44,7 +44,7 @@ export default function CareersPage() {
           {OPEN_ROLES.map((role) => (
             <div
               key={role.id}
-              className="flex flex-col rounded-2xl border border-charcoal-ink/10 bg-white p-6"
+              className="flex flex-col rounded-xl border border-charcoal-ink/10 bg-white p-6"
             >
               <span className="inline-flex w-fit rounded-full bg-brand-green/10 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-deep-forest">
                 Open role
@@ -58,7 +58,7 @@ export default function CareersPage() {
               </p>
               <Link
                 href={`${MARKETING_ROUTES.contact}?source=careers&role=${role.id}`}
-                className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-deep-forest hover:underline"
+                className="mt-5 inline-flex items-center gap-1 text-sm font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green"
               >
                 Get in touch
                 <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.4} />

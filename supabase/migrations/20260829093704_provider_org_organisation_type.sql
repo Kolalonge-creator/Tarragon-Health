@@ -1,0 +1,19 @@
+-- Tarragon Health — module 28 prep: one new organisations.type value.
+--
+-- Module 28 needs a tenancy anchor for a partner organisation (hospital,
+-- clinic, diagnostic centre, pharmacy, specialist practice) the same way
+-- every other tenant on the platform has one — CLAUDE.md's multi-tenancy
+-- invariant ("every table has organisation_id") applies to a provider
+-- organisation's own locations/staff/services exactly as it does to a
+-- Tarragon clinic or an HMO. The existing 'clinic'/'lab'/'pharmacy' values
+-- are unused in practice (the only live row is 'direct_consumer') and were
+-- never wired to any provider-organisation-specific schema, so overloading
+-- one of them would silently redefine what it has meant since Sprint 1
+-- rather than adding something new. One explicit value instead: a provider
+-- organisation's actual kind (hospital/clinic/diagnostic centre/pharmacy/
+-- specialist practice) lives on provider_organisations.org_type in the next
+-- migration, not on this coarser tenancy-level enum.
+--
+-- Alone in its own migration: a new enum value cannot be used in the same
+-- transaction that adds it.
+alter type public.organisation_type add value if not exists 'provider_org';

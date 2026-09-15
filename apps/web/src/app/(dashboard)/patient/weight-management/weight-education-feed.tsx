@@ -31,7 +31,7 @@ export function WeightEducationFeed({
     <Card>
       <CardHeader className="flex flex-row items-center justify-between space-y-0">
         <CardTitle className="text-lg">Learn</CardTitle>
-        <Link href="/patient/learn" className="text-xs text-brand-green hover:underline">
+        <Link href="/patient/learn" className="text-xs text-brand-green dark:text-brand-green-bright hover:underline">
           See full library →
         </Link>
       </CardHeader>
@@ -39,15 +39,15 @@ export function WeightEducationFeed({
         {items.map((item) => (
           <div
             key={item.content_id}
-            className="flex items-start justify-between gap-3 rounded-lg border border-charcoal-ink/10 p-3"
+            className="flex items-start justify-between gap-3 rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
           >
             <div className="space-y-1">
-              <p className="text-sm font-medium text-charcoal-ink">{item.title}</p>
+              <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{item.title}</p>
               {item.summary && (
-                <p className="text-xs text-charcoal-ink/60">{item.summary}</p>
+                <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{item.summary}</p>
               )}
               {item.estimated_minutes && (
-                <p className="text-xs text-charcoal-ink/40">{item.estimated_minutes} min read</p>
+                <p className="text-xs text-charcoal-ink/40 dark:text-night-ink/50">{item.estimated_minutes} min read</p>
               )}
             </div>
             {item.status === "understood" ? (
@@ -58,7 +58,7 @@ export function WeightEducationFeed({
                 onClick={() =>
                   markProgress.mutate({ contentId: item.content_id, status: "understood" })
                 }
-                className="shrink-0 text-xs text-brand-green hover:underline"
+                className="shrink-0 text-xs text-brand-green dark:text-brand-green-bright hover:underline"
               >
                 Mark as read
               </button>

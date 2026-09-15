@@ -77,7 +77,7 @@ export function CaseActionsPanel({
             <CardTitle>Suggested actions</CardTitle>
             <CardDescription>
               Derived from this patient&apos;s own record and the signed protocol. Each one is a
-              draft for you to confirm, change, or decline — nothing here has happened yet.
+              draft for you to confirm, change, or decline. Nothing here has happened yet.
             </CardDescription>
           </div>
           <Button
@@ -195,7 +195,7 @@ function ActionRow({
       {checklist.length > 0 && (
         <fieldset className="space-y-2 rounded-md bg-charcoal-ink/[0.03] p-3">
           <legend className="text-xs font-medium text-charcoal-ink">
-            Confirm you have considered these — the data cannot judge them
+            Confirm you have considered these: the data cannot judge them
           </legend>
           {checklist.map((item) => (
             <label key={item} className="flex items-start gap-2 text-sm text-charcoal-ink/80">
@@ -295,7 +295,7 @@ function labelFor(payload: ProposedPayload): string {
     case "schedule_follow_up":
       return "Schedule follow-up";
     case "confirm_medication_refill":
-      return `Confirm refill — ${payload.medicationName}`;
+      return `Confirm refill: ${payload.medicationName}`;
     case "order_investigation":
       return `Order ${payload.panelName}`;
     case "resolve_case":
@@ -320,7 +320,7 @@ function PayloadPreview({ payload }: { payload: ProposedPayload }) {
     case "order_investigation":
       return (
         <PreviewText
-          value={`${payload.panelName} — the patient arranges this at any lab and uploads the result.`}
+          value={`${payload.panelName}. The patient arranges this at any lab and uploads the result.`}
         />
       );
     case "resolve_case":
@@ -425,7 +425,7 @@ function DecidedRow({ action }: { action: CaseReviewAction }) {
           {action.dismissed_by_staff_record
             ? ` by ${action.dismissed_by_staff_record.full_name}`
             : ""}
-          {action.dismissal_reason ? ` — ${action.dismissal_reason}` : ""}
+          {action.dismissal_reason ? `: ${action.dismissal_reason}` : ""}
         </span>
       ) : signer && action.confirmed_at ? (
         <span className="text-charcoal-ink/60">
@@ -447,7 +447,7 @@ function DecidedRow({ action }: { action: CaseReviewAction }) {
 // first render and the browser's on hydration, a real mismatch already caught
 // on the case-brief card.
 function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("en-GB", {
+  return new Date(value).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
     day: "numeric",
     month: "short",
     year: "numeric",

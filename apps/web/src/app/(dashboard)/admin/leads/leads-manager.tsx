@@ -5,6 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
+import { SearchableList } from "@/components/ui/searchable-list";
 import { LEAD_ROLES } from "@/lib/validation/lead";
 import { toggleLeadContactedAction, type LeadActionState } from "./actions";
 import type { LeadRow } from "./page";
@@ -100,11 +101,18 @@ export function LeadsManager({ leads }: { leads: LeadRow[] }) {
           </CardHeader>
         </Card>
       ) : (
-        <div className="space-y-3">
-          {filtered.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} />
-          ))}
-        </div>
+        <SearchableList
+          items={filtered}
+          filterFn={(lead, q) =>
+            [lead.name, lead.contact, lead.message, ROLE_LABEL[lead.role] ?? lead.role, lead.source]
+              .filter(Boolean)
+              .some((field) => field!.toLowerCase().includes(q))
+          }
+          searchPlaceholder="Search by name, contact, or message…"
+          noMatchMessage={(q) => `No leads match "${q}".`}
+          renderContainer={(children) => <div className="space-y-3">{children}</div>}
+          renderItem={(lead) => <LeadCard key={lead.id} lead={lead} />}
+        />
       )}
     </div>
   );

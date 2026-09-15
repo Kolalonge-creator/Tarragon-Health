@@ -90,14 +90,27 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/homepage-family-phone.jpg",
       imageAlt: "An adult daughter and her mother smiling together while looking at a phone",
       imageFocus: "center 20%",
+      // 2026-09-14: image-to-video cinemagraph of the hero photo above
+      // (fal.ai Kling v3 Pro, start_image_url = the same JPEG), NOT a
+      // from-scratch generation of people -- that approach already failed
+      // once on this codebase (see git history: 60dd2190 / 043f0d17,
+      // "anatomically-wrong prevention hero clip"). Prompted for static
+      // camera and zero anatomy change, reviewed frame-by-frame before
+      // committing. Same brand rule as every other ambient clip: decorative
+      // motion only, never implying a real Tarragon patient/family.
+      videoSrc: "/marketing/video/homepage-family-phone-ambient.mp4",
     } as MarketingMediaSlot,
     problem: {
-      illustration: "fragmented-care",
-      imageAlt: "Missed reminders and scattered health information between visits",
+      imageSrc: "/marketing/photos/body/problem-medication-organiser.jpg",
+      imageAlt: "Close-up of two people's hands sorting medication into a weekly pill organiser",
     } satisfies MarketingMediaSlot,
     solution: {
-      illustration: "connected-care",
-      imageAlt: "Readings, reminders, and doctor review in one connected record",
+      imageSrc: "/marketing/photos/body/how-it-works-log-reading.jpg",
+      imageAlt: "A hand holding a phone beside a home blood pressure cuff on a wooden table",
+    } satisfies MarketingMediaSlot,
+    preventionCallout: {
+      imageSrc: "/marketing/photos/body/prevention-reviewing-notes.jpg",
+      imageAlt: "A woman reviewing a printed health document at home",
     } satisfies MarketingMediaSlot,
     /** Set youtubeId when a product walkthrough is ready on YouTube. */
     walkthroughVideo: {
@@ -116,11 +129,20 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/hypertension.jpg",
       imageAlt: "An older man reading his blood pressure monitor at home",
       imageFocus: "center 58%",
+      // 2026-09-14: image-to-video cinemagraph, same provenance/review process
+      // as homepage.hero.videoSrc above -- see that comment.
+      videoSrc: "/marketing/video/hypertension-ambient.mp4",
     } as MarketingMediaSlot,
     diabetes: {
       imageSrc: "/marketing/photos/hero/diabetes.jpg",
       imageAlt: "A woman preparing a meal at home with her glucometer on the counter beside her",
       imageFocus: "center 42%",
+      // 2026-09-14: second attempt -- the first morphed the knife/glucometer
+      // between frames and was rejected (caught in review, never shipped);
+      // this one drops the "continue chopping" motion instruction in favour
+      // of near-stillness on hands/objects, which held the knife and
+      // glucometer consistent across every sampled frame.
+      videoSrc: "/marketing/video/diabetes-ambient.mp4",
     } as MarketingMediaSlot,
     obesity: {
       imageSrc: "/marketing/photos/hero/obesity.jpg",
@@ -136,6 +158,7 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/prevention.jpg",
       imageAlt: "A woman reviewing her personal health notes at home",
       imageFocus: "center 28%",
+      videoSrc: "/marketing/video/prevention-ambient.mp4",
     } as MarketingMediaSlot,
     medication: {
       imageSrc: "/marketing/photos/hero/medication.jpg",
@@ -186,16 +209,27 @@ export const MARKETING_MEDIA = {
       imageSrc: "/marketing/photos/hero/services.jpg",
       imageAlt: "A hand holding a phone beside a blood pressure cuff on a table",
       imageFocus: "center 45%",
+      videoSrc: "/marketing/video/services-ambient.mp4",
     } as MarketingMediaSlot,
+    /**
+     * Illustration, not a photograph, on purpose. who-its-for.jpg was a
+     * BYTE-IDENTICAL copy of homepage-family-phone.jpg (same md5), which
+     * /pricing/how-it-works also borrowed, so one photograph fronted three
+     * pages. The file is gone; the homepage keeps the photograph, and this
+     * page (an audience router, not a story) gets the network illustration
+     * that actually describes what it is about. Give it its own photograph
+     * once one is genuinely sourced.
+     */
     whoItsFor: {
-      imageSrc: "/marketing/photos/hero/who-its-for.jpg",
-      imageAlt: "An adult daughter and her mother smiling together at a phone",
-      imageFocus: "center 26%",
+      illustration: "care-network",
+      imageAlt:
+        "One health record connected to an individual, their family, their employer, and their HMO",
     } as MarketingMediaSlot,
     chronicCare: {
       imageSrc: "/marketing/photos/hero/chronic-care.jpg",
       imageAlt: "A clinician reviewing a tablet with a seated older patient",
       imageFocus: "center 20%",
+      videoSrc: "/marketing/video/chronic-care-ambient.mp4",
     } as MarketingMediaSlot,
     careCoordination: {
       imageSrc: "/marketing/photos/hero/care-coordination.jpg",

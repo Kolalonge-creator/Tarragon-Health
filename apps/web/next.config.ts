@@ -96,8 +96,19 @@ const nextConfig: NextConfig = {
   // In a monorepo, trace files from the repo root so shared workspace
   // packages are correctly included in the production output.
   outputFileTracingRoot: path.join(__dirname, "../../"),
+  // Server Actions default to a 1MB request-body cap. Every form that
+  // uploads a file straight through a Server Action (patient avatar, up to
+  // 5MB per validatePatientAvatarFile; medicine-pack photos, up to 8MB) was
+  // silently rejected by this cap before the handler ever ran, well below
+  // what the UI advertised and validated client-side. Raised past the
+  // largest of those, with the multipart overhead the docs call out.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
   // Compile TypeScript sources imported from workspace packages.
-  transpilePackages: ["@tarragon/shared", "@tarragon/lifestyle-engine"],
+  transpilePackages: ["@tarragon/shared", "@tarragon/lifestyle-engine", "@tarragon/symptom-triage-engine"],
   // Dev-server-only (ignored in production builds). The Expo mobile app's
   // WebView sections (apps/mobile/src/screens/webview-screen.tsx) hit this
   // dev server over the LAN IP set in apps/mobile/.env's
@@ -107,6 +118,16 @@ const nextConfig: NextConfig = {
   // hydrating at all (a page can look loaded — server-rendered markup
   // shows — while every useEffect never runs).
   allowedDevOrigins: ["192.168.40.137"],
+  // The marketing site's hero photography is 150-710 KB of source JPEG per
+  // page, served to a market where mobile data is metered and often slow.
+  // next/image already resizes, but with no `formats` set it re-encodes to
+  // WebP only; adding AVIF ahead of it typically halves the transfer again
+  // for the same photo, and browsers that support neither still get the
+  // original via content negotiation. Ordered most-efficient-first, which is
+  // the order Next offers them in the Accept negotiation.
+  images: {
+    formats: ["image/avif", "image/webp"],
+  },
   // Apple Pay domain verification for Paystack. The file lives at
   // public/.well-known/apple-developer-merchantid-domain-association and has
   // no file extension, so Next's static handler sets no Content-Type at all

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import {
   useConfirmMedicationRefill,
   useMedicationCollections,
@@ -10,17 +10,44 @@ import {
   type MedicationCollection,
   type MedicationWithCarePlan,
 } from "@/lib/queries/medications";
+import {
+  useMedicationRepeatRequests,
+  useRequestMedicationRepeat,
+  type MedicationRepeatRequest,
+} from "@/lib/queries/medication-repeat-requests";
+import {
+  useMedicationChangeRequests,
+  useRequestMedicationChange,
+  type MedicationChangeRequest,
+} from "@/lib/queries/medication-change-requests";
+import { requestMedicationChangeSchema } from "@/lib/validation/medications";
+import { Textarea } from "@/components/ui/textarea";
 import { MedicationCollectionForm } from "./medication-collection-form";
+import { AmendMedicationForm } from "@/app/(dashboard)/clinician/patients/[patientId]/amend-medication-form";
 import { MedicationIssueReportForm } from "./medication-issue-report-form";
+import { SymptomLogForm } from "./symptom-log-form";
+import { MedicationAccessBarrierForm } from "./medication-access-barrier-form";
+import { computeRefillGapSignal, REFILL_GAP_DISCLAIMER } from "@/lib/rules/adherence-signals";
 import { usePatientNextReview } from "@/lib/queries/medication-reviews";
 import { usePatientLabMonitoring } from "@/lib/queries/lab-monitoring";
+import { ResultExplainer } from "@/components/result-explainer";
+import {
+  useMedicationRenewalRequest,
+  useRequestPrescriptionRenewal,
+} from "@/lib/queries/prescription-renewal";
+import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
+import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { SEMANTIC_ICON } from "@/lib/icons";
+import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
+import { assessMedicationSafety, type DrugSafetySeverity, type FindingKind } from "@/lib/rules/drug-safety";
 
+import { formatPatientDate } from "@/lib/format-date";
 const SOURCE_BADGE: Record<
   string,
   { variant: "blue" | "grey" | "amber"; label: string }
@@ -30,11 +57,26 @@ const SOURCE_BADGE: Record<
   patient: { variant: "grey", label: "Self-added" },
 };
 
+const SAFETY_SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {
+  contraindicated: { label: "Avoid together", variant: "red" },
+  caution: { label: "Caution", variant: "amber" },
+  info: { label: "Note", variant: "grey" },
+};
+
+const SAFETY_KIND_LABEL: Record<FindingKind, string> = {
+  interaction: "Interaction",
+  duplicate_therapy: "Duplicate therapy",
+  renal_dosing: "Kidney function",
+  drug_specific: "Drug note",
+  allergy: "Allergy",
+};
+
 export function MedicationsList({
   patientId,
   refillCoordinationEnabled,
   canConfirmRefill = false,
   canStop = false,
+  canAmend = false,
   isClinicianView = false,
 }: {
   patientId: string;
@@ -53,6 +95,11 @@ export function MedicationsList({
    * the real permission — the patient may stop their own self-/specialist-
    * sourced rows; a clinician row needs prescribing authority. */
   canStop?: boolean;
+  /** Renders the "Amend" control on the status trail (clinician view only —
+   * spec §62.14). private.has_prescribing_authority is the real gate; this
+   * only decides whether the control renders. Never true for the patient's
+   * own view — only clinical staff may amend a signed prescription. */
+  canAmend?: boolean;
   /**
    * A clinician/staff member viewing a patient's chart, not the patient's
    * own dashboard — this component is shared between both (see clinician/
@@ -66,35 +113,53 @@ export function MedicationsList({
   isClinicianView?: boolean;
 }) {
   const { data, isLoading, isError } = useMedications(patientId);
-  // Only needed for the clinician-view status trail — empty patientId keeps
-  // the query disabled (see `enabled: !!patientId`) on the patient's own view.
-  const { data: collections } = useMedicationCollections(isClinicianView ? patientId : "");
+  // Needed both for the clinician-view status trail and for the 64.6
+  // refill-gap signal shown on both views — unlike repeatRequests below, this
+  // one is never disabled by view.
+  const { data: collections } = useMedicationCollections(patientId);
+  // Only needed for the patient's own "request next supply" control — empty
+  // patientId keeps the query disabled (see `enabled: !!patientId`) on the
+  // clinician view.
+  const { data: repeatRequests } = useMedicationRepeatRequests(!isClinicianView ? patientId : "");
+  const { data: changeRequests } = useMedicationChangeRequests(!isClinicianView ? patientId : "");
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.medication className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Medications
+          {data && isPolypharmacy(data.length) && (
+            <Badge variant="amber" title={`${data.length} active medicines. This is a lot to keep track of, worth a review`}>
+              Polypharmacy
+            </Badge>
+          )}
         </CardTitle>
+        {data && isPolypharmacy(data.length) && (
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            {data.length} active medicines on file. {POLYPHARMACY_THRESHOLD} or more is worth a clinician
+            review for duplicate therapy or interactions, not a reason to stop anything on your own.
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <CabinetSummary patientId={patientId} />
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {!isClinicianView && <MedicationInteractionNote medications={data ?? []} />}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load medications.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load medications.</p>
         )}
         {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No active medications.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No active medications.</p>
         )}
         {data && data.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {data.map((medication) => {
               const badge = SOURCE_BADGE[medication.source] ?? SOURCE_BADGE.patient;
               return (
                 <li key={medication.id} className="space-y-1 py-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <p className="text-sm font-medium text-charcoal-ink">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {medication.drug_name}
                     </p>
                     <Badge variant={badge.variant}>{badge.label}</Badge>
@@ -104,12 +169,19 @@ export function MedicationsList({
                       </Badge>
                     )}
                   </div>
-                  <p className="text-xs text-charcoal-ink/60">
+                  <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                     {[medication.dose, medication.frequency].filter(Boolean).join(", ") ||
                       "No dose/frequency set"}
                   </p>
+                  {!isClinicianView && (
+                    <ResultExplainer
+                      kind="medication"
+                      subjectKey={medication.id}
+                      label={medication.drug_name}
+                    />
+                  )}
                   {medication.source === "specialist" && medication.prescriber_name && (
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Started by {medication.prescriber_name}
                       {medication.prescriber_document_url && (
                         <>
@@ -127,13 +199,13 @@ export function MedicationsList({
                     </p>
                   )}
                   {medication.refill_date && refillCoordinationEnabled && (
-                    <p className="text-xs text-charcoal-ink/60">
-                      Refill by {new Date(medication.refill_date).toLocaleDateString()} ·{" "}
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                      Refill by {formatPatientDate(medication.refill_date)} ·{" "}
                       {daysLeftLabel(medication.refill_date)}
                     </p>
                   )}
                   {medication.refill_date && !refillCoordinationEnabled && (
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Refill coordination is part of a paid plan;{" "}
                       <a href="/patient/subscription" className="underline">
                         see plans
@@ -142,33 +214,73 @@ export function MedicationsList({
                     </p>
                   )}
                   {medication.last_confirmed_at && (
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       Refill checked and still valid ·{" "}
-                      {new Date(medication.last_confirmed_at).toLocaleDateString()}
-                      <span className="text-charcoal-ink/40">
+                      {formatPatientDate(medication.last_confirmed_at)}
+                      <span className="text-charcoal-ink/40 dark:text-night-ink/50">
                         {" "}
                         (an administrative check, not a new dose review)
                       </span>
                     </p>
                   )}
+                  <RefillGapNote medication={medication} collections={collections ?? []} />
                   {canConfirmRefill && medication.source === "clinician" && (
                     <ConfirmRefillForm medication={medication} patientId={patientId} />
                   )}
                   {isClinicianView ? (
                     medication.source === "clinician" && (
-                      <PrescriptionStatusTrail medication={medication} collections={collections ?? []} />
+                      <PrescriptionStatusTrail
+                        medication={medication}
+                        collections={collections ?? []}
+                        patientId={patientId}
+                        canAmend={canAmend}
+                      />
                     )
                   ) : (
                     // Buy anywhere, tell us afterwards. Ungated: knowing
                     // whether a patient actually has their medicine is a
                     // safety signal, not a paid feature.
                     <>
+                      <ResultExplainer
+                        kind="medication"
+                        subjectKey={medication.id}
+                        label={medication.drug_name}
+                      />
                       <MedicationCollectionForm medication={medication} patientId={patientId} />
                       <MedicationIssueReportForm medication={medication} patientId={patientId} />
+                      <RequestChangeButton
+                        medication={medication}
+                        patientId={patientId}
+                        requests={changeRequests ?? []}
+                      />
+                      <RequestRenewalButton
+                        medication={medication}
+                        patientId={patientId}
+                        organisationId={medication.organisation_id}
+                      />
                     </>
                   )}
+                  {!isClinicianView &&
+                    medication.source === "clinician" &&
+                    medication.repeats_allowed > 0 && (
+                      <RepeatRequestControl
+                        medication={medication}
+                        patientId={patientId}
+                        requests={repeatRequests ?? []}
+                      />
+                    )}
                   {canStop && (
                     <StopMedicationForm medication={medication} patientId={patientId} />
+                  )}
+                  {!isClinicianView && (
+                    <ReportSideEffectButton
+                      patientId={patientId}
+                      medicationId={medication.id}
+                      drugName={medication.drug_name}
+                    />
+                  )}
+                  {!isClinicianView && (
+                    <AccessBarrierButton medicationId={medication.id} drugName={medication.drug_name} />
                   )}
                 </li>
               );
@@ -179,6 +291,104 @@ export function MedicationsList({
         <PastMedications patientId={patientId} />
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Medication safety pathway 64.6 — a non-diagnostic "potential gap" signal
+ * from the medication's own day-supply (duration_days) vs. the actual
+ * interval between its two most recent collections. Silent (renders
+ * nothing) when there's no day-supply on file or no gap worth surfacing —
+ * see computeRefillGapSignal for the exact rule and its 5-day noise floor.
+ */
+function RefillGapNote({
+  medication,
+  collections,
+}: {
+  medication: MedicationWithCarePlan;
+  collections: MedicationCollection[];
+}) {
+  const dispenseDates = collections
+    .filter((c) => c.medication_id === medication.id)
+    .map((c) => c.dispensed_on);
+  const signal = computeRefillGapSignal(medication.id, medication.duration_days, dispenseDates);
+  if (!signal) return null;
+
+  return (
+    <p className="text-xs text-amber-700 dark:text-amber-300">
+      Adherence signal: potential {signal.gapDays}-day gap ({signal.expectedIntervalDays}-day
+      supply, {signal.actualIntervalDays} days between the last two pickups).{" "}
+      <span className="text-charcoal-ink/50 dark:text-night-ink/55">{REFILL_GAP_DISCLAIMER}</span>
+    </p>
+  );
+}
+
+/**
+ * Read-only, patient-facing surfacing of assessMedicationSafety's interaction/
+ * duplicate-therapy/drug-specific findings across the patient's own active
+ * list — the same rule engine MedicationSafetyPanel already runs for
+ * clinicians (@/lib/rules/drug-safety.ts), just without the eGFR/allergy
+ * context a clinician's chart has loaded, so renal-dosing and allergy
+ * findings are left out here rather than shown as checked when they were
+ * not. Advisory only: it never blocks adding a medication and writes
+ * nothing anywhere — see checkMedicationSafetyAfterAdd in actions.ts for why
+ * the gated, alert-writing version of this check stays clinician-only.
+ */
+function MedicationInteractionNote({ medications }: { medications: MedicationWithCarePlan[] }) {
+  const report = useMemo(
+    () =>
+      assessMedicationSafety(
+        medications.map((m) => ({
+          id: m.id,
+          drugName: m.drug_name,
+          dose: m.dose,
+          prescriberName: m.prescriber_name,
+          source: m.source,
+        })),
+      ),
+    [medications],
+  );
+
+  const findings = report.findings.filter(
+    (f) => f.kind === "interaction" || f.kind === "duplicate_therapy" || f.kind === "drug_specific",
+  );
+
+  if (medications.length < 2 || findings.length === 0) return null;
+
+  return (
+    <div className="mb-3 space-y-2 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-500/40 dark:bg-amber-500/10">
+      <p className="text-sm font-medium text-amber-900 dark:text-amber-300">
+        Something worth knowing about how these work together
+      </p>
+      <ul className="space-y-2">
+        {findings.map((finding, index) => {
+          const badge = SAFETY_SEVERITY_BADGE[finding.severity];
+          return (
+            <li key={`${finding.kind}-${finding.title}-${index}`} className="rounded-md bg-white/70 p-2 dark:bg-night-ink/20">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={badge.variant}>{badge.label}</Badge>
+                <span className="text-[0.65rem] uppercase tracking-wide text-charcoal-ink/50 dark:text-night-ink/55">
+                  {SAFETY_KIND_LABEL[finding.kind]}
+                </span>
+                <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{finding.title}</p>
+              </div>
+              <p className="mt-1 text-sm text-charcoal-ink/80 dark:text-night-ink/80">{finding.message}</p>
+              <p className="mt-1 text-xs text-charcoal-ink/55 dark:text-night-ink/55">
+                {[...new Set(finding.drugNames)].join(" · ")}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-xs text-amber-900/80 dark:text-amber-300/80">
+        This is a curated check, not a complete interaction database, and it does not replace a
+        clinician&apos;s judgement. Do not stop or change a dose on your own,{" "}
+        <a href="/patient/messages" className="font-medium underline">
+          message your care team
+        </a>{" "}
+        about this instead.
+      </p>
+    </div>
   );
 }
 
@@ -209,24 +419,24 @@ function CabinetSummary({ patientId }: { patientId: string }) {
   if (!nextReview && !nextLab) return null;
 
   return (
-    <div className="mb-3 grid gap-2 rounded-md bg-charcoal-ink/5 p-3 sm:grid-cols-2">
+    <div className="mb-3 grid gap-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-3 sm:grid-cols-2">
       {nextReview && (
         <div>
-          <p className="text-xs text-charcoal-ink/50">Next medication review</p>
-          <p className="text-sm text-charcoal-ink">
-            {new Date(nextReview.due_date).toLocaleDateString()}{" "}
-            <span className="text-charcoal-ink/50">· {daysLeftLabel(nextReview.due_date)}</span>
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Next medication review</p>
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">
+            {formatPatientDate(nextReview.due_date)}{" "}
+            <span className="text-charcoal-ink/50 dark:text-night-ink/55">· {daysLeftLabel(nextReview.due_date)}</span>
           </p>
         </div>
       )}
       {nextLab && nextLab.due_date && (
         <div>
-          <p className="text-xs text-charcoal-ink/50">Next lab test</p>
-          <p className="text-sm text-charcoal-ink">
+          <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">Next lab test</p>
+          <p className="text-sm text-charcoal-ink dark:text-night-ink">
             {nextLab.monitoring_label}
-            <span className="text-charcoal-ink/50">
+            <span className="text-charcoal-ink/50 dark:text-night-ink/55">
               {" "}
-              · {new Date(nextLab.due_date).toLocaleDateString()}
+              · {formatPatientDate(nextLab.due_date)}
             </span>
           </p>
         </div>
@@ -261,10 +471,15 @@ function CabinetSummary({ patientId }: { patientId: string }) {
 function PrescriptionStatusTrail({
   medication,
   collections,
+  patientId,
+  canAmend,
 }: {
   medication: MedicationWithCarePlan;
   collections: MedicationCollection[];
+  patientId: string;
+  canAmend: boolean;
 }) {
+  const [amending, setAmending] = useState(false);
   const latestCollection = collections
     .filter((c) => c.medication_id === medication.id)
     .sort((a, b) => (a.dispensed_on < b.dispensed_on ? 1 : -1))[0];
@@ -277,11 +492,13 @@ function PrescriptionStatusTrail({
     {
       label: "Signed",
       done: true,
-      detail: `${signedBy} · ${new Date(medication.created_at).toLocaleDateString("en-GB", {
+      detail: `${signedBy} · ${new Date(medication.created_at).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
         day: "numeric",
         month: "short",
         year: "numeric",
-      })}`,
+      })}${medication.rx_number ? ` · ${medication.rx_number}` : ""}${
+        medication.version > 1 ? ` · v${medication.version}` : ""
+      }`,
     },
     {
       label: "Patient notified",
@@ -293,7 +510,7 @@ function PrescriptionStatusTrail({
       done: !!latestCollection,
       detail: latestCollection
         ? [
-            new Date(latestCollection.dispensed_on).toLocaleDateString("en-GB", {
+            new Date(latestCollection.dispensed_on).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos",
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -306,22 +523,49 @@ function PrescriptionStatusTrail({
     },
   ];
 
+  const expiresAt = medication.expires_at ? new Date(medication.expires_at) : null;
+  const isExpired = !!expiresAt && expiresAt.getTime() < new Date().getTime();
+
   return (
-    <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-      {steps.map((step) => (
-        <span key={step.label} className="inline-flex items-center gap-1.5">
-          <span
-            className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-              step.done ? "bg-brand-green" : "bg-charcoal-ink/20"
-            }`}
-            aria-hidden="true"
-          />
-          <span className={step.done ? "text-charcoal-ink/70" : "text-charcoal-ink/40"}>
-            {step.label} · {step.detail}
+    <>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+        {expiresAt && (
+          <span className={isExpired ? "text-red-700 dark:text-red-300" : "text-charcoal-ink/50 dark:text-night-ink/55"}>
+            {isExpired ? "Expired" : "Valid until"}{" "}
+            {expiresAt.toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", day: "numeric", month: "short", year: "numeric" })}
           </span>
-        </span>
-      ))}
-    </div>
+        )}
+        {steps.map((step) => (
+          <span key={step.label} className="inline-flex items-center gap-1.5">
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+                step.done ? "bg-brand-green" : "bg-charcoal-ink/20 dark:bg-night-ink/25"
+              }`}
+              aria-hidden="true"
+            />
+            <span className={step.done ? "text-charcoal-ink/70 dark:text-night-ink/70" : "text-charcoal-ink/40 dark:text-night-ink/50"}>
+              {step.label} · {step.detail}
+            </span>
+          </span>
+        ))}
+        {canAmend && !amending && (
+          <button
+            type="button"
+            onClick={() => setAmending(true)}
+            className="text-charcoal-ink/50 dark:text-night-ink/55 underline hover:text-charcoal-ink dark:hover:text-night-ink"
+          >
+            Amend
+          </button>
+        )}
+      </div>
+      {canAmend && amending && (
+        <AmendMedicationForm
+          medication={medication}
+          patientId={patientId}
+          onDone={() => setAmending(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -347,7 +591,7 @@ function ConfirmRefillForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-wrap items-end gap-2 pt-1">
-      <p className="basis-full text-xs text-charcoal-ink/50">
+      <p className="basis-full text-xs text-charcoal-ink/50 dark:text-night-ink/55">
         This confirms your prescription is still valid for pickup. It is an
         administrative check, not a new medical review of your dose.
       </p>
@@ -367,12 +611,12 @@ function ConfirmRefillForm({
         {confirmRefill.isPending ? "Confirming…" : "Confirm refill is still needed"}
       </Button>
       {confirmRefill.isError && (
-        <p className="text-xs text-red-600 basis-full">
+        <p className="text-xs text-red-600 dark:text-red-300 basis-full">
           {(confirmRefill.error as Error).message || "Could not confirm this prescription."}
         </p>
       )}
       {success && !confirmRefill.isPending && (
-        <p className="text-xs text-brand-green basis-full">
+        <p className="text-xs text-brand-green dark:text-brand-green-bright basis-full">
           Refill confirmed as still valid.
         </p>
       )}
@@ -397,7 +641,7 @@ function StopMedicationForm({
         type="button"
         variant="ghost"
         size="sm"
-        className="mt-1 h-7 px-2 text-xs text-charcoal-ink/70"
+        className="mt-1 min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen(true)}
       >
         Stop medication
@@ -406,7 +650,7 @@ function StopMedicationForm({
   }
 
   return (
-    <div className="mt-1 flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 p-2">
+    <div className="mt-1 flex flex-wrap items-end gap-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-2">
       <div className="min-w-48 flex-1 space-y-1">
         <Label htmlFor={`stop_reason_${medication.id}`} className="text-xs">
           Reason (optional): e.g. switched, side effects
@@ -436,10 +680,369 @@ function StopMedicationForm({
         Cancel
       </Button>
       {stopMedication.isError && (
-        <p className="basis-full text-xs text-red-600">
+        <p className="basis-full text-xs text-red-600 dark:text-red-300">
           {(stopMedication.error as Error).message || "Could not stop this medication."}
         </p>
       )}
+    </div>
+  );
+}
+
+/**
+ * "I need my next supply" (spec §62.11) — shown only for a clinician-issued
+ * prescription with repeats remaining. Every request needs clinical review
+ * (20260829011000_medication_repeat_requests.sql — no auto-approve path), so
+ * this only ever offers "Request" or shows the latest request's outcome, it
+ * never claims a repeat is ready before a clinician has said so.
+ */
+function RepeatRequestControl({
+  medication,
+  patientId,
+  requests,
+}: {
+  medication: MedicationWithCarePlan;
+  patientId: string;
+  requests: MedicationRepeatRequest[];
+}) {
+  const requestRepeat = useRequestMedicationRepeat();
+  const latest = requests
+    .filter((r) => r.medication_id === medication.id)
+    .sort((a, b) => (a.requested_at < b.requested_at ? 1 : -1))[0];
+
+  if (latest?.status === "pending") {
+    return (
+      <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        Next supply requested {formatPatientDate(latest.requested_at)} · awaiting review
+      </p>
+    );
+  }
+
+  return (
+    <div className="mt-1 space-y-1">
+      {latest?.status === "approved" && (
+        <p className="text-xs text-brand-green dark:text-brand-green-bright">
+          Approved {formatPatientDate(latest.reviewed_at ?? latest.requested_at)}. You can
+          collect your next supply.
+        </p>
+      )}
+      {latest?.status === "denied" && (
+        <p className="text-xs text-red-700 dark:text-red-300">
+          Request declined{latest.denial_reason ? `: ${latest.denial_reason}` : ""}
+        </p>
+      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        disabled={requestRepeat.isPending}
+        onClick={() => requestRepeat.mutate({ medicationId: medication.id, patientId })}
+      >
+        {requestRepeat.isPending ? "Requesting…" : "Request next supply"}
+      </Button>
+      {requestRepeat.isError && (
+        <p className="text-xs text-red-600 dark:text-red-300">
+          {(requestRepeat.error as Error).message || "Could not request a repeat."}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Patient-initiated "this needs to change" — dose changed, switching brand,
+ * whatever the reason. Never edits the medication itself: a clinician
+ * reviews the request and, if they agree, makes the actual change through
+ * the existing Amend control. See
+ * 20260907131424_medication_change_requests.sql for the full rationale.
+ */
+function RequestChangeButton({
+  medication,
+  patientId,
+  requests,
+}: {
+  medication: MedicationWithCarePlan;
+  patientId: string;
+  requests: MedicationChangeRequest[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [requestedChange, setRequestedChange] = useState("");
+  const [reason, setReason] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const requestChange = useRequestMedicationChange();
+
+  const latest = requests
+    .filter((r) => r.medication_id === medication.id)
+    .sort((a, b) => (a.requested_at < b.requested_at ? 1 : -1))[0];
+
+  if (latest?.status === "pending") {
+    return (
+      <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        Change requested {formatPatientDate(latest.requested_at)} · awaiting review
+      </p>
+    );
+  }
+
+  if (!open) {
+    return (
+      <div className="mt-1 space-y-1">
+        {latest?.status === "denied" && (
+          <p className="text-xs text-red-700 dark:text-red-300">
+            Your last request wasn&apos;t approved{latest.denial_reason ? `: ${latest.denial_reason}` : ""}
+          </p>
+        )}
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+          onClick={() => setOpen(true)}
+        >
+          Request a change
+        </Button>
+      </div>
+    );
+  }
+
+  function submit() {
+    const parsed = requestMedicationChangeSchema.safeParse({
+      requested_change: requestedChange,
+      reason,
+    });
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues[0]?.message ?? "Invalid input");
+      return;
+    }
+    setValidationError(null);
+    requestChange.mutate(
+      { medicationId: medication.id, patientId, input: parsed.data },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          setRequestedChange("");
+          setReason("");
+        },
+      }
+    );
+  }
+
+  const displayError = validationError ?? ((requestChange.error as Error | null)?.message || null);
+
+  return (
+    <div className="mt-1 space-y-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 p-2">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        A doctor reviews every request before anything on your prescription actually changes.
+      </p>
+      <div className="space-y-1">
+        <Label htmlFor={`requested_change_${medication.id}`} className="text-xs">
+          What would you like changed?
+        </Label>
+        <Input
+          id={`requested_change_${medication.id}`}
+          placeholder="e.g. reduce to once daily, switch to a different brand"
+          value={requestedChange}
+          onChange={(event) => setRequestedChange(event.target.value)}
+          className="h-8 text-xs"
+        />
+      </div>
+      <div className="space-y-1">
+        <Label htmlFor={`change_reason_${medication.id}`} className="text-xs">
+          Why?
+        </Label>
+        <Textarea
+          id={`change_reason_${medication.id}`}
+          rows={2}
+          value={reason}
+          onChange={(event) => setReason(event.target.value)}
+          className="text-xs"
+        />
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={requestChange.isPending}
+          onClick={submit}
+        >
+          {requestChange.isPending ? "Sending…" : "Send request"}
+        </Button>
+        <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+      {displayError && <p className="text-xs text-red-600 dark:text-red-300">{displayError}</p>}
+    </div>
+  );
+}
+
+const RENEWAL_CREDIT_CODE = "prescription_renewal_credit";
+
+/**
+ * Pay-per-service item: request a doctor's review to renew this
+ * prescription. Server-side, prescription_renewal_requests_enforce_credit
+ * accepts either plan access (medication_refills) or a redeemed
+ * prescription_renewal_credit — this button doesn't pre-check plan access
+ * itself (has_available_service_purchase only tells us about a credit), so
+ * a plan-covered patient's request just succeeds on submit without ever
+ * needing to buy anything.
+ */
+function RequestRenewalButton({
+  medication,
+  patientId,
+  organisationId,
+}: {
+  medication: MedicationWithCarePlan;
+  patientId: string;
+  organisationId: string;
+}) {
+  const { data: openRequest } = useMedicationRenewalRequest(medication.id);
+  const { data: hasCredit } = useHasAvailableServicePurchase(patientId, RENEWAL_CREDIT_CODE);
+  const requestRenewal = useRequestPrescriptionRenewal();
+  const [isBuying, setIsBuying] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  if (openRequest && (openRequest.status === "submitted" || openRequest.status === "in_review")) {
+    return (
+      <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+        Renewal requested · a doctor will respond by{" "}
+        {formatPatientDate(openRequest.sla_due_at)}
+      </p>
+    );
+  }
+  if (openRequest?.status === "approved") {
+    return <p className="mt-1 text-xs text-brand-green dark:text-brand-green-bright">Renewal approved by your care team.</p>;
+  }
+
+  async function onRequest() {
+    setError(null);
+    requestRenewal.mutate(
+      { patientId, organisationId, medicationId: medication.id },
+      {
+        onError: async (err) => {
+          const message = (err as Error).message ?? "";
+          if (!message.includes("renewal credit")) {
+            setError(message || "Could not send this request.");
+            return;
+          }
+          // No plan access and no credit — start checkout, then retry on return.
+          setIsBuying(true);
+          const result = await purchaseServiceProduct({
+            serviceProductCode: RENEWAL_CREDIT_CODE,
+            callbackPath: "/patient",
+          });
+          setIsBuying(false);
+          if (result?.error) setError(result.error);
+          else if (result?.checkoutUrl) window.location.href = result.checkoutUrl;
+        },
+      }
+    );
+  }
+
+  return (
+    <div className="mt-1">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        disabled={requestRenewal.isPending || isBuying}
+        onClick={onRequest}
+      >
+        {requestRenewal.isPending || isBuying
+          ? "Requesting…"
+          : hasCredit
+            ? "Request renewal (credit ready)"
+            : "Request renewal"}
+      </Button>
+      <FormError id={fieldErrorId(`medication-renewal-${medication.id}`)} message={error} />
+    </div>
+  );
+}
+
+/**
+ * Medication safety pathway 64.9 — "I'm experiencing a side effect": a
+ * collapsible entry point per medication into SymptomLogForm, scoped to this
+ * drug via medicationId. Severity-based triage (urgent vs. clinical review
+ * vs. nothing) is entirely SymptomLogForm/logSymptom's existing behaviour;
+ * this only supplies which medication the report is about.
+ */
+function ReportSideEffectButton({
+  patientId,
+  medicationId,
+  drugName,
+}: {
+  patientId: string;
+  medicationId: string;
+  drugName: string;
+}) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        onClick={() => setOpen(true)}
+      >
+        I&apos;m experiencing a side effect
+      </Button>
+    );
+  }
+
+  return (
+    <div className="mt-1">
+      <SymptomLogForm patientId={patientId} medicationId={medicationId} drugName={drugName} />
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 min-h-11 px-2 text-xs"
+        onClick={() => setOpen(false)}
+      >
+        Close
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * Medication safety pathway 64.20/64.21 — "I cannot afford/get this
+ * medicine". Same collapsible pattern as ReportSideEffectButton; the actual
+ * pathway (never an automatic substitution) is entirely
+ * MedicationAccessBarrierForm/reportMedicationAccessBarrier's behaviour.
+ */
+function AccessBarrierButton({ medicationId, drugName }: { medicationId: string; drugName: string }) {
+  const [open, setOpen] = useState(false);
+
+  if (!open) {
+    return (
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
+        onClick={() => setOpen(true)}
+      >
+        I can&apos;t get or afford this medicine
+      </Button>
+    );
+  }
+
+  return (
+    <div className="mt-1">
+      <MedicationAccessBarrierForm medicationId={medicationId} drugName={drugName} />
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="mt-1 min-h-11 px-2 text-xs"
+        onClick={() => setOpen(false)}
+      >
+        Close
+      </Button>
     </div>
   );
 }
@@ -452,31 +1055,48 @@ function PastMedications({ patientId }: { patientId: string }) {
   if (!data || data.length === 0) return null;
 
   return (
-    <div className="mt-3 border-t border-charcoal-ink/10 pt-3">
+    <div className="mt-3 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        className="h-7 px-2 text-xs text-charcoal-ink/70"
+        className="min-h-11 px-2 text-xs text-charcoal-ink/70 dark:text-night-ink/70"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
       >
         {open ? "Hide" : "Show"} past medications ({data.length})
       </Button>
       {open && (
-        <ul className="mt-1 divide-y divide-charcoal-ink/10">
+        <ul className="mt-1 divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
           {data.map((medication) => (
             <li key={medication.id} className="py-2">
-              <p className="text-sm text-charcoal-ink/70 line-through decoration-charcoal-ink/30">
+              <p className="text-sm text-charcoal-ink/70 dark:text-night-ink/70 line-through decoration-charcoal-ink/30 dark:decoration-night-ink/35">
                 {medication.drug_name}
                 {medication.dose ? `, ${medication.dose}` : ""}
               </p>
-              <p className="text-xs text-charcoal-ink/50">
-                Stopped
-                {medication.stopped_at
-                  ? ` ${new Date(medication.stopped_at).toLocaleDateString()}`
-                  : ""}
-                {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
+              <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+                {/* An amended prescription (spec §62.14) is superseded, not
+                    stopped — it must never read as "discontinued"/"cancelled",
+                    which would misrepresent a still-active course of
+                    treatment that only changed dose/instructions/etc. (the
+                    same "never falsely imply not supplied" spirit as §62.13).
+                    amendment_reason lives on the NEW version's row (visible
+                    in the active list above), not this superseded one, so
+                    it isn't repeated here. */}
+                {medication.superseded_at ? (
+                  <>
+                    Replaced by an updated prescription
+                    {` ${formatPatientDate(medication.superseded_at)}`}
+                  </>
+                ) : (
+                  <>
+                    Stopped
+                    {medication.stopped_at
+                      ? ` ${formatPatientDate(medication.stopped_at)}`
+                      : ""}
+                    {medication.stopped_reason ? ` · ${medication.stopped_reason}` : ""}
+                  </>
+                )}
               </p>
             </li>
           ))}

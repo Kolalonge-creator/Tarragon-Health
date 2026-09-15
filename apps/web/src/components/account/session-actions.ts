@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { authErrorMessage } from "@/lib/auth/auth-error-message";
 
 export type SignOutOthersState = { success?: boolean; error?: string } | undefined;
 
@@ -18,12 +19,12 @@ export async function signOutOtherSessions(
   _formData: FormData
 ): Promise<SignOutOthersState> {
   const user = await getCurrentUser();
-  if (!user) return { error: "Not signed in" };
+  if (!user) return { error: "Your session has expired. Sign in again, then retry." };
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signOut({ scope: "others" });
   if (error) {
-    return { error: error.message };
+    return { error: authErrorMessage(error, "sign_out_others") };
   }
   return { success: true };
 }

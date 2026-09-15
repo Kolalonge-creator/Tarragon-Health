@@ -1,8 +1,14 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { CampaignForm } from "./campaign-form";
-import { CampaignManager, type PreventionCampaignRow } from "./campaign-manager";
+import {
+  CampaignManager,
+  type PreventionCampaignRow,
+  type RequestedCampaignRow,
+} from "./campaign-manager";
 
 /**
  * Population-level prevention campaigns (spec §2.16) — "Heart Health Month"
@@ -16,24 +22,66 @@ export default async function PreventionCampaignsSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data: campaigns } = await supabase
-    .from("prevention_campaigns")
-    .select("id, code, name, description, starts_on, ends_on, status, actions")
+  const [
+    { data: campaigns, error: campaignsError },
+    { data: requested, error: requestedError },
+  ] = await Promise.all([
+    supabase
+      .from("prevention_campaigns")
+      .select("id, code, name, description, starts_on, ends_on, status, actions, population_id")
+      .eq("organisation_id", profile.organisation_id ?? "")
+      .order("created_at", { ascending: false }),
+    // Cross-org on purpose — an employer's request needs a superadmin to see
+    // it regardless of which org authored it. private.is_org_staff() already
+    // permits role='admin' for any organisation (role = 'admin' or
+    // organisation_id = org), so this is a pure app-code query change, not
+    // an RLS change.
+    supabase
+      .from("prevention_campaigns")
+      .select(
+        "id, code, name, description, starts_on, ends_on, status, actions, population_id, organisations(name), requested_by_profile:profiles!prevention_campaigns_requested_by_fkey(full_name)"
+      )
+      .not("requested_by", "is", null)
+      .order("created_at", { ascending: false }),
+  ]);
+
+  const { data: populations } = await supabase
+    .from("population_definitions")
+    .select("id, name")
     .eq("organisation_id", profile.organisation_id ?? "")
-    .order("created_at", { ascending: false });
+    .eq("status", "active")
+    .order("name");
+
+  const rows = (campaigns as PreventionCampaignRow[] | null) ?? [];
+  const requestedRows = (requested as unknown as RequestedCampaignRow[] | null) ?? [];
+  const effectivenessByCampaign: Record<string, unknown> = {};
+  await Promise.all(
+    [...rows, ...requestedRows]
+      .filter((c) => c.population_id)
+      .map(async (c) => {
+        const { data } = await supabase.rpc("get_campaign_effectiveness", { p_campaign_id: c.id });
+        effectivenessByCampaign[c.id] = data;
+      })
+  );
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Prevention campaigns</h1>
-        <p className="text-charcoal-ink/60">
-          Time-boxed, population-level initiatives — education, screening invitations, extra
-          assessments, partner offers, and challenges targeted at an eligible subset of patients
-          based on their own risk profile.
-        </p>
-      </div>
-      <CampaignForm />
-      <CampaignManager campaigns={(campaigns as PreventionCampaignRow[] | null) ?? []} />
+      <PageHeader
+        title="Prevention campaigns"
+        description="Time-boxed, population-level initiatives: education, screening invitations, extra assessments, partner offers, and challenges targeted at an eligible subset of patients based on their own risk profile."
+      />
+      <CampaignForm populations={populations ?? []} />
+      {(campaignsError || requestedError) && (
+        <LoadFailure>
+          Some campaigns could not be loaded ({(campaignsError ?? requestedError)?.message}). The
+          list below may be missing rows, not genuinely empty.
+        </LoadFailure>
+      )}
+      <CampaignManager
+        campaigns={rows}
+        requestedCampaigns={requestedRows}
+        effectivenessByCampaign={effectivenessByCampaign}
+      />
     </div>
   );
 }

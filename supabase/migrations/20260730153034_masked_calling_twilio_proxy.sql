@@ -174,7 +174,7 @@ begin
 end;
 $$;
 
-revoke all on function public.request_masked_call(uuid, uuid, public.masked_call_context, uuid) from public;
+revoke all on function public.request_masked_call(uuid, uuid, public.masked_call_context, uuid) from public, anon;
 revoke all on function public.request_masked_call(uuid, uuid, public.masked_call_context, uuid) from anon;
 grant execute on function public.request_masked_call(uuid, uuid, public.masked_call_context, uuid) to authenticated;
 
@@ -210,7 +210,7 @@ begin
 end;
 $$;
 
-revoke all on function public.close_masked_call(uuid, text) from public;
+revoke all on function public.close_masked_call(uuid, text) from public, anon;
 revoke all on function public.close_masked_call(uuid, text) from anon;
 grant execute on function public.close_masked_call(uuid, text) to authenticated;
 
@@ -231,7 +231,7 @@ begin
 end;
 $$;
 
-revoke all on function private.expire_masked_call_sessions() from public;
+revoke all on function private.expire_masked_call_sessions() from public, anon;
 revoke all on function private.expire_masked_call_sessions() from anon;
 
 select cron.schedule('expire-masked-call-sessions', '*/15 * * * *', $$select private.expire_masked_call_sessions();$$);

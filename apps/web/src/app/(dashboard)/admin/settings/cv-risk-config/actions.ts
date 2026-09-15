@@ -35,13 +35,14 @@ export async function createCvRiskConfigDraftAction(
   const organisationId = profile.organisation_id;
 
   const supabase = await createClient();
-  const { data: latest } = await supabase
+  const { data: latest, error: latestError } = await supabase
     .from("cv_risk_config")
     .select("version")
     .eq("organisation_id", organisationId)
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (latestError) return { error: latestError.message };
   const nextVersion = (latest?.version ?? 0) + 1;
 
   const config = buildCvRiskConfig(parsed.data);

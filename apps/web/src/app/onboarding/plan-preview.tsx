@@ -57,7 +57,7 @@ export function PlanPreview({ patientId }: { patientId: string }) {
         <p className="text-sm text-charcoal-ink">
           Based on what you shared, your overall health risk today looks{" "}
           <span className={`font-semibold ${risk.tone}`}>{risk.label.toLowerCase()}</span>.
-          This is a starting picture, not a diagnosis — real readings will sharpen it.
+          This is a starting picture, not a diagnosis. Real readings will sharpen it.
         </p>
       )}
       {hasRecs && (
@@ -67,7 +67,7 @@ export function PlanPreview({ patientId }: { patientId: string }) {
             {(recommendations ?? []).map((rec) => (
               <li key={rec.id}>
                 {CONDITION_LABEL[rec.condition] ?? "Care programme"}
-                <span className="text-charcoal-ink/50"> — pending your care team&apos;s review</span>
+                <span className="text-charcoal-ink/50">, pending your care team&apos;s review</span>
               </li>
             ))}
           </ul>
@@ -76,16 +76,23 @@ export function PlanPreview({ patientId }: { patientId: string }) {
       <div className="space-y-1">
         <p className="text-sm font-medium text-charcoal-ink">Your first 90 days:</p>
         <ol className="list-decimal space-y-1 pl-5 text-sm text-charcoal-ink/80">
-          <li>Log readings regularly — your baseline builds in the first two weeks.</li>
+          <li>Log readings regularly. Your baseline builds in the first two weeks.</li>
           <li>
             Your care team reviews your profile{hasRecs ? " and the suggestions above" : ""} and
             sets up your plan.
           </li>
-          <li>Screenings and check-ins land on your calendar — we remind you, you tap to book.</li>
+          {/* The nearby-facility pickers this used to promise are suspended
+              platform-wide (see patient-location-form.tsx), so there is no
+              "tap to book" to tap. What actually happens is a reminder, and
+              you arrange the visit yourself. */}
+          <li>
+            Screenings and check-ins land on your calendar, we remind you when one is due, and
+            you arrange the visit where it suits you.
+          </li>
         </ol>
       </div>
       <p className="text-xs text-charcoal-ink/50">
-        Everything here stays visible on your dashboard — nothing is locked behind this
+        Everything here stays visible on your dashboard. Nothing is locked behind this
         screen.
       </p>
     </div>

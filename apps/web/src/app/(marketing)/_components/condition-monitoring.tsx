@@ -268,7 +268,7 @@ export function ConditionMonitoringGrid({ categories }: { categories: Monitoring
                     {item.explanation}
                   </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/45">
+                    <span className="text-xs font-medium uppercase tracking-wide text-charcoal-ink/65">
                       {item.cadence}
                     </span>
                     <span

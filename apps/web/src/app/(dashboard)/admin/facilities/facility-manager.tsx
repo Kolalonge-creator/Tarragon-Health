@@ -359,7 +359,11 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
                   <p className="text-xs text-charcoal-ink/60">{service.description}</p>
                 )}
                 <p className="text-xs text-charcoal-ink/50">
-                  {service.appointment_type && APPOINTMENT_TYPE_LABEL[service.appointment_type]}
+                  {service.appointment_type &&
+                    (APPOINTMENT_TYPE_LABEL[
+                      service.appointment_type as (typeof APPOINTMENT_TYPES)[number]
+                    ] ??
+                      service.appointment_type)}
                   {service.duration_minutes != null && ` · ${service.duration_minutes} min`}
                   {service.eligible_specialty && ` · ${service.eligible_specialty}`}
                 </p>
@@ -457,7 +461,7 @@ function FacilityServicesManager({ facilityId }: { facilityId: string }) {
           </Select>
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor={`service_specialty_${facilityId}`}>Eligible specialty (optional)</Label>
+          <Label htmlFor={`service_specialty_${facilityId}`}>Eligible speciality (optional)</Label>
           <Input
             id={`service_specialty_${facilityId}`}
             placeholder="e.g. Cardiology"

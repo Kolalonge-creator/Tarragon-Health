@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { VersionHistoryList } from "@/components/shell/version-history-list";
 import {
   createVaccinationScheduleDraftAction,
   signVaccinationScheduleAction,
@@ -62,7 +63,7 @@ function CreateDraftForm({ nextVersion }: { nextVersion: number }) {
           <p className="text-sm text-charcoal-ink/70">
             Creating a draft snapshots every active vaccination_catalog entry below exactly as it
             stands right now. Once you sign it, that snapshot is the permanent record of what was
-            reviewed and approved. A later catalog change needs a fresh draft and a fresh signature.
+            reviewed and approved. A later catalogue change needs a fresh draft and a fresh signature.
           </p>
           <div className="space-y-1">
             <label htmlFor="notes" className="text-sm font-medium text-charcoal-ink">
@@ -185,44 +186,46 @@ export function VaccinationScheduleManager({
       {signoffs.length > 0 && (
         <div className="space-y-4">
           <h2 className="font-heading text-lg font-semibold text-charcoal-ink">Sign-off history</h2>
-          {signoffs.map((s) => (
-            <Card key={s.id}>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  Version {s.version}
-                  {s.is_active ? (
-                    <Badge variant="green">Active, signed</Badge>
-                  ) : (
-                    <Badge variant="grey">Draft, not in force</Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                {s.notes && <p className="text-sm text-charcoal-ink/70">{s.notes}</p>}
-                {s.source_url && (
-                  <p className="text-xs text-charcoal-ink/50">
-                    Source:{" "}
-                    <a href={s.source_url} target="_blank" rel="noreferrer" className="underline">
-                      {s.source_url}
-                    </a>
-                  </p>
-                )}
-                <p className="text-xs text-charcoal-ink/50">
-                  Drafted {new Date(s.created_at).toLocaleString("en-GB")} · snapshot of{" "}
-                  {Array.isArray(s.catalog_snapshot) ? s.catalog_snapshot.length : 0} catalog entries
-                </p>
-                {!s.is_active && (
-                  <>
-                    <p className="text-xs text-charcoal-ink/60">
-                      Signing requires an active Clinical Director account and brings this snapshot
-                      into force as the reviewed schedule.
+          <VersionHistoryList itemNoun="sign-off">
+            {signoffs.map((s) => (
+              <Card key={s.id}>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    Version {s.version}
+                    {s.is_active ? (
+                      <Badge variant="green">Active, signed</Badge>
+                    ) : (
+                      <Badge variant="grey">Draft, not in force</Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {s.notes && <p className="text-sm text-charcoal-ink/70">{s.notes}</p>}
+                  {s.source_url && (
+                    <p className="text-xs text-charcoal-ink/50">
+                      Source:{" "}
+                      <a href={s.source_url} target="_blank" rel="noreferrer" className="underline">
+                        {s.source_url}
+                      </a>
                     </p>
-                    <SignButton signoffId={s.id} />
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  )}
+                  <p className="text-xs text-charcoal-ink/50">
+                    Drafted {new Date(s.created_at).toLocaleString("en-GB")} · snapshot of{" "}
+                    {Array.isArray(s.catalog_snapshot) ? s.catalog_snapshot.length : 0} catalog entries
+                  </p>
+                  {!s.is_active && (
+                    <>
+                      <p className="text-xs text-charcoal-ink/60">
+                        Signing requires an active Clinical Director account and brings this snapshot
+                        into force as the reviewed schedule.
+                      </p>
+                      <SignButton signoffId={s.id} />
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </VersionHistoryList>
         </div>
       )}
     </div>

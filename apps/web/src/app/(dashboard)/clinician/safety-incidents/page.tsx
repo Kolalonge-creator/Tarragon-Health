@@ -24,7 +24,7 @@ export default async function SafetyIncidentsPage() {
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Safety incidents</h1>
         <p className="text-sm text-charcoal-ink/60">
-          Clinical incident and near-miss log — file one when something goes wrong or nearly does.
+          Clinical incident and near-miss log. File one when something goes wrong or nearly does.
         </p>
       </div>
       <SafetyIncidentsConsole

@@ -1,0 +1,21 @@
+-- Tarragon Health — Laboratory Engine, 14.15 (failed sample), step 1 of 2: the
+-- enum value only.
+--
+-- Postgres forbids using a freshly-added enum value in the same
+-- transaction/migration that adds it (the same reason
+-- 20260803124742_lab_order_fulfilment_enum.sql and every other enum-add in
+-- this codebase is split from the migration that uses it), so this is its
+-- own file.
+--
+-- Gap this closes (see docs §14.15 "Failed sample"): today a rejected sample
+-- is representable only as a BILLING reason (lab_refund_reason already has
+-- 'sample_rejected' — see 20260821192256_partner_billing_reconcile_settle_refund.sql
+-- — which decides who gets paid) with no corresponding order-status value, no
+-- lab-partner UI action to record it, and no patient notification or repeat
+-- action. That is filled in by the migration immediately after this one.
+--
+-- Placed after 'sample_collected' in enum order (a sample can only be
+-- rejected once collected) and before 'processing' — purely cosmetic
+-- ordering for anyone reading `\dT+ lab_order_status`, enum comparisons in
+-- this codebase are always by name, never by ordinal position.
+alter type public.lab_order_status add value if not exists 'sample_rejected' after 'sample_collected';

@@ -156,19 +156,19 @@ export function PharmacyCatalogue({
           service="pharmacy"
           serviceLabel="Pharmacy ordering"
         >
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load the pharmacy catalogue.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load the pharmacy catalogue.</p>}
         {catalogue && catalogue.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No medications available yet.</p>
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No medications available yet.</p>
         )}
         {catalogue && catalogue.length > 0 && drugGroups.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             No pharmacies match that location, try a nearby city or clear the filter.
           </p>
         )}
 
         {drugGroups.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {drugGroups.map(([drugName, options]) => {
               const canBook = isClinicianPrescribed(drugName, activeMedications ?? []);
               const isOpen = expandedDrug === drugName;
@@ -191,8 +191,8 @@ export function PharmacyCatalogue({
                 <li key={drugName} className="space-y-2 py-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="text-sm font-medium text-charcoal-ink">{drugName}</p>
-                      <p className="text-xs text-charcoal-ink/60">
+                      <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">{drugName}</p>
+                      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                         {options.length} {options.length === 1 ? "pharmacy" : "pharmacies"} nearby · from ₦
                         {koboToNaira(fromPrice).toLocaleString()}
                       </p>
@@ -214,21 +214,21 @@ export function PharmacyCatalogue({
                   </div>
 
                   {!canBook && (
-                    <p className="text-xs text-charcoal-ink/70">
+                    <p className="text-xs text-charcoal-ink/70 dark:text-night-ink/70">
                       Not currently on your prescribed medications. Message your care team in the
                       app and they&apos;ll arrange it.
                     </p>
                   )}
 
                   {canBook && isOpen && (
-                    <div className="space-y-3 rounded-md border border-charcoal-ink/10 p-3">
+                    <div className="space-y-3 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
                       {/* Fulfilment method — pickup live, delivery gated until partners onboard. */}
                       <div className="flex flex-wrap items-center gap-2 text-xs">
                         <span className="rounded-full bg-brand-green px-3 py-1 font-medium text-white">
                           Pickup
                         </span>
                         <span
-                          className="cursor-not-allowed rounded-full border border-charcoal-ink/20 px-3 py-1 text-charcoal-ink/40"
+                          className="cursor-not-allowed rounded-full border border-charcoal-ink/20 dark:border-night-ink/25 px-3 py-1 text-charcoal-ink/40 dark:text-night-ink/50"
                           title="Home delivery is coming soon"
                         >
                           Delivery · coming soon
@@ -251,7 +251,7 @@ export function PharmacyCatalogue({
                               : "Sort by nearest to me"}
                         </Button>
                         {geoStatus === "denied" && (
-                          <span className="text-xs text-charcoal-ink/60">
+                          <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                             Location unavailable, showing lowest price first.
                           </span>
                         )}
@@ -274,20 +274,20 @@ export function PharmacyCatalogue({
                           return (
                             <li
                               key={option.id}
-                              className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-charcoal-ink/5 px-3 py-2"
+                              className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-charcoal-ink/5 dark:bg-night-ink/10 px-3 py-2"
                             >
                               <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-charcoal-ink">
+                                <p className="truncate text-sm font-medium text-charcoal-ink dark:text-night-ink">
                                   {option.pharmacy_partner?.name ?? "Pharmacy"}
                                   {dist != null && (
-                                    <span className="ml-2 text-xs font-normal text-brand-green">
+                                    <span className="ml-2 text-xs font-normal text-brand-green dark:text-brand-green-bright">
                                       {dist < 1 ? "<1" : dist.toFixed(1)} km
                                     </span>
                                   )}
                                 </p>
                                 {(option.pharmacy_partner?.address ||
                                   option.pharmacy_partner?.city) && (
-                                  <p className="truncate text-xs text-charcoal-ink/60">
+                                  <p className="truncate text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                                     {option.pharmacy_partner?.address ??
                                       [option.pharmacy_partner?.area, option.pharmacy_partner?.city, option.pharmacy_partner?.state]
                                         .filter(Boolean)
@@ -296,7 +296,7 @@ export function PharmacyCatalogue({
                                 )}
                               </div>
                               <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-charcoal-ink">
+                                <span className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                                   ₦{koboToNaira(option.price_kobo).toLocaleString()}
                                 </span>
                                 <Button
@@ -330,7 +330,7 @@ export function PharmacyCatalogue({
                       </ul>
 
                       {createOrder.isError && (
-                        <p className="text-xs text-red-600">Could not book. Try again.</p>
+                        <p className="text-xs text-red-600 dark:text-red-300">Could not book. Try again.</p>
                       )}
                       <Button
                         size="sm"

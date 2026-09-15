@@ -1,23 +1,25 @@
 "use client";
 
-import { useRef, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
+import { useState, type FormEvent } from "react";
 import { useLogScreeningCompletion } from "@/lib/queries/screening";
-import { useUploadOwnResultDocument } from "@/lib/queries/lab-result-documents";
 import { logScreeningCompletionSchema } from "@/lib/validation/screening-completion";
-import { RESULT_DOC_ACCEPT, validateResultDocFile } from "@/lib/validation/lab-result-documents";
 import { todayIsoDate } from "@/lib/queries/medications";
+import { PatientResultUpload } from "@/components/patient-result-upload";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { formatPatientDate } from "@/lib/format-date";
 /**
  * Lets a patient confirm a screening on their calendar was already done, with
  * the date it happened — the calendar's next-due cycle is then scheduled from
  * that reported date, not from today (see
  * private.refresh_screening_schedule_on_completion). Once confirmed, offers
- * an inline "upload your result" step linked to that confirmation.
+ * an inline "upload your result" step linked to that confirmation via
+ * PatientResultUpload's screeningCompletionId — the same gated (consultation
+ * fee) + AI-extracted upload path every other patient self-upload goes
+ * through, not a separate one.
  */
 export function ConfirmScreeningDoneForm({
   patientId,
@@ -40,18 +42,14 @@ export function ConfirmScreeningDoneForm({
    * regardless of what this prop says. */
   alreadyCompleted: boolean;
 }) {
-  const router = useRouter();
   const logCompletion = useLogScreeningCompletion();
-  const uploadResult = useUploadOwnResultDocument();
 
   const [open, setOpen] = useState(false);
   const [performedDate, setPerformedDate] = useState("");
   const [note, setNote] = useState("");
   const [completionId, setCompletionId] = useState<string | null>(null);
-  const [file, setFile] = useState<File | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function handleConfirm(event: FormEvent) {
     event.preventDefault();
@@ -76,30 +74,7 @@ export function ConfirmScreeningDoneForm({
     }
   }
 
-  function handleUpload(event: FormEvent) {
-    event.preventDefault();
-    setValidationError(null);
-    if (!file || !completionId) return;
-    const fileError = validateResultDocFile(file);
-    if (fileError) {
-      setValidationError(fileError);
-      return;
-    }
-    uploadResult.mutate(
-      { file, note, screeningCompletionId: completionId },
-      {
-        onSuccess: () => {
-          setUploadSuccess(true);
-          setFile(null);
-          if (fileInputRef.current) fileInputRef.current.value = "";
-          router.refresh();
-        },
-      }
-    );
-  }
-
   const confirmError = validationError ?? (logCompletion.error as Error | null)?.message ?? null;
-  const uploadError = (uploadResult.error as Error | null)?.message ?? null;
 
   if (!open) {
     // Nothing to offer for a row that was already completed before this
@@ -117,36 +92,25 @@ export function ConfirmScreeningDoneForm({
 
   if (completionId) {
     return (
-      <div className="space-y-2 rounded-md border border-charcoal-ink/10 p-3">
-        <p className="text-sm text-brand-green">
-          Marked as done for {new Date(performedDate).toLocaleDateString()}. We&apos;ve scheduled
+      <div className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3">
+        <p className="text-sm text-brand-green dark:text-brand-green-bright">
+          Marked as done for {formatPatientDate(performedDate)}. We&apos;ve scheduled
           your next {screenTypeName.toLowerCase()} from that date.
         </p>
         {!uploadSuccess ? (
-          <form onSubmit={handleUpload} className="space-y-2">
-            <Label htmlFor={`result-file-${scheduleId}`}>Upload your result (optional)</Label>
-            <Input
-              id={`result-file-${scheduleId}`}
-              ref={fileInputRef}
-              type="file"
-              accept={RESULT_DOC_ACCEPT}
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+          <div className="space-y-2">
+            <PatientResultUpload
+              screeningCompletionId={completionId}
+              label="Upload your result (optional)"
+              onUploaded={() => setUploadSuccess(true)}
             />
-            {(validationError || uploadError) && (
-              <p className="text-xs text-red-600">{validationError ?? uploadError}</p>
-            )}
-            <div className="flex gap-2">
-              <Button type="submit" size="sm" disabled={!file || uploadResult.isPending}>
-                {uploadResult.isPending ? "Uploading…" : "Upload result"}
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
-                Skip for now
-              </Button>
-            </div>
-          </form>
+            <Button type="button" variant="ghost" size="sm" onClick={() => setOpen(false)}>
+              Skip for now
+            </Button>
+          </div>
         ) : (
-          <p className="text-xs text-charcoal-ink/60">
-            Result uploaded — your care team will review it.
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+            Result uploaded. Your care team will review it.
           </p>
         )}
       </div>
@@ -156,7 +120,7 @@ export function ConfirmScreeningDoneForm({
   return (
     <form
       onSubmit={handleConfirm}
-      className="space-y-2 rounded-md border border-charcoal-ink/10 p-3"
+      className="space-y-2 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3"
     >
       <div className="space-y-1.5">
         <Label htmlFor={`performed-date-${scheduleId}`}>Date the test was done</Label>
@@ -175,7 +139,7 @@ export function ConfirmScreeningDoneForm({
         onChange={(event) => setNote(event.target.value)}
         rows={2}
       />
-      {confirmError && <p className="text-xs text-red-600">{confirmError}</p>}
+      {confirmError && <p className="text-xs text-red-600 dark:text-red-300">{confirmError}</p>}
       <div className="flex gap-2">
         <Button type="submit" size="sm" disabled={logCompletion.isPending}>
           {logCompletion.isPending ? "Saving…" : "Confirm completed"}

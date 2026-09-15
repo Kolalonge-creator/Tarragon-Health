@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasScope, verifyApiKey } from "@/lib/integrations/api-key";
+import { checkProtocolApiQuota } from "@/lib/protocol-api/check-quota";
 import { logProtocolApiUsage } from "@/lib/protocol-api/log-usage";
 import { bpTriageSchema } from "@/lib/validation/protocol-api";
 import { classifyBpLevel, BP_LEVEL_LABEL, bpTrendNote } from "@/lib/rules/bp-classification";
@@ -23,6 +24,13 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
   if (!hasScope(verified, "protocol_api:classify")) {
     return NextResponse.json({ error: "API key lacks the protocol_api:classify scope" }, { status: 403 });
+  }
+  const quota = await checkProtocolApiQuota(verified);
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { error: `Monthly quota exceeded (${quota.used}/${quota.limit} calls) — contact your account manager.` },
+      { status: 429 }
+    );
   }
 
   let body: unknown;

@@ -10,14 +10,14 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Mental Well-being Check",
   description:
-    "A free, anonymous two-minute check-in on how you're really doing. Not a diagnosis, nothing saved, just a quick, honest pulse-check with a next step if you want one.",
+    "A free, anonymous two-minute check-in on how you are really doing. Not a diagnosis, nothing saved, just an honest pulse-check and a clear next step.",
   path: MARKETING_ROUTES.mentalWellbeingCheck,
 });
 
 const FAQS = [
   {
     q: "Is this a diagnosis?",
-    a: "No. This is a general wellbeing pulse-check, not a clinical or diagnostic tool, and it's not a substitute for talking to a doctor. It's meant to give you an honest, quick read on how you're doing, nothing more.",
+    a: "No. This is a general wellbeing pulse-check, not a clinical or diagnostic tool, and it's not a substitute for talking to a doctor.",
   },
   {
     q: "Is my answer saved anywhere?",
@@ -45,9 +45,9 @@ export default function MentalWellbeingCheckPage() {
             How are you really doing?
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Mental well-being isn&apos;t just the absence of illness; it&apos;s as real as your
-            blood pressure or your blood sugar, and just as worth checking in on. This is a free,
-            anonymous pulse-check, not a diagnosis, just an honest starting point.
+            Mental well-being is as real as your blood pressure, and just as worth checking on.
+            This is a free, anonymous pulse-check, not a diagnosis, just an honest starting
+            point.
           </p>
         </div>
       </Section>
@@ -80,12 +80,12 @@ export default function MentalWellbeingCheckPage() {
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             A pulse-check is a starting point, not the full picture. Once you&apos;re signed up,
             Tarragon&apos;s{" "}
-            <Link href={MARKETING_ROUTES.healthEducation} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.healthEducation} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Health Education
             </Link>{" "}
             surfaces guidance built around you, and your care team can arrange a fuller,
-            clinician-reviewed mental health screen as part of your ongoing care, the same way
-            physical checks are.
+            clinician-reviewed screen as part of your ongoing care, the same way physical checks
+            are.
           </p>
         </div>
       </Section>

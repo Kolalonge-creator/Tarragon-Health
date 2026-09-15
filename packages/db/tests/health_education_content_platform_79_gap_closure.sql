@@ -43,7 +43,7 @@ begin
   select p.id into v_stranger from public.profiles p where p.role = 'patient' and p.id <> v_owner order by p.created_at limit 1;
   select organisation_id into v_org from public.profiles where id = v_owner;
   select profile_id into v_cd_profile
-    from public.clinical_staff where is_clinical_director and active limit 1;
+    from public.clinical_staff where doctor_tier = 'chief_medical_officer' and active limit 1;
   select id into v_admin from public.profiles where role = 'admin' limit 1;
 
   if v_owner is null or v_stranger is null then

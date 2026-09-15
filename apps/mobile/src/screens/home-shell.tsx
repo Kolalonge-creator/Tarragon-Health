@@ -1,24 +1,62 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { View } from "react-native";
+import type { Tables } from "@tarragon/shared";
 import { supabase } from "@/lib/supabase";
-import { sectionWebviewPath, type SectionId } from "@/lib/sections";
+import type { SectionId } from "@/lib/sections";
 import { getActingFor, stopActingFor, type ActingFor } from "@/lib/acting";
+import { registerPushToken } from "@/lib/push-registration";
 import { TopBar } from "@/ui/top-bar";
 import { NavDrawer } from "@/ui/nav-drawer";
 import { BottomTabBar } from "@/ui/bottom-tab-bar";
 import { ActingForBanner } from "@/ui/acting-for-banner";
 import { colors } from "@/ui/theme";
-import { WebViewScreen } from "@/screens/webview-screen";
 import { OverviewScreen } from "@/screens/sections/overview-screen";
 import { VitalsScreen } from "@/screens/sections/vitals-screen";
 import { MedicationsScreen } from "@/screens/sections/medications-screen";
 import { LabsScreen } from "@/screens/sections/labs-screen";
+import { AppointmentsScreen } from "@/screens/sections/appointments-screen";
+import { PreventionScreen } from "@/screens/sections/prevention-screen";
+import { CareSupportScreen } from "@/screens/sections/care-support-screen";
+import { AiCoachScreen } from "@/screens/sections/ai-coach-screen";
+import { ActionsScreen } from "@/screens/sections/actions-screen";
 import { DevicesScreen } from "@/screens/devices-screen";
+import { SyncScreen } from "@/screens/sync-screen";
 import { MessagesScreen } from "@/screens/sections/messages-screen";
 import { HealthPassportScreen } from "@/screens/sections/health-passport-screen";
 import { EmergencyCardScreen } from "@/screens/sections/emergency-card-screen";
 import { SettingsScreen } from "@/screens/sections/settings-screen";
 import { SupportingScreen } from "@/screens/sections/supporting-screen";
+import { ReceiptsScreen } from "@/screens/sections/receipts-screen";
+import { NotificationSettingsScreen } from "@/screens/sections/notification-settings-screen";
+import { TechnicalSupportScreen } from "@/screens/sections/technical-support-screen";
+import { HealthSummaryScreen } from "@/screens/sections/health-summary-screen";
+import { TimelineScreen } from "@/screens/sections/timeline-screen";
+import { ExerciseScreen } from "@/screens/sections/exercise-screen";
+import { VideoVisitScreen } from "@/screens/sections/video-visit-screen";
+import { FindASpecialistScreen } from "@/screens/sections/find-a-specialist-screen";
+import { ScreeningDaysScreen } from "@/screens/sections/screening-days-screen";
+import { FinancialProfileScreen } from "@/screens/sections/financial-profile-screen";
+import { WeightManagementScreen } from "@/screens/sections/weight-management-screen";
+import { WellbeingScreen } from "@/screens/sections/wellbeing-screen";
+import { HealthyAgeingScreen } from "@/screens/sections/healthy-ageing-screen";
+import { WellnessScreen } from "@/screens/sections/wellness-screen";
+import { HealthCheckScreen } from "@/screens/sections/health-check-screen";
+import { WomensHealthScreen } from "@/screens/sections/womens-health-screen";
+import { FamilyScreen } from "@/screens/sections/family-screen";
+import { SexualHealthScreen } from "@/screens/sections/sexual-health-screen";
+import { LifestyleScreen } from "@/screens/sections/lifestyle-screen";
+import {
+  ActivityScreen,
+  AlcoholScreen,
+  MealsScreen,
+  SleepScreen,
+  SmokingScreen,
+} from "@/screens/sections/tracker-screens";
+import { ServicesScreen } from "@/screens/sections/services-screen";
+import { LearnScreen } from "@/screens/sections/learn-screen";
+import { PrivacyScreen } from "@/screens/sections/privacy-screen";
+
+type PatientDevice = Tables<"patient_devices">;
 
 interface HomeShellProps {
   userId: string;
@@ -64,11 +102,9 @@ interface HomeShellProps {
  *   UPDATE a medication_logs row — but only one they themselves logged,
  *   never the patient's or another supporter's (same-day dose-toggle
  *   correction is normal here in a way revising a vitals reading isn't).
- *   The "medicines cabinet" WebView button now opens signed in (the general
- *   native/WebView SSO gap was closed via /auth/mobile-bridge — see
- *   webview-screen.tsx) but still as the device owner's own session, not the
- *   beneficiary's — WebViewScreen has no subjectId to hand across the
- *   bridge, unrelated to this fix.
+ *   The medicines cabinet (now native, medicine-cabinet-screen.tsx) still
+ *   reads/writes as the device owner's own session, not the beneficiary's —
+ *   it has no subjectId plumbed through, unrelated to this fix.
  * - Messages stays on userId: the real supporter-facing mechanism is the
  *   three-way conversation (care_messages/care_message_threads' own
  *   can_read_clinical-gated INSERT, 20260731185243), always in the
@@ -83,36 +119,183 @@ interface HomeShellProps {
  *   paired to this handset — pairing "for" a supported person from the
  *   supporter's own phone isn't a scenario the RLS or the BLE flow accounts
  *   for yet.
+ * - Appointments stays on userId, same reasoning as Labs/Devices:
+ *   hold_appointment_slot/confirm_appointment_booking have no verified
+ *   acting-for path exercised from this screen yet — budget separately if a
+ *   supporter needs to book on someone else's behalf from their own phone.
+ * - Care & support stays on userId, same reasoning as Messages: Ask a
+ *   doctor and a navigation request are both first-person ("my question",
+ *   "I need help"), not something exercised on a supported person's behalf
+ *   from this screen.
+ * - Sexual & reproductive health stays on userId: every table this module
+ *   touches (sti_risk_checks, sti_case_episodes, fertility_assessments,
+ *   sexual_health_screens, contraception_plans, emergency_contraception_
+ *   requests, sexual_health_privacy_settings) is patient-self-or-org-staff
+ *   only by construction, with no profile_access/supporter/can_act_for path
+ *   at all — there is nothing for an acting-for resolution to route to even
+ *   if implemented here.
+ * - My actions uses subjectId: every source table it reads (medication_
+ *   reviews, screening_schedules, vaccination_schedules, etc.) is already
+ *   can_read_clinical-gated per the Overview/Vitals reasoning above.
  * - Settings and Emergency card stay on userId on purpose, not because of
  *   an RLS gap: Settings is device/account configuration, not patient
  *   record data, and Emergency card is meant to represent whoever is
  *   physically holding the phone for a first responder — neither should
  *   ever track a transient acting-for state.
+ * - Healthy ageing uses subjectId: ageing_assessments/domain_results,
+ *   falls_risk_assessments, and social_determinant_screenings are all
+ *   can_act_for-gated for read (and insert, where patient/caregiver-
+ *   writable at all) — same group as Overview/Vitals/Medications/Health
+ *   Passport/My actions. One caveat inherited from web, not introduced
+ *   here: patient_conditions' SELECT policy has no can_act_for clause, so
+ *   the coordinated-care summary's active-condition count reads 0 for a
+ *   caregiver acting for someone with real active conditions — see
+ *   lib/healthy-ageing.ts's own comment on loadCoordinatedCareSummary.
  */
 export function HomeShell({ userId, organisationId, patientName, patientNumber, initials }: HomeShellProps) {
   const [section, setSection] = useState<SectionId>("overview");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [acting, setActing] = useState<ActingFor | null>(null);
+  const [openDevice, setOpenDevice] = useState<PatientDevice | null>(null);
+  const [openVideoVisitId, setOpenVideoVisitId] = useState<string | null>(null);
 
   const refreshActing = useCallback(() => {
-    getActingFor().then(setActing);
+    // Best-effort: a failed read (e.g. SecureStore hiccup) falls back to the
+    // device owner's own account rather than crashing with an unhandled
+    // rejection — the safe default for whose record gets written.
+    getActingFor()
+      .then(setActing)
+      .catch(() => setActing(null));
   }, []);
 
   useEffect(() => {
     refreshActing();
   }, [refreshActing]);
 
+  useEffect(() => {
+    // Once per app session, on the device owner's own userId/organisationId
+    // (never the acting-for subject — a push token belongs to the physical
+    // device/login, not whichever profile is currently being viewed).
+    // registerPushToken() was already fully built (push-registration.ts) but
+    // had no caller anywhere in the app until now — see that file's own
+    // comment for the full mechanism. Best-effort: never blocks or throws
+    // into this render.
+    void registerPushToken(userId, organisationId);
+  }, [userId, organisationId]);
+
   function handleSelect(id: SectionId) {
     setSection(id);
     setDrawerOpen(false);
+    if (id !== "devices") setOpenDevice(null);
   }
 
   const subjectId = acting?.profileId ?? userId;
-  // Any section without a native screen renders the matching web page,
-  // signed in through /auth/mobile-bridge. Resolved from the registry rather
-  // than listed here, so adding a section is a one-line change in
-  // lib/sections.ts and cannot leave a drawer entry that routes nowhere.
-  const webviewPath = sectionWebviewPath(section);
+
+  // One renderer per SectionId, keyed by a Record rather than a chain of
+  // `section === "x" &&` branches: TypeScript refuses to compile this object
+  // unless every value in the SectionId union has an entry, so a new section
+  // added to lib/sections.ts without a matching renderer here is a build
+  // error rather than a blank content area at runtime. Values are functions,
+  // not JSX, so adding a section costs no extra render work — only the one
+  // matching `section` is ever invoked, same as the branch chain this
+  // replaces.
+  const sectionRenderers: Record<SectionId, () => ReactNode> = {
+    overview: () =>
+      openVideoVisitId ? (
+        <VideoVisitScreen consultationId={openVideoVisitId} onBack={() => setOpenVideoVisitId(null)} />
+      ) : (
+        <OverviewScreen
+          patientId={subjectId}
+          patientName={acting?.fullName ?? patientName}
+          onNavigate={handleSelect}
+          onOpenVideoVisit={setOpenVideoVisitId}
+        />
+      ),
+    vitals: () => <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />,
+    medications: () => (
+      <MedicationsScreen
+        patientId={subjectId}
+        organisationId={organisationId}
+        subjectName={acting?.fullName ?? undefined}
+      />
+    ),
+    labs: () => <LabsScreen />,
+    appointments: () => <AppointmentsScreen patientId={userId} organisationId={organisationId} />,
+    prevention: () => <PreventionScreen patientId={subjectId} organisationId={organisationId} />,
+    care: () => <CareSupportScreen patientId={userId} organisationId={organisationId} />,
+    myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
+    healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
+    timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,
+    exercise: () => <ExerciseScreen patientId={subjectId} organisationId={organisationId} />,
+    devices: () =>
+      openDevice ? (
+        <SyncScreen device={openDevice} onBack={() => setOpenDevice(null)} />
+      ) : (
+        <DevicesScreen patientId={userId} organisationId={organisationId} onOpenDevice={setOpenDevice} />
+      ),
+    messages: () => <MessagesScreen patientId={userId} />,
+    aiCoach: () => <AiCoachScreen patientId={userId} onNavigate={handleSelect} />,
+    supporting: () => (
+      <SupportingScreen
+        userId={userId}
+        organisationId={organisationId}
+        acting={acting}
+        onActingChange={refreshActing}
+      />
+    ),
+    passport: () => (
+      <HealthPassportScreen
+        patientId={subjectId}
+        organisationId={organisationId}
+        subjectName={acting?.fullName ?? undefined}
+      />
+    ),
+    receipts: () => <ReceiptsScreen />,
+    notificationSettings: () => (
+      <NotificationSettingsScreen patientId={userId} organisationId={organisationId} />
+    ),
+    technicalSupport: () => (
+      <TechnicalSupportScreen patientId={userId} organisationId={organisationId} />
+    ),
+    emergency: () => <EmergencyCardScreen patientId={userId} />,
+    settings: () => (
+      <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
+    ),
+    womensHealth: () => (
+      <WomensHealthScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    sexualHealth: () => (
+      <SexualHealthScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    wellbeing: () => (
+      <WellbeingScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    healthCheck: () => <HealthCheckScreen patientId={userId} onNavigate={handleSelect} />,
+    findASpecialist: () => <FindASpecialistScreen patientId={userId} />,
+    healthyAgeing: () => (
+      <HealthyAgeingScreen patientId={subjectId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    lifestyle: () => <LifestyleScreen patientId={userId} onNavigate={handleSelect} />,
+    meals: () => <MealsScreen patientId={subjectId} />,
+    sleep: () => <SleepScreen patientId={subjectId} />,
+    activity: () => <ActivityScreen patientId={subjectId} />,
+    smoking: () => <SmokingScreen patientId={subjectId} />,
+    alcohol: () => <AlcoholScreen patientId={subjectId} />,
+    weightManagement: () => (
+      <WeightManagementScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    learn: () => <LearnScreen userId={userId} organisationId={organisationId} />,
+    wellness: () => (
+      <WellnessScreen patientId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    family: () => <FamilyScreen userId={userId} onNavigate={handleSelect} />,
+    screeningDays: () => <ScreeningDaysScreen />,
+    financialProfile: () => <FinancialProfileScreen userId={userId} />,
+    privacy: () => (
+      <PrivacyScreen userId={userId} organisationId={organisationId} onNavigate={handleSelect} />
+    ),
+    services: () => <ServicesScreen />,
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -123,6 +306,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         onOpenDrawer={() => setDrawerOpen(true)}
         onOpenSettings={() => setSection("settings")}
         onSignOut={() => supabase.auth.signOut()}
+        onNavigate={handleSelect}
       />
 
       {(section === "overview" || section === "vitals" || section === "medications" || section === "passport") && (
@@ -134,51 +318,14 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
         />
       )}
 
-      <View style={{ flex: 1 }}>
-        {section === "overview" && (
-          <OverviewScreen
-            patientId={subjectId}
-            patientName={acting?.fullName ?? patientName}
-            onNavigate={handleSelect}
-          />
-        )}
-        {section === "vitals" && <VitalsScreen patientId={subjectId} beneficiaryProfileId={acting?.profileId} />}
-        {section === "medications" && (
-          <MedicationsScreen
-            patientId={subjectId}
-            organisationId={organisationId}
-            subjectName={acting?.fullName ?? undefined}
-          />
-        )}
-        {section === "labs" && <LabsScreen />}
-        {section === "devices" && (
-          <DevicesScreen
-            patientId={userId}
-            organisationId={organisationId}
-            onOpenDevice={() => handleSelect("vitals")}
-          />
-        )}
-        {section === "messages" && <MessagesScreen patientId={userId} />}
-        {section === "supporting" && (
-          <SupportingScreen userId={userId} acting={acting} onActingChange={refreshActing} />
-        )}
-        {section === "passport" && (
-          <HealthPassportScreen
-            patientId={subjectId}
-            organisationId={organisationId}
-            subjectName={acting?.fullName ?? undefined}
-          />
-        )}
-        {section === "emergency" && <EmergencyCardScreen patientId={userId} />}
-        {section === "settings" && (
-          <SettingsScreen patientName={patientName} initials={initials} onNavigate={handleSelect} />
-        )}
-        {webviewPath && <WebViewScreen key={webviewPath} path={webviewPath} />}
-      </View>
+      <View style={{ flex: 1 }}>{sectionRenderers[section]()}</View>
 
+      {/* handleSelect, not setSection: switching tabs must also close the
+          drawer and clear any open device detail, same as every other
+          navigation entry point. */}
       <BottomTabBar
         activeSection={section}
-        onSelect={setSection}
+        onSelect={handleSelect}
         onMore={() => setDrawerOpen(true)}
       />
 

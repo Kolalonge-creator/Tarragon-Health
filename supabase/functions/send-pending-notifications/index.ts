@@ -33,6 +33,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import webpush from "npm:web-push@3.6.7";
+import { createHmac } from "node:crypto";
 
 const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
@@ -104,12 +105,106 @@ function substituteTemplatePlaceholders(text: string, payload: Record<string, un
 interface NotificationRow {
   id: string;
   recipient_id: string;
+  organisation_id: string | null;
   channel: "whatsapp" | "sms" | "in_app" | "email" | "push" | "voice";
   template: string | null;
   payload: Record<string, unknown>;
   attempts: number;
   priority: "routine" | "critical";
 }
+
+// Spec §76.12 (patient channel preferences). patient_notification_preferences
+// (20260829222502) has no `category` column on `notifications` itself to key
+// off — categorising by template here, purely additive, needs no schema
+// change to `notifications`. A template with no entry is simply never gated
+// (always sends, today's behaviour unchanged) — the safe default for
+// anything not confidently classified, rather than guessing. Never includes
+// a template addressed to someone other than the patient (a lab/pharmacy/
+// specialist contact, or an emergency contact) or an admin-authored
+// broadcast — see the per-line comments where those are deliberately
+// omitted below.
+type PreferenceCategory =
+  | "appointments"
+  | "medications"
+  | "labs_results"
+  | "screenings_vaccinations"
+  | "referrals"
+  | "care_messages"
+  | "education_wellness"
+  | "billing";
+
+const TEMPLATE_CATEGORY: Partial<Record<string, PreferenceCategory>> = {
+  booking_reminder: "appointments",
+  video_consult_booked: "appointments",
+  video_visit_alternate_proposed: "appointments",
+  video_visit_declined: "appointments",
+  async_consult_answered: "appointments",
+  annual_review_consult_scheduled: "appointments",
+
+  medication_refill_reminder: "medications",
+  medication_adherence_checkin: "medications",
+  medication_review_due: "medications",
+  medication_prescribed_patient: "medications",
+  pharmacy_order_patient_confirmation: "medications",
+  medication_dose_reminder: "medications",
+
+  lab_order_patient_confirmation: "labs_results",
+  lab_order_requested_patient: "labs_results",
+  risk_signal_attention: "labs_results",
+
+  vaccination_due: "screenings_vaccinations",
+  vaccination_verified: "screenings_vaccinations",
+  screening_due: "screenings_vaccinations",
+  preventive_care_plan_updated: "screenings_vaccinations",
+  health_check_due_soon: "screenings_vaccinations",
+  diabetes_complication_check_due: "screenings_vaccinations",
+  preventive_review_due: "screenings_vaccinations",
+  annual_review_due: "screenings_vaccinations",
+
+  referral_patient_confirmation: "referrals",
+
+  new_care_message: "care_messages",
+  care_outreach_checkin: "care_messages",
+  sponsor_care_reviewed: "care_messages",
+  sponsor_person_quiet: "care_messages",
+  sponsored_plan_started: "care_messages",
+
+  vitals_reminder: "education_wellness",
+  vitals_monitoring_due: "education_wellness",
+  vitals_monitoring_overdue: "education_wellness",
+  vitals_monitoring_escalated: "education_wellness",
+  lifestyle_nudge: "education_wellness",
+  lifestyle_review_due: "education_wellness",
+  wellness_challenge_ending: "education_wellness",
+  region_now_available: "education_wellness",
+  // Patient Engagement Engine (see private.queue_engagement_interventions) —
+  // same bucket as the other keep-up-with-your-care nudges above, rather than
+  // a dedicated engagement preferences table.
+  engagement_reminder_personalized: "education_wellness",
+  engagement_support_offer: "education_wellness",
+  engagement_alternative_channel_checkin: "education_wellness",
+
+  sponsor_spend_receipt: "billing",
+  sponsor_monthly_report: "billing",
+
+  // Deliberately NOT categorised (never gated by this table, always sends):
+  // broadcast_announcement (admin-authored, org-wide — a category toggle
+  // must never silently drop it); emergency_contact_alert/emergency_
+  // followup/emergency_card_viewed/emergency_card_expiring_soon (safety-
+  // adjacent); abnormal_result_clinician_alert/emergency_event_clinician_
+  // alert/vitals_red_flag_clinician_alert/pharmacy_order_pharmacy_alert/
+  // lab_order_lab_alert/referral_specialist_alert (recipient_id is the
+  // patient for bookkeeping only — the content is addressed to a
+  // clinician/partner/emergency contact, not the patient, same nuance
+  // 20260811235133_guarantee_in_app_notification_companions.sql documents).
+};
+
+// Spec §76.14 (notification fatigue management). More than this many
+// ROUTINE (never critical) rows queued for the same recipient in one batch
+// collapse into a single in-app digest instead of arriving as separate
+// pushes/texts/emails. 3 is a small, deliberately conservative threshold —
+// "avoid reminder overload", not "batch everything".
+const DIGEST_THRESHOLD = 3;
 
 interface PushSubscriptionRow {
   id: string;
@@ -164,12 +259,165 @@ interface TemplateRender {
   pushUrl?: string;
 }
 
+// ---------------------------------------------------------------------------
+// Broadcast branded-email template builder — KEEP IN SYNC WITH
+// apps/web/src/lib/broadcasts/render-email-template.ts (the admin composer's
+// live preview in the confirm dialog). Both must produce structurally
+// identical HTML for the same input, or an admin's preview lies about what
+// recipients actually get. No react-email here (not installed, and this file
+// runs on Deno while the web app is Node/Next) — plain template-literal HTML,
+// matching this file's own established no-shared-module pattern (every other
+// TEMPLATE_MAP entry below inlines its own HTML rather than importing a
+// shared renderer). See notification_broadcasts.email_content's column
+// comment (migration 20260912220307) for the full field contract.
+// ---------------------------------------------------------------------------
+interface BroadcastEmailContent {
+  headline: string;
+  bodyText: string;
+  imageUrl?: string;
+  bandColor?: "green" | "navy" | "none";
+  buttonText?: string;
+  buttonUrl?: string;
+  footerNote?: string;
+}
+
+function escapeHtmlForBroadcast(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+function renderBroadcastEmailHtml(
+  content: BroadcastEmailContent | null | undefined,
+  fallbackSubject: string,
+  fallbackBody: string,
+): string {
+  const escapeHtml = escapeHtmlForBroadcast;
+
+  // No email_content: today's exact plain rendering, byte-for-byte, so a
+  // broadcast drafted/queued before this column existed (or any admin who
+  // just leaves the email-design section untouched) is unaffected.
+  if (!content) {
+    const bodyHtml = escapeHtml(fallbackBody).replace(/\n/g, "<br>");
+    return (
+      `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+      `<h2 style="color:#0E7C52;margin:0 0 12px">${escapeHtml(fallbackSubject)}</h2>` +
+      `<p>${bodyHtml}</p>` +
+      `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
+      `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+      `</div>`
+    );
+  }
+
+  const band = content.bandColor ?? "none";
+  const bandBg = band === "green" ? "#0E7C52" : band === "navy" ? "#12324B" : null;
+
+  const imageHtml = content.imageUrl
+    ? `<img src="${escapeHtml(content.imageUrl)}" alt="" style="width:100%;display:block;margin:0 0 16px;border-radius:8px" />`
+    : "";
+
+  const headlineHtml = bandBg
+    ? `<div style="background:${bandBg};padding:16px 20px;border-radius:8px;margin:0 0 16px"><h2 style="color:#ffffff;margin:0">${escapeHtml(content.headline)}</h2></div>`
+    : `<h2 style="color:#0E7C52;margin:0 0 12px">${escapeHtml(content.headline)}</h2>`;
+
+  const bodyParagraphs = content.bodyText
+    .split(/\n\s*\n/)
+    .filter((para) => para.trim().length > 0)
+    .map((para) => `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`)
+    .join("");
+
+  const buttonHtml =
+    content.buttonText && content.buttonUrl
+      ? `<p style="margin-top:20px"><a href="${escapeHtml(content.buttonUrl)}" style="background:#0E7C52;color:#ffffff;padding:12px 24px;border-radius:6px;text-decoration:none;font-weight:600;display:inline-block">${escapeHtml(content.buttonText)}</a></p>`
+      : "";
+
+  const footerNoteHtml = content.footerNote
+    ? `<p style="color:#5b6b78;font-size:13px;margin-top:4px">${escapeHtml(content.footerNote)}</p>`
+    : "";
+
+  return (
+    `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5;max-width:600px">` +
+    imageHtml +
+    headlineHtml +
+    bodyParagraphs +
+    buttonHtml +
+    `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
+    `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+    footerNoteHtml +
+    `</div>`
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Broadcast link signing — KEEP IN SYNC WITH
+// apps/web/src/lib/broadcasts/link-token.ts (the Node copy the unsubscribe/
+// track-open/track-click routes verify against). Uses node:crypto's
+// synchronous createHmac (Deno's own crypto.subtle API — see
+// supabase/functions/zoom-webhook/index.ts's hmacHex — is async, which would
+// force every TEMPLATE_MAP handler to become async just for this one
+// template; the Node-compat createHmac keeps this handler, and every other
+// one, synchronous). Every message is namespaced by purpose so a token
+// minted for one purpose can never be replayed as another; a click token
+// signs the destination URL itself so a valid signature can't be reused to
+// redirect somewhere the admin never set. No expiry — these links are
+// mailed out and must keep working whenever the recipient opens the email,
+// days or months later.
+// ---------------------------------------------------------------------------
+function broadcastLinkSecret(): string {
+  return Deno.env.get("BROADCAST_LINK_SECRET") ?? "";
+}
+
+// Returns null (never a token signed with an empty/missing secret) when
+// BROADCAST_LINK_SECRET isn't configured — the caller below then simply
+// omits the corresponding link/pixel rather than emitting a broken or
+// forgeable one. Matches this file's established graceful-degradation
+// posture for a missing credential (see RESEND_API_KEY et al.).
+function signBroadcastLinkMessage(message: string): string | null {
+  const secret = broadcastLinkSecret();
+  if (!secret) return null;
+  const signature = createHmac("sha256", secret).update(message).digest("base64url");
+  return `${message}.${signature}`;
+}
+
+function buildBroadcastUnsubscribeUrl(profileId: string): string | null {
+  const token = signBroadcastLinkMessage(`unsub:${profileId}`);
+  if (!token) return null;
+  return appUrl(
+    `/api/broadcasts/unsubscribe?profile_id=${encodeURIComponent(profileId)}&token=${encodeURIComponent(token)}`
+  );
+}
+
+function buildBroadcastOpenTrackingUrl(notificationId: string): string | null {
+  const token = signBroadcastLinkMessage(`open:${notificationId}`);
+  if (!token) return null;
+  return appUrl(
+    `/api/broadcasts/track-open?notification_id=${encodeURIComponent(notificationId)}&token=${encodeURIComponent(token)}`
+  );
+}
+
+function buildBroadcastClickTrackingUrl(notificationId: string, targetUrl: string): string | null {
+  const token = signBroadcastLinkMessage(`click:${notificationId}:${targetUrl}`);
+  if (!token) return null;
+  return appUrl(
+    `/api/broadcasts/track-click?notification_id=${encodeURIComponent(notificationId)}&url=${encodeURIComponent(targetUrl)}&token=${encodeURIComponent(token)}`
+  );
+}
+
+// Second argument every TEMPLATE_MAP handler now COULD receive — only
+// broadcast_announcement actually uses it today. Existing handlers keep
+// their original 1-argument signatures unchanged: a function with fewer
+// declared parameters than a type's call signature is structurally
+// assignable to it (JS silently drops extra call arguments), so none of the
+// ~25 other entries below needed touching.
+interface TemplateRenderContext {
+  notificationId: string;
+  recipientId: string;
+}
+
 // Meta-approved WhatsApp template names must match these keys exactly once
 // submitted for approval (docs/ARCHITECTURE.md §8: ~2 week lead time).
 // Unknown template keys are never guessed at — see the caller below.
 const TEMPLATE_MAP: Record<
   string,
-  (payload: Record<string, unknown>) => TemplateRender
+  (payload: Record<string, unknown>, ctx: TemplateRenderContext) => TemplateRender
 > = {
   vitals_reminder: (payload) => {
     const dueDate = String(payload.due_date ?? "soon");
@@ -288,6 +536,34 @@ const TEMPLATE_MAP: Record<
         },
       ],
       smsText: `${prompt} Answer here: ${appUrl(path)} Tarragon Health`,
+      pushUrl: path,
+    };
+  },
+  // Sent by medication_logs_route_missed_reason (private.route_missed_dose_reason)
+  // when a patient marks a dose missed and gives a self-resolvable reason
+  // ('forgot' or 'feels_well') — the other four reasons route to a
+  // care_outreach_tasks row instead, not this template. Deliberately specific
+  // (real weekly counts, real drug name) rather than a generic "you missed a
+  // dose" — see the Module 80 audit's behavioural-messaging gap.
+  missed_dose_behavioural_nudge: (payload) => {
+    const drugName = String(payload.drug_name ?? "your medication");
+    const reason = String(payload.reason ?? "");
+    const takenThisWeek = Number(payload.taken_this_week ?? 0);
+    const totalThisWeek = Number(payload.total_this_week ?? 0);
+    const remaining = Number(payload.remaining_this_week ?? 0);
+    const path = "/patient/medications";
+    const message =
+      reason === "feels_well"
+        ? `Feeling better doesn't mean ${drugName} isn't still working — stopping early is one of ` +
+          `the most common reasons control slips back. You've got ${remaining} more dose${remaining === 1 ? "" : "s"} ` +
+          `this week; that's what your care team looks at, not just how you feel today.`
+        : `Easy to lose track — you've taken ${takenThisWeek}/${totalThisWeek} ${drugName} doses ` +
+          `this week. ${remaining} more to go so your care team has a full picture.`;
+    return {
+      metaTemplateName: "missed_dose_behavioural_nudge",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Tarragon Health`,
       pushUrl: path,
     };
   },
@@ -569,6 +845,76 @@ const TEMPLATE_MAP: Record<
         "Tarragon Health app to see what's due; booking takes a minute. Tarragon Health",
     };
   },
+  // Patient Engagement Engine (§16.6/§16.13) — personalized reminder on a
+  // patient's first low-engagement reading (see
+  // private.queue_engagement_interventions). `lowest_dimension` names
+  // whichever area is dragging the composite down, so the copy points at
+  // something specific and actionable — the spec's own example ("Your blood
+  // pressure reading is due today. It takes about one minute.") rather than a
+  // vague "review your care obligations."
+  engagement_reminder_personalized: (payload) => {
+    const dimension = typeof payload.lowest_dimension === "string" ? payload.lowest_dimension : null;
+    const DIMENSION_COPY: Record<string, string> = {
+      monitoring: "It looks like a monitoring reading is overdue — logging one takes about a minute.",
+      appointments: "You've got an appointment that could use a bit of attention.",
+      medication: "A medication check-in is waiting — a quick answer helps your care team keep track.",
+      lifestyle: "It's been a little quiet on your lifestyle log — even a small update helps.",
+      prevention: "A screening or vaccination on your schedule is coming up.",
+      app_usage: "We haven't seen you in a little while — everything OK?",
+      messages: "There's a message from your care team waiting on a reply.",
+      care_plan: "There's a step on your care plan that's still open.",
+    };
+    const message =
+      (dimension && DIMENSION_COPY[dimension]) ||
+      "A quick check-in on your health record would help keep things on track.";
+    return {
+      metaTemplateName: "engagement_reminder_personalized",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app. Tarragon Health`,
+      pushUrl: "/patient",
+    };
+  },
+  // Sent once a patient's low engagement has repeated across 3+ nightly
+  // checks — a softer, help-offering tone rather than the same reminder
+  // again (spec §16.6's Patient B example: "You've missed several BP
+  // readings. Would you like help setting up a simpler routine?").
+  engagement_support_offer: (payload) => {
+    const dimension = typeof payload.lowest_dimension === "string" ? payload.lowest_dimension : null;
+    const DIMENSION_COPY: Record<string, string> = {
+      monitoring: "your monitoring readings",
+      appointments: "your appointments",
+      medication: "your medication check-ins",
+      lifestyle: "your lifestyle log",
+      prevention: "your screenings and vaccinations",
+      app_usage: "checking in on the app",
+      messages: "replying to your care team",
+      care_plan: "your care plan",
+    };
+    const area = (dimension && DIMENSION_COPY[dimension]) || "keeping up with your care plan";
+    const message = `We've noticed it's been a bit of a stretch with ${area}. Would a simpler routine help? Your care team is happy to talk it through.`;
+    return {
+      metaTemplateName: "engagement_support_offer",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app, or message your care team. Tarragon Health`,
+      pushUrl: "/patient",
+    };
+  },
+  // Sent when a patient has gone quiet AND recent notification attempts on
+  // their preferred channel haven't landed (compute_care_engagement_scores'
+  // 'unreachable' level) — tried on a different channel than usual, on the
+  // theory the usual one may simply not be working for them right now.
+  engagement_alternative_channel_checkin: () => {
+    const message =
+      "We've been trying to reach you and wanted to check in a different way — is everything OK?";
+    return {
+      metaTemplateName: "engagement_alternative_channel_checkin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: `${message} Open the Tarragon Health app, or reply here. Tarragon Health`,
+    };
+  },
   // Sent when a doctor answers the patient's ask-a-doctor consult (see
   // answerAsyncConsult). Notification only — the answer itself lives in-app.
   async_consult_answered: () => {
@@ -639,15 +985,61 @@ const TEMPLATE_MAP: Record<
   // subject + body chosen by an admin, fanned out to a resolved audience. Email
   // renders the body as-is; WhatsApp needs a Meta-approved broadcast_announcement
   // template, falling back to SMS meanwhile.
-  broadcast_announcement: (payload) => {
+  broadcast_announcement: (payload, ctx) => {
     const subject = String(payload.subject ?? "A message from Tarragon Health");
     const body = String(payload.body ?? "");
-    const escapeHtml = (s: string) =>
-      s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    const bodyHtml = escapeHtml(body).replace(/\n/g, "<br>");
+    // email_content is optional/nullable (see admin_send_broadcast) — absent
+    // for every broadcast queued before this column existed, or when an
+    // admin leaves the email-design section untouched. renderBroadcastEmailHtml
+    // falls back to the exact plain rendering this handler always produced.
+    const rawEmailContent = payload.email_content;
+    const emailContent: BroadcastEmailContent | null =
+      rawEmailContent && typeof rawEmailContent === "object" && !Array.isArray(rawEmailContent)
+        ? (rawEmailContent as BroadcastEmailContent)
+        : null;
+    // is_partner distinguishes a patient recipient from a pharmacy/
+    // specialist partner billing contact (private.broadcast_targets, threaded
+    // into this payload by admin_send_broadcast/private.execute_broadcast).
+    // Unsubscribe and tracking are patient-only: marketing_opt_in is a
+    // patient-only column, and a partner billing address has no notification
+    // row's own recipient that "unsubscribing" would mean anything for.
+    const isPartner = payload.is_partner === true;
+    const notificationId = ctx.notificationId;
+    const recipientId = ctx.recipientId;
+
+    // Click-through tracking on the CTA button, if any: reroute its href
+    // through track-click (carrying the real destination as the `url`
+    // param) BEFORE rendering, so the sent HTML's button looks and behaves
+    // identically to the admin's preview except for where the link actually
+    // goes. Building a modified content object rather than post-processing
+    // the rendered HTML string keeps this handler and
+    // apps/web/.../render-email-template.ts's renderBroadcastEmailHtml
+    // producing byte-for-byte identical markup for the same input.
+    let renderedContent = emailContent;
+    if (!isPartner && emailContent?.buttonUrl) {
+      const clickUrl = buildBroadcastClickTrackingUrl(notificationId, emailContent.buttonUrl);
+      if (clickUrl) {
+        renderedContent = { ...emailContent, buttonUrl: clickUrl };
+      }
+    }
+
+    let html = renderBroadcastEmailHtml(renderedContent, subject, body);
+    if (!isPartner) {
+      const unsubUrl = buildBroadcastUnsubscribeUrl(recipientId);
+      if (unsubUrl) {
+        html += `<p style="color:#5b6b78;font-size:12px;margin-top:16px"><a href="${escapeHtmlForBroadcast(unsubUrl)}" style="color:#5b6b78;text-decoration:underline">Unsubscribe from marketing emails</a></p>`;
+      }
+      const openUrl = buildBroadcastOpenTrackingUrl(notificationId);
+      if (openUrl) {
+        html += `<img src="${escapeHtmlForBroadcast(openUrl)}" width="1" height="1" alt="" style="display:none;border:0" />`;
+      }
+    }
+
+    const plainText = emailContent
+      ? `${emailContent.headline}\n\n${emailContent.bodyText}` +
+        (emailContent.footerNote ? `\n\n${emailContent.footerNote}` : "") +
+        `\n\nTarragon Health`
+      : `${subject}\n\n${body}\n\nTarragon Health`;
     return {
       metaTemplateName: "broadcast_announcement",
       languageCode: "en",
@@ -663,14 +1055,8 @@ const TEMPLATE_MAP: Record<
       smsText: `${subject}: ${body} Tarragon Health`,
       email: {
         subject,
-        html:
-          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
-          `<h2 style="color:#0E7C52;margin:0 0 12px">${escapeHtml(subject)}</h2>` +
-          `<p>${bodyHtml}</p>` +
-          `<p style="color:#0E7C52;margin-top:20px"><strong>Care that stays with you.</strong></p>` +
-          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
-          `</div>`,
-        text: `${subject}\n\n${body}\n\nTarragon Health`,
+        html,
+        text: plainText,
       },
     };
   },
@@ -759,6 +1145,210 @@ const TEMPLATE_MAP: Record<
           `</div>`,
         text: smsText,
       },
+    };
+  },
+  // The five templates below close spec §63.16's acceptance criterion — the
+  // patient must be able to know "has my medicine actually been supplied?"
+  // — for the dormant routed pharmacy_orders path. Queued by
+  // private.enqueue_pharmacy_order_fulfilment_notifications
+  // (20260829143035_medication_dispensing_fulfilment_notifications.sql) on
+  // every status transition after payment_confirmed that pharmacy_order_
+  // notifications.sql never covered. Same shape as pharmacy_order_patient_
+  // confirmation: WhatsApp first, SMS fallback until the Meta template is
+  // approved, email when on file, pushUrl so tapping the notification opens
+  // the right page.
+  pharmacy_order_ready_for_collection: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const pharmacyName = String(payload.pharmacy_name ?? "the pharmacy");
+    const itemsSummary = String(payload.items_summary ?? "your medication");
+    const path = "/patient/medications";
+    const smsText =
+      `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) is ready for collection at ` +
+      `${pharmacyName}. Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_ready_for_collection",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: itemsSummary },
+            { type: "text", text: pharmacyName },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber} is ready for collection`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p>Your medication has been prepared and is ready to collect from <strong>${pharmacyName}</strong>.</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
+  pharmacy_order_out_for_delivery: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const itemsSummary = String(payload.items_summary ?? "your medication");
+    const courierName = String(payload.courier_name ?? "your courier");
+    const eta = payload.estimated_delivery_at
+      ? new Date(String(payload.estimated_delivery_at)).toLocaleString("en-GB", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        })
+      : null;
+    const coldChainNote = payload.requires_cold_chain === true ? " Keep it refrigerated once it arrives." : "";
+    const path = "/patient/medications";
+    const smsText =
+      `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) is out for delivery with ${courierName}` +
+      `${eta ? `, estimated ${eta}` : ""}.${coldChainNote} Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_out_for_delivery",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: itemsSummary },
+            { type: "text", text: courierName },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber} is out for delivery`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p>Your order is on its way with <strong>${courierName}</strong>${eta ? `, estimated ${eta}` : ""}.</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `${coldChainNote ? `<p style="color:#b45309">${coldChainNote.trim()}</p>` : ""}` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
+  pharmacy_order_delivered: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const itemsSummary = String(payload.items_summary ?? "your medication");
+    const path = "/patient/medications";
+    const smsText = `Hi, your Tarragon Health order ${orderNumber} (${itemsSummary}) has been delivered. Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_delivered",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: itemsSummary },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber} was delivered`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p>Your order has been delivered.</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
+  pharmacy_order_delivery_failed: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const itemsSummary = String(payload.items_summary ?? "your medication");
+    const reasonCopy: Record<string, string> = {
+      patient_unavailable: "nobody was available to receive it",
+      incorrect_address: "the delivery address needs to be corrected",
+      courier_failure: "the courier could not complete the delivery",
+      security_access_issue: "the courier could not access the delivery location",
+      other: "the delivery could not be completed",
+    };
+    const reason = reasonCopy[String(payload.failure_reason ?? "other")] ?? reasonCopy.other;
+    const path = "/patient/medications";
+    const smsText =
+      `Hi, delivery of your Tarragon Health order ${orderNumber} (${itemsSummary}) did not succeed: ${reason}. ` +
+      `We'll be in touch to arrange redelivery. Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_delivery_failed",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: reason },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Delivery attempt for your Tarragon Health order ${orderNumber} was unsuccessful`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p>We tried to deliver your order but ${reason}. We'll be in touch to arrange redelivery — no action ` +
+          `needed from you right now, but you can update your delivery address in the app.</p>` +
+          `<p style="color:#5b6b78">Order ${orderNumber}: ${itemsSummary}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
+    };
+  },
+  pharmacy_order_unavailable: (payload) => {
+    const orderNumber = String(payload.order_number ?? "your order");
+    const pharmacyName = String(payload.pharmacy_name ?? "the pharmacy");
+    const alternatives = String(payload.alternatives ?? "");
+    const path = "/patient/medications";
+    const altCopy = alternatives ? ` Other pharmacies you could try: ${alternatives}.` : "";
+    const smsText =
+      `Hi, ${pharmacyName} could not fulfil your Tarragon Health order ${orderNumber} as prescribed.${altCopy} ` +
+      `Tarragon Health`;
+    return {
+      metaTemplateName: "pharmacy_order_unavailable",
+      languageCode: "en",
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: orderNumber },
+            { type: "text", text: pharmacyName },
+          ],
+        },
+      ],
+      smsText,
+      email: {
+        subject: `Your Tarragon Health order ${orderNumber}: medicine unavailable`,
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi,</p>` +
+          `<p><strong>${pharmacyName}</strong> was unable to fulfil your order as prescribed.</p>` +
+          `${alternatives ? `<p>Other pharmacies you could try: ${alternatives}.</p>` : ""}` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+      pushUrl: path,
     };
   },
   // Sent to whoever funded someone else's Health Wallet, when that money
@@ -900,31 +1490,38 @@ const TEMPLATE_MAP: Record<
   // No clinical content, for the same reason as the spend receipt above:
   // "nothing logged in 20 days" is a statement about activity, not health.
   sponsor_monthly_report: (payload) => {
-    const people = Array.isArray(payload.people)
-      ? (payload.people as Record<string, unknown>[])
-      : [];
-    const money = (kobo: unknown) => (Number(kobo ?? 0) / 100).toLocaleString("en-NG");
-    const totalSpent = people.reduce((sum, p) => sum + Number(p?.spent_kobo ?? 0), 0);
-    const headline = `₦${money(totalSpent)} became care last month`;
+    // CORRECTED 2026-09-05. This builder read `people[]`, `spent_kobo` and
+    // `balance_kobo` — a Health-Wallet-era payload shape retired by
+    // 20260731215735_retire_health_wallet.sql. The live producer,
+    // private.queue_sponsor_monthly_reports(), emits FLAT keys for ONE
+    // person: beneficiary_name, ready_count, saving_count, used_this_month
+    // and spent_naira. So every sponsor report that has ever been sent said
+    // "₦0 became care last month" over an empty table.
+    //
+    // spent_naira is ALREADY IN NAIRA (the producer divides by 100). The old
+    // money() helper divided by 100 again, so simply reconnecting the new key
+    // to it would have rendered ₦500 as ₦5. There is no kobo value in this
+    // payload at all, and nothing here divides.
+    //
+    // The in-app copy of this same notification (notification-bell.tsx) was
+    // migrated to the flat shape when the producer changed; only this edge
+    // function was left behind.
+    const naira = (value: unknown) => {
+      const amount = Number(value ?? 0);
+      return Number.isFinite(amount) ? amount.toLocaleString("en-NG") : "0";
+    };
+    const name = String(payload.beneficiary_name ?? "someone you support");
+    const spent = naira(payload.spent_naira);
+    const used = Number(payload.used_this_month ?? 0);
+    const ready = Number(payload.ready_count ?? 0);
+    const saving = Number(payload.saving_count ?? 0);
 
-    const rows = people
-      .map((person) => {
-        const name = String(person?.name ?? "someone you support");
-        const bills = Number(person?.awaiting_payment ?? 0);
-        const quiet = person?.quiet_days === null ? null : Number(person?.quiet_days ?? 0);
-        const notes: string[] = [];
-        if (bills > 0) {
-          notes.push(`${bills} ${bills === 1 ? "bill is" : "bills are"} waiting to be paid for`);
-        }
-        if (quiet !== null && quiet >= 21) notes.push(`nothing logged in ${quiet} days`);
-        return (
-          `<tr><td style="padding:6px 12px 6px 0"><strong>${name}</strong></td>` +
-          `<td style="padding:6px 12px 6px 0">&#8358;${money(person?.spent_kobo)} spent</td>` +
-          `<td style="padding:6px 12px 6px 0">&#8358;${money(person?.balance_kobo)} left</td>` +
-          `<td style="padding:6px 0;color:#5b6b78">${notes.join("; ") || "nothing outstanding"}</td></tr>`
-        );
-      })
-      .join("");
+    const headline = `₦${spent} became care for ${name} last month`;
+    const usedLine =
+      used === 1 ? "1 thing you bought was used" : `${used} things you bought were used`;
+    const readyLine =
+      ready === 1 ? "1 is ready and waiting to be used" : `${ready} are ready and waiting to be used`;
+    const savingLine = saving > 0 ? `${saving} more is being saved towards.` : "";
 
     return {
       metaTemplateName: "sponsor_monthly_report",
@@ -936,8 +1533,13 @@ const TEMPLATE_MAP: Record<
         html:
           `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
           `<p>Here is what happened last month with the care you are paying for.</p>` +
-          `<table style="border-collapse:collapse;margin:16px 0">${rows}</table>` +
-          `<p style="color:#5b6b78;font-size:13px">Anything marked as waiting to be paid for can be settled from their Health Wallet under People you support.</p>` +
+          `<table style="border-collapse:collapse;margin:16px 0">` +
+          `<tr><td style="padding:6px 12px 6px 0">Person</td><td style="padding:6px 0"><strong>${name}</strong></td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Paid last month</td><td style="padding:6px 0"><strong>&#8358;${spent}</strong></td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Used</td><td style="padding:6px 0">${usedLine}</td></tr>` +
+          `<tr><td style="padding:6px 12px 6px 0">Ready</td><td style="padding:6px 0">${readyLine}${savingLine ? ` ${savingLine}` : ""}</td></tr>` +
+          `</table>` +
+          `<p style="color:#5b6b78;font-size:13px">You can see everything you have funded, and what it paid for, under People you support in your dashboard.</p>` +
           `<p style="color:#5b6b78;font-size:13px">This summary covers money and activity only. Their readings, results and notes stay between them and their care team.</p>` +
           `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
           `</div>`,
@@ -1236,8 +1838,8 @@ const TEMPLATE_MAP: Record<
     const testName = String(payload.test_name ?? "a lab test");
     const selfBooked = payload.self_booked === true;
     const lead = selfBooked
-      ? `Your lab test order is confirmed. Show order ${orderNumber} at the lab so they know exactly what to run.`
-      : `Your care team has requested a lab test for you.`;
+      ? `Your lab test order is confirmed. A printable PDF of the request is attached — take it to any laboratory you choose, or show order ${orderNumber} if you have already printed it.`
+      : `Your care team has requested a lab test for you. A printable PDF of the request is attached.`;
     const smsText = selfBooked
       ? `Hi ${patientName}, your lab order is confirmed: ${testName} (order ${orderNumber}). ` +
         `Show order ${orderNumber} at the lab to have it done. Tarragon Health`
@@ -1269,7 +1871,37 @@ const TEMPLATE_MAP: Record<
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Test</td><td style="padding:4px 0"><strong>${testName}</strong></td></tr>` +
           `<tr><td style="padding:4px 12px 4px 0;color:#5b6b78">Order number</td><td style="padding:4px 0"><strong>${orderNumber}</strong></td></tr>` +
           `</table>` +
-          `<p>Open the Tarragon Health app to see the order, choose where to have it done, and track your results.</p>` +
+          `<p>The attached PDF lists the tests and the reason for them — it does not name a laboratory or a price, because you choose where to have it done and pay them directly. Open the Tarragon Health app to see the order, choose where to have it done, and track your results.</p>` +
+          `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
+          `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
+          `</div>`,
+        text: smsText,
+      },
+    };
+  },
+  // Email-only digest, queued by private.queue_preventive_care_plan_email_
+  // reminders (at most once per patient per 30 days, only when something is
+  // currently due/overdue). No whatsapp/sms component exists for this one —
+  // metaTemplateName/components/smsText are populated anyway so a
+  // misrouted whatsapp/sms row degrades to plain text rather than crashing,
+  // matching every other template's shape.
+  preventive_care_plan_updated: (payload) => {
+    const patientName = String(payload.patient_name ?? "there");
+    const smsText =
+      `Hi ${patientName}, your preventive & chronic care plan has been updated — ` +
+      `see the Tarragon Health app for what's due. Tarragon Health`;
+    return {
+      metaTemplateName: "preventive_care_plan_updated",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: patientName }] }],
+      smsText,
+      email: {
+        subject: "Your preventive & chronic care plan",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>Hi ${patientName},</p>` +
+          `<p>You have some routine screening, vaccination or Annual Health Check items due. A copy of your full plan is attached as a PDF — it lists what's recommended and why, and does not name a laboratory or a price, because you choose where to have each item done and pay them directly.</p>` +
+          `<p>Open the Tarragon Health app to see your live plan and mark anything you've already had done.</p>` +
           `<p style="color:#0E7C52"><strong>Care that stays with you.</strong></p>` +
           `<p style="color:#5b6b78;font-size:13px">Tarragon Health</p>` +
           `</div>`,
@@ -1529,6 +2161,7 @@ const TEMPLATE_MAP: Record<
       languageCode: "en",
       components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: message,
+      pushUrl: "/clinician/escalations",
     };
   },
   clinician_alert_ack_timeout_senior: (payload) => {
@@ -1538,6 +2171,7 @@ const TEMPLATE_MAP: Record<
       languageCode: "en",
       components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: message,
+      pushUrl: "/clinician/escalations",
     };
   },
   clinician_alert_ack_timeout_admin: (payload) => {
@@ -1547,6 +2181,7 @@ const TEMPLATE_MAP: Record<
       languageCode: "en",
       components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
       smsText: message,
+      pushUrl: "/clinician/escalations",
     };
   },
   // Same gap as the three ack-timeout keys above, found in the same pass:
@@ -1779,6 +2414,104 @@ const TEMPLATE_MAP: Record<
       components: [{ type: "body", parameters: [{ type: "text", text: title }] }],
       smsText: `Hi, time for today's check-in on ${title}. Open the Tarragon Health app to log it. Tarragon Health`,
       pushUrl: "/patient/lifestyle",
+    };
+  },
+  // Same "registered, enqueued for real, never rendered" gap as the blocks
+  // above -- confirmed live 2026-09-15: 140 failed rows across these four
+  // keys, every one `last_error = 'unknown template'`, oldest from
+  // 2026-08-29 (the day each producer migration shipped). No TEMPLATE_MAP
+  // entry and no notification_template_locales row existed for any of
+  // them, so the DB-driven fallback (17.5) never had anything to catch
+  // this either.
+  //
+  // record_login_device() (known_device_login_notification.sql) queues this
+  // in_app + email, priority='critical' -- payload.message is a
+  // fully-resolved string already, same shape as the ack-timeout ladder
+  // above, so this stays a plain pass-through. Never gated by
+  // TEMPLATE_CATEGORY, matching every other critical-only security/safety
+  // template in this map.
+  "security.new_device_signin": (payload) => {
+    const message = String(
+      payload.message ?? "New sign-in to your Tarragon Health account from a device we haven't seen before.",
+    );
+    return {
+      metaTemplateName: "security_new_device_signin",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: message }] }],
+      smsText: message,
+      pushUrl: "/patient/settings/security",
+      email: {
+        subject: "New sign-in to your Tarragon Health account",
+        html:
+          `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;color:#12324B;line-height:1.5">` +
+          `<p>${message}</p>` +
+          `<p style="color:#5b6b78;font-size:13px">If this was you, there's nothing else to do. If it wasn't, change your password right away and reach out to your care team from the app.</p>` +
+          `<p style="color:#5b6b78;font-size:13px">&mdash; Tarragon Health</p>` +
+          `</div>`,
+        text: message,
+      },
+    };
+  },
+  // private.queue_medication_dose_reminders() (medication_dose_time_
+  // reminders.sql) queues this whatsapp + in_app every 15 minutes at a
+  // medication's scheduled dose time. scheduled_time is already an
+  // Africa/Lagos local HH:MM string from the producer, not a timestamp --
+  // no formatLagosDateTime conversion needed or correct here.
+  medication_dose_reminder: (payload) => {
+    const drugName = String(payload.drug_name ?? "your medication");
+    const scheduledTime = String(payload.scheduled_time ?? "now");
+    return {
+      metaTemplateName: "medication_dose_reminder",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: drugName }, { type: "text", text: scheduledTime }] },
+      ],
+      smsText: `Hi, it's ${scheduledTime}: time for your dose of ${drugName}. Open the Tarragon Health app to log it. Tarragon Health`,
+      pushUrl: "/patient/medications",
+    };
+  },
+  // private.check_vitals_monitoring_adherence() (vitals_monitoring_
+  // adherence_and_gap_ladder.sql) queues these three whatsapp + in_app as a
+  // patient falls further behind their prescribed monitoring schedule for
+  // one vital. vital_type is the raw enum (e.g. 'blood_pressure'); the SQL
+  // producer's own label formatting (replace '_' with a space, used only
+  // through lower()) is mirrored here for the same reason it's mirrored
+  // there -- these three copies need to read as one continuing message as
+  // a patient moves through the ladder, not as independently-worded alerts.
+  vitals_monitoring_due: (payload) => {
+    const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
+    return {
+      metaTemplateName: "vitals_monitoring_due",
+      languageCode: "en",
+      components: [{ type: "body", parameters: [{ type: "text", text: vitalLabel }] }],
+      smsText: `Hi, it's time to log your ${vitalLabel} reading. Open the Tarragon Health app to log it. Tarragon Health`,
+      pushUrl: "/patient/vitals",
+    };
+  },
+  vitals_monitoring_overdue: (payload) => {
+    const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
+    const daysSince = String(payload.days_since ?? "a few");
+    return {
+      metaTemplateName: "vitals_monitoring_overdue",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: vitalLabel }, { type: "text", text: daysSince }] },
+      ],
+      smsText: `Hi, it's been ${daysSince} days since your last ${vitalLabel} reading. Please log one when you can. Tarragon Health`,
+      pushUrl: "/patient/vitals",
+    };
+  },
+  vitals_monitoring_escalated: (payload) => {
+    const vitalLabel = String(payload.vital_type ?? "vital").replace(/_/g, " ");
+    const daysSince = String(payload.days_since ?? "several");
+    return {
+      metaTemplateName: "vitals_monitoring_escalated",
+      languageCode: "en",
+      components: [
+        { type: "body", parameters: [{ type: "text", text: vitalLabel }, { type: "text", text: daysSince }] },
+      ],
+      smsText: `Hi, it's been ${daysSince} days since your last ${vitalLabel} reading and your care team has been notified. Please log one as soon as you can. Tarragon Health`,
+      pushUrl: "/patient/vitals",
     };
   },
 };
@@ -2049,11 +2782,19 @@ async function sendExpoPush(
     : { ok: false, error: lastError ?? "expo push send failed", goneSubscriptionIds };
 }
 
+/** One file attached to an outbound email. `content` is base64, matching
+ * Resend's `attachments` field shape exactly — see sendEmail below. */
+interface EmailAttachment {
+  filename: string;
+  content: string;
+}
+
 async function sendEmail(
   toEmail: string,
   subject: string,
   html: string,
   text: string,
+  attachments?: EmailAttachment[],
 ): Promise<SendResult> {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   if (!apiKey) {
@@ -2073,9 +2814,107 @@ async function sendEmail(
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ from, to: [toEmail], subject, html, text }),
+      body: JSON.stringify({
+        from,
+        to: [toEmail],
+        subject,
+        html,
+        text,
+        // Omitted entirely rather than sent as [] when there is nothing to
+        // attach — an empty array is harmless to Resend, but omitting it
+        // keeps every other email's request body byte-identical to before
+        // this change, which matters given how easily this function has
+        // drifted from source in the past (see CLAUDE.md's standing note).
+        ...(attachments && attachments.length > 0 ? { attachments } : {}),
+      }),
     })
   );
+}
+
+/**
+ * Fetches the take-anywhere test request PDF for one lab order from the
+ * Next.js app, so it can ride along as an email attachment.
+ *
+ * Deliberately fails soft: any problem here (secret unset, app unreachable,
+ * order deleted between enqueue and send, a non-200) returns null rather than
+ * throwing, and the caller sends the email WITHOUT the attachment rather than
+ * not sending it at all. The confirmation email is the guaranteed thing the
+ * founder requirement asks for; the PDF is a genuine enhancement to it, not a
+ * precondition — a patient who does not get the attachment can still open the
+ * request in the app, exactly as before this existed. Logged either way, so a
+ * silent failure here is at least visible in the function's own logs.
+ */
+async function fetchLabOrderRequestPdf(orderId: string): Promise<EmailAttachment | null> {
+  const serviceKey = Deno.env.get("NOTIFICATIONS_SERVICE_KEY");
+  if (!serviceKey) {
+    console.error("lab-order PDF attachment: NOTIFICATIONS_SERVICE_KEY not configured");
+    return null;
+  }
+  const base = Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng";
+
+  try {
+    const response = await fetch(
+      `${base}/api/internal/notifications/lab-order-request-pdf/${orderId}`,
+      { headers: { "X-Service-Key": serviceKey } },
+    );
+    if (!response.ok) {
+      console.error(`lab-order PDF attachment: fetch returned ${response.status} for order ${orderId}`);
+      return null;
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    // Deno has no Buffer global; btoa needs a binary string, built in chunks
+    // so a large PDF does not blow the call-stack a spread/apply would hit.
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    return { filename: `tarragon-test-request-${orderId}.pdf`, content: btoa(binary) };
+  } catch (error) {
+    console.error("lab-order PDF attachment: fetch threw", error);
+    return null;
+  }
+}
+
+/**
+ * Fetches the preventive & chronic care plan PDF for one patient, so the
+ * "preventive_care_plan_updated" email can carry it as an attachment. Same
+ * fail-soft shape as fetchLabOrderRequestPdf and for the same reason: the
+ * email itself is the guaranteed thing (queued by
+ * private.queue_preventive_care_plan_email_reminders), the PDF is an
+ * enhancement to it — a patient who does not get the attachment can still
+ * open their plan in the app.
+ */
+async function fetchPreventiveCarePlanPdf(patientId: string): Promise<EmailAttachment | null> {
+  const serviceKey = Deno.env.get("NOTIFICATIONS_SERVICE_KEY");
+  if (!serviceKey) {
+    console.error("preventive care plan PDF attachment: NOTIFICATIONS_SERVICE_KEY not configured");
+    return null;
+  }
+  const base = Deno.env.get("APP_BASE_URL") ?? "https://app.tarragonhealth.ng";
+
+  try {
+    const response = await fetch(
+      `${base}/api/internal/notifications/preventive-care-plan-pdf/${patientId}`,
+      { headers: { "X-Service-Key": serviceKey } },
+    );
+    if (!response.ok) {
+      console.error(
+        `preventive care plan PDF attachment: fetch returned ${response.status} for patient ${patientId}`,
+      );
+      return null;
+    }
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    return { filename: `tarragon-preventive-care-plan.pdf`, content: btoa(binary) };
+  } catch (error) {
+    console.error("preventive care plan PDF attachment: fetch threw", error);
+    return null;
+  }
 }
 
 Deno.serve(async () => {
@@ -2084,26 +2923,31 @@ Deno.serve(async () => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   );
 
+  // send_after (set by queue_vitals_reminders/queue_medication_checkin_reminders
+  // from profiles.preferred_reminder_hour) holds a non-urgent reminder back
+  // until the patient's preferred local hour — null means "send on next tick"
+  // as before. Never set on critical/escalation rows, so this can never delay one.
   const { data: pending, error: fetchError } = await supabase
     .from("notifications")
-    .select("id, recipient_id, channel, template, payload, attempts, priority")
+    .select("id, recipient_id, organisation_id, channel, template, payload, attempts, priority")
     .eq("status", "pending")
     .in("channel", ["whatsapp", "sms", "email", "voice", "push"])
     .lt("attempts", MAX_ATTEMPTS)
+    .or(`send_after.is.null,send_after.lte.${new Date().toISOString()}`)
     .order("created_at", { ascending: true })
     .limit(BATCH_SIZE)
     .returns<NotificationRow[]>();
 
   if (fetchError) {
     return Response.json(
-      { processed: 0, sent: 0, retried: 0, failed: 0, error: fetchError.message },
+      { processed: 0, sent: 0, retried: 0, failed: 0, suppressed: 0, error: fetchError.message },
       { status: 200 },
     );
   }
 
   const rows = pending ?? [];
   if (rows.length === 0) {
-    return Response.json({ processed: 0, sent: 0, retried: 0, failed: 0 });
+    return Response.json({ processed: 0, sent: 0, retried: 0, failed: 0, suppressed: 0 });
   }
 
   const recipientIds = [...new Set(rows.map((row) => row.recipient_id))];
@@ -2127,11 +2971,110 @@ Deno.serve(async () => {
     subscriptionsByProfile.set(sub.profile_id, list);
   }
 
+  // Spec §76.12 — patient channel preferences, routine rows only. Keyed
+  // "recipientId:category" since patient_notification_preferences is one row
+  // per (patient, category); a missing row means "all channels on"
+  // (the table's own column defaults), so an absent lookup below always
+  // falls through to "send".
+  const { data: preferenceRows } = await supabase
+    .from("patient_notification_preferences")
+    .select("patient_id, category, email_enabled, sms_enabled, push_enabled, whatsapp_enabled")
+    .in("patient_id", recipientIds)
+    .returns<
+      Array<{
+        patient_id: string;
+        category: PreferenceCategory;
+        email_enabled: boolean;
+        sms_enabled: boolean;
+        push_enabled: boolean;
+        whatsapp_enabled: boolean;
+      }>
+    >();
+  const preferenceByRecipientCategory = new Map(
+    (preferenceRows ?? []).map((p) => [`${p.patient_id}:${p.category}`, p]),
+  );
+
+  function channelAllowed(row: NotificationRow): boolean {
+    if (row.priority === "critical") return true; // never gated — see TEMPLATE_CATEGORY's header comment
+    const category = row.template ? TEMPLATE_CATEGORY[row.template] : undefined;
+    if (!category) return true; // unclassified templates are never gated
+    const pref = preferenceByRecipientCategory.get(`${row.recipient_id}:${category}`);
+    if (!pref) return true; // no row on file — table defaults are all-on
+    switch (row.channel) {
+      case "email":
+        return pref.email_enabled;
+      case "sms":
+        return pref.sms_enabled;
+      case "push":
+        return pref.push_enabled;
+      case "whatsapp":
+        return pref.whatsapp_enabled;
+      default:
+        return true; // voice has no toggle column — treat as always-on
+    }
+  }
+
   let sent = 0;
   let retried = 0;
   let failed = 0;
+  let suppressed = 0;
+
+  const suppress = (id: string, reason: string) =>
+    supabase
+      .from("notifications")
+      .update({ status: "suppressed", last_error: reason })
+      .eq("id", id);
+
+  // Spec §76.14 — fatigue management. More than DIGEST_THRESHOLD routine
+  // rows for the same recipient in this one batch fold into a single in-app
+  // digest; the individual rows never send on their own external channel.
+  // Critical rows are never eligible — they're excluded from `routineByRecipient`
+  // below by construction (only priority === "routine" rows are grouped).
+  const routineByRecipient = new Map<string, NotificationRow[]>();
+  for (const row of rows) {
+    if (row.priority !== "routine") continue;
+    const list = routineByRecipient.get(row.recipient_id) ?? [];
+    list.push(row);
+    routineByRecipient.set(row.recipient_id, list);
+  }
+
+  const foldedIds = new Set<string>();
+  for (const [recipientId, group] of routineByRecipient) {
+    if (group.length <= DIGEST_THRESHOLD) continue;
+
+    const labels = group.map((row) => {
+      const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
+      return renderFn
+        ? renderFn(row.payload ?? {}, { notificationId: row.id, recipientId: row.recipient_id }).smsText
+        : (row.template ?? "an update");
+    });
+
+    const { error: digestError } = await supabase.from("notifications").insert({
+      recipient_id: recipientId,
+      organisation_id: group[0].organisation_id,
+      channel: "in_app",
+      status: "pending",
+      priority: "routine",
+      template: "daily_digest",
+      payload: { count: group.length, items: labels, action_centre_url: appUrl("/patient/actions") },
+    });
+    if (digestError) continue; // couldn't create the digest — leave the originals to send normally, don't silently drop them
+
+    for (const row of group) {
+      await suppress(row.id, `folded into daily_digest (${group.length} items)`);
+      foldedIds.add(row.id);
+      suppressed++;
+    }
+  }
 
   for (const row of rows) {
+    if (foldedIds.has(row.id)) continue;
+
+    if (!channelAllowed(row)) {
+      await suppress(row.id, "patient turned off this channel for this category");
+      suppressed++;
+      continue;
+    }
     // Critical rows fail fast, never sit through the normal 3-attempt/
     // ~15-minute retry ladder — private.escalate_unconfirmed_critical_notifications()
     // (checked every 2 minutes) is what turns a failed critical send into
@@ -2183,7 +3126,9 @@ Deno.serve(async () => {
 
     const payload = row.payload ?? {};
     const renderFn = row.template ? TEMPLATE_MAP[row.template] : undefined;
-    let render: TemplateRender | undefined = renderFn ? renderFn(payload) : undefined;
+    let render: TemplateRender | undefined = renderFn
+      ? renderFn(payload, { notificationId: row.id, recipientId: row.recipient_id })
+      : undefined;
 
     if (!render && row.template && row.channel !== "whatsapp") {
       // DB-driven fallback (17.5) — a template that was registered in
@@ -2244,7 +3189,23 @@ Deno.serve(async () => {
         failed++;
         continue;
       }
-      await settle(await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text));
+      // Scoped to exactly one template, deliberately: this is the founder
+      // requirement that the test-request email carry the PDF, not a general
+      // "attach a PDF" mechanism every template gets for free. A future
+      // template that wants the same treatment should add its own explicit
+      // case here rather than have this condition grown into something
+      // fuzzier.
+      let attachments: EmailAttachment[] | undefined;
+      if (row.template === "lab_order_requested_patient" && typeof payload.order_id === "string") {
+        const pdf = await fetchLabOrderRequestPdf(payload.order_id);
+        if (pdf) attachments = [pdf];
+      } else if (row.template === "preventive_care_plan_updated") {
+        const pdf = await fetchPreventiveCarePlanPdf(row.recipient_id);
+        if (pdf) attachments = [pdf];
+      }
+      await settle(
+        await sendEmail(toEmail, render.email.subject, render.email.html, render.email.text, attachments),
+      );
     } else if (row.channel === "push") {
       const subs = subscriptionsByProfile.get(row.recipient_id) ?? [];
       const pushBody = render.smsText.length > PUSH_BODY_MAX_CHARS
@@ -2331,5 +3292,5 @@ Deno.serve(async () => {
     }
   }
 
-  return Response.json({ processed: rows.length, sent, retried, failed });
+  return Response.json({ processed: rows.length, sent, retried, failed, suppressed });
 });

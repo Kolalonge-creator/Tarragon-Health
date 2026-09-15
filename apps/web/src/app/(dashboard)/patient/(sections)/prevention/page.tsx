@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { ageFromDateOfBirth } from "@tarragon/shared";
-import { createClient } from "@/lib/supabase/server";
+import { shouldOfferCycleTracking } from "@/lib/patient/cycle-relevance";
 import { getPatientDashboardContext } from "@/app/(dashboard)/patient/dashboard-context";
+import { createClient } from "@/lib/supabase/server";
+import { loadPatientClinicalContext } from "@/lib/clinical/patient-clinical-context";
 import { Card, CardContent } from "@/components/ui/card";
 import { DashboardSection } from "@/components/ui/dashboard-section";
 import { SEMANTIC_ICON } from "@/lib/icons";
@@ -9,14 +11,24 @@ import { AnnualHealthCheckBooking } from "@/app/(dashboard)/patient/annual-healt
 import { ResultsTrendsCard } from "@/app/(dashboard)/patient/results-trends-card";
 import { PreventiveScreeningCalendar } from "@/app/(dashboard)/patient/preventive-screening-calendar";
 import { PreventiveProgrammes } from "@/app/(dashboard)/patient/preventive-programmes";
+import { CancerScreeningCard } from "@/app/(dashboard)/patient/cancer-screening-card";
 import { CareProgrammeRecommendations } from "@/app/(dashboard)/patient/care-programme-recommendations";
 import { ReproductiveHealthCard } from "@/app/(dashboard)/patient/reproductive-health-card";
+import { MensHealthCard } from "@/app/(dashboard)/patient/mens-health-card";
 import { RiskAssessmentForm } from "@/app/(dashboard)/patient/risk-assessment-form";
 import { RiskAssessmentDisplay } from "@/app/(dashboard)/patient/risk-assessment-display";
 import { FindriscCheck } from "@/app/(dashboard)/patient/findrisc-check";
+import { CvdRiskCheck } from "@/app/(dashboard)/patient/cvd-risk-check";
+import { CkdRiskCard } from "@/app/(dashboard)/patient/ckd-risk-card";
 import { VaccinationForFamily } from "@/app/(dashboard)/patient/vaccination-for-family";
-import { PreventionTabs, type PreventionTab } from "@/app/(dashboard)/patient/prevention-tabs";
+import { DownloadPreventiveCarePlanLink } from "@/app/(dashboard)/patient/download-preventive-care-plan-link";
+import {
+  PreventionTabs,
+  type PreventionTab,
+} from "@/app/(dashboard)/patient/prevention-tabs";
 import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-campaigns-card";
+import { DevelopmentalScreeningCard } from "@/app/(dashboard)/patient/developmental-screening-card";
+import { SymptomToTestCheck } from "@/app/(dashboard)/patient/symptom-to-test-check";
 
 /**
  * The prevention hub — one destination for everything that keeps a healthy
@@ -45,20 +57,33 @@ import { PreventionCampaignsCard } from "@/app/(dashboard)/patient/prevention-ca
  * anchorIds so those deep links keep landing on the right tab.
  */
 export default async function PreventionHubPage() {
-  const { profile, subjectId } = await getPatientDashboardContext();
+  const { profile, subjectId, subjectSex, subjectDateOfBirth } =
+    await getPatientDashboardContext();
 
+  // Powers the CKD risk card below — reuses the same KDIGO calculation the
+  // clinician view runs (patient-clinical-context.ts), scoped by the
+  // caller's own RLS-bound client like every other read on this page.
   const supabase = await createClient();
-  const { data: labCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "lab_coordination",
-  });
-  const { data: preventionCoordinationEnabled } = await supabase.rpc("has_feature_access", {
-    feature: "prevention_coordination",
-  });
-  const screeningBookingEnabled =
-    (labCoordinationEnabled ?? false) || (preventionCoordinationEnabled ?? false);
+  const { egfr, egfrUnavailableReason, ckdRisk, ckdRiskUnavailableReason } =
+    await loadPatientClinicalContext(supabase, subjectId);
 
-  const location = { state: profile.state, city: profile.city, area: profile.area };
+  // The screening calendar and lab-request coordination are free to every
+  // patient since the pay-per-service rework — neither costs clinician time.
+  // Kept as a named constant rather than deleted so the downstream layout
+  // reads the same, and so re-gating it later is a one-line change.
+  const screeningBookingEnabled = true;
+
+  const location = {
+    state: profile.state,
+    city: profile.city,
+    area: profile.area,
+  };
   const ageYears = ageFromDateOfBirth(profile.date_of_birth);
+  // Distinct from ageYears above (the CALLER's own age, used for the "Me"
+  // family-vaccination tab): the Child health tab below is about whichever
+  // record is actually open, which is the acting-for subject's, not the
+  // caller's own, when a parent has opened a child's account.
+  const subjectAgeYears = ageFromDateOfBirth(subjectDateOfBirth);
 
   const tabs: PreventionTab[] = [
     {
@@ -86,26 +111,29 @@ export default async function PreventionHubPage() {
       label: "Screenings & Vaccinations",
       anchorIds: ["screenings", "vaccinations"],
       content: (
-        <div id="screenings" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
-          <div className="space-y-4">
-            <PreventiveScreeningCalendar
-              patientId={subjectId}
-              organisationId={profile.organisation_id}
-              bookingEnabled={screeningBookingEnabled}
-            />
-          </div>
+        <div id="screenings" className="scroll-mt-24 space-y-4">
+          <DownloadPreventiveCarePlanLink patientId={subjectId} />
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <div className="space-y-4">
+              <PreventiveScreeningCalendar
+                patientId={subjectId}
+                organisationId={profile.organisation_id}
+                bookingEnabled={screeningBookingEnabled}
+              />
+            </div>
 
-          <div id="vaccinations" className="scroll-mt-24">
-            <VaccinationForFamily
-              self={{
-                id: subjectId,
-                label: "Me",
-                ageYears,
-                dateOfBirth: profile.date_of_birth,
-                sex: profile.sex,
-              }}
-              patientLocation={location}
-            />
+            <div id="vaccinations" className="scroll-mt-24">
+              <VaccinationForFamily
+                self={{
+                  id: subjectId,
+                  label: "Me",
+                  ageYears,
+                  dateOfBirth: profile.date_of_birth,
+                  sex: profile.sex,
+                }}
+                patientLocation={location}
+              />
+            </div>
           </div>
         </div>
       ),
@@ -115,15 +143,59 @@ export default async function PreventionHubPage() {
       label: "Risk Assessment",
       anchorIds: ["risk-assessment"],
       content: (
-        <div id="risk-assessment" className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2">
+        <div
+          id="risk-assessment"
+          className="grid scroll-mt-24 grid-cols-1 items-start gap-4 lg:grid-cols-2"
+        >
           <div className="space-y-4">
             <RiskAssessmentForm patientId={subjectId} />
             <RiskAssessmentDisplay patientId={subjectId} />
             <FindriscCheck />
+            <CvdRiskCheck />
+            <CkdRiskCard
+              egfr={egfr}
+              egfrUnavailableReason={egfrUnavailableReason}
+              ckdRisk={ckdRisk}
+              ckdRiskUnavailableReason={ckdRiskUnavailableReason}
+            />
           </div>
           <CareProgrammeRecommendations
             patientId={subjectId}
             conditionLanguagePreference={profile.condition_language_preference}
+          />
+        </div>
+      ),
+    },
+    // Only for a child/adolescent subject — a screening aid whose age-banded
+    // item bank tops out at 60 months (developmental-screening-card.tsx
+    // self-gates on that; the age check here just keeps the tab itself from
+    // showing up empty for an adult patient).
+    ...(subjectAgeYears !== null && subjectAgeYears < 18
+      ? [
+          {
+            id: "child-health",
+            label: "Child health",
+            content: (
+              <div className="space-y-6">
+                <DevelopmentalScreeningCard
+                  patientId={subjectId}
+                  organisationId={profile.organisation_id}
+                  dateOfBirth={subjectDateOfBirth}
+                />
+              </div>
+            ),
+          } satisfies PreventionTab,
+        ]
+      : []),
+    {
+      id: "symptom-checker",
+      label: "Test Suggestions",
+      anchorIds: ["symptom-checker"],
+      content: (
+        <div id="symptom-checker" className="scroll-mt-24">
+          <SymptomToTestCheck
+            patientId={subjectId}
+            organisationId={profile.organisation_id}
           />
         </div>
       ),
@@ -134,10 +206,23 @@ export default async function PreventionHubPage() {
       content: (
         <div className="space-y-6">
           <PreventionCampaignsCard patientId={subjectId} />
-          <PreventiveProgrammes patientId={subjectId} ageYears={ageYears} sex={profile.sex} />
-          {profile.sex === "female" && profile.organisation_id && (
-            <ReproductiveHealthCard patientId={subjectId} organisationId={profile.organisation_id} />
+          <PreventiveProgrammes
+            patientId={subjectId}
+            ageYears={ageYears}
+            sex={profile.sex}
+          />
+          <CancerScreeningCard sex={profile.sex} />
+          {/* Permissive on an unrecorded sex, deliberately: see
+              shouldOfferCycleTracking. The strict `=== "female"` test this
+              replaces left the cycle tracker with no entry point at all for
+              the majority of accounts, which carry no recorded sex. */}
+          {shouldOfferCycleTracking(subjectSex) && profile.organisation_id && (
+            <ReproductiveHealthCard
+              patientId={subjectId}
+              organisationId={profile.organisation_id}
+            />
           )}
+          {profile.sex === "male" && <MensHealthCard patientId={subjectId} />}
         </div>
       ),
     },
@@ -152,16 +237,21 @@ export default async function PreventionHubPage() {
     >
       <Card className="border-brand-green/25">
         <CardContent className="flex flex-col items-start gap-4 p-6 sm:flex-row sm:items-center">
-          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-soft-sage">
-            <SEMANTIC_ICON.preventive className="h-6 w-6 text-deep-forest" strokeWidth={2} />
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-soft-sage dark:bg-brand-green/20">
+            <SEMANTIC_ICON.preventive
+              className="h-6 w-6 text-deep-forest dark:text-brand-green-bright"
+              strokeWidth={2}
+              aria-hidden
+            />
           </span>
           <div className="flex-1">
-            <p className="font-heading text-base font-semibold text-charcoal-ink">
+            <p className="font-heading text-base font-semibold text-charcoal-ink dark:text-night-ink">
               Your yearly Health Check
             </p>
-            <p className="mt-1 text-sm text-charcoal-ink/70">
-              A guided, whole-body check-in: your health profile, wellbeing, measurements,
-              screenings, and immunisations, reviewed by a doctor at the end.
+            <p className="mt-1 text-sm text-charcoal-ink/70 dark:text-night-ink/70">
+              A guided, whole-body check-in: your health profile, wellbeing,
+              measurements, screenings, and immunisations, reviewed by a doctor
+              at the end.
             </p>
           </div>
           <Link

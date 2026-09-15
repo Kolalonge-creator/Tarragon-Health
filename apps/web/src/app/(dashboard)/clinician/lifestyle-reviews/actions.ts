@@ -37,7 +37,7 @@ export async function completeReview(
 
   const { data: staff } = await supabase
     .from("clinical_staff")
-    .select("doctor_tier, is_clinical_director")
+    .select("doctor_tier")
     .eq("profile_id", user.id)
     .eq("active", true)
     .maybeSingle();

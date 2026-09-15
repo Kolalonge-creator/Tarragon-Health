@@ -9,11 +9,11 @@ import { Select } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const BAND_COPY: Record<FindriscResult["band"], { label: string; tone: string }> = {
-  low: { label: "Low risk", tone: "text-brand-green" },
-  slightly_elevated: { label: "Slightly elevated", tone: "text-amber-700" },
-  moderate: { label: "Moderate risk", tone: "text-orange-700" },
-  high: { label: "High risk", tone: "text-red-700" },
-  very_high: { label: "Very high risk", tone: "text-red-700" },
+  low: { label: "Low risk", tone: "text-brand-green dark:text-brand-green-bright" },
+  slightly_elevated: { label: "Slightly elevated", tone: "text-amber-700 dark:text-amber-300" },
+  moderate: { label: "Moderate risk", tone: "text-orange-700 dark:text-orange-300" },
+  high: { label: "High risk", tone: "text-red-700 dark:text-red-300" },
+  very_high: { label: "Very high risk", tone: "text-red-700 dark:text-red-300" },
 };
 
 /**
@@ -115,21 +115,21 @@ export function FindriscCheck() {
         </form>
 
         {result && band && (
-          <div className="mt-4 space-y-1 rounded-md border border-charcoal-ink/10 p-3 text-sm">
+          <div className="mt-4 space-y-1 rounded-md border border-charcoal-ink/10 dark:border-night-ink/15 p-3 text-sm">
             <p>
               Your score: <span className="font-medium">{result.score}</span>,{" "}
               <span className={`font-medium ${band.tone}`}>{band.label}</span>
             </p>
-            <p className="text-charcoal-ink/60">
+            <p className="text-charcoal-ink/60 dark:text-night-ink/60">
               Estimated 10-year chance of type 2 diabetes: {result.approxTenYearRisk}.
             </p>
             {result.recommendBloodTest ? (
-              <p className="text-charcoal-ink/80">
+              <p className="text-charcoal-ink/80 dark:text-night-ink/80">
                 We&apos;d recommend a simple blood test (fasting glucose or HbA1c) to check.
                 You can book one from the labs section, and your care team will guide you.
               </p>
             ) : (
-              <p className="text-charcoal-ink/80">
+              <p className="text-charcoal-ink/80 dark:text-night-ink/80">
                 Keep up the healthy habits, recheck yearly, or sooner if things change.
               </p>
             )}

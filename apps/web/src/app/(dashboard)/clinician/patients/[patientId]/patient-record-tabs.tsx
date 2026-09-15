@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 export type PatientRecordTab = {
@@ -18,9 +19,17 @@ export type PatientRecordTab = {
  * must never lose typed input just for switching tabs to check something
  * else. No section's own data-fetching, props, or conditional rendering
  * changes — this is purely a layout regrouping of the same JSX.
+ *
+ * Opens on a specific tab when the URL carries `?tab=<id>` (e.g. a Results
+ * Inbox row linking straight to "Screening & prevention" instead of leaving
+ * the doctor to find the right tab themselves) — falls back to the first tab
+ * when the param is missing or doesn't match any tab id.
  */
 export function PatientRecordTabs({ tabs }: { tabs: PatientRecordTab[] }) {
-  const [activeId, setActiveId] = useState(tabs[0]?.id);
+  const searchParams = useSearchParams();
+  const requestedId = searchParams.get("tab");
+  const initialId = tabs.some((tab) => tab.id === requestedId) ? requestedId! : tabs[0]?.id;
+  const [activeId, setActiveId] = useState(initialId);
 
   return (
     <div>

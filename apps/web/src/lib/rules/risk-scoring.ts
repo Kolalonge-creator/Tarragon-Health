@@ -6,7 +6,7 @@ import type { RiskAssessmentInput } from "@/lib/validation/risk-assessment";
  * simplification — skip the AI health-age score, compute honest, defensible
  * rule-based tiers using standard risk factors"). Deliberately data-driven —
  * a config table of weighted factors + thresholds per condition, mirroring
- * how screen_types treats the screening catalog as data, not scattered
+ * how screen_types treats the screening catalogue as data, not scattered
  * code — so a clinician can review/adjust weights later without an
  * engineer re-deriving logic.
  *
@@ -138,6 +138,27 @@ const CONDITION_RULES: ConditionRules[] = [
           ((p.sex === "male" && p.ageYears >= 45) || (p.sex === "female" && p.ageYears >= 55)),
       },
       { key: "alcohol_heavy", points: 1, applies: (r) => r.alcohol_use === "heavy" },
+    ],
+  },
+  {
+    condition: "ckd",
+    sexApplicability: null,
+    moderateThreshold: 2,
+    highThreshold: 5,
+    factors: [
+      // Diabetes and hypertension are the two leading causes of CKD, so an
+      // existing diagnosis of either counts far more heavily than a lifestyle
+      // factor — this engine has no lab-based eGFR/ACR input to draw on (see
+      // kdigo-ckd-risk.ts for the lab-based KDIGO calculation surfaced
+      // separately once real labs exist), so self-reported diagnoses are the
+      // strongest signal available here.
+      { key: "existing_diabetes", points: 3, applies: (r) => r.existing_diagnoses.includes("diabetes") },
+      { key: "existing_hypertension", points: 3, applies: (r) => r.existing_diagnoses.includes("hypertension") },
+      { key: "family_diabetes", points: 1, applies: (r) => r.family_diabetes },
+      { key: "family_hypertension", points: 1, applies: (r) => r.family_hypertension },
+      { key: "age_60_plus", points: 1, applies: (_r, p) => p.ageYears !== null && p.ageYears >= 60 },
+      { key: "smoking_current", points: 1, applies: (r) => r.smoking_status === "current" },
+      { key: "bmi_obese", points: 1, applies: (_r, _p, bmi) => bmi !== null && bmi >= 30 },
     ],
   },
   {

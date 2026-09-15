@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { LeadsManager } from "./leads-manager";
 
 export type LeadRow = {
@@ -27,7 +29,7 @@ export default async function AdminLeadsPage() {
   }
 
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("leads")
     .select("id, name, contact, role, message, source, created_at, contacted_at, contacted_by:profiles!leads_contacted_by_fkey(full_name)")
     .order("created_at", { ascending: false });
@@ -46,14 +48,20 @@ export default async function AdminLeadsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Leads</h1>
-        <p className="text-charcoal-ink/60">
-          Everyone who has submitted the marketing site&apos;s contact form or plan-finder,
-          including employer and HMO enquiries. Mark one as contacted once you have followed up.
-        </p>
-      </div>
-      <LeadsManager leads={leads} />
+      <PageHeader
+        title="Leads"
+        description="Everyone who has submitted the marketing site's contact form or plan-finder, including employer and HMO enquiries. Mark one as contacted once you have followed up."
+      />
+      {/* "No leads to show" is a growth claim, and a failed read used to make
+          it. Somebody who has been waiting on a follow-up gets none. */}
+      {error ? (
+        <LoadFailure>
+          The leads list could not be loaded. This is not a report that nobody has enquired.
+          Reload to try again.
+        </LoadFailure>
+      ) : (
+        <LeadsManager leads={leads} />
+      )}
     </div>
   );
 }

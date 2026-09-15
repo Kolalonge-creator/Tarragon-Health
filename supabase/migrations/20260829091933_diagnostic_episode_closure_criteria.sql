@@ -18,6 +18,18 @@
 -- BEFORE ROW triggers in alphabetical order by trigger name, and
 -- 'diagnostic_episodes_enforce_closure' sorts before
 -- 'diagnostic_episodes_stamp_lifecycle', so the gate is checked first.
+--
+-- FIXED 2026-09-15: this migration (and its proof, diagnostic_episode_
+-- engine.sql) had never actually been applied to or run against a real
+-- Postgres instance since it was written on 2026-08-29 -- found while
+-- reconciling main into main-dev, running the proof for the first time ever
+-- surfaced a real bug: `v_missing := v_missing || 'a plain string'` on a
+-- text[] is ambiguous to Postgres's `||` operator resolution and was
+-- crashing with "malformed array literal" instead of building the array, so
+-- EVERY attempt to close an incomplete diagnostic episode would have thrown
+-- a raw Postgres error instead of the intended named-checklist exception.
+-- Switched every append to the unambiguous array_append(). Proof now passes
+-- for real, not just by never having been run.
 
 create or replace function private.enforce_diagnostic_episode_closure()
 returns trigger
@@ -33,31 +45,31 @@ begin
   end if;
 
   if new.reviewed_at is null then
-    v_missing := v_missing || 'clinical review not recorded';
+    v_missing := array_append(v_missing, 'clinical review not recorded');
   end if;
 
   if new.patient_informed_at is null then
-    v_missing := v_missing || 'patient not informed';
+    v_missing := array_append(v_missing, 'patient not informed');
   end if;
 
   if new.requires_referral and new.referral_id is null then
-    v_missing := v_missing || 'referral required but not created';
+    v_missing := array_append(v_missing, 'referral required but not created');
   end if;
 
   if new.requires_referral and new.referral_id is not null and new.referral_completed_at is null then
-    v_missing := v_missing || 'referral created but specialist not yet seen';
+    v_missing := array_append(v_missing, 'referral created but specialist not yet seen');
   end if;
 
   if new.requires_repeat_test and new.repeat_test_completed_at is null then
-    v_missing := v_missing || 'repeat test required but not completed';
+    v_missing := array_append(v_missing, 'repeat test required but not completed');
   end if;
 
   if (new.requires_referral or new.requires_repeat_test) and new.outcome_received_at is null then
-    v_missing := v_missing || 'outcome not received/reviewed';
+    v_missing := array_append(v_missing, 'outcome not received/reviewed');
   end if;
 
   if new.follow_up_completed_at is null then
-    v_missing := v_missing || 'follow-up not completed';
+    v_missing := array_append(v_missing, 'follow-up not completed');
   end if;
 
   if array_length(v_missing, 1) > 0 then

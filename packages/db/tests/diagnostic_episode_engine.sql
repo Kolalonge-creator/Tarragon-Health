@@ -56,14 +56,39 @@ begin
   select id into v_pat from public.profiles where role = 'patient' and organisation_id = v_org limit 1;
   select id into v_clin_profile from public.profiles where role = 'clinician' and organisation_id = v_org limit 1;
 
+  -- A fresh CI reset's seed carries a patient for this org but no clinician
+  -- (confirmed live: v_clin_profile came back null on a genuine `supabase db
+  -- reset` replay, even though the live project always has one, which is why
+  -- this went unnoticed until the proof was actually registered and run
+  -- against a truly fresh stack). Mint one rather than assume the seed
+  -- provides it, matching the auth.users-then-profiles idiom
+  -- analytics_console_rpc_authorization_gate.sql already establishes for
+  -- exactly this situation -- profiles.id has a real FK to auth.users.
+  if v_clin_profile is null then
+    v_clin_profile := gen_random_uuid();
+    -- auth.users has an AFTER INSERT trigger (private.handle_new_user())
+    -- that already creates a matching public.profiles row with defaults —
+    -- confirmed live by a real duplicate-key hit on the first version of
+    -- this fix, which tried a plain insert. Upsert instead, exactly the
+    -- pattern analytics_console_rpc_authorization_gate.sql already uses
+    -- for the same reason.
+    insert into auth.users (id, email) values (v_clin_profile, 'diagnostic.episode.test.clinician@example.com');
+    insert into public.profiles (id, organisation_id, role, full_name)
+      values (v_clin_profile, v_org, 'clinician', 'Diagnostic Episode Test Clinician')
+      on conflict (id) do update
+        set organisation_id = excluded.organisation_id,
+            role            = excluded.role,
+            full_name       = excluded.full_name;
+  end if;
+
   select id into v_clin_staff_id from public.clinical_staff where profile_id = v_clin_profile;
   if v_clin_staff_id is null then
     insert into public.clinical_staff
       (organisation_id, profile_id, full_name, active, license_verified_at, doctor_tier)
-      values (v_org, v_clin_profile, 'Diagnostic Episode Test Clinician', true, now(), 'tier_1')
+      values (v_org, v_clin_profile, 'Diagnostic Episode Test Clinician', true, now(), 'medical_officer')
       returning id into v_clin_staff_id;
   else
-    update public.clinical_staff set doctor_tier = 'tier_1', active = true where id = v_clin_staff_id;
+    update public.clinical_staff set doctor_tier = 'medical_officer', active = true where id = v_clin_staff_id;
   end if;
 
   -- ---- Case 1: real abnormal result opens exactly one episode ----
@@ -119,6 +144,17 @@ begin
     from public.diagnostic_episodes where screening_result_id = v_result_b;
 
   -- ---- Case 3: referral linkage ----
+  -- Re-established here: case 2's begin/exception block above deliberately
+  -- triggers and catches a real exception, and PL/pgSQL's implicit
+  -- savepoint rollback on a caught exception reverts any transaction-local
+  -- GUC set since the enclosing block was entered -- including this
+  -- request.jwt.claims set with is_local=true at case 2's start. Confirmed
+  -- live: without this, auth.uid() silently returns null from here on,
+  -- and this insert (now gated by private.enforce_specialist_referral_create()
+  -- requiring a clinical-tier session) fails with a permission error
+  -- instead of exercising the referral-linkage logic this case exists to test.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_clin_profile)::text, true);
+
   insert into public.specialist_referrals
     (organisation_id, patient_id, screening_upgrade_id, specialist_type, referral_reason)
   values (v_org, v_pat, v_upgrade_b, 'endocrinology', 'diagnostic episode test referral')

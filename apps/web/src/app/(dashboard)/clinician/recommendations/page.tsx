@@ -75,7 +75,7 @@ export default function RecommendationsPage() {
   const { data: recommendations, isLoading } = useOrgCareProgrammeRecommendations();
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
+    <div className="space-y-6">
       <div>
         <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
           Care programme recommendations

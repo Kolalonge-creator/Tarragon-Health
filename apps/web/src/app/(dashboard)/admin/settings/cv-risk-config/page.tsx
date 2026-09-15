@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { CvRiskConfigManager, type CvRiskConfigRow } from "./cv-risk-config-manager";
 import { CvRiskConfigEditor } from "./cv-risk-config-editor";
 import { PROVISIONAL_CV_RISK_CONFIG, type CvRiskConfig } from "@/lib/rules/cv-risk";
@@ -19,7 +21,7 @@ export default async function CvRiskConfigSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data: configs } = await supabase
+  const { data: configs, error: configsError } = await supabase
     .from("cv_risk_config")
     .select("id, version, config, notes, is_active, approved_at, created_at")
     .eq("organisation_id", profile.organisation_id ?? "")
@@ -35,21 +37,39 @@ export default async function CvRiskConfigSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Cardiovascular-risk configuration
-        </h1>
-        <p className="text-charcoal-ink/60">
-          These are the clinical parameters the lipid / CV-risk engine uses: LDL and Non-HDL
-          targets by risk category, statin-eligibility thresholds, and the levels that flag a
-          patient for review. They are seeded from published guidelines as a provisional draft and
-          are <strong>not in force until the Medical Director signs them</strong>. Confirm the
-          values, then sign to bring them into force. To change any value, edit below and save it as
-          a new version, then sign it.
-        </p>
-      </div>
-      <CvRiskConfigEditor defaults={configToFormValues(prefillConfig)} />
-      <CvRiskConfigManager configs={rows} />
+      <PageHeader
+        title="Cardiovascular-risk configuration"
+        description={
+          <>
+            These are the clinical parameters the lipid / CV-risk engine uses: LDL and Non-HDL
+            targets by risk category, statin-eligibility thresholds, and the levels that flag a
+            patient for review. They are seeded from published guidelines as a provisional draft and
+            are <strong>not in force until the Medical Director signs them</strong>. Confirm the
+            values, then sign to bring them into force. To change any value, edit below and save it as
+            a new version, then sign it.
+          </>
+        }
+      />
+      {/* The editor prefills from the active config, falling back to the
+          provisional published-guideline defaults. On a failed read that
+          fallback is reached silently, so an administrator would have been
+          editing on top of defaults while believing they were editing the
+          signed version, and could save a new version that quietly reverts
+          real clinical thresholds. The editor is withheld entirely rather
+          than prefilled from a guess. */}
+      {configsError ? (
+        <LoadFailure>
+          The cardiovascular-risk configuration could not be loaded. It is not missing, and this
+          page cannot say which version is signed and in force. Do not save a new version from
+          here until it loads: it would be written on top of provisional defaults rather than the
+          current signed values.
+        </LoadFailure>
+      ) : (
+        <>
+          <CvRiskConfigEditor defaults={configToFormValues(prefillConfig)} />
+          <CvRiskConfigManager configs={rows} />
+        </>
+      )}
     </div>
   );
 }

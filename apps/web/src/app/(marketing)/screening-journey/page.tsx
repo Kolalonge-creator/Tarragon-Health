@@ -11,7 +11,7 @@ import { pageMetadata } from "@/lib/marketing/site";
 export const metadata: Metadata = pageMetadata({
   title: "Screening Journey",
   description:
-    "See exactly which health screenings are recommended for your age and sex, and walk through each one step by step: what it's for, how to book it, what happens on the day, and how results come back.",
+    "See which screenings are recommended for your age and sex, then walk through each one: what it is for, where to get it, and how the result comes back.",
   path: MARKETING_ROUTES.screeningJourney,
 });
 
@@ -22,7 +22,7 @@ const GENERAL_STEPS = [
   },
   {
     title: "Request it, take it anywhere",
-    body: "We say what to get and why, and write you a real request. You take it to whichever laboratory or clinic you like, pay them directly, and we take nothing on it.",
+    body: "We tell you what to get and why, and write you a real request you can take to any laboratory or clinic. You pay them directly; we take nothing on it.",
   },
   {
     title: "One visit, most of the time",
@@ -30,7 +30,7 @@ const GENERAL_STEPS = [
   },
   {
     title: "A doctor reads every result",
-    body: "Nothing is left to a printout. A doctor reviews every result against your history. An abnormal result triggers an immediate alert and same-day follow-up; it's never just filed away.",
+    body: "A doctor reviews every result against your history, rather than reading a printout on its own. An abnormal result triggers an immediate alert and follow-up within a day, or within 12 hours if it's critical.",
   },
 ];
 
@@ -46,10 +46,9 @@ export default function ScreeningJourneyPage() {
             Your Screening Journey
           </h1>
           <p className="mt-6 text-lg leading-relaxed text-charcoal-ink/70">
-            Recommended screenings change with age and sex, and it&apos;s easy to lose track of
-            what you actually need. Tell us your age group and sex, and see the screenings
-            recommended for you, walked through step by step: why it matters, how to book it,
-            what the day looks like, and how you get your results.
+            Screening needs change with age and sex, and it&apos;s easy to lose track. Tell us
+            your age group and sex, and we&apos;ll walk you through what&apos;s recommended: why
+            it matters, how to book it, and how your results come back.
           </p>
         </div>
       </Section>
@@ -88,12 +87,12 @@ export default function ScreeningJourneyPage() {
           </h2>
           <p className="mt-3 text-sm leading-relaxed text-charcoal-ink/70">
             This page shows a general journey by age and sex. Sign up and your{" "}
-            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green hover:underline">
+            <Link href={MARKETING_ROUTES.prevention} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               real screening calendar
             </Link>{" "}
             is built from your actual age, sex, and family history, with reminders when something
-            comes due, and the whole thing bundled into the one-day{" "}
-            <Link href={MARKETING_ROUTES.annualHealthCheck} className="text-brand-green hover:underline">
+            comes due, bundled into the one-day{" "}
+            <Link href={MARKETING_ROUTES.annualHealthCheck} className="text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
               Annual Health Check
             </Link>{" "}
             if you&apos;d rather do it all at once.

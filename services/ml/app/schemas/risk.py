@@ -29,3 +29,33 @@ class Score2Response(BaseModel):
     risk_level: RiskLevel
     model: ModelName
     risk_region: RiskRegion
+
+
+class HeartAgeRequest(BaseModel):
+    """Same inputs as Score2Request — Heart Age is a risk-age conversion of
+    the same SCORE2 computation, not a separate model with its own inputs."""
+
+    age: int = Field(
+        ge=MIN_AGE,
+        le=MAX_AGE,
+        description="Age in whole years. SCORE2 (40-69) and SCORE2-OP (70+) "
+        "are both fitted starting at 40; the algorithm is not validated below that.",
+    )
+    sex: Sex
+    is_smoker: bool
+    systolic_bp: float = Field(gt=0, le=300, description="Systolic blood pressure, mmHg.")
+    total_cholesterol_mg_dl: float = Field(gt=0, le=500)
+    hdl_cholesterol_mg_dl: float = Field(gt=0, le=200)
+    risk_region: RiskRegion = Field(
+        default="very_high",
+        description="Same WHO risk-region caveat as Score2Request — pass the "
+        "identical value used for this patient's cvd_10yr score, so the two "
+        "numbers stay calibrated to the same region.",
+    )
+
+
+class HeartAgeResponse(BaseModel):
+    heart_age_years: int
+    cvd_risk_10yr_percent: float
+    reference_risk_10yr_percent: float
+    model: ModelName

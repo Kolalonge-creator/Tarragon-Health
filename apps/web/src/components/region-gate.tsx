@@ -60,11 +60,11 @@ export function RegionGate({
   // silently allowing or blocking (the DB backstop only acts on a known state anyway).
   if (!state) {
     return (
-      <div className="rounded-lg border border-dashed border-charcoal-ink/15 bg-charcoal-ink/[0.02] p-3">
-        <p className="text-sm font-medium text-charcoal-ink/70">
+      <div className="rounded-lg border border-dashed border-charcoal-ink/15 dark:border-night-ink/20 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
+        <p className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">
           Add your state to see {label.toLowerCase()} near you
         </p>
-        <p className="text-xs text-charcoal-ink/50">
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
           Set your location on your profile so we can show what&apos;s available where you are.
         </p>
       </div>
@@ -72,7 +72,7 @@ export function RegionGate({
   }
 
   if (isLoading) {
-    return <p className="text-xs text-charcoal-ink/60">Checking availability in {state}…</p>;
+    return <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Checking availability in {state}…</p>;
   }
 
   if (available) {
@@ -82,18 +82,18 @@ export function RegionGate({
   const onList = alreadyJoined || justJoined;
 
   return (
-    <div className="rounded-lg border border-dashed border-charcoal-ink/15 bg-charcoal-ink/[0.02] p-3">
-      <p className="text-sm font-medium text-charcoal-ink/70">
+    <div className="rounded-lg border border-dashed border-charcoal-ink/15 dark:border-night-ink/20 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
+      <p className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">
         {label}: coming soon in {state}
       </p>
-      <p className="mt-0.5 text-xs text-charcoal-ink/50">
-        We&apos;re not live in {state} yet. You can keep using everything else in the app — and
+      <p className="mt-0.5 text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+        We&apos;re not live in {state} yet. You can keep using everything else in the app, and
         we&apos;ll let you know the moment {label.toLowerCase()} are available near you.
       </p>
       <div className="mt-2">
         {onList ? (
-          <p className="text-xs font-medium text-brand-green">
-            ✓ You&apos;re on the list — we&apos;ll be in touch when we launch in {state}.
+          <p className="text-xs font-medium text-brand-green dark:text-brand-green-bright">
+            ✓ You&apos;re on the list. We&apos;ll be in touch when we launch in {state}.
           </p>
         ) : (
           <Button
@@ -112,7 +112,7 @@ export function RegionGate({
           </Button>
         )}
         {joinWaitlist.isError && !onList && (
-          <p className="mt-1 text-xs text-red-600">Couldn&apos;t add you just now — please try again.</p>
+          <p className="mt-1 text-xs text-red-600 dark:text-red-300">Couldn&apos;t add you just now. Please try again.</p>
         )}
       </div>
     </div>

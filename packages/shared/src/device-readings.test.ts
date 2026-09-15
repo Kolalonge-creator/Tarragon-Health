@@ -312,3 +312,36 @@ describe("base64ToBytes", () => {
     expect(Array.from(base64ToBytes(base64))).toEqual(Array.from(original));
   });
 });
+
+describe("truncated frames are refused rather than fabricated", () => {
+  // Before the bounds check in readUint16LE, indexing past the end gave
+  // `undefined`, and `undefined << 8` is 0, so a short frame decoded to the
+  // low byte alone and produced a plausible clinical number.
+  it("refuses a 2-byte blood pressure frame instead of returning 1/0 mmHg", () => {
+    expect(() => parseBloodPressureMeasurement(Uint8Array.from([0x00, 0x01]))).toThrow(
+      /too short/i,
+    );
+  });
+
+  // Temperature reads a 32-bit medical FLOAT rather than going through
+  // readUint16LE, so a truncated frame was already refused by its own NaN
+  // guard. Asserted here anyway so the whole family is pinned: what matters
+  // is that it refuses, not which guard catches it.
+  it("refuses a truncated temperature frame", () => {
+    expect(() => parseTemperatureMeasurement(Uint8Array.from([0x00, 0x01]))).toThrow();
+  });
+
+  it("refuses a truncated pulse oximeter frame", () => {
+    expect(() => parsePlxSpotCheckMeasurement(Uint8Array.from([0x00, 0x01]))).toThrow(
+      /too short/i,
+    );
+  });
+
+  it("still decodes a complete blood pressure frame", () => {
+    // Flags 0, systolic 120, diastolic 80, MAP 93, all SFLOAT exponent 0.
+    const frame = Uint8Array.from([0x00, 0x78, 0x00, 0x50, 0x00, 0x5d, 0x00]);
+    const reading = parseBloodPressureMeasurement(frame);
+    expect(reading.systolic).toBe(120);
+    expect(reading.diastolic).toBe(80);
+  });
+});

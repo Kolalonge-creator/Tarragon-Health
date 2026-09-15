@@ -81,7 +81,7 @@ function CycleCard({ cycle }: { cycle: QualityImprovementCycle }) {
           <p className="text-sm text-charcoal-ink/80">
             <span className="font-medium">Re-measured: </span>
             {cycle.remeasure_value} on {cycle.remeasured_at}
-            {cycle.outcome_note && ` — ${cycle.outcome_note}`}
+            {cycle.outcome_note && `: ${cycle.outcome_note}`}
           </p>
         )}
 
@@ -123,7 +123,7 @@ function CycleCard({ cycle }: { cycle: QualityImprovementCycle }) {
             <Label>Outcome note</Label>
             <Textarea value={outcomeNote} onChange={(e) => setOutcomeNote(e.target.value)} />
             {remeasure.isError && <p className="text-sm text-red-600">{(remeasure.error as Error).message}</p>}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
                 variant="outline"
@@ -265,6 +265,10 @@ export function QualityImprovementConsole() {
           </Button>
         </CardContent>
       </Card>
+
+      {open.length === 0 && closed.length === 0 && (
+        <p className="text-sm text-charcoal-ink/60">No quality-improvement cycles yet.</p>
+      )}
 
       {open.length > 0 && (
         <div className="space-y-3">

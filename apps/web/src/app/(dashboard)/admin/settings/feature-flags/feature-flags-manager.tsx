@@ -47,7 +47,7 @@ function RulesEditor({ flagKey }: { flagKey: string }) {
   return (
     <div className="space-y-3 border-t border-charcoal-ink/10 pt-3">
       <p className="text-xs font-medium text-charcoal-ink/70">
-        Cohort rules — only consulted while status is &ldquo;Rolling out&rdquo;. A deny always
+        Cohort rules: only consulted while status is &ldquo;Rolling out&rdquo;. A deny always
         wins over an allow or the rollout percentage.
       </p>
       {isLoading && <p className="text-xs text-charcoal-ink/50">Loading rules…</p>}
@@ -75,7 +75,7 @@ function RulesEditor({ flagKey }: { flagKey: string }) {
         </ul>
       )}
       {rules && rules.length === 0 && !isLoading && (
-        <p className="text-xs text-charcoal-ink/50">No cohort rules yet — rollout_percent alone decides.</p>
+        <p className="text-xs text-charcoal-ink/50">No cohort rules yet: rollout_percent alone decides.</p>
       )}
 
       <div className="flex flex-wrap items-end gap-2">
@@ -276,7 +276,7 @@ export function FeatureFlagsManager() {
           Turn a feature on for internal staff, a percentage of patients, or a named cohort
           (person/state/role/organisation) without a redeploy. Clinical-safety paths (abnormal
           results, emergency handling, red-flag detection, escalation SLAs) can never be
-          registered here — the database refuses the key.
+          registered here, or the database refuses the key.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">

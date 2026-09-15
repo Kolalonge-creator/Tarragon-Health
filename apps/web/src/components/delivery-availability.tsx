@@ -33,10 +33,10 @@ export function DeliveryAvailability({
 
   if (deliveryConfirmedAt) {
     return (
-      <div className="rounded-lg border border-charcoal-ink/10 bg-warm-ivory p-3">
+      <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-warm-ivory dark:bg-night-ink/10 p-3">
         <Badge variant="green">Delivered</Badge>
-        <p className="mt-1 text-xs text-charcoal-ink/60">
-          Confirmed {new Date(deliveryConfirmedAt).toLocaleDateString("en-GB", { dateStyle: "medium" })}
+        <p className="mt-1 text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+          Confirmed {new Date(deliveryConfirmedAt).toLocaleDateString("en-GB", { timeZone: "Africa/Lagos", dateStyle: "medium" })}
         </p>
       </div>
     );
@@ -44,18 +44,18 @@ export function DeliveryAvailability({
 
   if (logisticsPartnerName) {
     return (
-      <div className="rounded-lg border border-charcoal-ink/10 bg-warm-ivory p-3">
+      <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-warm-ivory dark:bg-night-ink/10 p-3">
         <div className="mb-1 flex items-center gap-2">
           <Badge variant="blue">Out for delivery</Badge>
         </div>
-        <p className="text-sm text-charcoal-ink">
+        <p className="text-sm text-charcoal-ink dark:text-night-ink">
           {logisticsPartnerName}
-          {courierReference && <span className="text-charcoal-ink/60"> · Ref {courierReference}</span>}
+          {courierReference && <span className="text-charcoal-ink/60 dark:text-night-ink/60"> · Ref {courierReference}</span>}
         </p>
         {estimatedDeliveryAt && (
-          <p className="text-xs text-charcoal-ink/60">
+          <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
             Estimated arrival{" "}
-            {new Date(estimatedDeliveryAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}
+            {new Date(estimatedDeliveryAt).toLocaleString("en-GB", { timeZone: "Africa/Lagos", dateStyle: "medium", timeStyle: "short" })}
           </p>
         )}
       </div>
@@ -63,17 +63,17 @@ export function DeliveryAvailability({
   }
 
   if (isLoading || regionLoading) {
-    return <p className="text-xs text-charcoal-ink/60">Checking delivery availability…</p>;
+    return <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">Checking delivery availability…</p>;
   }
 
   const available = (partners?.length ?? 0) > 0 && regionOk === true;
 
   if (!available) {
     return (
-      <div className="rounded-lg border border-dashed border-charcoal-ink/15 bg-charcoal-ink/[0.02] p-3">
-        <p className="text-sm font-medium text-charcoal-ink/70">Delivery: coming soon in your area</p>
-        <p className="text-xs text-charcoal-ink/50">
-          We can&apos;t yet deliver medication to you directly — please collect from the pharmacy
+      <div className="rounded-lg border border-dashed border-charcoal-ink/15 dark:border-night-ink/20 bg-charcoal-ink/[0.02] dark:bg-night-ink/10 p-3">
+        <p className="text-sm font-medium text-charcoal-ink/70 dark:text-night-ink/70">Delivery: coming soon in your area</p>
+        <p className="text-xs text-charcoal-ink/50 dark:text-night-ink/55">
+          We can&apos;t yet deliver medication to you directly. Please collect from the pharmacy
           partner instead. We&apos;ll let you know as soon as delivery is available near you.
         </p>
       </div>
@@ -81,16 +81,16 @@ export function DeliveryAvailability({
   }
 
   return (
-    <div className="rounded-lg border border-charcoal-ink/10 bg-warm-ivory p-3">
+    <div className="rounded-lg border border-charcoal-ink/10 dark:border-night-ink/15 bg-warm-ivory dark:bg-night-ink/10 p-3">
       <div className="mb-1 flex items-center gap-2">
         <Badge variant="green">Delivery available</Badge>
       </div>
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         {partners!.length === 1
           ? `${partners![0].name} delivers to your area`
           : `${partners!.length} delivery partners cover your area`}
         {partners![0].delivery_fee_kobo > 0 &&
-          ` — from ₦${koboToNaira(partners![0].delivery_fee_kobo).toLocaleString()}`}
+          ` (from ₦${koboToNaira(partners![0].delivery_fee_kobo).toLocaleString()})`}
         . Your care team will arrange courier pickup once your order is confirmed.
       </p>
     </div>

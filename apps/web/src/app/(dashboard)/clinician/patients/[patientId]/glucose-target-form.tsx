@@ -61,7 +61,7 @@ export function GlucoseTargetForm({ patientId }: { patientId: string }) {
               />
               <p className="text-xs text-charcoal-ink/60">
                 Relaxing this only softens the routine &quot;persistent high&quot; review flag;
-                hypo and emergency alerts are never relaxed.
+                hypo and emergency alerts stay as they are.
               </p>
             </div>
           </div>

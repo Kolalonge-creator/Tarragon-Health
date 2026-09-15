@@ -31,6 +31,7 @@ export function SectionHeading({
   description,
   invert = false,
   as = "h2",
+  size = "default",
 }: {
   eyebrow?: string;
   title: string;
@@ -38,10 +39,16 @@ export function SectionHeading({
   invert?: boolean;
   /** The page's first SectionHeading should be "h1" — every marketing page needs exactly one. */
   as?: "h1" | "h2";
+  /**
+   * "large" is a deliberately bigger, bolder treatment for the one or two
+   * sections per page that should read as a genuine moment rather than
+   * another section title — use sparingly, not as the new default.
+   */
+  size?: "default" | "large";
 }) {
   const Heading = as;
   return (
-    <div className="mx-auto mb-10 max-w-2xl text-center">
+    <div className={cn("mx-auto mb-10 text-center", size === "large" ? "max-w-3xl" : "max-w-2xl")}>
       {eyebrow ? (
         <p
           className={cn(
@@ -54,7 +61,15 @@ export function SectionHeading({
       ) : null}
       <Heading
         className={cn(
-          "font-heading text-3xl font-semibold sm:text-4xl",
+          "font-heading font-semibold",
+          // A page's h1 always gets the hero scale, so pages whose hero is a
+          // SectionHeading (pricing, FAQ, contact…) aren't visibly smaller
+          // than pages with a hand-rolled or photo hero.
+          size === "large"
+            ? "text-4xl sm:text-5xl lg:text-6xl"
+            : as === "h1"
+              ? "text-4xl sm:text-5xl"
+              : "text-3xl sm:text-4xl",
           invert ? "text-white" : "text-charcoal-ink"
         )}
       >

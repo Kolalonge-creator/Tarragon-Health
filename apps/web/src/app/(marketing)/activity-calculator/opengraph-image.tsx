@@ -8,6 +8,6 @@ export default function Image() {
   return renderOgImage({
     title: "Activity Intensity Calculator",
     subtitle:
-      "Estimate calories burned and see how your session counts toward WHO's weekly activity guideline. Free, no sign-up required.",
+      "Estimate calories burned and see how your session counts towards WHO's weekly activity guideline. Free, no sign-up required.",
   });
 }

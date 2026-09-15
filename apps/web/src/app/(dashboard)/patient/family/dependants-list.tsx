@@ -28,15 +28,15 @@ export function DependantsList() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load these records.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-400">Could not load these records.</p>}
         {dependants && dependants.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">
             No children added yet. Add one below to start their vaccination card.
           </p>
         )}
         {dependants && dependants.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {dependants.map((dependant) => {
               const age = dependant.date_of_birth
                 ? ageFromDateOfBirth(dependant.date_of_birth)
@@ -44,10 +44,10 @@ export function DependantsList() {
               return (
                 <li key={dependant.id} className="flex items-center justify-between gap-4 py-3">
                   <div>
-                    <p className="text-sm font-medium text-charcoal-ink">
+                    <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
                       {dependant.full_name ?? "Unnamed"}
                     </p>
-                    <p className="text-xs text-charcoal-ink/60">
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
                       {age === null ? "Date of birth not set" : `${age} years old`}
                     </p>
                   </div>

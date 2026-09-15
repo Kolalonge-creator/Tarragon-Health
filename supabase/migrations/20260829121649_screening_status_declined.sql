@@ -1,0 +1,37 @@
+-- Tarragon Health — Preventive Screening Engine gap closure, 1/4
+--
+-- Add `declined` to public.screening_status.
+--
+-- The Screening Engine spec's status list (Not eligible / Eligible / Due
+-- soon / Due / Overdue / Completed / Declined / Not available) names a
+-- state this platform has no way to represent today: a patient choosing not
+-- to have a recommended screening. Confirmed live (2026-08-29) that nothing
+-- in this codebase ever sets screening_schedules.status = 'cancelled'
+-- either — that value exists on the enum but has zero writers for this
+-- table (grep across supabase/migrations and apps/web/src turned up only
+-- unrelated tables: subscriptions, video_consultations, care_vouchers,
+-- appointment_waiting_list). So a patient who declines a screening today
+-- either sits at 'pending' forever (silently re-triggering the graduated
+-- reminder ladder and patient_care_gaps' overdue_screening outreach queue
+-- indefinitely) or a clinician has to misuse an enum value that already
+-- means something else in this codebase (a system/admin-side void, not a
+-- patient's own choice). 'declined' is added as its own distinct value
+-- rather than reusing 'cancelled', to keep those two concepts separate for
+-- whenever 'cancelled' does get a real writer.
+--
+-- Standalone migration on purpose: PostgreSQL forbids using a newly added
+-- enum value inside the same transaction that added it (same convention as
+-- 20260827195909_risk_level_unknown.sql) — every migration that references
+-- 'declined' must run strictly after this one commits.
+--
+-- Purely additive to a 5-value enum with two known consumers
+-- (screening_schedules.status, and vaccination_schedules.status which
+-- shares this same enum type) — no existing row's value changes, so this
+-- cannot break any current CHECK, policy, or comparison. The reminder
+-- ladder (private.queue_screening_reminders/queue_vaccination_reminders)
+-- and patient_care_gaps' overdue_screening gap type both already filter on
+-- an explicit allow-list of statuses ('pending'/'booked'/'overdue'), so a
+-- 'declined' row is automatically excluded from both without touching
+-- either — verified by reading their live definitions before writing this.
+
+alter type public.screening_status add value 'declined';

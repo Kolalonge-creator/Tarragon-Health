@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, CreditCard, UserCheck, Users } from "lucide-react";
+import { Building2, Receipt, UserCheck, Users } from "lucide-react";
 import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
 import {
@@ -19,7 +19,7 @@ import { ExportButton } from "./export-button";
 
 const GROWTH_CONFIG: ChartConfig = {
   signups: { label: "Signups", color: "var(--color-chart-analytics-1)" },
-  new_subscriptions: { label: "New subscriptions", color: "var(--color-chart-analytics-3)" },
+  new_purchases: { label: "Services bought", color: "var(--color-chart-analytics-3)" },
 };
 
 const PERIODS: GrowthPeriod[] = ["day", "week", "month"];
@@ -38,9 +38,9 @@ export function BusinessDashboard() {
         <StatTile icon={Building2} label="Organisations" value={formatNumber(s?.total_orgs ?? 0)} />
         <StatTile icon={Users} label="Patients" value={formatNumber(s?.total_patients ?? 0)} />
         <StatTile
-          icon={CreditCard}
-          label="Active subscriptions"
-          value={formatNumber(s?.active_subscriptions ?? 0)}
+          icon={Receipt}
+          label="Paying patients"
+          value={formatNumber(s?.paying_patients ?? 0)}
         />
         <StatTile
           icon={UserCheck}
@@ -51,7 +51,7 @@ export function BusinessDashboard() {
 
       <SectionCard
         title="Growth over time"
-        description="New account signups and new subscriptions per period."
+        description="New account signups and services bought per period."
         actions={
           <div className="flex items-center gap-2">
             <div className="flex gap-1">
@@ -90,8 +90,8 @@ export function BusinessDashboard() {
               />
               <Line
                 type="monotone"
-                dataKey="new_subscriptions"
-                stroke="var(--color-new_subscriptions)"
+                dataKey="new_purchases"
+                stroke="var(--color-new_purchases)"
                 strokeWidth={2}
                 dot={false}
               />

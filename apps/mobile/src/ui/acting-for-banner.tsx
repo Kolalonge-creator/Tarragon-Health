@@ -50,7 +50,7 @@ export function ActingForBanner({ acting, onStop }: ActingForBannerProps) {
         style={({ pressed }) => ({
           borderWidth: 1,
           borderColor: colors.border,
-          backgroundColor: pressed ? "#F5F5F4" : colors.card,
+          backgroundColor: pressed ? colors.pressed : colors.card,
           borderRadius: radius.control,
           paddingVertical: 8,
           paddingHorizontal: 12,

@@ -40,7 +40,7 @@ export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolea
   if (!hasActiveCard) {
     return (
       <div className="space-y-3">
-        <label className="flex items-start gap-2 text-sm text-charcoal-ink/85">
+        <label className="flex items-start gap-2 text-sm text-charcoal-ink/85 dark:text-night-ink/85">
           <input
             type="checkbox"
             checked={consented}
@@ -62,8 +62,8 @@ export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolea
         >
           {pending ? "Creating…" : "Create a live link"}
         </Button>
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        {message ? <p className="text-sm text-brand-green">{message}</p> : null}
+        {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+        {message ? <p className="text-sm text-brand-green dark:text-brand-green-bright">{message}</p> : null}
       </div>
     );
   }
@@ -109,12 +109,12 @@ export function EmergencyCardControls({ hasActiveCard }: { hasActiveCard: boolea
           </Button>
         )}
       </div>
-      <p className="text-xs text-charcoal-ink/60">
+      <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         Replacing issues a new link, resets its 12-month clock, and stops the old one working
-        immediately — use it if you ever share the old one by mistake.
+        immediately. Use it if you ever share the old one by mistake.
       </p>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
-      {message ? <p className="text-sm text-brand-green">{message}</p> : null}
+      {error ? <p className="text-sm text-red-600 dark:text-red-400">{error}</p> : null}
+      {message ? <p className="text-sm text-brand-green dark:text-brand-green-bright">{message}</p> : null}
     </div>
   );
 }

@@ -100,3 +100,59 @@ export async function completeHealthCheckReview(
 
   return { success: true };
 }
+
+export type ProposeHealthCheckConsultState = { error: string } | { success: true } | undefined;
+
+const proposeConsultSchema = z.object({
+  consultId: z.string().uuid(),
+  // 1-3 ISO datetimes the clinician offers the patient.
+  slots: z.array(z.string().datetime()).min(1).max(3),
+});
+
+/**
+ * Clinician offers 1-3 candidate video-consult times for the Health Check's
+ * bundled consult (every Screen tier since 20260829140114_health_check_video
+ * _consult_all_tiers.sql — previously Comprehensive Screen only). The row
+ * already exists (created by private.handle_screen_tier_resulted when the
+ * Screen order resulted and linked via annual_health_checks.
+ * video_consultation_id); this is a plain update, not an insert, since
+ * unlike the retired annual-reviews page there is no separate orchestration
+ * row to point at it. RLS (private.is_org_staff, video_consultations_update)
+ * is the real gate — this active-clinical-staff check mirrors
+ * completeHealthCheckReview above for a consistent error message.
+ */
+export async function proposeHealthCheckVideoConsultSlots(
+  consultId: string,
+  slots: string[]
+): Promise<ProposeHealthCheckConsultState> {
+  const parsed = proposeConsultSchema.safeParse({ consultId, slots });
+  if (!parsed.success) {
+    return { error: "Pick 1–3 valid times." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Not signed in" };
+
+  const { data: staff } = await supabase
+    .from("clinical_staff")
+    .select("id")
+    .eq("profile_id", user.id)
+    .eq("active", true)
+    .maybeSingle();
+  if (!staff) {
+    return { error: "Only an active Tarragon care-team doctor can offer consult times" };
+  }
+
+  const { error } = await supabase
+    .from("video_consultations")
+    .update({ proposed_slots: parsed.data.slots })
+    .eq("id", parsed.data.consultId)
+    .eq("context", "annual_review")
+    .is("scheduled_at", null);
+  if (error) return { error: error.message };
+
+  return { success: true };
+}

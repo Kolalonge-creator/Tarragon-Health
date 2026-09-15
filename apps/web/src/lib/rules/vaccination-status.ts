@@ -34,7 +34,7 @@ import type { Tables } from "@tarragon/shared";
  *
  * interval_years also accepts an optional anchor_fallback_code, so a
  * recurring booster can start counting from a dose logged under a DIFFERENT
- * catalog entry when it has none of its own. The tetanus/Td booster uses
+ * catalogue entry when it has none of its own. The tetanus/Td booster uses
  * this: WHO's full lifetime tetanus-toxoid-containing-vaccine (TTCV)
  * schedule is 6 doses — the infant Pentavalent series (child_penta, 6/10/14
  * weeks) plus three further childhood boosters (child_tetanus_booster_1/2/3,
@@ -46,7 +46,7 @@ import type { Tables } from "@tarragon/shared";
  * still-outstanding 4-7yr/9-15yr boosters are due, which would wrongly read
  * as "you don't need another tetanus shot for a decade" while a childhood
  * dose is still owed. Each earlier stage still shows its own due/overdue
- * status on its own catalog row regardless — this fallback ONLY governs
+ * status on its own catalogue row regardless — this fallback ONLY governs
  * when the ongoing ADULT booster's clock starts.
  */
 
@@ -71,7 +71,14 @@ export interface VaccinationProfile {
   sex?: "male" | "female" | null;
 }
 
-export type VaccinationStatus = "not_yet_due" | "due" | "overdue" | "up_to_date" | "not_applicable";
+export type VaccinationStatus =
+  | "not_yet_due"
+  | "due"
+  | "overdue"
+  | "up_to_date"
+  | "not_applicable"
+  | "declined"
+  | "contraindicated";
 
 export interface VaccinationStatusResult {
   catalogId: string;
@@ -139,10 +146,10 @@ function dueOrOverdue(dueDate: string, today: string): VaccinationStatus {
 
 /**
  * Resolves anchor_fallback_code to the last dose date logged under that
- * OTHER catalog entry — e.g. lets the tetanus/Td booster start its 10-year
+ * OTHER catalogue entry — e.g. lets the tetanus/Td booster start its 10-year
  * clock from a patient's last childhood Pentavalent dose instead of
  * requiring a dose logged under the tetanus_td_booster code itself. Returns
- * null if the code is unset, doesn't match any catalog entry, or has no
+ * null if the code is unset, doesn't match any catalogue entry, or has no
  * doses logged (all of which fall through to the caller's own "never had a
  * dose" handling).
  */
@@ -282,5 +289,34 @@ export function computeVaccinationStatuses(
     return dosesGiven > 0
       ? { ...base, status: "up_to_date", nextDueDate: null }
       : { ...base, status: "due", nextDueDate: todayISO };
+  });
+}
+
+/**
+ * Overlays a patient's recorded declines/contraindications
+ * (vaccination_schedules.non_administration_reason, spec §43.3) onto the
+ * computed statuses above. Deliberately a separate pass rather than a branch
+ * inside computeVaccinationStatuses: that function is a pure projection of
+ * catalogue + records only, has no knowledge of vaccination_schedules, and
+ * every one of its existing due/overdue/up_to_date branches is already
+ * covered by tests that would need to account for a third input — this
+ * keeps that engine, and its tests, untouched.
+ */
+export interface VaccinationNonAdministration {
+  vaccination_catalog_id: string;
+  non_administration_reason: "declined" | "contraindicated";
+}
+
+export function applyNonAdministrationOverrides<T extends { catalogId: string; status: VaccinationStatus }>(
+  statuses: T[],
+  overrides: VaccinationNonAdministration[]
+): T[] {
+  if (overrides.length === 0) return statuses;
+  const reasonByCatalogId = new Map(
+    overrides.map((o) => [o.vaccination_catalog_id, o.non_administration_reason])
+  );
+  return statuses.map((entry) => {
+    const reason = reasonByCatalogId.get(entry.catalogId);
+    return reason ? { ...entry, status: reason } : entry;
   });
 }

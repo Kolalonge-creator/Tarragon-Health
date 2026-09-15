@@ -6,9 +6,11 @@ import {
   dashboardSummarySchema,
   incomeStatementSchema,
   ledgerEntriesSchema,
+  unifiedLedgerSchema,
   periodsListSchema,
   reconciliationSummarySchema,
   reconciliationFlagsSchema,
+  fraudSignalsSchema,
   revrecSummarySchema,
   taxRatesListSchema,
   taxSummarySchema,
@@ -20,6 +22,7 @@ import {
   pnlByCostCenterSchema,
   budgetsListSchema,
   budgetVarianceSchema,
+  employerBillingSummarySchema,
   cashFlowStatementSchema,
   vendorsListSchema,
   billsListSchema,
@@ -115,6 +118,38 @@ export function useLedgerEntries(args: {
   });
 }
 
+/**
+ * §91.12 unified ledger. Pass exactly one of `profileId` (a patient's own
+ * history, or finance staff looking up one patient) or `organisationId`
+ * (finance-staff-only, org-wide, unfiltered by profile) — the RPC itself
+ * enforces which the caller is allowed to use.
+ */
+export function useUnifiedLedger(args: {
+  profileId?: string;
+  organisationId?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
+  offset?: number;
+}) {
+  return useQuery({
+    queryKey: ["finance", "unified-ledger", args],
+    enabled: Boolean(args.profileId || args.organisationId),
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_unified_ledger", {
+        p_profile_id: args.profileId ?? undefined,
+        p_organisation_id: args.organisationId ?? undefined,
+        p_from: args.from ?? undefined,
+        p_to: args.to ?? undefined,
+        p_limit: args.limit ?? 50,
+        p_offset: args.offset ?? 0,
+      });
+      if (error) throw error;
+      return unifiedLedgerSchema.parse(data);
+    },
+  });
+}
+
 export function useTaxSummary(from: string, to: string, currency: string) {
   return useQuery({
     queryKey: ["finance", "tax", from, to, currency],
@@ -192,7 +227,7 @@ export const financeKeys = {
 
 /**
  * Additions from the 2026-07-26 audit/tracking/functionality pass: maker-
- * checker approvals, cost centers, budgets, cash flow statement, accounts
+ * checker approvals, cost centres, budgets, cash flow statement, accounts
  * payable, statutory compliance calendar, KPIs and
  * the finance-specific audit log viewer.
  */
@@ -280,6 +315,23 @@ export function useBudgetVariance(from: string, to: string, currency: string) {
       });
       if (error) throw error;
       return budgetVarianceSchema.parse(data);
+    },
+  });
+}
+
+/**
+ * docs/FULL_SPECIFICATION_V4.md §94.12's "Eligible employees x Price per
+ * member = Monthly invoice" — one row per corporate/hmo org with its roster's
+ * eligible/activated counts, current per-member rate (if configured), and the
+ * resulting estimate. Read-only; never generates or sends an actual invoice.
+ */
+export function useEmployerBillingSummary() {
+  return useQuery({
+    queryKey: ["finance", "employer-billing"],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_employer_billing_summary");
+      if (error) throw error;
+      return employerBillingSummarySchema.parse(data);
     },
   });
 }
@@ -384,6 +436,19 @@ export function useReconciliationFlags(status: "open" | "resolved" | "ignored" |
       });
       if (error) throw error;
       return reconciliationFlagsSchema.parse(data);
+    },
+  });
+}
+
+export function useFraudSignals(status: "open" | "resolved" | "ignored" | null = "open") {
+  return useQuery({
+    queryKey: ["finance", "fraud-signals", status],
+    queryFn: async () => {
+      const { data, error } = await createClient().rpc("finance_fraud_signals", {
+        p_status: status ?? undefined,
+      });
+      if (error) throw error;
+      return fraudSignalsSchema.parse(data);
     },
   });
 }

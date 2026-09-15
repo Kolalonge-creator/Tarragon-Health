@@ -7,6 +7,40 @@ export type FeatureFlagRule = Tables<"feature_flag_rules">;
 export type FeatureFlagRuleKind = FeatureFlagRule["kind"];
 
 /**
+ * The signed-in user's own evaluated flags (public.my_feature_flags(), which wraps
+ * private.is_feature_enabled() per-flag) — key -> enabled, only including non-archived
+ * flags. This is the ordinary-caller read path the flags admin screen's own comment
+ * describes; a flag with no row yet (or status 'off') simply doesn't appear as true,
+ * which is why every consumer should treat a missing key the same as `false` rather
+ * than throwing or defaulting to enabled.
+ */
+export function useMyFeatureFlags() {
+  return useQuery({
+    queryKey: ["my-feature-flags"],
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("my_feature_flags");
+      if (error) throw error;
+      return (data ?? {}) as Record<string, boolean>;
+    },
+    staleTime: 60_000,
+  });
+}
+
+/**
+ * Whether a single flag is enabled for the signed-in user. Returns false (not
+ * undefined) while loading or on a missing key, so a gated component can use this
+ * directly as its render condition without a separate loading branch — matching the
+ * "renders nothing until proven on" self-hiding convention the dashboard's other
+ * conditional cards already use, rather than briefly flashing content on for
+ * everyone before the flag check resolves.
+ */
+export function useIsFeatureEnabled(flagKey: string): boolean {
+  const { data } = useMyFeatureFlags();
+  return data?.[flagKey] === true;
+}
+
+/**
  * Every flag. Admin/feature_flags.manage only (RLS) — evaluation for an ordinary
  * caller goes through private.is_feature_enabled()/public.my_feature_flags(), never
  * a direct table read, so this hook is for the admin screen only.

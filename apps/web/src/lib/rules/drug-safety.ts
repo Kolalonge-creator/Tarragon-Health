@@ -255,6 +255,14 @@ export interface SafetyContext {
   egfr?: number | null;
   /** True when the eGFR's source creatinine is over a year old. */
   egfrStale?: boolean;
+  /**
+   * From `reproductive_health_profiles.life_stage = 'pregnant'` — a
+   * self-report, never a clinical confirmation (same status the profile
+   * itself is documented as: "never a diagnosis"). Undefined means "not
+   * checked" (the caller never loaded the profile) — distinct from `false`,
+   * which means "checked, and the patient has not reported being pregnant".
+   * See `SafetyReport.pregnancyCheckNote`.
+   */
   pregnant?: boolean;
   acutelyUnwell?: boolean;
   ageYears?: number | null;
@@ -281,6 +289,15 @@ export interface SafetyReport {
    * meaning nobody has recorded one, not that the patient has none.
    */
   allergyCheckNote: string | null;
+  /**
+   * Non-null explains why a pregnancy-related finding (or its absence) should
+   * be read with a caveat: either pregnancy status was never loaded
+   * (`ctx.pregnant` was undefined), or it was loaded and IS a self-report —
+   * pregnancy-related findings below are only ever as reliable as that
+   * self-report, never a clinician confirmation. Null when the patient has
+   * not reported being pregnant, which needs no caveat.
+   */
+  pregnancyCheckNote: string | null;
   /**
    * Always true. A structural reminder in the return type itself that a clean
    * report means "no rule in this curated set fired", never "safe".
@@ -1118,10 +1135,23 @@ export function assessMedicationSafety(
     findings.push(...assessAllergyFindings(medications, ctx.allergies));
   }
 
+  // ---- 7. Pregnancy caveat ---------------------------------------------------
+  let pregnancyCheckNote: string | null;
+  if (ctx.pregnant === undefined) {
+    pregnancyCheckNote =
+      "Pregnancy status was not checked for this report. Load the patient's reproductive health profile to switch on pregnancy-related medication warnings.";
+  } else if (ctx.pregnant) {
+    pregnancyCheckNote =
+      "Pregnancy is self-reported by the patient, not clinician-confirmed. Any pregnancy-related warning below reflects that self-report; verify before acting on it, but do not disregard it.";
+  } else {
+    pregnancyCheckNote = null;
+  }
+
   return {
     findings: dedupeAndRank(findings),
     renalCheckSkipped,
     allergyCheckNote,
+    pregnancyCheckNote,
     isAdvisoryOnly: true,
   };
 }

@@ -2,11 +2,12 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 import {
+  consentFromConnection,
   getValidAccessToken,
   WEARABLE_CREDENTIAL_COLUMNS,
   type WearableConnectionCredentials,
 } from "./connection-tokens";
-import { ingestReadings, type IngestResult } from "./ingest";
+import { ingestReadings, WearableIngestError, type IngestResult } from "./ingest";
 import type { NormalisedReading } from "./normalise";
 import type { CloudOAuthWearableProvider } from "./oauth-providers";
 import { PROVIDER_ADAPTERS } from "./providers";
@@ -41,10 +42,43 @@ export interface SyncOutcome {
    * external_id is being stored in a different shape than the webhook sends
    * it — the single most likely thing to be wrong on first real integration. */
   unmatchedAccounts: number;
+  /** Readings dropped because the patient denied that category on the
+   * connection, and (of those) the ones stored anyway because the metric
+   * arms a red-flag classifier. Carried up rather than discarded at the
+   * ingest boundary: a patient who has unknowingly narrowed a category
+   * otherwise gets no signal anywhere that data is being dropped. */
+  deniedByConsent: number;
+  consentDeniedSafetyRetained: number;
+  /** Rows a real database error rejected. Non-zero means this sync did not
+   * store everything it was handed. */
+  failed: number;
+  /** The first storage failure's message, mirroring what was written to the
+   * connection's last_sync_error. */
+  syncError?: string;
   /** Set when the payload is a shape this platform recognises but cannot
    * process, so the webhook response says why instead of reporting a
    * successful zero. */
   unsupportedConfiguration?: string;
+}
+
+/**
+ * Thrown by processWebhookPayload when a webhook batch did not fully store.
+ *
+ * The webhook route acks any authenticated payload on purpose, which is
+ * right for a payload shape it does not recognise and wrong for a write that
+ * failed: the provider's own redelivery is the recovery mechanism, and a
+ * redelivery is free here because every reading dedupes on its external id.
+ * Raising instead of returning is what stops `{ ok: true }` being sent over a
+ * batch that never landed.
+ */
+export class WearableSyncError extends Error {
+  readonly outcome: SyncOutcome;
+
+  constructor(message: string, outcome: SyncOutcome) {
+    super(message);
+    this.name = "WearableSyncError";
+    this.outcome = outcome;
+  }
 }
 
 function emptyOutcome(): SyncOutcome {
@@ -54,6 +88,9 @@ function emptyOutcome(): SyncOutcome {
     wearableInserted: 0,
     implausible: 0,
     unmatchedAccounts: 0,
+    deniedByConsent: 0,
+    consentDeniedSafetyRetained: 0,
+    failed: 0,
   };
 }
 
@@ -61,6 +98,31 @@ function accumulate(outcome: SyncOutcome, result: IngestResult): void {
   outcome.vitalsInserted += result.vitalsInserted;
   outcome.wearableInserted += result.wearableInserted;
   outcome.implausible += result.implausible;
+  outcome.deniedByConsent += result.deniedByConsent;
+  outcome.consentDeniedSafetyRetained += result.consentDeniedSafetyRetained;
+  outcome.failed += result.failed;
+}
+
+/**
+ * Ingest one connection's readings into `outcome`, recording rather than
+ * raising a storage failure so the remaining connections in a batch are
+ * still attempted. The failure is not lost: ingestFor has already written it
+ * to the connection's last_sync_error, and outcome.failed is what makes
+ * processWebhookPayload raise at the end.
+ */
+async function ingestInto(
+  svc: SupabaseClient<Database>,
+  outcome: SyncOutcome,
+  connection: WearableConnectionCredentials,
+  readings: NormalisedReading[]
+): Promise<void> {
+  try {
+    accumulate(outcome, await ingestFor(svc, connection, readings));
+  } catch (error) {
+    if (!(error instanceof WearableIngestError)) throw error;
+    accumulate(outcome, error.result);
+    outcome.syncError ??= error.message;
+  }
 }
 
 export async function processWebhookPayload(
@@ -90,9 +152,9 @@ export async function processWebhookPayload(
         continue;
       }
       outcome.connectionsTouched += 1;
-      accumulate(outcome, await ingestFor(svc, connection, group.readings));
+      await ingestInto(svc, outcome, connection, group.readings);
     }
-    return outcome;
+    return raiseIfIncomplete(outcome);
   }
 
   if (!adapter.parseNotifications || !adapter.fetchForNotification) return outcome;
@@ -133,10 +195,23 @@ export async function processWebhookPayload(
     }
 
     outcome.connectionsTouched += 1;
-    accumulate(outcome, await ingestFor(svc, connection, readings));
+    await ingestInto(svc, outcome, connection, readings);
   }
 
-  return outcome;
+  return raiseIfIncomplete(outcome);
+}
+
+/**
+ * The webhook path's last step. Every connection in the batch has been
+ * attempted and its own last_sync_error written by now; this is what stops
+ * the route replying `{ ok: true }` over a batch whose rows did not land.
+ */
+function raiseIfIncomplete(outcome: SyncOutcome): SyncOutcome {
+  if (outcome.failed === 0) return outcome;
+  throw new WearableSyncError(
+    outcome.syncError ?? `Could not store ${outcome.failed} wearable reading(s)`,
+    outcome
+  );
 }
 
 /**
@@ -170,7 +245,19 @@ export async function pullConnection(
 
   const readings = await adapter.fetchSince(token.accessToken, since, until);
   outcome.connectionsTouched = 1;
-  accumulate(outcome, await ingestFor(svc, connection, readings, until.toISOString()));
+  try {
+    accumulate(outcome, await ingestFor(svc, connection, readings, until.toISOString()));
+  } catch (error) {
+    if (!(error instanceof WearableIngestError)) throw error;
+    // Deliberately does NOT raise, unlike the webhook path: the scheduled
+    // sweep's documented contract is that failures are per-connection and
+    // one bad connection does not stop the others. The failure is recorded
+    // on the connection itself (last_sync_error) and in this outcome, and
+    // ingestFor has already held sync_cursor back so the unstored window is
+    // re-covered on the next run rather than skipped.
+    accumulate(outcome, error.result);
+    outcome.syncError = error.message;
+  }
   return outcome;
 }
 
@@ -180,25 +267,44 @@ async function ingestFor(
   readings: NormalisedReading[],
   cursor?: string
 ): Promise<IngestResult> {
-  const result = await ingestReadings(
-    svc,
-    {
-      connectionId: connection.id,
-      organisationId: connection.organisation_id,
-      patientId: connection.patient_id,
-    },
-    readings
-  );
+  let result: IngestResult;
+  let failure: WearableIngestError | null = null;
+  try {
+    result = await ingestReadings(
+      svc,
+      {
+        connectionId: connection.id,
+        organisationId: connection.organisation_id,
+        patientId: connection.patient_id,
+        consent: consentFromConnection(connection),
+      },
+      readings
+    );
+  } catch (error) {
+    if (!(error instanceof WearableIngestError)) throw error;
+    failure = error;
+    result = error.result;
+  }
 
   await svc
     .from("wearable_connections")
     .update({
+      // Last contact of any kind, which a sync that failed to store still
+      // was — so this advances either way.
       last_synced_at: new Date().toISOString(),
-      last_sync_error: null,
-      ...(cursor ? { sync_cursor: cursor } : {}),
+      // A failure is recorded, not erased. Unconditionally nulling this is
+      // what let a batch containing a dangerous reading disappear behind a
+      // clean-looking connection.
+      last_sync_error: failure ? failure.message : null,
+      // The cursor is the high-water mark of data actually HELD, so it may
+      // only advance over a window that actually stored. Advancing past a
+      // window whose rows failed would skip those readings permanently —
+      // the next pull would start after readings that were never written.
+      ...(cursor && !failure ? { sync_cursor: cursor } : {}),
     })
     .eq("id", connection.id);
 
+  if (failure) throw failure;
   return result;
 }
 

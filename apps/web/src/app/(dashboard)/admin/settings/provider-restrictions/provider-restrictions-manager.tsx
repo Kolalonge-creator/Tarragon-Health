@@ -42,7 +42,7 @@ const STAGE_LABEL: Record<ProviderRestrictionStage, string> = {
 };
 
 const REASON_LABEL: Record<ProviderRestrictionReason, string> = {
-  license_expiry: "License expiry",
+  license_expiry: "Licence expiry",
   indemnity_expiry: "Indemnity expiry",
   attestation_lapse: "Attestation lapse",
   complaint_outcome: "Complaint outcome",
@@ -70,7 +70,7 @@ function RestrictionRow({ restriction }: { restriction: ProviderRestriction }) {
           </div>
           <p className="text-xs text-charcoal-ink/60">
             {REASON_LABEL[restriction.reason]}
-            {restriction.detail && ` — ${restriction.detail}`}
+            {restriction.detail && `: ${restriction.detail}`}
             {" · imposed "}
             {new Date(restriction.imposed_at).toLocaleDateString("en-GB", { dateStyle: "medium" })}
           </p>
@@ -97,7 +97,7 @@ function RestrictionRow({ restriction }: { restriction: ProviderRestriction }) {
               id={`lift_reason_${restriction.id}`}
               value={liftReason}
               onChange={(e) => setLiftReason(e.target.value)}
-              placeholder="e.g. License renewed, verified 2026-08-30"
+              placeholder="e.g. Licence renewed, verified 2026-08-30"
             />
           </div>
           <Button
@@ -220,7 +220,7 @@ export function ProviderRestrictionsManager() {
             <CardDescription>
               {activeCount} active restriction{activeCount === 1 ? "" : "s"}. Staged: warning → grace
               period → service restriction → suspension, each reason-coded and time-stamped.
-              Separate from a clinician&apos;s account active/inactive flag — this is the reason-coded
+              Separate from a clinician&apos;s account active/inactive flag: this is the reason-coded
               history that flag was missing.
             </CardDescription>
           </div>

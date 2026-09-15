@@ -1,21 +1,18 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { generateAndStoreQuarterlyReport } from "@/lib/reports/generate-quarterly-report";
 
-const QUARTERLY_REPORT_FEATURE = "quarterly_report";
 const DUE_AFTER_DAYS = 85; // slightly under 90 so a daily cron run never skips a boundary
 
 /**
- * Scheduled generation of quarterly reports for every subscriber entitled to
+ * Scheduled generation of quarterly reports for every patient entitled to
  * one who doesn't already have one from the last ~90 days.
  *
- * Eligibility is read from the plan's own features[] rather than a hardcoded
- * list of plan codes. The old list named Family Premium, Diaspora Premium and
- * ParentCare — all three deleted by removals 3 and 4 — so a code-prefix check
- * would now match nothing and the cron would quietly do nothing forever. The
- * feature key is the thing that actually grants the report, and reading it
- * directly means a future plan carrying it is picked up with no code change.
+ * Every onboarded patient is eligible: the quarterly report became free to
+ * all patients when the Prevent/Essential/Complete packs were retired, so
+ * there is no entitlement to read. Eligibility used to come from the
+ * service_product's own features[], which would now match almost nobody.
  *
- * One report per subscriber: with individual enrolment there is no plan
+ * One report per patient: with individual enrolment there is no plan
  * membership to fan out to. Someone who looks after another person's record
  * sees that person's own report through patient_quarterly_reports' SELECT
  * policy, which admits a profile_access grantee.
@@ -35,18 +32,21 @@ export async function GET(request: Request): Promise<Response> {
 
   const supabase = createServiceRoleClient();
 
-  const { data: subscriptions } = await supabase
-    .from("subscriptions")
-    .select(
-      "subscriber_id, organisation_id, plan:subscription_plans!subscriptions_plan_id_fkey!inner(features)"
-    )
-    .in("status", ["active", "trialing"]);
+  // Every onboarded patient, not only those holding a pack whose features[]
+  // carried 'quarterly_report'. The report became free to all patients when
+  // the packs were retired; reading eligibility off service_purchases would
+  // now silently exclude almost everybody, since no active product grants it.
+  const { data: patients } = await supabase
+    .from("profiles")
+    .select("id, organisation_id")
+    .eq("role", "patient")
+    .not("onboarding_completed_at", "is", null)
+    .not("organisation_id", "is", null);
 
   const patientOrgPairs = new Map<string, string>();
-  for (const sub of subscriptions ?? []) {
-    if (sub.subscriber_id === null) continue;
-    if (!(sub.plan.features ?? []).includes(QUARTERLY_REPORT_FEATURE)) continue;
-    patientOrgPairs.set(sub.subscriber_id, sub.organisation_id);
+  for (const patient of patients ?? []) {
+    if (!patient.organisation_id) continue;
+    patientOrgPairs.set(patient.id, patient.organisation_id);
   }
 
   const dueBefore = new Date();

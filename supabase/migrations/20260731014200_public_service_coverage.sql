@@ -54,7 +54,7 @@ $$;
 -- `revoke ... from public` is what actually clears it. Here we clear the blanket
 -- first and then grant back by name, so the access is explicit and auditable
 -- instead of inherited by accident.
-revoke all on function public.public_service_coverage() from public;
+revoke all on function public.public_service_coverage() from public, anon;
 grant execute on function public.public_service_coverage() to anon, authenticated;
 
 do $$

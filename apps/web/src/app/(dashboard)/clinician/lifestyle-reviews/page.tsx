@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { getEnrollmentAdherence } from "@/lib/lpe/weekly-plan";
 import { LifestyleReviewsClient, type PendingReview } from "./lifestyle-reviews-client";
 
 /**
  * Clinician worklist for periodic lifestyle reviews (spec §12). Org-staff gated
- * (defense in depth on RLS). Completing a review server-stamps reviewed_by and
+ * (defence in depth on RLS). Completing a review server-stamps reviewed_by and
  * rolls the next one at the condition cadence.
  */
 export default async function LifestyleReviewsPage() {
@@ -22,7 +23,7 @@ export default async function LifestyleReviewsPage() {
     .single();
   if (!profile?.organisation_id) redirect("/");
 
-  const { data: reviews } = await supabase
+  const { data: reviews, error: reviewsError } = await supabase
     .from("lpe_reviews")
     .select("id, patient_id, due_date, enrollment_id, lpe_enrollments(condition)")
     .eq("status", "pending")
@@ -68,7 +69,14 @@ export default async function LifestyleReviewsPage() {
           one schedules the next automatically.
         </p>
       </div>
-      <LifestyleReviewsClient reviews={pending} />
+      {reviewsError ? (
+        <LoadFailure>
+          The review worklist could not be loaded. This is not a report that no review is due, and
+          an overdue check-in is not visible here. Reload to try again.
+        </LoadFailure>
+      ) : (
+        <LifestyleReviewsClient reviews={pending} />
+      )}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { Image, Modal, ScrollView, Text, View } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { uploadLabResult } from "@/lib/labs";
+import { Ionicons } from "@expo/vector-icons";
+import { RESULT_DOCUMENT_TEST_TYPE_OPTIONS, testTypeLabel, uploadLabResult } from "@/lib/labs";
 import { colors, radius, spacing } from "@/ui/theme";
-import { CalloutCard, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
-import { WebViewScreen } from "@/screens/webview-screen";
+import { CalloutCard, Card, ErrorText, GroupedList, GroupedListRow, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
+import { LabOrdersScreen } from "@/screens/sections/lab-orders-screen";
 
 interface CapturedPhoto {
   uri: string;
@@ -14,15 +15,19 @@ interface CapturedPhoto {
 
 /**
  * Native camera-capture lab result upload, the one native win §2.5 of
- * MOBILE_APP_SPEC.md calls out over a web file picker — everything else
- * (orders, results, trends) stays WebView, low weekly-touch frequency,
- * already built once on web. Self-book and facility selection are not part
- * of that WebView — both were suspended platform-wide by the 2026-08-03
+ * MOBILE_APP_SPEC.md calls out over a web file picker. "Orders & results"
+ * used to open a WebView onto /patient/labs; per the founder's decision to
+ * eliminate every WebView-wrapped section from the native app, it now opens
+ * a genuine native screen (LabOrdersScreen) backed by real Supabase queries
+ * instead. Self-book and facility selection are still out of scope for that
+ * screen — both were suspended platform-wide by the 2026-08-03
  * self-arranged-fulfilment decision (no partner labs, no facility
- * directory) — so this screen must not promise either.
+ * directory) — so it must not promise either.
  */
 export function LabsScreen() {
   const [photo, setPhoto] = useState<CapturedPhoto | null>(null);
+  const [testType, setTestType] = useState<string | null>(null);
+  const [testTypePickerOpen, setTestTypePickerOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -66,15 +71,20 @@ export function LabsScreen() {
 
   async function upload() {
     if (!photo) return;
+    if (!testType) {
+      setError("Choose the type of test this result is for.");
+      return;
+    }
     setUploading(true);
     setError(null);
-    const result = await uploadLabResult(photo);
+    const result = await uploadLabResult(photo, testType);
     setUploading(false);
     if (result.error) {
       setError(result.error);
       return;
     }
     setPhoto(null);
+    setTestType(null);
     setSuccess(true);
   }
 
@@ -94,8 +104,16 @@ export function LabsScreen() {
               style={{ width: "100%", height: 220, borderRadius: radius.control, backgroundColor: colors.border }}
               resizeMode="cover"
             />
+            <GroupedList>
+              <GroupedListRow
+                title="Type of test"
+                subtitle={testType ? testTypeLabel(testType) ?? undefined : "Select the test type"}
+                onPress={() => setTestTypePickerOpen(true)}
+                disabled={uploading}
+              />
+            </GroupedList>
             {error ? <ErrorText>{error}</ErrorText> : null}
-            <PrimaryButton title="Upload this photo" onPress={upload} loading={uploading} />
+            <PrimaryButton title="Upload this photo" onPress={upload} loading={uploading} disabled={!testType} />
             <SecondaryButton title="Retake" onPress={takePhoto} disabled={uploading} />
           </>
         ) : (
@@ -112,7 +130,7 @@ export function LabsScreen() {
       <CalloutCard
         icon="flask-outline"
         title="Orders & results"
-        subtitle="See your past results, active requests, and trends in the full patient app."
+        subtitle="See your past results, active requests, and trends."
         ctaLabel="View orders & results"
         onPress={() => setLabDetailOpen(true)}
       />
@@ -122,7 +140,36 @@ export function LabsScreen() {
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
             <SecondaryButton title="Close" onPress={() => setLabDetailOpen(false)} />
           </View>
-          <WebViewScreen path="/patient/labs" />
+          <LabOrdersScreen />
+        </View>
+      </Modal>
+
+      <Modal visible={testTypePickerOpen} animationType="slide" onRequestClose={() => setTestTypePickerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={{ padding: spacing.screen, paddingTop: 56 }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.ink, marginBottom: 4 }}>
+              What type of test is this?
+            </Text>
+            <MutedText>Helps your care team read it correctly and group it with related results.</MutedText>
+          </View>
+          <ScrollView contentContainerStyle={{ paddingHorizontal: spacing.screen, paddingBottom: 32, gap: 14 }}>
+            <GroupedList>
+              {RESULT_DOCUMENT_TEST_TYPE_OPTIONS.map((option) => (
+                <GroupedListRow
+                  key={option.value}
+                  title={option.label}
+                  trailing={
+                    testType === option.value ? <Ionicons name="checkmark" size={18} color={colors.brand} /> : "chevron"
+                  }
+                  onPress={() => {
+                    setTestType(option.value);
+                    setTestTypePickerOpen(false);
+                  }}
+                />
+              ))}
+            </GroupedList>
+            <SecondaryButton title="Cancel" onPress={() => setTestTypePickerOpen(false)} />
+          </ScrollView>
         </View>
       </Modal>
     </ScrollView>

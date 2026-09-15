@@ -26,6 +26,25 @@ export async function moderateTestimonial(
   }
 
   const supabase = await createClient();
+
+  // Consent is what makes publishing a patient's words lawful, so it is
+  // checked here rather than only being greyed out in the UI. Declining a
+  // quote publishes nothing and needs no such check.
+  if (status === "published") {
+    const { data: testimonial, error: readError } = await supabase
+      .from("patient_testimonials")
+      .select("consent_to_publish")
+      .eq("id", id)
+      .single();
+    if (readError) return { error: readError.message };
+    if (!testimonial?.consent_to_publish) {
+      return {
+        error:
+          "This patient has not consented to publication, so this quote cannot go on the public site.",
+      };
+    }
+  }
+
   const { error } = await supabase.from("patient_testimonials").update({ status }).eq("id", id);
   if (error) return { error: error.message };
 

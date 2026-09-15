@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { initiateBookingCheckout } from "@/lib/billing/booking-checkout";
 import type { BookingOrderType } from "@/lib/billing/checkout-metadata";
-import type { Currency } from "@tarragon/shared";
 
 export type SponsorBillCheckoutResult =
   | { ok: true; checkoutUrl: string }
@@ -36,7 +35,6 @@ export type SponsorBillCheckoutResult =
 export async function initiateSponsorBillCheckout(args: {
   beneficiaryProfileId: string;
   orderId: string;
-  payerCurrency: Currency;
   email: string;
   callbackUrl: string;
 }): Promise<SponsorBillCheckoutResult> {
@@ -80,35 +78,21 @@ export async function initiateSponsorBillCheckout(args: {
     return { ok: false, error: "We couldn't work out where to send this payment." };
   }
 
-  // The bill is priced in naira because the care happens in Nigeria. A payer
-  // abroad is charged the same care converted at the admin-set reference rate,
-  // never a different price for being abroad. An unset rate means dollar
-  // payment is simply not offered yet, rather than a silent wrong-price charge.
-  let chargeAmountMinor = amountKobo;
-  if (args.payerCurrency !== "NGN") {
-    const { data: fx } = await supabase
-      .from("platform_currency_settings")
-      .select("ngn_per_usd")
-      .eq("id", true)
-      .single();
-    const rate = fx?.ngn_per_usd;
-    if (!rate) {
-      return {
-        ok: false,
-        error: `${args.payerCurrency} payments aren't set up yet — pay in NGN for now.`,
-      };
-    }
-    chargeAmountMinor = Math.round(amountKobo / rate);
-  }
-
+  // The bill is priced in naira because the care happens in Nigeria. NGN via
+  // Paystack only — a payer-currency conversion path for a sponsor abroad
+  // used to sit here, converting at the admin-set reference rate and billing
+  // through Stripe. Removed 2026-09-03: there was never a registered Stripe
+  // account behind it, so a non-NGN payment could never actually complete. A
+  // sponsor abroad pays the same naira price everyone else pays, via
+  // Paystack, same as anyone else.
   return initiateBookingCheckout({
     orderType,
     orderId: args.orderId,
     organisationId: beneficiary.organisation_id,
     // The order stays the beneficiary's; only the card is the supporter's.
     patientId: args.beneficiaryProfileId,
-    amountKobo: chargeAmountMinor,
-    currency: args.payerCurrency,
+    amountKobo,
+    currency: "NGN",
     email: args.email,
     description: String(bill.label ?? "Care for someone you support"),
     callbackUrl: args.callbackUrl,

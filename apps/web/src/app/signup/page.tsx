@@ -3,11 +3,20 @@ import { Check } from "lucide-react";
 import { SignupForm } from "./signup-form";
 import { GuardLeafMark } from "@/components/brand/guard-leaf-mark";
 
+/**
+ * The first screen a new user sees, so nothing on it may outlive the business
+ * model. Subscription plans were retired in favour of a free app plus
+ * per-piece-of-work doctor time, and Tarragon does not book or bill labs on a
+ * patient's behalf, so "free to start" (there is nothing to start paying for),
+ * "at no extra cost" (there is no ladder to be at the bottom of), "book the
+ * lab" and "pick a partner lab" have all been rewritten to what is true today
+ * and to match the marketing pages that feed this page.
+ */
 const BENEFITS = [
-  "Free to start, no card required",
+  "Free to use, with no card required",
   "Track vitals, medications and screenings in one place",
   "Your care team follows up when something needs attention",
-  "Add a parent or next of kin at no extra cost",
+  "Name a next of kin, and keep your children's vaccination records with yours",
 ];
 
 /**
@@ -17,9 +26,9 @@ const BENEFITS = [
  * confirm the thing they clicked is real, unsubscribed, and a few steps away.
  */
 const HEALTH_CHECK_BENEFITS = [
-  "No subscription needed: the Health Check is pay-once, on any plan including the free one",
+  "Nothing to subscribe to: the app is free and the Health Check is a one-off",
   "You see the exact price and confirm before anything is charged",
-  "Pick a partner lab near you; results land in a record that stays yours",
+  "Take your request to any laboratory you like; results land in a record that stays yours",
   "A doctor reviews your results with you, including the all-clear ones",
 ];
 
@@ -33,7 +42,7 @@ const HEALTH_CHECK_BENEFITS = [
 const SUPPORT_BENEFITS = [
   "Pay for their plan, their checks or their refills on your card",
   "See what your money actually paid for, itemised",
-  "They keep their own account and their own records — they choose what you can see",
+  "They keep their own account and their own records, and they choose what you can see",
   "No health questions for you: this account is for paying, not for being treated",
 ];
 
@@ -69,9 +78,9 @@ export default async function SignupPage({
           </h1>
           <p className="mt-2 text-sm text-charcoal-ink/60">
             {bookingCheck
-              ? "We need an account to hold your results and book the lab. Three short steps, then you pick your lab and pay."
+              ? "We need an account to hold your results and your history. A short setup, then you choose where to have the test done."
               : supporting
-                ? "For paying for someone else's care in Nigeria. We only ask for what we need to bill you — no health questions, because this account is not for treating you."
+                ? "For paying for someone else's care in Nigeria. We only ask for what we need to bill you, and no health questions, because this account is not for treating you."
                 : "A couple of minutes to set up. Your care team takes it from there."}
           </p>
         </div>

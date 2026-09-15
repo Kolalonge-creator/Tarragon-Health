@@ -53,7 +53,7 @@ begin
 end;
 $$;
 
-revoke all on function private.broadcast_content_flags(text) from public;
+revoke all on function private.broadcast_content_flags(text) from public, anon;
 
 -- Preview: lets the composer check a draft message before ever creating a
 -- notification_broadcasts row, so a flagged attempt doesn't leave an orphaned
@@ -72,7 +72,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_broadcast_content_check(text) from public;
+revoke all on function public.admin_broadcast_content_check(text) from public, anon;
 revoke all on function public.admin_broadcast_content_check(text) from anon;
 grant execute on function public.admin_broadcast_content_check(text) to authenticated;
 
@@ -149,7 +149,7 @@ begin
 end;
 $$;
 
-revoke all on function public.admin_send_broadcast(uuid) from public;
+revoke all on function public.admin_send_broadcast(uuid) from public, anon;
 grant execute on function public.admin_send_broadcast(uuid) to authenticated;
 
 do $$

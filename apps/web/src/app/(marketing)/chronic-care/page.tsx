@@ -18,7 +18,7 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "Chronic care",
   description:
-    "Ongoing monitoring for chronic conditions like hypertension, diabetes, and weight management: readings, medication, labs, and doctor review on one record, with escalation when closer care is needed.",
+    "Ongoing monitoring for hypertension, diabetes and weight: readings, medication, labs and doctor review on one record, escalated when care is needed.",
   path: MARKETING_ROUTES.chronicCare,
 });
 
@@ -30,7 +30,7 @@ const CHRONIC_CARDS = SERVICE_CARDS.filter((card) =>
 const HOW = [
   {
     title: "Consistent monitoring",
-    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, or let a connected BP cuff, glucometer, or wearable fill in the reading as we bring each device online. Either way, it lands on one longitudinal record.",
+    body: "Log blood pressure, blood sugar, weight, and medication through the app or web, or let a connected BP cuff, glucometer, or wearable fill it in as we bring each online. Either way, it lands on one longitudinal record.",
   },
   {
     title: "Reviewed between visits",
@@ -61,6 +61,7 @@ export default async function ChronicCarePage() {
         imageSrc={MARKETING_MEDIA.pageHero.chronicCare.imageSrc ?? ""}
         imageAlt={MARKETING_MEDIA.pageHero.chronicCare.imageAlt ?? ""}
         imagePosition={MARKETING_MEDIA.pageHero.chronicCare.imageFocus}
+        videoSrc={MARKETING_MEDIA.pageHero.chronicCare.videoSrc}
       />
 
       <Section className="pt-14">
@@ -93,20 +94,19 @@ export default async function ChronicCarePage() {
         </div>
         <p className="mx-auto mt-8 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Looking after a parent with a long-term condition?{" "}
-          <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.parentcare} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Caring for a parent
           </Link>{" "}
           brings the same monitoring together for a loved one, with opt-in family updates.
         </p>
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
-          Cholesterol and overall cardiovascular risk are watched alongside these conditions on the
-          same record, not as a separate programme: your doctor factors your cholesterol readings
-          into the same review that watches your blood pressure and blood sugar, because they
-          drive the same underlying risk.
+          Cholesterol and cardiovascular risk are watched on the same record, not a separate
+          programme: your doctor reviews your cholesterol alongside your blood pressure and blood
+          sugar, since they drive the same underlying risk.
         </p>
         <p className="mx-auto mt-4 max-w-2xl text-center text-sm text-charcoal-ink/70">
           Managing a chronic condition can weigh on you too. Try our free, two-minute{" "}
-          <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.mentalWellbeingCheck} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             mental well-being check
           </Link>
           , no sign-up required.

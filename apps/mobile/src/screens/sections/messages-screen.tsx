@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View } from "react-native";
+import { ActivityIndicator, AppState, FlatList, KeyboardAvoidingView, Platform, Text, TextInput, View } from "react-native";
 import { loadThreadMessages, loadThreads, postMessage, startThread, type CareMessage } from "@/lib/messages";
 import { colors, radius, spacing } from "@/ui/theme";
-import { ErrorText, MutedText } from "@/ui/components";
+import { ErrorText, MutedText, SecondaryButton } from "@/ui/components";
 import { Ionicons } from "@expo/vector-icons";
 import { Pressable } from "react-native";
 
@@ -15,6 +15,10 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
   const [messages, setMessages] = useState<CareMessage[]>([]);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
+  // A failed thread fetch must not render the "send a message to start a
+  // conversation" empty state over a thread that exists — loadError replaces
+  // the list with an explicit retry state instead.
+  const [loadError, setLoadError] = useState(false);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<FlatList>(null);
@@ -26,10 +30,21 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
     if (openThread) {
       setMessages(await loadThreadMessages(openThread.id));
     }
+    setLoadError(false);
   }, [patientId]);
 
   useEffect(() => {
-    load().finally(() => setLoading(false));
+    load()
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
+  }, [load]);
+
+  const retryLoad = useCallback(() => {
+    setLoading(true);
+    setLoadError(false);
+    load()
+      .catch(() => setLoadError(true))
+      .finally(() => setLoading(false));
   }, [load]);
 
   // Live-feeling updates while foregrounded (MOBILE_APP_SPEC.md §2.6) via
@@ -40,14 +55,25 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
   // unverified enable here risks leaking one patient's thread to another,
   // the same class of bug as past cross-tenant incidents in this codebase).
   // That's paused for the same reason as the other production-DB items.
+  // Polls only while the app is foregrounded — a background interval both
+  // wastes the patient's data and keeps hitting the API for a screen nobody
+  // is looking at.
   useEffect(() => {
     if (!threadId) return;
+    let appActive = AppState.currentState === "active";
+    const subscription = AppState.addEventListener("change", (state) => {
+      appActive = state === "active";
+    });
     const interval = setInterval(() => {
+      if (!appActive) return;
       loadThreadMessages(threadId)
         .then((fresh) => setMessages((prev) => (fresh.length !== prev.length ? fresh : prev)))
         .catch(() => {});
     }, 8000);
-    return () => clearInterval(interval);
+    return () => {
+      subscription.remove();
+      clearInterval(interval);
+    };
   }, [threadId]);
 
   async function handleSend() {
@@ -67,7 +93,7 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
       setDraft("");
       requestAnimationFrame(() => listRef.current?.scrollToEnd({ animated: true }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't send that — try again.");
+      setError(e instanceof Error ? e.message : "Couldn't send that. Try again.");
     } finally {
       setSending(false);
     }
@@ -86,6 +112,15 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
 
       {loading ? (
         <ActivityIndicator color={colors.brand} style={{ marginTop: 20 }} />
+      ) : loadError ? (
+        <View style={{ flex: 1, justifyContent: "center", alignItems: "center", padding: spacing.screen, gap: 12 }}>
+          <Ionicons name="cloud-offline-outline" size={26} color={colors.faint} />
+          <Text style={{ fontSize: 15, fontWeight: "600", color: colors.ink }}>
+            We couldn&apos;t load your messages right now
+          </Text>
+          <MutedText>Your conversation is safe. Check your connection and try again.</MutedText>
+          <SecondaryButton title="Tap to retry" onPress={retryLoad} />
+        </View>
       ) : (
         <FlatList
           ref={listRef}
@@ -142,6 +177,8 @@ export function MessagesScreen({ patientId }: MessagesScreenProps) {
         />
         <Pressable
           accessibilityRole="button"
+          accessibilityLabel="Send message"
+          accessibilityState={{ disabled: sending || !draft.trim() }}
           onPress={handleSend}
           disabled={sending || !draft.trim()}
           style={{

@@ -12,10 +12,23 @@ import { assessGlucoseBestEffort } from "@/lib/vitals/assess-glucose";
 import { assessHealthScoreBestEffort } from "@/lib/health-score/assess-health-score";
 import { generateVaccinationScheduleBestEffort } from "@/lib/preventive/generate-vaccination-schedule";
 import { vitalsReadingSchema } from "@/lib/validation/vitals";
+import { recordWeeklyPlanProgress } from "@/lib/lifestyle/weekly-plan-progress";
 import { symptomLogSchema } from "@/lib/validation/symptoms";
+import { medicationAccessBarrierSchema } from "@/lib/validation/medication-access-barriers";
 import { patientLocationSchema } from "@/lib/validation/patient-location";
 import { emergencyContactSchema } from "@/lib/validation/emergency-contact";
+import { heightSchema } from "@/lib/validation/height";
 import { dangerReportSchema, dangerSignsSummary, type DangerSign } from "@/lib/validation/emergency";
+import {
+  paediatricDangerReportSchema,
+  paediatricDangerSignsSummary,
+  type PaediatricDangerSign,
+} from "@/lib/validation/pediatric-emergency";
+import {
+  symptomCheckerDangerReportSchema,
+  symptomCheckerDangerSignsSummary,
+  type SymptomCheckerDangerSign,
+} from "@/lib/validation/symptom-checker-danger";
 import {
   hospitalAdmissionSchema,
   hospitalAdmissionUpdateSchema,
@@ -34,6 +47,10 @@ import { computePreventionRiskScores } from "@/lib/rules/compute-risk-scores";
 import type { ComputedRiskScore, PreventionCondition, RiskTier } from "@/lib/rules/risk-scoring";
 import { computeScreeningRecommendations } from "@/lib/rules/screening-recommendations";
 import { computeCareProgrammeRecommendations } from "@/lib/rules/care-programme-recommendations";
+import {
+  computePreventiveProgrammeRecommendations,
+  toRiskTier,
+} from "@/lib/rules/preventive-programme-recommendations";
 import { ageFromDateOfBirth, mgDlToMmolL, type Json } from "@tarragon/shared";
 
 export type LogVitalActionState = { error?: string; success?: boolean } | undefined;
@@ -126,6 +143,42 @@ export async function logVital(
   // pairs with the latest glucose to catch suspected DKA (§15.3).
   if (row.vital_type === "glucose" || row.vital_type === "ketones") {
     await assessGlucoseBestEffort(supabase, subjectId, profile.organisation_id);
+  }
+
+  // Bridges into the Weekly Plan card's own completion tracking — a no-op
+  // for a patient with no active goal for this metric. Only when subjectId
+  // is the caller's own id: lpe_measurements RLS lets a patient insert only
+  // their own rows, with no supporter-acting-for-dependent path (unlike
+  // vitals_readings above), so a supporter logging for someone they
+  // support must not attempt this write. Deliberately does not re-run
+  // red-flag evaluation — that's already handled by the assess*BestEffort
+  // calls above, specific to this reading; see the helper's own comment.
+  if (subjectId === user.id) {
+    if (row.vital_type === "weight") {
+      await recordWeeklyPlanProgress(supabase, {
+        patientId: subjectId,
+        organisationId: profile.organisation_id,
+        metric: "weight",
+        valueNum: row.weight_kg,
+        unit: "kg",
+      });
+    } else if (row.vital_type === "blood_pressure") {
+      await recordWeeklyPlanProgress(supabase, {
+        patientId: subjectId,
+        organisationId: profile.organisation_id,
+        metric: "bp",
+        valueJson: { systolic: row.systolic, diastolic: row.diastolic },
+        unit: "mmHg",
+      });
+    } else if (row.vital_type === "glucose") {
+      await recordWeeklyPlanProgress(supabase, {
+        patientId: subjectId,
+        organisationId: profile.organisation_id,
+        metric: "glucose",
+        valueNum: row.glucose_mmol_l,
+        unit: "mmol/L",
+      });
+    }
   }
   // subjectId, not user.id: a supporter logging for someone they act for
   // must reassess THAT person's health score, not their own.
@@ -281,12 +334,84 @@ export async function logSymptom(
     return { error: "No organisation on file" };
   }
 
+  // Medication safety pathway 64.9: "I'm experiencing a side effect" is this
+  // same symptom report, just attributed to a specific medication. Confirm
+  // the medication actually belongs to the subject before attributing a
+  // side effect to it — a client-supplied id could otherwise be any uuid.
+  let medicationId: string | null = null;
+  if (parsed.data.medication_id) {
+    const { data: medication } = await supabase
+      .from("medications")
+      .select("id")
+      .eq("id", parsed.data.medication_id)
+      .eq("patient_id", subjectId)
+      .maybeSingle();
+    if (!medication) {
+      return { error: "That medication could not be found on this patient's list" };
+    }
+    medicationId = medication.id;
+  }
+
   const { error } = await supabase.from("symptoms").insert({
     symptom_type: parsed.data.symptom_type,
     severity: parsed.data.severity,
     description: parsed.data.description || null,
+    medication_id: medicationId,
     patient_id: subjectId,
     organisation_id: profile.organisation_id,
+  });
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+export type MedicationAccessBarrierActionState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Medication safety pathway 64.20/64.21 — "I cannot afford/get this
+ * medicine". Inserting is all this action does: private.raise_
+ * medication_access_barrier_alert (20260829155532) does the rest, raising a
+ * clinician_review clinician_alerts row for a human to work the pathway
+ * (lower-cost options, pharmacy alternatives, clinician review, assistance
+ * programmes, insurance options). This action never substitutes, changes,
+ * or stops the medication itself — see the migration header for why.
+ */
+export async function reportMedicationAccessBarrier(
+  _prevState: MedicationAccessBarrierActionState,
+  formData: FormData
+): Promise<MedicationAccessBarrierActionState> {
+  const parsed = medicationAccessBarrierSchema.safeParse(Object.fromEntries(formData.entries()));
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+  const subjectId = await resolveSubjectId(user.id);
+
+  const { data: medication } = await supabase
+    .from("medications")
+    .select("id, organisation_id")
+    .eq("id", parsed.data.medication_id)
+    .eq("patient_id", subjectId)
+    .maybeSingle();
+  if (!medication) {
+    return { error: "That medication could not be found on this patient's list" };
+  }
+
+  const { error } = await supabase.from("medication_access_barriers").insert({
+    organisation_id: medication.organisation_id,
+    patient_id: subjectId,
+    medication_id: medication.id,
+    reason: parsed.data.reason,
+    note: parsed.data.note || null,
   });
   if (error) {
     return { error: error.message };
@@ -447,6 +572,54 @@ export async function submitRiskAssessment(
     );
   if (scoresError) {
     return { error: scoresError.message };
+  }
+
+  // Auto-enrol into any preventive programme these fresh tiers newly
+  // recommend (source='recommended'). The demographic-only baseline
+  // (annual_health_check + age/sex tracks) is already auto-enrolled at
+  // onboarding by the auto_enrol_preventive_programmes DB trigger;
+  // cardiometabolic_prevention depends on the risk tiers just computed
+  // above, so it's handled here instead, the moment they're known. Never
+  // re-enrols a programme the patient has ever withdrawn from — checks for
+  // ANY prior enrolment row, not just a currently-active one
+  // (preventive_enrolments_one_active is a partial unique index and would
+  // happily accept a second 'enrolled' row after a withdrawal). Best-effort:
+  // never blocks the assessment itself from succeeding.
+  try {
+    const programmeRecs = computePreventiveProgrammeRecommendations(
+      scores.map((score) => ({ condition: score.condition, tier: toRiskTier(score.tier) })),
+      { sex: profile.sex, ageYears }
+    );
+    if (programmeRecs.length > 0) {
+      const enrolClient = createServiceRoleClient();
+      const [{ data: candidateProgrammes }, { data: existingEnrolments }] = await Promise.all([
+        enrolClient
+          .from("preventive_programmes")
+          .select("id, code")
+          .in(
+            "code",
+            programmeRecs.map((rec) => rec.code)
+          )
+          .eq("is_active", true),
+        enrolClient.from("preventive_programme_enrolments").select("programme_id").eq("patient_id", subjectId),
+      ]);
+      const hasAnyRecord = new Set((existingEnrolments ?? []).map((row) => row.programme_id));
+      const toEnrol = (candidateProgrammes ?? []).filter((programme) => !hasAnyRecord.has(programme.id));
+      if (toEnrol.length > 0) {
+        await enrolClient.from("preventive_programme_enrolments").insert(
+          toEnrol.map((programme) => ({
+            organisation_id: organisationId,
+            patient_id: subjectId,
+            programme_id: programme.id,
+            status: "enrolled" as const,
+            source: "recommended" as const,
+          }))
+        );
+      }
+    }
+  } catch {
+    // Best-effort — the patient can still enrol manually from the
+    // Prevention tab if this silently fails.
   }
 
   const { data: screenTypes } = await supabase
@@ -638,6 +811,89 @@ export async function updateEmergencyContact(
   return { success: true };
 }
 
+export type UpdateHeightState = { error?: string; success?: boolean } | undefined;
+
+/**
+ * Sets the patient's canonical height (profiles.height_cm) — used both by
+ * the profile page's plain height field and by the vitals page's "which
+ * height is right?" prompt when it disagrees with the latest risk-assessment
+ * answer. Either way, this becomes the recorded value for BMI (vitals trend,
+ * Health Score, Health Passport — see lib/health-metrics/height.ts).
+ * height_reconciled_at is stamped so a later questionnaire retake with a
+ * different height correctly re-flags rather than deferring to this pick
+ * forever.
+ */
+export async function updatePatientHeight(
+  _prevState: UpdateHeightState,
+  formData: FormData
+): Promise<UpdateHeightState> {
+  const parsed = heightSchema.safeParse({ height_cm: formData.get("height_cm") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      height_cm: parsed.data.height_cm,
+      height_reconciled_at: new Date().toISOString(),
+    })
+    .eq("id", user.id);
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
+/**
+ * Resolves a height discrepancy flagged on the vitals page (profiles.height_cm
+ * vs. the latest risk-assessment answer — see lib/health-metrics/height.ts).
+ * Unlike updatePatientHeight (the plain settings-page field, always the
+ * caller's own account), the vitals page can be showing an acting-for
+ * subject's data, so this resolves the target the same way
+ * submitRiskAssessment does rather than assuming the caller's own row.
+ */
+export async function resolveHeightDiscrepancy(
+  _prevState: UpdateHeightState,
+  formData: FormData
+): Promise<UpdateHeightState> {
+  const parsed = heightSchema.safeParse({ height_cm: formData.get("height_cm") });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Invalid input" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+  const subjectId = await resolveSubjectId(user.id);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      height_cm: parsed.data.height_cm,
+      height_reconciled_at: new Date().toISOString(),
+    })
+    .eq("id", subjectId);
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true };
+}
+
 export type ReportDangerState = { error?: string; success?: boolean; eventId?: string } | undefined;
 
 /**
@@ -698,6 +954,119 @@ export async function reportDangerSymptoms(
   return { success: true, eventId: data.id };
 }
 
+/**
+ * Paediatric variant of reportDangerSymptoms — a different, age-appropriate
+ * sign list (see docs on PAEDIATRIC_DANGER_SIGNS in
+ * lib/validation/pediatric-emergency.ts for why the adult list is not reused),
+ * the exact same emergency_events pathway. Shown instead of the adult
+ * checklist when acting for a dependent under 5 (see danger-symptom-check.tsx).
+ */
+export async function reportPaediatricDangerSymptoms(
+  _prevState: ReportDangerState,
+  formData: FormData
+): Promise<ReportDangerState> {
+  const parsed = paediatricDangerReportSchema.safeParse({
+    signs: formData.getAll("signs"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Select at least one sign" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const subjectId = await resolveSubjectId(user.id);
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", subjectId)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "No organisation on file" };
+  }
+
+  const { data, error } = await supabase
+    .from("emergency_events")
+    .insert({
+      patient_id: subjectId,
+      organisation_id: profile.organisation_id,
+      source: "danger_symptom_checklist",
+      trigger_detail: paediatricDangerSignsSummary(parsed.data.signs as PaediatricDangerSign[]),
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true, eventId: data.id };
+}
+
+/**
+ * Escalates a danger-symptom selection from the dashboard Symptom-to-Test
+ * checker (symptom-to-test-check.tsx) the same way reportDangerSymptoms
+ * does: a real emergency_events row, so private.handle_emergency_event
+ * raises the Priority-1 clinician_alerts row (on plans with
+ * vitals_red_flag_doctor_escalation) or the free-tier self-care suggestion,
+ * and the site-wide EmergencyAlert dialog picks it up. Closes a gap where
+ * that checker's own danger flag only ever rendered a static "see a doctor"
+ * card, with no clinician_alerts row, no emergency_events row, and no audit
+ * trail anywhere.
+ */
+export async function reportSymptomCheckerDangerFlag(
+  _prevState: ReportDangerState,
+  formData: FormData
+): Promise<ReportDangerState> {
+  const parsed = symptomCheckerDangerReportSchema.safeParse({
+    signs: formData.getAll("signs"),
+  });
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "Select at least one sign" };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { error: "Not signed in" };
+  }
+
+  const subjectId = await resolveSubjectId(user.id);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("organisation_id")
+    .eq("id", subjectId)
+    .single();
+  if (!profile?.organisation_id) {
+    return { error: "No organisation on file" };
+  }
+
+  const { data, error } = await supabase
+    .from("emergency_events")
+    .insert({
+      patient_id: subjectId,
+      organisation_id: profile.organisation_id,
+      source: "symptom_to_test_checker",
+      trigger_detail: symptomCheckerDangerSignsSummary(parsed.data.signs as SymptomCheckerDangerSign[]),
+      status: "active",
+    })
+    .select("id")
+    .single();
+  if (error) {
+    return { error: error.message };
+  }
+
+  return { success: true, eventId: data.id };
+}
+
 export type EmergencyEventActionState = { error?: string; success?: boolean } | undefined;
 
 /**
@@ -714,11 +1083,18 @@ export async function acknowledgeEmergency(eventId: string): Promise<EmergencyEv
     return { error: "Not signed in" };
   }
 
+  // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
+  // grant server-side, so a stale or forged cookie resolves back to the
+  // caller's own id. acknowledged_by is still stamped from auth.uid() by the
+  // DB update guard, so a supporter acknowledging is correctly attributed to
+  // them even though the event itself belongs to subjectId.
+  const subjectId = await resolveSubjectId(user.id);
+
   const { error } = await supabase
     .from("emergency_events")
     .update({ acknowledged_at: new Date().toISOString(), status: "acknowledged" })
     .eq("id", eventId)
-    .eq("patient_id", user.id)
+    .eq("patient_id", subjectId)
     .is("acknowledged_at", null);
   if (error) {
     return { error: error.message };
@@ -743,12 +1119,19 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     return { error: "Not signed in" };
   }
 
-  // Ownership + contact are read under the patient's own RLS session first.
+  // Whoever's account is open. resolveSubjectId re-checks the live 'manage'
+  // grant server-side, so a stale or forged cookie resolves back to the
+  // caller's own id.
+  const subjectId = await resolveSubjectId(user.id);
+
+  // Ownership + contact are read under the caller's own RLS session first —
+  // both scoped to subjectId (the account the emergency actually belongs to),
+  // not the caller, so a supporter acting for someone alerts THEIR contact.
   const { data: event } = await supabase
     .from("emergency_events")
     .select("id, organisation_id, contact_notified_at")
     .eq("id", eventId)
-    .eq("patient_id", user.id)
+    .eq("patient_id", subjectId)
     .single();
   if (!event) {
     return { error: "Emergency not found" };
@@ -762,7 +1145,7 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     .select(
       "full_name, emergency_contact_name, emergency_contact_phone, emergency_contact_relationship, emergency_contact_consent"
     )
-    .eq("id", user.id)
+    .eq("id", subjectId)
     .single();
   if (!profile?.emergency_contact_phone) {
     return { error: "Add an emergency contact number first so we can alert them." };
@@ -782,11 +1165,12 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
   } as Json;
 
   // notifications is queue-write only; the deployed dispatcher sends off-session.
+  // recipient_id is the patient this emergency belongs to, not necessarily the caller.
   const serviceRole = createServiceRoleClient();
   const { error: notifyError } = await serviceRole.from("notifications").insert([
     {
       organisation_id: event.organisation_id,
-      recipient_id: user.id,
+      recipient_id: subjectId,
       channel: "sms",
       status: "pending",
       template: "emergency_contact_alert",
@@ -794,7 +1178,7 @@ export async function alertEmergencyContactNow(eventId: string): Promise<Emergen
     },
     {
       organisation_id: event.organisation_id,
-      recipient_id: user.id,
+      recipient_id: subjectId,
       channel: "whatsapp",
       status: "pending",
       template: "emergency_contact_alert",
@@ -1070,4 +1454,33 @@ export async function setPatientReportedDiabetesType(
   });
   if (error) return { error: error.message };
   return { success: true };
+}
+
+/**
+ * Medication safety pathway 64.16-64.18: call once, right after a clinician
+ * adds a new medication (AddMedicationForm), so a contraindicated
+ * interaction/duplicate-therapy/allergy/renal finding reaches the care team
+ * as a real clinician_alerts row instead of waiting for someone to open
+ * MedicationSafetyPanel. Never call this from a patient's own self-add path
+ * (even one attributed to a specialist) — assessMedicationSafetyBestEffort's
+ * underlying RPC requires the caller to be org staff, and only the
+ * clinician-driven form path actually is.
+ *
+ * Fire-and-forget from the client's point of view: this never throws, so a
+ * failed safety check can never make "medication added" look like it failed.
+ */
+export async function checkMedicationSafetyAfterAdd(patientId: string): Promise<void> {
+  try {
+    const { assessMedicationSafetyBestEffort } = await import("@/lib/clinical/patient-clinical-context");
+    const supabase = await createClient();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("organisation_id")
+      .eq("id", patientId)
+      .single();
+    if (!profile?.organisation_id) return;
+    await assessMedicationSafetyBestEffort(supabase, patientId, profile.organisation_id);
+  } catch {
+    // Best-effort follow-up — never let this surface to the caller.
+  }
 }

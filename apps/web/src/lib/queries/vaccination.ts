@@ -1,13 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
-import type { LogVaccinationInput } from "@/lib/validation/vaccination";
+import type {
+  LogVaccinationInput,
+  ReportVaccinationAdverseEventInput,
+} from "@/lib/validation/vaccination";
+import type { VaccinationNonAdministration } from "@/lib/rules/vaccination-status";
 
 export type VaccinationCatalogEntry = Tables<"vaccination_catalog">;
 export type VaccinationRecord = Tables<"vaccination_records">;
 export type VaccinationSchedule = Tables<"vaccination_schedules">;
+export type VaccinationAdverseEvent = Tables<"vaccination_adverse_events">;
+export type VaccinationCardExtractionRow = Tables<"vaccination_card_extractions">;
 
-const CERTIFICATE_BUCKET = "vaccination-certificates";
+/** The vaccination-certificates private bucket — also reused as the source
+ * for uploaded card/record images ahead of OCR extraction (spec §43.12);
+ * see lib/vaccination-cards/extraction-actions.ts. */
+export const CERTIFICATE_BUCKET = "vaccination-certificates";
 
 export function vaccinationRecordsKey(patientId: string) {
   return ["vaccination-records", patientId];
@@ -15,6 +24,18 @@ export function vaccinationRecordsKey(patientId: string) {
 
 export function vaccinationSchedulesKey(patientId: string) {
   return ["vaccination-schedules", patientId];
+}
+
+export function vaccinationNonAdministrationsKey(patientId: string) {
+  return ["vaccination-non-administrations", patientId];
+}
+
+export function vaccinationAdverseEventsKey(patientId: string) {
+  return ["vaccination-adverse-events", patientId];
+}
+
+export function vaccinationCardExtractionsKey(patientId: string) {
+  return ["vaccination-card-extractions", patientId];
 }
 
 /** Global reference catalogue — same for every patient, no patientId scoping. */
@@ -69,6 +90,29 @@ export function useVaccinationSchedules(patientId: string) {
         .order("due_date", { ascending: true });
       if (error) throw error;
       return data as VaccinationSchedule[];
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * The patient's recorded declines/contraindications (spec §43.3) — every
+ * vaccination_schedules row (any status) that carries a
+ * non_administration_reason, keyed for
+ * applyNonAdministrationOverrides to overlay onto computeVaccinationStatuses.
+ */
+export function useVaccinationNonAdministrations(patientId: string) {
+  return useQuery({
+    queryKey: vaccinationNonAdministrationsKey(patientId),
+    queryFn: async (): Promise<VaccinationNonAdministration[]> => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vaccination_schedules")
+        .select("vaccination_catalog_id, non_administration_reason")
+        .eq("patient_id", patientId)
+        .not("non_administration_reason", "is", null);
+      if (error) throw error;
+      return (data ?? []) as VaccinationNonAdministration[];
     },
     enabled: !!patientId,
   });
@@ -161,6 +205,136 @@ export function useAttachVaccinationCertificate() {
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: vaccinationRecordsKey(variables.patientId) });
+    },
+  });
+}
+
+/** A patient's own reported reactions (spec §43.11), newest first. */
+export function useVaccinationAdverseEvents(patientId: string) {
+  return useQuery({
+    queryKey: vaccinationAdverseEventsKey(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vaccination_adverse_events")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("reported_at", { ascending: false });
+      if (error) throw error;
+      return data as VaccinationAdverseEvent[];
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * Reports a reaction/symptom following a logged dose (spec §43.11). Writes
+ * through the caller's own RLS-scoped session; organisation_id and
+ * reported_by are never trusted from the client —
+ * private.enforce_vaccination_adverse_event_report stamps reported_by and
+ * cross-checks the dose actually belongs to patientId, and a significant
+ * report (severe, or any allergic-reaction symptom) routes itself into the
+ * clinician alert inbox via a database trigger, not from here.
+ */
+export function useReportVaccinationAdverseEvent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: ReportVaccinationAdverseEventInput): Promise<void> => {
+      const supabase = createClient();
+      const { data: patient, error: patientError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", input.patientId)
+        .single();
+      if (patientError) throw patientError;
+      if (!patient?.organisation_id) throw new Error("This patient has no organisation on file");
+
+      const { error } = await supabase.from("vaccination_adverse_events").insert({
+        organisation_id: patient.organisation_id,
+        patient_id: input.patientId,
+        vaccination_record_id: input.vaccinationRecordId,
+        symptoms: input.symptoms,
+        severity: input.severity,
+        description: input.description ?? null,
+        onset_at: input.onsetAt ?? null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: vaccinationAdverseEventsKey(variables.patientId) });
+    },
+  });
+}
+
+/** A patient's (or managed dependent's) uploaded vaccination cards/records,
+ * newest first (spec §43.12). */
+export function useVaccinationCardExtractions(patientId: string) {
+  return useQuery({
+    queryKey: vaccinationCardExtractionsKey(patientId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vaccination_card_extractions")
+        .select("*")
+        .eq("patient_id", patientId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as VaccinationCardExtractionRow[];
+    },
+    enabled: !!patientId,
+  });
+}
+
+/**
+ * Uploads a photo/PDF of a vaccination card or record and creates the draft
+ * row extraction runs against (spec §43.12). Writes through the caller's own
+ * RLS-scoped session, same authority as logging a dose directly — the
+ * storage path is filed under the ACTING user's own uid folder (storage
+ * RLS), exactly like useAttachVaccinationCertificate, so a caregiver
+ * uploading for a managed dependent still satisfies the bucket's
+ * own-folder-only policy even though the draft row's patient_id is the
+ * dependent's.
+ */
+export function useUploadVaccinationCard() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { patientId: string; file: File }): Promise<string> => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in");
+
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("organisation_id")
+        .eq("id", input.patientId)
+        .single();
+      if (profileError) throw profileError;
+      if (!profile?.organisation_id) throw new Error("This patient has no organisation on file");
+
+      const ext = input.file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+      const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(CERTIFICATE_BUCKET)
+        .upload(path, input.file, { contentType: input.file.type });
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await supabase
+        .from("vaccination_card_extractions")
+        .insert({
+          organisation_id: profile.organisation_id,
+          patient_id: input.patientId,
+          source_path: path,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: vaccinationCardExtractionsKey(variables.patientId) });
     },
   });
 }

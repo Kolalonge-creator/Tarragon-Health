@@ -19,23 +19,31 @@ import { pageMetadata } from "@/lib/marketing/site";
  * protocol/automation design can responsibly stretch doctor coverage, so it
  * isn't a settled public claim yet — don't reintroduce a specific ratio
  * without checking with the founder first.
+ *
+ * The "12 hrs" figure below must match the live, signed `escalation_slas`
+ * config (screening_abnormal_result / emergency tier) — check it in Supabase
+ * before changing this, don't just edit the copy. See CLAUDE.md's
+ * "Non-Negotiable Business Rules" note on escalation_slas being the source
+ * of truth, not any file.
  */
 const ABOUT_COMMITMENTS = [
   {
-    value: "4 hrs",
-    label: "contact SLA on abnormal results",
-    detail: "The clock starts the moment a result comes back abnormal, never on a schedule.",
+    value: "12 hrs",
+    label: "contact SLA on critical results",
+    detail:
+      "A critical result starts a twelve-hour clock to contact you; any other abnormal result is followed up within a day. The clock starts the moment the result comes back, rather than on a schedule.",
   },
   {
-    value: "₦ + $",
-    label: "one price, either currency",
-    detail: "Pay in naira at home, or in dollars from wherever you're keeping watch from.",
+    value: "₦0",
+    label: "the app itself is free",
+    detail:
+      "Everything you can do yourself costs nothing, with no time limit. We charge only when a doctor does a specific piece of work for you, at a price you see and confirm first.",
   },
   {
     value: "Built to scale",
-    label: "how one doctor covers more ground",
+    label: "where a doctor's time goes",
     detail:
-      "We invest in protocols, automation, and triage so a doctor can safely support far more patients than a traditional clinic, without cutting corners on review.",
+      "We invest in protocols, automation, and triage so a doctor's time goes to the cases that actually need judgement, without cutting corners on review.",
   },
 ] as const;
 
@@ -54,7 +62,7 @@ export default function AboutPage() {
       <PhotoBannerHero
         eyebrow="About TarragonHealth"
         title="Built on one conviction: care shouldn't stop when the appointment ends."
-        description="Chronic disease isn't managed in a fifteen-minute consultation. It's managed in the weeks after: in the dose that gets missed, the reading nobody sees, and the follow-up call that never comes. TarragonHealth exists to close that gap."
+        description="Chronic disease isn't managed in a fifteen-minute consultation. It's managed in the weeks after: in the dose that gets missed, the reading nobody sees, and the follow-up call that fails to come. TarragonHealth exists to close that gap."
         primaryHref="/signup"
         primaryLabel="Get started"
         secondaryHref="#team"
@@ -67,10 +75,9 @@ export default function AboutPage() {
       <Section className="pt-14">
         <div className="mx-auto max-w-2xl text-center">
           <p className="text-lg leading-relaxed text-charcoal-ink/75">
-            We started in the emergency department, watching people arrive in crisis with
-            conditions that were entirely manageable days or weeks earlier, if someone had
-            been watching. That&apos;s the gap we built TarragonHealth to close, for families
-            in Nigeria and for the people keeping watch on them from abroad.
+            We started in the emergency department, watching preventable crises arrive days too
+            late. We built TarragonHealth to close that gap, for families in Nigeria and the
+            people keeping watch on them from abroad.
           </p>
           <p className="mt-6 font-heading text-2xl font-semibold text-deep-forest">
             Care that stays with you.
@@ -86,9 +93,9 @@ export default function AboutPage() {
               className="rounded-2xl border border-white/10 bg-white/5 p-6 text-center"
             >
               <p className="font-heading text-3xl font-bold text-sprout-gold">{item.value}</p>
-              <h3 className="mt-2 font-heading text-sm font-semibold uppercase tracking-wide text-white">
+              <p className="mt-2 font-heading text-sm font-semibold uppercase tracking-wide text-white">
                 {item.label}
-              </h3>
+              </p>
               <p className="mt-2 text-sm leading-relaxed text-white/70">{item.detail}</p>
             </div>
           ))}
@@ -106,9 +113,8 @@ export default function AboutPage() {
             </h2>
             <p className="mt-4 text-lg leading-relaxed text-charcoal-ink/70">
               Prevention and chronic disease management share the same patient record at
-              TarragonHealth. The same family, the same phone, and the same care team follow a
-              person from a routine screening through an ongoing condition, and the story never
-              resets.
+              TarragonHealth: the same family, phone, and care team follow you from a routine
+              screening through an ongoing condition, so the story carries on rather than resetting.
             </p>
           </div>
           <MarketingMediaFrame
@@ -122,7 +128,7 @@ export default function AboutPage() {
           {[
             {
               title: "Clinically reviewed",
-              body: "Every reading and result is reviewed by your clinical team, never an algorithm acting alone.",
+              body: "Every reading and result is reviewed by your clinical team, rather than by an algorithm acting alone.",
             },
             {
               title: "Protocol-driven",
@@ -130,7 +136,7 @@ export default function AboutPage() {
             },
             {
               title: "Family included, if you choose",
-              body: "Someone looking after a parent can be named as their next of kin, so they stay informed rather than left guessing. It is the parent's choice, not a default, and they can withdraw it.",
+              body: "Someone looking after a parent can be named as next of kin, so they stay informed rather than left guessing. It's the parent's choice, not a default, and it can be withdrawn.",
             },
           ].map((item) => (
             <div
@@ -151,7 +157,7 @@ export default function AboutPage() {
           invert
           eyebrow="What we stand for"
           title="How we work, and what we won't do"
-          description="Tarragon is built for the care between doctor visits: protocol-driven, evidence-focused, and consistent. These are the commitments behind that."
+          description="Tarragon is built for the care between doctor visits: protocol-driven, evidence-focused, and consistent."
         />
         <TrustPillars />
       </Section>
@@ -167,7 +173,7 @@ export default function AboutPage() {
           We&rsquo;re also hiring as TarragonHealth grows past one founder.{" "}
           <Link
             href={MARKETING_ROUTES.careers}
-            className="font-medium text-deep-forest hover:underline"
+            className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green"
           >
             See our open roles
           </Link>
@@ -189,7 +195,7 @@ export default function AboutPage() {
         />
         <p className="mt-6 text-center text-sm text-charcoal-ink/70">
           Read more about what we do on the{" "}
-          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.pricing} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             Pricing
           </Link>{" "}
           page.

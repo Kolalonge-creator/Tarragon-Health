@@ -69,8 +69,8 @@ export function AddChildForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          {success && <p className="text-sm text-brand-green">{success}</p>}
+          {error && <p className="text-sm text-red-600 dark:text-red-400">{error}</p>}
+          {success && <p className="text-sm text-brand-green dark:text-brand-green-bright">{success}</p>}
 
           <div className="space-y-1.5">
             <Label htmlFor="child_full_name">Child&apos;s name</Label>

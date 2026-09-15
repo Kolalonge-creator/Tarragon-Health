@@ -1,0 +1,119 @@
+# Proof scripts run by scripts/run-db-proofs.sh, and therefore by the
+# "Supabase migration replay" CI job, against a freshly reset local stack.
+#
+# A file here must: be idempotent, build its own fixtures, wrap itself in
+# BEGIN/ROLLBACK, and depend on nothing but what the migrations and
+# supabase/seed/seed.sql create. It must fail loudly (raise exception) rather
+# than only recording a FAIL row, though the runner catches both.
+#
+# Everything else lives in ci.excluded with a reason. Nothing may be in
+# neither: the runner fails if a .sql file is unlisted, because a proof that
+# runs nowhere is the exact problem this manifest was added to fix.
+care_access_request_identity_and_pending_read_window.sql
+care_access_request_phone_proof.sql
+doctor_time_entitlement_grantable_by_purchasable_product.sql
+force_safe_patient_order_insert_defaults.sql
+refund_ledger_reversal.sql
+service_purchases_insert_only_via_intent_rpc.sql
+symptom_red_flag_handler_pages_a_clinician.sql
+critical_notification_dead_letter_without_pathway.sql
+finance_posting_failures_queue.sql
+payment_activation_amount_and_reference.sql
+
+# --- Added 2026-09-05 -------------------------------------------------------
+# Nineteen more, each confirmed to build every fixture it needs. Where a script
+# borrowed something the live project happens to hold -- a @tarragon.test QA
+# account, a hardcoded patient uuid, "the first patient in public.profiles",
+# "the first spare profile with no clinical_staff row" -- that party is now
+# minted here instead. The organisation is resolved from public.organisations
+# (migration 20260706084837 seeds the direct-consumer org) rather than from an
+# existing patient, and any entitlement is resolved by FEATURE
+# (`'vitals_red_flag_doctor_escalation' = any(features)`) rather than by a
+# product code, since the packs that used to carry it are is_active = false
+# after the pay-per-service pivot and a by-code fixture would entitle nobody
+# and pass vacuously.
+acting_for_someone.sql
+english_only_no_voice.sql
+fertility_assessment_requests_staff_gate.sql
+get_since_last_visit_summary.sql
+glucose_emergency_backstop.sql
+integration_gateway.sql
+medication_logs_acting_for.sql
+medication_logs_append_only.sql
+medication_missed_reason_routing.sql
+patient_reminder_groups_rls.sql
+pregnancy_antenatal_postnatal_rls.sql
+red_flag_handlers_notify_phoneless_clinicians.sql
+reminder_time_window.sql
+reproductive_health_profiles_rls_regression_fix.sql
+reproductive_health_profiles_write_side_category_scoping.sql
+spo2_red_flag_engine.sql
+temperature_red_flag_engine.sql
+tier_authority_monotonicity.sql
+vitals_red_flag_notification_wiring.sql
+vitals_red_flag_plan_gate.sql
+revenue_recognition_orphan_source_guard.sql
+migration_replay_leaves_no_orphaned_finance_rows.sql
+population_health_engine.sql
+
+# --- Added 2026-09-10 -------------------------------------------------------
+# The B2C revenue reset. Proves the four rules in that change that carry real
+# money or real clinical risk, each in BOTH directions -- asserting only that
+# something is refused proves nothing when the mechanism is refusing everyone,
+# which is how this platform once shipped a doctor-escalation gate that
+# resolved false for every patient with its tests green.
+b2c_revenue_reset_invariants.sql
+
+# --- Added 2026-09-10 (second pass) -----------------------------------------
+# specialist_providers had a SELECT policy of `using (true)`, so every logged-in
+# patient could read commission rates and partner contact details. Proves the
+# table is closed to patients, that the directory view they read instead still
+# works AND still carries the licence number (deliberately patient-visible), and
+# that the admin console is not broken by the lockdown.
+specialist_providers_commercial_columns_hidden.sql
+
+# --- Added 2026-09-10 (third pass) ------------------------------------------
+# 20260910011851 shipped the Supervised Weight Management product and its full
+# clinician-side machinery, but nothing ever created a weight_management_enrolments
+# row when a purchase activated -- a paying patient saw the empty state forever.
+# Proves activation creates the row with the right shape, a duplicate purchase
+# while one is already live is a no-op rather than a failed payment, and an
+# unrelated product's activation does not touch this table at all.
+weight_management_enrolment_on_purchase.sql
+
+# --- Added 2026-09-14 --------------------------------------------------------
+# private.auto_assign_escalation() and the reassignment-authority pair had
+# zero test coverage -- the migration's own closing assertion block only
+# proved the objects exist and don't error on a dummy uuid. Mints its own
+# fresh org/doctors/patients (never borrows the shared seeded org or the QA
+# roster) so it runs correctly against both a clean `supabase db reset` and
+# the live project.
+escalation_auto_assignment_and_reassignment_authority.sql
+
+# --- Added 2026-09-14 (second pass) ------------------------------------------
+# The Platform Analytics & Audit Console (apps/web .../analytics/) has ~55
+# SECURITY DEFINER RPCs individually gated by private.is_analyst(), but only
+# one had ever been exercised by any test, and only on the positive path (an
+# analyst session gets an answer) -- nothing had ever proven a patient,
+# clinician, or anonymous caller is actually refused. Discovers its target
+# set live from pg_proc rather than a hardcoded list, so it keeps covering
+# the console as it grows. Two independent proofs per function: a structural
+# check that its is_analyst()/is_admin() guard precedes any data access in
+# the live function body, and a behavioural probe of each function under
+# simulated sessions. Found and fixed a real gap in itself while being
+# written (a naive "did it raise 42501" check flagged an already-safe
+# silent-empty-return function as a false leak) before landing on the
+# two-layer design here. public_service_coverage() is the one function with
+# no gate at all -- confirmed intentional (state-level service-availability
+# flags only, no PHI) -- and its lack of a gate is what proves the
+# structural check actually discriminates (sabotage control) rather than
+# passing vacuously.
+analytics_console_rpc_authorization_gate.sql
+
+# --- Added 2026-09-15 (main-dev -> main release reconciliation) ------------
+# Found unregistered while merging the Diagnostic Safety Pathway engine
+# (originally PR #317) into main-dev's current manifest-completeness check --
+# the proof itself already existed and covers four real migrations
+# (diagnostic_episode_core/closure_criteria/referral_linkage/
+# repeat_test_recalls), it just never got added to this list.
+diagnostic_episode_engine.sql

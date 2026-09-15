@@ -11,6 +11,11 @@ export interface ResultDocumentView {
   originalFilename: string | null;
   mimeType: string | null;
   note: string | null;
+  /** The test type the patient (or the per-test checklist) named at upload —
+   * e.g. "hba1c", "kft" — or null when it wasn't known/asked. See
+   * apps/web/src/lib/labs/test-code-labels.ts for turning this into a
+   * patient-readable label. */
+  testCode: string | null;
   createdAt: string;
   reviewedBy: string | null;
   reviewedAt: string | null;
@@ -29,9 +34,19 @@ export interface ResultDocumentView {
    * only place that may actually move it. */
   acknowledgementStatus: Database["public"]["Enums"]["result_document_acknowledgement_status"];
   actionCompletedAt: string | null;
+  /** Deterministic, patient-visible summary status — never a doctor opinion,
+   * never freeform text. Distinct from patientInterpretation/acknowledgementStatus
+   * above, which are both doctor-authored. See extraction-actions.ts. */
+  aiSummaryStatus: Database["public"]["Enums"]["lab_result_ai_summary_status"];
+  aiSummaryGeneratedAt: string | null;
   /** Short-lived signed URL for the file, or null if it could not be signed. */
   signedUrl: string | null;
   isPdf: boolean;
+  /** Module 57.14 — set when THIS document is a correction of an earlier one. */
+  supersedesDocumentId: string | null;
+  /** Module 57.14 — set (server-derived) when a LATER document corrected this one. The original stays fully visible; this is a pointer, not a delete. */
+  supersededByDocumentId: string | null;
+  supersededAt: string | null;
 }
 
 /**
@@ -42,9 +57,13 @@ export interface ResultDocumentView {
  * CALLER must already have read the row through their own RLS-scoped session
  * before asking for a URL. Never returns a public URL.
  */
-export async function signResultDocumentPath(path: string): Promise<string | null> {
+export async function signResultDocumentPath(
+  path: string,
+): Promise<string | null> {
   const service = createServiceRoleClient();
-  const { data } = await service.storage.from(RESULT_DOC_BUCKET).createSignedUrl(path, 300);
+  const { data } = await service.storage
+    .from(RESULT_DOC_BUCKET)
+    .createSignedUrl(path, 300);
   return data?.signedUrl ?? null;
 }
 
@@ -60,7 +79,7 @@ export async function loadResultDocuments(
   const { data: rows } = await supabase
     .from("lab_result_documents")
     .select(
-      "id, source, original_filename, mime_type, note, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at",
+      "id, source, original_filename, mime_type, note, test_code, created_at, file_path, reviewed_by, reviewed_at, review_note, patient_interpretation, next_steps, interpretation_sent_at, acknowledgement_status, action_completed_at, supersedes_document_id, superseded_by_document_id, superseded_at, ai_summary_status, ai_summary_generated_at",
     )
     .eq("patient_id", patientId)
     .order("created_at", { ascending: false });
@@ -74,6 +93,7 @@ export async function loadResultDocuments(
       originalFilename: row.original_filename,
       mimeType: row.mime_type,
       note: row.note,
+      testCode: row.test_code,
       createdAt: row.created_at,
       reviewedBy: row.reviewed_by,
       reviewedAt: row.reviewed_at,
@@ -83,8 +103,13 @@ export async function loadResultDocuments(
       interpretationSentAt: row.interpretation_sent_at,
       acknowledgementStatus: row.acknowledgement_status,
       actionCompletedAt: row.action_completed_at,
+      aiSummaryStatus: row.ai_summary_status,
+      aiSummaryGeneratedAt: row.ai_summary_generated_at,
       signedUrl: await signResultDocumentPath(row.file_path),
       isPdf: row.mime_type === "application/pdf",
+      supersedesDocumentId: row.supersedes_document_id,
+      supersededByDocumentId: row.superseded_by_document_id,
+      supersededAt: row.superseded_at,
     })),
   );
 }

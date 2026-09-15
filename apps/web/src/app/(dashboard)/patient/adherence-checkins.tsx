@@ -17,7 +17,7 @@ function CheckinRow({ checkin, patientId }: { checkin: AdherenceCheckinWithDrug;
 
   return (
     <li className="space-y-2 py-3">
-      <p className="text-sm text-charcoal-ink">
+      <p className="text-sm text-charcoal-ink dark:text-night-ink">
         {checkinQuestion(checkin.checkin_type, checkin.medication?.drug_name ?? undefined)}
       </p>
       <div className="flex flex-wrap items-end gap-2">
@@ -37,7 +37,7 @@ function CheckinRow({ checkin, patientId }: { checkin: AdherenceCheckinWithDrug;
         </Button>
       </div>
       {respond.isError && (
-        <p className="text-xs text-red-600">Could not save your answer. Try again.</p>
+        <p className="text-xs text-red-600 dark:text-red-300">Could not save your answer. Try again.</p>
       )}
     </li>
   );
@@ -55,10 +55,10 @@ export function AdherenceCheckins({ patientId }: { patientId: string }) {
         <CardTitle>Medication check-in</CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
-        {isError && <p className="text-sm text-red-600">Could not load your check-ins.</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
+        {isError && <p className="text-sm text-red-600 dark:text-red-300">Could not load your check-ins.</p>}
         {data && data.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
             {data.map((checkin) => (
               <CheckinRow key={checkin.id} checkin={checkin} patientId={patientId} />
             ))}

@@ -140,6 +140,20 @@ alter table public.diagnostic_repeat_test_recalls
 -- Sync the completion back onto the parent episode (AFTER, so it reads the
 -- already-committed row) — most recent completed recall wins if an episode
 -- has needed more than one cycle.
+--
+-- FIXED 2026-09-15: the trigger below was declared `after update of status`,
+-- but this migration's own BEFORE trigger (stamp_diagnostic_recall_lifecycle,
+-- above) sets status='completed' as a side effect of result_screening_result_id
+-- being set — it never appears in the caller's own UPDATE column list. An
+-- "UPDATE OF column" trigger fires based on which columns the SQL statement's
+-- own SET clause names, not on what an earlier BEFORE trigger changes on NEW,
+-- so this trigger silently never fired for the normal "attach a result" path
+-- this table's whole design exists for (confirmed live: running this
+-- migration's own proof for the first time ever, since it had never actually
+-- been applied or exercised, surfaced this immediately). Broadened to a plain
+-- `after update`; the function's own new/old.status check already gates
+-- correctly on the real transition regardless of which column the caller
+-- named.
 create or replace function private.sync_diagnostic_episode_from_recall()
 returns trigger
 language plpgsql
@@ -163,7 +177,7 @@ comment on function private.sync_diagnostic_episode_from_recall() is
 revoke all on function private.sync_diagnostic_episode_from_recall() from public, anon;
 
 create trigger diagnostic_repeat_test_recalls_sync_episode
-  after update of status on public.diagnostic_repeat_test_recalls
+  after update on public.diagnostic_repeat_test_recalls
   for each row execute function private.sync_diagnostic_episode_from_recall();
 
 do $$

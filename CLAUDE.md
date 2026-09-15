@@ -36,6 +36,15 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
 - **Never hand-type a round-number migration timestamp.** Six real migrations once collided on the
   same `20260720120000` version number from parallel sessions doing exactly that —
   `supabase_migrations.version` is the primary key, so only the first of each group ever recorded.
+  Recurred 2026-08-29 in a worse shape: two concurrent sessions independently picked the same round
+  prefixes for unrelated features, and — because `mcp__Supabase__apply_migration` assigns the actual
+  live `version` from wall-clock time regardless of the local filename — the migrations didn't collide
+  in the DB, they collided invisibly while 20 of one session's migrations sat live in production with
+  **zero corresponding file in git, on any branch**. Before applying a new migration, check
+  `list_migrations`/`schema_migrations` on the live project (not just local files) for anything recent
+  you don't recognise — `schema_migrations.statements` preserves the exact applied SQL even with no git
+  record, which is how the 20 orphaned migrations below were recovered rather than lost. Full account:
+  the 2026-08-29 "Referral Management Engine" entry in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.
 - **A live schema object can exist with no migration record at all — not even an uncommitted one.**
   Found 2026-08-27: 7 migrations from a same-day audit pass were live but never committed (at least
   present in `supabase_migrations.schema_migrations`, so comparing `list_migrations` against local
@@ -54,12 +63,41 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   before being fixed at the root with an `alter default privileges` migration — see
   `reference_authenticated_table_grants_root_cause.md` in memory for the full mechanism, and note
   the failure mode looks like an empty result, not an error.
+- **A fresh local `supabase db reset` grants `anon` a default table ACL the live cloud project never
+  had.** The `alter default privileges ... to authenticated` fix above never implied a matching
+  `anon` revoke, because it was written against the live project's own privilege history (checked at
+  the time via `pg_default_acl`, genuinely no anon default there) — that assumption doesn't hold for
+  a brand-new local Postgres instance provisioned by the Supabase CLI's own Docker image, which
+  carries its own bootstrap default-privilege template independent of any specific cloud project. The
+  result: a migration's own closing self-check (`has_table_privilege('anon', ..., 'SELECT')` expected
+  false) can pass live and still abort a fresh CI replay on `supabase db reset` — and did, repeatedly,
+  on essentially every PR merged 2026-08-30 through 2026-09-02, none of which was blocked from
+  merging because `main-dev`'s branch protection has no required status checks at all (a separate,
+  still-open gap as of 2026-09-02 — see Known standing follow-ups). Fixed at the root, not file-by-
+  file, in `20260731232750_default_privileges_never_grant_anon_on_public_tables.sql`
+  (`alter default privileges for role postgres in schema public revoke all on tables from anon`,
+  deliberately positioned right after the `authenticated`-grant migration it completes) — this
+  protects every table created later in migration order regardless of whether that table's own
+  migration remembers an explicit revoke, so don't reintroduce a per-migration `revoke ... from anon`
+  as the fix for a new instance of this; confirm this migration still sorts before the failing table
+  first.
 - **`anon`'s EXECUTE on a function is revoked via `revoke ... from public`, not `from anon`** — it
   inherits execute through the PUBLIC pseudo-role (the leading `=X/postgres` entry in
   `pg_proc.proacl`), not a direct grant. This was believed "fixed" and found still-broken multiple
   times across this project's history. See `feedback_supabase_anon_execute_gotcha.md` in memory
   before trusting any past migration's own comment that claims this is closed — re-check live with
   `has_function_privilege('anon', '<function>', 'EXECUTE')` rather than the comment.
+- **`generate_typescript_types` returns PRODUCTION, which is every in-flight branch at once — not
+  your branch.** Around 128 feature branches all apply their migrations to the same live project, so
+  a wholesale regeneration of `packages/shared/src/database.types.ts` silently imports other people's
+  unmerged schema into your types, and their unshipped enum values then look like bugs in your code
+  (found 2026-08-29: a regeneration pulled in 216 unrelated table/RPC keys and 109 enums, which
+  "broke" eight exhaustive `Record<Enum, …>` label maps that were in fact perfectly correct for this
+  branch). **Splice in only what your own migrations added**, preserving the generator's ordering, and
+  verify structurally that nothing was lost and every added key is yours. Note this is NOT the same as
+  real drift: comparing all 796 `supabase_migrations` records against every migration filename on every
+  remote branch found only 3 with no branch at all, and all 3 were `fix_`/`_v2` follow-ups from sessions
+  that had not pushed yet.
 - **pgvector lives in the `extensions` schema.** Write `extensions.vector(...)`, never a bare
   `vector(...)`, or a migration replay fails (it isn't on the migration connection's search_path).
 - **`private.is_org_staff()` is the highest-leverage security function in the codebase.** It gates
@@ -81,20 +119,85 @@ hard way more than once, worth keeping visible rather than buried 2,000 lines in
   a remote project, so anything data-only silently survives there and resurrects on a fresh
   environment); and check the payment/partner-provider side as well as the database (Paystack has no
   delete for a Plan, so "removed" there means "no live row references it anymore," not "gone").
+- **`reproductive_health` is one of eight values in the `care_access_category` enum, and
+  `private.has_emergency_access` deliberately excludes it from break-glass** — every other category
+  allows an emergency read-through, this one never does (verified live 2026-09-05: every policy
+  calling it passes an explicit category, so no call site relies on a permissive NULL default).
+  **Corrected 2026-09-05: the claim that `can_read_clinical` also excludes it from the
+  DEPENDENT-ACCOUNT bypass is STALE.** That exclusion was deliberately removed, with reasoning, in
+  `20260902231348_fix_can_read_clinical_dependent_bypass_drift.sql`. Do not "restore" it. What
+  actually protects an adolescent is the separate `private.guardian_may_view_confidential_domain()`
+  gate, which blocks a guardian of a 10-17-year-old without a waiver — and as of 2026-09-05 that
+  gate was layered on only ONE of the three reproductive tables (`reproductive_health_profiles`),
+  leaving `menstrual_cycles` and `menstrual_daily_logs` readable by that guardian while their WRITE
+  policies correctly demanded a category grant, i.e. reads were looser than writes. Fixed on
+  branch `fix/platform-audit-20260905`; verify it landed before relying on it. Recurred at least three times in three
+  days (2026-08-31 to 2026-09-03: a caregiver-proxy migration regression, a Women's-Health-platform
+  table that copied an older sibling's pre-category-model RLS shape, a still-missing write-side
+  policy, and six tables stuck on a legacy 1-arg `can_read_clinical` overload — see the archive's
+  2026-08-31/2026-09-03 entries) because a new table's author copied an existing table's policy
+  text without checking whether that table predates the category-scoped access model
+  (`20260830103251_category_scoped_clinical_access_and_emergency_access.sql`). **Never copy an RLS
+  shape from an older sibling table for anything touching menstrual/pregnancy/fertility/contraception
+  data — write the category-scoped check fresh, and prove with a simulated caregiver/emergency
+  session that access is actually refused, not just that the policy compiles.**
+- **Before trusting anything in this file or the archive as "current," confirm the working tree's
+  checked-out branch actually is (or is caught up with) `origin/main-dev`.** The main checkout
+  routinely sits on an unrelated feature branch, sometimes dozens of commits behind — comparing
+  local docs, migrations, or schema against a stale branch has produced wrong conclusions more than
+  once (a migration-drift audit once showed 62 "genuinely unmatched" files that were actually 4,
+  purely from diffing against the wrong branch). `git rev-list --count HEAD..origin/main-dev` before
+  trusting any local-vs-live or local-vs-"current docs" comparison; do edits to shared docs
+  (`CLAUDE.md`, the archive) from a fresh worktree off `origin/main-dev`, not an old branch, so you
+  don't silently clobber another session's concurrent edits to the same files.
 
 **Pricing, entitlements, and what's shipped churn constantly.** Diaspora pricing alone was reworked
 at least four times after 2026-07-29 before diaspora subscriptions were replaced entirely by a
-sponsor + Care Voucher model (2026-07-31). **Do not treat any specific price, rate, plan name, or
+sponsor + Care Voucher model (2026-07-31). **A second, bigger pivot landed 2026-09-02: subscription
+plans (`subscription_plans`, `prevent`/`essential`/`complete`, the diaspora USD tier) were retired
+outright — the app is free, Tarragon charges only for a doctor's time, priced per piece of work
+(`service_products`), plus the 12-week doctor-supported chronic-care programme as the one recurring
+paid product.** Stripe was removed from the codebase entirely (no UK entity ever registered to use
+it) — Paystack (NGN) is now the only live payment provider. See the archive's
+2026-08-31/2026-09-03 entry. **Do not treat any specific price, rate, plan name, or
 feature-availability claim in this file's archive as current** — check the live database or the
 actual running code. The archive is a record of decisions and reasoning, not a source of current
 facts.
+
+**Laboratory fulfilment model — reversed again 2026-08-29 (Laboratory Network & Diagnostic Services
+Platform build).** Three corrections in five weeks, each a real founder decision, none of them
+obvious from reading only this file's older text — read this bullet in full before touching anything
+lab-related. (1) 2026-08-03: self-arranged became the default (`lab_orders.fulfilment`), because
+Tarragon had no contracted lab at the time — patients took a request to any lab and paid it directly.
+(2) 2026-08-21–25: Synlab Nigeria was contracted and switched on as **one narrow, explicit exception**
+— `is_active=true`, real partner-billing/liability/settlement machinery, one active laboratory only,
+enforced by `private.resolve_lab_order_provider`'s single-active fallback. **This reactivation was
+never logged here or in the archive** — a real documentation gap, found and corrected in this same
+pass; if you ever find another shipped decision missing from both, treat it as a standing risk, not a
+one-off. (3) 2026-08-29: the founder decided to build the full network model back out — routing/
+billing/coverage for any laboratory Tarragon actually contracts, not just Synlab, per a "Laboratory
+Network & Diagnostic Services Platform" spec (§56.1-§56.15: org profiles, branches, standardised test
+catalogue, clinically-governed panels, test search, a real booking flow with location selection,
+home-sample-collection/phlebotomist assignment, unique-ID specimen tracking, rejection + automatic
+recollection, turnaround-delay alerting, a lab staff dashboard, and version-controlled multi-payer
+pricing). What actually changed in the database: `private.resolve_lab_order_provider` and
+`region_service_available` already supported more than one active laboratory (built that way from the
+start, confirmed by reading their live definitions before writing anything) — the real gap was that no
+patient-facing flow ever let someone choose a provider/location, always relying on the single-active
+fallback. That gap is closed (`list_lab_test_locations`, the booking flow's location picker). **What
+did NOT change and must not be relaxed on a future pass:** the `lab_providers_active_needs_real_contacts`
+guard (no laboratory goes live carrying a placeholder contact — it would leak patient PHI to a
+stranger), the never-sell-below-partner-cost triggers, and the fact that Cerba Lancet/Healthtracka/
+Afriglobal Medicare remain genuinely inactive placeholders — no contract was fabricated for any of
+them in this pass. **Check `is_active` on `lab_providers` directly before assuming more than one real
+lab is live** — the mechanism is general, the roster today may still be exactly one.
 
 Full day-by-day detail — every migration, every bug found and fixed, every founder decision and its
 exact date — is preserved losslessly in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.
 
 ## Platform Operating Rules
 
-> Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. Competitive-intelligence feature roadmap: `docs/FULL_SPECIFICATION_V4.md`. Master operating plan (business model, **5-tier doctor ladder**, phased Phase 1/2/3 roadmap): `docs/Tarragon_Health_Master_Operating_Plan_v4.md` — authoritative on the clinical staffing model, supersedes the flat clinician/escalation-doctor language elsewhere. Clinician attribution & trust model: `docs/CLINICAL_TRUST_MODEL_SPEC.md` — still authoritative for per-touchpoint attribution UI rules (e.g. `ReviewedByDoctor`) not covered by the tier ladder. Clinical Network design/gap-analysis (provider directory, verification, availability, discovery, referral integration, org accounts): `docs/CLINICAL_NETWORK_SPEC.md` — a design doc, not a build order; defers to this file's guardrail on the specialist-matching/ranking engine. **This file is the operating contract, kept lean on purpose** — the sections below (Business, Architecture, Rules, Clinical Tier Ladder, Code Rules, Brand) change rarely and should stay short. Anything dated or historical belongs in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, never appended here — that discipline is what keeps this file readable (it grew past 2,600 lines once already by not following it; see the cleanup note above).
+> Full business detail: `docs/FEATURE_SPEC.md`. Full brand/voice/UI: `docs/BRAND_GUIDE.md`. Marketing site: `docs/MARKETING_SITE_SPEC.md`. Competitive-intelligence feature roadmap: `docs/FULL_SPECIFICATION_V4.md`. Master operating plan (business model, **5-tier doctor ladder**, phased Phase 1/2/3 roadmap): `docs/Tarragon_Health_Master_Operating_Plan_v4.md` — authoritative on the clinical staffing model, supersedes the flat clinician/escalation-doctor language elsewhere. Clinician attribution & trust model: `docs/CLINICAL_TRUST_MODEL_SPEC.md` — still authoritative for per-touchpoint attribution UI rules (e.g. `ReviewedByDoctor`) not covered by the tier ladder. Clinical Network design/gap-analysis (provider directory, verification, availability, discovery, referral integration, org accounts): `docs/CLINICAL_NETWORK_SPEC.md` — a design doc, not a build order; defers to this file's guardrail on the specialist-matching/ranking engine. Remote Patient Monitoring engine design/gap-analysis (programme structure, alert prioritisation/dedup/escalation, RPM care team, treatment adjustment, outcomes): `docs/RPM_ENGINE_SPEC.md` — a design doc, not a build order; most of its alert/queue/escalation scope turned out to already be shipped under the 2026-08-28 Alert System, see that doc's §1 for the reconciliation. **This file is the operating contract, kept lean on purpose** — the sections below (Business, Architecture, Rules, Clinical Tier Ladder, Code Rules, Brand) change rarely and should stay short. Anything dated or historical belongs in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, never appended here — that discipline is what keeps this file readable (it grew past 2,600 lines once already by not following it; see the cleanup note above).
 
 ## The Business
 Nigeria's digital-first chronic disease, preventive health, and family care coordination OS — the trusted coordination layer between patients, families, doctors, labs, pharmacies, HMOs, and employers. App/web-first, doctor-led (Tarragon directly employs its day-to-day care-team doctors, per `docs/CLINICAL_TRUST_MODEL_SPEC.md`), escalation-driven, AI-automated, partner-network based, with WhatsApp/SMS as a follow-up and notification layer only (see Non-Negotiable Business Rules). **No owned clinics.** Five categories, all architecturally represented from Sprint 1 — they are commercially linked, each feeds the others:
@@ -111,7 +214,7 @@ Prevention and chronic management **share the same patient record** — design e
 
 ### Primary Platform — TypeScript
 - Web: Next.js 16, TypeScript, Tailwind, shadcn/ui (`apps/web`) — this Next.js has breaking changes vs. training data; read `node_modules/next/dist/docs/` before writing framework code
-- **Marketing site:** public pages live in `apps/web/src/app/(marketing)/` as a route group inside the same Next.js app — not a separate package yet. `middleware.ts` routes by hostname: root domain → marketing, `app.` subdomain → platform. Full spec, page copy, and design direction in `docs/MARKETING_SITE_SPEC.md` — read it before building any marketing page. Split into `apps/marketing` only when marketing needs its own CMS/team/deploy velocity — not yet. Marketing pages must not import platform/auth modules; Contact/Join is the only page that writes to Supabase (`leads` table).
+- **Marketing site:** public pages live in `apps/web/src/app/(marketing)/` as a route group inside the same Next.js app — not a separate package yet. `apps/web/src/proxy.ts` routes by hostname: root domain → marketing, `app.` subdomain → platform (Next 16 renamed `middleware.ts` to `proxy.ts`; there is no `middleware.ts` in this repo, and `isAppHost` also accepts `app.localhost` for local work). Full spec, page copy, and design direction in `docs/MARKETING_SITE_SPEC.md` — read it before building any marketing page. Split into `apps/marketing` only when marketing needs its own CMS/team/deploy velocity — not yet. Marketing pages must not import platform/auth modules; Contact/Join is the only page that writes to Supabase (`leads` table).
 - Mobile: React Native Expo (`apps/mobile`)
 - DB/Auth/Storage/Realtime: Supabase Postgres, **eu-west-1** region (Supabase has no Africa region; closest available to Nigeria — NDPR residency gap accepted for now), pgvector
 - Cache/queues: Upstash Redis
@@ -137,27 +240,32 @@ Prevention and chronic management **share the same patient record** — design e
 - Phone numbers always E.164 (`+234XXXXXXXXX`). Timezone always `Africa/Lagos`.
 - Every table has `organisation_id` — always filter by it. **RLS enforced at the Postgres level for every multi-tenant table — never bypass, never filter in application code instead.**
 - **Doctor:patient ratio target — under review as of 2026-07-30, do not cite 1:120 as current.** It was the working figure for Tier 1–3 staffing (see Clinical Tier Ladder below); founder is now exploring how far protocol/automation design can responsibly stretch one doctor's coverage, with **1:2000 as an aspiration, not a committed number** ("where possible with good design"). No new fixed ratio is confirmed yet — don't put a specific ratio in marketing copy, UI, or business-rule text until the founder settles on one; where a ratio claim is needed, describe the mechanism (protocol-driven review, triage before a doctor sees a case) instead of a number.
-- Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → doctor WhatsApp alert **immediate, not scheduled** → doctor has a 4-hour contact SLA → surfaces as Priority 1 (red) on doctor dashboard.
-- **Corrected 2026-08-10 — Tarragon Free consumes no doctor time; doctor time is a paid-plan feature.** A dangerous vitals/symptom reading (BP, SpO2, temperature, glucose, a red-flag symptom, the one-touch danger-symptom check) is still detected by the same deterministic thresholds on every plan, and the patient still gets the full emergency safety net (the acknowledge-gated "go to the nearest hospital now" guidance, emergency-contact auto-notify, follow-up-after-discharge check-in — none of that depends on a doctor ever seeing it) plus an immediate, specific self-care suggestion — but on Free, it no longer creates a `clinician_alerts` row or pages a clinician. Doctor escalation on a dangerous reading is gated to Prevent/Essential/Complete via the `vitals_red_flag_doctor_escalation` feature flag (`private.patient_has_feature_access`), see `20260810120000_gate_vitals_red_flag_escalation_to_paid_plans.sql`. **This explicitly does NOT touch the abnormal screening result pipeline above** — Category 2→1 still fires regardless of plan; that rule stands, this is a different, narrower carve-out for patient-logged vitals/symptoms only.
+- Abnormal screening result handling (Cat 2→1 upgrade): Supabase trigger → Edge Function → doctor WhatsApp alert **immediate, not scheduled** → contact SLA is two-tier, not a flat number, and **`escalation_slas` is the source of truth, not this file** — as of 2026-09-05 the live active config (v7, signed 2026-09-04) is **720 minutes (12h) for a critical result and 1440 minutes (24h) for a non-critical abnormal result**. This file previously asserted 120 minutes, which was 6x tighter than production actually enforced; anyone reasoning from a number written here rather than read from `escalation_slas` is reasoning about the wrong SLA. Read the active row before quoting a figure anywhere → surfaces as Priority 1 (red) on doctor dashboard.
+- **Corrected 2026-08-10 — Tarragon Free consumes no doctor time; doctor time is a paid-plan feature.** A dangerous vitals/symptom reading (BP, SpO2, temperature, glucose, pulse/heart rate, a red-flag symptom, the one-touch danger-symptom check) is still detected by the same deterministic thresholds on every plan, and the patient still gets the full emergency safety net (the acknowledge-gated "go to the nearest hospital now" guidance, emergency-contact auto-notify, follow-up-after-discharge check-in — none of that depends on a doctor ever seeing it) plus an immediate, specific self-care suggestion — but on Free, it no longer creates a `clinician_alerts` row or pages a clinician. Doctor escalation on a dangerous reading is gated to Prevent/Essential/Complete via the `vitals_red_flag_doctor_escalation` feature flag (`private.patient_has_feature_access`), see `20260810120000_gate_vitals_red_flag_escalation_to_paid_plans.sql`. **This explicitly does NOT touch the abnormal screening result pipeline above** — Category 2→1 still fires regardless of plan; that rule stands, this is a different, narrower carve-out for patient-logged vitals/symptoms only.
+- **Gap closed 2026-08-29 — a dangerously abnormal heart rate had no single-reading detection anywhere on the platform, wearable or otherwise.** The only heart-rate logic before this was `assess-heart-rate.ts`'s 30-day *pattern* check (needs ≥3 readings, ≥50% outside 60-100 bpm over a month, and even then only writes a silent `clinician_alerts` row with no patient-facing message) — a single acute 180 bpm or 35 bpm reading raised nothing at all, on any plan, from any source. `private.classify_pulse_level` + the `vitals_readings_pulse_red_flag` trigger (migration `20260829140000_pulse_red_flag_engine.sql`) close this the same way BP/SpO2/temperature already work: EMERGENCY (≤35 or ≥150 bpm) routes through `emergency_events` (full patient-facing safety net on every plan); RED (36-39/121-149) and AMBER (40-49/101-120) raise `clinician_alerts` on paid plans or the same Free-tier self-care suggestion otherwise (now naming the reading and suggesting the patient recheck with a proper device rather than relying on the wearable alone). Deliberately extreme-value triage only — not arrhythmia/AF detection, which needs raw waveform data this platform doesn't collect — and deliberately NOT the cross-metric "digital biomarker" pattern detection still deferred per the wearables entry below; a single dangerous heart-rate value is the same kind of fact a dangerous BP or SpO2 reading already is, not a trend.
 
-## Clinical Tier Ladder (supersedes flat clinician/escalation-doctor model — 2026-07-15)
-Full detail: `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §4/§7/§8. Every clinical judgment is made by a doctor; no case is closed by non-clinical staff; a case climbs only as far as its complexity requires — most stay at Tier 1/2.
-- **Care Coordinator** (employed, non-clinical) — logistics only: check-ins, adherence/missed-reading tracking, lab/refill booking. Never interprets a result, adjusts medication, or closes an escalation — routes anything needing judgment to Tier 1.
-- **Tier 1** Medical Officer <3yrs (employed) — first-line review of routine/stable readings under protocol; confirms/continues existing stable prescriptions; no new prescribing.
-- **Tier 2** Medical Officer 3+yrs (employed) — initiates new medications, standard dose adjustment, handles Tier 1 escalations.
-- **Tier 3** Senior Medical Officer (employed) — complex/multi-drug case management, standing QA/spot-audit of Tiers 1–2.
-- **Tier 4** Senior Registrar (contracted, part-time retainer) — pre-referral consult, sets referral urgency, approves referrals, owns/updates clinical protocols, supervises Tiers 1–3.
-- **Tier 5** Partner Specialist (contracted, referral-only, per-consult) — complex/procedural input; hands routine follow-up back to Tier 3/4 (shared care).
+## Clinical Tier Ladder (collapsed to 3 tiers — 2026-08-31)
+Full detail: `docs/Tarragon_Health_Master_Operating_Plan_v4.md` §4/§7/§8 (relabeled to match, not yet a full rewrite of the surrounding prose — verify specific claims against the live schema/code rather than the doc's older wording). Every clinical judgment is made by a doctor; no case is closed by non-clinical staff; a case climbs only as far as its complexity requires.
+- **Care Coordinator** (employed, non-clinical) — logistics only: check-ins, adherence/missed-reading tracking, lab/refill booking. Never interprets a result, adjusts medication, or closes an escalation — routes anything needing judgment to Medical Officer.
+- **Medical Officer** — standard, protocol-driven consultations within their own patient list; confirms/continues existing stable prescriptions; no new prescribing. Refers to Senior Medical Officer on difficulty.
+- **Senior Medical Officer / Specialist** — everything a Medical Officer does, plus complex and specialist cases, initiating new medications, and handling Medical Officer referrals. Employment relationship (employed vs. contracted — `clinical_staff.employment_type`) is a separate attribute from tier: a contracted external Partner Specialist and an employed senior in-house doctor are both this tier.
+- **Chief Medical Officer / Clinical Director** — everything the tiers above do, plus overseeing the team's caseload, rebalancing/reassigning a case when automatic routing got it wrong, and clinical-governance authority (protocol/config sign-off, indemnity-exemption scope). **Not a manual dispatcher** — see "Case auto-assignment" below, cases route to a doctor automatically; the CMO's own escalation-handling authority is otherwise identical to a Senior Medical Officer's (can personally claim/start/resolve any case, same as any other doctor). This is the single top rung — director/governance authority is intrinsic to reaching it, not a separate flag (see below).
 
-**Schema (layered model):** `clinical_staff.doctor_tier` (built 2026-07-15) carries clinical seniority/routing authority. `clinical_staff.role` (`clinical_director`/`clinician`/`escalation_doctor`) was retired 2026-07-15 (`20260715174500_retire_clinical_staff_role.sql`, see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`) — replaced by `doctor_tier` plus `clinical_staff.is_clinical_director`. **`is_clinical_director` is a separate org-governance flag (protocol signing, staff verification) orthogonal to tier, not itself a rung on the ladder** — a person can hold Clinical Director status at any tier. **`profiles.user_role` (the account/login/RLS role) is unified — every tier of the ladder, 1 through 5, uses the single `clinician` account role and reaches the same `/clinician/*` dashboard** (founder decision 2026-07-31, migration `20260731020000_merge_doctor_into_clinician.sql`). This supersedes the two-way `clinician`/`doctor` account-role split built 2026-07-09 (`20260709001520_add_doctor_role.sql`) — that split had let a Tier 4/5 `doctor`-role login reach almost nothing (escalations + referrals only, no patient directory, no messaging), while accidentally acting as an undocumented clinical-authority gate on top of that. Clinical authority now lives entirely in `clinical_staff.doctor_tier`/`is_clinical_director`, enforced per-action in the DB — `private.has_prescribing_authority` (initiating a medication) and `private.can_handle_emergency_escalation` (claiming/resolving an emergency-level case, the one authority gap the account-role split had been accidentally covering — see the 2026-07-31 entry in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`) — never by which dashboard a login can reach. Only `care_coordinator` remains a genuinely separate account value. See the "Never re-split the ACCOUNT role" rule below before reintroducing anything like the old split.
+**Schema:** `clinical_staff.doctor_tier` is a 4-value enum (`care_coordinator`, `medical_officer`, `senior_medical_officer`, `chief_medical_officer`) — collapsed 2026-08-31 from an earlier 5-tier ladder (`tier_1`..`tier_5_partner_specialist`) plus an orthogonal `is_clinical_director` boolean, migration `20260830231508_collapse_doctor_tier_to_three.sql`. **`is_clinical_director` no longer exists as a column** — every row that carried it now has `doctor_tier = 'chief_medical_officer'` instead; do not reintroduce an orthogonal governance flag (see "Never re-split the ACCOUNT role" below for the account-role version of this same rule, which still stands unchanged). `clinical_staff.employment_type` (`employed`/`contracted`, added in the same migration) is what preserves the old tier-4/5-vs-tier-3 indemnity distinction now that they share one tier value. **`profiles.user_role` (the account/login/RLS role) is unified — every tier uses the single `clinician` account role and reaches the same `/clinician/*` dashboard** (founder decision 2026-07-31, migration `20260731020000_merge_doctor_into_clinician.sql`) — this is unaffected by the tier collapse. Clinical authority lives entirely in `clinical_staff.doctor_tier`, enforced per-action in the DB — `private.has_prescribing_authority` (initiating a medication, Senior Medical Officer+), `private.can_handle_emergency_escalation` (claiming/resolving an emergency-level case, Senior Medical Officer+) — never by which dashboard a login can reach. Only `care_coordinator` remains a genuinely separate account value.
 
-**Indemnity:** DB-enforced requirement for Clinical Director, Tier 4, and Tier 5 before activation. Tiers 1–3 are employed and covered under Tarragon's institutional policy, not tracked individually.
+**Case auto-assignment (new 2026-08-31, migration `20260831001458_escalation_and_specialist_auto_assignment.sql`):** every escalation is routed to a specific doctor's queue automatically at creation — `private.auto_assign_escalation()` (BEFORE INSERT trigger) prefers continuity with whichever doctor already owns the linked `clinician_alert` (auto-assigned there by the pre-existing `private.classify_and_assign_clinician_alert`), else picks the least-loaded active doctor at a qualifying tier (Senior Medical Officer+ if the case needs emergency authority, any clinical tier otherwise). "Claiming" is starting review (`status` `open` → `under_review`) on a case already routed to you, not taking ownership of an unowned one — `private.enforce_emergency_escalation_tier()` restricts starting review to the assigned doctor or the Chief Medical Officer, so a bystander can't cherry-pick another doctor's queued case. The CMO's "Assign to…" control (`private.enforce_escalation_reassignment_authority`/`private.enforce_clinician_alert_reassignment_authority`, `canAssignCases()` in `apps/web/src/lib/clinical/doctor-tier.ts`) is an override on top of this — rebalancing, or routing to a specific doctor's expertise — not the everyday way work gets assigned. The one fallback: if auto-assignment finds nobody (e.g. a brand-new org with no active staff), the case sits unassigned and any qualifying-tier doctor may self-claim it, same as the old open-pool model.
 
-**Care Coordinator write access:** gets the same org-staff read access as any staff account, but must never gain write access to medications, escalation resolution, or protocol signing — enforced at the app/server-action layer (matches the existing "only Clinical Director can sign protocols" pattern), not a new RLS helper.
+**Specialist-referral auto-matching (new 2026-08-31, same migration):** `clinical_staff.specialist_type` (nullable, Senior Medical Officer/Chief Medical Officer only — DB CHECK) is the credentialed specialty used to auto-match a new `specialist_referrals` row to the least-loaded active in-house specialist of that type (`private.auto_match_internal_specialist`), distinct from the free-text `specialty` bio field and from the external `specialist_providers` catalogue (`specialist_provider_id` — a genuinely separate, un-employed marketplace directory, untouched by this). Reuses the existing `fulfilment = 'partner'` value rather than adding a new enum label (`ALTER TYPE ... ADD VALUE` can't be used in the same transaction as anything that uses the new value); the existing payment/commission machinery is keyed off `status` reaching `'payment_confirmed'`, not off `fulfilment`, so an internally-matched referral never touches it. **"Instantly active once a specialist is onboarded":** activating a `clinical_staff` row (or setting `specialist_type` on an already-active one) sweeps and claims any currently-unmatched referral of that type (`private.sweep_referrals_on_specialist_activation`) — admin UI at `/admin/settings/clinical-staff`.
+
+**Team caseload visibility (new 2026-08-31):** `/clinician/team-caseload`, Chief Medical Officer only (`canAssignCases`), reuses the same report logic as the admin console's `/admin/staffing/caseload` (`lib/staffing/caseload.ts`) rather than duplicating it — a separate access path, not a separate report, since a CMO's `clinician`-role login can never reach `/admin/*`.
+
+**Indemnity:** DB-enforced requirement for the Chief Medical Officer (always) and a contracted Senior Medical Officer (`employment_type = 'contracted'`) before activation — `private.enforce_clinical_staff_indemnity()`. An employed Medical Officer or Senior Medical Officer is covered under Tarragon's institutional policy, not tracked individually.
+
+**Care Coordinator write access:** gets the same org-staff read access as any staff account, but must never gain write access to medications, escalation resolution, or protocol signing — enforced at the app/server-action layer (matches the existing "only Chief Medical Officer can sign protocols" pattern), not a new RLS helper.
 
 **Explicitly Phase 2/3, not initial launch** (confirmed 2026-07-15 — do not build functional code for these without an explicit ask): full specialist-matching engine + 8-stage referral-status pipeline, patient-initiated wellness testing catalogue. **Employer/HMO risk-stratification dashboards, Premium ParentCare as a real subscription tier, and home sample collection/medication delivery logistics were pulled forward and built 2026-07-16 on explicit ask** — see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md` — so they're no longer on this list; everything else here still requires an explicit ask before functional code is written.
 
-MDCN/regulatory confirmation that this tier authority split (e.g. Tier 1 confirming refills, Tier 2 initiating new medications) is compliant is an open founder item (master plan §16) — never represent the tier ladder as regulator-approved.
+MDCN/regulatory confirmation that this tier authority split (e.g. Medical Officer confirming refills, Senior Medical Officer+ initiating new medications) is compliant is an open founder item (master plan §16) — never represent the tier ladder as regulator-approved. **Naming collision to know about:** `docs/CLINICAL_TRUST_MODEL_SPEC.md` §1 uses "Tier 1/2/3" for an unrelated attribution/branding concept (protocol-authorship visibility, day-to-day vs. escalation-case naming) — orthogonal to this `doctor_tier` seniority ladder. Don't conflate the two "Tier N" vocabularies.
 
 ## Device & Wearable Integration
 Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14, see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`). Consumer wearable cloud sync is **corrected 2026-08-05 — the Connect UI and webhook route shipped 2026-07-31 (commit `e6b4c99`), contradicting this section's older "schema-scaffolded only" wording.** `wearable_connections`/`wearable_readings` tables + RLS exist (migration `20260714140000_wearable_connections.sql`); `apps/web/src/lib/wearables/oauth-providers.ts`'s `CloudOAuthWearableProvider` type now covers 5 cloud-OAuth providers (Oura/WHOOP/Garmin/Fitbit/Dexcom, Dexcom added since the original 4); `apps/web/src/app/(dashboard)/patient/wearable-connect-section.tsx` is a real, live, un-gated (no plan/tier check) patient-facing Connect card wired into every patient's dashboard, and `/api/wearables/{connect,callback,webhook}/[provider]` are real routes — `connect`/`callback` do a genuine OAuth round-trip and gracefully show "not yet available" for any provider with no real developer credentials configured (all 5, currently); `webhook/[provider]` is **no longer a scaffold — the notify-then-authenticated-fetch half was finished 2026-08-08**, so the whole path is credential-drop-in-ready: per-provider adapters (`src/lib/wearables/providers/`) do the follow-up API read Fitbit/WHOOP/Oura notifications require, Garmin's inline push is read directly, tokens auto-refresh (`connection-tokens.ts`), webhooks are authenticated before anything is written (`webhook-auth.ts` — Fitbit/WHOOP signatures, a shared secret for unsigned Oura/Garmin, and the GET challenge handshake Fitbit/Oura demand before they will even create a subscription), and Dexcom — poll-only, no webhook exists — is swept by `/api/cron/wearable-sync`. Every adapter was checked against each provider's *published* docs (not a live sandbox — no developer credentials exist), which caught two things worth remembering: **WHOOP removed v1 and its endpoints now 404**, so a v1 path would authenticate, resolve a connection, fetch nothing and ack 200 — a silent zero, not an error; and **Garmin has two integration modes**, Push (summaries inline, what the adapter reads) and Ping/Pull (an account plus a callbackURL to fetch, requiring OAuth 1.0a), which are structurally identical JSON, so a misregistration is detected and reported rather than looking like a patient with no data. **Live behaviour still cannot be confirmed until real credentials exist** — the field mappings are the seam to correct on first real payload. Full spec: `docs/FULL_SPECIFICATION_V4.md` §5/§9 (`app/routers/wearables.py` — still unbuilt). Contract to follow as the consumer-wearable path gets real provider credentials:
@@ -170,6 +278,7 @@ Bluetooth clinical devices (BP cuffs, glucometers) are **built** (2026-07-13/14,
 - **Founder decision 2026-08-02 — Tarragon does NOT sell/import/bundle BP cuffs or glucometers.** The "sold as device bundles" line elsewhere in this file and in `docs/FEATURE_SPEC.md`/`docs/FULL_SPECIFICATION_V4.md` was never built (confirmed: `pricing.ts` has zero device line items, no checkout/product-listing code exists) and is now deliberately shelved, not just unbuilt. Reason: becoming a hardware importer/reseller would require Tarragon to be NAFDAC's registered "local representative" for whichever brand it bundles (Power of Attorney from the manufacturer, or import/register under Tarragon's own name) — a real business-development/regulatory commitment inappropriate for a pre-revenue solo founder to take on speculatively. **Patients buy their own BP monitor/glucometer from any existing local retailer (any brand, Bluetooth or not) and either type the reading in manually (already fully shipped, zero cost) or, once the BLE path below is proven on real hardware, pair it if it happens to be one of the two curated standard-GATT-compliant models.** Do not build a device-bundle checkout/product-listing feature without an explicit ask — this is now the same class of gate as the other Phase 2/3 items above.
 - **The BLE "connecting" path itself (see 2026-07-21 GATT profile note below) is fully built but never tested against real hardware** — before recommending or documenting any specific device model to patients, buy one A&D Medical UA-651BLE (BP) and one Roche Accu-Chek Guide/Guide Me (glucose) and pair them with the real Expo app first. Both are the two models with documented, credible standard-GATT compliance (unlike Omron/iHealth, which push proprietary apps/SDKs) — see the 2026-08-02 device-sourcing research in conversation history for the full comparison. Add a "supported devices" list to the pairing screen only after that hardware test passes.
 - **Weight Scale (0x2A9D) gap CLOSED 2026-07-21** — full BLE support now covers all five standard GATT clinical profiles: BP cuff (0x2A35), glucometer (0x2A18), weight scale (0x2A9D, spec-fixed 0.005 kg/0.01 lb resolutions, imperial converted to kg, 0xFFFF measurement-unsuccessful rejected), thermometer (0x2A1C, 32-bit medical FLOAT, °F converted to °C), and pulse oximeter (PLX Spot-Check 0x2A5E). `patient_device_type` gained `thermometer`/`pulse_oximeter` (migration `20260721141233`); readings land in the existing `vitals_readings` columns (`weight_kg`/`temperature_c`/`spo2_pct`) via the same device-readings API.
+- **2026-08-29 — granular per-category consent + patient-control (pause, delete-my-data) added; patient-facing sleep view and a wearable-source badge closed two long-open UI gaps.** `wearable_connections` gained `consent_activity`/`consent_heart_rate`/`consent_sleep`/`consent_weight` (all default `true`, preserving every existing connection's behaviour) — the Connect card now asks which of the four to share *before* redirecting to OAuth (carried through the signed state token), and lets a patient narrow or widen them afterwards; `lib/wearables/ingest.ts` drops any reading whose category is denied (`IngestResult.deniedByConsent`), never even reaching `wearable_readings`/`vitals_readings`. Glucose/blood pressure/SpO2 are deliberately NOT gated by these columns — they already flow through `vitals_readings`' own plan-gated red-flag/escalation pipeline, a heavier consent surface than a consumer checkbox belongs in front of. `wearable_connection_status` gained `paused` (both push and pull sync paths already filtered on `status = 'active'`, so pausing needed no further code change), and `public.delete_wearable_connection_data()` (migration `20260829120000_wearable_granular_consent_and_patient_control.sql`) lets a patient erase everything a connection has synced — deletes its `vitals_readings`/`wearable_readings` rows, nulls its stored OAuth tokens, marks it disconnected — SECURITY DEFINER, scoped to `auth.uid()` matching the connection's own `patient_id`, proven with a simulated-session sabotage test in `packages/db/tests/wearable_granular_consent_and_patient_control.sql`. Separately: `vitals-history.tsx` now badges any `source='wearable'` reading "Wearable estimate" (manual/BLE-device readings get no badge — distinguishing a consumer estimate from a validated measurement, not inventing a new clinical threshold); a new `sleep-summary-card.tsx` (`/patient/vitals`) gives patients their first visibility into synced sleep duration/consistency/trend, always captioned as an estimate (no validated sleep-staging device exists on this platform). **Deliberately NOT built in this pass: cross-metric "digital biomarker" pattern detection or a wearable-triggered check-in nudge** — `lib/queries/patient-monitoring.ts` already carries an explicit recorded founder decision that wearable-only metrics (steps/sleep/HRV) get "informational tiles only... appetite to design this later, not now"; building a pattern-change alert engine now would go against that standing decision, not fill a gap in it. Revisit only on an explicit ask. **This is a different thing from a single dangerously abnormal heart-rate VALUE arriving via a wearable, which was a real, unrelated gap (no plan or steps/sleep/HRV trend involved) — see the pulse red-flag entry above (2026-08-29) for the fix.**
 
 ## TypeScript Code Rules
 - Strict mode always. No `any`. Ever. pnpm only.
@@ -208,19 +317,71 @@ rules and let the git history / PR descriptions be the record of what shipped wh
 
 **Known standing follow-ups, as last recorded — verify each before acting, none of these should be
 taken on faith:**
-- ⚠️ **The `doctor`→`clinician` account-role merge migration
-  (`20260731020000_merge_doctor_into_clinician.sql`) was applied and released to production
-  2026-08-03, but the committed version of that migration is reported to be missing a policy fix it
-  needed live** — it may fail on a fresh `supabase db reset`. Check the `project_doctor_clinician_role_merge_parked` memory file and diff the committed migration against what's actually applied on the
-  live project before relying on a clean local reset working.
+- **RESOLVED 2026-09-02, confirmed live 2026-09-03** — `main-dev` branch protection now lists all
+  three CI jobs (`Supabase migration replay`, `Python ML service`, `TypeScript (web + shared)`) under
+  `required_status_checks.contexts`, `enforce_admins` is `true`, and `gh pr merge` genuinely refuses a
+  merge (`mergeStateStatus: BLOCKED`) until they pass — confirmed directly via the GitHub API, not
+  inferred. This closes a gap that stood open since at least 2026-08-30 (during which the "Supabase
+  migration replay" job failed on essentially every PR merged 2026-08-30 through 2026-09-02 — a run of
+  migration-version collisions and the anon-default-privilege gap described above — without blocking a
+  single one). Re-verify with `gh api repos/.../branches/main-dev/protection` before assuming a red
+  check is cosmetic — it now genuinely blocks. Note a `Vercel` status context can still show `FAILURE`
+  on a PR (often just the account's daily deploy-rate cap) without blocking merge — it is not in
+  `required_status_checks.contexts`.
 - The Diabetes (`guideline/Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md`) and Hypertension
   (`guideline/Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md`) clinical pathways each had
   a handful of items still open the last time they were reviewed — mostly Clinical Director
   sign-off/protocol activation and ops/founder localisation facts (real emergency numbers, partner
   formulary, device models, panel prices), not engineering work. Check those two files directly for
   the current checklist; they track real outstanding items and aren't otherwise linked from here.
-- Two Supabase projects (`rjsxbhgqdudowlvarmzq`, `jpdwbnvrgvpntcmfefeu`) were flagged 2026-07-29 for
-  owner-side deletion — confirm whether that's happened.
+- **RESOLVED, confirmed 2026-09-03** — the two Supabase projects flagged 2026-07-29 for owner-side
+  deletion (`rjsxbhgqdudowlvarmzq`, `jpdwbnvrgvpntcmfefeu`) are gone. `list_projects` now returns
+  exactly one project: `koiplnmbgnqnbywhpjlf` ("Tarragon Health").
+- **Migration drift between `main-dev` and the live `koiplnmbgnqnbywhpjlf` database is large and
+  actively growing, not a one-time cleanup.** As of 2026-09-03 ~01:00: 124 migration files on
+  `main-dev` have no matching live `schema_migrations` row (mostly a live row exists under a
+  *different* recorded version than the git filename — the recurring "hand-typed timestamp" root
+  cause above), and 148 live rows have no matching file (mostly the mirror image of the same 124,
+  plus a double-digit handful with genuinely no git record anywhere). **Two PRs already attempt this
+  exact reconciliation and have sat open since 2026-08-29: #341 (`claude/repo-migration-drift-y1d4tt`)
+  and #313 (`claude/objective-heisenberg-25e173`, recovered 165 migrations from
+  `schema_migrations.statements`).** Both are now stale relative to current drift. Before starting a
+  third parallel reconciliation effort, rebase one of these onto current `main-dev`/current live
+  state, or close both as superseded once a fresh one lands — don't let a fourth duplicate spin up.
+  One item flagged as genuinely concerning, not just process noise: two migrations
+  (`20260831125450`/`20260831125511`, a "since you were last here" summary feature +
+  engagement-decline notification) are live in production with **zero git record on any branch** —
+  the full SQL is recoverable losslessly from `schema_migrations.statements` per the PR #313
+  pattern, but nobody has backfilled a migration file for it yet. **Update, 2026-09-03 audit-fix
+  pass: the loss-risk core of this is closed** — all 9 zero-git-record live migrations (those two
+  included) were recovered verbatim from `schema_migrations.statements` into committed files pinned
+  at their live versions, 5 `main-dev` files whose content was verified already live were
+  repair-marked applied, and the unpushed doctor-retention-pool branch was pushed. The
+  release-integrity migration-drift job was also rewritten so it can actually run in CI
+  (management-API auth instead of a DB password it never had) and now fails only on loss-risk
+  classes (UNTRACED / UNPUSHED / LOCAL-NOT-APPLIED) while listing branch-owned drift as a warning
+  inventory — the remaining bulk of the 124/148 is that branch-owned class, which merges away with
+  the open-PR backlog rather than needing a reconciliation PR of its own. **Corrected 2026-09-15 —
+  #341 and #313 are both CLOSED**, not open (closed 2026-09-06, confirmed live via `gh pr view`
+  against GitHub, not assumed from this file); the "rebase one of these / close both as superseded"
+  guidance above is moot, there is nothing open to rebase or close. **No reconciliation PR is
+  currently open at all** — a future session starting one would be the first live attempt since
+  those two closed, not a third/fourth duplicate. Re-measured the same day: 158 `main-dev` files
+  with no matching live version, 164 live versions with no matching file — up from 124/148 on
+  2026-09-03, consistent with this being the actively-growing branch-owned class described above,
+  not a regression. Re-run `list_migrations` vs local files yourself before trusting either count
+  as current.
+- **2026-09-02 — a single day, ~70 previously-built feature branches merged into `main-dev` at once**,
+  closing most of the outstanding spec-module backlog this file's "Where to Look" section still
+  describes as design/reconciliation-only (product of the deliberate large concurrent-worktree
+  practice this project runs — see the archive). Before treating any "design doc, not a build order"
+  or "Phase 2/3, needs an explicit ask" caveat in this file as still accurate, check whether that
+  spec's own doc already carries a 2026-09-02 reconciliation note and whether the corresponding PR
+  actually merged — several already do (e.g. Family Care Circle, above). The standing
+  specialist-matching/ranking-engine guardrail was explicitly re-checked against this batch (the
+  Referral Management Engine and Specialist Network PRs) and confirmed still holding — see the
+  archive's 2026-08-31/2026-09-03 entry — but the remaining ~65 PRs in that merge were not
+  individually re-audited against every guardrail in this file as part of this documentation pass.
 - `reference/tarragon-control/`'s git bundle is still the only backup of the separate v3 repo's
   history, sitting on one disk with no remote — worth pushing somewhere if that hasn't happened
   since.
@@ -228,15 +389,40 @@ taken on faith:**
   source across this project's history (found stale and redeployed at least half a dozen separate
   times). Before assuming any notification template works in production, check its deployed version
   against source rather than trusting a past changelog entry that says it was "just redeployed."
-- Several regulatory/compliance items were still open the last time they were touched: MDCN/NMCN
-  confirmation that the five-tier doctor-authority split is compliant; a Nigerian fintech counsel
-  opinion on the Care Voucher structuring; NDPC registration and a DPO appointment; Meta WhatsApp
-  template approval (blocked on Meta's own support process) and Termii sender-ID carrier approval
-  (blocked on submitting several business documents) — both meaning WhatsApp/SMS delivery for
-  several reminder templates is pending, with in-app notification as the working fallback in the
-  meantime.
+  (Redeployed again from `main-dev` on 2026-09-03, v39, after being found ~344 lines stale; the
+  release-integrity edge-drift job diffs every deployed function against `origin/main-dev` on each
+  push and every 6 hours — trust that job's current status over any dated claim, this line included.)
+- **RESOLVED 2026-09-15** — NDPC registration is approved and the founder's DPO appointment has been
+  accepted by NDPC. Both halves of what was previously the "NDPC registration and a DPO appointment"
+  open item are closed; do not list it as outstanding.
+- **CHANGED 2026-09-15 — pursuing Meta WhatsApp template approval and Termii sender-ID carrier
+  approval is off the founder's near-term plan for now**, not merely blocked-and-pending as this
+  file previously said. In-app notification is the working channel for reminder templates by
+  current plan, not a temporary fallback while waiting on those approvals — don't frame it as
+  "pending" in copy or docs. This doesn't reopen the underlying architecture rule: WhatsApp/SMS
+  remains notification/follow-up only (see Non-Negotiable Business Rules), so nothing about how a
+  feature may depend on WhatsApp changes here. Revisit only if the founder resumes the approval
+  process.
+- **CLOSED 2026-09-15 — the Nigerian fintech counsel opinion on Care Voucher structuring is no
+  longer needed; the founder has removed the Care Voucher feature from the platform.** This is a
+  founder statement recorded here, not independently verified against the running code/DB in this
+  pass — the rest of this file (and the archive) still describes Care Vouchers extensively as the
+  live sponsor/diaspora payment mechanism (`public.purchase_care_voucher`, the "Care Voucher"
+  sponsor model, etc.). Before relying on any of that elsewhere in this file as still current, check
+  the live code/DB rather than assuming this one line already reconciled it — a full removal pass
+  (schema, RPCs, UI, other CLAUDE.md sections) has not been done as part of this edit.
+- Other regulatory/compliance items were still open the last time they were touched: MDCN/NMCN
+  confirmation that the five-tier doctor-authority split is compliant.
 - A production-quality Nigerian-language voice/TTS vendor was deliberately never built — the
   platform is English-only by founder decision (2026-08-03). Revisit only on an explicit ask.
+- **2026-08-29 — modules 27 (insurer/payer platform) and 28 (provider organisation platform) are
+  fully built and shipped dormant**, per founder instruction — see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s
+  2026-08-29 entry for the full build. Both stay inert until a superadmin calls
+  `public.set_platform_module('payer_platform'|'provider_org_platform', true, '<why>')`
+  (`public.platform_modules`, checked in RLS, every write RPC, and the `(dashboard)/payer` /
+  `(dashboard)/provider-org` route guards) — do not flip either on without the founder's explicit
+  go-ahead, and confirm a real signed counterparty exists first. Neither platform's activation has
+  ever been exercised against a real insurer or provider organisation.
 - **2026-08-26 — mobile OTA publishing is now automated, but needs one secret added before it runs.**
   `apps/mobile` had no CI path to the actual running app — EAS Update only shipped via a manual
   `eas update`, and a day's worth of merged JS-only UI work (BMW-kit rework, nav-drawer/Devices
@@ -244,10 +430,12 @@ taken on faith:**
   `.github/workflows/mobile-ota-publish.yml`: auto-publishes JS-only pushes to `main-dev` (that
   touch `apps/mobile`) to the `preview` channel, skips publishing (rather than guessing) when a push
   touches anything native-affecting — that still needs a manual `eas build` — and never auto-publishes
-  to `production`. **It will fail closed until an `EXPO_TOKEN` repo secret is added** (Settings ->
-  Secrets and variables -> Actions; generate at expo.dev/accounts/[account]/settings/access-tokens)
-  — no agent in this sandbox has EAS/Expo credentials to add it. Confirm the secret has actually been
-  added before assuming this workflow is doing anything.
+  to `production`. **RESOLVED — the `EXPO_TOKEN` secret exists (added 2026-08-27) and the workflow
+  has been publishing green since.** The live caution is now `runtimeVersion`: it was bumped to
+  `0.2.0` on 2026-09-03 after three native deps (expo-crypto, expo-sqlite, async-storage) had landed
+  against the never-bumped `0.1.0` — a fresh manual `eas build` for 0.2.0 must exist before the next
+  OTA publish reaches devices, and any future native-affecting change needs the same bump-then-build
+  before the auto-publisher's next JS-only run.
 
 ### 2026-08-04 — Second occurrence: a push to `main` built on Vercel but was never promoted to production
 Founder reported the live site still showed retired partner-lab/booking copy (prices for lab tests and
@@ -286,9 +474,10 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - Never render a UI element claiming a doctor reviewed a specific case without a corresponding `reviewed_by`/`reviewed_at` record — the "Reviewed by Dr. X" pattern must be a single shared component that is null-gated, never a hardcoded string (see `docs/CLINICAL_TRUST_MODEL_SPEC.md` §2, §9)
 - Never grant a Care Coordinator account write access to medications, escalation resolution, or protocol signing — app-layer gate only, see Clinical Tier Ladder above
 - Never infer or default a `doctor_tier` in code — an unset tier means the record needs an admin to assign one; same null-gating principle as `reviewed_by`/`reviewed_at`
-- **Never re-split the ACCOUNT role (`profiles.role`) by clinical tier.** Every doctor is `clinician` and sees the same pages (founder decision 2026-07-31, migration `20260731020000_merge_doctor_into_clinician.sql`, which retired the old `doctor` role). Clinical authority is carried by `clinical_staff.doctor_tier` + `is_clinical_director` and enforced per-action in the DB (`private.has_prescribing_authority`, `private.can_handle_emergency_escalation`) — never by which dashboard a login can reach. If a new action needs senior authority, add a tier gate on that action; do not add an account role. Keep `clinician` as the generic name too — it leaves room for NMCN-registered nurse practitioners or CHEWs under Nigeria's task-shifting policy without another enum rebuild
+- **Never re-split the ACCOUNT role (`profiles.role`) by clinical tier.** Every doctor is `clinician` and sees the same pages (founder decision 2026-07-31, migration `20260731020000_merge_doctor_into_clinician.sql`, which retired the old `doctor` role). Clinical authority is carried by `clinical_staff.doctor_tier` alone (the orthogonal `is_clinical_director` flag was retired 2026-08-31 — governance authority is now intrinsic to `doctor_tier = 'chief_medical_officer'`) and enforced per-action in the DB (`private.has_prescribing_authority`, `private.can_handle_emergency_escalation`) — never by which dashboard a login can reach. If a new action needs senior authority, add a tier gate on that action; do not add an account role, and do not add a second orthogonal flag either. Keep `clinician` as the generic name too — it leaves room for NMCN-registered nurse practitioners or CHEWs under Nigeria's task-shifting policy without another enum rebuild
+- **Never add an AI call site that is not registered in `ai_systems` and routed through `runGovernedAi()`** (`apps/web/src/lib/ai-governance/`). An unregistered call site has no kill switch, no audit trail and no guardrail record — see `docs/AI_GOVERNANCE_SPEC.md`. Never set `ai_systems.runtime_governed = true` without a call site that actually consults `public.ai_runtime_config()`, and never seed a passing evaluation run, a prompt approval, or a knowledge-source approval: each represents a human's judgement, and inventing one is exactly the failure the governance module exists to prevent
 - Never rebuild the Annual Health Review as a parallel review record that re-does the condition reviews — it is an orchestration layer that **adopts + rolls** the patient's existing `medication_reviews` (and reuses `patient_risk_scores`/`care_plans`/Zoom `video_consultations`); condition-specific reviews must stay intact and running on their own cadence (see the 2026-07-17 entry in `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`)
-- Never build functional code (not just schema scaffolding) for the full referral-matching pipeline, patient-initiated wellness testing, or Employer/HMO risk dashboards without an explicit ask — see Clinical Tier Ladder above. (Home sample collection and medication delivery logistics were the same kind of guardrail until pulled forward on explicit ask 2026-07-16 — see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.)
+- Never build functional code (not just schema scaffolding) for the full referral-matching pipeline, patient-initiated wellness testing, or Employer/HMO risk dashboards without an explicit ask — see Clinical Tier Ladder above. (Home sample collection and medication delivery logistics were the same kind of guardrail until pulled forward on explicit ask 2026-07-16 — see `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`.) **2026-08-29, on explicit founder ask: the AI Coach can now flag a patient's explicit request to see a specialist** (`lib/ai-coach/referral-tool.ts`) — this writes a `clinician_alerts` row (`type_code='referral_requested'`) for a clinician to review, never a `specialist_referrals` row directly; that table stays staff/trigger-created only (a repeated, load-bearing invariant — see `20260829113000_alert_type_code_referral_requested.sql`'s header). The full matching/ranking engine guardrail is unchanged and still stands.
 - **Superseded 2026-07-15, then corrected 2026-07-30 — Tarragon employs its own doctors, but never promise ONE continuous named doctor.** The 2026-07-15 wording ("a named doctor is the default face of the day-to-day patient relationship") is retired: patient feedback flagged that a real, shift-covered care team can't honestly promise the same individual every time without either lying or overloading one person. Care is delivered by a **team** of MDCN-registered doctors with coverage shared across the team for effective staffing (see the onboarding "How your care works here" copy and `trust-band.tsx`'s "A real care team, always accountable" for the current patient-facing wording) — never describe it as one named doctor following a patient. **What does NOT change:** per-case attribution stays real and mandatory — every doctor review, escalation resolution, or verified certificate still carries the real reviewing doctor's name via the null-gated `ReviewedByDoctor` pattern (see the rule below), and the per-case rule below is untouched. **The Dedicated Care Coordinator add-on referenced by the earlier version of this bullet no longer exists** — it was withdrawn 2026-07-31 as mis-selling (the operating model will not include dedicated per-patient staff), its `add_ons` rows are `is_active = false`, and its marketing card was removed in the same release. `docs/CLINICAL_TRUST_MODEL_SPEC.md` §1, §9 were rewritten to match this correction (PR #186).
 
 ## Where to Look
@@ -302,7 +491,18 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 - Patient Health Record — section-by-section gap analysis against the platform's actual schema/code (identity, problem list, allergies, family/social history, observations, labs, imaging, medication lifecycle, encounters, timeline, versioning, search, permissions, external records, export, security), plus open founder decisions where the record spec collides with a real shipped decision (e.g. the collapsed medication dispensed/received event) → `docs/PATIENT_HEALTH_RECORD_ARCHITECTURE.md`
 - 5-tier doctor ladder, Care Coordinator role, doctor-tier staffing/indemnity rules, phased Phase 1/2/3 roadmap (specialist-matching engine, wellness testing, Employer/HMO dashboards, home sample collection, medication delivery) → `docs/Tarragon_Health_Master_Operating_Plan_v4.md` — authoritative on the clinical staffing model where it conflicts with `CLINICAL_TRUST_MODEL_SPEC.md`'s older flat-role language
 - Clinical Network — provider directory/verification/availability/discovery/referral-integration/org-account gap analysis against current code, phased Phase 1 (safe now) vs Phase 2/3 (needs explicit ask) recommendations → `docs/CLINICAL_NETWORK_SPEC.md` — a design/reconciliation doc; where it disagrees with the Master Operating Plan's Phase labels, that's a sign the Master Plan is stale relative to shipped work (e.g. the referral-status pipeline/waitlist), not license to build past this file's matching-engine guardrail (see its §3) without asking first
+- Partner Ecosystem & Healthcare Marketplace — partner onboarding/capability-catalogue/quality-scoring/SLA/performance-monitoring/suspension/economics/settlement/API/portal/sandbox/trust-score/network-optimisation gap analysis against current code → `docs/PARTNER_ECOSYSTEM_SPEC.md` — a design/reconciliation doc, not a build order; builds on `docs/CLINICAL_NETWORK_SPEC.md` rather than duplicating it, and defers to this file's guardrail on partner scoring/ranking (see its §3)
+- Family Care Circle — gap analysis of an incoming "Family account" spec (Family Groups, graded permission levels, family administrator, household dashboard, family payment wallet, etc.) against the existing `profile_access`/`care_access_requests`/`clinical_access`/`family_history` consent-graph model → `docs/FAMILY_CARE_CIRCLE_SPEC.md` — a design/reconciliation doc, not a build order; its §1 explains why the spec's central "Family Group" primitive is structurally the `family_plan_members` model the founder already killed 2026-07-29 (individual enrolment only, no family plans/ParentCare — see "Where things actually stand" above), and its §4/§5 separate what would reverse that decision (needs an explicit new founder ask) from what safely extends the existing consent graph (fine to build now). **Note (2026-09-02 reconciliation):** the spec's §3.4 graded `clinical_access_level` (none/summary/full) gap was superseded before merge by the separately-shipped 8-category `profile_access_categories` model (`20260830103251_category_scoped_clinical_access_and_emergency_access.sql`) — do not resurrect `clinical_access_level`; the category-scoped model is the one true clinical-access-granularity mechanism.
+- Pediatric & Child Health Platform — growth monitoring/charts, developmental screening, paediatric symptom triage/emergency red flags, weight-based medication dosing safety, chronic-programme parent access, transition-to-adult-care, a printable school health summary (vaccination status only — a parent-generated PDF, deliberately not a school account) — what shipped, what was reused (the existing parent/dependent `profile_access` model, vaccination module, chronic-programme scaffold), and what's deliberately deferred (full WHO/CDC growth reference data, a licensed developmental instrument, granular adolescent record-level privacy, doctor-signed school certificates) → `docs/PEDIATRIC_CHILD_HEALTH_SPEC.md`
+- Business continuity — RTO/RPO targets, service dependency map, backup-verification status, solo-founder continuity plan → `docs/BUSINESS_CONTINUITY_DR_SPEC.md`
+- Platform/availability incident response (not privacy breaches — see `docs/legal/breach-notification-runbook.md` for those) → `docs/PLATFORM_OUTAGE_RUNBOOK.md`
+- AI governance, safety & model management — the AI registry, risk/autonomy classification, guardrails, governed prompts, evaluation + red-team gate, bias/drift monitoring, the audit trail, incident reporting, the kill switch and its fallbacks → `docs/AI_GOVERNANCE_SPEC.md`. **Read it before adding or changing any AI call site.** All ten registered AI systems consult the registry, so `ai_systems.is_enabled` is a real kill switch for each; anything registered in future starts at `runtime_governed = false` and must earn the flag with a call site that actually consults `public.ai_runtime_config()`
+- AI Health Assistant (patient-facing chat) — section-by-section gap analysis of the shipped `apps/web/src/lib/ai-coach/` LangGraph assistant against an incoming spec (context awareness, result/medication/care-plan explanation, appointment prep, emergency safety, RAG, audit logging), the three structural gaps blocking most of it (no tool-calling layer, context reads 2 of 11 patient-record items, no per-turn AI-provenance record), and a phased build order → `docs/AI_HEALTH_ASSISTANT_ARCHITECTURE.md` — a design/reconciliation doc, not a build order; its §3 explicitly does not authorise the referral-initiating half of "health navigation" — that stays behind this file's matching/referral-pipeline guardrail until an explicit ask
+- Remote Patient Monitoring — programme structure, alert prioritisation/dedup/escalation reconciled against the shipped 2026-08-28 Alert System, RPM care-team/treatment-adjustment/outcomes gap analysis, phased recommendations → `docs/RPM_ENGINE_SPEC.md` — a design/reconciliation doc; Phase 1 (additive schema only) is safe to build now, Phase 2 (trend/persistence severity scoring) needs clinical review first, Phase 3 needs an explicit ask — see its §3 guardrail
 - Sprint-by-sprint build history — every migration, bug, and founder decision, dated, 2026-07-09 through 2026-08-03 → `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md` — a historical record; verify any specific fact against the live code/DB before trusting it, see "Where things actually stand" above
 - Pre-merge checklist for a clinical or compliance-relevant feature (clinical owner/protocol/escalation/audit; data classification/retention/sharing/consent) → `docs/CLINICAL_FEATURE_CHECKLIST.md` — a reviewer checklist, not an automated gate
 - Diabetes/Hypertension clinical pathway source docs + outstanding-gap tracking → `guideline/` — the `.docx` files are the signed pathway source-of-truth; `Tarragon_Health_Diabetes_Pathway_Gap_Closure_Plan.md` and `Tarragon_Health_Hypertension_Pathway_Gap_Closure_Plan.md` track exactly what the platform still owes each pathway (mostly governance sign-off + localisation facts, not code) — read these directly, they are not otherwise summarised in this file
 - Shipped-feature build-plan docs, superseded by the running code and by `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`, kept for historical design rationale only → `docs/archive/`
+- Diaspora growth-pitch reconciliation (gift-a-health-check, standalone video consult, group screening days, instalment payment, screening→chronic conversion, referral commissions) against what's actually shipped, plus the two gaps it found (diaspora gift flow, group screening days) built and verified → `docs/DIASPORA_HEALTH_CHECK_BUSINESS_MODEL_RECONCILIATION.md`. `screen_core`'s dead video-consult trigger branch is vestigial, not a broken promise — its real doctor-review mechanism is the async `annual_health_checks` review pipeline, already live. **`public.purchase_care_voucher` was deliberately stubbed to always fail by the 2026-08-03 self-arranged-fulfilment sweep (an explicit `⚠️ FOUNDER` comment, not an oversight) and stayed that way for 8 days after Synlab's Aug 21 partner-billing switch removed the reason — re-enabled 2026-08-29 with region/priceable guards mirroring the real order-creation path. A reminder this file has made before in other words: a migration file's committed body is not proof of what a live function does — check `pg_get_functiondef` before building on top of an RPC.**
+- Incident-command runbooks (lab outage, pharmacy network disruption, video/Zoom platform failure, major clinical incident, suspected cybersecurity incident) → `docs/runbooks/` — operational, not legal; `docs/legal/breach-notification-runbook.md` remains authoritative for the NDPA-notification process once a suspected incident is confirmed as a reportable personal-data breach
+- Symptom Assessment & Triage Engine — red-flag screening + dynamic questionnaire, governed/signed protocol config, escalation wiring into the existing `emergency_events`/`clinician_alerts` machinery, safety monitoring, scope decisions (which presenting complaints exist, which entry points have a UI, why there's no AI layer), go-live checklist → `docs/SYMPTOM_TRIAGE_ENGINE_SPEC.md` — the gate is real and fail-closed (no UPDATE policy on `triage_protocols`; only the SECURITY DEFINER `sign_triage_protocols`, which demands an active `is_clinical_director`, can set `is_active`) — but **the checker is now LIVE**: v1 was signed and activated 2026-09-04 20:04 UTC. Do not repeat the old claim that it is off; check `triage_protocols` for the current state

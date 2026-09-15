@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
+import { PageHeader } from "@/components/ui/page-header";
 import {
   EscalationSlasManager,
   type EscalationSlaVersionRow,
@@ -23,33 +24,35 @@ export default async function EscalationSlasSettingsPage() {
   }
 
   const supabase = await createClient();
-  const { data: versions } = await supabase
+  const { data: versions, error: versionsError } = await supabase
     .from("escalation_slas")
     .select("id, version, config, notes, is_active, approved_at, created_at")
     .order("version", { ascending: false });
 
-  const versionRows = (versions as EscalationSlaVersionRow[] | null) ?? [];
+  // A swallowed error here was worse than a blank page. It produced an empty
+  // versions list, which made the page say "No active configuration found"
+  // while a live config was driving sla_due_at on every abnormal-result
+  // alert on the platform, and it made nextVersion compute to 1 — inviting a
+  // Clinical Director to draft and sign a "v1" over the SLAs actually in
+  // force. Both claims are only safe off a read we know succeeded, so the
+  // next version number is derived only when there is no error, and is null
+  // otherwise rather than falling back to a number.
+  const loadFailed = versionsError !== null;
+  const versionRows = loadFailed ? [] : ((versions as EscalationSlaVersionRow[] | null) ?? []);
   const activeVersion = versionRows.find((v) => v.is_active) ?? null;
-  const nextVersion = (versionRows[0]?.version ?? 0) + 1;
+  const nextVersion = loadFailed ? null : (versionRows[0]?.version ?? 0) + 1;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Escalation SLAs
-        </h1>
-        <p className="text-charcoal-ink/60">
-          The contact-time commitment every clinician_alert is raised against, by care pathway and
-          urgency tier. This drives sla_due_at on every abnormal-result, red-flag-vitals, emergency,
-          and &quot;silence is not assumed safe&quot; alert on the platform. The numbers change only
-          through a reviewed, tested migration; this page is where a Clinical Director puts a signed
-          record on file confirming the active configuration has been reviewed and approved.
-        </p>
-      </div>
+      <PageHeader
+        title="Escalation SLAs"
+        description='The contact-time commitment every clinician_alert is raised against, by care pathway and urgency tier. This drives sla_due_at on every abnormal-result, red-flag-vitals, emergency, and "silence is not assumed safe" alert on the platform. The numbers change only through a reviewed, tested migration; this page is where a Clinical Director puts a signed record on file confirming the active configuration has been reviewed and approved.'
+      />
       <EscalationSlasManager
         versions={versionRows}
         activeVersion={activeVersion}
         nextVersion={nextVersion}
+        loadFailed={loadFailed}
       />
     </div>
   );

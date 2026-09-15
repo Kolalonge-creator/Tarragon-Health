@@ -1,11 +1,12 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { PageHeader } from "@/components/ui/page-header";
 import { ProviderRestrictionsManager } from "./provider-restrictions-manager";
 
 export default async function ProviderRestrictionsSettingsPage() {
   const profile = await getCurrentProfile();
 
-  // Matches the DB's real authorization boundary (private.is_complaints_handler():
+  // Matches the DB's real authorisation boundary (private.is_complaints_handler():
   // admin or an active Clinical Director) — not the RBAC delegation system, since
   // provider_restrictions' own RLS checks that function directly, not
   // private.has_permission(). A Clinical Director who isn't the super admin still
@@ -16,15 +17,10 @@ export default async function ProviderRestrictionsSettingsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">
-          Provider restrictions
-        </h1>
-        <p className="text-charcoal-ink/60">
-          A staged, reason-coded suspension workflow for clinical staff — separate from (and
-          more complete than) the plain active/inactive toggle on their account.
-        </p>
-      </div>
+      <PageHeader
+        title="Provider restrictions"
+        description="A staged, reason-coded suspension workflow for clinical staff, separate from (and more complete than) the plain active/inactive toggle on their account."
+      />
       <ProviderRestrictionsManager />
     </div>
   );

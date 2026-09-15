@@ -17,6 +17,17 @@ out explicitly — this doc does not license building past those guardrails.**
 Legend: **Built** / **Partial** / **Missing** / **N/A-by-design** (blueprint concept doesn't apply
 because Tarragon deliberately chose a different, equally valid shape).
 
+**Stale warning, added 2026-09-03 — re-verify every row below before trusting it.** On 2026-09-02,
+roughly 70 previously-built feature branches merged into `main-dev` in a single day, closing a large
+fraction of exactly the Missing/Partial gaps this document lists — four days after this snapshot was
+taken. `docs/CLAUDE_SPRINT_HISTORY_ARCHIVE.md`'s 2026-08-31 to 2026-09-03 entry (§7) lists the modules
+that landed that day; several map directly onto rows below (Referral Management Engine + Specialist
+Network foundations, Clinical Rules & Care Protocol Engine reconciliation, Interoperability & API
+Platform, AI Governance dashboard, Predictive Risk & Early Warning Engine, and more). That same entry
+explicitly states the ~65 PRs in that merge were **not** individually re-audited against every
+guardrail — so treat any specific row here as unverified until checked directly, not as either
+confirmed-stale or confirmed-current.
+
 ---
 
 ## 1. Experience Layer & API Architecture
@@ -54,13 +65,15 @@ capability they describe does, just collapsed into the Next.js+Supabase pairing.
 | Named domain events (PatientRegistered, AbnormalResultReceived, etc.) | **Missing** | Zero matches for any of the 10 blueprint event names anywhere in `apps/web/src` or `supabase/`; no message-bus/broker product exists at all |
 | Care Orchestration Engine | **Partial** | One real, fully generalized instance: `supabase/functions/abnormal-result-handler/index.ts` (trigger → draft care plan/referral → alert clinician → force-escalating patient notification). **Not generalized** — the parallel BP/SpO2/temperature red-flag engines only insert alerts, they never draft a care plan or run a review loop |
 | Rules Engine | **Built** | `alert_rules` table (`20260828013011`) is genuinely versioned, jsonb-configured, Clinical-Director-signed, and in **live runtime use** across 15 alert types (`private.alert_rule_config()` called from 3+ migrations). Same governed pattern for `escalation_slas`, `cv_risk_config`, `protocol_versions`. Caveat: alert *severity* itself stays hardcoded in trigger logic by deliberate design ("so the two can never drift") |
-| Workflow Engine (durable, long-running) | **Partial** | One real timeout-driven ladder exists: `private.escalate_unacknowledged_clinician_alerts()` (pg_cron, 3-hop escalation). The referral pipeline (`referral_status` enum, 8 values) is a **status column, not a state machine** — no cron job nudges a stuck referral forward, no wait-for-acceptance/appointment/report chaining |
+| Workflow Engine (durable, long-running) | **Partial, grown since this snapshot** | One real timeout-driven ladder exists: `private.escalate_unacknowledged_clinician_alerts()` (pg_cron, 3-hop escalation). The referral pipeline (`referral_status` enum) has grown from 8 to **10 values** since this row was written (`draft`, `closed` added) via PR #338 "Build Referral Management Engine, recover 20 orphaned migrations" and PR #336 "Specialist Network & Provider Platform foundations," both merged 2026-09-02 — see the archive's 2026-08-28/2026-08-29/2026-09-03 Referral Management Engine entries. |
 
-**⚠️ Direct guardrail collision:** the blueprint's referral example (accept → appointment →
-consultation → report → follow-up) is exactly the "full specialist-matching engine + 8-stage
-referral-status pipeline" that CLAUDE.md's Clinical Tier Ladder section lists as **Phase 2/3 —
-never build functional code for this without an explicit ask**. Do not use this blueprint as
-justification to build it.
+**⚠️ Direct guardrail collision — re-checked, still holding.** The blueprint's referral example
+(accept → appointment → consultation → report → follow-up) is exactly the "full specialist-matching
+engine + 8-stage referral-status pipeline" that CLAUDE.md's Clinical Tier Ladder section lists as
+**Phase 2/3 — never build functional code for this without an explicit ask**. This guardrail was
+explicitly re-checked against PRs #336/#338 above by the sessions doing that work, and confirmed
+still holding — provider listing stays a plain filter, no ranking logic crossed in (see the archive's
+2026-08-31/2026-09-03 catch-up entry, §7). Do not use this blueprint as justification to build past it.
 
 ---
 

@@ -1,11 +1,14 @@
 "use client";
 
-import { useVitalsReadings } from "@/lib/queries/vitals";
+import { useVitalsReadingsPage } from "@/lib/queries/vitals";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { mmolLToMgDl, type Tables } from "@tarragon/shared";
+import { Button } from "@/components/ui/button";
+import { formatGlucose, type GlucoseDisplayUnit, type Tables } from "@tarragon/shared";
+import { useGlucoseUnit } from "@/components/glucose-unit-provider";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { classifyBpLevel, BP_LEVEL_LABEL, type BpLevel } from "@/lib/rules/bp-classification";
 import { classifySpo2Level, SPO2_LEVEL_LABEL, type Spo2Level } from "@/lib/rules/spo2-classification";
+import { classifyPulseLevel, PULSE_LEVEL_LABEL, type PulseLevel } from "@/lib/rules/pulse-classification";
 import {
   classifyTemperatureLevel,
   TEMPERATURE_LEVEL_LABEL,
@@ -13,6 +16,7 @@ import {
 } from "@/lib/rules/temperature-classification";
 import { VITAL_LEVEL_BADGE_CLASSNAME as LEVEL_STYLE } from "@/lib/rules/vital-level-style";
 
+import { formatPatientDateTime } from "@/lib/format-date";
 const BP_LEVEL_STYLE: Record<Exclude<BpLevel, "unknown">, string> = LEVEL_STYLE;
 
 function BpLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
@@ -41,6 +45,40 @@ function Spo2LevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
   );
 }
 
+const PULSE_LEVEL_STYLE: Record<Exclude<PulseLevel, "unknown">, string> = LEVEL_STYLE;
+
+function PulseLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
+  const level = classifyPulseLevel(reading.pulse_bpm);
+  if (level === "unknown") return null;
+  return (
+    <span
+      className={`ml-2 inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${PULSE_LEVEL_STYLE[level]}`}
+    >
+      {PULSE_LEVEL_LABEL[level]}
+    </span>
+  );
+}
+
+/**
+ * 53.9: "distinguish a consumer wearable estimate from a clinically
+ * validated measurement — do not treat every smartwatch reading as a
+ * diagnostic ECG." A synced-from-wearable reading gets the same clinical
+ * classification badges as any other (BpLevelBadge etc. above don't change),
+ * but this makes the provenance visible next to it rather than presenting a
+ * wrist-worn estimate with the same unqualified confidence as a fingerstick
+ * glucose test or a manual BP cuff reading. Manual and BLE clinical-device
+ * (source='device') readings get no badge — those are already the
+ * platform's two most-trusted sources and don't need a qualifier.
+ */
+function SourceBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
+  if (reading.source !== "wearable") return null;
+  return (
+    <span className="ml-2 inline-block rounded-full bg-charcoal-ink/10 dark:bg-night-ink/15 px-2 py-0.5 text-[11px] font-medium text-charcoal-ink/60 dark:text-night-ink/60">
+      Wearable estimate
+    </span>
+  );
+}
+
 const TEMPERATURE_LEVEL_STYLE: Record<Exclude<TemperatureLevel, "unknown">, string> = LEVEL_STYLE;
 
 function TemperatureLevelBadge({ reading }: { reading: Tables<"vitals_readings"> }) {
@@ -55,14 +93,18 @@ function TemperatureLevelBadge({ reading }: { reading: Tables<"vitals_readings">
   );
 }
 
-function formatReading(reading: Tables<"vitals_readings">): string {
+function formatReading(reading: Tables<"vitals_readings">, unit: GlucoseDisplayUnit): string {
   switch (reading.vital_type) {
     case "blood_pressure":
       return `${reading.systolic}/${reading.diastolic} mmHg`;
     case "glucose": {
-      const mmolL = reading.glucose_mmol_l;
-      const mgDl = mmolL === null ? null : mmolLToMgDl(mmolL);
-      return `${mmolL} mmol/L (${mgDl} mg/dL), ${reading.glucose_context ?? "—"}`;
+      // Both units, but the reader's own leads. The secondary stays: a
+      // patient showing this screen to a doctor or pharmacist should not have
+      // to convert for whichever unit that person thinks in.
+      const primary = formatGlucose(reading.glucose_mmol_l, unit);
+      const secondary = formatGlucose(reading.glucose_mmol_l, unit === "mg_dl" ? "mmol_l" : "mg_dl");
+      if (primary === null) return `—, ${reading.glucose_context ?? "—"}`;
+      return `${primary} (${secondary}), ${reading.glucose_context ?? "—"}`;
     }
     case "weight":
       return `${reading.weight_kg} kg`;
@@ -84,31 +126,34 @@ function formatReading(reading: Tables<"vitals_readings">): string {
 }
 
 export function VitalsHistory({ patientId }: { patientId: string }) {
-  const { data, isLoading, isError } = useVitalsReadings(patientId);
+  const glucoseUnit = useGlucoseUnit();
+  const { data, isLoading, isError, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useVitalsReadingsPage(patientId);
+  const readings = data?.pages.flatMap((p) => p.rows) ?? [];
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest" strokeWidth={2} />
+          <SEMANTIC_ICON.bp className="h-5 w-5 text-deep-forest dark:text-brand-green-bright" strokeWidth={2} aria-hidden />
           Recent readings
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+        {isLoading && <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">Loading…</p>}
         {isError && (
-          <p className="text-sm text-red-600">Could not load your readings.</p>
+          <p className="text-sm text-red-600 dark:text-red-300">Could not load your readings.</p>
         )}
-        {data && data.length === 0 && (
-          <p className="text-sm text-charcoal-ink/60">No readings logged yet.</p>
+        {!isLoading && readings.length === 0 && (
+          <p className="text-sm text-charcoal-ink/60 dark:text-night-ink/60">No readings logged yet.</p>
         )}
-        {data && data.length > 0 && (
-          <ul className="divide-y divide-charcoal-ink/10">
-            {data.map((reading) => (
+        {readings.length > 0 && (
+          <ul className="divide-y divide-charcoal-ink/10 dark:divide-night-ink/15">
+            {readings.map((reading) => (
               <li key={reading.id} className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-sm font-medium text-charcoal-ink">
-                    {formatReading(reading)}
+                  <p className="text-sm font-medium text-charcoal-ink dark:text-night-ink">
+                    {formatReading(reading, glucoseUnit)}
                     {reading.vital_type === "blood_pressure" && (
                       <BpLevelBadge reading={reading} />
                     )}
@@ -116,17 +161,32 @@ export function VitalsHistory({ patientId }: { patientId: string }) {
                     {reading.vital_type === "temperature" && (
                       <TemperatureLevelBadge reading={reading} />
                     )}
+                    {reading.vital_type === "pulse" && <PulseLevelBadge reading={reading} />}
+                    <SourceBadge reading={reading} />
                   </p>
                   {reading.note && (
-                    <p className="text-xs text-charcoal-ink/60">{reading.note}</p>
+                    <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">{reading.note}</p>
                   )}
                 </div>
-                <span className="text-xs text-charcoal-ink/60">
-                  {new Date(reading.taken_at).toLocaleString()}
+                <span className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+                  {formatPatientDateTime(reading.taken_at)}
                 </span>
               </li>
             ))}
           </ul>
+        )}
+        {hasNextPage && (
+          <div className="mt-3 flex justify-center">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={isFetchingNextPage}
+              onClick={() => fetchNextPage()}
+            >
+              {isFetchingNextPage ? "Loading…" : "See more"}
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>

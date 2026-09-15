@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Tables } from "@tarragon/shared";
 
 export type MedicationReview = Tables<"medication_reviews">;
+export type MedicationReviewOutcome = NonNullable<MedicationReview["outcome"]>;
 
 export type MedicationReviewWithContext = MedicationReview & {
   patient: { full_name: string | null; patient_number: string | null } | null;
@@ -60,15 +61,27 @@ export function useOrgMedicationReviews() {
  * Complete a review. reviewed_by/completed_at are stamped server-side by
  * private.stamp_medication_review_completion from the caller's clinical_staff
  * row — never sent from here — and completing rolls the next review at cadence.
+ *
+ * outcome (medication safety pathway 64.14 — Continue/Change/Stop/Escalate)
+ * is required: the same trigger rejects the completion outright when it's
+ * null, so there is no server-side default to fall back on here.
  */
 export function useCompleteMedicationReview() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ reviewId, notes }: { reviewId: string; notes: string | null }) => {
+    mutationFn: async ({
+      reviewId,
+      outcome,
+      notes,
+    }: {
+      reviewId: string;
+      outcome: MedicationReviewOutcome;
+      notes: string | null;
+    }) => {
       const supabase = createClient();
       const { error } = await supabase
         .from("medication_reviews")
-        .update({ status: "completed", notes })
+        .update({ status: "completed", outcome, notes })
         .eq("id", reviewId);
       if (error) throw error;
     },

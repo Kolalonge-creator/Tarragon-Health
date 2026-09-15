@@ -6,6 +6,7 @@ import { useCurrentConsentVersions } from "@/lib/queries/consent";
 import { acceptConsents } from "./actions";
 import { Button } from "@/components/ui/button";
 import { parseLegalSections } from "@/lib/legal/parse-sections";
+import { FormError, fieldErrorId, fieldErrorProps } from "@/components/ui/form-error";
 
 /** The full text of each consent type is also published publicly, unauthenticated. */
 const PUBLIC_LEGAL_PATH: Record<string, string> = {
@@ -40,6 +41,7 @@ export function ConsentStep({
 }) {
   const { data: allVersions, isLoading } = useCurrentConsentVersions();
   const [state, formAction, pending] = useActionState(acceptConsents, undefined);
+  const errorId = fieldErrorId("onboarding-consent");
 
   const versions = onlyTypes
     ? allVersions?.filter((v) => onlyTypes.includes(v.consent_type))
@@ -60,7 +62,11 @@ export function ConsentStep({
         </p>
       </div>
 
-      {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
+      {isLoading && (
+        <p role="status" className="text-sm text-charcoal-ink/60">
+          Loading…
+        </p>
+      )}
 
       <div className="space-y-3">
         {versions?.map((version) => {
@@ -109,6 +115,7 @@ export function ConsentStep({
             name="accept"
             className="mt-0.5 h-4 w-4 rounded border-charcoal-ink/30"
             required
+            {...fieldErrorProps(errorId, Boolean(state?.error))}
           />
           {/* The wording has to match what is actually on the page. A
               supporter is shown only the terms of service, so claiming they
@@ -120,9 +127,9 @@ export function ConsentStep({
               : "I have read and agree to how my health information is used, to receive remote care, and to the terms of service."}
           </span>
         </label>
-        {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
+        <FormError id={errorId} message={state?.error} />
         <Button type="submit" disabled={pending || isLoading}>
-          {pending ? "Saving…" : "I agree — continue"}
+          {pending ? "Saving…" : "I agree, continue"}
         </Button>
       </form>
     </div>

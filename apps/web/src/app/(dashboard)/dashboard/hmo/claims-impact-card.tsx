@@ -7,7 +7,7 @@ import { CARE_GAP_ESTIMATE_DISCLAIMER } from "@/lib/care-gaps/estimate-cost-avoi
 
 /**
  * Outcome reporting for renewal conversations (docs/Tarragon_Health_Master_Operating_Plan_v4.md
- * §13 — "outcome reporting"). This is a MODELED estimate, never a real
+ * §13 — "outcome reporting"). This is a MODELLED estimate, never a real
  * claims-integration feed — the disclaimer must always render alongside
  * the figure, never a bare currency amount (CLAUDE.md's no-overclaiming rule).
  */

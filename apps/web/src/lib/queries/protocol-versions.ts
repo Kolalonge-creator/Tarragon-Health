@@ -27,17 +27,17 @@ async function getCallerOrgAndDirector(): Promise<{
     throw new Error("This account has no organisation on file");
   }
 
-  // Only the Clinical Director signs protocols (CLINICAL_TRUST_MODEL_SPEC.md
-  // §1) — the caller's own clinical_staff record, not just any staff login,
-  // must carry the is_clinical_director flag before a new version can be
-  // recorded. That flag is orthogonal to doctor_tier (a Director can sit
-  // at any tier, or none) per docs/Tarragon_Health_Master_Operating_Plan_v4.md §4.
+  // Only the Chief Medical Officer / Clinical Director signs protocols
+  // (CLINICAL_TRUST_MODEL_SPEC.md §1) — the caller's own clinical_staff
+  // record, not just any staff login, must be at the top tier before a new
+  // version can be recorded. Director authority is intrinsic to
+  // chief_medical_officer per docs/Tarragon_Health_Master_Operating_Plan_v4.md §4.
   const { data: director } = await supabase
     .from("clinical_staff")
     .select("id")
     .eq("organisation_id", profile.organisation_id)
     .eq("profile_id", user.id)
-    .eq("is_clinical_director", true)
+    .eq("doctor_tier", "chief_medical_officer")
     .eq("active", true)
     .maybeSingle();
   if (!director) {

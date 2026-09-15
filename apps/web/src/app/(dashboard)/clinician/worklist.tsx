@@ -9,7 +9,6 @@ import {
   useSnoozeAlert,
   useResolveAlert,
   useAlertTrend,
-  severityBucket,
   type AlertResolutionOutcome,
 } from "@/lib/queries/clinician-alerts";
 import { useEscalateAlert } from "@/lib/queries/escalations";
@@ -30,20 +29,8 @@ import type { EscalationLevel } from "@tarragon/shared";
 
 const ESCALATABLE_LEVELS = new Set(["urgent_escalation", "emergency"]);
 
-/** 8.8's inbox wireframe: URGENT / HIGH / ROUTINE bucketed counts, straight off severity (8.2). */
-const SEVERITY_BUCKET_LABEL: Record<ReturnType<typeof severityBucket>, string> = {
-  urgent: "URGENT",
-  high: "HIGH",
-  routine: "ROUTINE",
-};
-const SEVERITY_BUCKET_TINT: Record<ReturnType<typeof severityBucket>, { tintClassName: string; iconClassName: string }> = {
-  urgent: SEVERITY_TILE_TINT.red,
-  high: SEVERITY_TILE_TINT.amber,
-  routine: SEVERITY_TILE_TINT.grey,
-};
-
 const RESOLUTION_OUTCOME_LABEL: Record<AlertResolutionOutcome, string> = {
-  true_positive: "True positive — real concern",
+  true_positive: "True positive (real concern)",
   false_positive: "False positive",
   duplicate: "Duplicate of another alert",
   no_action_needed: "No action needed",
@@ -95,37 +82,14 @@ export function Worklist() {
     {} as Partial<Record<EscalationLevel, number>>
   );
 
-  const countsBySeverityBucket = (data ?? []).reduce(
-    (acc, alert) => {
-      const bucket = severityBucket(alert.severity);
-      acc[bucket] = (acc[bucket] ?? 0) + 1;
-      return acc;
-    },
-    {} as Partial<Record<ReturnType<typeof severityBucket>, number>>
-  );
-
   return (
     <div className="space-y-4">
-      {/* 8.8 inbox summary: URGENT n / HIGH n / ROUTINE n */}
+      {/* One summary row, in the same vocabulary (LEVEL_BADGE) as the badge
+          on every row below it — a doctor scanning "Emergency: 1" up here
+          should see that exact word again on the case, not a differently-
+          bucketed "URGENT" that doesn't appear anywhere else on the page. */}
       {data && data.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
-          {(["urgent", "high", "routine"] as const).map((bucket) => {
-            const tint = SEVERITY_BUCKET_TINT[bucket];
-            return (
-              <StatTile
-                key={bucket}
-                icon={SEMANTIC_ICON.escalation}
-                tintClassName={tint.tintClassName}
-                iconClassName={tint.iconClassName}
-                label={SEVERITY_BUCKET_LABEL[bucket]}
-                value={String(countsBySeverityBucket[bucket] ?? 0)}
-              />
-            );
-          })}
-        </div>
-      )}
-      {data && data.length > 0 && (
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
           {(Object.keys(LEVEL_BADGE) as EscalationLevel[]).map((level) => {
             const badge = LEVEL_BADGE[level];
             const tint = SEVERITY_TILE_TINT[badge.variant ?? "grey"];
@@ -173,7 +137,7 @@ export function Worklist() {
 
               return (
                 <li key={alert.id} className="space-y-3 py-3">
-                  <div className="flex items-center justify-between gap-4">
+                  <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge variant={badge.variant}>{badge.label}</Badge>
@@ -259,8 +223,8 @@ export function Worklist() {
                         </ul>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex gap-2">
+                    <div className="flex flex-col items-start gap-2 md:items-end">
+                      <div className="flex flex-wrap gap-2">
                         <Button
                           size="sm"
                           variant="outline"
@@ -307,7 +271,7 @@ export function Worklist() {
                         </Button>
                       </div>
                       {escalatingId === alert.id && (
-                        <div className="flex w-64 flex-col items-end gap-2">
+                        <div className="flex w-full flex-col items-end gap-2 sm:w-64">
                           <Input
                             placeholder="Reason for escalating"
                             value={reason}
@@ -347,7 +311,7 @@ export function Worklist() {
                         task" have a real UI gate, not just a DB one.
                       */}
                       {snoozingId === alert.id && (
-                        <div className="flex w-64 flex-col items-end gap-2">
+                        <div className="flex w-full flex-col items-end gap-2 sm:w-64">
                           <Input
                             type="date"
                             min={new Date().toISOString().slice(0, 10)}
@@ -394,7 +358,7 @@ export function Worklist() {
                         here is just the friendly pre-flight.
                       */}
                       {resolvingId === alert.id && (
-                        <div className="flex w-72 flex-col items-end gap-2">
+                        <div className="flex w-full flex-col items-end gap-2 sm:w-72">
                           <Textarea
                             className="text-sm"
                             placeholder="Action taken"

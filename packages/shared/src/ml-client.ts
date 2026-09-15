@@ -47,6 +47,19 @@ export interface Score2Response {
   risk_region: Score2RiskRegion;
 }
 
+// --- /risk/heart-age (services/ml/app/schemas/risk.py) ---------------------
+// Same inputs as Score2Request — Heart Age is a risk-age conversion of the
+// same SCORE2 computation, not a separate model.
+
+export type HeartAgeRequest = Score2Request;
+
+export interface HeartAgeResponse {
+  heart_age_years: number;
+  cvd_risk_10yr_percent: number;
+  reference_risk_10yr_percent: number;
+  model: Score2ModelName;
+}
+
 // --- /trajectory/hba1c (services/ml/app/schemas/diabetes.py) ---------------
 
 export type HbA1cTrend = "improving" | "stable" | "worsening" | "insufficient_data";
@@ -314,6 +327,8 @@ export interface MlClient {
 
   /** `POST /risk/cvd` — SCORE2/SCORE2-OP 10-year CVD risk. */
   cvdRisk(body: Score2Request): Promise<Score2Response | null>;
+  /** `POST /risk/heart-age` — SCORE2 risk-age conversion ("Heart Age"). */
+  heartAge(body: HeartAgeRequest): Promise<HeartAgeResponse | null>;
   /** `POST /trajectory/hba1c` — HbA1c trend/trajectory + estimated average glucose. */
   hba1cTrajectory(body: HbA1cTrajectoryRequest): Promise<HbA1cTrajectoryResponse | null>;
   /** `POST /assess/bp-control` — blood-pressure control rate over a trailing window. */
@@ -394,6 +409,9 @@ export function createMlClient(config: MlClientConfig): MlClient {
     },
     cvdRisk(body) {
       return safeRequest<Score2Response>(config, "POST", "/risk/cvd", body);
+    },
+    heartAge(body) {
+      return safeRequest<HeartAgeResponse>(config, "POST", "/risk/heart-age", body);
     },
     hba1cTrajectory(body) {
       return safeRequest<HbA1cTrajectoryResponse>(config, "POST", "/trajectory/hba1c", body);

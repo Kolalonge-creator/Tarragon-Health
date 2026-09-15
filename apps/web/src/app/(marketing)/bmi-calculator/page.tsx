@@ -6,6 +6,7 @@ import { CtaBand } from "../_components/cta-band";
 import { EmergencyNotice } from "../_components/emergency-notice";
 import { ResourceCarousel } from "../_components/resource-carousel";
 import { loadResourceArticles } from "@/lib/marketing/resources-data";
+import { fetchServicePriceOverrides } from "@/lib/marketing/plan-prices";
 import { MARKETING_ROUTES } from "@/lib/marketing/routes";
 import { pageMetadata } from "@/lib/marketing/site";
 
@@ -14,14 +15,14 @@ export const revalidate = 300;
 export const metadata: Metadata = pageMetadata({
   title: "BMI & Calorie Calculator",
   description:
-    "Free BMI calculator and daily calorie estimate. See your body mass index range and an estimated calorie target for maintaining, losing, or gaining weight, no sign-up required.",
+    "Free BMI calculator and daily calorie estimate. See your body mass index range and a calorie target for maintaining, losing or gaining weight, no sign-up.",
   path: MARKETING_ROUTES.bmiCalculator,
 });
 
 const FAQS = [
   {
     q: "How is BMI calculated?",
-    a: "Body Mass Index is your weight in kilograms divided by your height in metres, squared (kg/m²). It's a quick screening tool, not a full body-composition measurement, so it's read alongside things like waist size and how you actually feel, not on its own.",
+    a: "Body Mass Index is your weight in kilograms divided by your height in metres, squared (kg/m²). It's a quick screening tool, not a full body-composition measurement, so it's read alongside waist size and how you actually feel, not on its own.",
   },
   {
     q: "How is the calorie estimate worked out?",
@@ -38,7 +39,10 @@ const FAQS = [
 ];
 
 export default async function BmiCalculatorPage() {
-  const articles = await loadResourceArticles();
+  const [articles, priceOverrides] = await Promise.all([
+    loadResourceArticles(),
+    fetchServicePriceOverrides(),
+  ]);
   const weightArticles = articles.filter((a) => a.category === "Weight");
 
   return (
@@ -50,7 +54,7 @@ export default async function BmiCalculatorPage() {
           title="BMI & Calorie Calculator"
           description="A quick, honest starting point: your body mass index range and an estimated daily calorie target. No account, no email required."
         />
-        <BmiCalorieCalculator />
+        <BmiCalorieCalculator priceOverrides={priceOverrides} />
       </Section>
 
       <Section variant="sage">
@@ -81,7 +85,7 @@ export default async function BmiCalculatorPage() {
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
               Our{" "}
-              <Link href={MARKETING_ROUTES.prevention} className="font-medium text-deep-forest hover:underline">
+              <Link href={MARKETING_ROUTES.prevention} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Prevention programme
               </Link>{" "}
               builds a screening and vaccination calendar around you, so small things get caught
@@ -94,17 +98,17 @@ export default async function BmiCalculatorPage() {
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-charcoal-ink/70">
               Our{" "}
-              <Link href={MARKETING_ROUTES.obesity} className="font-medium text-deep-forest hover:underline">
+              <Link href={MARKETING_ROUTES.obesity} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
                 Weight Health programme
               </Link>{" "}
               is lifestyle-first support, not judgment: a doctor reviews your progress and adjusts
-              medication and lifestyle guidance if it&apos;s needed, built around you.
+              medication or guidance as needed.
             </p>
           </div>
         </div>
         <p className="mx-auto mt-6 max-w-3xl text-center text-sm text-charcoal-ink/70">
           Curious how active you are day to day too? Try the{" "}
-          <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-deep-forest hover:underline">
+          <Link href={MARKETING_ROUTES.activityCalculator} className="font-medium text-brand-green underline decoration-brand-green/40 underline-offset-2 hover:decoration-brand-green">
             physical activity intensity calculator
           </Link>
           .

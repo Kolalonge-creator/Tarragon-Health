@@ -14,16 +14,22 @@ const FOOTER_LINKS = {
   programmes: [
     { href: MARKETING_ROUTES.prevention, label: "Preventive Health" },
     { href: MARKETING_ROUTES.annualHealthCheck, label: "Annual Health Check" },
+    { href: MARKETING_ROUTES.advancedDiagnostics, label: "Advanced Diagnostics" },
     { href: MARKETING_ROUTES.screeningJourney, label: "Screening Journey" },
     { href: MARKETING_ROUTES.vaccinations, label: "Vaccinations" },
     { href: MARKETING_ROUTES.healthEducation, label: "Health Education" },
     { href: MARKETING_ROUTES.mentalWellbeingCheck, label: "Mental Well-being Check" },
+    { href: MARKETING_ROUTES.symptomChecker, label: "Symptom Checker" },
     { href: MARKETING_ROUTES.parentcare, label: "Caring for a parent" },
   ],
   conditions: [
     { href: MARKETING_ROUTES.hypertension, label: "Hypertension" },
     { href: MARKETING_ROUTES.diabetes, label: "Diabetes" },
     { href: MARKETING_ROUTES.obesity, label: "Weight Health" },
+    { href: MARKETING_ROUTES.weightManagement, label: "Supervised weight management" },
+    { href: MARKETING_ROUTES.monitoring, label: "Continuous monitoring" },
+    { href: MARKETING_ROUTES.resultInterpretation, label: "Understand your lab results" },
+    { href: MARKETING_ROUTES.therapy, label: "Talk to someone" },
     { href: MARKETING_ROUTES.medication, label: "Medication" },
     { href: MARKETING_ROUTES.labs, label: "Labs" },
     { href: MARKETING_ROUTES.bmiCalculator, label: "BMI & Calorie Calculator" },
@@ -33,7 +39,7 @@ const FOOTER_LINKS = {
     { href: MARKETING_ROUTES.pricing, label: "Pricing" },
     { href: MARKETING_ROUTES.gift, label: "Gift Tarragon" },
     { href: MARKETING_ROUTES.whoItsFor, label: "Who it's for" },
-    { href: MARKETING_ROUTES.forYou, label: "For you" },
+    { href: MARKETING_ROUTES.forYou, label: "For individuals" },
     { href: MARKETING_ROUTES.about, label: "About" },
     { href: MARKETING_ROUTES.careers, label: "Careers" },
     { href: MARKETING_ROUTES.resources, label: "Resources" },
@@ -117,26 +123,7 @@ function SocialLinks() {
   );
 }
 
-function FooterLink({
-  href,
-  label,
-  soon,
-}: {
-  href: string;
-  label: string;
-  soon?: boolean;
-}) {
-  if (soon) {
-    return (
-      <span className="inline-flex items-center gap-2 text-sm text-white/45">
-        {label}
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[10px] uppercase tracking-wide">
-          soon
-        </span>
-      </span>
-    );
-  }
-
+function FooterLink({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
@@ -152,13 +139,17 @@ function FooterGroup({
   links,
 }: {
   title: string;
-  links: { href: string; label: string; soon?: boolean }[];
+  links: { href: string; label: string }[];
 }) {
   return (
     <div>
-      <h2 className="font-heading text-sm font-semibold uppercase tracking-wide text-white/90">
+      {/* h3, under the footer's own visually-hidden h2. These were five <h2>s
+          per page, so every page's heading outline ended with "Care",
+          "Programmes", "Conditions", "Company", "Business" at the same level
+          as its real section headings. */}
+      <h3 className="font-heading text-sm font-semibold uppercase tracking-wide text-white/90">
         {title}
-      </h2>
+      </h3>
       <ul className="mt-4 space-y-2.5">
         {links.map((link) => (
           <li key={link.label}>
@@ -173,6 +164,7 @@ function FooterGroup({
 export function MarketingFooter() {
   return (
     <footer className="border-t border-charcoal-ink/10 bg-clinical-navy text-white">
+      <h2 className="sr-only">Site footer</h2>
       <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_1fr_1fr_1fr_1fr_1fr]">
         <div className="space-y-5">
           <BrandLockup tone="on-navy" markClassName="h-10 w-10" wordmarkClassName="text-xl" />

@@ -23,7 +23,7 @@ as $$
   where id = (select auth.uid());
 $$;
 
-revoke all on function public.touch_last_active() from public;
+revoke all on function public.touch_last_active() from public, anon;
 revoke all on function public.touch_last_active() from anon;
 grant execute on function public.touch_last_active() to authenticated;
 

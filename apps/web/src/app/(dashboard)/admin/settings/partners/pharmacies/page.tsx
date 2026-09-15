@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { hasPermission } from "@/lib/auth/permissions";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { PageHeader } from "@/components/ui/page-header";
+import { LoadFailure } from "@/components/ui/load-failure";
 import { PharmaciesManager } from "./pharmacies-manager";
 import type { PharmacistLoginRow } from "@/lib/queries/partner-catalogues";
 
@@ -14,7 +16,7 @@ export default async function PharmaciesPartnersPage() {
   // as the lab_partner login list on the Labs page, now that
   // admin_link_pharmacist gives an admin somewhere to actually link one.
   const svc = createServiceRoleClient();
-  const { data: pharmacistProfiles } = await svc
+  const { data: pharmacistProfiles, error: pharmacistProfilesError } = await svc
     .from("profiles")
     .select("id, full_name, pharmacy_partner_id, is_partner_admin")
     .eq("role", "pharmacist")
@@ -41,13 +43,21 @@ export default async function PharmaciesPartnersPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="font-heading text-2xl font-semibold text-charcoal-ink">Pharmacies</h1>
-        <p className="text-charcoal-ink/60">
-          Add and manage partner pharmacies, link a partner login, and designate a partner admin.
-        </p>
-      </div>
-      <PharmaciesManager pharmacistLogins={pharmacistLogins} />
+      <PageHeader
+        title="Pharmacies"
+        description="Add and manage partner pharmacies, link a partner login, and designate a partner admin."
+      />
+      {/* The partner-login list feeding this Manager is what an admin checks
+          before provisioning a new one. Read as empty on failure, it invites a
+          duplicate login for a partner who already has one. */}
+      {pharmacistProfilesError ? (
+        <LoadFailure>
+          The pharmacist logins could not be loaded. This is not a report that none exist. Reload
+          before creating or linking a login here.
+        </LoadFailure>
+      ) : (
+        <PharmaciesManager pharmacistLogins={pharmacistLogins} />
+      )}
     </div>
   );
 }

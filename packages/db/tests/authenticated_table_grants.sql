@@ -47,8 +47,15 @@ from (
      and p.cmd in ('ALL', x.action)
      and not has_table_privilege('authenticated','public.'||quote_ident(c.relname), x.action)
      and not exists (
+       -- Column-level privileges exist for SELECT/INSERT/UPDATE only; asking
+       -- has_column_privilege for DELETE raises 22023 "unrecognized privilege
+       -- type" and aborts the whole file, which is why this check had never
+       -- once run to completion. For DELETE the table-level test above is the
+       -- only possible answer, and a DELETE policy with no DELETE grant is a
+       -- policy governing nothing -- exactly the bug class this file guards.
        select 1 from information_schema.columns col
-        where col.table_schema = 'public' and col.table_name = c.relname
+        where x.action <> 'DELETE'
+          and col.table_schema = 'public' and col.table_name = c.relname
           and has_column_privilege('authenticated', 'public.'||quote_ident(c.relname), col.column_name, x.action)
      )
    group by c.relname, x.action

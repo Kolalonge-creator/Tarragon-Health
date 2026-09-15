@@ -11,6 +11,8 @@ import { hintsFromConfirmedRows, mergeHints, type TemplateHints } from "./corpus
 import { isReadableDocumentType, normaliseForVision } from "./heic";
 import { worstStatusOf, type PatientContext } from "./reference-ranges";
 import { confirmLabReportExtractionSchema } from "@/lib/validation/lab-report-extraction";
+import { AI_SYSTEMS, decideAiGovernance, recordAiInteraction } from "@/lib/ai-governance";
+import { deriveAiSummaryStatus } from "./ai-summary";
 
 export type ExtractionActionResult = { error?: string; success?: boolean; message?: string };
 
@@ -107,6 +109,25 @@ export async function runLabReportExtraction(
     } catch (error) {
       console.error("lab-reports: could not persist failure", error);
     }
+    // -- Patient-facing AI summary status -------------------------------------
+    // Every failure path above routes through here, so this covers all of them
+    // uniformly rather than duplicating the update at each early return.
+    // Deliberately separate from the escalation bridge below: never reads
+    // worstStatusOf/reference-ranges.ts, never touches clinician_alerts, and
+    // stores no analyte names or values — only a status the patient sees
+    // immediately on their own upload, independent of any doctor review.
+    try {
+      await service
+        .from("lab_result_documents")
+        .update({
+          ai_summary_status: "unavailable",
+          ai_summary_generated_at: new Date().toISOString(),
+        })
+        .eq("id", documentId);
+    } catch (error) {
+      // Never let this block the failure record from persisting.
+      console.error("lab-reports: could not persist AI summary status", error);
+    }
     return { status: "failed" as const, readyCount: 0, message };
   };
 
@@ -154,6 +175,35 @@ export async function runLabReportExtraction(
     return fail("Could not open the stored report file.", "Download failed.");
   }
 
+  // -- AI-005 governance gate -----------------------------------------------
+  // Checked here rather than through runGovernedAi() because this function's
+  // control flow (a first pass, a corpus lookup, a conditional hinted retry)
+  // does not fit the wrapper's run/fallback shape. The two guarantees are the
+  // same: the kill switch is honoured before the model is reached, and every
+  // outcome reaches ai_interaction_log. The fallback is the one this function
+  // already had for every other failure -- the draft does not appear and the
+  // manual entry form stands, which is AI-005's recorded fallback_behaviour.
+  const governance = await decideAiGovernance(service, AI_SYSTEMS.labReportExtraction.code);
+  if (!governance.allow) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.labReportExtraction.code,
+      modelIdentifier: "none:fallback",
+      inputCategory: "lab_report_document",
+      status: "fallback",
+      subjectProfileId: patientId,
+      fallbackReason: governance.message,
+      resultingAction: "manual_entry_required",
+      resultingEntityType: "lab_report_documents",
+      resultingEntityId: documentId,
+    });
+    return fail(
+      "Automatic reading is switched off just now. Enter the results by hand.",
+      `AI governance: ${governance.reason}`,
+    );
+  }
+
+  const startedAt = Date.now();
+
   // -- First pass, with no learned hints ------------------------------------
   // A laboratory we have never seen is the common case early on, and it must
   // stay the well-tested path. Hints only enter on the retry below.
@@ -164,6 +214,18 @@ export async function runLabReportExtraction(
   });
 
   if (!result.ok) {
+    await recordAiInteraction(service, {
+      systemCode: AI_SYSTEMS.labReportExtraction.code,
+      modelIdentifier: EXTRACTION_MODEL_ID,
+      inputCategory: "lab_report_document",
+      status: "failed",
+      subjectProfileId: patientId,
+      errorMessage: `Extraction failed: ${result.reason}`,
+      latencyMs: Date.now() - startedAt,
+      resultingAction: "manual_entry_required",
+      resultingEntityType: "lab_report_documents",
+      resultingEntityId: documentId,
+    });
     return fail(
       result.reason === "unsupported_type"
         ? "This file type cannot be read automatically. Enter the results by hand."
@@ -273,6 +335,43 @@ export async function runLabReportExtraction(
   if (upsertError) {
     return fail("Could not save the draft.", upsertError.message);
   }
+
+  // -- Patient-facing AI summary status ---------------------------------------
+  // Deliberately separate from the escalation bridge below: this never reads
+  // worstStatusOf/reference-ranges.ts, never touches clinician_alerts, and
+  // stores no analyte names or values — only a status the patient sees
+  // immediately on their own upload, independent of any doctor review.
+  try {
+    await service
+      .from("lab_result_documents")
+      .update({
+        ai_summary_status: deriveAiSummaryStatus(rows),
+        ai_summary_generated_at: new Date().toISOString(),
+      })
+      .eq("id", documentId);
+  } catch (error) {
+    // Never let this block the draft reaching a doctor either.
+    console.error("lab-reports: could not persist AI summary status", error);
+  }
+
+  // 40.11. The output summary is counts and provenance, never the analyte
+  // values themselves -- those live in lab_report_extractions under the
+  // patient's own RLS, and a second copy in a staff-readable governance table
+  // would widen PHI exposure for no governance benefit.
+  await recordAiInteraction(service, {
+    systemCode: AI_SYSTEMS.labReportExtraction.code,
+    modelIdentifier: EXTRACTION_MODEL_ID,
+    inputCategory: "lab_report_document",
+    status: "completed",
+    subjectProfileId: patientId,
+    outputSummary: `${rows.length} row(s) read, ${readyCount} ready for confirmation${
+      extraction.labName ? `, lab: ${extraction.labName}` : ""
+    }${extraction.unreadableReason ? `, unreadable: ${extraction.unreadableReason}` : ""}`,
+    latencyMs: Date.now() - startedAt,
+    resultingAction: "draft_awaiting_clinician_confirmation",
+    resultingEntityType: "lab_report_documents",
+    resultingEntityId: documentId,
+  });
 
   // -- Escalation bridge -----------------------------------------------------
   // A critical-looking DRAFT raises the priority of the review alert that

@@ -79,7 +79,7 @@ create event trigger rls_auto_enable_trigger
 -- through in this project (confirmed repeatedly — 20260724020855,
 -- 20260724163357, 20260727004156/20260729234532) — a bare `revoke ... from
 -- anon` alone is a no-op when anon never held a direct grant.
-revoke execute on function public.rls_auto_enable() from public;
+revoke execute on function public.rls_auto_enable() from public, anon;
 revoke execute on function public.rls_auto_enable() from anon;
 
 do $$
