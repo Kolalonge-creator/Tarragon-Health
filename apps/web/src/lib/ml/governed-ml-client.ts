@@ -102,6 +102,7 @@ export function createGovernedMlClient(
     health: () => inner.health(),
     post: (path, body) => governed(`post ${path}`, () => inner.post(path, body)),
     cvdRisk: (body) => governed("cvdRisk", () => inner.cvdRisk(body)),
+    heartAge: (body) => governed("heartAge", () => inner.heartAge(body)),
     hba1cTrajectory: (body) => governed("hba1cTrajectory", () => inner.hba1cTrajectory(body)),
     bpControl: (body) => governed("bpControl", () => inner.bpControl(body)),
     interpretLabs: (body) => governed("interpretLabs", () => inner.interpretLabs(body)),

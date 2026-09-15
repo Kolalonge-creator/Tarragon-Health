@@ -61,6 +61,58 @@ async def test_cvd_risk_rejects_age_below_40(client: AsyncClient) -> None:
     assert resp.status_code == 422
 
 
+async def test_heart_age_requires_service_key(client: AsyncClient) -> None:
+    resp = await client.post(
+        "/risk/heart-age",
+        json={
+            "age": 55,
+            "sex": "male",
+            "is_smoker": False,
+            "systolic_bp": 130,
+            "total_cholesterol_mg_dl": 190,
+            "hdl_cholesterol_mg_dl": 50,
+        },
+    )
+    assert resp.status_code == 401
+
+
+async def test_heart_age_happy_path(client: AsyncClient) -> None:
+    resp = await client.post(
+        "/risk/heart-age",
+        headers=AUTH,
+        json={
+            "age": 55,
+            "sex": "male",
+            "is_smoker": True,
+            "systolic_bp": 170,
+            "total_cholesterol_mg_dl": 260,
+            "hdl_cholesterol_mg_dl": 35,
+            "risk_region": "very_high",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert 40 <= body["heart_age_years"] <= 89
+    assert body["cvd_risk_10yr_percent"] > 0
+    assert body["model"] == "SCORE2"
+
+
+async def test_heart_age_rejects_age_below_40(client: AsyncClient) -> None:
+    resp = await client.post(
+        "/risk/heart-age",
+        headers=AUTH,
+        json={
+            "age": 39,
+            "sex": "male",
+            "is_smoker": False,
+            "systolic_bp": 130,
+            "total_cholesterol_mg_dl": 190,
+            "hdl_cholesterol_mg_dl": 50,
+        },
+    )
+    assert resp.status_code == 422
+
+
 async def test_hba1c_trajectory_happy_path(client: AsyncClient) -> None:
     resp = await client.post(
         "/trajectory/hba1c",

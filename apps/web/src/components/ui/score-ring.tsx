@@ -1,6 +1,6 @@
 /**
  * A circular meter for a 0-100 score, shared by every card that visualises one
- * (HealthScoreCard, BiologicalAgeCard) so the ring math and theming live in one
+ * (HealthScoreCard, HeartAgeCard) so the ring math and theming live in one
  * place instead of being copy-pasted per card. Same dataviz convention as any
  * other meter in this app: "the fill carries severity, the unfilled track is a
  * lighter step of the same ramp."

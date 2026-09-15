@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { ageFromDateOfBirth } from "@/lib/rules/biological-age";
+import { ageFromDateOfBirth } from "@tarragon/shared";
 
 /**
  * The patient's chronological age, derived from profiles.date_of_birth.

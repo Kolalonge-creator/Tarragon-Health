@@ -35,7 +35,7 @@ const RISK_LEVEL_BADGE: Record<HealthScoreRiskLevel, { variant: "green" | "amber
  * smaller visual of the same score — a compact ring rather than another giant number,
  * so the two don't read as duplicate hero moments on one page. The full trend line
  * chart lives one tap away on /patient/health-score (health-score-trend-client.tsx),
- * matching the same two-tier pattern biological-age-card.tsx already uses for its own
+ * matching the same two-tier pattern heart-age-card.tsx already uses for its own
  * ring-card -> full-graph-page split. Uses the shared ScoreRing component and
  * RISK_LEVEL_RING tokens so both cards render as one visual system.
  */

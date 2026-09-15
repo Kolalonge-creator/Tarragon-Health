@@ -445,15 +445,16 @@ async function maybeComputeCvdRisk(
   if (!latestBp?.systolic || !smokingResponse) return;
 
   const isSmoker = smokingResponse.response === "current";
-
-  const risk = await mlClient.cvdRisk({
+  const scoreInputs = {
     age: params.age,
     sex: params.sex,
     is_smoker: isSmoker,
     systolic_bp: latestBp.systolic,
     total_cholesterol_mg_dl: totalCholesterol,
     hdl_cholesterol_mg_dl: hdlCholesterol,
-  });
+  };
+
+  const risk = await mlClient.cvdRisk(scoreInputs);
   if (!risk) return;
 
   // patient_risk_scores is staff-only-write by RLS — system computation,
@@ -469,6 +470,31 @@ async function maybeComputeCvdRisk(
       model_version: risk.model,
       inputs: risk as unknown as Json,
     });
+
+  // Heart Age (apps/web/src/lib/rules/heart-age's replacement for the old
+  // Biological Age card — see docs on that feature) is a risk-age
+  // conversion of this SAME SCORE2 computation, not a separate model, so it
+  // reuses these exact inputs — never a different risk_region than the
+  // cvd_10yr score just written above, or the two numbers shown to the
+  // patient/clinician would silently disagree. Best-effort like cvd_10yr:
+  // a null result (governance-disabled, ML unreachable, or the patient
+  // falling outside SCORE2's 40-89 range — the request just 422s and
+  // safeRequest degrades that to null) simply means no heart_age row this
+  // time, never a blocked result.
+  const heartAge = await mlClient.heartAge(scoreInputs);
+  if (heartAge) {
+    await createServiceRoleClient()
+      .from("patient_risk_scores")
+      .insert({
+        organisation_id: params.organisationId,
+        patient_id: params.patientId,
+        score_type: "heart_age",
+        score: heartAge.heart_age_years,
+        risk_level: risk.risk_level,
+        model_version: heartAge.model,
+        inputs: heartAge as unknown as Json,
+      });
+  }
 }
 
 async function maybeComputeHba1cTrajectory(
