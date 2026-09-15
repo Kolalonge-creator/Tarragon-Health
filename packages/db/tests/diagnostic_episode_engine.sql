@@ -56,6 +56,21 @@ begin
   select id into v_pat from public.profiles where role = 'patient' and organisation_id = v_org limit 1;
   select id into v_clin_profile from public.profiles where role = 'clinician' and organisation_id = v_org limit 1;
 
+  -- A fresh CI reset's seed carries a patient for this org but no clinician
+  -- (confirmed live: v_clin_profile came back null on a genuine `supabase db
+  -- reset` replay, even though the live project always has one, which is why
+  -- this went unnoticed until the proof was actually registered and run
+  -- against a truly fresh stack). Mint one rather than assume the seed
+  -- provides it, matching the auth.users-then-profiles idiom
+  -- analytics_console_rpc_authorization_gate.sql already establishes for
+  -- exactly this situation -- profiles.id has a real FK to auth.users.
+  if v_clin_profile is null then
+    v_clin_profile := gen_random_uuid();
+    insert into auth.users (id, email) values (v_clin_profile, 'diagnostic.episode.test.clinician@example.com');
+    insert into public.profiles (id, organisation_id, role, full_name)
+      values (v_clin_profile, v_org, 'clinician', 'Diagnostic Episode Test Clinician');
+  end if;
+
   select id into v_clin_staff_id from public.clinical_staff where profile_id = v_clin_profile;
   if v_clin_staff_id is null then
     insert into public.clinical_staff
@@ -129,10 +144,6 @@ begin
   -- requiring a clinical-tier session) fails with a permission error
   -- instead of exercising the referral-linkage logic this case exists to test.
   perform set_config('request.jwt.claims', json_build_object('sub', v_clin_profile)::text, true);
-
-  raise notice 'DEBUG case3: auth.uid()=% v_clin_profile=% v_org=% is_clinical_tier=% staff_row=%',
-    auth.uid(), v_clin_profile, v_org, private.is_clinical_tier(v_org),
-    (select row(id, profile_id, organisation_id, doctor_tier, active) from public.clinical_staff where id = v_clin_staff_id);
 
   insert into public.specialist_referrals
     (organisation_id, patient_id, screening_upgrade_id, specialist_type, referral_reason)
