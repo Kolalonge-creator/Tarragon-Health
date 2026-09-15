@@ -20,9 +20,11 @@ import {
   approveAiSystemVersionAction,
   labelAiEvaluationCaseTierAction,
   resolveAiIncidentAction,
+  runAiEvalSuitesAction,
   setAiSystemEnabledAction,
   triageAiIncidentAction,
   type AiGovernanceActionState,
+  type RunEvalSuitesState,
 } from "./actions";
 
 const COACH_TIER_OPTIONS = [
@@ -243,6 +245,50 @@ function VersionApprovalForm({ versionId }: { versionId: string }) {
         {pending ? "Approving…" : "Approve version"}
       </Button>
       <ActionFeedback state={state} />
+    </form>
+  );
+}
+
+/**
+ * Runs AI-001's four governance suites for real (real model calls, roughly
+ * 1-3 minutes) and records the result -- this is the missing piece that
+ * previously meant only an engineer running a local script, then writing a
+ * migration by hand, could ever get a version's release gate closer to
+ * satisfied. Deliberately does not itself approve anything; it only
+ * measures and records, same as clicking a test-runner button records a
+ * test result. Real Anthropic API usage -- each click costs real money and
+ * needs ANTHROPIC_API_KEY configured with a positive credit balance in this
+ * environment, or every suite will fail immediately with a billing error.
+ */
+function RunEvalSuitesForm() {
+  const [state, action, pending] = useActionState<RunEvalSuitesState, FormData>(
+    runAiEvalSuitesAction,
+    undefined
+  );
+
+  return (
+    <form action={action} className="min-w-[20rem] flex-1 space-y-2">
+      <Button type="submit" size="sm" variant="outline" disabled={pending}>
+        {pending ? "Running evaluations… this takes a few minutes" : "Run evaluations"}
+      </Button>
+      <p className="text-xs text-charcoal-ink/50">
+        Makes real model calls against the four suites below and records the result. Does not
+        approve anything by itself.
+      </p>
+      {state && "error" in state && <p className="text-sm text-red-600">{state.error}</p>}
+      {state && "results" in state && (
+        <div className="space-y-1 rounded-lg border border-charcoal-ink/10 bg-white p-2 text-sm">
+          {state.results.map((r) => (
+            <p key={r.suite_name} className={r.outcome === "pass" ? "text-brand-green" : "text-red-600"}>
+              {r.outcome === "pass" ? "PASS" : "FAIL"} {r.suite_name}: {r.passed_cases}/{r.total_cases}{" "}
+              (threshold {r.pass_threshold_pct}%)
+            </p>
+          ))}
+          {state.recordError && (
+            <p className="whitespace-pre-wrap text-red-600">{state.recordError}</p>
+          )}
+        </div>
+      )}
     </form>
   );
 }
@@ -738,6 +784,7 @@ export function AiGovernanceConsole({
 
                   <div className="flex flex-wrap items-start gap-4">
                     {row && <KillSwitchForm system={row} enabled={entry.is_enabled} />}
+                    {entry.system_code === "AI-001" && <RunEvalSuitesForm />}
                     {draftPrompt && !activePrompt && (
                       <div className="min-w-[20rem] flex-1">
                         <p className="text-sm text-charcoal-ink/70">

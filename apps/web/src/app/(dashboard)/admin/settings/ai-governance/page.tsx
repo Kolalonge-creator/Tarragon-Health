@@ -1,4 +1,16 @@
 import { redirect } from "next/navigation";
+
+/**
+ * The "Run evaluations" button's server action (runAiEvalSuitesAction in
+ * actions.ts) makes ~14 sequential real Anthropic calls -- comfortably past
+ * the platform's default serverless timeout. This is the documented Next.js
+ * route segment config for extending it; a Vercel Hobby project may still
+ * cut a run short before this if Fluid Compute isn't active, which is why
+ * that action records each suite's result as soon as it completes rather
+ * than batching everything until the end -- a cut-short run still leaves an
+ * honest partial result, and the button can simply be clicked again.
+ */
+export const maxDuration = 300;
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { getCallerPermissions } from "@/lib/auth/permissions";
 import { createClient } from "@/lib/supabase/server";
