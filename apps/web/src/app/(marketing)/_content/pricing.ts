@@ -315,6 +315,15 @@ export const PAID_SERVICES: PaidService[] = [
     availability: "One-off. No programme needed.",
   },
   {
+    id: "confidential-message",
+    code: "confidential_message_credit",
+    name: "Confidential Doctor Message",
+    price: "₦2,500",
+    description:
+      "Opens a private message thread with your care team for a clinical question, whatever it is, including sexual or reproductive health. Nobody else linked to your account sees it, and a doctor replies in the thread.",
+    availability: "One-off. No programme needed.",
+  },
+  {
     id: "prescription-renewal",
     code: "prescription_renewal_credit",
     name: "Prescription Renewal Review",
@@ -336,7 +345,7 @@ export const PAID_SERVICES: PaidService[] = [
     id: "second-opinion",
     code: "second_opinion_credit",
     name: "Second Opinion Review",
-    price: "₦10,000",
+    price: "₦12,000",
     description:
       "A senior doctor reviews an existing result or diagnosis and writes back their own assessment. No visit needed.",
     availability: "One-off. No programme needed.",
@@ -357,6 +366,15 @@ export const PAID_SERVICES: PaidService[] = [
     price: "₦25,000",
     description:
       "A senior doctor coordinates your case across every condition you are managing and delivers a single written plan in the app.",
+    availability: "One-off. No programme needed.",
+  },
+  {
+    id: "verified-document",
+    code: "verified_document_fit_to_work",
+    name: "Doctor-Signed Documents",
+    price: "₦7,500",
+    description:
+      "A verified document signed by a doctor: a fitness-to-work letter, a return-to-work letter, a travel health certificate, a school health form, a medication carry letter, an insurance medical summary, or a specialist referral letter. Priced by type, from this.",
     availability: "One-off. No programme needed.",
   },
   {
@@ -558,7 +576,17 @@ export type ResolvedServicePrices = Record<string, string>;
  * unreachable while every code passed below exists in PAID_SERVICES —
  * kept only so a future typo degrades to a missing price, not a crash. */
 export function servicePrice(code: string, overrides?: ResolvedServicePrices): string {
-  return overrides?.[code] ?? PAID_SERVICES.find((s) => s.code === code)?.price ?? "";
+  return (
+    overrides?.[code] ??
+    PAID_SERVICES.find((s) => s.code === code)?.price ??
+    // Weight Management's terms live on their own export, not PAID_SERVICES
+    // (see that block's own comment for why), so a code like
+    // "weight_management_3m" falls through to here. Found while fixing the
+    // FAQ sentence below: this code was never in PAID_SERVICES, so it always
+    // resolved to "" and the live sentence read "...from for three months."
+    WEIGHT_MANAGEMENT.terms.find((t) => t.code === code)?.price ??
+    ""
+  );
 }
 
 /**
@@ -579,7 +607,7 @@ export function getPricingFaq(
   },
   {
     question: "What exactly do I pay for, then?",
-    answer: `A doctor's time, priced per piece of work, plus a standing watch on your readings. One-off: a written question to a doctor (${p("async_consult_credit")}), having any laboratory result read and explained in writing (${p("written_result_interpretation")}), a chronic care review (${p("chronic_care_review_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a medication review (${p("medication_review_credit")}), a result consultation over video (${p("result_interpretation_credit")}), or a senior case review (${p("senior_case_review_credit")}). Ongoing: Continuous Monitoring from ${p("continuous_monitoring_3m")} for three months, where a dangerous reading reaches a doctor instead of sitting on your record, and Supervised Weight Management from ${p("weight_management_3m")} for three months. We also issue doctor-signed documents, priced by type from ${p("verified_document_fit_to_work")}. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (${p("ai_coach_daily_pass_30d")}), which raises the free AI Health Coach's daily message limit for 30 days.`,
+    answer: `A doctor's time, priced per piece of work, plus a standing watch on your readings. One-off: a written question to a doctor (${p("async_consult_credit")}), a confidential message to your care team for a clinical question, including sexual or reproductive health (${p("confidential_message_credit")}), having any laboratory result read and explained in writing (${p("written_result_interpretation")}), a chronic care review (${p("chronic_care_review_credit")}), a prescription renewal review (${p("prescription_renewal_credit")}), a video or audio visit (${p("video_visit_credit")}), a second opinion (${p("second_opinion_credit")}), a medication review (${p("medication_review_credit")}), a result consultation over video (${p("result_interpretation_credit")}), or a senior case review (${p("senior_case_review_credit")}). Ongoing: Continuous Monitoring from ${p("continuous_monitoring_3m")} for three months, where a dangerous reading reaches a doctor instead of sitting on your record, and Supervised Weight Management from ${p("weight_management_3m")} for three months. We also issue doctor-signed documents, priced by type from ${p("verified_document_fit_to_work")}. The one paid item that isn't a doctor's time is the optional AI Coach Daily Pass (${p("ai_coach_daily_pass_30d")}), which raises the free AI Health Coach's daily message limit for 30 days.`,
   },
   {
     question: "There used to be Prevent, Essential and Complete Care plans. What happened to them?",
