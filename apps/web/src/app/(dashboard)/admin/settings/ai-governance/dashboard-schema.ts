@@ -8,6 +8,27 @@ import { z } from "zod";
  * silently blank tile that reads as "nothing to worry about".
  */
 
+/**
+ * One required-for-release evaluation suite and the outcome of its most
+ * recent run. `latest_outcome` is null when the suite has never been run
+ * against this system — deliberately distinct from "ran and failed", because
+ * "nobody has checked" and "we checked and it is wrong" are different
+ * problems and the first must not hide the second.
+ */
+export const aiRequiredEvaluationSchema = z.object({
+  suite_id: z.string(),
+  name: z.string(),
+  kind: z.string(),
+  scope: z.enum(["system", "platform"]),
+  pass_threshold_pct: z.coerce.number().nullable(),
+  latest_outcome: z.enum(["pass", "fail", "needs_review"]).nullable(),
+  latest_run_at: z.string().nullable(),
+  latest_pass_rate_pct: z.coerce.number().nullable(),
+  latest_run_reviewed: z.boolean(),
+});
+
+export type AiRequiredEvaluation = z.infer<typeof aiRequiredEvaluationSchema>;
+
 export const aiAcceptanceSchema = z.object({
   system_id: z.string(),
   system_code: z.string(),
@@ -18,11 +39,13 @@ export const aiAcceptanceSchema = z.object({
     validation: z.boolean(),
     guardrails: z.boolean(),
     monitoring: z.boolean(),
+    evaluation_passing: z.boolean(),
     audit: z.boolean(),
     rollback: z.boolean(),
   }),
   satisfied: z.boolean(),
   outstanding: z.array(z.string()),
+  evaluations: z.array(aiRequiredEvaluationSchema),
   owner_assigned: z.boolean(),
   grandfathered: z.boolean(),
 });
@@ -73,6 +96,8 @@ export const aiGovernanceDashboardSchema = z.object({
     drift_breaches: z.number(),
     material_disparities: z.number(),
     systems_overdue_review: z.number(),
+    systems_live_with_failing_evaluations: z.number(),
+    systems_live_with_unrun_evaluations: z.number(),
   }),
   systems: z.array(aiDashboardSystemSchema),
 });
@@ -87,6 +112,7 @@ export const ACCEPTANCE_CRITERION_LABEL: Record<keyof AiAcceptance["criteria"], 
   validation: "Validation",
   guardrails: "Guardrails",
   monitoring: "Monitoring",
+  evaluation_passing: "Evaluations passing",
   audit: "Audit",
   rollback: "Rollback",
 };

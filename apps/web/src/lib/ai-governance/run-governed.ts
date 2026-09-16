@@ -53,6 +53,25 @@ export interface GovernedRunOutcome<T> {
    * match rather than an error. Logged as `blocked`, not `completed`.
    */
   readonly blockedByGuardrail?: boolean;
+  /**
+   * Set when the AI path ran to completion but never actually reached the
+   * model, and returned its own internally-degraded answer instead of
+   * throwing. Logged as `fallback`, not `completed`.
+   *
+   * WHY THIS EXISTS. A call site that catches its own model failure — the
+   * coach graph's llmTurn does exactly this, so a patient gets a cautious
+   * reply rather than an error — looks, from here, indistinguishable from a
+   * clean success. It returned a value and did not throw, so this wrapper
+   * logged `completed`, `fallback_used = false`, `error_message = null`, and
+   * a real model identifier. Four coach turns in September 2026 that failed
+   * with "Anthropic API key not found" are recorded in ai_interaction_log as
+   * completed model calls for exactly that reason: the one failure mode the
+   * audit trail most needed to show was the one it could not see.
+   *
+   * Carry the reason, not just a boolean — the whole point is that the cause
+   * survives into the audit row.
+   */
+  readonly degradedReason?: string | null;
 }
 
 export interface RunGovernedAiParams<T> {
@@ -129,14 +148,22 @@ export async function runGovernedAi<T>(
 
   try {
     const outcome = await params.run({ config: decision.config });
-    const status = outcome.blockedByGuardrail ? "blocked" : "completed";
+    const degradedReason = outcome.degradedReason?.trim() || null;
+    const status = degradedReason ? "fallback" : outcome.blockedByGuardrail ? "blocked" : "completed";
 
     const interactionId = await recordAiInteraction(supabase, {
       systemCode,
-      modelIdentifier: outcome.modelIdentifier,
+      // No model answered on the degraded path, so recording the identifier
+      // it *would* have used would feed a model that never ran into
+      // ai_vendor_model_observations' drift check (40.19).
+      modelIdentifier: degradedReason ? "none:fallback" : outcome.modelIdentifier,
       inputCategory,
       status,
       subjectProfileId,
+      fallbackReason: degradedReason
+        ? `${FALLBACK_EXPLANATION.ai_error}: ${degradedReason}`
+        : undefined,
+      errorMessage: degradedReason ?? undefined,
       outputSummary: outcome.outputSummary,
       safetyClassification: outcome.safetyClassification,
       guardrailsTriggered: outcome.guardrailsTriggered,
@@ -156,7 +183,7 @@ export async function runGovernedAi<T>(
       status,
       interactionId,
       config: decision.config,
-      fallbackReason: null,
+      fallbackReason: degradedReason ? "ai_error" : null,
     };
   } catch (error) {
     // 40.18: the AI failing is not the workflow failing. Run the fallback

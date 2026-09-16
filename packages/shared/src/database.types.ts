@@ -42431,6 +42431,39 @@ export type Database = {
         }
         Returns: undefined
       }
+      search_health_education_content_text: {
+        Args: {
+          filter_condition?: Database["public"]["Enums"]["care_plan_condition"]
+          match_count?: number
+          query_text: string
+        }
+        Returns: {
+          body: string
+          code: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          id: string
+          similarity: number
+          summary: string
+          title: string
+        }[]
+      }
+      search_lpe_content_blocks_text: {
+        Args: {
+          filter_condition?: Database["public"]["Enums"]["care_plan_condition"]
+          filter_module?: Database["public"]["Enums"]["lpe_module"]
+          match_count?: number
+          query_text: string
+        }
+        Returns: {
+          body_md: string
+          condition: Database["public"]["Enums"]["care_plan_condition"]
+          id: string
+          key: string
+          module: Database["public"]["Enums"]["lpe_module"]
+          similarity: number
+          title: string
+        }[]
+      }
       search_patient_record: {
         Args: { p_patient: string; p_query: string }
         Returns: {

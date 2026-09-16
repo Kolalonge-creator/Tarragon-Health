@@ -214,6 +214,15 @@ export async function runCoachTurn(params: RunCoachTurnParams): Promise<RunCoach
         // That is a guardrail suppressing output, which the audit trail
         // records as `blocked`, not `completed`.
         blockedByGuardrail: keywordEmergency,
+        // llmTurn catches its own model failures and degrades to a cautious
+        // reply rather than throwing, so without this the governance audit
+        // trail records a turn that never reached Claude as a completed model
+        // call — which is exactly what it did for the four "Anthropic API key
+        // not found" turns in September 2026. ai_assistant_turns knew; the
+        // one table Module 40 exists to keep honest did not.
+        degradedReason: result.degraded
+          ? (result.errorMessage ?? "the model call failed and the turn degraded")
+          : null,
         resultingAction: result.escalationId
           ? "clinician_alert_raised"
           : tier === "clinician_review"

@@ -1,7 +1,9 @@
 import { ChatAnthropic } from "@langchain/anthropic";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { z } from "zod";
-import type { CoachChatMessage } from "@tarragon/shared";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { CoachChatMessage, Database } from "@tarragon/shared";
+import { AI_SYSTEMS, decideAiGovernance } from "@/lib/ai-governance";
 
 const MODEL_ID = "claude-haiku-4-5";
 
@@ -35,6 +37,18 @@ export type HandoffSummaryInput = {
   aiAction: string;
   medications: string[];
   conditions: string[];
+  /**
+   * Used only to read AI-001's kill switch before the model is called.
+   *
+   * REQUIRED, DELIBERATELY. This function used to take no client at all,
+   * which is exactly why it was making a real ChatAnthropic call no kill
+   * switch could reach: switching AI-001 off stopped the coach chat while
+   * this kept calling the model. Making it optional would have reintroduced
+   * the failure mode in a new place — a caller that forgot it would silently
+   * get the template forever, with nothing anywhere looking wrong. Required
+   * means forgetting it is a compile error instead.
+   */
+  supabase: SupabaseClient<Database>;
 };
 
 /**
@@ -68,6 +82,15 @@ export async function buildCoachHandoffSummary(
   if (input.recentMessages.length === 0) {
     return fallback();
   }
+
+  // 40.17. The handoff summary is part of AI-001, so AI-001 being switched
+  // off has to stop it too — otherwise the kill switch stops the visible half
+  // of the coach and leaves this half calling the model. The templated
+  // fallback below needs no AI at all, so a switched-off system still
+  // produces a complete, useful handoff and the escalation it is attached to
+  // is never blocked.
+  const governance = await decideAiGovernance(input.supabase, AI_SYSTEMS.coach.code);
+  if (!governance.allow) return fallback();
 
   try {
     const chatModel =
