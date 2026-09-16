@@ -184,8 +184,13 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             </div>
           </div>
 
-          {step === 1 && (
-          <div className={stepClass}>
+          {/* Every step stays mounted (hidden, not unmounted) across the
+              whole wizard: an unmounted step's uncontrolled inputs lose
+              their DOM nodes and are silently missing from FormData at
+              final submit. `hidden` also bars these inputs from native
+              constraint validation while off-screen, so a `required`
+              field on another step never blocks the current one. */}
+          <div className={stepClass} hidden={step !== 1}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Family history</h3>
             <div className="flex flex-wrap gap-x-4 gap-y-1">
               <Checkbox name="family_diabetes" label="Diabetes" />
@@ -216,10 +221,8 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               </div>
             )}
           </div>
-          )}
 
-          {step === 2 && (
-          <div className={stepClass}>
+          <div className={stepClass} hidden={step !== 2}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">Lifestyle</h3>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
@@ -343,10 +346,8 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               }))}
             />
           </div>
-          )}
 
-          {step === 3 && (
-          <div className={stepClass}>
+          <div className={stepClass} hidden={step !== 3}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Past medical history &amp; medications
             </h3>
@@ -387,10 +388,8 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
               <Input id="current_medications" name="current_medications" type="text" maxLength={500} />
             </div>
           </div>
-          )}
 
-          {step === 4 && (
-          <div className={stepClass}>
+          <div className={stepClass} hidden={step !== 4}>
             <h3 className="text-sm font-semibold text-charcoal-ink dark:text-night-ink">
               Vaccination &amp; screening history
             </h3>
@@ -401,7 +400,6 @@ export function RiskAssessmentForm({ patientId }: { patientId: string }) {
             </div>
             <Checkbox name="prior_abnormal_result" label="I've had an abnormal screening result before" />
           </div>
-          )}
 
           {state?.error && <p className="text-sm text-red-600 dark:text-red-300">{state.error}</p>}
           {state?.success && (
