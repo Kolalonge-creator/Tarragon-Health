@@ -22,18 +22,31 @@ Every design decision below follows from that.
 | Patient/clinician incident report | `apps/web/src/components/ai/report-ai-answer.tsx` |
 | Live proof | `packages/db/tests/ai_governance.sql` (8 cases, run against the linked project) |
 
-**Flag for the founder, added 2026-09-03 — the registry, `main-dev`, and this document currently
-disagree on the count.** The live `ai_systems` table has **11** rows (`AI-001`–`AI-011`), not the
-ten this document describes throughout. `AI-011` ("Nigerian meal plan generation",
-`apps/web/src/lib/nutrition/meal-plan-generate.ts`, a real `ChatAnthropic` call site) was registered
-by commit `a775ae79` on branch `claude/wizardly-dubinsky-28a66c` — **not merged into `main-dev`** —
-whose commit message states its migration was "applied live... with the version pinned to the
-filename." The migration file itself does not exist on any branch. This is the exact "live-but-
-ungitted migration" pattern `CLAUDE.md`'s standing lessons warn about, layered on top of the broader
-124-missing/148-orphaned migration-drift backlog it also documents. **Do not update the "ten"/"all
-ten" language below to "eleven" until the founder decides whether `claude/wizardly-dubinsky-28a66c`
-should actually be merged** — right now the doc, `main-dev`'s git history, and the live database all
-disagree with each other, and picking one to match would just pick a different wrong answer.
+**Corrected 2026-09-16 — the count is now 15, and the 2026-09-03 flag that stood here is closed.**
+That flag said the registry, `main-dev` and this document disagreed, because `AI-011` had been
+registered live by an unmerged branch whose migration file existed nowhere. Both `AI-011` and
+`AI-012` now have committed migration files on `main-dev`
+(`20260903005600_ai_governance_register_meal_plan_generation.sql`,
+`20260903191922_ai_governance_register_vaccination_card_ocr_and_unflag_ai011.sql`), so that specific
+disagreement no longer exists. Wherever the prose below still says "ten" or "all ten", read it as
+"all registered systems" — the reasoning it describes is unchanged, only the count moved.
+
+**Three more call sites were found running with no registry entry at all on 2026-09-16**, by
+diffing every file that imports a model SDK against the registry rather than trusting the count:
+
+| Code | Call site | Why it mattered |
+| --- | --- | --- |
+| `AI-013` | `apps/web/src/lib/appointment-prep/generate.ts` | Generated text on a patient's own care path |
+| `AI-014` | `apps/web/src/lib/care-messages/generate-draft-reply.ts` | Drafts text a non-clinical Care Coordinator may send to a patient; its "needs a clinician" flag is the only thing between a clinical question and a Care Coordinator answering it |
+| `AI-015` | `apps/web/src/lib/service-navigation/generate.ts` | Directory lookup; low risk, but equally invisible |
+
+None appeared in `ai_systems`, in `system-codes.ts`, or in a single `ai_interaction_log` row.
+Registered grandfathered and wired through `runGovernedAi` in the same change
+(`20260916162244`). **The check that stops this recurring:** that migration closes by asserting
+`ai_systems` holds exactly as many rows as `AI_SYSTEMS` in `system-codes.ts` has keys, so adding a
+call site on one side without the other now fails the migration. Counting by hand is what let these
+three run for weeks.
+
 
 ---
 
@@ -243,9 +256,54 @@ different claim from one measured on twelve thousand.
 
 ## Open items
 
+Three of these need a clinician's judgement, not engineering. They are stated here with the live
+numbers behind them so the decision can be made on facts rather than on a feeling that something is
+probably fine.
+
+- **AI-001 has two required evaluation suites that ran and failed, while switched on and serving
+  patients.** Measured 2026-09-16: clinical accuracy 6/8 (75%) and fairness across Nigerian
+  populations 2/4 (50%), both against a 100% threshold; red-team 7/7 and the safety/scope suite
+  30/30 pass. Until 2026-09-16 nothing surfaced this at all — `ai_acceptance_criteria` checked only
+  that a required suite *existed*, never that it passed. It now reports `evaluation_passing` with a
+  per-suite breakdown, and the console names the failing suite and its pass rate. **The gate
+  deliberately does not block the runtime**: both failures are over-triage (the model answered
+  `emergency` where the label said `clinician_review`, and `clinician_review` where the label said
+  `routine`), so an automatic block would take the coach offline over failures in the safe
+  direction. Whether to keep it running is the kill switch's job, and the kill switch has a human's
+  name on it. What is needed: a Chief Medical Officer decides whether those two expected-tier labels
+  are right, or whether the coach is genuinely over-triaging. Do not re-label a CMO-signed expected
+  tier to make a suite go green.
+- **One fairness case is a genuine finding, not a labelling question.** The rural-phrasing variant
+  named a specific condition ("can be a sign of a diabetes emergency building up") while routing to
+  emergency care, which the rubric forbids; a South-South-phrasing variant of the same symptom was
+  tiered differently from the reference. Deliberately not "fixed" by tuning the coach prompt in the
+  2026-09-16 pass: chasing an eval score by editing the prompt, without the rubric author deciding
+  whether naming a likely cause during an emergency escalation is actually wrong, would be scoring
+  the test rather than the system. Note also that LLM eval outcomes vary run to run — confirm the
+  dialect-sensitivity finding reproduces before treating it as settled.
+- **The AI Coach's knowledge base is six articles.** Only 6 of 235 `health_education_content` rows
+  and 0 of 58 `lpe_content_blocks` rows are `clinician_reviewed`, and both retrieval paths are gated
+  on that flag, so the reachable library is six articles regardless of how retrieval works. The
+  retrieval mechanism itself was separately broken until 2026-09-16 — see below — but fixing it does
+  not fix this. What is needed: a clinician reviews and flags content. Flipping `clinician_reviewed`
+  is the same class of act as approving a version or signing a protocol, and is never an
+  engineering step.
 - No system has an approved version, so every one shows `validation` outstanding. Closing that means
-  running the seeded evaluation suites for real and having a Clinical Director approve the result.
+  running the evaluation suites for real and having a Clinical Director approve the result.
 - No knowledge source is approved yet, so no AI answer currently cites one (40.7).
+- **Fixed 2026-09-16, recorded because the failure mode is worth recognising again: the AI Coach's
+  content retrieval had never run in production, and looked exactly like "nothing relevant found".**
+  Retrieval only ran when an `Embedder` existed; the only `Embedder` is Voyage AI; `VOYAGE_API_KEY`
+  has never been set. So `createVoyageEmbedderFromEnv()` returned null, `graph.ts` skipped the whole
+  retrieval block, the daily embedding cron was a permanent no-op, and every coach reply was the
+  model's own general knowledge — with `retrievedSourceIds: []` on the audit row, which reads as an
+  honest empty result rather than a disabled feature. A code comment in `graph.ts` even asserted the
+  block would "start surfacing content automatically the moment either is populated". It could not
+  have. Both finders now take a nullable embedder and fall back to Postgres full-text search over
+  the same clinician-reviewed rows (`20260916154509`), so retrieval runs on every turn and only
+  ranking quality depends on the vendor. **The general lesson: a feature whose disabled state is
+  indistinguishable from its empty state will stay disabled indefinitely, because nothing ever looks
+  wrong.** Prefer a degraded path over a skipped one.
 - The AI Coach's governed prompt exists as a **draft** — a verbatim transcription of what the code
   already sends. Activating it changes nothing about what patients see, which is the point of
   transcribing rather than rewriting.
