@@ -438,6 +438,21 @@ taken on faith:**
   before the auto-publisher's next JS-only run.
 
 ### 2026-08-04 — Second occurrence: a push to `main` built on Vercel but was never promoted to production
+**Corrected 2026-09-16 — this entire entry describes a branch model that no longer applies.**
+Vercel's Production Branch setting for `tarragon-health-web` now points at `main-dev`, not `main`
+(confirmed live via direct `get_deployment` on `tarragonhealth.ng`: `githubCommitRef: "main-dev"`,
+`target: "production"` — first confirmed 2026-08-31, reconfirmed 2026-09-16, both times the
+deployment serving the domain was built from the current `main-dev` HEAD). Every push that lands on
+`main-dev` auto-promotes to production; there is no separate "promote to main, hope Vercel picks it
+up" step to fail in the way described below. Whether this was a deliberate fix for the exact failure
+mode this entry documents, or independent drift, is unconfirmed either way — but do not act on this
+entry's "push a small commit to `main`" recovery advice, and do not describe `main` as the
+production/promotion branch elsewhere in this file. A periodic `main-dev`→`main` release PR is still
+this repo's convention (keeps `main` from drifting indefinitely behind for anyone reading it as
+release history), but it is housekeeping, not a deploy step — before troubleshooting a "fix isn't
+live" report, check `get_deployment` on the live hostname directly rather than assuming a `main`
+promotion is missing.
+
 Founder reported the live site still showed retired partner-lab/booking copy (prices for lab tests and
 investigation packages, "book & pay" language implying Tarragon books and pays labs directly) days
 after the self-arranged-fulfilment sweep and the clinical-intelligence-core merge were both logged as
@@ -459,10 +474,10 @@ live page's own copy against `git show origin/main:<file>`, not against the chan
 ## Definition of Done
 - TypeScript: compiles, ESLint passes, tests pass, migrations committed
 - Python: mypy passes, pytest passes, all Pydantic schemas typed
-- Both: feature branch (never commit to main), `.env.example` updated for any new vars, works fully via app/web — WhatsApp/SMS notifications are additive, never required
+- Both: feature branch (never commit directly to `main` or `main-dev` — PR into `main-dev`, the day-to-day integration branch and Vercel's actual Production Branch, see the corrected 2026-08-04 note above), `.env.example` updated for any new vars, works fully via app/web — WhatsApp/SMS notifications are additive, never required
 
 ## What Claude Must Never Do
-- Never commit directly to `main`
+- Never commit directly to `main` or `main-dev`
 - Never hardcode credentials
 - Never bypass Supabase RLS, "just for this query"
 - Never give the ML service direct database access
