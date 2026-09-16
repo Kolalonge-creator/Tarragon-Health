@@ -1,7 +1,11 @@
 /**
  * Jest (ts-jest, CJS transform) for @tarragon/web.
- * Only pure lib/validation logic is unit-tested here — Server
- * Components/Actions and Route Handlers are exercised via the running app.
+ * Default environment is "node" — pure lib/validation logic is unit-tested
+ * here, and Server Components/Actions and Route Handlers are exercised via
+ * the running app. A `.test.tsx` file that needs a DOM (client-component
+ * interaction tests, e.g. risk-assessment-form.test.tsx) opts into it per
+ * file with a `/** @jest-environment jsdom *\/` docblock rather than
+ * flipping the default for every test.
  */
 /** @type {import('jest').Config} */
 const config = {
@@ -21,7 +25,7 @@ const config = {
     // test against a real HEIC file).
     "^server-only$": "<rootDir>/src/test/server-only-stub.ts",
   },
-  testMatch: ["**/src/**/*.test.ts"],
+  testMatch: ["**/src/**/*.test.ts", "**/src/**/*.test.tsx"],
 };
 
 export default config;
