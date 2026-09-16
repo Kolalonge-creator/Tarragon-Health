@@ -212,16 +212,6 @@ export const SECTIONS: SectionDef[] = [
     icon: "sparkles-outline",
     group: "Support",
   },
-  // Promoted out of "Your account" (2026-09-11), mirroring web's
-  // navigation.ts — the buy page for the same paid-per-service doctor-time
-  // revenue belongs next to Care & support, not four rows down an
-  // admin-flavoured band.
-  {
-    id: "services",
-    label: "My services",
-    icon: "card-outline",
-    group: "Support",
-  },
   {
     id: "appointments",
     label: "Appointments",
