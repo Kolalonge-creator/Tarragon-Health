@@ -3,8 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/auth/current-profile";
+import { getCurrentClinicalStaff, getCurrentProfile } from "@/lib/auth/current-profile";
 import { AI_INCIDENT_CATEGORIES } from "@/lib/ai-governance";
+import { canAssignCases } from "@/lib/clinical/doctor-tier";
 import { runAiCoachGovernanceSuites } from "@/lib/ai-governance/run-coach-eval-suites";
 
 const PATH = "/admin/settings/ai-governance";
@@ -317,6 +318,18 @@ export async function runAiEvalSuitesAction(
   const profile = await getCurrentProfile();
   if (!profile) return { error: "Not signed in." };
 
+  // Checked up front, before any real (billable) model call is made -- an
+  // account that can see this page (gated on the delegable ai_governance.manage
+  // permission or super admin) is not necessarily one the database will let
+  // write ai_evaluation_runs/ai_evaluation_case_results, and finding that out
+  // only after paying for ~14 real model calls would be a real cost bug, not
+  // just a confusing UI. Same bar approve_ai_system_version already uses for
+  // a non-critical version: an admin, or an active Clinical Director.
+  const clinicalStaff = profile.role === "admin" ? null : await getCurrentClinicalStaff();
+  if (profile.role !== "admin" && !canAssignCases(clinicalStaff)) {
+    return { error: "Only an admin or an active Chief Medical Officer / Clinical Director can run these suites." };
+  }
+
   const supabase = await createClient();
 
   const { data: system, error: systemError } = await supabase
@@ -363,7 +376,11 @@ export async function runAiEvalSuitesAction(
             passed_cases: suite.passed_cases,
             failed_cases: suite.failed_cases,
             outcome: suite.outcome,
-            pass_rate_pct: suite.total_cases === 0 ? null : (suite.passed_cases / suite.total_cases) * 100,
+            // pass_rate_pct is a DB-generated column (confirmed live: Postgres
+            // error 428C9 on any explicit value, even matching the computed
+            // one) -- never set it. This was the real, deterministic cause of
+            // every single evaluation run recording zero rows: the insert
+            // failed every time, regardless of who was signed in.
             run_by: profile.id,
             notes: "Recorded by the admin console's \"Run evaluations\" button, not a migration.",
           })
@@ -371,6 +388,7 @@ export async function runAiEvalSuitesAction(
           .single();
         if (runError || !runRow) {
           recordError = `Ran "${suite.suite_name}" (${suite.passed_cases}/${suite.total_cases}) but could not record it: ${runError?.message ?? "no run id returned"}`;
+          console.error("runAiEvalSuitesAction: ai_evaluation_runs insert failed", recordError);
           return;
         }
 
@@ -385,6 +403,7 @@ export async function runAiEvalSuitesAction(
           );
           if (resultsError) {
             recordError = `Recorded "${suite.suite_name}" but not its per-case results: ${resultsError.message}`;
+            console.error("runAiEvalSuitesAction: ai_evaluation_case_results insert failed", recordError);
           }
         }
       },
