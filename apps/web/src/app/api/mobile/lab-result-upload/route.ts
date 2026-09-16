@@ -143,8 +143,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (claimError.details === CONSULT_FEE_REQUIRED_DETAIL) {
       return NextResponse.json(
         {
-          error:
-            "Pay the ₦10,000 lab-result consultation fee to upload this result — it also books you a 15-minute call with a doctor to walk through it.",
+          error: "Pay the lab-result consultation fee to upload this result.",
           requiresConsultFeePayment: true,
         },
         { status: 402 },

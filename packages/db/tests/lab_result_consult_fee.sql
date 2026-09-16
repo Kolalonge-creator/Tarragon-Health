@@ -1,11 +1,20 @@
 -- Lab-result consultation fee: the gate that blocks a self-arranged
--- lab-result upload until the one-off ₦10,000 consultation fee is paid.
--- Founder rule, 2026-08-30.
+-- lab-result upload until the one-off consultation fee is paid. Founder rule,
+-- 2026-08-30; price re-set to ₦7,500 on 2026-09-10 (see
+-- 20260910014006_unbundle_chronic_pack.sql) — this test intentionally reads
+-- the expected amount from lab_result_consult_prices itself rather than
+-- hardcoding a figure, so it does not go stale the next time the founder
+-- reprices this fee.
 --
--- Covers: the price book pins the amount server-side; an unpaid (or
--- already-consumed) credit is refused, never silently allowed; a patient
--- cannot claim another patient's paid credit even by naming their id
--- directly; a claimed credit cannot be claimed twice; settling can both
+-- Covers: the price book pins the amount server-side (and, per the
+-- 2026-09-16 regression this guards against, that amount tracks
+-- lab_result_consult_prices ALONE, never the differently-priced
+-- service_products.result_interpretation_credit "Result Consultation" video
+-- product it was silently falling back to — see
+-- 20260916024151_fix_lab_result_consult_fee_stale_service_product_fallback.sql);
+-- an unpaid (or already-consumed) credit is refused, never silently allowed;
+-- a patient cannot claim another patient's paid credit even by naming their
+-- id directly; a claimed credit cannot be claimed twice; settling can both
 -- link the real document AND release a claim back to payment_confirmed on a
 -- failed upload; and a network-billed (fulfilment='partner') order skips the
 -- whole gate without ever needing a lab_result_consult_requests row at all.
@@ -36,6 +45,7 @@ declare
   v_claimed uuid;
   v_n int; v_status text; v_amount bigint; v_currency text; v_doc_id uuid;
   v_claims text;
+  v_expected_amount bigint; v_stale_fallback_amount bigint;
 begin
   ------------------------------------------------------------------
   -- Fixtures. Asserted, so a lookup miss fails loudly instead of
@@ -52,6 +62,14 @@ begin
 
   if v_pt is null or v_pt2 is null or v_bundle is null then
     raise exception 'fixture lookup failed - the test would have been vacuous';
+  end if;
+
+  select amount_minor into v_expected_amount
+    from public.lab_result_consult_prices where organisation_id is null and is_enabled;
+  select price_kobo into v_stale_fallback_amount
+    from public.service_products where code = 'result_interpretation_credit';
+  if v_expected_amount is null then
+    raise exception 'fixture lookup failed - no enabled platform-default lab_result_consult_prices row';
   end if;
 
   ------------------------------------------------------------------
@@ -92,10 +110,19 @@ begin
   select amount_minor, currency, status::text into v_amount, v_currency, v_status
     from public.lab_result_consult_requests where id = v_req1;
   insert into r values ('1a amount/currency pinned server-side from the price book',
-    case when v_amount = 1000000 and v_currency = 'NGN' then 'PASS'
-         else 'FAIL - got ' || v_amount || ' ' || v_currency end);
+    case when v_amount = v_expected_amount and v_currency = 'NGN' then 'PASS'
+         else 'FAIL - got ' || v_amount || ' ' || v_currency || ', expected ' || v_expected_amount end);
   insert into r values ('1b fresh request starts requested',
     case when v_status = 'requested' then 'PASS' else 'FAIL - got ' || v_status end);
+  -- Regression guard for the 2026-09-16 overcharge: pin_lab_result_consult_amount
+  -- must never resolve to service_products.result_interpretation_credit ("Result
+  -- Consultation", a different, more expensive video product) instead of
+  -- lab_result_consult_prices, whenever the two happen to differ.
+  insert into r values ('1c does not resolve the unrelated result_interpretation_credit price',
+    case when v_stale_fallback_amount is null or v_stale_fallback_amount = v_expected_amount
+           or v_amount <> v_stale_fallback_amount
+         then 'PASS'
+         else 'FAIL - resolved the stale service_products fallback (' || v_stale_fallback_amount || ')' end);
 
   reset role;
 
