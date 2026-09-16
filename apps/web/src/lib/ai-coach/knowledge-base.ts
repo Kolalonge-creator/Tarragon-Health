@@ -26,7 +26,9 @@ export interface EmbedRunResult {
   reason?: string;
 }
 
-export async function populateHealthEducationEmbeddings(embedder?: Embedder): Promise<EmbedRunResult> {
+export async function populateHealthEducationEmbeddings(
+  embedder?: Embedder,
+): Promise<EmbedRunResult> {
   if (!embedder) {
     return { embedded: 0, skipped: 0, reason: "no_embedder_configured" };
   }
@@ -38,13 +40,16 @@ export async function populateHealthEducationEmbeddings(embedder?: Embedder): Pr
     .eq("clinician_reviewed", true)
     .is("embedding", null);
 
-  if (!rows?.length) return { embedded: 0, skipped: 0, reason: "nothing_to_embed" };
+  if (!rows?.length)
+    return { embedded: 0, skipped: 0, reason: "nothing_to_embed" };
 
   let embedded = 0;
   let skipped = 0;
   for (const row of rows) {
     try {
-      const text = [row.title, row.summary, row.body].filter(Boolean).join("\n\n");
+      const text = [row.title, row.summary, row.body]
+        .filter(Boolean)
+        .join("\n\n");
       const vector = await embedder.embed(text);
       const { error } = await svc
         .from("health_education_content")
@@ -84,15 +89,26 @@ const EXCERPT_MAX_CHARS = 600;
  */
 export async function findRelevantHealthEducationContent(
   supabase: SupabaseClient<Database>,
-  embedder: Embedder,
+  embedder: Embedder | null | undefined,
   queryText: string,
-  opts: { matchCount?: number; conditionFilter?: Enums<"care_plan_condition"> | null } = {}
+  opts: {
+    matchCount?: number;
+    conditionFilter?: Enums<"care_plan_condition"> | null;
+  } = {},
 ): Promise<RelevantHealthEducationContent[]> {
+  // No embedder means keyword search, not "no retrieval". `embedder` used to
+  // be required and every caller sourced it from createVoyageEmbedderFromEnv(),
+  // which returns null because VOYAGE_API_KEY has never been set here — so
+  // this whole library was unreachable in production and the coach answered
+  // ungrounded, looking exactly like "nothing relevant was found". See the
+  // 20260916154509 migration header.
+  if (!embedder) return searchLexical(supabase, queryText, opts);
+
   let queryEmbedding: number[];
   try {
     queryEmbedding = await embedder.embed(queryText);
   } catch {
-    return [];
+    return searchLexical(supabase, queryText, opts);
   }
 
   const { data, error } = await supabase.rpc("match_health_education_content", {
@@ -101,20 +117,65 @@ export async function findRelevantHealthEducationContent(
     filter_condition: opts.conditionFilter ?? undefined,
   });
 
-  if (error || !data) return [];
+  if (error || !data) return searchLexical(supabase, queryText, opts);
 
-  return data.map((row) => {
-    const body = row.body ?? "";
-    const excerptSource = row.summary && row.summary.trim().length > 0 ? row.summary : body;
-    const excerpt =
-      excerptSource.length > EXCERPT_MAX_CHARS ? `${excerptSource.slice(0, EXCERPT_MAX_CHARS)}…` : excerptSource;
-    return {
-      id: row.id,
-      code: row.code,
-      title: row.title,
-      excerpt,
-      condition: row.condition,
-      similarity: row.similarity,
-    };
-  });
+  return data.map(toContent);
+}
+
+/** Keyword retrieval over the same clinician_reviewed + is_active rows the
+ * vector RPC reads. Same best-effort contract: `[]` on failure, never throws. */
+async function searchLexical(
+  supabase: SupabaseClient<Database>,
+  queryText: string,
+  opts: {
+    matchCount?: number;
+    conditionFilter?: Enums<"care_plan_condition"> | null;
+  },
+): Promise<RelevantHealthEducationContent[]> {
+  // Defensive like the vector path above: this is a best-effort
+  // personalisation read, so a broken or unavailable RPC degrades to "no
+  // reference material" and never becomes the reason a coaching turn fails.
+  try {
+    const { data, error } = await supabase.rpc(
+      "search_health_education_content_text",
+      {
+        query_text: queryText,
+        match_count: opts.matchCount ?? 3,
+        filter_condition: opts.conditionFilter ?? undefined,
+      },
+    );
+
+    if (error || !data) return [];
+    return data.map(toContent);
+  } catch {
+    return [];
+  }
+}
+
+/** Both RPCs return the same column set, deliberately — see the lexical
+ * migration's header. One mapper, so they cannot drift apart. */
+function toContent(row: {
+  id: string;
+  code: string;
+  title: string;
+  summary: string | null;
+  body: string | null;
+  condition: Enums<"care_plan_condition"> | null;
+  similarity: number;
+}): RelevantHealthEducationContent {
+  const body = row.body ?? "";
+  const excerptSource =
+    row.summary && row.summary.trim().length > 0 ? row.summary : body;
+  const excerpt =
+    excerptSource.length > EXCERPT_MAX_CHARS
+      ? `${excerptSource.slice(0, EXCERPT_MAX_CHARS)}…`
+      : excerptSource;
+  return {
+    id: row.id,
+    code: row.code,
+    title: row.title,
+    excerpt,
+    condition: row.condition,
+    similarity: row.similarity,
+  };
 }
