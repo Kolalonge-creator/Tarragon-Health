@@ -16,6 +16,7 @@ import {
   withInterpretationProvenance,
   type InterpretationSource,
 } from "@/lib/screening/fallback-interpretation";
+import { RESULT_ACTION_TYPES, type ResultActionType } from "./result-action-types";
 
 export type SubmitScreeningResultState = { error?: string; success?: boolean } | undefined;
 
@@ -262,21 +263,6 @@ export async function submitScreeningResult(
 }
 
 export type SetFollowUpActionState = { error?: string; success?: boolean } | undefined;
-
-/**
- * The six named next-steps Result Lifecycle §58.11 lists — action_type is
- * the governed category, follow_up_action stays the free-text detail
- * alongside it (e.g. "Repeat FBC in 3 months", "Start metformin 500mg").
- */
-export const RESULT_ACTION_TYPES = [
-  "repeat_test",
-  "medication_change",
-  "appointment",
-  "specialist_referral",
-  "monitoring",
-  "no_action",
-] as const;
-export type ResultActionType = (typeof RESULT_ACTION_TYPES)[number];
 
 /**
  * Records the clinician's named next step for a result — separate from

@@ -171,7 +171,7 @@ function AcceptedRequestRow({ request }: { request: LabResultConsultRequestWithP
           <form action={releaseAction}>
             <input type="hidden" name="request_id" value={request.id} />
             <Button size="sm" type="submit" variant="ghost" className="text-red-600" disabled={busy}>
-              {releasePending ? "Releasing…" : "Release (can&apos;t make it)"}
+              {releasePending ? "Releasing…" : "Release (can't make it)"}
             </Button>
           </form>
         </div>
