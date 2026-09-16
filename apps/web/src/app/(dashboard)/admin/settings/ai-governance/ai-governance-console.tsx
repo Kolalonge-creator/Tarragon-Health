@@ -384,7 +384,17 @@ function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
   );
 }
 
-function ClinicalAccuracyLabelForm({ caseId }: { caseId: string }) {
+function ClinicalAccuracyLabelForm({
+  caseId,
+  defaultTier = "",
+  defaultRationale = "",
+  submitLabel = "Record my tier judgement",
+}: {
+  caseId: string;
+  defaultTier?: "" | "routine" | "clinician_review" | "emergency";
+  defaultRationale?: string;
+  submitLabel?: string;
+}) {
   const [state, action, pending] = useActionState<AiGovernanceActionState, FormData>(
     labelAiEvaluationCaseTierAction,
     undefined
@@ -394,7 +404,7 @@ function ClinicalAccuracyLabelForm({ caseId }: { caseId: string }) {
       <input type="hidden" name="caseId" value={caseId} />
       <div>
         <Label htmlFor={`tier-${caseId}`}>Tier you would assign</Label>
-        <Select id={`tier-${caseId}`} name="tier" defaultValue="" required>
+        <Select id={`tier-${caseId}`} name="tier" defaultValue={defaultTier} required>
           <option value="" disabled>
             Choose a tier
           </option>
@@ -405,12 +415,54 @@ function ClinicalAccuracyLabelForm({ caseId }: { caseId: string }) {
           ))}
         </Select>
       </div>
-      <Textarea name="rationale" rows={2} placeholder="Why this tier (optional, kept on the record)" />
+      <Textarea
+        name="rationale"
+        rows={2}
+        placeholder="Why this tier (optional, kept on the record)"
+        defaultValue={defaultRationale}
+      />
       <Button type="submit" size="sm" disabled={pending}>
-        {pending ? "Recording…" : "Record my tier judgement"}
+        {pending ? "Recording…" : submitLabel}
       </Button>
       <ActionFeedback state={state} />
     </form>
+  );
+}
+
+/**
+ * A labelled case's tier is re-labellable, not fixed forever — a CMO
+ * revisiting a scenario after seeing how the coach actually handled it
+ * (e.g. during eval-result review) is a real, legitimate correction, and
+ * public.label_ai_evaluation_case_tier() already supports it (a plain
+ * UPDATE plus a fresh audit_log row each call, no "already labelled"
+ * guard). Collapsed behind a "Change tier" toggle by default so the
+ * common read-only view of the labelled list stays uncluttered.
+ */
+function LabeledCaseRow({ caseData: c }: { caseData: AiClinicalAccuracyCaseRow }) {
+  const [editing, setEditing] = useState(false);
+  return (
+    <li className="text-sm">
+      <p className="text-charcoal-ink">&ldquo;{c.scenario}&rdquo;</p>
+      <p className="mt-1 text-charcoal-ink/70">
+        <Badge variant="blue">
+          {COACH_TIER_OPTIONS.find((t) => t.value === c.expected_tier)?.label ?? c.expected_tier}
+        </Badge>{" "}
+        — by {c.labeled_by_staff?.full_name ?? "unknown"} on {formatDate(c.labeled_at)}
+      </p>
+      {c.label_rationale && <p className="mt-1 text-charcoal-ink/60">{c.label_rationale}</p>}
+      {editing ? (
+        <ClinicalAccuracyLabelForm
+          caseId={c.id}
+          defaultTier={c.expected_tier ?? ""}
+          defaultRationale={c.label_rationale ?? ""}
+          submitLabel="Save corrected tier"
+        />
+      ) : (
+        <Button type="button" variant="ghost" size="sm" className="mt-1 h-auto p-0 text-tarragon-green" onClick={() => setEditing(true)}>
+          Change tier
+        </Button>
+      )}
+    </li>
   );
 }
 
@@ -463,16 +515,7 @@ function ClinicalAccuracyReviewSection({ cases }: { cases: AiClinicalAccuracyCas
           </summary>
           <ul className="mt-3 space-y-3">
             {labeled.map((c) => (
-              <li key={c.id} className="text-sm">
-                <p className="text-charcoal-ink">&ldquo;{c.scenario}&rdquo;</p>
-                <p className="mt-1 text-charcoal-ink/70">
-                  <Badge variant="blue">
-                    {COACH_TIER_OPTIONS.find((t) => t.value === c.expected_tier)?.label ?? c.expected_tier}
-                  </Badge>{" "}
-                  — by {c.labeled_by_staff?.full_name ?? "unknown"} on {formatDate(c.labeled_at)}
-                </p>
-                {c.label_rationale && <p className="mt-1 text-charcoal-ink/60">{c.label_rationale}</p>}
-              </li>
+              <LabeledCaseRow key={c.id} caseData={c} />
             ))}
           </ul>
         </details>
