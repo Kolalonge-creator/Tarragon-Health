@@ -83,6 +83,10 @@ export async function logAiCoachEscalation(
     aiAction,
     medications: snapshot.medications,
     conditions: snapshot.conditions,
+    // The patient's own session, so AI-001's kill switch is read the same way
+    // every other governed call reads it. The summary degrades to its
+    // template when AI-001 is off; the escalation itself never depends on it.
+    supabase: patientSupabase,
   });
 
   const { data: alert, error: alertError } = await serviceRoleSupabase
@@ -209,6 +213,11 @@ export async function logAiCoachReviewFlag(
     aiAction,
     medications: snapshot.medications,
     conditions: snapshot.conditions,
+    // Only the service-role client exists on this path (clinician_alerts is
+    // staff-write-only, see this function's docstring). ai_runtime_config
+    // reads the registry, which is not patient-scoped, so this reads the same
+    // kill switch correctly.
+    supabase: serviceRoleSupabase,
   });
 
   const { data: alert, error } = await serviceRoleSupabase
