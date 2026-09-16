@@ -889,10 +889,28 @@ export function AiGovernanceConsole({
                   {versions.length > 0 && (
                     <div className="space-y-1.5">
                       <p className="text-sm text-charcoal-ink/50">Model versions</p>
+                      {/* Newest version (systemVersions is ordered by created_at desc, see
+                          page.tsx) always shown in full -- that is the one anyone landing on
+                          this card actually needs to act on. Older versions are real audit
+                          history, not something to review again, so they collapse the same
+                          way the "Labelled" case list further down this page does: present,
+                          one click away, not competing for attention with a wall of stale
+                          "Awaiting Clinical Director approval" cards that will only grow as
+                          the system racks up more draft/superseded versions over time. */}
                       <div className="space-y-2">
-                        {versions.map((v) => (
-                          <AiSystemVersionCard key={v.id} version={v} />
-                        ))}
+                        <AiSystemVersionCard version={versions[0]} />
+                        {versions.length > 1 && (
+                          <details className="rounded-lg border border-charcoal-ink/10 bg-white p-3">
+                            <summary className="cursor-pointer text-sm font-medium text-charcoal-ink">
+                              {versions.length - 1} older version{versions.length - 1 === 1 ? "" : "s"}
+                            </summary>
+                            <div className="mt-2 space-y-2">
+                              {versions.slice(1).map((v) => (
+                                <AiSystemVersionCard key={v.id} version={v} />
+                              ))}
+                            </div>
+                          </details>
+                        )}
                       </div>
                     </div>
                   )}
