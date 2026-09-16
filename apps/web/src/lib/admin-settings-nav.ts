@@ -129,6 +129,13 @@ export const ADMIN_SETTINGS_TABS: AdminSettingsTab[] = [
     href: "/admin/settings/clinical-protocols",
     items: [
       {
+        href: "/admin/settings/clinical-signoff",
+        label: "Clinical sign-off",
+        blurb: "What still needs your signature, and the one button that signs it.",
+        icon: NAV_ICON.review,
+        visible: adminOnly,
+      },
+      {
         href: "/admin/settings/protocols",
         label: "Clinical protocols",
         blurb: "The signed record behind every doctor-reviewed claim.",
