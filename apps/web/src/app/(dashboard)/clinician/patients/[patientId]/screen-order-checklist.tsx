@@ -7,9 +7,8 @@ import { EcgResultPanel } from "./ecg-result-panel";
 import {
   setScreeningResultFollowUpAction,
   markResultPatientInformed,
-  RESULT_ACTION_TYPES,
-  type ResultActionType,
 } from "./screening-result-actions";
+import { RESULT_ACTION_TYPES, type ResultActionType } from "./result-action-types";
 import type { SCREENING_RESULT_SCREEN_TYPES } from "@/lib/validation/screening-result";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
