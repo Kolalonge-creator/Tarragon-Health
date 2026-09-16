@@ -32,6 +32,7 @@ function facts(overrides: Partial<CaseFacts> = {}): CaseFacts {
     reviewCadenceMonths: null,
     redFlags: { breached: [], requiresJudgement: [], cleared: [] },
     protocol: null,
+    unaddressedEmergencyEvents: [],
     ...overrides,
   };
 }
@@ -129,6 +130,49 @@ describe("proposeActions — resolve is suppressed by a breached red flag", () =
       judgementChecklist: ["Signs of target-organ damage"],
     });
     expect(resolve?.rationale).toContain("cannot be judged from data");
+  });
+
+  it("offers no resolve action when the patient has an unaddressed emergency event, even with no protocol at all", () => {
+    // The gap this closes: a brand-new patient with no diagnosis has no
+    // condition protocol, so redFlags is always empty regardless of how
+    // dangerous their actual readings are. Before this rule, "Resolve case"
+    // fired unconditionally in that situation with generic "no escalation
+    // criteria met" text, even with an active hypertensive-crisis/emergency
+    // reading on file.
+    const proposals = proposeActions(
+      facts({
+        protocol: null,
+        escalation: { id: "esc-1", status: "under_review" },
+        unaddressedEmergencyEvents: [{ id: "ee-1", source: "bp_reading" }],
+      }),
+      NOW
+    );
+    expect(proposals.map((p) => p.actionType)).not.toContain("resolve_case");
+  });
+
+  it("offers no resolve action when an emergency event is unaddressed, even though every protocol threshold clears", () => {
+    const proposals = proposeActions(
+      facts({
+        protocol: protocol(),
+        escalation: { id: "esc-1", status: "under_review" },
+        redFlags: { breached: [], requiresJudgement: [], cleared: ["BP >= 180/120 without symptoms"] },
+        unaddressedEmergencyEvents: [{ id: "ee-1", source: "bp_reading" }],
+      }),
+      NOW
+    );
+    expect(proposals.map((p) => p.actionType)).not.toContain("resolve_case");
+  });
+
+  it("offers resolve again once the emergency event has been acknowledged (no longer in the unaddressed list)", () => {
+    const proposals = proposeActions(
+      facts({
+        protocol: protocol(),
+        escalation: { id: "esc-1", status: "under_review" },
+        unaddressedEmergencyEvents: [],
+      }),
+      NOW
+    );
+    expect(proposals.map((p) => p.actionType)).toContain("resolve_case");
   });
 
   it("never offers resolve on a case that has not been escalated", () => {

@@ -43,6 +43,7 @@ export async function loadCaseFacts(
     { data: schedules },
     { data: enrolments },
     { data: vitals },
+    { data: unaddressedEmergencyEvents },
     protocols,
   ] = await Promise.all([
     supabase
@@ -76,6 +77,18 @@ export async function loadCaseFacts(
       .eq("vital_type", "blood_pressure")
       .order("taken_at", { ascending: false })
       .limit(5),
+    // Same "unaddressed" predicate as useActiveEmergency (lib/queries/emergency.ts):
+    // status='active' AND acknowledged_at IS NULL, index-backed by
+    // emergency_events_active_idx. Deliberately not scoped to blood_pressure or
+    // to this alert's own clinician_alert_id -- a dangerous pulse or glucose
+    // reading logged minutes ago is just as disqualifying for the resolve
+    // shortcut as the reading that raised this particular alert.
+    supabase
+      .from("emergency_events")
+      .select("id, source")
+      .eq("patient_id", patientId)
+      .eq("status", "active")
+      .is("acknowledged_at", null),
     resolveProtocolsForPatient(supabase, patientId, organisationId),
   ]);
 
@@ -113,6 +126,10 @@ export async function loadCaseFacts(
     reviewCadenceMonths: cadences.length > 0 ? Math.min(...cadences) : null,
     redFlags: matchRedFlags(protocol, vitals ?? []),
     protocol,
+    unaddressedEmergencyEvents: (unaddressedEmergencyEvents ?? []).map((event) => ({
+      id: event.id,
+      source: event.source,
+    })),
   };
 
   return { facts, patientId, organisationId };
