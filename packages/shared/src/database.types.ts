@@ -40179,6 +40179,13 @@ export type Database = {
         Args: { p_reason: string; p_request_id: string }
         Returns: undefined
       }
+      delete_wearable_connection_data: {
+        Args: { p_connection_id: string }
+        Returns: {
+          vitals_deleted: number
+          wearable_readings_deleted: number
+        }[]
+      }
       device_connection_data_quality: {
         Args: { p_organisation_id: string }
         Returns: {
@@ -40195,13 +40202,15 @@ export type Database = {
           status: string
         }[]
       }
-      delete_wearable_connection_data: {
-        Args: { p_connection_id: string }
-        Returns: {
-          vitals_deleted: number
-          wearable_readings_deleted: number
-        }[]
+      diagnostic_governance_analytics: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
       }
+      diagnostic_pathway_analytics: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      diagnostic_safety_dashboard: { Args: never; Returns: Json }
       emergency_card_by_token: { Args: { p_token: string }; Returns: Json }
       employer_accept_invitation: { Args: { p_token: string }; Returns: string }
       employer_allowance_remaining: {
