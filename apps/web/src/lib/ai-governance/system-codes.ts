@@ -30,6 +30,15 @@
  * packages/db/tests/ai_governance.sql case 8 asserts the direction that
  * matters -- that no high or very-high risk system has drifted to fail-open
  * here. Being stricter than the rule is never the drift worth catching.
+ *
+ * THIS MAP MUST MIRROR public.ai_systems EXACTLY. AI-013/014/015 were added
+ * on 2026-09-16 after all three were found running in production with no
+ * ai_systems row at all -- no kill switch, no audit trail, no guardrail
+ * record, and not one ai_interaction_log row between them. The registration
+ * migration (20260916162244) closes with an assertion that ai_systems holds
+ * exactly as many rows as this object has keys, so adding a call site here
+ * without registering it, or the reverse, fails the migration rather than
+ * going unnoticed for weeks the way those three did.
  */
 export const AI_SYSTEMS = {
   coach: {
@@ -79,6 +88,23 @@ export const AI_SYSTEMS = {
   vaccinationCardOcr: {
     code: "AI-012",
     failClosedIfGovernanceUnavailable: true,
+  },
+  appointmentPrepSuggestions: {
+    code: "AI-013",
+    // Stricter than the risk_class rule (moderate), on the same reasoning as
+    // AI-003 and AI-012: it renders generated text on a patient's own care
+    // path, and the fallback costs nothing at all — the waiting room says no
+    // suggestions could be put together and the visit happens exactly as it
+    // would have.
+    failClosedIfGovernanceUnavailable: true,
+  },
+  careCoordinatorDraftReply: {
+    code: "AI-014",
+    failClosedIfGovernanceUnavailable: true,
+  },
+  serviceNavigation: {
+    code: "AI-015",
+    failClosedIfGovernanceUnavailable: false,
   },
 } as const;
 
