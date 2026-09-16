@@ -89,16 +89,21 @@ export default async function AiGovernancePage() {
         "id, ai_system_id, version, model_identifier, intended_population, excluded_population, validation_summary, validation_completed_at, approved_at, deployed_at, retired_at, review_due_on, change_summary, created_at, validated_by_staff:clinical_staff!ai_system_versions_validated_by_fkey(full_name), approved_by_staff:clinical_staff!ai_system_versions_approved_by_fkey(full_name)"
       )
       .order("created_at", { ascending: false }),
-    // Cases for any "clinical" evaluation suite (40.20's clinical-accuracy
-    // kind) — the ground-truth tier lives only where an active Chief
-    // Medical Officer actually wrote it (public.label_ai_evaluation_case_tier),
-    // never inferred here.
+    // Cases for the "clinical" and "bias" evaluation suites — the ground-truth
+    // tier lives only where an active Chief Medical Officer actually wrote it
+    // (public.label_ai_evaluation_case_tier), never inferred here.
+    //
+    // "bias" was added 2026-09-16, when the fairness suite stopped comparing
+    // each phrasing against a freshly generated reference run and started
+    // comparing it against this same label. Without widening this filter the
+    // fairness cases would be unlabellable from the console, and a suite that
+    // needs a label nobody can give is a suite that can never pass.
     supabase
       .from("ai_evaluation_cases")
       .select(
         "id, suite_id, case_code, scenario, expected_tier, labeled_at, label_rationale, ai_evaluation_suites!inner(name, kind, ai_system_id), labeled_by_staff:clinical_staff!ai_evaluation_cases_labeled_by_fkey(full_name)"
       )
-      .eq("ai_evaluation_suites.kind", "clinical")
+      .in("ai_evaluation_suites.kind", ["clinical", "bias"])
       .order("case_code"),
   ]);
 
