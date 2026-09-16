@@ -90,6 +90,21 @@ weight_management_enrolment_on_purchase.sql
 # the live project.
 escalation_auto_assignment_and_reassignment_authority.sql
 
+# --- Added 2026-09-16 ---------------------------------------------------------
+# private.auto_assign_escalation() and private.auto_match_internal_specialist()
+# only checked clinical_staff.active/doctor_tier -- neither ever consulted
+# provider_time_off or provider_availability_rules (both built 2026-08-28 for
+# patient-facing appointment slots), so a doctor genuinely on leave with the
+# lightest caseload could still be auto-routed a brand-new emergency case.
+# These two proofs cover the fix (migration
+# 20260916005747_escalation_auto_assignment_respects_availability.sql): on
+# leave excludes outright (including dropping alert-owner continuity), merely
+# blocked/outside-declared-hours only deprioritises, and zero availability
+# rules configured is never penalised (fail open). Each mints its own fresh
+# org/doctors/patients.
+escalation_auto_assignment_respects_availability.sql
+specialist_referral_auto_match_respects_availability.sql
+
 # --- Added 2026-09-14 (second pass) ------------------------------------------
 # The Platform Analytics & Audit Console (apps/web .../analytics/) has ~55
 # SECURITY DEFINER RPCs individually gated by private.is_analyst(), but only
