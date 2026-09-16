@@ -204,13 +204,50 @@ function AcceptanceChecklist({ system }: { system: AiDashboardSystem }) {
     boolean,
   ][];
 
+  // A suite that ran and failed is a finding; one that has never run is a
+  // backlog item. Shown apart for the same reason the database counts them
+  // apart — an amber "Evaluations passing" badge alone would read identically
+  // whether a system had never been tested or had been tested and failed.
+  const failing = system.acceptance.evaluations.filter((e) => e.latest_outcome === "fail");
+  const neverRun = system.acceptance.evaluations.filter((e) => e.latest_outcome === null);
+
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {entries.map(([key, met]) => (
-        <Badge key={key} variant={met ? "green" : "amber"}>
-          {met ? "✓" : "•"} {ACCEPTANCE_CRITERION_LABEL[key]}
-        </Badge>
-      ))}
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-1.5">
+        {entries.map(([key, met]) => (
+          <Badge key={key} variant={met ? "green" : "amber"}>
+            {met ? "✓" : "•"} {ACCEPTANCE_CRITERION_LABEL[key]}
+          </Badge>
+        ))}
+      </div>
+
+      {failing.length > 0 && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          <p className="font-medium">
+            {failing.length === 1
+              ? "A required evaluation is failing"
+              : `${failing.length} required evaluations are failing`}
+            {system.is_enabled ? " while this system is switched on" : ""}
+          </p>
+          <ul className="mt-1 list-inside list-disc space-y-0.5">
+            {failing.map((e) => (
+              <li key={e.suite_id}>
+                {e.name}
+                {e.latest_pass_rate_pct !== null && e.pass_threshold_pct !== null
+                  ? ` — ${e.latest_pass_rate_pct}% against a ${e.pass_threshold_pct}% threshold`
+                  : ""}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {neverRun.length > 0 && (
+        <p className="text-xs text-slate-500">
+          Never run against this system:{" "}
+          {neverRun.map((e) => e.name).join(", ")}
+        </p>
+      )}
     </div>
   );
 }
@@ -594,6 +631,7 @@ export function AiGovernanceConsole({
         {(dashboard.monitoring.unacknowledged_model_changes > 0 ||
           dashboard.monitoring.drift_breaches > 0 ||
           dashboard.monitoring.material_disparities > 0 ||
+          dashboard.monitoring.systems_live_with_failing_evaluations > 0 ||
           dashboard.monitoring.systems_overdue_review > 0) && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
             <p className="font-medium">Needs attention</p>
@@ -612,6 +650,15 @@ export function AiGovernanceConsole({
                 <li>
                   {dashboard.monitoring.material_disparities} material performance disparities
                   between population groups
+                </li>
+              )}
+              {dashboard.monitoring.systems_live_with_failing_evaluations > 0 && (
+                <li>
+                  {dashboard.monitoring.systems_live_with_failing_evaluations} switched-on
+                  {dashboard.monitoring.systems_live_with_failing_evaluations === 1
+                    ? " system has"
+                    : " systems have"}{" "}
+                  a required evaluation that ran and failed
                 </li>
               )}
               {dashboard.monitoring.systems_overdue_review > 0 && (
