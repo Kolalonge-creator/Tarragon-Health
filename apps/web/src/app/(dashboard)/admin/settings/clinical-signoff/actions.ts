@@ -80,17 +80,47 @@ export async function signClinicalRuleWithGovernanceAction(
   if (sourceError || !source) {
     return { error: sourceError?.message ?? "That rule could not be found." };
   }
-  if (source.approved_by) {
-    return { error: `${source.name} is already signed.` };
+  // An already-signed rule is not an error: correcting a wrong protocol link
+  // is a real and necessary act. The rules were first signed on 2026-09-16
+  // when the only options were five condition-specific protocols, so
+  // all-patient rules had to be linked to whichever one was in the list —
+  // the critical-screening referral rule ended up recorded as deriving from
+  // the menstrual cycle protocol. A governance link that is wrong reads as
+  // deliberate, which is worse than one that is missing, so there has to be a
+  // way to put it right.
+  //
+  // Correcting one is the same versioning flow as signing one: the signed row
+  // is immutable, so a new version carries the corrected fields and
+  // sign_clinical_rule retires the version it supersedes. Nothing is edited
+  // in place and the original signature stays in the history.
+  const isCorrection = Boolean(source.approved_by);
+
+  if (
+    isCorrection &&
+    source.owner_clinical_staff_id === ownerStaffId &&
+    source.protocol_version_id === protocolVersionId
+  ) {
+    return {
+      error: `${source.name} already names that owner and that protocol — nothing would change.`,
+    };
   }
 
-  // A rule that already carries both governance fields needs no duplicate —
-  // signing it directly is the shorter, truer path, and creating a pointless
-  // v+1 would clutter the version history for no reason.
+  // A rule that already carries both governance fields and is not being
+  // corrected needs no duplicate — signing it directly is the shorter, truer
+  // path, and creating a pointless v+1 would clutter the version history.
   let idToSign = source.id;
 
-  if (!source.owner_clinical_staff_id || !source.protocol_version_id) {
-    const nextVersion = source.version + 1;
+  if (isCorrection || !source.owner_clinical_staff_id || !source.protocol_version_id) {
+    // Highest existing version + 1, not source.version + 1: correcting an
+    // already-corrected rule would otherwise collide with the version it
+    // created, and clinical_rules is unique on (rule_key, version).
+    const { data: versions } = await supabase
+      .from("clinical_rules")
+      .select("version")
+      .eq("rule_key", source.rule_key)
+      .order("version", { ascending: false })
+      .limit(1);
+    const nextVersion = (versions?.[0]?.version ?? source.version) + 1;
     const { data: draft, error: draftError } = await supabase
       .from("clinical_rules")
       .insert({
@@ -115,7 +145,9 @@ export async function signClinicalRuleWithGovernanceAction(
         owner_clinical_staff_id: ownerStaffId,
         protocol_version_id: protocolVersionId,
         supersedes_id: source.id,
-        notes: `Version ${nextVersion} of ${source.rule_key}, duplicated unchanged from v${source.version} with an accountable owner and a signed protocol attached, then signed from the clinical sign-off checklist.`,
+        notes: isCorrection
+          ? `Version ${nextVersion} of ${source.rule_key}, duplicated unchanged from v${source.version} to correct its governance link (owner and/or the signed protocol its thresholds come from). Clinical content is byte-identical to v${source.version}.`
+          : `Version ${nextVersion} of ${source.rule_key}, duplicated unchanged from v${source.version} with an accountable owner and a signed protocol attached, then signed from the clinical sign-off checklist.`,
       })
       .select("id")
       .single();
@@ -138,6 +170,10 @@ export async function signClinicalRuleWithGovernanceAction(
     return { error: signError.message };
   }
 
+  // sign_clinical_rule already retires a superseded ACTIVE version, so a
+  // correction needs no tidy-up. Only the first-time path leaves an orphan:
+  // the original shadow row, which the engine would otherwise keep
+  // shadow-executing alongside the newly active version forever.
   if (idToSign !== source.id && source.status === "shadow") {
     const { error: retireError } = await supabase.rpc("retire_clinical_rule", {
       p_id: source.id,
@@ -152,5 +188,9 @@ export async function signClinicalRuleWithGovernanceAction(
   }
 
   PATHS.forEach((p) => revalidatePath(p));
-  return { success: `${source.name} is signed and live.` };
+  return {
+    success: isCorrection
+      ? `${source.name} now names the protocol you chose. The previous version is retired and stays in the history.`
+      : `${source.name} is signed and live.`,
+  };
 }

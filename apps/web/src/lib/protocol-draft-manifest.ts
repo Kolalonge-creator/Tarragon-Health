@@ -25,111 +25,174 @@ export type KnownUnpromotedProtocolDraft = {
 
 export const KNOWN_UNPROMOTED_PROTOCOL_DRAFTS: KnownUnpromotedProtocolDraft[] = [
   {
-    protocolId: "vitals_red_flag_thresholds",
-    title: "Vitals red-flag thresholds (BP/glucose/SpO2/temperature/pulse)",
+    protocolId: "screening_result_handling",
+    title: "Screening result handling (all patients)",
     changeSummary:
-      "v1. First signed record of the green/amber/red/emergency bands applied to patient-logged vitals, live and unsigned since launch.",
-    sourceHint: "Draft text ready in docs/protocol-drafts/vitals-red-flag-thresholds.md (PR #486)",
+      "v1. First protocol covering the three all-patient screening rules already running in the clinical rules engine, so each can name a protocol that actually describes it.",
+    sourceHint: "Draft text ready in docs/protocol-drafts/screening-result-handling.md",
     content: `## Scope
 
-Governs the deterministic bands applied to every patient-logged vital. The same
-bands drive three separate consequences, which is why they are signed together:
+Governs what happens when a screening result arrives, for **every patient on
+the platform**, regardless of condition, programme or plan. Three rules in the
+clinical rules engine implement it, all triggered by the
+\`screening_result_received\` event with population \`{"op":"true"}\`.
 
-1. **Patient-facing guidance** — an emergency band shows acknowledge-gated "go
-   to the nearest hospital now" guidance and offers to notify the emergency
-   contact. This happens on **every plan, including free**.
-2. **Clinician escalation** — a red or emergency band raises a
-   \`clinician_alerts\` row. This is **gated to paid plans** by the
-   \`vitals_red_flag_doctor_escalation\` feature flag.
-3. **Dashboard colour** — the band sets the status colour on the patient's
-   tiles and trends.
+This protocol is about the **routing** of a result, not about how any
+individual screen is interpreted. The clinical meaning of a given screen
+belongs to that screen's own programme.
 
-The split at (2) is a deliberate commercial decision, not a clinical one: the
-safety net is universal, a doctor's time is not.
+## Rules this protocol governs
 
-## Blood pressure (mmHg)
-
-Thresholds version \`2026-09-01.1\`. A reading takes the **highest** band either
-number qualifies for.
-
-| Band | Systolic | Diastolic | Label shown |
-|---|---|---|---|
-| Emergency | ≥ 200 | ≥ 120 | Crisis range |
-| Red | ≥ 160 | ≥ 100 | High (urgent review) |
-| Amber | ≥ 135 | ≥ 85 | Above target |
-| Green | below | below | At target |
-
-**For review:** the amber floor of 135/85 is tighter than the 140/90 commonly
-used for a clinic diagnosis of hypertension. That is intentional — these are
-home readings, which run lower than clinic readings — but it is a Tarragon
-choice and it sets how often patients are told they are above target.
-
-## Blood glucose (mmol/L)
-
-| Threshold | Value | Consequence |
+| Result status | Rule | What the platform does |
 |---|---|---|
-| Severe hypoglycaemia | < 3.0 | Emergency. If confused or unable to swallow: nothing by mouth, emergency care now |
-| Hypoglycaemia alert | ≥ 3.0 and < 3.9 | Same-day: 15/15 rule, same-day review of glucose-lowering drugs / insulin |
-| DKA-relevant high | ≥ 11.0 with raised ketones | Emergency: hospital now, do not delay, never stop insulin |
-| Very high | ≥ 20.0 | Same-day contact to confirm DKA/HHS symptoms and guide ketone testing |
-| Persistent high | > 14.0 on ≥ 3 recent readings | Priority review; consider therapy change |
-| Ketones high | ≥ 3.0 mmol/L | DKA workflow, urgent doctor, do not delay |
-| Ketones moderate | ≥ 1.5 and < 3.0 mmol/L | Review; recheck and watch for DKA features |
+| \`abnormal\` or \`critical\` | \`diagnostic_abnormal_screening_result_review\` | Flags the result for clinical review |
+| \`critical\` | \`referral_critical_screening_specialist_review\` | Additionally recommends a specialist referral for a clinician to review and assign urgency |
+| \`normal\` | \`preventive_next_screening_after_normal_result\` | Schedules the next screening at the programme's cadence |
 
-**For review:** the "very high ≥ 20.0" path fires even with **no ketone
-reading at all**, because most patients have no home ketone testing. The
-resulting message tells the care team to guide the patient on where to test.
-Confirm that is the behaviour you want rather than suppressing until ketones
-are known.
+A \`critical\` result therefore matches two rules and produces both
+consequences. That is intended.
 
-## Oxygen saturation (SpO2, %)
+## What this protocol does NOT govern
 
-| Band | Value |
-|---|---|
-| Emergency | < 90 |
-| Red | 90 – 92 |
-| Amber | 93 – 94 |
-| Green | ≥ 95 |
+**The live abnormal-result escalation pipeline is a separate, authoritative
+path and is untouched by these rules.** \`private.handle_abnormal_screening_result\`
+writing to \`clinician_alerts\` is what actually escalates an abnormal result,
+and it runs whether or not these rules exist. The
+\`diagnostic_abnormal_screening_result_review\` rule carries an explicit note in
+its own definition saying it is an observational parallel only.
 
-## Temperature (°C)
+This matters because the platform's standing rule is that an abnormal
+screening result is never deprioritised or silently swallowed. That guarantee
+comes from the escalation pipeline, not from this protocol.
 
-| Band | Value |
-|---|---|
-| Emergency | ≥ 40.0 **or** < 35.0 |
-| Red | ≥ 39.0 |
-| Amber | ≥ 38.0 |
-| Green | 35.0 – 37.9 |
+## Clinician oversight
 
-Hypothermia below 35.0 is treated as an emergency equal to hyperpyrexia.
+Both the review flag and the specialist-referral recommendation are marked
+\`requires_clinician_oversight: true\`. Neither creates a referral. A referral is
+only ever created by a clinician acting on the recommendation.
 
-## Pulse (bpm, resting)
+The next-screening scheduling is also marked as requiring oversight.
 
-| Band | Bradycardia | Tachycardia |
-|---|---|---|
-| Emergency | ≤ 35 | ≥ 150 |
-| Red | ≤ 39 | ≥ 121 |
-| Amber | ≤ 49 | ≥ 101 |
+**For review:** scheduling the next screening after a normal result is
+arguably routine enough not to need a clinician in the loop. It is currently
+gated as if it does. Confirm whether that is the intent or a conservative
+default worth relaxing.
 
-**For review:** these are single-reading bands with no context for age,
-fitness or medication. A trained athlete with a resting pulse of 45 gets an
-amber tile. This is accepted as a false-positive-tolerant design, but confirm.
-
-## Cross-cutting rules
-
-- **Bands are applied to a single reading**, not a trend. Persistent
-  hyperglycaemia is the only rule requiring repeat readings (3).
-- **Manual and device readings are treated identically.** \`vitals_readings.source\`
-  records the difference but no threshold varies by it.
-- **Basal body temperature is excluded** from the fever bands. It is stored on
-  the cycle daily log, not \`vitals_readings\`, precisely so a normal
-  post-ovulation 37.1 °C never pages a clinician.
-- **No band constitutes a clinical all-clear.** A green reading is never
-  presented as reassurance about anything other than that number.
+**For review:** these rules act on the \`result_status\` classification
+(\`normal\` / \`abnormal\` / \`critical\`) as it arrives. This protocol does not
+define how that classification is made — confirm that the upstream
+classification for every screen type in use is one you stand behind, because
+these rules inherit it wholesale.
 
 ## Review triggers
 
-Re-review if: any band is moved; a band is made age- or condition-specific; the
-plan gate on clinician escalation changes; or trend-based rules are added
-alongside single-reading bands.`,
+Re-review if: a new \`result_status\` value is introduced; the specialist
+referral recommendation is changed into an automatic referral; the
+observational rule is ever made authoritative alongside the escalation
+pipeline; or the next-screening cadence becomes rule-driven rather than
+programme-driven.`,
+  },
+  {
+    protocolId: "appointment_engagement",
+    title: "Missed appointments: rebooking and disengagement (all patients)",
+    changeSummary:
+      "v1. First protocol covering the two all-patient missed-appointment rules already running in the clinical rules engine.",
+    sourceHint: "Draft text ready in docs/protocol-drafts/appointment-engagement.md",
+    content: `## Scope
+
+Governs what happens when a patient misses an appointment, for **every patient
+on the platform**. Two rules implement it, both triggered by the
+\`appointment_missed\` event with population \`{"op":"true"}\`.
+
+These are care-coordination rules, not clinical ones. Nothing here interprets
+a symptom, changes a medication, or makes a clinical judgement.
+
+## Rules this protocol governs
+
+| Trigger | Rule | What the platform does |
+|---|---|---|
+| Any missed appointment | \`operational_missed_appointment_rebooking\` | Recommends offering a rebooking within 7 days |
+| 2 or more missed in 180 days | \`engagement_repeated_missed_appointments\` | Raises a task: "Patient disengaging — outreach needed" |
+
+A single miss produces the rebooking prompt only. The second miss inside the
+180-day window produces both.
+
+## Clinician oversight
+
+- The rebooking recommendation is the **only rule in the engine marked
+  \`requires_clinician_oversight: false\`**. It is logistics: offering an earlier
+  slot needs no clinical judgement, and it is the kind of task a Care
+  Coordinator handles.
+- The disengagement task **does** require clinician oversight, because
+  deciding what to do about a disengaging patient is a clinical judgement
+  about risk, not a scheduling action.
+
+**For review:** the thresholds are 2 misses in 180 days, and rebooking within
+7 days. Both are platform defaults with no external guideline behind them.
+They set how often a patient is chased, which is a real experience decision as
+well as a clinical one — confirm both numbers.
+
+**For review:** the disengagement rule counts missed appointments only. It
+does not weight them by what was missed, so two missed lifestyle check-ins
+count the same as two missed post-abnormal-result consultations. Confirm
+whether that is acceptable, or whether high-stakes appointments should count
+differently.
+
+## Review triggers
+
+Re-review if: either threshold moves; the rebooking recommendation is ever
+made automatic rather than offered; or missed appointments start feeding a
+risk score or a plan/billing consequence.`,
+  },
+  {
+    protocolId: "medication_monitoring_after_prescribing",
+    title: "Monitoring required after a new prescription",
+    changeSummary:
+      "v1. First protocol covering the CKD renal-monitoring rule already running in the clinical rules engine, and the named home for any further post-prescribing monitoring rules.",
+    sourceHint: "Draft text ready in docs/protocol-drafts/medication-monitoring-after-prescribing.md",
+    content: `## Scope
+
+Governs monitoring that must be scheduled after a medication is newly
+prescribed, where the patient has a condition that makes the new medication a
+monitoring trigger.
+
+Today exactly one rule implements this. The protocol is written to hold
+further post-prescribing monitoring rules as they are added, so each does not
+need a protocol of its own.
+
+## Rules this protocol governs
+
+| Population | Rule | What the platform does |
+|---|---|---|
+| Active CKD | \`medication_new_prescription_ckd_renal_monitoring\` | On any \`medication_prescribed\` event, schedules a renal-function (U&E/eGFR) recheck |
+
+The rule's condition predicate is \`{"op":"true"}\` — that is, it fires for
+**any** newly prescribed medication for a patient with active CKD, not only
+for renally-cleared drugs. The population gate (\`has_condition_ckd\`) is what
+narrows it.
+
+**For review:** that is deliberately broad. A patient with CKD starting a
+topical or a short antibiotic course triggers the same recheck prompt as one
+starting an ACE inhibitor. The trade is a false-positive-tolerant design that
+cannot miss a nephrotoxic start. Confirm this is the intended trade, or
+narrow the rule to a drug class list.
+
+**For review:** the rule schedules monitoring but does not specify an
+interval. Confirm the interval a renal recheck should be scheduled at after a
+new prescription, or confirm that leaving it to the reviewing clinician is
+intended.
+
+## Clinician oversight
+
+Marked \`requires_clinician_oversight: true\`. The rule creates a monitoring
+prompt, never an order. No test is ordered and no result is interpreted
+without a clinician.
+
+## Review triggers
+
+Re-review if: a second post-prescribing monitoring rule is added; the CKD rule
+is narrowed to a drug class; a monitoring interval is fixed in the rule rather
+than left to the clinician; or the rule is ever allowed to order a test
+directly.`,
   },
 ];

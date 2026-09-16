@@ -588,6 +588,21 @@ export function AiGovernanceConsole({
           {dashboard.window_days} days
           {dashboard.scope === "platform" ? " across the platform" : " for your organisation"}.
         </p>
+        {/*
+          Says plainly what this page is and is not. The acceptance criteria
+          below read like a launch checklist and are not one: the runtime
+          consults `is_enabled` and nothing else — never an approved version,
+          never these criteria — so an outstanding criterion records a gap in
+          the paperwork, it does not hold a feature back. Without this line the
+          permanent amber invites the opposite reading, which is how a true
+          record ends up being treated as a blocker.
+        */}
+        <p className="mt-3 max-w-3xl rounded-md border border-mist-grey/40 bg-mist-grey/10 p-3 text-sm text-charcoal-ink/70">
+          <span className="font-medium text-charcoal-ink">This page is a record, not a gate.</span>{" "}
+          An outstanding criterion below does not stop a feature running or hold up a release — the
+          only thing that stops an AI system is its switch, on its own card. Outstanding items are a
+          dated, visible backlog, which is what a registry is for.
+        </p>
       </div>
 
       {/* 40.13 — the clinical-governance view */}

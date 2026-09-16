@@ -7,6 +7,7 @@ import {
   SignoffChecklist,
   type ProtocolOption,
   type SettledItem,
+  type SignedRule,
   type StaffOption,
   type UnsignedRule,
 } from "./signoff-checklist";
@@ -63,7 +64,7 @@ export default async function ClinicalSignoffPage() {
   const [rulesRes, staffRes, protocolsRes, configs] = await Promise.all([
     supabase
       .from("clinical_rules")
-      .select("id, rule_key, version, name, description, category, status, approved_by, owner_clinical_staff_id, protocol_version_id")
+      .select("id, rule_key, version, name, description, category, status, approved_by, approved_at, owner_clinical_staff_id, protocol_version_id, clinical_staff:clinical_staff!clinical_rules_owner_clinical_staff_id_fkey(full_name), protocol_versions(title)")
       .in("status", ["draft", "shadow", "active"])
       .order("rule_key", { ascending: true })
       .order("version", { ascending: false }),
@@ -117,7 +118,24 @@ export default async function ClinicalSignoffPage() {
         "This rule will start acting on real events instead of only being measured in shadow mode.",
     }));
 
-  const signedRuleCount = newest.filter((r) => r.approved_by).length;
+  const signedRules: SignedRule[] = newest
+    .filter((r) => r.approved_by)
+    .map((r) => ({
+      id: r.id,
+      rule_key: r.rule_key,
+      version: r.version,
+      name: r.name,
+      category: r.category,
+      ownerName:
+        (r as { clinical_staff?: { full_name: string } | null }).clinical_staff?.full_name ?? null,
+      protocolTitle:
+        (r as { protocol_versions?: { title: string } | null }).protocol_versions?.title ?? null,
+      signedOn: r.approved_at ? new Date(r.approved_at).toISOString().slice(0, 10) : null,
+      whatHappens:
+        WHAT_HAPPENS[r.rule_key] ??
+        "This rule acts on real events rather than only being measured in shadow mode.",
+    }));
+
 
   // Read live, never hardcoded. A hardcoded "these are all signed" list is
   // exactly the kind of reassurance that goes stale silently — the page would
@@ -153,11 +171,11 @@ export default async function ClinicalSignoffPage() {
 
       <SignoffChecklist
         unsignedRules={unsignedRules}
+        signedRules={signedRules}
         unsignedConfigs={unsignedConfigs}
         settled={settled}
         staff={(staffRes.data ?? []) as StaffOption[]}
         protocols={(protocolsRes.data ?? []) as ProtocolOption[]}
-        signedRuleCount={signedRuleCount}
         totalConfigCount={GOVERNED_CONFIG_TABLES.length}
       />
     </div>
