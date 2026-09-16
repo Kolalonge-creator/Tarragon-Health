@@ -166,6 +166,29 @@ Rows arrive only through `record_ai_interaction()`, a SECURITY DEFINER function 
 organisation and the acting account server-side. There is deliberately **no INSERT policy** on the
 table — asserted by the migration, because "the RPC is the only writer" is the whole integrity claim.
 
+**Known gap window, closed 2026-09-16: the audit trail silently dropped almost every routine
+interaction from 2026-08-29 to 2026-09-16.** `record_ai_interaction()`'s `flagged_for_review`
+computation used plain `or` across three legs, one of which (`p_safety_classification in
+('urgent_escalation', 'emergency')`) is NULL, not false, whenever no safety classification is
+passed — which is the default and what almost every call site did (`governed-ml-client.ts` for
+AI-010, and the ECG/lab/vaccination extraction and lifestyle-embeddings call sites, never pass one
+at all; `runGovernedAi()` passes one only when the call's own outcome carried one). SQL's `false or
+NULL or false` is NULL, and that NULL then violated `flagged_for_review`'s `not null` constraint —
+raising error 23502 on essentially every such call. Because `recordAiInteraction()` in
+`apps/web/src/lib/ai-governance/audit.ts` deliberately swallows a failed audit write (an audit
+failure must not take down the patient-facing call it is recording — see "Governance must never
+become the new single point of failure" above), this was invisible: the AI feature kept working
+normally, its own audit-trail row simply never got written. A live count on 2026-09-16 found only 8
+rows in `ai_interaction_log` across the ~18 days since the function was created, all of them the
+rare calls that happened to pass an explicit safety classification. Fixed in
+`20260916024101_fix_record_ai_interaction_null_flag_not_null_violation.sql` by coalescing every leg
+of the expression to a real boolean before it can reach the insert; regression-tested (with a
+sabotage run confirming the test fails against the pre-fix function) in
+`packages/db/tests/ai_governance.sql` case 9. **No backfill was attempted** — the underlying AI
+interactions were never captured (no verbatim input/output is retained anywhere per the two
+departures above), so there is nothing to reconstruct; the gap is a real, permanent hole in the
+audit trail for that window, not a delayed write.
+
 ---
 
 ## Reporting an incorrect answer (40.12)
