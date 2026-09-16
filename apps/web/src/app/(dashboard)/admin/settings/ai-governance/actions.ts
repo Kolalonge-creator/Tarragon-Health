@@ -5,6 +5,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { AI_INCIDENT_CATEGORIES } from "@/lib/ai-governance";
+import { runAiCoachGovernanceSuites } from "@/lib/ai-governance/run-coach-eval-suites";
 
 const PATH = "/admin/settings/ai-governance";
 
@@ -277,4 +278,128 @@ export async function reportAiIncidentFromConsoleAction(
 
   revalidatePath(PATH);
   return { success: "Reported. It is now on the incident queue for triage." };
+}
+
+export interface EvalSuiteSummary {
+  suite_name: string;
+  outcome: "pass" | "fail";
+  passed_cases: number;
+  total_cases: number;
+  pass_threshold_pct: number;
+}
+
+export type RunEvalSuitesState =
+  | { error: string }
+  | { results: EvalSuiteSummary[]; recordError?: string }
+  | undefined;
+
+/**
+ * Runs AI-001's four governance evaluation suites for real (real Sonnet 5 +
+ * Haiku 4.5 calls against the actual coach graph, never against patient
+ * data -- see run-coach-eval-suites.ts) and records one ai_evaluation_runs +
+ * its ai_evaluation_case_results rows per suite as each suite completes, not
+ * batched at the end. That ordering matters on Vercel: a function timeout
+ * partway through a ~1-3 minute run still leaves whatever suites finished as
+ * an honest, recorded partial result instead of losing everything.
+ *
+ * This does not itself approve anything -- it only measures and records
+ * facts against the current, latest, unretired ai_system_versions row for
+ * AI-001. `public.approve_ai_system_version`'s own release gate is what
+ * decides whether those recorded runs are enough; this action's write
+ * access comes from the caller's own admin RLS grant on these two tables
+ * (ai_evaluation_runs_write / ai_evaluation_case_results_write), the same
+ * as every other write on this page -- no service-role client involved.
+ */
+export async function runAiEvalSuitesAction(
+  _prev: RunEvalSuitesState,
+  _formData: FormData
+): Promise<RunEvalSuitesState> {
+  const profile = await getCurrentProfile();
+  if (!profile) return { error: "Not signed in." };
+
+  const supabase = await createClient();
+
+  const { data: system, error: systemError } = await supabase
+    .from("ai_systems")
+    .select("id")
+    .eq("system_code", "AI-001")
+    .single();
+  if (systemError || !system) return { error: `Could not find AI-001: ${systemError?.message ?? "not found"}` };
+
+  const { data: latestVersion, error: versionError } = await supabase
+    .from("ai_system_versions")
+    .select("id, model_identifier")
+    .eq("ai_system_id", system.id)
+    .is("retired_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (versionError) return { error: `Could not resolve AI-001's current version: ${versionError.message}` };
+
+  const results: EvalSuiteSummary[] = [];
+  let recordError: string | undefined;
+
+  try {
+    await runAiCoachGovernanceSuites({
+      onSuiteComplete: async (suite, { aiSystemId }) => {
+        results.push({
+          suite_name: suite.suite_name,
+          outcome: suite.outcome,
+          passed_cases: suite.passed_cases,
+          total_cases: suite.total_cases,
+          pass_threshold_pct: suite.pass_threshold_pct,
+        });
+
+        const { data: runRow, error: runError } = await supabase
+          .from("ai_evaluation_runs")
+          .insert({
+            ai_system_id: aiSystemId,
+            ai_system_version_id: latestVersion?.id ?? null,
+            suite_id: suite.suite_id,
+            environment: "evaluation",
+            model_identifier: latestVersion?.model_identifier ?? null,
+            completed_at: new Date().toISOString(),
+            total_cases: suite.total_cases,
+            passed_cases: suite.passed_cases,
+            failed_cases: suite.failed_cases,
+            outcome: suite.outcome,
+            pass_rate_pct: suite.total_cases === 0 ? null : (suite.passed_cases / suite.total_cases) * 100,
+            run_by: profile.id,
+            notes: "Recorded by the admin console's \"Run evaluations\" button, not a migration.",
+          })
+          .select("id")
+          .single();
+        if (runError || !runRow) {
+          recordError = `Ran "${suite.suite_name}" (${suite.passed_cases}/${suite.total_cases}) but could not record it: ${runError?.message ?? "no run id returned"}`;
+          return;
+        }
+
+        if (suite.cases.length > 0) {
+          const { error: resultsError } = await supabase.from("ai_evaluation_case_results").insert(
+            suite.cases.map((c) => ({
+              run_id: runRow.id,
+              case_id: c.case_id,
+              outcome: c.outcome,
+              actual_output: c.actual_output,
+            }))
+          );
+          if (resultsError) {
+            recordError = `Recorded "${suite.suite_name}" but not its per-case results: ${resultsError.message}`;
+          }
+        }
+      },
+    });
+  } catch (error) {
+    if (results.length === 0) {
+      return { error: error instanceof Error ? error.message : "Evaluation run failed before any suite completed." };
+    }
+    // A later suite threw (e.g. the Anthropic account ran out of credit
+    // mid-run) -- whatever suites completed before that are still real,
+    // recorded results, so report them rather than discarding the partial
+    // progress as a bare error.
+    recordError = `${error instanceof Error ? error.message : "Evaluation run failed"} -- stopped after ${results.length} of 4 suites.`;
+  }
+
+  revalidatePath(PATH);
+  return { results, recordError };
 }

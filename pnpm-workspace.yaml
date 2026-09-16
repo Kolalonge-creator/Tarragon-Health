@@ -80,8 +80,16 @@ overrides:
   # (cosmiconfig wants ^3.13.1, @expo/xcpretty wants ^4.1.0) — scoped
   # per-range so each stays on the major it was actually shipped against,
   # patched at the point release the advisory calls out.
-  "js-yaml@^3.13.1": "3.15.1" # GHSA-5p4m-2wfm-xmqj (quadratic CPU via !!omap resolution)
-  "js-yaml@^4.1.0": "4.3.1" # GHSA-5p4m-2wfm-xmqj (quadratic CPU via !!omap resolution)
+  # Raised again 2026-09-16: a DIFFERENT advisory (CVE-2026-84375,
+  # "maxTotalMergeKeys does not limit CPU use for empty merge sources") was
+  # open against both 3.15.1 and 4.3.1 above — the omap fix below didn't
+  # cover it. First-patched is 3.15.2 / 4.3.2 respectively; diffed both
+  # loader.js files against the pinned versions before bumping (identical
+  # fix in each line: an empty-mapping merge source now still charges
+  # chargeMergeWork(), plus a new "abnormal merge sequence size" cap) —
+  # pure patch-level safety accounting, no API change.
+  "js-yaml@^3.13.1": "3.15.2" # GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
+  "js-yaml@^4.1.0": "4.3.2" # GHSA-5p4m-2wfm-xmqj, GHSA-2883-xcg3-v3hh
   # brace-expansion: four different minimatch majors in apps/mobile's build
   # tooling (metro/@expo/cli/react-native codegen/eas-cli) each pin their own
   # brace-expansion major — selector after the @ is minimatch's own declared
@@ -101,11 +109,33 @@ overrides:
   "fast-xml-parser@^4.0.12": "5.7.0" # GHSA-gh4j-gqv2-49f6 (XMLBuilder comment/CDATA injection via unescaped delimiters)
   # image-size (GHSA-w3rx-r6r6-pgpr, GHSA-5p2g-fcmc-qvqq — ICNS/JXL/HEIF
   # parser infinite loops, via apps/mobile's metro bundler) deliberately has
-  # NO override: the advisories claim a fix at ">=2.0.3", but 2.0.3 does not
-  # exist on the npm registry or in the image-size GitHub repo's tags as of
-  # 2026-08-29 — 2.0.2 (already vulnerable per the advisory's own "<=2.0.2"
-  # range) is the latest real release. Forcing a version that doesn't exist
-  # would just fail to resolve. Re-check when a real 2.0.3 (or later) ships.
+  # NO override, for a DIFFERENT reason as of 2026-09-16 than the original
+  # 2026-08-29 note (2.0.3 didn't exist yet then — it does now, published
+  # 2026-09-14, and 2.0.4 the same day): downloaded and diffed the actual
+  # npm tarballs, and 2.0.4 genuinely fixes both bugs (ICNS's readImageHeader
+  # now throws instead of looping forever on a zero-length entry; HEIF's
+  # box-walk now throws if an ispe box doesn't advance the offset) — this is
+  # a real, verified fix, not a coincidental version bump.
+  #
+  # The reason it's still not usable here: image-size 2.x is a genuine
+  # breaking change, not just a version bump. v1.x's default export accepts
+  # EITHER a Buffer/Uint8Array OR a file-path string (reading the file
+  # itself via fs); v2.x split this into two entry points --
+  # `imageSize()` now takes ONLY a Buffer, file-path reading moved to a
+  # separate `image-size/fromFile` export metro@0.83.3 (pinned via
+  # expo@54.0.36, the only version in this workspace) never calls. Metro's
+  # own Assets.js:173 does
+  # `assetInfo.files[0].includes(".zip/") ? fs.readFileSync(...) :
+  # assetInfo.files[0]` -- for any non-zip asset (the overwhelming common
+  # case) it passes the raw file-path STRING straight into imageSize(),
+  # which is exactly the v1-only calling convention. Forcing 2.x here would
+  # silently break dimension detection for most bundled images rather than
+  # fixing a live vulnerability, since this code path is Metro's asset
+  # pipeline (build-time only) already, not something an attacker's input
+  # reaches. Revisit only once Metro itself ships a version that either
+  # reads the file before calling imageSize() or bumps its own image-size
+  # dependency to 2.x -- check metro's own package.json range at that
+  # point, don't just retry this override.
   # 2026-08-30 GitHub Dependabot sweep (19 alerts total; 8 of the 19 are in
   # reference/tarragon-control/ — a deliberately preserved, non-running
   # backup of the abandoned v3 repo per CLAUDE.md, not touched here). The
@@ -136,5 +166,39 @@ overrides:
   # the other already sits above the patched floor within the SAME major —
   # unlike the packages above, an unscoped bump here can't drag anything
   # onto an incompatible major, so no per-range scoping needed.
-  joi: ">=17.13.4" # CVE-2026-48038 (uncaught RangeError on deeply nested input via recursive link() schemas)
+  # joi raised again 2026-09-15: two more advisories (CVE-2026-84368,
+  # CVE-2026-84367 — prototype pollution via a __proto__ language key in
+  # custom messages, and via object().rename() with a template target) were
+  # open against the >=17.13.4 floor above. Their highest first-patched
+  # version is 17.13.6. Switched from an open floor to an exact pin here:
+  # ">=17.13.6" actually resolved to 18.2.9 on install (a real major, not
+  # verified compatible with the EAS/React Native CLI schema-validation
+  # code that consumes joi transitively) — pinned to the newest real 17.x
+  # release instead (17.13.8, confirmed published) to stay inside the same
+  # major this override has always intended.
+  joi: "17.13.8" # CVE-2026-48038, CVE-2026-84368, CVE-2026-84367
   yaml: ">=2.8.3" # CVE-2026-33532 (stack overflow via deeply nested YAML collections)
+  # browserslist (via babel-preset-expo's Babel target resolution, build-time
+  # only): CVE-2026-73089/73088 (unbounded query-result cache growth toward
+  # OOM; uncaught crash/prototype write from an untrusted
+  # browserslist-stats.json). Single resolved copy, same reasoning as
+  # joi/yaml above — no scoping needed.
+  browserslist: ">=4.28.7" # CVE-2026-73089, CVE-2026-73088
+  # baseline-browser-mapping (browserslist's own dependency, same chain):
+  # CVE-2026-45819, process termination on invalid input causing DoS.
+  baseline-browser-mapping: ">=2.11.0" # CVE-2026-45819
+  # @xmldom/xmldom (via @expo/plist -> @expo/config-plugins/@expo/cli,
+  # parsing Info.plist during `expo prebuild`/EAS builds only — never
+  # reachable by patient/attacker-controlled input): 23 open Dependabot
+  # alerts across the 0.7.x-0.8.14 and 0.9.0-0.9.11 lines (ReDoS,
+  # element/attribute/PI/doctype name injection bypassing
+  # requireWellFormed, quadratic memory/parsing). 0.9.12 is the highest
+  # first-patched version across all of them and closes every one. Pinned
+  # exact, not an open floor: this is a pre-1.0 package (0.8->0.9 is not a
+  # guaranteed-compatible bump under semver), and its own 0.9.x release
+  # notes add real behavioural changes (createCDATASection now throws on
+  # unsafe "]]>" content, XMLSerializer.serializeToString gained a fourth
+  # requireWellFormed argument) — narrow enough that well-formed,
+  # developer-authored plist XML is unaffected, but not something to leave
+  # to an open floor picking up whatever ships next.
+  "@xmldom/xmldom": "0.9.12" # GHSA-c7q8-3ch8-vqpv and 12 other GHSA ids, see the 2026-09-15 Dependabot sweep
