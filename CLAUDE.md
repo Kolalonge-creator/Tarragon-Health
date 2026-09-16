@@ -369,8 +369,24 @@ taken on faith:**
   those two closed, not a third/fourth duplicate. Re-measured the same day: 158 `main-dev` files
   with no matching live version, 164 live versions with no matching file — up from 124/148 on
   2026-09-03, consistent with this being the actively-growing branch-owned class described above,
-  not a regression. Re-run `list_migrations` vs local files yourself before trusting either count
-  as current.
+  not a regression. **Re-measured again 2026-09-16, and this time with the loss-risk job itself
+  actually exercised, not just re-counted:** raw exact-version diff is now 166 `main-dev`-only /
+  165 live-only (up slightly from 158/164, same growing-branch-owned-class pattern, not a
+  regression) — but the release-integrity job's own loss-risk scan (the number that actually
+  matters, per the 2026-09-03 rewrite above) came back **fully clean, 0 FAIL findings**, only the
+  6 expected `branch-owned` warnings for migrations on PRs not yet merged. This is the first
+  confirmed case of that job catching *and blocking* a real loss-risk finding end-to-end: PR #635
+  (a routine `main-dev`→`main` release PR) failed required CI on two genuinely LOCAL-NOT-APPLIED
+  migrations (`20260829110347_diagnostic_follow_up_non_completion_ladder.sql`,
+  `20260829114109_diagnostic_safety_dashboard_and_analytics_rpcs.sql` — Diagnostic Safety Pathway
+  parts 5/6 and 6/6, committed weeks earlier, never applied live) — fixed by applying both via
+  `execute_sql` in an explicit transaction with the `schema_migrations.version` pinned to the git
+  filename's own timestamp (never bare `apply_migration`, which stamps wall-clock time), then
+  `gh run rerun --failed` to refresh the PR's check. **The raw exact-version count and the job's
+  loss-risk count are different metrics — quote the loss-risk one (currently 0) when asked "is
+  there a problem," the raw one only matters for the separate periodic full-reconciliation
+  effort.** Re-run `list_migrations` vs local files yourself before trusting either count as
+  current.
 - **2026-09-02 — a single day, ~70 previously-built feature branches merged into `main-dev` at once**,
   closing most of the outstanding spec-module backlog this file's "Where to Look" section still
   describes as design/reconciliation-only (product of the deliberate large concurrent-worktree
