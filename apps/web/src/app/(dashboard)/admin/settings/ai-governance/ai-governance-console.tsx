@@ -287,6 +287,32 @@ function VersionApprovalForm({ versionId }: { versionId: string }) {
 }
 
 /**
+ * approve_ai_system_version already supports marking a version deployed
+ * (p_deploy) in the same call that approves it, but nothing in this console
+ * ever passed that flag -- an already-approved version had no way to record
+ * "this is what's actually running in production" at all. Reuses the same
+ * action/RPC (coalesce-safe: re-calling it on an already-approved version
+ * only ever fills in the still-null deployed_at, never touches approved_at/
+ * approved_by) rather than adding a second RPC.
+ */
+function MarkVersionDeployedForm({ versionId }: { versionId: string }) {
+  const [state, action, pending] = useActionState<AiGovernanceActionState, FormData>(
+    approveAiSystemVersionAction,
+    undefined
+  );
+  return (
+    <form action={action} className="mt-2">
+      <input type="hidden" name="versionId" value={versionId} />
+      <input type="hidden" name="deploy" value="true" />
+      <Button type="submit" size="sm" variant="outline" disabled={pending}>
+        {pending ? "Marking deployed…" : "Mark as deployed"}
+      </Button>
+      <ActionFeedback state={state} />
+    </form>
+  );
+}
+
+/**
  * Runs AI-001's four governance suites for real (real model calls, roughly
  * 1-3 minutes) and records the result -- this is the missing piece that
  * previously meant only an engineer running a local script, then writing a
@@ -333,9 +359,11 @@ function RunEvalSuitesForm() {
 function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
   const status = version.retired_at
     ? { variant: "grey" as const, label: `Retired ${formatDate(version.retired_at)}` }
-    : version.approved_at
-      ? { variant: "green" as const, label: `Approved ${formatDate(version.approved_at)}` }
-      : { variant: "amber" as const, label: "Awaiting Clinical Director approval" };
+    : version.deployed_at
+      ? { variant: "green" as const, label: `Deployed ${formatDate(version.deployed_at)}` }
+      : version.approved_at
+        ? { variant: "green" as const, label: `Approved ${formatDate(version.approved_at)}` }
+        : { variant: "amber" as const, label: "Awaiting Clinical Director approval" };
 
   return (
     <div className="rounded-lg border border-charcoal-ink/10 bg-white p-3 text-sm">
@@ -373,6 +401,9 @@ function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
         {version.validated_by_staff && (
           <> · Validated by {version.validated_by_staff.full_name}</>
         )}
+        {version.approved_at && (
+          <> · {version.deployed_at ? `Deployed ${formatDate(version.deployed_at)}` : "Not yet marked deployed"}</>
+        )}
       </p>
 
       {version.change_summary && (
@@ -380,6 +411,9 @@ function AiSystemVersionCard({ version }: { version: AiSystemVersionRow }) {
       )}
 
       {!version.approved_at && !version.retired_at && <VersionApprovalForm versionId={version.id} />}
+      {version.approved_at && !version.deployed_at && !version.retired_at && (
+        <MarkVersionDeployedForm versionId={version.id} />
+      )}
     </div>
   );
 }

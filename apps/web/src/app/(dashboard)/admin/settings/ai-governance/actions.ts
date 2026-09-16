@@ -170,6 +170,7 @@ export async function activateAiPromptVersionAction(
 const versionApprovalSchema = z.object({
   versionId: z.string().uuid(),
   note: z.string().trim().optional(),
+  deploy: z.literal("true").optional(),
 });
 
 /**
@@ -189,6 +190,7 @@ export async function approveAiSystemVersionAction(
   const parsed = versionApprovalSchema.safeParse({
     versionId: formData.get("versionId"),
     note: formData.get("note") || undefined,
+    deploy: formData.get("deploy") || undefined,
   });
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "Check the form and try again." };
@@ -198,11 +200,16 @@ export async function approveAiSystemVersionAction(
   const { error } = await supabase.rpc("approve_ai_system_version", {
     p_version_id: parsed.data.versionId,
     p_note: parsed.data.note,
+    p_deploy: Boolean(parsed.data.deploy),
   });
   if (error) return { error: error.message };
 
   revalidatePath(PATH);
-  return { success: "Approved. This version now satisfies the platform's validation acceptance criterion." };
+  return {
+    success: parsed.data.deploy
+      ? "Marked deployed."
+      : "Approved. This version now satisfies the platform's validation acceptance criterion.",
+  };
 }
 
 const labelCaseTierSchema = z.object({

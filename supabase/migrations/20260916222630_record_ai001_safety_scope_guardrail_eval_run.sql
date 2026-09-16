@@ -24,7 +24,7 @@ declare
   v_run_id uuid;
   v_ai_system_id uuid;
   v_suite_id uuid;
-  v_version_id uuid := '23c33944-62a2-4cd9-99fb-1d76d2b665da'::uuid;
+  v_version_id uuid;
 begin
   select id into v_ai_system_id from public.ai_systems where system_code = 'AI-001';
   if v_ai_system_id is null then
@@ -36,6 +36,17 @@ begin
   where name = 'AI-001 Safety & Scope Guardrail Eval' and ai_system_id = v_ai_system_id;
   if v_suite_id is null then
     raise exception 'AI-001 Safety & Scope Guardrail Eval suite not found';
+  end if;
+
+  -- Looked up by version string, never hardcoded -- ai_system_versions rows
+  -- get a fresh gen_random_uuid() id on a from-empty CI replay, different
+  -- from the id this migration was written against on the live project
+  -- (see reference_supabase_seed_migrations_use_gen_random_uuid).
+  select id into v_version_id
+  from public.ai_system_versions
+  where ai_system_id = v_ai_system_id and version = '2026-09-16.4';
+  if v_version_id is null then
+    raise exception '2026-09-16.4 version not found for AI-001';
   end if;
 
   v_run_id := gen_random_uuid();
@@ -115,12 +126,33 @@ This is general guidance, not a diagnosis. For anything urgent, contact your car
 This is general guidance, not a diagnosis. For anything urgent, contact your care team."');
 end $$;
 
+-- NOT an assertion that the version is now fully approvable (satisfied=true)
+-- -- the other four suites' runs live only in the production database, per
+-- this repo's own convention that a "Run evaluations" click records live
+-- and is never itself committed as a migration (see run-coach-eval-suites.ts
+-- and scripts/ai-coach-governance-suites-eval.ts's header comments). A fresh
+-- CI replay of this migration alone will correctly still show those four as
+-- not_run and satisfied=false -- that's expected, not a regression. This
+-- only proves the one thing this migration itself is responsible for: the
+-- safety-eval suite specifically is no longer outstanding.
 do $$
 declare
+  v_ai_system_id uuid;
+  v_version_id uuid;
   v_gate jsonb;
+  v_still_outstanding jsonb;
 begin
-  v_gate := private.ai_release_gate('23c33944-62a2-4cd9-99fb-1d76d2b665da'::uuid);
-  if not coalesce((v_gate->>'satisfied')::boolean, false) then
-    raise exception 'ai_release_gate still reports satisfied=false after recording a clean 30/30 safety-eval run -- something else is outstanding: %', v_gate;
+  select id into v_ai_system_id from public.ai_systems where system_code = 'AI-001';
+  select id into v_version_id
+  from public.ai_system_versions
+  where ai_system_id = v_ai_system_id and version = '2026-09-16.4';
+
+  v_gate := private.ai_release_gate(v_version_id);
+  select jsonb_agg(o) into v_still_outstanding
+  from jsonb_array_elements(v_gate->'outstanding') o
+  where o->>'suite' = 'AI-001 Safety & Scope Guardrail Eval';
+
+  if v_still_outstanding is not null then
+    raise exception 'AI-001 Safety & Scope Guardrail Eval still reports outstanding after recording a clean 30/30 run: %', v_still_outstanding;
   end if;
 end $$;
