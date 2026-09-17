@@ -79,6 +79,12 @@ TaskManager.defineTask(TASK_NAME, async () => {
       recordSyncError("offline_vitals", `${Platform.OS}:backgroundFlush`, error);
     }
 
+    // Deliberately no { requestPermissions: true } here — this handler can
+    // run with no interactive scene ready to receive a permission sheet (the
+    // OS invoked it, not a patient tap), and presenting one from here is
+    // what caused the iOS Simulator blank-shell bug (see health-sync.ts's
+    // HealthSyncOptions doc comment). An unanswered type just reads back no
+    // samples, same as a denied one, until the patient's next manual sync.
     const result =
       Platform.OS === "ios"
         ? await syncAppleHealth()
@@ -147,6 +153,14 @@ export async function registerBackgroundHealthSync(): Promise<void> {
     try {
       await configureIOSBackgroundDelivery();
       iosChangeSubscriptionRemove?.();
+      // subscribeToIOSHealthChanges registers one HKObserverQuery per type in
+      // BACKGROUND_TYPES, and HealthKit fires each one's handler once
+      // immediately on registration as well as on every future change — so
+      // this callback can fire up to 8 times back to back right here. Never
+      // pass { requestPermissions: true }: 8 near-simultaneous calls into
+      // `requestAuthorization` is exactly the race that used to wedge the
+      // app's root view controller (see health-sync.ts's HealthSyncOptions
+      // doc comment).
       iosChangeSubscriptionRemove = subscribeToIOSHealthChanges(() => {
         syncAppleHealth();
       });

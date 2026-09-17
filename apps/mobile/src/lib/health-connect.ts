@@ -153,22 +153,37 @@ export async function isHealthConnectAvailable(): Promise<boolean> {
  * its own permission screen; unlike HealthKit it does not hide which of
  * these were actually granted — getGrantedPermissions() after this call
  * tells the truth.
+ *
+ * Callers must only reach this from an interactive, foreground-initiated
+ * action (see health-sync.ts's `requestPermissions` option) — `requestPermission`
+ * launches a system Activity, which is not safe to trigger from the periodic
+ * background task (see background-sync.ts). Single-flighted for the same
+ * reason as healthkit.ts's requestHealthKitPermissions: two overlapping calls
+ * collapse into one Activity launch instead of racing each other.
  */
+let pendingPermissionRequest: Promise<boolean> | null = null;
+
 export async function requestHealthConnectPermissions(): Promise<boolean> {
   if (!isHealthConnectPlatform()) return false;
+  if (pendingPermissionRequest) return pendingPermissionRequest;
   const hc = loadHealthConnect();
   if (!hc) return false;
-  try {
-    const granted = await hc.requestPermission([
-      ...RECORD_TYPES.map((recordType) => ({ accessType: "read" as const, recordType })),
-      { accessType: "read", recordType: "ReadHealthDataHistory" },
-      { accessType: "read", recordType: "BackgroundAccessPermission" },
-    ]);
-    return granted.length > 0;
-  } catch (error) {
-    recordSyncError("android_health_connect", "requestPermission", error);
-    return false;
-  }
+  pendingPermissionRequest = (async () => {
+    try {
+      const granted = await hc.requestPermission([
+        ...RECORD_TYPES.map((recordType) => ({ accessType: "read" as const, recordType })),
+        { accessType: "read", recordType: "ReadHealthDataHistory" },
+        { accessType: "read", recordType: "BackgroundAccessPermission" },
+      ]);
+      return granted.length > 0;
+    } catch (error) {
+      recordSyncError("android_health_connect", "requestPermission", error);
+      return false;
+    } finally {
+      pendingPermissionRequest = null;
+    }
+  })();
+  return pendingPermissionRequest;
 }
 
 export async function readHealthConnectSamples(since: Date, until: Date): Promise<HealthReadResult> {

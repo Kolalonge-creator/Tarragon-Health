@@ -194,17 +194,38 @@ export async function isHealthKitAvailable(): Promise<boolean> {
  * permissions were granted so an app cannot infer a health condition from a
  * refusal. Treat it as "the patient has been asked", never as "we have the
  * data".
+ *
+ * Callers must only reach this from an interactive, foreground-initiated
+ * action (see health-sync.ts's `requestPermissions` option) — never from the
+ * periodic background task or a live HealthKit-change callback, both of
+ * which can run with no interactive scene ready to present onto.
+ *
+ * Single-flighted regardless: two overlapping calls (e.g. a double-tap, or a
+ * future call site this comment doesn't anticipate) collapse into the one
+ * underlying `requestAuthorization`, rather than each independently asking
+ * `HKHealthStore` to present its own sheet — root-caused 2026-09-13 as
+ * exactly the "Attempt to present ... while a presentation is in progress"
+ * collision that left the app's root view controller wedged mid-launch (see
+ * the blank-shell investigation history for the full account).
  */
+let pendingAuthorizationRequest: Promise<boolean> | null = null;
+
 export async function requestHealthKitPermissions(): Promise<boolean> {
   if (!isHealthKitPlatform()) return false;
+  if (pendingAuthorizationRequest) return pendingAuthorizationRequest;
   const healthkit = loadHealthkit();
   if (!healthkit) return false;
-  try {
-    return await healthkit.requestAuthorization({ toRead: READ_PERMISSIONS });
-  } catch (error) {
-    recordSyncError("apple_health", "requestAuthorization", error);
-    return false;
-  }
+  pendingAuthorizationRequest = (async () => {
+    try {
+      return await healthkit.requestAuthorization({ toRead: READ_PERMISSIONS });
+    } catch (error) {
+      recordSyncError("apple_health", "requestAuthorization", error);
+      return false;
+    } finally {
+      pendingAuthorizationRequest = null;
+    }
+  })();
+  return pendingAuthorizationRequest;
 }
 
 /**

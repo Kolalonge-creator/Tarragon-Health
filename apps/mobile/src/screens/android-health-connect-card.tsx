@@ -44,7 +44,11 @@ export function AndroidHealthConnectCard() {
     setSyncing(true);
     setResult(null);
     try {
-      setResult(await syncHealthConnect());
+      // This tap is the one interactive, foreground-guaranteed moment it is
+      // safe to launch Health Connect's permission screen — see
+      // health-sync.ts's HealthSyncOptions doc comment for why every other
+      // caller omits this.
+      setResult(await syncHealthConnect({ requestPermissions: true }));
     } finally {
       setSyncing(false);
     }

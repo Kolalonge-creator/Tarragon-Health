@@ -44,7 +44,10 @@ export function AppleHealthCard() {
     setSyncing(true);
     setResult(null);
     try {
-      setResult(await syncAppleHealth());
+      // This tap is the one interactive, foreground-guaranteed moment it is
+      // safe to show Apple's permission sheet — see health-sync.ts's
+      // HealthSyncOptions doc comment for why every other caller omits this.
+      setResult(await syncAppleHealth({ requestPermissions: true }));
     } finally {
       setSyncing(false);
     }

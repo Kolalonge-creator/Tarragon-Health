@@ -30,7 +30,9 @@ import { enqueueHealthSamplesPage, flushHealthSamplesQueue } from "./offline-que
  * (background-sync.ts's use of healthkit.ts's subscribeToIOSHealthChanges),
  * and the periodic background task both platforms register
  * (background-sync.ts) — that last one is the only mechanism that runs
- * when the app isn't already open; see its own file for why.
+ * when the app isn't already open; see its own file for why. Only the first
+ * of those three is interactive — see `HealthSyncOptions.requestPermissions`
+ * below, which only that call site sets.
  */
 
 export type HealthProvider = "apple_health" | "android_health_connect";
@@ -62,28 +64,54 @@ export type HealthSyncResult =
       queued?: number;
     };
 
-export async function syncAppleHealth(): Promise<HealthSyncResult> {
+/**
+ * `requestPermissions` must only be `true` from an interactive,
+ * user-initiated call site — today, that is exclusively the Devices tab's
+ * own "Sync" button (apple-health-card.tsx / android-health-connect-card.tsx).
+ * It defaults to `false` so the two non-interactive callers of
+ * syncAppleHealth/syncHealthConnect — the periodic background task and the
+ * live HealthKit-change subscription, both in background-sync.ts — never
+ * present a permission sheet.
+ *
+ * Root-caused 2026-09-13: HealthKit's authorization sheet
+ * (`HKHealthPrivacyHostAuthorizationViewController`) being presented from
+ * one of those non-interactive contexts — with no guarantee an interactive
+ * scene was ready to receive it — collided with the app's own launch
+ * presentation ("Attempt to present ... while a presentation is in
+ * progress") and left the root view controller wedged, so RN never finished
+ * mounting and Metro never saw a bundle request (the iOS Simulator
+ * blank-shell bug). Skipping the request here is safe either way: a type
+ * that has never been asked about simply reads back no samples (see
+ * healthkit.ts's own doc comment), exactly like a denied type — a normal,
+ * already-handled outcome, not an error — until the patient's next
+ * interactive sync actually asks.
+ */
+export interface HealthSyncOptions {
+  requestPermissions?: boolean;
+}
+
+export async function syncAppleHealth(options: HealthSyncOptions = {}): Promise<HealthSyncResult> {
   // Flushed unconditionally, before the availability check: a page queued on
   // a previous sync attempt deserves a retry even if HealthKit itself has
   // since become unavailable (e.g. permission revoked) — those bytes are
   // already captured and only need a network path, not HealthKit itself.
   const { flushedSamples } = await flushHealthSamplesQueue("apple_health");
   if (!(await isHealthKitAvailable())) return { status: "unavailable" };
-  // Safe to call on every sync: iOS shows the sheet only for types the
-  // patient has not already answered for.
-  await requestHealthKitPermissions();
+  if (options.requestPermissions) {
+    await requestHealthKitPermissions();
+  }
   return withRecovered(
     await syncHealthReadings("apple_health", HEALTHKIT_INITIAL_WINDOW_DAYS, readHealthSamples),
     flushedSamples
   );
 }
 
-export async function syncHealthConnect(): Promise<HealthSyncResult> {
+export async function syncHealthConnect(options: HealthSyncOptions = {}): Promise<HealthSyncResult> {
   const { flushedSamples } = await flushHealthSamplesQueue("android_health_connect");
   if (!(await isHealthConnectAvailable())) return { status: "unavailable" };
-  // Safe to call on every sync: Health Connect's own permission screen only
-  // prompts for types not already answered.
-  await requestHealthConnectPermissions();
+  if (options.requestPermissions) {
+    await requestHealthConnectPermissions();
+  }
   return withRecovered(
     await syncHealthReadings(
       "android_health_connect",
