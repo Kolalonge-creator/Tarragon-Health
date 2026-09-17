@@ -162,7 +162,12 @@ it) — Paystack (NGN) is now the only live payment provider. See the archive's
 2026-08-31/2026-09-03 entry. **Do not treat any specific price, rate, plan name, or
 feature-availability claim in this file's archive as current** — check the live database or the
 actual running code. The archive is a record of decisions and reasoning, not a source of current
-facts.
+facts. **Platform Credit** (added 2026-09-17, `platform_credit_balances`/`platform_credit_ledger_entries`,
+see the archive's 2026-09-17 entry) is a third way to pay alongside a one-off card charge and a Care
+Voucher: a non-expiring prepaid balance a patient funds once via Paystack and spends on any
+`service_products` purchase, split from the ledger up into a `paid` bucket (real money) and a `promo`
+bucket (admin-granted goodwill, `grant_platform_credit`) so the two are never commingled — the same
+structural objection that killed the Health Wallet, answered this time by design rather than policy.
 
 **Laboratory fulfilment model — reversed again 2026-08-29 (Laboratory Network & Diagnostic Services
 Platform build).** Three corrections in five weeks, each a real founder decision, none of them

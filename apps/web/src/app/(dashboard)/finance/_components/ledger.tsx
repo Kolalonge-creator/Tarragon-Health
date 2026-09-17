@@ -16,7 +16,7 @@ import {
 import { lagosToday, lagosDaysAgo } from "@/lib/format-date";
 import { SectionCard, CenterNote, TableShell, Th, formatMinor, majorToMinor } from "./primitives";
 
-const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "voucher", "manual", "adjustment"];
+const SOURCES = ["", "payment", "revenue_recognition", "commission", "refund", "voucher", "platform_credit", "manual", "adjustment"];
 const CURRENCIES = ["NGN", "GBP", "USD"];
 
 interface DraftLine {

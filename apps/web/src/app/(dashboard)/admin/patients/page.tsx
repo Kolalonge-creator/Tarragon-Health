@@ -26,7 +26,7 @@ export default async function AdminPatientsPage() {
 
   const svc = createServiceRoleClient();
 
-  const [profilesRes, servicePurchasesRes, programmePurchasesRes] = await Promise.all([
+  const [profilesRes, servicePurchasesRes, programmePurchasesRes, platformCreditRes] = await Promise.all([
     svc
       .from("profiles")
       .select(
@@ -47,12 +47,17 @@ export default async function AdminPatientsPage() {
       )
       .order("purchased_at", { ascending: false })
       .limit(20000),
+    svc
+      .from("platform_credit_balances")
+      .select("patient_id, balance_kobo, promo_balance_kobo")
+      .limit(20000),
   ]);
 
   const { data: profiles } = profilesRes;
   const { data: servicePurchases } = servicePurchasesRes;
   const { data: programmePurchases } = programmePurchasesRes;
-  const readFailed = anyQueryFailed([profilesRes, servicePurchasesRes, programmePurchasesRes]);
+  const { data: platformCreditBalances } = platformCreditRes;
+  const readFailed = anyQueryFailed([profilesRes, servicePurchasesRes, programmePurchasesRes, platformCreditRes]);
 
   // auth.users isn't reachable via PostgREST — pull emails via the admin API
   // and map onto profiles by id, same pattern as /admin/settings/members.
@@ -92,6 +97,13 @@ export default async function AdminPatientsPage() {
     });
   });
 
+  const platformCreditByPatient = new Map(
+    (platformCreditBalances ?? []).map((b) => [
+      b.patient_id,
+      { balanceKobo: b.balance_kobo, promoBalanceKobo: b.promo_balance_kobo },
+    ])
+  );
+
   const rows: PatientRow[] = (profiles ?? []).map((p) => {
     const org = p.organisations as { name: string } | null;
     const purchases = (purchasesByPatient.get(p.id) ?? []).sort(
@@ -119,6 +131,8 @@ export default async function AdminPatientsPage() {
       totalSpentKobo: paidPurchases.reduce((sum, pu) => sum + pu.amountKobo, 0),
       lastPurchaseAt: paidPurchases[0]?.purchasedAt ?? null,
       purchases,
+      platformCreditBalanceKobo: platformCreditByPatient.get(p.id)?.balanceKobo ?? 0,
+      platformCreditPromoBalanceKobo: platformCreditByPatient.get(p.id)?.promoBalanceKobo ?? 0,
     };
   });
 

@@ -51,6 +51,7 @@ const ROUTINE_TEMPLATES = new Set<string>([
   "care_voucher_expiring",
   "service_purchase_expiring",
   "reward_voucher_issued",
+  "platform_credit_balance_adjusted",
   "sponsor_monthly_report",
   "sponsor_care_reviewed",
   "sponsor_person_quiet",
@@ -309,6 +310,27 @@ export function describe(n: InAppNotification): { text: string; href: string } {
     const value = String(payload.value_naira ?? "");
     return {
       text: value ? `${label}: a ₦${value} voucher towards your care` : `${label} added to your account`,
+      href: "/patient/care",
+    };
+  }
+  if (n.template === "platform_credit_balance_adjusted") {
+    // From private.platform_credit_apply(), admin_grant/admin_correction
+    // only — an admin can move a patient's platform credit balance without
+    // the patient ever touching it themselves; this is how they find out.
+    // amount_naira arrives already converted server-side, same pattern as
+    // reward_voucher_issued's value_naira.
+    const amount = String(payload.amount_naira ?? "");
+    const decreased = payload.direction === "decrease";
+    const reason = payload.reason ? String(payload.reason) : null;
+    const base = amount
+      ? decreased
+        ? `₦${amount} was deducted from your platform credit balance`
+        : `₦${amount} was added to your platform credit balance`
+      : decreased
+        ? "Your platform credit balance was adjusted down"
+        : "Your platform credit balance was adjusted up";
+    return {
+      text: reason ? `${base} — ${reason}` : base,
       href: "/patient/care",
     };
   }

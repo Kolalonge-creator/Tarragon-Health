@@ -3924,3 +3924,69 @@ call reaches the mobile bundle. Fixed the handful of real medium/low gaps found:
 tsc --noEmit and eslint clean on both `apps/web` and `apps/mobile`; full mobile Jest suite (151 tests,
 including 3 new tests covering the 401 refresh/retry/sign-out paths) passes. Committed on
 `claude/mobile-backend-integration-audit`, not yet merged as of this writing.
+
+### 2026-09-17 — Platform Credit: fal.ai/SaveAI-style prepaid balance built same-day, then a founder
+audit found it, and a second pass found what the audit missed. Neither the original build nor either
+fix pass was ever logged here — a real gap this entry corrects.
+
+Founder ask: fund a balance once, never expires, spend it on any `service_products` purchase, cost
+shown up front with a top-up prompt when short. Built same-day (`20260917100300`-`20260917100629`,
+PR #663): `platform_credit_balances`/`platform_credit_ledger_entries`/`platform_credit_topup_intents`/
+`platform_credit_config`, with the design decision the migration's own header states plainly — every
+balance splits into `paid_balance_kobo` (only ever funded by a verified Paystack charge) and
+`promo_balance_kobo` (only ever funded by `grant_platform_credit`), so "whose money is this" is a
+stored fact from the ledger up, not a reconstruction — structurally answering the exact objection that
+killed the Health Wallet on 2026-07-31 (see that entry). A spend draws promo first, then paid.
+Reuses the care-voucher liability accounts (2100 customer prepayments, 2600 promotional credit) rather
+than adding new ones, per this project's standing "chart of accounts per economic substance, not per
+feature" discipline.
+
+**Founder-requested audit, same day, PR #664 (`fix/platform-credit-gaps`):** a raw Paystack validation
+error (`"email" must be a valid email` — QA's `.test` fixture domain trips Paystack's validator) leaked
+verbatim to the checkout UI; traced to a systemic gap in all 7 one-off checkout initiators under
+`lib/billing/`, not something platform-credit-specific, and fixed in all 7 via a new
+`lib/paystack/patient-facing-error.ts`. `finance_unified_ledger()` could not resolve a platform-credit
+journal entry's payer at all — its posting trigger names the ledger entry in `source_ref`, not a
+`payment_transactions.id` the way every other source does, so a patient's own "Transactions" lookup
+silently dropped their platform-credit history even though the GL itself looked correct; fixed
+read-side, catching and fixing (before ever shipping, via the migration's own proof) a real bug in the
+fix itself — a spend split across both buckets was double-counting instead of showing each bucket's
+own posted amount. `patient_receipts()` had no branch for a top-up at all, so a real card charge to fund
+the balance produced no receipt and no downloadable invoice, unlike every other payable thing on the
+platform — added, reusing `get_or_create_invoice()`'s existing generic-account-code fallback with zero
+code change there. Biggest gap: `grant_platform_credit`/`correct_platform_credit` had no UI caller
+anywhere and `platform_credit_config` had no settings page — built a "Manage" panel into
+`/admin/patients` (balance, ledger, grant, manual correction) and a new
+`/admin/settings/platform-credit` config page.
+
+**Second pass, same PR, found by auditing the rest of the feature rather than re-reading the founder's
+original list:** `platform_credit_topup_intents` had no automatic sweep for an abandoned checkout —
+unlike `service_purchases` (fixed 2026-09-05, see that entry) and `pharmacy_orders` (had it from the
+start), a top-up whose webhook never landed would sit `pending_payment` forever. Added
+`sweepStalePlatformCreditTopups`, the exact same decision shape as `sweepStaleServicePurchases` (never
+cancel a charge Paystack confirms was actually paid — flag it for a webhook replay instead), wired into
+the existing daily `reconcile-payment-providers` cron. `grant_platform_credit`/`correct_platform_credit`
+could move a patient's balance with zero signal to the patient at all — every comparable admin-initiated
+money event on this platform notifies the beneficiary (reward vouchers, sponsored-plan activation);
+Platform Credit was the one left silent. Added one `in_app` notification template
+(`platform_credit_balance_adjusted`) covering both entry types, scoped deliberately to admin-initiated
+changes only — a patient's own top-up/spend already gets on-screen feedback from the page that triggered
+it, so notifying them of their own action would be noise.
+
+**A cleanup lesson worth keeping visible**, since it recurred three times inside this same PR before
+being caught: every `platform_credit_apply()` call — including one made directly from a migration's own
+behavioural proof, not through a patient-facing RPC — fires `private.finance_post_platform_credit_ledger_entry`
+and posts a real `finance_journal_entries`/`finance_journal_lines` row. A proof that deletes the
+`platform_credit_ledger_entries` row it created but forgets to also capture and delete the GL entry the
+trigger posted leaves a real orphaned journal entry live in production — found each time by reading the
+GL browser live after applying the migration, not by re-reading the migration's own cleanup block. Any
+future proof that calls `platform_credit_apply` (or anything else with an `AFTER INSERT` finance-posting
+trigger) directly must capture the resulting `finance_journal_entries.id` (via its `source_ref`, e.g.
+`'topup:' || ledger_entry_id`) alongside the ledger entry id, and delete both.
+
+Both new migrations (`20260917214034`, `20260917214131`, `20260917220507`) carry real behavioural
+proofs — fund a real top-up, read it back through simulated RLS, sabotage-test that it doesn't leak to
+an unrelated profile, confirm a plain top-up does not notify while an admin grant/correction does — and
+have been applied to the live project. Browser-verified end-to-end as patient/admin/finance on a
+worktree-pinned dev server (see the worktree-vs-main-checkout `preview_start` gotcha this required
+working around, in memory).

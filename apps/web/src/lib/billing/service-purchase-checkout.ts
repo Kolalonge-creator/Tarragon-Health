@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
+import { toPatientFacingCheckoutError } from "@/lib/paystack/patient-facing-error";
 import type { CheckoutMetadata } from "@/lib/billing/checkout-metadata";
 import type { Currency } from "@tarragon/shared";
 
@@ -55,7 +56,7 @@ export async function initiateServicePurchaseCheckout(args: {
     callbackUrl: args.callbackUrl,
     metadata,
   });
-  if (!result.ok) return { ok: false, error: result.error };
+  if (!result.ok) return { ok: false, error: toPatientFacingCheckoutError(result.error) };
 
   const { error } = await serviceRole
     .from("service_purchases")
