@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { postSleepLog } from "./api";
+import { postSleepLog, API_BASE_URL, NETWORK_ERROR_MESSAGE, fetchWithTimeoutAndRetry } from "./api";
 import type { QueryResult } from "./medications";
 
 /**
@@ -320,14 +320,32 @@ export async function logActivity(
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snack";
 
+/** Mirrors mealEstimateSchema in apps/web/src/lib/nutrition/meal-vision.ts. */
+export interface MealPhotoEstimate {
+  items: { name: string; portion: string; est_carbs_g: number }[];
+  est_carbs_g: number;
+  est_calories: number;
+  confidence: "low" | "medium" | "high";
+  notes: string | null;
+}
+
+export type MealAiStatus = "none" | "estimated" | "unavailable";
+
 export interface MealsState {
-  entries: { id: string; loggedAt: string; mealType: MealType; description: string | null }[];
+  entries: {
+    id: string;
+    loggedAt: string;
+    mealType: MealType;
+    description: string | null;
+    aiStatus: MealAiStatus;
+    aiEstimate: MealPhotoEstimate | null;
+  }[];
 }
 
 export async function loadMealsState(patientId: string): Promise<QueryResult<MealsState>> {
   const { data, error } = await supabase
     .from("nutrition_log_entries")
-    .select("id, logged_at, meal_type, description")
+    .select("id, logged_at, meal_type, description, ai_status, ai_estimate")
     .eq("patient_id", patientId)
     .order("logged_at", { ascending: false })
     .limit(60);
@@ -340,19 +358,15 @@ export async function loadMealsState(patientId: string): Promise<QueryResult<Mea
         loggedAt: r.logged_at,
         mealType: r.meal_type as MealType,
         description: r.description,
+        aiStatus: (r.ai_status as MealAiStatus) ?? "none",
+        aiEstimate: (r.ai_estimate as unknown as MealPhotoEstimate | null) ?? null,
       })),
     },
   };
 }
 
 /**
- * Text-only. The web screen also offers a photo that an AI vision model
- * estimates carbs from, and that is deliberately NOT reproduced here: every
- * AI call site on this platform has to be registered in `ai_systems` and go
- * through runGovernedAi(), so it needs a governed server endpoint rather than
- * a call from the app. Until that exists, the photo estimate stays on web and
- * the app says so, instead of quietly shipping an ungoverned second call site.
- *
+ * Text-only meal log, written directly under RLS like the other trackers.
  * ai_status is left at its 'none' default, which is exactly what a
  * hand-written meal is: an entry with no AI estimate attached.
  */
@@ -369,4 +383,72 @@ export async function logMeal(
     description: input.description,
   });
   return error ? { error: error.message } : {};
+}
+
+export interface LogMealWithPhotoResult {
+  error?: string;
+  aiStatus?: MealAiStatus;
+  aiEstimate?: MealPhotoEstimate | null;
+}
+
+/**
+ * Meal photo -> AI carb/calorie estimate, native parity with the web Meals
+ * screen. Routed through the bearer-authenticated
+ * /api/mobile/nutrition/meal-photo-estimate Route Handler rather than a
+ * direct client insert -- that endpoint calls the exact same governed AI-008
+ * call (analyzeMealPhoto via runGovernedAi) the web server action makes, so
+ * this stays a registered, kill-switched AI call site rather than a second,
+ * ungoverned one from the app bundle. See that route's own header for why a
+ * Route Handler rather than reusing the Server Action directly.
+ *
+ * Uses fetchWithTimeoutAndRetry rather than api.ts's request() because the
+ * body is multipart (a photo), same as labs.ts's uploadLabResult.
+ */
+export async function logMealWithPhoto(input: {
+  mealType: MealType;
+  description?: string;
+  photo: { uri: string; mimeType: string; fileName: string };
+}): Promise<LogMealWithPhotoResult> {
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) {
+    return { error: "Not signed in" };
+  }
+
+  const formData = new FormData();
+  // React Native's fetch/FormData accepts { uri, type, name } for a local-file
+  // upload -- see uploadLabResult's identical cast in labs.ts.
+  formData.append("file", {
+    uri: input.photo.uri,
+    type: input.photo.mimeType,
+    name: input.photo.fileName,
+  } as unknown as Blob);
+  formData.append("meal_type", input.mealType);
+  if (input.description?.trim()) {
+    formData.append("description", input.description.trim());
+  }
+
+  try {
+    const response = await fetchWithTimeoutAndRetry(
+      `${API_BASE_URL}/api/mobile/nutrition/meal-photo-estimate`,
+      {
+        method: "POST",
+        headers: { Authorization: `Bearer ${session.access_token}` },
+        body: formData,
+      },
+    );
+    const json = (await response.json()) as {
+      success?: boolean;
+      error?: string;
+      aiStatus?: MealAiStatus;
+      aiEstimate?: MealPhotoEstimate | null;
+    };
+    if (!response.ok) {
+      return { error: json.error ?? `Upload failed (${response.status})` };
+    }
+    return { aiStatus: json.aiStatus, aiEstimate: json.aiEstimate ?? null };
+  } catch {
+    return { error: NETWORK_ERROR_MESSAGE };
+  }
 }
