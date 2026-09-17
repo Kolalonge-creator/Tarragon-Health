@@ -45,6 +45,7 @@ import {
 import { SecondOpinionSection } from "./second-opinion-section";
 import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
+import { VideoVisitBookingSection } from "./video-visit-booking-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
 import {
   loadMyVouchers,
@@ -91,6 +92,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 interface CareSupportScreenProps {
   patientId: string;
   organisationId: string;
+  /** Pushes the native "manage this visit" screen once a video-visit
+   * request reaches 'accepted' — see home-shell.tsx's openVideoVisitId. */
+  onOpenVideoVisit: (consultationId: string) => void;
 }
 
 /**
@@ -112,18 +116,25 @@ interface CareSupportScreenProps {
  * system browser — same reasoning as "My services" elsewhere in the app
  * (App Store Review 3.1.1: embedding a digital-purchase checkout in-app
  * risks rejection, so the actual payment always opens the system browser,
- * never a WebView or an in-app checkout form). Book Video Visit is the one
- * remaining service still left as a full system-browser hand-off below,
- * not rebuilt here — it isn't credit-based at all (a slot-pick-and-pay
- * atomic action followed by a multi-stage doctor-acceptance lifecycle),
- * a materially different shape that deserves its own native pass. Also
+ * never a WebView or an in-app checkout form). Book Video Visit is now
+ * native too (VideoVisitBookingSection, below) — it was the one remaining
+ * browser-only gap on this screen until this pass; it isn't credit-based
+ * at all (a slot-pick-and-pay HELD-payment request followed by a
+ * multi-stage doctor-acceptance lifecycle), a materially different shape
+ * from every other section here, which is why it lives in its own file.
+ * Reserving a request against Platform Credit, and a doctor's proposed
+ * alternate-time pick, both go through bearer-authenticated passthrough
+ * routes (video-visit-booking.ts) rather than a raw client RPC call, since
+ * each needs more than the mobile client's own RLS-scoped session; a card
+ * payment still opens the web booking page in the system browser, same App
+ * Store Review 3.1.1 reasoning as everything else on this screen. Also
  * left on web: proposing a
  * new care-plan goal (a form on top of an already sizeable screen) and the
  * discretionary/engagement cards (chronic programme timeline, care circle,
  * vouchers, wellness points, testimonials) that the web page itself treats
  * as lower priority than the content above.
  */
-export function CareSupportScreen({ patientId, organisationId }: CareSupportScreenProps) {
+export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit }: CareSupportScreenProps) {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -138,6 +149,11 @@ export function CareSupportScreen({ patientId, organisationId }: CareSupportScre
       <EscalationsSection patientId={patientId} />
       <ReferralsSection patientId={patientId} />
       <HospitalAdmissionsSection patientId={patientId} organisationId={organisationId} />
+      <VideoVisitBookingSection
+        patientId={patientId}
+        organisationId={organisationId}
+        onOpenVideoVisit={onOpenVideoVisit}
+      />
       <AskADoctorSection patientId={patientId} organisationId={organisationId} />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
       <SeniorCaseReviewSection patientId={patientId} organisationId={organisationId} />
@@ -145,14 +161,6 @@ export function CareSupportScreen({ patientId, organisationId }: CareSupportScre
       <NeedHelpSection patientId={patientId} />
       <VouchersSection patientId={patientId} />
       <TestimonialSection />
-
-      <CalloutCard
-        icon="medkit-outline"
-        title="Book a video visit"
-        subtitle="A one-off online consultation with a doctor — booking and payment both happen in your browser."
-        ctaLabel="Open"
-        onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
-      />
     </ScrollView>
   );
 }

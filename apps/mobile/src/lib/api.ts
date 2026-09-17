@@ -442,6 +442,67 @@ export async function postPlatformCreditTopupIntent(
   return result.ok ? result.data : { error: result.error };
 }
 
+export type VideoVisitPlatformCreditResult =
+  | { ok: true; request_id: string; amount_kobo: number }
+  | {
+      ok: false;
+      reason?: "not_payable" | "unsupported_currency" | "insufficient_balance";
+      status?: string;
+      currency?: string;
+      balance_kobo?: number;
+      required_kobo?: number;
+      shortfall_kobo?: number;
+      error: string;
+    };
+
+/**
+ * Mobile equivalent of apps/web/.../patient/video-visit-actions.ts's
+ * requestVideoVisitWithPlatformCredit — see
+ * apps/web/src/app/api/mobile/platform-credit/video-visit-request/route.ts.
+ * The route inserts the video_visit_requests row and calls
+ * confirm_video_visit_request_on_platform_credit under the caller's own
+ * RLS, exactly like the web server action does; it never spends anything
+ * itself (the real spend waits for a doctor to accept — see that RPC's own
+ * migration header). A business-level "insufficient balance"/"not payable"/
+ * "unsupported currency" outcome comes back as `ok: false` with a `reason`,
+ * not as a thrown/HTTP error, so the caller can show the specific shortfall.
+ */
+export async function postVideoVisitRequestWithPlatformCredit(
+  slotId: string,
+  note?: string
+): Promise<VideoVisitPlatformCreditResult> {
+  const result = await request<VideoVisitPlatformCreditResult>(
+    "/api/mobile/platform-credit/video-visit-request",
+    "POST",
+    { slotId, ...(note ? { note } : {}) }
+  );
+  return result.ok ? result.data : { ok: false, error: result.error };
+}
+
+export interface SelectVideoVisitAlternateSlotResult {
+  success?: boolean;
+  consultationId?: string;
+  error?: string;
+}
+
+/** Mirrors video-visit-actions.ts's selectVideoVisitAlternateSlot — see
+ * apps/web/src/app/api/mobile/video-visits/select-alternate-slot/route.ts.
+ * The RPC alone is a safe direct call, but booking a Zoom meeting and
+ * sending the confirmation both need a service-role client this app
+ * doesn't have, so this goes through the route rather than calling
+ * select_video_visit_alternate_slot from the mobile client directly. */
+export async function postSelectVideoVisitAlternateSlot(
+  requestId: string,
+  slotId: string
+): Promise<SelectVideoVisitAlternateSlotResult> {
+  const result = await request<SelectVideoVisitAlternateSlotResult>(
+    "/api/mobile/video-visits/select-alternate-slot",
+    "POST",
+    { requestId, slotId }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable
