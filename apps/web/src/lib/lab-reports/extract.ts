@@ -470,8 +470,13 @@ export async function extractLabReport(input: {
         ),
       },
     };
-  } catch {
+  } catch (error) {
     // Timeout (AbortError), network failure, or malformed structured output.
+    // Real gap found during the AI-002-015 evaluation (2026-09-17, same
+    // class of bug as AI-011's meal-plan-generate.ts): this used to swallow
+    // the cause entirely, so a real production failure here was
+    // undiagnosable -- the caller only ever saw reason: "error", never why.
+    console.error("lab-reports: extraction failed", error);
     return { ok: false, reason: "error" };
   } finally {
     clearTimeout(timer);
