@@ -6,6 +6,33 @@ export type ClinicalEncounterNote = Tables<"clinical_encounter_notes">;
 
 const notesQueryKey = (patientId: string) => ["clinical-encounter-notes", patientId];
 
+/**
+ * A clinician's own auto-drafted notes still waiting for them to review and
+ * sign — the "continuous note" worklist: every escalation resolved, async
+ * consult answered, or video consultation completed under this clinician's
+ * name guarantees a draft here (see private.auto_draft_note_from_* /
+ * 20260917031004_auto_generated_continuous_clinical_note.sql), so this is
+ * the one place a nothing-was-documented gap would surface.
+ */
+export function useMyPendingAutoDraftedNotes(staffId: string | undefined) {
+  return useQuery({
+    queryKey: ["my-pending-auto-drafted-notes", staffId],
+    enabled: Boolean(staffId),
+    queryFn: async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("clinical_encounter_notes")
+        .select("id, patient_id, encounter_type, encounter_date, reason_for_encounter, patient:profiles!clinical_encounter_notes_patient_id_fkey(full_name)")
+        .eq("authored_by_staff", staffId as string)
+        .eq("auto_generated", true)
+        .eq("status", "draft")
+        .order("encounter_date", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
 /** All encounter notes for one patient, newest encounter first. */
 export function usePatientEncounterNotes(patientId: string) {
   return useQuery({

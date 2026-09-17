@@ -132,3 +132,11 @@ analytics_console_rpc_authorization_gate.sql
 # (diagnostic_episode_core/closure_criteria/referral_linkage/
 # repeat_test_recalls), it just never got added to this list.
 diagnostic_episode_engine.sql
+
+# --- Added 2026-09-17 --------------------------------------------------
+# Continuous clinical note: guarantees a draft clinical_encounter_notes row
+# the moment an escalation/async consult/video consultation concludes,
+# rather than depending on a clinician remembering to open "new note".
+# Proves auto-drafting + idempotency + that a manual insert can never
+# self-claim auto_generated=true (server-derived, no GUC leak).
+auto_generated_continuous_clinical_note.sql
