@@ -6772,6 +6772,7 @@ export type Database = {
           async_consult_id: string | null
           authored_by_profile: string | null
           authored_by_staff: string | null
+          auto_generated: boolean
           call_ended_at: string | null
           call_started_at: string | null
           created_at: string
@@ -6802,6 +6803,7 @@ export type Database = {
           async_consult_id?: string | null
           authored_by_profile?: string | null
           authored_by_staff?: string | null
+          auto_generated?: boolean
           call_ended_at?: string | null
           call_started_at?: string | null
           created_at?: string
@@ -6832,6 +6834,7 @@ export type Database = {
           async_consult_id?: string | null
           authored_by_profile?: string | null
           authored_by_staff?: string | null
+          auto_generated?: boolean
           call_ended_at?: string | null
           call_started_at?: string | null
           created_at?: string
@@ -42900,6 +42903,10 @@ export type Database = {
           p_obesity_assessment_id: string
         }
         Returns: Database["public"]["Tables"]["weight_management_enrolments"]["Row"]
+      }
+      count_care_threads_awaiting_reply: {
+        Args: Record<PropertyKey, never>
+        Returns: number
       }
     }
     Enums: {

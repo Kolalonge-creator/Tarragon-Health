@@ -270,7 +270,14 @@ function DraftNoteCard({
           <CardTitle className="text-base">
             {ENCOUNTER_TYPE_LABEL[note.encounter_type]} · {formatDateTime(note.encounter_date)}
           </CardTitle>
-          <Badge variant="amber">Draft</Badge>
+          <div className="flex items-center gap-1.5">
+            {note.auto_generated && (
+              <Badge variant="blue" title="The platform drafted this the moment the encounter concluded — review and complete it before signing.">
+                Auto-drafted
+              </Badge>
+            )}
+            <Badge variant="amber">Draft</Badge>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">

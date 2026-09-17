@@ -3,6 +3,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
 import { asUiLanguage } from "@tarragon/shared";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
+import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
 import { getNavSections } from "@/lib/navigation";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
 import { isEmbeddedInApp } from "@/lib/embedded-webview";
@@ -43,14 +44,31 @@ export default async function DashboardLayout({
   // (20260806115556_profiles_staff_number.sql), since they have no
   // clinical_staff row to hang it off.
   let staffNumber: string | null = profile?.staff_number ?? null;
+  let clinicalStaffId: string | null = null;
   if (profile?.role === "clinician" || profile?.role === "care_coordinator") {
     const { data: staff } = await supabase
       .from("clinical_staff")
-      .select("staff_number")
+      .select("id, staff_number")
       .eq("profile_id", user.id)
       .maybeSingle();
     staffNumber = staff?.staff_number ?? null;
+    clinicalStaffId = staff?.id ?? null;
   }
+
+  // "Notes to complete" (pending-jobs banner, doctor only) — the exact
+  // {label, href, countKey} list navigation.ts's clinician nav already
+  // carries, computed once here so the banner can never drift from what the
+  // sidebar itself links to. Always the full doctor nav (role literal
+  // "clinician", not care_coordinator) regardless of this caller's own tier
+  // — matches navigation.ts's own "shown to every clinician tier" gating
+  // philosophy.
+  const pendingJobItems =
+    profile?.role === "clinician"
+      ? getNavSections("clinician", null)
+          .flatMap((section) => section.items)
+          .filter((item) => item.countKey)
+          .map((item) => ({ label: item.label, href: item.href, countKey: item.countKey! }))
+      : [];
 
   const isPatient = profile?.role === "patient" && !supporterOnly;
   const idLabel = isPatient ? "Patient ID" : staffNumber ? "Staff ID" : undefined;
@@ -115,6 +133,9 @@ export default async function DashboardLayout({
         signOutAction={signOut}
       >
         <MfaNudgeBanner role={profile?.role ?? null} />
+        {profile?.role === "clinician" && (
+          <PendingJobsBanner jobs={pendingJobItems} staffId={clinicalStaffId} />
+        )}
         {children}
       </AppShell>
     </Providers>

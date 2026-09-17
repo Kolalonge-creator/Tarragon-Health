@@ -370,22 +370,54 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation", countKey: "escalations" },
-                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
+                {
+                  label: "Safeguarding",
+                  href: "/clinician/safeguarding",
+                  icon: "warning",
+                  countKey: "openSafeguardingConcerns",
+                },
                 {
                   label: "Operations queue",
                   href: "/clinician/operations-queue",
                   icon: "escalation",
+                  countKey: "operationsQueueAlerts",
                 },
                 {
                   label: "Medication issues",
                   href: "/clinician/medication-issues",
                   icon: "medication",
+                  countKey: "openMedicationDispenseFlags",
                 },
-                { label: "Results inbox", href: "/clinician/results-inbox", icon: "labs" },
-                { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
-                { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
-                { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
-                { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
+                {
+                  label: "Results inbox",
+                  href: "/clinician/results-inbox",
+                  icon: "labs",
+                  countKey: "resultsInboxAwaitingAction",
+                },
+                {
+                  label: "Support inbox",
+                  href: "/clinician/support-inbox",
+                  icon: "inbox",
+                  countKey: "unreadSupportMessages",
+                },
+                {
+                  label: "Support tickets",
+                  href: "/clinician/support-tickets",
+                  icon: "helpCenter",
+                  countKey: "openSupportTickets",
+                },
+                {
+                  label: "Complaints",
+                  href: "/clinician/complaints",
+                  icon: "governance",
+                  countKey: "openComplaints",
+                },
+                {
+                  label: "Patient messages",
+                  href: "/clinician/messages",
+                  icon: "messages",
+                  countKey: "careThreadsAwaitingReply",
+                },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
                 // reachable only via the dashboard's "All worklists" strip,
@@ -408,7 +440,12 @@ export function getNavSections(
                 { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle", countKey: "lifestyleFlags" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review", countKey: "annualReviews" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive", countKey: "preventiveReviews" },
-                { label: "Sexual health cases", href: "/clinician/sexual-health", icon: "escalation" },
+                {
+                  label: "Sexual health cases",
+                  href: "/clinician/sexual-health",
+                  icon: "escalation",
+                  countKey: "pendingEcRequests",
+                },
               ],
             },
             {
@@ -416,7 +453,12 @@ export function getNavSections(
               items: [
                 { label: "Referrals", href: "/clinician/referrals", icon: "referral", countKey: "referralsNeedingUrgency" },
                 { label: "Waitlisted referrals", href: "/clinician/referrals/waitlisted", icon: "referral", countKey: "waitlistedReferrals" },
-                { label: "Orders", href: "/clinician/orders", icon: "logistics" },
+                {
+                  label: "Orders",
+                  href: "/clinician/orders",
+                  icon: "logistics",
+                  countKey: "labOrdersAwaitingHomeVisitAssignment",
+                },
                 { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination", countKey: "vaccinationVerifications" },
               ],
             },
@@ -431,7 +473,12 @@ export function getNavSections(
                   href: "/clinician/quality-improvement",
                   icon: "review",
                 },
-                { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
+                {
+                  label: "Safety incidents",
+                  href: "/clinician/safety-incidents",
+                  icon: "warning",
+                  countKey: "openSafetyIncidents",
+                },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication", countKey: "adherenceAlerts" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages", countKey: "outreach" },
                 { label: "Population health", href: "/clinician/populations", icon: "population" },
@@ -449,6 +496,7 @@ export function getNavSections(
                   label: "Lab result consults",
                   href: "/clinician/lab-result-consults",
                   icon: "labs",
+                  countKey: "labResultConsultsWaiting",
                 },
                 // Both added 2026-09-10 with the two new clinical products.
                 // Shown to every clinician tier, per this file's gating
@@ -462,11 +510,13 @@ export function getNavSections(
                   label: "Weight management",
                   href: "/clinician/weight-management",
                   icon: "weight",
+                  countKey: "weightManagementPendingEligibility",
                 },
                 {
                   label: "Therapy approvals",
                   href: "/clinician/therapy-approvals",
                   icon: "mood",
+                  countKey: "therapyApprovalsWaiting",
                 },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in

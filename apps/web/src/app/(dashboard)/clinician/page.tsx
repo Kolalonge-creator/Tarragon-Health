@@ -26,6 +26,24 @@ type OverviewEscalationRow = {
   clinician_alert: { level: EscalationLevel; sla_due_at: string | null } | null;
 };
 
+type PendingAutoDraftedNoteRow = {
+  id: string;
+  patient_id: string;
+  encounter_type: string;
+  reason_for_encounter: string;
+  encounter_date: string;
+  patient: { full_name: string | null } | null;
+};
+
+const ENCOUNTER_TYPE_LABEL: Record<string, string> = {
+  video_consult: "Video consult",
+  async_consult: "Async consult",
+  in_person: "In person",
+  phone: "Phone",
+  escalation_review: "Escalation review",
+  other: "Other",
+};
+
 const LEVEL_PRIORITY: Record<EscalationLevel, number> = {
   emergency: 0,
   specialist_review: 1,
@@ -146,6 +164,31 @@ export default async function ClinicianPage() {
     (e) => e.clinician_alert?.sla_due_at && new Date(e.clinician_alert.sla_due_at) < new Date()
   ).length;
   const reviewsDue = (medReviewsRes.count ?? 0) + (carePlanReviewsRes.count ?? 0);
+
+  // "Notes to complete" — the continuous-note worklist. Every escalation
+  // this clinician resolves, async consult they answer, or video
+  // consultation attributed to them guarantees a draft clinical_encounter_
+  // notes row (private.auto_draft_note_from_*,
+  // 20260917031004_auto_generated_continuous_clinical_note.sql), so this is
+  // the one place a "nothing was ever documented" gap would surface. Only
+  // fetched when the caller has a clinical_staff row (staff.id), since the
+  // notes are attributed by clinical_staff.id, not profile id.
+  let pendingAutoDraftedNotes: PendingAutoDraftedNoteRow[] = [];
+  let pendingNotesFailed = false;
+  if (staff) {
+    const pendingNotesRes = await supabase
+      .from("clinical_encounter_notes")
+      .select(
+        "id, patient_id, encounter_type, reason_for_encounter, encounter_date, patient:profiles!clinical_encounter_notes_patient_id_fkey(full_name)"
+      )
+      .eq("authored_by_staff", staff.id)
+      .eq("auto_generated", true)
+      .eq("status", "draft")
+      .order("encounter_date", { ascending: true })
+      .returns<PendingAutoDraftedNoteRow[]>();
+    pendingNotesFailed = pendingNotesRes.error !== null;
+    pendingAutoDraftedNotes = pendingNotesRes.data ?? [];
+  }
 
   // Clinical Director governance panel (Gap E, CMO governance-surface audit
   // 2026-09-14) — additive to the shared worklist above, not a fork of it:
@@ -426,6 +469,59 @@ export default async function ClinicianPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Continuous-note worklist — see the comment above pendingAutoDraftedNotes.
+          Only rendered for a caller with a clinical_staff row; a note is
+          always drafted the moment the underlying interaction concludes, so
+          this list is the honest measure of what's left undocumented, not
+          an aspirational reminder. */}
+      {staff && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Notes to complete</CardTitle>
+            <CardDescription>
+              Drafted automatically when you resolved these — review and sign each one.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {pendingNotesFailed ? (
+              <LoadFailure>
+                This list could not be loaded. Do not read this as &ldquo;nothing pending&rdquo; —
+                open a recently-resolved case&apos;s patient page directly to check for its note.
+              </LoadFailure>
+            ) : pendingAutoDraftedNotes.length === 0 ? (
+              <p className="text-sm text-charcoal-ink/60">Nothing waiting on you right now.</p>
+            ) : (
+              <ul className="divide-y divide-charcoal-ink/10">
+                {pendingAutoDraftedNotes.map((note) => (
+                  <li key={note.id}>
+                    <Link
+                      href={`/clinician/patients/${note.patient_id}`}
+                      className="flex items-center justify-between gap-3 py-2.5 hover:bg-charcoal-ink/[0.02]"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-soft-sage font-heading text-xs font-semibold text-deep-forest">
+                          {initials(note.patient?.full_name)}
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium text-charcoal-ink">
+                            {note.patient?.full_name ?? "Unknown patient"}
+                          </span>
+                          <span className="block truncate text-xs text-charcoal-ink/55">
+                            {ENCOUNTER_TYPE_LABEL[note.encounter_type] ?? note.encounter_type} ·{" "}
+                            {note.reason_for_encounter}
+                          </span>
+                        </span>
+                      </span>
+                      <Badge variant="blue">Auto-drafted</Badge>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       <Worklist />
     </div>
