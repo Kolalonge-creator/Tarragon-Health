@@ -5,6 +5,25 @@
 > `@worldbest/tarragon-health`. This file is the single place the Play Console answers are
 > written down so they can be re-entered consistently on every future release.
 
+> **Reconciliation pass, 2026-09-17** — the original v0.1.0 build (versionCode 3, cut
+> 2026-09-08) was rejected on 2026-09-17 for an unrelated Impersonation-policy issue (the app
+> icon's shield+checkmark silhouette read as a "verified" badge — see the icon variant work in
+> `apps/mobile/assets/icon.png`). Since 87 commits touched `apps/mobile`/`packages/shared`
+> between that build and this pass, every claim below was re-checked against current code
+> rather than trusted as still true. Two things changed in that window that this file's answers
+> did **not** yet reflect:
+> - **The AI Health Coach shipped natively on mobile 2026-09-12** (previously web-only). Its
+>   Anthropic data flow is broader than the "structured extract, never free-text notes" line
+>   this file previously described for the doctor-summary AI use case — see the corrected
+>   Health info row below.
+> - Everything else re-verified **unchanged and still accurate**: Health Connect is still off
+>   (`HEALTH_CONNECT_ENABLED = false`), the Bluetooth "in early testing" banner is still shown,
+>   no meal-photo/AI-vision capture was added to mobile (deliberately web-only, per
+>   `apps/mobile`'s own governance rationale), the new "Verified Documents" native screens are a
+>   request/view flow for doctor-issued documents (no new personal-data type, payment stays
+>   browser-side per App Store 3.1.1), and the new web-only "Platform Credit" prepaid balance
+>   never reached mobile so it doesn't change this submission at all.
+
 ## Pre-upload checklist
 
 1. Build from `main-dev` with `pnpm build:prod` (production profile, AAB, `versionCode`
@@ -21,6 +40,15 @@
    audience, Data safety, government apps, financial features, category = Medical, store
    listing, contact email privacy@tarragonhealth.ng). The one open item is the **Health apps**
    declaration; see the "Health apps declaration" section below before saving it.
+
+   **Superseded 2026-09-17** — a bundle *was* subsequently uploaded (production track,
+   versionCode 3, appVersion 0.1.0, gitCommitHash `3994219d`) and Google **rejected** it the
+   same day for an Impersonation-policy violation on the app icon/title, not on anything in
+   this checklist. Current Play Console state: `Production · Release 0.1.0 rejected · 1
+   version code · 0 installs`. The next upload should be a fresh build (new versionCode) with
+   the corrected icon (`apps/mobile/assets/icon.png`, pulse-line replacing the checkmark) and
+   the Data safety correction below, submitted together — see the reconciliation note at the
+   top of this file.
 3. Health Connect is **off** in this build (no `android.permission.health.*` in the manifest,
    `react-native-health-connect` excluded from autolinking). If the Play Console still shows a
    Health Connect declaration from an earlier upload, it should disappear once the new AAB
@@ -79,7 +107,7 @@ Ireland). Nothing is shared with third parties for advertising, and **no data is
 | Name, email, phone number | Yes | No | Required | Account management, app functionality |
 | Date of birth, sex, state / LGA of residence | Yes | No | Required | App functionality (clinical thresholds are age/sex aware) |
 | Emergency contact (name, phone) | Yes | No | Optional | App functionality (emergency safety net) |
-| Health info: blood pressure, glucose, weight, SpO2, temperature, pulse, symptoms, medications, screening and lab results, vaccinations, clinical notes, women's-health cycle data | Yes | Yes, with the patient's own care team, and a limited structured extract with Anthropic to draft a doctor-facing summary (never free-text notes) | Required for the features that use it | App functionality (care delivery), never advertising |
+| Health info: blood pressure, glucose, weight, SpO2, temperature, pulse, symptoms, medications, screening and lab results, vaccinations, clinical notes, women's-health cycle data | Yes | Yes, with the patient's own care team; and with Anthropic in two distinct ways — (1) a limited structured extract to draft a doctor-facing summary (never free-text notes), and (2) **corrected 2026-09-17**: the native AI Health Coach chat (shipped on mobile 2026-09-12) sends the patient's own chat messages plus a context snapshot (recent vitals, active medications, symptoms) to Anthropic's Claude model to generate its reply — this is a direct, patient-facing use, not a structured-extract-only one | Required for the features that use it | App functionality (care delivery), never advertising |
 | Fitness info (steps, sleep, HRV) | Yes, on iOS via Apple Health only | No | Optional | App functionality. **Not collected on Android in v0.1.0** (Health Connect is off) |
 | Photos | Yes, only when the user photographs a lab result | No | Optional | App functionality (lab-result upload) |
 | Messages (care-team chat) | Yes | With the care team | Optional | App functionality |
@@ -95,9 +123,10 @@ deletion (in-app request, reviewed and completed by an admin; see the privacy no
 after account deletion where the law requires it.
 
 Data processors to name if asked: Supabase (database, auth, storage; eu-west-1), Vercel
-(web/API hosting), Paystack (payments, Nigeria), Anthropic (AI summary drafting, structured
-extract only), Meta WhatsApp Cloud API and Termii (reminder/alert delivery only, phone number
-and message content).
+(web/API hosting), Paystack (payments, Nigeria), Anthropic (two uses: governed structured-extract
+summary drafting, and — as of 2026-09-12 on mobile — the AI Health Coach chat, which receives the
+patient's own messages plus a recent-vitals/medications/symptoms context snapshot), Meta WhatsApp
+Cloud API and Termii (reminder/alert delivery only, phone number and message content).
 
 ## Permissions the binary declares, and why
 
