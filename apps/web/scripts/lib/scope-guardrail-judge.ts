@@ -16,14 +16,19 @@ export const criterionJudgeSchema = z.object({
   reasoning: z.string().catch("(no reasoning provided)").describe("one to three sentences explaining the verdict"),
 });
 
-export function buildCriterionJudge() {
+export function buildCriterionJudge(maxTokens = 400) {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("ANTHROPIC_API_KEY is not set. This eval makes real model calls and needs it.");
   }
   return new ChatAnthropic({
     apiKey: process.env.ANTHROPIC_API_KEY,
     model: "claude-haiku-4-5",
-    maxTokens: 400,
+    // Some systems' actual_output is much larger than a chat reply (e.g.
+    // AI-011's full 7-day meal plan JSON) -- a judge asked to reason over a
+    // large input needs headroom for its own answer too, or it degrades to
+    // a bare, unreasoned verdict under token pressure. Callers with a large
+    // actual_output should pass a bigger budget explicitly.
+    maxTokens,
     invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
   }).withStructuredOutput(criterionJudgeSchema);
 }
