@@ -362,6 +362,41 @@ async function countUnreadSupportMessages(supabase: Client) {
 }
 
 /**
+ * Orders needing a home-visit provider assigned -- exact same predicate as
+ * the "Home visits & deliveries" page's LabOrdersWorklist (a lab order with
+ * no home_visit_provider yet, in payment_confirmed or ordered status --
+ * apps/web/src/app/(dashboard)/clinician/orders/page.tsx). That page also
+ * has a second sub-worklist (pharmacy orders needing a courier assigned, out
+ * for delivery, or a failed delivery to retry), left uncounted here for the
+ * same reason Medication issues/Weight management leave their second
+ * sub-worklist uncounted: this file's counters issue exactly one query each,
+ * and a home-visit collection blocks a diagnostic sample from ever being
+ * taken -- the more clinically load-bearing of the two. Pharmacy orders stay
+ * fully visible on the page itself, just not globally counted.
+ */
+async function countLabOrdersAwaitingHomeVisitAssignment(supabase: Client) {
+  const { count, error } = await supabase
+    .from("lab_orders")
+    .select("id", { count: "exact", head: true })
+    .is("home_visit_provider_id", null)
+    .in("status", ["payment_confirmed", "ordered"]);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as useOrgLabResultConsultRequests
+ * (lib/queries/lab-result-consult.ts) -- a paid consult request whose result
+ * a doctor hasn't yet accepted a booking slot for. */
+async function countLabResultConsultsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("lab_result_consult_requests")
+    .select("id", { count: "exact", head: true })
+    .in("status", ["payment_confirmed", "document_uploaded"]);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
  * Threads waiting on a care-team reply -- exact same predicate as
  * isAwaitingCareTeam (lib/worklist/message-triage.ts), which compares
  * care_team_last_read_at to last_message_at. That's a column-vs-column
@@ -410,7 +445,9 @@ export type WorklistCountKey =
   | "weightManagementPendingEligibility"
   | "therapyApprovalsWaiting"
   | "unreadSupportMessages"
-  | "careThreadsAwaitingReply";
+  | "careThreadsAwaitingReply"
+  | "labOrdersAwaitingHomeVisitAssignment"
+  | "labResultConsultsWaiting";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -450,6 +487,8 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   therapyApprovalsWaiting: countTherapyApprovalsWaiting,
   unreadSupportMessages: countUnreadSupportMessages,
   careThreadsAwaitingReply: countCareThreadsAwaitingReply,
+  labOrdersAwaitingHomeVisitAssignment: countLabOrdersAwaitingHomeVisitAssignment,
+  labResultConsultsWaiting: countLabResultConsultsWaiting,
 };
 
 /**

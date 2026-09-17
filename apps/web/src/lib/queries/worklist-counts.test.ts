@@ -35,7 +35,7 @@ const KEYS = Object.keys(COUNTERS) as WorklistCountKey[];
 
 describe("worklist counters", () => {
   it("covers every worklist the clinician dashboard counts", () => {
-    expect(KEYS.length).toBe(32);
+    expect(KEYS.length).toBe(34);
   });
 
   it.each(KEYS)("%s returns the live count when the query succeeds", async (key) => {

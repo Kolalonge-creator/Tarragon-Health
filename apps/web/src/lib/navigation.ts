@@ -453,7 +453,12 @@ export function getNavSections(
               items: [
                 { label: "Referrals", href: "/clinician/referrals", icon: "referral", countKey: "referralsNeedingUrgency" },
                 { label: "Waitlisted referrals", href: "/clinician/referrals/waitlisted", icon: "referral", countKey: "waitlistedReferrals" },
-                { label: "Orders", href: "/clinician/orders", icon: "logistics" },
+                {
+                  label: "Orders",
+                  href: "/clinician/orders",
+                  icon: "logistics",
+                  countKey: "labOrdersAwaitingHomeVisitAssignment",
+                },
                 { label: "Vaccinations", href: "/clinician/vaccinations", icon: "vaccination", countKey: "vaccinationVerifications" },
               ],
             },
@@ -491,6 +496,7 @@ export function getNavSections(
                   label: "Lab result consults",
                   href: "/clinician/lab-result-consults",
                   icon: "labs",
+                  countKey: "labResultConsultsWaiting",
                 },
                 // Both added 2026-09-10 with the two new clinical products.
                 // Shown to every clinician tier, per this file's gating
