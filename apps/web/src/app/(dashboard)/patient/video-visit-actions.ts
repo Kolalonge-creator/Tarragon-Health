@@ -19,25 +19,35 @@ const requestSchema = z.object({
 export type RequestVideoVisitState = { error: string } | undefined;
 
 /**
- * Patient requests a paid video visit for a published slot: a
- * video_visit_requests row is created (amount pinned server-side by the DB
- * trigger from the price book — nothing the client sends sets the price) and
- * the browser is redirected to hosted checkout. The captured payment is HELD:
- * 'payment_confirmed' only puts the request in front of a doctor — the visit
- * is booked exclusively by a doctor accepting it, and a declined/unaccepted
- * request is refunded in full. Capitated org members skip payment but still
- * wait for doctor acceptance like everyone else.
+ * Shared preamble for both payment paths below: parse the form, resolve the
+ * signed-in patient + org, re-check (RLS-visibly) that the slot is still
+ * open, then insert the video_visit_requests row. private.pin_video_visit_
+ * amount() (a BEFORE INSERT trigger) pins amount_minor/currency from the
+ * price book server-side — nothing the client sends ever sets the price —
+ * and resets status/origin/payment_provider* to their pre-payment defaults
+ * regardless of what's in the insert payload.
+ *
+ * Returns either the inserted row (id/amount_minor/currency) or a
+ * RequestVideoVisitState error to return straight from the caller.
  */
-export async function requestVideoVisit(
-  _prev: RequestVideoVisitState,
-  formData: FormData
-): Promise<RequestVideoVisitState> {
+async function insertVideoVisitRequestRow(formData: FormData): Promise<
+  | {
+      ok: true;
+      requestId: string;
+      amountMinor: number;
+      currency: string;
+      organisationId: string;
+      patientId: string;
+      email: string;
+    }
+  | { ok: false; error: RequestVideoVisitState }
+> {
   const parsed = requestSchema.safeParse({
     slotId: String(formData.get("slot_id") ?? ""),
     note: String(formData.get("note") ?? "") || undefined,
   });
   if (!parsed.success) {
-    return { error: "Pick a time first" };
+    return { ok: false, error: { error: "Pick a time first" } };
   }
 
   const supabase = await createClient();
@@ -46,7 +56,7 @@ export async function requestVideoVisit(
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
   if (!user.email) {
-    return { error: "Your account needs an email on file to check out." };
+    return { ok: false, error: { error: "Your account needs an email on file to check out." } };
   }
 
   const { data: profile } = await supabase
@@ -55,7 +65,7 @@ export async function requestVideoVisit(
     .eq("id", user.id)
     .single();
   if (!profile?.organisation_id) {
-    return { error: "Your account has no organisation on file." };
+    return { ok: false, error: { error: "Your account has no organisation on file." } };
   }
 
   // RLS-visible check that the slot is still open before taking payment.
@@ -65,7 +75,7 @@ export async function requestVideoVisit(
     .eq("id", parsed.data.slotId)
     .maybeSingle();
   if (!slot) {
-    return { error: "That time is no longer available, pick another slot." };
+    return { ok: false, error: { error: "That time is no longer available, pick another slot." } };
   }
 
   const { data: request, error: insertError } = await supabase
@@ -79,18 +89,46 @@ export async function requestVideoVisit(
     .select("id, amount_minor, currency")
     .single();
   if (insertError || !request) {
-    return { error: insertError?.message ?? "Could not create the request." };
+    return { ok: false, error: { error: insertError?.message ?? "Could not create the request." } };
   }
+
+  return {
+    ok: true,
+    requestId: request.id,
+    amountMinor: request.amount_minor,
+    currency: request.currency,
+    organisationId: profile.organisation_id,
+    patientId: user.id,
+    email: user.email,
+  };
+}
+
+/**
+ * Patient requests a paid video visit for a published slot: a
+ * video_visit_requests row is created (amount pinned server-side by the DB
+ * trigger from the price book — nothing the client sends sets the price) and
+ * the browser is redirected to hosted checkout. The captured payment is HELD:
+ * 'payment_confirmed' only puts the request in front of a doctor — the visit
+ * is booked exclusively by a doctor accepting it, and a declined/unaccepted
+ * request is refunded in full. Capitated org members skip payment but still
+ * wait for doctor acceptance like everyone else.
+ */
+export async function requestVideoVisit(
+  _prev: RequestVideoVisitState,
+  formData: FormData
+): Promise<RequestVideoVisitState> {
+  const inserted = await insertVideoVisitRequestRow(formData);
+  if (!inserted.ok) return inserted.error;
 
   const origin = (await headers()).get("origin") ?? process.env.NEXT_PUBLIC_SITE_URL ?? "";
   const result = await initiateBookingCheckout({
     orderType: "video_visit",
-    orderId: request.id,
-    organisationId: profile.organisation_id,
-    patientId: user.id,
-    amountKobo: request.amount_minor,
-    currency: request.currency as Currency,
-    email: user.email,
+    orderId: inserted.requestId,
+    organisationId: inserted.organisationId,
+    patientId: inserted.patientId,
+    amountKobo: inserted.amountMinor,
+    currency: inserted.currency as Currency,
+    email: inserted.email,
     description: "Tarragon Health: video visit with a doctor",
     callbackUrl: `${origin}/patient`,
   });
@@ -99,6 +137,58 @@ export async function requestVideoVisit(
     return { error: result.error };
   }
   redirect(result.checkoutUrl);
+}
+
+/**
+ * Platform-credit twin of requestVideoVisit above. Same insert, same price
+ * pinning — but instead of an external Paystack redirect, this calls
+ * confirm_video_visit_request_on_platform_credit, which only CHECKS the
+ * caller's platform credit balance covers the pinned price and, if so,
+ * flips status straight to 'payment_confirmed' (payment_provider=
+ * 'platform_credit', payment_provider_ref left null). Nothing is actually
+ * spent yet — see that migration's header for why: the real spend is
+ * deferred to the moment a doctor accepts (private.pay_video_visit_
+ * request_on_platform_credit, called from accept_video_visit_request /
+ * select_video_visit_alternate_slot). If the balance check fails, the
+ * half-created request row is deleted rather than left dangling — the
+ * patient sees the error and can pick a slot again, by card or by credit.
+ */
+export async function requestVideoVisitWithPlatformCredit(
+  _prev: RequestVideoVisitState,
+  formData: FormData
+): Promise<RequestVideoVisitState> {
+  const inserted = await insertVideoVisitRequestRow(formData);
+  if (!inserted.ok) return inserted.error;
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("confirm_video_visit_request_on_platform_credit", {
+    p_request_id: inserted.requestId,
+  });
+
+  const result = data as
+    | { ok: true; request_id: string; amount_kobo: number }
+    | { ok: false; reason: "not_payable"; status: string }
+    | { ok: false; reason: "unsupported_currency"; currency: string }
+    | { ok: false; reason: "insufficient_balance"; balance_kobo: number; required_kobo: number; shortfall_kobo: number }
+    | null;
+
+  if (error || !result || !result.ok) {
+    // Never leave a half-created, unpaid request lingering — the patient
+    // can simply try again (by card, or after topping up).
+    await supabase
+      .from("video_visit_requests")
+      .delete()
+      .eq("id", inserted.requestId)
+      .in("status", ["requested", "pending_payment"]);
+
+    if (result && !result.ok && result.reason === "insufficient_balance") {
+      const shortfallNaira = Math.ceil(result.shortfall_kobo / 100).toLocaleString();
+      return { error: `You need ₦${shortfallNaira} more in platform credit to reserve this visit.` };
+    }
+    return { error: error?.message ?? "Could not reserve this visit with platform credit." };
+  }
+
+  redirect("/patient#book-video-visit");
 }
 
 /** Patient withdraws a request that hasn't been paid yet (RLS-enforced). */
