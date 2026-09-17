@@ -28462,6 +28462,8 @@ export type Database = {
         Row: {
           amount_kobo: number | null
           balance_after_kobo: number
+          booking_order_id: string | null
+          booking_order_type: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -28478,6 +28480,8 @@ export type Database = {
         Insert: {
           amount_kobo?: number | null
           balance_after_kobo: number
+          booking_order_id?: string | null
+          booking_order_type?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -28494,6 +28498,8 @@ export type Database = {
         Update: {
           amount_kobo?: number | null
           balance_after_kobo?: number
+          booking_order_id?: string | null
+          booking_order_type?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -40121,6 +40127,10 @@ export type Database = {
         }
         Returns: Json
       }
+      check_platform_credit_covers_video_visit: {
+        Args: { p_amount_kobo: number; p_patient_id: string }
+        Returns: boolean
+      }
       claim_employer_roster_member: {
         Args: { target_roster_id: string }
         Returns: boolean
@@ -40325,6 +40335,10 @@ export type Database = {
       confirm_vaccination_card_extraction: {
         Args: { p_extraction_id: string; p_records: Json }
         Returns: number
+      }
+      confirm_video_visit_request_on_platform_credit: {
+        Args: { p_request_id: string }
+        Returns: Json
       }
       consultation_prep_bundle: {
         Args: { p_consultation_id: string }
