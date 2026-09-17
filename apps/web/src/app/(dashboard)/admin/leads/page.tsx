@@ -6,6 +6,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { LeadsManager } from "./leads-manager";
 
+export const metadata = { title: "Leads" };
+
 export type LeadRow = {
   id: string;
   name: string;

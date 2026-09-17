@@ -3,6 +3,8 @@ import { getCurrentProfile, getCurrentClinicalStaff } from "@/lib/auth/current-p
 import { PageHeader } from "@/components/ui/page-header";
 import { ProviderQualityDashboard } from "./provider-quality-dashboard";
 
+export const metadata = { title: "Provider quality" };
+
 /**
  * Provider Quality & Performance Management (spec module §29). Server-side
  * gate mirrors `private.is_complaints_handler()` (admin, or an active

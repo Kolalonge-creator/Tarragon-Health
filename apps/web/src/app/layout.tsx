@@ -17,7 +17,14 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "TarragonHealth: Care that stays with you",
+  title: {
+    // Every page below this layout that sets a plain string title (the vast
+    // majority — admin/clinician/patient pages included) gets this brand
+    // suffix for free. A page needing the bare string alone (the homepage)
+    // opts out with `{ absolute: "..." }`, which this template never touches.
+    template: "%s · TarragonHealth",
+    default: "TarragonHealth: Care that stays with you",
+  },
   description:
     "Nigeria's digital-first chronic disease, preventive health, and family care coordination platform.",
   icons: {

@@ -6,6 +6,8 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed } from "@/lib/queries/server-query-state";
 import { PatientsDirectory, type PatientPurchase, type PatientRow } from "./patients-directory";
 
+export const metadata = { title: "Patients" };
+
 const PAID_STATUSES = new Set(["active", "completed", "expired"]);
 
 /**

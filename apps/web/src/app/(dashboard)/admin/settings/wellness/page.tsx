@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { WellnessManager } from "./wellness-manager";
 
+export const metadata = { title: "Wellness rewards" };
+
 export default async function WellnessSettingsPage() {
   const profile = await getCurrentProfile();
 

@@ -12,6 +12,8 @@ import {
   type UnsignedRule,
 } from "./signoff-checklist";
 
+export const metadata = { title: "Clinical sign-off" };
+
 /**
  * The "what still needs my signature, and what do I press" page.
  *

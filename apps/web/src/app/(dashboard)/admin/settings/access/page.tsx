@@ -4,6 +4,8 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { getVisibleItemsForTab } from "@/lib/admin-settings-nav";
 import { SettingsHubGrid } from "@/components/shell/settings-hub-grid";
 
+export const metadata = { title: "People & Access" };
+
 export default async function AccessSettingsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");

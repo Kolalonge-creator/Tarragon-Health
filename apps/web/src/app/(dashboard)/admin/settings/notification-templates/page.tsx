@@ -4,6 +4,8 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { NotificationTemplatesManager } from "./notification-templates-manager";
 
+export const metadata = { title: "Notification templates" };
+
 export default async function NotificationTemplatesSettingsPage() {
   const profile = await getCurrentProfile();
   const { isSuperAdmin, keys } = await getCallerPermissions();

@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { DuplicateFlagActions } from "./duplicate-flag-actions";
 import { RunSweepButton } from "./run-sweep-button";
 
+export const metadata = { title: "Duplicate patients" };
+
 function formatDate(value: string | null): string {
   if (!value) return "—";
   return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });

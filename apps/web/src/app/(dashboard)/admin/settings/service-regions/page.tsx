@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { ServiceRegionsManager } from "./service-regions-manager";
 
+export const metadata = { title: "Service regions" };
+
 export default async function ServiceRegionsSettingsPage() {
   const profile = await getCurrentProfile();
 

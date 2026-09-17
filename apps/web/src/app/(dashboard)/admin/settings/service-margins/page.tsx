@@ -4,6 +4,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { ServiceMarginsClient } from "./margins-client";
 
+export const metadata = { title: "Service margins" };
+
 /**
  * What each paid service earns, and the clinician rates that answer rests on.
  *

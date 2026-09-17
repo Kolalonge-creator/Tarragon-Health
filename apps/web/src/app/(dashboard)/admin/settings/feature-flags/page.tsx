@@ -4,6 +4,8 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { PageHeader } from "@/components/ui/page-header";
 import { FeatureFlagsManager } from "./feature-flags-manager";
 
+export const metadata = { title: "Feature flags" };
+
 export default async function FeatureFlagsSettingsPage() {
   const profile = await getCurrentProfile();
   const { isSuperAdmin, keys } = await getCallerPermissions();

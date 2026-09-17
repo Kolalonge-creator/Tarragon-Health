@@ -11,6 +11,8 @@ import { formatNumber } from "@/lib/analytics/format";
 import { ExceptionQueue, type OpsExceptionRow } from "./exception-queue";
 import { SystemHealthPanel, type SystemHealthComponent } from "./system-health-panel";
 
+export const metadata = { title: "Operations console" };
+
 /**
  * Modules 30.3 / 30.8-30.14 / 30.19 — the operations control centre home
  * board. One page rather than the spec's seven separate monitoring screens

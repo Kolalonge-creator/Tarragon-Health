@@ -16,6 +16,8 @@ import {
   type SignedProtocolOption,
 } from "../clinical-rules/clinical-rules-manager";
 
+export const metadata = { title: "Clinical Protocols" };
+
 export default async function ClinicalProtocolsSettingsPage() {
   const profile = await getCurrentProfile();
   if (!profile) redirect("/login");
