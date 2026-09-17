@@ -21,6 +21,10 @@ export type SeniorCaseReviewWithReviewer = SeniorCaseReview & {
  * credit to request this.' (senior_case_reviews_enforce_credit). */
 export const SENIOR_CASE_REVIEW_CREDIT_REQUIRED_MARKER = "senior case review credit";
 
+/** The service_products code this request spends — see
+ * platform-credit.ts's trySpendPlatformCreditForService. */
+export const SENIOR_CASE_REVIEW_CREDIT_CODE = "senior_case_review_credit";
+
 export async function loadMySeniorCaseReviews(
   patientId: string
 ): Promise<QueryResult<SeniorCaseReviewWithReviewer[]>> {

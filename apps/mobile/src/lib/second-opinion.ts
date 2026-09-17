@@ -21,6 +21,12 @@ export type SecondOpinionRequestWithAnswerer = SecondOpinionRequest & {
  * to send this request.' (second_opinion_requests_enforce_credit). */
 export const SECOND_OPINION_CREDIT_REQUIRED_MARKER = "second opinion credit";
 
+/** The service_products code this request spends — see
+ * private.enforce_second_opinion_credit and platform-credit.ts's
+ * trySpendPlatformCreditForService, which the section calls with this code
+ * to settle the credit from platform credit in-app before retrying. */
+export const SECOND_OPINION_CREDIT_CODE = "second_opinion_credit";
+
 export async function loadMySecondOpinionRequests(
   patientId: string
 ): Promise<QueryResult<SecondOpinionRequestWithAnswerer[]>> {

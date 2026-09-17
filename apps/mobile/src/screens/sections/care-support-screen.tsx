@@ -6,6 +6,7 @@ import {
   submitAsyncConsult,
   ASYNC_CONSULT_CATEGORIES,
   ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER,
+  ASYNC_CONSULT_CREDIT_CODE,
   loadMyNavigationRequests,
   createNavigationRequest,
   submitNavigationRequestFeedback,
@@ -45,7 +46,9 @@ import {
 import { SecondOpinionSection } from "./second-opinion-section";
 import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
+import { trySpendPlatformCreditForService } from "@/lib/platform-credit";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { koboToNaira } from "@tarragon/shared";
 import {
   loadMyVouchers,
   loadMyReferralCode,
@@ -741,6 +744,7 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsCredit, setNeedsCredit] = useState(false);
+  const [creditShortfallKobo, setCreditShortfallKobo] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await loadMyAsyncConsults(patientId);
@@ -759,7 +763,29 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
     setSubmitting(true);
     setError(null);
     setNeedsCredit(false);
-    const result = await submitAsyncConsult({ patientId, organisationId, category, question: question.trim() });
+    setCreditShortfallKobo(null);
+
+    const input = { patientId, organisationId, category, question: question.trim() };
+    let result = await submitAsyncConsult(input);
+
+    if (!result.ok && result.error.includes(ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER)) {
+      // Plan-covered patients (async_doctor_visit feature access) never
+      // reach here at all — the insert above already succeeded for them.
+      // This only fires for a patient with neither plan access nor a
+      // pre-purchased credit; settle it from platform credit in-app when
+      // the balance covers it and retry — no browser trip.
+      const spend = await trySpendPlatformCreditForService(ASYNC_CONSULT_CREDIT_CODE, patientId);
+      if (spend.spent) {
+        result = await submitAsyncConsult(input);
+      } else {
+        setSubmitting(false);
+        setNeedsCredit(true);
+        setCreditShortfallKobo(spend.shortfallKobo ?? null);
+        if (spend.error) setError(spend.error);
+        return;
+      }
+    }
+
     setSubmitting(false);
     if (!result.ok) {
       if (result.error.includes(ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER)) {
@@ -784,8 +810,9 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
       {needsCredit && (
         <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
           <Text style={{ fontSize: 13, color: colors.brandPressed }}>
-            Ask a doctor isn&apos;t included on your current plan. Buy a one-off credit to send
-            this question.
+            {creditShortfallKobo
+              ? `You need ₦${koboToNaira(creditShortfallKobo).toLocaleString()} more platform credit to send this question.`
+              : "Ask a doctor isn't included on your current plan. Buy a one-off credit to send this question."}
           </Text>
           <SecondaryButton
             title="Buy a credit in the browser"

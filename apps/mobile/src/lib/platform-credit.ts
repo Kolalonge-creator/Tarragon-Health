@@ -1,4 +1,5 @@
-import { fetchPlatformCreditBalance, postPlatformCreditTopupIntent } from "./api";
+import { fetchPlatformCreditBalance, postPlatformCreditTopupIntent, postPlatformCreditSpend } from "./api";
+import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
 
 export interface PlatformCreditLedgerEntry {
@@ -40,9 +41,11 @@ export const PLATFORM_CREDIT_ENTRY_LABEL: Record<string, string> = {
  * Unlike a care voucher (an entitlement to one named service), this is a
  * general balance.
  *
- * Read-only for now — this is the balance/top-up foundation only; spending
- * platform credit isn't wired into any purchase flow on mobile yet, and
- * this module deliberately has no "spend" function to match.
+ * Started as read-only (balance/top-up foundation only). Spending is now
+ * wired in too — see trySpendPlatformCreditForService below, which the five
+ * credit-gated screens (second opinion, senior case review, verified
+ * documents, ask a doctor, confidential message) call to settle a request's
+ * credit in-app instead of bouncing out to the browser.
  */
 export async function loadPlatformCreditState(): Promise<QueryResult<PlatformCreditState>> {
   const result = await fetchPlatformCreditBalance();
@@ -78,4 +81,84 @@ export async function startPlatformCreditTopup(amountKobo: number): Promise<Quer
     return { ok: false, error: result.error ?? "Could not start this top-up" };
   }
   return { ok: true, data: result.checkoutUrl };
+}
+
+/**
+ * The NGN price of a service_products row, read directly (service_products
+ * is authenticated-readable per its RLS — same direct-query pattern
+ * services.ts's loadServicesState already uses, not a second passthrough
+ * route just for a price lookup). Null (not an error) means the product
+ * doesn't exist or isn't active, which the caller should treat the same as
+ * "can't tell you this is covered" rather than a hard failure.
+ */
+export async function getServiceProductPriceKobo(
+  serviceProductCode: string
+): Promise<QueryResult<number | null>> {
+  const { data, error } = await supabase
+    .from("service_products")
+    .select("price_kobo")
+    .eq("code", serviceProductCode)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, data: data?.price_kobo ?? null };
+}
+
+export interface ServiceCreditSpendOutcome {
+  /** true once the credit has actually been spent — the caller's own
+   * insert (second_opinion_requests, async_consults, etc.) should be
+   * (re)tried right after this, in-app, with no browser trip. */
+  spent: boolean;
+  /** Set when spent is false only because the balance was short — lets the
+   * caller show exactly how much more is needed, same as
+   * pay-with-credit-or-card.tsx's shortfall message on web. Absent for any
+   * other reason (couldn't load the price/balance, a request-level error,
+   * or the purchase turning out not to be payable any more). */
+  shortfallKobo?: number;
+  /** Set whenever spent is false for a reason other than a plain shortfall
+   * — surfaced to the patient alongside the existing "buy a credit in the
+   * browser" fallback so a real failure (not just "not enough yet") isn't
+   * silently swallowed. */
+  error?: string;
+}
+
+/**
+ * Called after a credit-gated insert is rejected for lack of a credit (the
+ * screen's own `..._CREDIT_REQUIRED_MARKER` match). Checks whether the
+ * patient's platform credit balance already covers this product's price
+ * and, if so, spends it right here — mirrors
+ * apps/web/src/components/billing/pay-with-credit-or-card.tsx's
+ * enough/short decision, just entered from the "insert already failed"
+ * side instead of a plain balance display, since none of these five mobile
+ * screens show product pricing up front today. Never throws: every
+ * failure path (couldn't load price/balance, short balance, spend
+ * refused/erred) comes back as spent: false so the caller's existing
+ * WebBrowser.openBrowserAsync fallback still applies unchanged.
+ */
+export async function trySpendPlatformCreditForService(
+  serviceProductCode: string,
+  patientId?: string
+): Promise<ServiceCreditSpendOutcome> {
+  const priceResult = await getServiceProductPriceKobo(serviceProductCode);
+  if (!priceResult.ok) return { spent: false, error: priceResult.error };
+  if (priceResult.data === null) {
+    return { spent: false, error: "This isn't available to buy right now." };
+  }
+  const priceKobo = priceResult.data;
+
+  const balanceResult = await loadPlatformCreditState();
+  if (!balanceResult.ok) return { spent: false, error: balanceResult.error };
+  if (balanceResult.data.balanceKobo < priceKobo) {
+    return { spent: false, shortfallKobo: priceKobo - balanceResult.data.balanceKobo };
+  }
+
+  const spendResult = await postPlatformCreditSpend(serviceProductCode, { patientId });
+  if (spendResult.error) return { spent: false, error: spendResult.error };
+  if (spendResult.ok === false) {
+    if (spendResult.reason === "insufficient_balance") {
+      return { spent: false, shortfallKobo: spendResult.shortfall_kobo ?? priceKobo };
+    }
+    return { spent: false, error: "This can no longer be paid for — try again." };
+  }
+  return { spent: true };
 }

@@ -5,20 +5,38 @@
  * balance, suggested-amount fallback, error surfacing) without re-testing
  * request()'s own auth/retry policy, which api.test.ts already covers.
  */
-import { fetchPlatformCreditBalance, postPlatformCreditTopupIntent } from "./api";
+import { fetchPlatformCreditBalance, postPlatformCreditTopupIntent, postPlatformCreditSpend } from "./api";
+import { supabase } from "./supabase";
 import {
   loadPlatformCreditState,
   platformCreditSuggestedAmountsKobo,
   startPlatformCreditTopup,
+  getServiceProductPriceKobo,
+  trySpendPlatformCreditForService,
 } from "./platform-credit";
 
 jest.mock("./api", () => ({
   fetchPlatformCreditBalance: jest.fn(),
   postPlatformCreditTopupIntent: jest.fn(),
+  postPlatformCreditSpend: jest.fn(),
 }));
+jest.mock("./supabase", () => ({ supabase: { from: jest.fn() } }));
 
 const mockFetchBalance = fetchPlatformCreditBalance as jest.MockedFunction<typeof fetchPlatformCreditBalance>;
 const mockPostTopupIntent = postPlatformCreditTopupIntent as jest.MockedFunction<typeof postPlatformCreditTopupIntent>;
+const mockPostSpend = postPlatformCreditSpend as jest.MockedFunction<typeof postPlatformCreditSpend>;
+const mockFrom = supabase.from as unknown as jest.Mock;
+
+/** service_products' own read shape: .select().eq().eq().maybeSingle(). */
+function serviceProductTable(result: { data?: { price_kobo: number } | null; error?: { message: string } | null }) {
+  const builder: Record<string, unknown> = {
+    maybeSingle: () => Promise.resolve(result),
+  };
+  for (const method of ["select", "eq"]) {
+    builder[method] = () => builder;
+  }
+  return builder;
+}
 
 describe("loadPlatformCreditState", () => {
   it("maps a successful response into the balance/ledger shape the screen reads", async () => {
@@ -93,6 +111,161 @@ describe("startPlatformCreditTopup", () => {
     await expect(startPlatformCreditTopup(500)).resolves.toEqual({
       ok: false,
       error: "the minimum top-up is 100000 kobo",
+    });
+  });
+});
+
+describe("getServiceProductPriceKobo", () => {
+  beforeEach(() => mockFrom.mockReset());
+
+  it("returns the product's price", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: { price_kobo: 250000 } }));
+    await expect(getServiceProductPriceKobo("confidential_message_credit")).resolves.toEqual({
+      ok: true,
+      data: 250000,
+    });
+    expect(mockFrom).toHaveBeenCalledWith("service_products");
+  });
+
+  it("returns null (not an error) when the product doesn't exist or isn't active", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: null }));
+    await expect(getServiceProductPriceKobo("not_a_real_code")).resolves.toEqual({ ok: true, data: null });
+  });
+
+  it("surfaces a query error rather than throwing", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ error: { message: "network error" } }));
+    await expect(getServiceProductPriceKobo("second_opinion_credit")).resolves.toEqual({
+      ok: false,
+      error: "network error",
+    });
+  });
+});
+
+describe("trySpendPlatformCreditForService", () => {
+  beforeEach(() => {
+    mockFrom.mockReset();
+    mockPostSpend.mockReset();
+  });
+
+  it("spends and reports success when the balance already covers the price", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: { price_kobo: 250000 } }));
+    mockFetchBalance.mockResolvedValue({
+      success: true,
+      balance_kobo: 300000,
+      paid_balance_kobo: 300000,
+      promo_balance_kobo: 0,
+      config: null,
+      ledger: [],
+    });
+    mockPostSpend.mockResolvedValue({
+      success: true,
+      ok: true,
+      service_purchase_id: "sp1",
+      amount_kobo: 250000,
+      new_balance_kobo: 50000,
+    });
+
+    await expect(trySpendPlatformCreditForService("confidential_message_credit", "patient-1")).resolves.toEqual({
+      spent: true,
+    });
+    expect(mockPostSpend).toHaveBeenCalledWith("confidential_message_credit", { patientId: "patient-1" });
+  });
+
+  it("reports a shortfall without ever calling the spend endpoint when the balance is short", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: { price_kobo: 250000 } }));
+    mockFetchBalance.mockResolvedValue({
+      success: true,
+      balance_kobo: 100000,
+      paid_balance_kobo: 100000,
+      promo_balance_kobo: 0,
+      config: null,
+      ledger: [],
+    });
+
+    await expect(trySpendPlatformCreditForService("confidential_message_credit")).resolves.toEqual({
+      spent: false,
+      shortfallKobo: 150000,
+    });
+    expect(mockPostSpend).not.toHaveBeenCalled();
+  });
+
+  it("reports the RPC's own shortfall if a concurrent spend wins the race after the client-side check passed", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: { price_kobo: 250000 } }));
+    mockFetchBalance.mockResolvedValue({
+      success: true,
+      balance_kobo: 300000,
+      paid_balance_kobo: 300000,
+      promo_balance_kobo: 0,
+      config: null,
+      ledger: [],
+    });
+    mockPostSpend.mockResolvedValue({
+      success: true,
+      ok: false,
+      reason: "insufficient_balance",
+      balance_kobo: 0,
+      required_kobo: 250000,
+      shortfall_kobo: 250000,
+    });
+
+    await expect(trySpendPlatformCreditForService("confidential_message_credit")).resolves.toEqual({
+      spent: false,
+      shortfallKobo: 250000,
+    });
+  });
+
+  it("reports an error when the product isn't available to buy", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: null }));
+    await expect(trySpendPlatformCreditForService("not_a_real_code")).resolves.toEqual({
+      spent: false,
+      error: "This isn't available to buy right now.",
+    });
+    expect(mockFetchBalance).not.toHaveBeenCalled();
+  });
+
+  it("reports an error when the balance can't be loaded", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: { price_kobo: 250000 } }));
+    mockFetchBalance.mockResolvedValue({ error: "Invalid or expired session" });
+
+    await expect(trySpendPlatformCreditForService("confidential_message_credit")).resolves.toEqual({
+      spent: false,
+      error: "Invalid or expired session",
+    });
+  });
+
+  it("reports an error when the purchase is no longer payable", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: { price_kobo: 250000 } }));
+    mockFetchBalance.mockResolvedValue({
+      success: true,
+      balance_kobo: 300000,
+      paid_balance_kobo: 300000,
+      promo_balance_kobo: 0,
+      config: null,
+      ledger: [],
+    });
+    mockPostSpend.mockResolvedValue({ success: true, ok: false, reason: "not_payable", status: "active" });
+
+    await expect(trySpendPlatformCreditForService("confidential_message_credit")).resolves.toEqual({
+      spent: false,
+      error: "This can no longer be paid for — try again.",
+    });
+  });
+
+  it("surfaces a request-level spend error rather than throwing", async () => {
+    mockFrom.mockReturnValue(serviceProductTable({ data: { price_kobo: 250000 } }));
+    mockFetchBalance.mockResolvedValue({
+      success: true,
+      balance_kobo: 300000,
+      paid_balance_kobo: 300000,
+      promo_balance_kobo: 0,
+      config: null,
+      ledger: [],
+    });
+    mockPostSpend.mockResolvedValue({ error: "Couldn't reach the server. Check your connection and try again." });
+
+    await expect(trySpendPlatformCreditForService("confidential_message_credit")).resolves.toEqual({
+      spent: false,
+      error: "Couldn't reach the server. Check your connection and try again.",
     });
   });
 });

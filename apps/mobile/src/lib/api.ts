@@ -411,7 +411,7 @@ export interface PlatformCreditBalanceResponse {
 /** Mirrors apps/web/src/lib/queries/platform-credit.ts's
  * useMyPlatformCreditBalance/usePlatformCreditConfig/useMyPlatformCreditLedger --
  * see apps/web/src/app/api/mobile/platform-credit/balance/route.ts. Balance
- * viewing only; there is no mobile "spend" route yet. */
+ * viewing — see postPlatformCreditSpend below for actually spending it. */
 export async function fetchPlatformCreditBalance(): Promise<PlatformCreditBalanceResponse> {
   const result = await request<PlatformCreditBalanceResponse>("/api/mobile/platform-credit/balance", "GET");
   return result.ok ? result.data : { error: result.error };
@@ -438,6 +438,51 @@ export async function postPlatformCreditTopupIntent(
     "/api/mobile/platform-credit/topup-intent",
     "POST",
     { amountKobo, ...(patientId ? { patientId } : {}) }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
+export type PlatformCreditSpendReason = "not_payable" | "insufficient_balance";
+
+export interface PlatformCreditSpendResult {
+  success?: boolean;
+  ok?: boolean;
+  reason?: PlatformCreditSpendReason;
+  status?: string;
+  balance_kobo?: number;
+  required_kobo?: number;
+  shortfall_kobo?: number;
+  service_purchase_id?: string;
+  amount_kobo?: number;
+  new_balance_kobo?: number;
+  already_active?: boolean;
+  error?: string;
+}
+
+/** Mirrors apps/web/src/lib/queries/platform-credit.ts's
+ * usePayServicePurchaseWithCredit -- see
+ * apps/web/src/app/api/mobile/platform-credit/spend/route.ts. Same two-RPC
+ * shape server-side (record_service_purchase_intent, then
+ * pay_service_purchase_on_platform_credit), collapsed into one request here.
+ * The route's `ok`/`reason` fields inside the response describe whether the
+ * *spend itself* succeeded (paid vs. short vs. no-longer-payable) — that is
+ * distinct from this function's own `error`, which only ever reflects a
+ * request-level failure (network/auth/validation), never a business
+ * decision. A caller must check `data.ok` before treating this as a paid
+ * credit, exactly as the web hook's callers do. */
+export async function postPlatformCreditSpend(
+  serviceProductCode: string,
+  options?: { patientId?: string; scopedEntityType?: string; scopedEntityId?: string }
+): Promise<PlatformCreditSpendResult> {
+  const result = await request<PlatformCreditSpendResult>(
+    "/api/mobile/platform-credit/spend",
+    "POST",
+    {
+      serviceProductCode,
+      ...(options?.patientId ? { patientId: options.patientId } : {}),
+      ...(options?.scopedEntityType ? { scopedEntityType: options.scopedEntityType } : {}),
+      ...(options?.scopedEntityId ? { scopedEntityId: options.scopedEntityId } : {}),
+    }
   );
   return result.ok ? result.data : { error: result.error };
 }

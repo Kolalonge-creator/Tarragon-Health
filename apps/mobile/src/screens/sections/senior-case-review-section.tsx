@@ -5,10 +5,13 @@ import {
   loadMySeniorCaseReviews,
   submitSeniorCaseReview,
   SENIOR_CASE_REVIEW_CREDIT_REQUIRED_MARKER,
+  SENIOR_CASE_REVIEW_CREDIT_CODE,
   type SeniorCaseReviewWithReviewer,
 } from "@/lib/senior-case-review";
+import { trySpendPlatformCreditForService } from "@/lib/platform-credit";
 import { formatCareDate } from "@/lib/care";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { koboToNaira } from "@tarragon/shared";
 import { colors, radius } from "@/ui/theme";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
@@ -24,10 +27,13 @@ const textInputStyle = {
 
 /**
  * Native "Senior case review" — mirrors apps/web/src/app/(dashboard)/
- * patient/senior-case-review-card.tsx. Payment stays on the web (App Store
- * 3.1.1): this submits the request directly and, only if the DB trigger
- * rejects for lack of a credit, offers to buy one in the system browser —
- * same pattern as AskADoctorSection in care-support-screen.tsx.
+ * patient/senior-case-review-card.tsx. Submits the request directly; if the
+ * DB trigger rejects it for lack of a credit, this settles it in-app from
+ * the patient's platform credit balance when that already covers the price
+ * (trySpendPlatformCreditForService) and retries — no browser trip. Only a
+ * short balance (or a spend-level failure) falls back to the system browser
+ * — buying a credit still requires Paystack checkout, web-only (App Store
+ * 3.1.1).
  */
 export function SeniorCaseReviewSection({
   patientId,
@@ -43,6 +49,7 @@ export function SeniorCaseReviewSection({
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [needsCredit, setNeedsCredit] = useState(false);
+  const [creditShortfallKobo, setCreditShortfallKobo] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await loadMySeniorCaseReviews(patientId);
@@ -61,12 +68,25 @@ export function SeniorCaseReviewSection({
     setSubmitting(true);
     setError(null);
     setNeedsCredit(false);
+    setCreditShortfallKobo(null);
     setSent(false);
-    const result = await submitSeniorCaseReview({
-      patientId,
-      organisationId,
-      situationSummary: situationSummary.trim(),
-    });
+
+    const input = { patientId, organisationId, situationSummary: situationSummary.trim() };
+    let result = await submitSeniorCaseReview(input);
+
+    if (!result.ok && result.error.includes(SENIOR_CASE_REVIEW_CREDIT_REQUIRED_MARKER)) {
+      const spend = await trySpendPlatformCreditForService(SENIOR_CASE_REVIEW_CREDIT_CODE, patientId);
+      if (spend.spent) {
+        result = await submitSeniorCaseReview(input);
+      } else {
+        setSubmitting(false);
+        setNeedsCredit(true);
+        setCreditShortfallKobo(spend.shortfallKobo ?? null);
+        if (spend.error) setError(spend.error);
+        return;
+      }
+    }
+
     setSubmitting(false);
     if (!result.ok) {
       if (result.error.includes(SENIOR_CASE_REVIEW_CREDIT_REQUIRED_MARKER)) {
@@ -93,7 +113,9 @@ export function SeniorCaseReviewSection({
       {needsCredit && (
         <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
           <Text style={{ fontSize: 13, color: colors.brandPressed }}>
-            Buy a credit to request a review.
+            {creditShortfallKobo
+              ? `You need ₦${koboToNaira(creditShortfallKobo).toLocaleString()} more platform credit to request a review.`
+              : "Buy a credit to request a review."}
           </Text>
           <SecondaryButton
             title="Buy a credit in the browser"
