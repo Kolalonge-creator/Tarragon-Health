@@ -49,10 +49,17 @@
    the corrected icon (`apps/mobile/assets/icon.png`, pulse-line replacing the checkmark) and
    the Data safety correction below, submitted together — see the reconciliation note at the
    top of this file.
-3. Health Connect is **off** in this build (no `android.permission.health.*` in the manifest,
-   `react-native-health-connect` excluded from autolinking). If the Play Console still shows a
-   Health Connect declaration from an earlier upload, it should disappear once the new AAB
-   replaces it; if it still asks, answer that the app does not use Health Connect.
+3. **Updated 2026-09-18 — Health Connect is now `on` in this build** (nine
+   `android.permission.health.*` permissions in the manifest, `react-native-health-connect`
+   autolinked, `HEALTH_CONNECT_ENABLED = true` in `apps/mobile/src/lib/health-connect.ts`),
+   re-enabled after being switched off for v0.1.0 — see "What is deliberately not in v0.1.0"
+   below for what changed and what is still open. The Play Console **Health apps declaration
+   must now say the app uses Health Connect** and name the data types it reads (steps, blood
+   pressure, blood glucose, weight, oxygen saturation, heart rate variability, resting heart
+   rate) — do not answer "does not use Health Connect" the way an earlier version of this
+   checklist item said to. **This has never been exercised on a real Android device or a
+   Health Connect-capable emulator**; do not build/submit the AAB that carries this change
+   until that verification has actually happened.
 4. Testers: not required for this organisation account, but an internal-testing release of
    the same AAB first (up to 100 testers, no review) is still the safest way to confirm the
    store build installs and signs in before promoting it to production.
@@ -108,7 +115,7 @@ Ireland). Nothing is shared with third parties for advertising, and **no data is
 | Date of birth, sex, state / LGA of residence | Yes | No | Required | App functionality (clinical thresholds are age/sex aware) |
 | Emergency contact (name, phone) | Yes | No | Optional | App functionality (emergency safety net) |
 | Health info: blood pressure, glucose, weight, SpO2, temperature, pulse, symptoms, medications, screening and lab results, vaccinations, clinical notes, women's-health cycle data | Yes | Yes, with the patient's own care team; and with Anthropic in two distinct ways — (1) a limited structured extract to draft a doctor-facing summary (never free-text notes), and (2) **corrected 2026-09-17**: the native AI Health Coach chat (shipped on mobile 2026-09-12) sends the patient's own chat messages plus a context snapshot (recent vitals, active medications, symptoms) to Anthropic's Claude model to generate its reply — this is a direct, patient-facing use, not a structured-extract-only one | Required for the features that use it | App functionality (care delivery), never advertising |
-| Fitness info (steps, sleep, HRV) | Yes, on iOS via Apple Health only | No | Optional | App functionality. **Not collected on Android in v0.1.0** (Health Connect is off) |
+| Fitness info (steps, sleep, HRV) | Yes, on iOS via Apple Health, and — **updated 2026-09-18** — in code on Android via Health Connect (re-enabled after v0.1.0 — see "What is deliberately not in v0.1.0" below) | No | Optional | App functionality. **The Android path is code-complete but has never run on a real device or a Health Connect-capable emulator** — do not represent Android fitness-info collection as confirmed-working until that verification happens |
 | Photos | Yes, only when the user photographs a lab result | No | Optional | App functionality (lab-result upload) |
 | Messages (care-team chat) | Yes | With the care team | Optional | App functionality |
 | Payment info: Paystack payment references, purchase history | Yes | Paystack processes the payment | Optional | Payments. Card numbers are never stored by Tarragon |
@@ -138,7 +145,9 @@ Cloud API and Termii (reminder/alert delivery only, phone number and message con
 | `USE_BIOMETRIC` | App Lock (biometric unlock of the health record) |
 | `INTERNET`, `RECEIVE_BOOT_COMPLETED`, foreground/background task | Sync, offline queue flush, reminder scheduling |
 
-No `android.permission.health.*` and no location permission in v0.1.0.
+| `android.permission.health.READ_STEPS`, `READ_BLOOD_PRESSURE`, `READ_BLOOD_GLUCOSE`, `READ_WEIGHT`, `READ_OXYGEN_SATURATION`, `READ_HEART_RATE_VARIABILITY`, `READ_RESTING_HEART_RATE`, `READ_HEALTH_DATA_IN_BACKGROUND`, `READ_HEALTH_DATA_HISTORY` | Health Connect: bring across the same reading types Apple Health already syncs on iOS, in the background, and further back than the default ~30-day window on first connect. Re-enabled after v0.1.0 shipped without them — **code-complete, never exercised on a real device**; see "What is deliberately not in v0.1.0" below before submitting a build that declares these |
+
+No location permission in v0.1.0 or after.
 
 ## Store listing
 
@@ -173,13 +182,29 @@ describe — that stays live, including on the web app's own notification settin
 
 ## What is deliberately not in v0.1.0
 
-- **Android Health Connect.** Built, never exercised on a device, ten health permissions
-  including background and history read, and no permissions-rationale screen. Turned off
-  (see `apps/mobile/src/lib/health-connect.ts`, `HEALTH_CONNECT_ENABLED`). Re-enable in
-  0.4.0 only after: the rationale intent is handled by a real screen showing the privacy
-  policy, the flow has run on a physical Android phone with Health Connect installed, the
-  Health Connect declaration form in the Play Console has been filled, and `runtimeVersion`
-  has been bumped for the native change.
+- **Android Health Connect was off in v0.1.0, re-enabled in code for the release after it —
+  but still not verified on real hardware.** v0.1.0 shipped without it: never exercised on a
+  device, nine health permissions including background and history read, and no
+  permissions-rationale screen. Two of those three gaps are now closed:
+  `HEALTH_CONNECT_ENABLED` is back to `true` (`apps/mobile/src/lib/health-connect.ts`), the
+  plugin entries + nine `android.permission.health.*` permissions are back in `app.json`,
+  `react-native-health-connect` is no longer excluded from autolinking
+  (`apps/mobile/package.json`), `runtimeVersion` was bumped `0.1.0-native2` -> `0.1.0-native3`
+  for the native-affecting change, and a real permissions-rationale screen now exists
+  (`apps/mobile/src/screens/health-connect-rationale-modal.tsx`, gated via
+  `apps/mobile/src/lib/health-connect-consent.ts`) — it shows what TarragonHealth reads, that
+  it never writes anything back, and links to
+  `https://tarragonhealth.ng/privacy`, and is shown before the native permission dialog ever
+  fires, on the first "Sync Health Connect" tap on the Devices screen.
+  **What is still open, and is the reason this must not be submitted yet:** none of this —
+  the rationale screen, the permission request, the read/mapping logic, background sync —
+  has ever run on a real Android phone or a Health Connect-capable emulator. Before building
+  the AAB that carries this: run it on a physical Android device with Health Connect
+  installed, confirm the rationale screen actually appears before the OS permission dialog,
+  confirm at least one reading type actually round-trips into `vitals_readings`/
+  `wearable_readings`, and fill in the Play Console's Health Connect declaration form
+  truthfully (see the pre-upload checklist above — it no longer says "does not use Health
+  Connect").
 - **Bluetooth pairing is labelled "in early testing"** on the Devices screen. The BLE path is
   built but has never paired a real cuff or glucometer; manual entry is the proven path.
   Remove the notice once pairing passes on real hardware (A&D UA-651BLE, Accu-Chek Guide).
