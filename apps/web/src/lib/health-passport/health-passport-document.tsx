@@ -2,7 +2,7 @@ import { Document, Page, Text, View, Image, StyleSheet } from "@react-pdf/render
 import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { registerPdfFonts, PDF_FONT_FAMILY } from "@/lib/pdf/register-fonts";
 import { PDF_LOGO_SRC, PDF_CONTACT_EMAIL } from "@/lib/pdf/pdf-brand";
-import type { HealthPassportData } from "./get-health-passport-data";
+import { stripDoctorHonorific, type HealthPassportData } from "./get-health-passport-data";
 
 registerPdfFonts();
 
@@ -206,7 +206,7 @@ export function HealthPassportDocument({
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
             {data.protocolAuthor
-              ? `Protocols supervised by Dr. ${data.protocolAuthor.fullName}${
+              ? `Protocols supervised by Dr. ${stripDoctorHonorific(data.protocolAuthor.fullName)}${
                   data.protocolAuthor.credentialType && data.protocolAuthor.credentialNumber
                     ? ` (${data.protocolAuthor.credentialType} ${data.protocolAuthor.credentialNumber})`
                     : ""

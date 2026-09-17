@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAiConversation, useAiCoachQuickAction, useSendCoachMessage } from "@/lib/queries/ai-coach";
@@ -60,6 +60,16 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
   const lastMessage = messages[messages.length - 1];
   const limitReached =
     lastMessage?.role === "assistant" && lastMessage.content === COACH_LIMIT_REACHED_REPLY;
+
+  // The message list is a fixed-height scroll box (max-h-80) — without this,
+  // it stays pinned wherever it was (usually the top) as new messages arrive,
+  // so a reply looks like nothing happened at all. Scroll to the newest
+  // message on first load and every time the thread grows or "Thinking…"
+  // toggles.
+  const scrollAnchorRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scrollAnchorRef.current?.scrollIntoView({ block: "end" });
+  }, [messages.length, sendMessage.isPending, quickAction.isPending]);
 
   function handleQuickAction(kind: (typeof QUICK_ACTIONS)[number]["kind"]) {
     if (quickAction.isPending || sendMessage.isPending) return;
@@ -142,6 +152,7 @@ export function AiCoachChat({ patientId }: { patientId: string }) {
               Thinking…
             </div>
           )}
+          <div ref={scrollAnchorRef} />
         </div>
 
         {sendMessage.data?.success === false && (

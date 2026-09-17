@@ -4,7 +4,7 @@ import { getGlucoseDisplayUnit } from "@/lib/patient/glucose-unit";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { createClient } from "@/lib/supabase/server";
-import { getHealthPassportData } from "@/lib/health-passport/get-health-passport-data";
+import { getHealthPassportData, stripDoctorHonorific } from "@/lib/health-passport/get-health-passport-data";
 import { formatHba1cWithBracket } from "@/lib/rules/hba1c-bracket";
 import { LIPID_ANALYTE_META, isLipidAnalyteCode } from "@/lib/lipids/analytes";
 import { ReviewedByDoctor } from "@/components/reviewed-by-doctor";
@@ -201,7 +201,7 @@ export default async function HealthPassportPage() {
 
       <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
         {data.protocolAuthor
-          ? `Protocols supervised by Dr. ${data.protocolAuthor.fullName}${
+          ? `Protocols supervised by Dr. ${stripDoctorHonorific(data.protocolAuthor.fullName)}${
               data.protocolAuthor.credentialType && data.protocolAuthor.credentialNumber
                 ? ` · ${data.protocolAuthor.credentialType} ${data.protocolAuthor.credentialNumber}`
                 : ""
