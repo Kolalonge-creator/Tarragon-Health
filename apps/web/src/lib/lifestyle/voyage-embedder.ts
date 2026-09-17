@@ -21,21 +21,28 @@ import type { Embedder } from "./embed-content";
  * `populateContentEmbeddings` stays on its existing graceful
  * "no_embedder_configured" no-op path with zero code changes there.
  *
- * VERIFY BEFORE TRUSTING THIS LIVE: no VOYAGE_API_KEY exists in this
- * environment, so the model name and `output_dimension` parameter below have
- * NOT been exercised against a real Voyage account — cross-check against
- * Voyage's current embeddings API docs once a real key is configured. The
- * dimension check below is a deliberate loud failure, not a guess dressed up
- * as a guarantee: if the model/config drifts from 1536 dimensions, every
- * embed() call throws a specific, readable error instead of pgvector
- * rejecting the insert with an opaque type-mismatch error three layers away.
+ * VERIFIED LIVE 2026-09-17 (AI-009 evaluation) against a real Voyage
+ * account, and the original assumption below was wrong: voyage-3-large
+ * rejects `output_dimension: 1536` outright ("accepted values ... are
+ * [256, 512, 1024, 2048]"). Every embed() call would have thrown a 400 on
+ * every single request the moment a real key reached production. Fixed by
+ * moving to 1024 -- Voyage's own default for this model, and the matching
+ * `lpe_content_blocks`/`health_education_content` columns were migrated to
+ * `vector(1024)` in the same pass (20260917_fix_voyage_embedding_dimension_
+ * mismatch.sql). Zero rows had a real embedding at the time, so this was a
+ * pure structural fix, not a backfill. The dimension check below remains a
+ * deliberate loud failure, not a guess dressed up as a guarantee: if the
+ * model/config ever drifts again, every embed() call throws a specific,
+ * readable error instead of pgvector rejecting the insert with an opaque
+ * type-mismatch error three layers away.
  */
 
 const VOYAGE_EMBEDDINGS_URL = "https://api.voyageai.com/v1/embeddings";
 const VOYAGE_TIMEOUT_MS = 10_000;
-/** Must match lpe_content_blocks.embedding's `vector(1536)` column exactly
- * (20260719124000_lpe_content_embeddings.sql). */
-const EXPECTED_DIMENSIONS = 1536;
+/** Must match lpe_content_blocks.embedding's/health_education_content.embedding's
+ * `vector(1024)` columns exactly -- voyage-3-large's own default output
+ * dimension, verified live 2026-09-17 (see the file header). */
+const EXPECTED_DIMENSIONS = 1024;
 
 interface VoyageEmbeddingsResponse {
   data?: { embedding: number[] }[];
@@ -82,8 +89,8 @@ export function createVoyageEmbedder(
         if (vector.length !== EXPECTED_DIMENSIONS) {
           throw new Error(
             `Voyage returned a ${vector.length}-dim embedding for model "${model}", expected ` +
-              `${EXPECTED_DIMENSIONS} to match lpe_content_blocks.embedding's vector(1536) column. ` +
-              `Check the model name and output_dimension support before retrying.`,
+              `${EXPECTED_DIMENSIONS} to match lpe_content_blocks.embedding's/health_education_content.embedding's ` +
+              `vector(${EXPECTED_DIMENSIONS}) columns. Check the model name and output_dimension support before retrying.`,
           );
         }
         return vector;

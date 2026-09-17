@@ -25,8 +25,6 @@ import { logAiCoachEscalation, logAiCoachReviewFlag } from "./escalate";
 import { buildAnthropicModel, getConfiguredModelId } from "./model";
 import { buildPatientRecordTools } from "./tools";
 import { buildReferralRequestTool } from "./referral-tool";
-import type { Embedder } from "@/lib/lifestyle/embed-content";
-import { createVoyageEmbedderFromEnv } from "@/lib/lifestyle/voyage-embedder";
 import { findRelevantLifestyleContent } from "@/lib/lifestyle/find-relevant-content";
 import { findRelevantHealthEducationContent } from "./knowledge-base";
 
@@ -133,11 +131,6 @@ export interface CoachGraphDeps {
    * the single point of failure 40.18 exists to prevent.
    */
   systemPrompt?: string;
-  /** Injectable for tests; defaults to a real Voyage AI client built from
-   * VOYAGE_API_KEY (voyage-embedder.ts). `null` (the default when unset)
-   * means "no embedder configured" — content retrieval is skipped
-   * gracefully, same no-op contract as populateContentEmbeddings. */
-  embedder?: Embedder | null;
 }
 
 /**
@@ -298,7 +291,27 @@ export function buildCoachGraph(deps: CoachGraphDeps) {
     // this reply, carried through to the persisted message and the
     // audit_log event regardless of which branch below returns.
     const knowledgeSourceUsed: string[] = [];
-    const embedder = deps.embedder ?? createVoyageEmbedderFromEnv();
+    // AI-009's own registered excluded_population is explicit: "Any
+    // patient-authored text. Patient content is never sent to the embedding
+    // provider." Both retrieval calls below query on `state.incomingMessage`
+    // -- the patient's own chat text -- so a real Voyage embedder must NEVER
+    // be passed here, or embed() sends that text straight to Voyage. This
+    // was previously masked entirely: VOYAGE_API_KEY has never been set on
+    // this platform, so `embedder` here was always null anyway and this
+    // never actually happened -- but the code as written would have sent
+    // every patient message to Voyage the moment a real key was configured
+    // anywhere the app reads it from (found and fixed during the AI-009
+    // evaluation, 2026-09-17, the same session that finally got a real key
+    // configured to test with). Deliberately `null`, not `deps.embedder`:
+    // this call site must always use the lexical fallback
+    // (findRelevantLifestyleContent/findRelevantHealthEducationContent both
+    // already fall back gracefully to keyword search over the same
+    // clinician-reviewed rows on a null embedder, so retrieval quality is
+    // unaffected here -- only ranking method). The real Voyage embedder is
+    // still used correctly elsewhere (e.g. coaching-proposer.ts's nudge
+    // retrieval), where the query text is clinician-authored programme
+    // metadata, never the patient's own words.
+    const embedder = null;
     // 1. Lifestyle content — deliberately still scoped to the patient's
     // own active (non-paused, non-flagged) lifestyle programme, by
     // design (see find-relevant-content.ts's own docstring). A
