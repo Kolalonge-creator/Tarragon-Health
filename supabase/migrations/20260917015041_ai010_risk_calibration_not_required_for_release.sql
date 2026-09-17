@@ -1,6 +1,5 @@
 -- AI-010 (Clinical risk scoring service) -- "Risk model calibration" suite
--- (b654d4ef-b443-451a-af0b-0524ad87ac62) downgraded from
--- is_required_for_release = true to false, on the founder's explicit
+-- downgraded from is_required_for_release = true to false, on the founder's explicit
 -- Clinical Director decision (2026-09-17), the same pattern already used
 -- for AI-003's non-English language-fidelity suite.
 --
@@ -26,20 +25,21 @@
 
 do $$
 declare
-  v_suite_id  uuid := 'b654d4ef-b443-451a-af0b-0524ad87ac62';
-  v_system_id uuid;
+  v_suite_id   uuid;
+  v_system_id  uuid;
   v_version_id uuid;
 begin
+  select id into v_system_id from public.ai_systems where system_code = 'AI-010';
+  if v_system_id is null then raise exception 'AI-010 is not registered'; end if;
+
+  select id into v_suite_id from public.ai_evaluation_suites
+    where name = 'Risk model calibration' and ai_system_id = v_system_id;
+  if v_suite_id is null then raise exception 'Risk model calibration suite not found for AI-010'; end if;
+
   update public.ai_evaluation_suites
   set is_required_for_release = false
-  where id = v_suite_id
-    and name = 'Risk model calibration';
+  where id = v_suite_id;
 
-  if not found then
-    raise exception 'Risk model calibration suite not found at expected id';
-  end if;
-
-  select ai_system_id into v_system_id from public.ai_evaluation_suites where id = v_suite_id;
   select v.id into v_version_id from public.ai_system_versions v where v.ai_system_id = v_system_id and v.version = 'v1';
 
   if not (private.ai_release_gate(v_version_id)->>'satisfied')::boolean then
