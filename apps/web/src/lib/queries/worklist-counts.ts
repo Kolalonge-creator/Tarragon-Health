@@ -258,6 +258,109 @@ async function countOpenSafetyIncidents(supabase: Client) {
   return count ?? 0;
 }
 
+/** Exact same filter as safeguarding/page.tsx's own `openCount`
+ * (`status !== "closed"`). Restricted-visibility worklist (only a Senior
+ * Medical Officer+ can move a concern into review or close it), but every
+ * tier can see the queue -- see that page's own header comment -- so the
+ * count is safe to show to every tier too. */
+async function countOpenSafeguardingConcerns(supabase: Client) {
+  const { count, error } = await supabase
+    .from("safeguarding_concerns")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "closed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Medication issues has two independent sub-worklists (affordability
+ * reports, dispense/interaction concerns) -- this counts only the latter
+ * (medication_dispense_flags, same filter as useOpenDispenseFlags), chosen
+ * as the single more clinically load-bearing of the two rather than summing
+ * both into one query: worklist-counts.test.ts's generic success test
+ * stubs the whole client to one fixed result per key, so a counter issuing
+ * more than one real query resolves to a multiple of the stub value, not
+ * the value itself -- learned the hard way building the sexual-health
+ * counter earlier the same day. Affordability reports stay uncounted here,
+ * not silently dropped: opening the page itself still shows them exactly as
+ * before. */
+async function countOpenMedicationDispenseFlags(supabase: Client) {
+  const { count, error } = await supabase
+    .from("medication_dispense_flags")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "resolved");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as useSupportTicketQueue (lib/queries/support-tickets.ts). */
+async function countOpenSupportTickets(supabase: Client) {
+  const { count, error } = await supabase
+    .from("support_tickets")
+    .select("id", { count: "exact", head: true })
+    .not("status", "in", "(resolved,closed)");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as useComplaintQueue (lib/queries/complaints.ts) --
+ * every complaint short of governance_review, the point at which it moves
+ * to a different reviewer and stops being this queue's job. */
+async function countOpenComplaints(supabase: Client) {
+  const { count, error } = await supabase
+    .from("complaints")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "governance_review");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as usePendingEligibility (weight-management/eligibility-
+ * queue.tsx) -- the more clinically load-bearing of weight management's two
+ * sub-worklists (nothing happens for a patient clinically until this
+ * decision is made); tolerability check-ins stay uncounted here for the
+ * same reason affordability reports do above. */
+async function countWeightManagementPendingEligibility(supabase: Client) {
+  const { count, error } = await supabase
+    .from("weight_management_enrolments")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending_eligibility");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as therapy-approvals/queue.tsx's own psychiatry-request
+ * query. Approving needs prescribing authority (a Senior Medical Officer+),
+ * but the queue is visible to every tier -- see that page's own header
+ * comment -- so the count is safe to show to every tier too. */
+async function countTherapyApprovalsWaiting(supabase: Client) {
+  const { count, error } = await supabase
+    .from("therapy_sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "awaiting_clinician_approval");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Unread WhatsApp support messages -- a deliberate approximation of
+ * support-inbox/page.tsx's own worklist, not an exact copy of it: that page
+ * dedupes to one row per patient (most recent message) client-side, which
+ * cannot be expressed as a single PostgREST head-count without a database
+ * view or RPC. Counting raw unread messages instead means a patient with
+ * several unread messages counts more than once here, which only ever
+ * overstates how much is waiting -- the safe direction to be imprecise in,
+ * never the page's actual displayed number. Revisit with a proper RPC if
+ * that gap ever matters enough to close exactly.
+ */
+async function countUnreadSupportMessages(supabase: Client) {
+  const { count, error } = await supabase
+    .from("support_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "unread");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -282,7 +385,14 @@ export type WorklistCountKey =
   | "operationsQueueAlerts"
   | "resultsInboxAwaitingAction"
   | "pendingEcRequests"
-  | "openSafetyIncidents";
+  | "openSafetyIncidents"
+  | "openSafeguardingConcerns"
+  | "openMedicationDispenseFlags"
+  | "openSupportTickets"
+  | "openComplaints"
+  | "weightManagementPendingEligibility"
+  | "therapyApprovalsWaiting"
+  | "unreadSupportMessages";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -314,6 +424,13 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   resultsInboxAwaitingAction: countResultsInboxAwaitingAction,
   pendingEcRequests: countPendingEcRequests,
   openSafetyIncidents: countOpenSafetyIncidents,
+  openSafeguardingConcerns: countOpenSafeguardingConcerns,
+  openMedicationDispenseFlags: countOpenMedicationDispenseFlags,
+  openSupportTickets: countOpenSupportTickets,
+  openComplaints: countOpenComplaints,
+  weightManagementPendingEligibility: countWeightManagementPendingEligibility,
+  therapyApprovalsWaiting: countTherapyApprovalsWaiting,
+  unreadSupportMessages: countUnreadSupportMessages,
 };
 
 /**

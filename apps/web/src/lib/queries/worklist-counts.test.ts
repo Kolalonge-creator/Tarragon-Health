@@ -17,7 +17,7 @@ function stubClient(result: CountResult): Client {
   const builder: Record<string, unknown> = {
     then: (resolve: (value: CountResult) => unknown) => Promise.resolve(result).then(resolve),
   };
-  for (const method of ["from", "select", "eq", "neq", "in", "or", "is", "gte"]) {
+  for (const method of ["from", "select", "eq", "neq", "in", "or", "is", "gte", "not"]) {
     builder[method] = () => builder;
   }
   return builder as unknown as Client;
@@ -27,7 +27,7 @@ const KEYS = Object.keys(COUNTERS) as WorklistCountKey[];
 
 describe("worklist counters", () => {
   it("covers every worklist the clinician dashboard counts", () => {
-    expect(KEYS.length).toBe(24);
+    expect(KEYS.length).toBe(31);
   });
 
   it.each(KEYS)("%s returns the live count when the query succeeds", async (key) => {

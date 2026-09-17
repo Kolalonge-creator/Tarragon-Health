@@ -370,7 +370,12 @@ export function getNavSections(
               label: "Queue",
               items: [
                 { label: "Escalations", href: "/clinician/escalations", icon: "escalation", countKey: "escalations" },
-                { label: "Safeguarding", href: "/clinician/safeguarding", icon: "warning" },
+                {
+                  label: "Safeguarding",
+                  href: "/clinician/safeguarding",
+                  icon: "warning",
+                  countKey: "openSafeguardingConcerns",
+                },
                 {
                   label: "Operations queue",
                   href: "/clinician/operations-queue",
@@ -381,6 +386,7 @@ export function getNavSections(
                   label: "Medication issues",
                   href: "/clinician/medication-issues",
                   icon: "medication",
+                  countKey: "openMedicationDispenseFlags",
                 },
                 {
                   label: "Results inbox",
@@ -388,9 +394,24 @@ export function getNavSections(
                   icon: "labs",
                   countKey: "resultsInboxAwaitingAction",
                 },
-                { label: "Support inbox", href: "/clinician/support-inbox", icon: "inbox" },
-                { label: "Support tickets", href: "/clinician/support-tickets", icon: "helpCenter" },
-                { label: "Complaints", href: "/clinician/complaints", icon: "governance" },
+                {
+                  label: "Support inbox",
+                  href: "/clinician/support-inbox",
+                  icon: "inbox",
+                  countKey: "unreadSupportMessages",
+                },
+                {
+                  label: "Support tickets",
+                  href: "/clinician/support-tickets",
+                  icon: "helpCenter",
+                  countKey: "openSupportTickets",
+                },
+                {
+                  label: "Complaints",
+                  href: "/clinician/complaints",
+                  icon: "governance",
+                  countKey: "openComplaints",
+                },
                 { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
@@ -478,11 +499,13 @@ export function getNavSections(
                   label: "Weight management",
                   href: "/clinician/weight-management",
                   icon: "weight",
+                  countKey: "weightManagementPendingEligibility",
                 },
                 {
                   label: "Therapy approvals",
                   href: "/clinician/therapy-approvals",
                   icon: "mood",
+                  countKey: "therapyApprovalsWaiting",
                 },
                 { label: "My performance", href: "/clinician/my-performance", icon: "analytics" },
                 // Chief Medical Officer only (canAssignCases in
