@@ -14,6 +14,7 @@ import {
 } from "@/lib/queries/consult-slots";
 import {
   requestVideoVisit,
+  requestVideoVisitWithPlatformCredit,
   selectVideoVisitAlternateSlot,
   submitConsultationFeedback,
   type RequestVideoVisitState,
@@ -24,6 +25,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
+import { useMyPlatformCreditBalance } from "@/lib/queries/platform-credit";
 import { koboToNaira, CURRENCY_SYMBOL, type Currency } from "@tarragon/shared";
 
 import { formatPatientDateTime } from "@/lib/format-date";
@@ -209,16 +211,24 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
   const { data: price } = useVideoVisitPrice();
   const { data: acceptanceStats } = useVideoVisitAcceptanceStats();
   const { data: unrated } = useRecentUnratedVideoVisits(patientId);
+  const { data: creditBalance } = useMyPlatformCreditBalance(patientId);
   const queryClient = useQueryClient();
   const [selectedSlot, setSelectedSlot] = useState<string>("");
   const [state, formAction, isPending] = useActionState<RequestVideoVisitState, FormData>(
     requestVideoVisit,
     undefined
   );
+  const [creditState, creditFormAction, isCreditPending] = useActionState<
+    RequestVideoVisitState,
+    FormData
+  >(requestVideoVisitWithPlatformCredit, undefined);
 
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: consultSlotKeys.myRequests(patientId) });
-  }, [state, queryClient, patientId]);
+  }, [state, creditState, queryClient, patientId]);
+
+  const creditBalanceKobo = creditBalance?.balance_kobo ?? 0;
+  const hasEnoughCredit = !!price && creditBalanceKobo >= price.amount_minor;
 
   const hasSlots = (slots ?? []).length > 0 && !!price;
   const hasUpcoming = (upcoming ?? []).length > 0;
@@ -323,6 +333,44 @@ export function BookVideoVisit({ patientId }: { patientId: string }) {
             </Button>
             <FormError id={fieldErrorId("book-video-visit")} message={state?.error} />
           </form>
+        )}
+
+        {hasSlots && (
+          <div className="space-y-2 border-t border-charcoal-ink/10 dark:border-night-ink/15 pt-3">
+            <p className="text-xs text-charcoal-ink/60 dark:text-night-ink/60">
+              {hasEnoughCredit
+                ? "Or reserve this time from your platform credit balance — you're only charged once a doctor accepts, never at request time."
+                : price
+                  ? `Or pay from platform credit — you need ₦${Math.ceil(
+                      (price.amount_minor - creditBalanceKobo) / 100
+                    ).toLocaleString()} more.`
+                  : null}
+            </p>
+            <form action={creditFormAction} className="space-y-2">
+              <input type="hidden" name="slot_id" value={selectedSlot} />
+              <Button
+                type="submit"
+                variant="outline"
+                size="sm"
+                disabled={!selectedSlot || isCreditPending || !hasEnoughCredit}
+              >
+                {isCreditPending ? "Reserving…" : "Reserve with Platform Credit"}
+              </Button>
+              <FormError
+                id={fieldErrorId("book-video-visit-credit")}
+                message={creditState?.error}
+                className="text-xs"
+              />
+            </form>
+            {!hasEnoughCredit && (
+              <Link
+                href="/patient/care#platform-credit"
+                className="text-xs text-brand-green dark:text-brand-green-bright underline"
+              >
+                Add funds to your platform credit
+              </Link>
+            )}
+          </div>
         )}
 
         {hasRequests && (
