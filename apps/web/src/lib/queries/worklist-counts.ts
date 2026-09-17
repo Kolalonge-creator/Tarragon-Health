@@ -245,6 +245,19 @@ async function countPendingEcRequests(supabase: Client) {
   return count ?? 0;
 }
 
+/** Exact same filter as safety-incidents-console.tsx's own "Open" tab
+ * (`status !== "closed"`). Found a CRITICAL-severity incident sitting in
+ * this queue with no badge anywhere pointing at it during the same audit
+ * that found the emergency-contraception gap above. */
+async function countOpenSafetyIncidents(supabase: Client) {
+  const { count, error } = await supabase
+    .from("clinical_incident_reports")
+    .select("id", { count: "exact", head: true })
+    .neq("status", "closed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -268,7 +281,8 @@ export type WorklistCountKey =
   | "activeCases"
   | "operationsQueueAlerts"
   | "resultsInboxAwaitingAction"
-  | "pendingEcRequests";
+  | "pendingEcRequests"
+  | "openSafetyIncidents";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -299,6 +313,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   operationsQueueAlerts: countOperationsQueueAlerts,
   resultsInboxAwaitingAction: countResultsInboxAwaitingAction,
   pendingEcRequests: countPendingEcRequests,
+  openSafetyIncidents: countOpenSafetyIncidents,
 };
 
 /**

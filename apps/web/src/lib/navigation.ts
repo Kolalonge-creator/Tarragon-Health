@@ -442,7 +442,12 @@ export function getNavSections(
                   href: "/clinician/quality-improvement",
                   icon: "review",
                 },
-                { label: "Safety incidents", href: "/clinician/safety-incidents", icon: "warning" },
+                {
+                  label: "Safety incidents",
+                  href: "/clinician/safety-incidents",
+                  icon: "warning",
+                  countKey: "openSafetyIncidents",
+                },
                 { label: "Adherence alerts", href: "/clinician/adherence", icon: "medication", countKey: "adherenceAlerts" },
                 { label: "Outreach", href: "/clinician/outreach", icon: "messages", countKey: "outreach" },
                 { label: "Population health", href: "/clinician/populations", icon: "population" },
