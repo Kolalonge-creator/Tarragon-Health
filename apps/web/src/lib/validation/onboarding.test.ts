@@ -1,5 +1,27 @@
 import { describe, expect, it } from "@jest/globals";
-import { identityVerificationSchema } from "./onboarding";
+import { consentSchema, identityVerificationSchema } from "./onboarding";
+
+describe("consentSchema", () => {
+  it("accepts a plain acceptance with no onlyTypes restriction", () => {
+    const result = consentSchema.safeParse({ accept: true });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts an onlyTypes restriction of known consent types", () => {
+    const result = consentSchema.safeParse({ accept: true, onlyTypes: ["terms_of_service"] });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an unrecognised consent type in onlyTypes", () => {
+    const result = consentSchema.safeParse({ accept: true, onlyTypes: ["not_a_real_type"] });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects accept: false", () => {
+    const result = consentSchema.safeParse({ accept: false });
+    expect(result.success).toBe(false);
+  });
+});
 
 describe("identityVerificationSchema", () => {
   it("accepts a valid 11-digit NIN", () => {

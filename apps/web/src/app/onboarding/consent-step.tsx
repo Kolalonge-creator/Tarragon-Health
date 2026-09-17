@@ -25,6 +25,7 @@ export function ConsentStep({
   onComplete,
   onlyTypes,
   description,
+  agreementLabel,
 }: {
   onComplete: () => void;
   /**
@@ -38,6 +39,15 @@ export function ConsentStep({
    */
   onlyTypes?: string[];
   description?: string;
+  /**
+   * Overrides the checkbox copy below. Used by the already-onboarded
+   * re-consent path (ConsentStatusPanel), where `onlyTypes` is whichever
+   * consent types happen to be outstanding for THIS patient right now — not
+   * the fixed "terms of service only" set the supporter path always shows —
+   * so the two-way onboarding ternary below can't describe it generically.
+   * Undefined preserves the exact existing onboarding/supporter copy.
+   */
+  agreementLabel?: string;
 }) {
   const { data: allVersions, isLoading } = useCurrentConsentVersions();
   const [state, formAction, pending] = useActionState(acceptConsents, undefined);
@@ -109,6 +119,13 @@ export function ConsentStep({
       </div>
 
       <form action={formAction} className="space-y-3">
+        {/* Restricts the server action to recording exactly the consent
+            types rendered above — see acceptConsents' own doc comment. Without
+            this, the server previously recorded every CURRENT consent version
+            regardless of what the form actually showed, which for the
+            supporter path (onlyTypes=["terms_of_service"]) meant a false
+            data-processing/telehealth acceptance row. */}
+        {onlyTypes?.map((type) => <input key={type} type="hidden" name="onlyTypes" value={type} />)}
         <label className="flex items-start gap-2 text-sm text-charcoal-ink">
           <input
             type="checkbox"
@@ -122,9 +139,10 @@ export function ConsentStep({
               agreed "to receive remote care" would record a consent they were
               never asked for — the exact untruth this split exists to avoid. */}
           <span>
-            {onlyTypes
-              ? "I have read and agree to the terms of service."
-              : "I have read and agree to how my health information is used, to receive remote care, and to the terms of service."}
+            {agreementLabel ??
+              (onlyTypes
+                ? "I have read and agree to the terms of service."
+                : "I have read and agree to how my health information is used, to receive remote care, and to the terms of service.")}
           </span>
         </label>
         <FormError id={errorId} message={state?.error} />

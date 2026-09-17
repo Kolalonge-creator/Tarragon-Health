@@ -59,16 +59,27 @@ export type AcceptConsentsState =
   | undefined;
 
 /**
- * Records the caller's acceptance of every current consent version as an
- * append-only patient_consents row. Idempotent-ish: re-accepting inserts new
- * rows (the audit history is intentional), but has_required_consents only
- * checks existence so a double-submit is harmless.
+ * Records the caller's acceptance of every CURRENT consent version they were
+ * actually shown, as an append-only patient_consents row. Idempotent-ish:
+ * re-accepting inserts new rows (the audit history is intentional), but
+ * has_required_consents only checks existence so a double-submit is
+ * harmless. When the form carries one or more `onlyTypes` entries (see
+ * ConsentStep's own `onlyTypes` prop, used by the supporter path), only
+ * those consent types are recorded — accepting every current version
+ * unconditionally would have recorded a supporter as having agreed to
+ * data-processing/telehealth consents they were never shown and have no
+ * basis to give, the exact untruth ConsentStep's own design comment says
+ * this flow avoids.
  */
 export async function acceptConsents(
   _prevState: AcceptConsentsState,
   formData: FormData,
 ): Promise<AcceptConsentsState> {
-  const parsed = consentSchema.safeParse({ accept: formData.get("accept") === "on" });
+  const onlyTypesRaw = formData.getAll("onlyTypes");
+  const parsed = consentSchema.safeParse({
+    accept: formData.get("accept") === "on",
+    onlyTypes: onlyTypesRaw.length > 0 ? onlyTypesRaw : undefined,
+  });
   if (!parsed.success) {
     return { error: "Tick the box to agree before continuing.", field: "accept" };
   }
@@ -90,13 +101,16 @@ export async function acceptConsents(
     return { error: "Your account is not set up yet. Please contact support." };
   }
 
-  const { data: versions, error: versionsError } = await supabase
+  const { data: allVersions, error: versionsError } = await supabase
     .from("consent_versions")
     .select("id, consent_type, version")
     .eq("is_current", true);
   if (versionsError) {
     return { error: "We could not load the agreement just then. Please refresh and try again." };
   }
+  const versions = parsed.data.onlyTypes
+    ? (allVersions ?? []).filter((v) => parsed.data.onlyTypes!.includes(v.consent_type))
+    : allVersions;
   if (!versions || versions.length === 0) {
     return { error: "The agreement is not available right now. Please contact support." };
   }
