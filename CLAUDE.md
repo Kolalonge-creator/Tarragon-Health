@@ -419,14 +419,15 @@ taken on faith:**
   remains notification/follow-up only (see Non-Negotiable Business Rules), so nothing about how a
   feature may depend on WhatsApp changes here. Revisit only if the founder resumes the approval
   process.
-- **CLOSED 2026-09-15 — the Nigerian fintech counsel opinion on Care Voucher structuring is no
-  longer needed; the founder has removed the Care Voucher feature from the platform.** This is a
-  founder statement recorded here, not independently verified against the running code/DB in this
-  pass — the rest of this file (and the archive) still describes Care Vouchers extensively as the
-  live sponsor/diaspora payment mechanism (`public.purchase_care_voucher`, the "Care Voucher"
-  sponsor model, etc.). Before relying on any of that elsewhere in this file as still current, check
-  the live code/DB rather than assuming this one line already reconciled it — a full removal pass
-  (schema, RPCs, UI, other CLAUDE.md sections) has not been done as part of this edit.
+- **REOPENED 2026-09-17 — the 2026-09-15 "Care Voucher removed" line below was checked against the
+  live code/DB, as this file itself asked, and does not hold.** Care Vouchers are fully live: a real
+  test patient holds two active `care_vouchers` rows visible on `/patient/finances`,
+  `public.sponsor_care_report()` and its `/patient/supporting` UI are both live and query
+  `care_vouchers` directly (not vestigial), and the purchase catalogue is unaffected. So: **the
+  Nigerian fintech counsel opinion on Care Voucher structuring is very likely still needed** — do
+  not treat it as closed on the strength of the founder's 2026-09-15 remark alone. That remark may
+  have meant something narrower (a specific SKU, a specific flow, diaspora-only) than "the whole
+  feature" — confirm with the founder what was actually meant before acting on it either way.
 - Other regulatory/compliance items were still open the last time they were touched: MDCN/NMCN
   confirmation that the five-tier doctor-authority split is compliant.
 - A production-quality Nigerian-language voice/TTS vendor was deliberately never built — the

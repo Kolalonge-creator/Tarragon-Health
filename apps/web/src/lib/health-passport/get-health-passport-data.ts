@@ -45,6 +45,14 @@ export interface HealthPassportProtocolAuthor {
   credentialNumber: string | null;
 }
 
+/** `profiles.full_name` isn't guaranteed honorific-free (some accounts store
+ * it as "Dr. Jane Doe" already) — callers that prepend their own "Dr. " (the
+ * health passport page and its PDF) would otherwise double up to
+ * "Dr. Dr. Jane Doe". Strips one leading "Dr"/"Dr." first. */
+export function stripDoctorHonorific(fullName: string): string {
+  return fullName.replace(/^dr\.?\s+/i, "");
+}
+
 export interface HealthPassportData {
   periodStart: string;
   periodEnd: string;

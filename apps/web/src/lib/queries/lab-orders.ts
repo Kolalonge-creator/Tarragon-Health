@@ -22,44 +22,6 @@ export type ScreenTypeCatalogueFields = {
   patient_explainer: string | null;
 };
 
-/** One branch of one active laboratory that offers a given test — the
- * §56.7 booking flow's location-selection step. Backed by the
- * list_lab_test_locations RPC (read-only, composes already-readable
- * catalogues), ahead of codegen for the same reason as above. */
-export type LabTestLocation = {
-  provider_id: string;
-  provider_name: string;
-  integration_status: string;
-  accreditation: string | null;
-  location_id: string;
-  location_name: string;
-  location_state: string;
-  location_address: string;
-  contact_phone: string | null;
-  opening_hours: Record<string, { open: string; close: string } | null> | null;
-  capabilities: string[];
-  turnaround_hours: number | null;
-  price_kobo: number | null;
-};
-
-/** Which branches (across every active, priced laboratory) can actually run
- * this test — pass no code to list every active branch. */
-export function useLabTestLocations(testCode: string | null | undefined, state?: string | null) {
-  return useQuery({
-    queryKey: ["lab-test-locations", testCode, state],
-    queryFn: async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase.rpc("list_lab_test_locations", {
-        p_test_code: testCode ?? undefined,
-        p_state: state ?? undefined,
-      });
-      if (error) throw error;
-      return (data ?? []) as LabTestLocation[];
-    },
-    enabled: !!testCode,
-  });
-}
-
 /** §56.4/§56.6 catalogue detail for one screen_type — what it is, why it may
  * be requested, prep, and turnaround-relevant fields, for the test-search
  * result / booking prep step. */
