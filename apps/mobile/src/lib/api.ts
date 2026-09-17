@@ -398,6 +398,50 @@ export async function postCoachHandoffToCareTeam(
   return result.ok ? result.data : { error: result.error };
 }
 
+export interface PlatformCreditBalanceResponse {
+  success?: boolean;
+  balance_kobo?: number;
+  paid_balance_kobo?: number;
+  promo_balance_kobo?: number;
+  config?: { min_topup_kobo: number; max_topup_kobo: number; suggested_amounts_kobo: number[] } | null;
+  ledger?: Array<{ id: string; entry_type: string; amount_kobo: number; description: string | null; created_at: string }>;
+  error?: string;
+}
+
+/** Mirrors apps/web/src/lib/queries/platform-credit.ts's
+ * useMyPlatformCreditBalance/usePlatformCreditConfig/useMyPlatformCreditLedger --
+ * see apps/web/src/app/api/mobile/platform-credit/balance/route.ts. Balance
+ * viewing only; there is no mobile "spend" route yet. */
+export async function fetchPlatformCreditBalance(): Promise<PlatformCreditBalanceResponse> {
+  const result = await request<PlatformCreditBalanceResponse>("/api/mobile/platform-credit/balance", "GET");
+  return result.ok ? result.data : { error: result.error };
+}
+
+export interface PlatformCreditTopupIntentResult {
+  success?: boolean;
+  checkoutUrl?: string;
+  intentId?: string;
+  error?: string;
+}
+
+/** Mirrors apps/web/.../patient/platform-credit/actions.ts's
+ * topUpPlatformCredit -- see
+ * apps/web/src/app/api/mobile/platform-credit/topup-intent/route.ts.
+ * Returns a Paystack checkout URL for the caller to open in the system
+ * browser (WebBrowser.openBrowserAsync) rather than following a server
+ * redirect the way the web server action does. */
+export async function postPlatformCreditTopupIntent(
+  amountKobo: number,
+  patientId?: string
+): Promise<PlatformCreditTopupIntentResult> {
+  const result = await request<PlatformCreditTopupIntentResult>(
+    "/api/mobile/platform-credit/topup-intent",
+    "POST",
+    { amountKobo, ...(patientId ? { patientId } : {}) }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable
