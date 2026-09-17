@@ -7,8 +7,7 @@ import {
   type SecondOpinionRequestWithAnswerer,
 } from "@/lib/queries/second-opinion";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
-import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
 import { secondOpinionRequestSchema } from "@/lib/validation/second-opinion";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -91,7 +90,6 @@ export function SecondOpinionRequestCard({
   const [sourceDescription, setSourceDescription] = useState("");
   const [specificQuestion, setSpecificQuestion] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const [isBuying, setIsBuying] = useState(false);
 
   if (!organisationId) return null;
 
@@ -134,27 +132,6 @@ export function SecondOpinionRequestCard({
     );
   };
 
-  async function buyCredit() {
-    setIsBuying(true);
-    setFormError(null);
-    try {
-      const result = await purchaseServiceProduct({
-        serviceProductCode: SECOND_OPINION_CREDIT_CODE,
-        callbackPath: "/patient/care",
-      });
-      if (result?.error) {
-        setFormError(result.error);
-        return;
-      }
-      if (result?.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-        return;
-      }
-    } finally {
-      setIsBuying(false);
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -172,10 +149,12 @@ export function SecondOpinionRequestCard({
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
               Buy a second opinion credit to send a request.
             </p>
-            <Button size="sm" disabled={isBuying} onClick={buyCredit}>
-              {isBuying ? "Redirecting to payment…" : "Buy a credit"}
-            </Button>
-            <PaystackFeeNotice />
+            <PayWithCreditOrCard
+              patientId={patientId}
+              serviceProductCode={SECOND_OPINION_CREDIT_CODE}
+              callbackPath="/patient/care"
+              onError={setFormError}
+            />
           </div>
         )}
 

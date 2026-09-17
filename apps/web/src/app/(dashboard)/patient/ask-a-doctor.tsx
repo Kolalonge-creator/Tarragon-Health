@@ -7,8 +7,7 @@ import {
   type AsyncConsultWithAnswerer,
 } from "@/lib/queries/async-consults";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
-import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
 import {
   asyncConsultSchema,
   ASYNC_CONSULT_CATEGORIES,
@@ -100,7 +99,6 @@ export function AskADoctor({
   const [question, setQuestion] = useState("");
   const [durationNote, setDurationNote] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const [isBuying, setIsBuying] = useState(false);
 
   if (!organisationId) return null;
 
@@ -135,27 +133,6 @@ export function AskADoctor({
       },
     );
   };
-
-  async function buyCredit() {
-    setIsBuying(true);
-    setFormError(null);
-    try {
-      const result = await purchaseServiceProduct({
-        serviceProductCode: ASYNC_CONSULT_CREDIT_CODE,
-        callbackPath: "/patient/care",
-      });
-      if (result?.error) {
-        setFormError(result.error);
-        return;
-      }
-      if (result?.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-        return;
-      }
-    } finally {
-      setIsBuying(false);
-    }
-  }
 
   // Two separate failures share this surface: buying a credit (shown in the
   // upsell block, which only renders when the patient cannot ask yet) and
@@ -193,15 +170,15 @@ export function AskADoctor({
               access.
             </p>
             <FormError id={creditErrorId} message={formError} />
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" disabled={isBuying} onClick={buyCredit}>
-                {isBuying ? "Redirecting to payment…" : "Buy a credit"}
-              </Button>
-              <Button size="sm" variant="outline" asChild>
-                <a href="/patient/subscription">See plans</a>
-              </Button>
-            </div>
-            <PaystackFeeNotice />
+            <PayWithCreditOrCard
+              patientId={patientId}
+              serviceProductCode={ASYNC_CONSULT_CREDIT_CODE}
+              callbackPath="/patient/care"
+              onError={setFormError}
+            />
+            <Button size="sm" variant="outline" asChild>
+              <a href="/patient/subscription">See plans</a>
+            </Button>
           </div>
         )}
 

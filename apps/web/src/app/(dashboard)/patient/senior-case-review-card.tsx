@@ -7,8 +7,7 @@ import {
   type SeniorCaseReviewWithAnswerer,
 } from "@/lib/queries/senior-case-review";
 import { useHasAvailableServicePurchase } from "@/lib/queries/service-purchases";
-import { purchaseServiceProduct } from "@/lib/billing/purchase-service-product";
-import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { PayWithCreditOrCard } from "@/components/billing/pay-with-credit-or-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -87,7 +86,6 @@ export function SeniorCaseReviewCard({
   const request = useRequestSeniorCaseReview();
   const [situationSummary, setSituationSummary] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const [isBuying, setIsBuying] = useState(false);
 
   if (!organisationId) return null;
 
@@ -112,27 +110,6 @@ export function SeniorCaseReviewCard({
     );
   }
 
-  async function buyCredit() {
-    setIsBuying(true);
-    setFormError(null);
-    try {
-      const result = await purchaseServiceProduct({
-        serviceProductCode: SENIOR_CASE_REVIEW_CREDIT_CODE,
-        callbackPath: "/patient/care",
-      });
-      if (result?.error) {
-        setFormError(result.error);
-        return;
-      }
-      if (result?.checkoutUrl) {
-        window.location.href = result.checkoutUrl;
-        return;
-      }
-    } finally {
-      setIsBuying(false);
-    }
-  }
-
   return (
     <Card>
       <CardHeader>
@@ -150,10 +127,12 @@ export function SeniorCaseReviewCard({
             <p className="text-sm text-charcoal-ink dark:text-night-ink">
               Buy a credit to request a review.
             </p>
-            <Button size="sm" disabled={isBuying} onClick={buyCredit}>
-              {isBuying ? "Redirecting to payment…" : "Buy a credit"}
-            </Button>
-            <PaystackFeeNotice />
+            <PayWithCreditOrCard
+              patientId={patientId}
+              serviceProductCode={SENIOR_CASE_REVIEW_CREDIT_CODE}
+              callbackPath="/patient/care"
+              onError={setFormError}
+            />
           </div>
         )}
 
