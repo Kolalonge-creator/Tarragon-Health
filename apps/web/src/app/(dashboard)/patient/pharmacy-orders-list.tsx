@@ -215,6 +215,7 @@ export function PharmacyOrdersList({ patientId }: { patientId: string }) {
                   <>
                     <PayForPharmacyOrderButton
                       orderId={order.id}
+                      patientId={patientId}
                       amountKobo={order.payable_kobo ?? order.total_kobo}
                       totalKobo={order.total_kobo}
                     />

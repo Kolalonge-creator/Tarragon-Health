@@ -28462,6 +28462,8 @@ export type Database = {
         Row: {
           amount_kobo: number | null
           balance_after_kobo: number
+          booking_order_id: string | null
+          booking_order_type: string | null
           created_at: string
           created_by: string | null
           description: string | null
@@ -28478,6 +28480,8 @@ export type Database = {
         Insert: {
           amount_kobo?: number | null
           balance_after_kobo: number
+          booking_order_id?: string | null
+          booking_order_type?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -28494,6 +28498,8 @@ export type Database = {
         Update: {
           amount_kobo?: number | null
           balance_after_kobo?: number
+          booking_order_id?: string | null
+          booking_order_type?: string | null
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -41809,8 +41815,16 @@ export type Database = {
           vital_type: Database["public"]["Enums"]["vital_type"]
         }[]
       }
+      pay_pharmacy_order_on_platform_credit: {
+        Args: { p_pharmacy_order_id: string }
+        Returns: Json
+      }
       pay_service_purchase_on_platform_credit: {
         Args: { p_service_purchase_id: string }
+        Returns: Json
+      }
+      pay_specialist_referral_on_platform_credit: {
+        Args: { p_referral_id: string }
         Returns: Json
       }
       payer_adjudicate_claim: {
