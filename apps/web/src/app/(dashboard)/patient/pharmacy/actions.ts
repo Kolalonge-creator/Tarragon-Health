@@ -9,7 +9,11 @@ export type PayForPharmacyOrderState = { error?: string } | undefined;
 
 /**
  * Patient-initiated payment for a booked pharmacy order (status='pending_payment').
- * Identical shape to payForLabOrder (apps/web/src/app/(dashboard)/patient/lab-tests/actions.ts).
+ * Charges payable_kobo, not total_kobo — total_kobo is the catalogue
+ * price before whatever the order carries in voucher_covered_kobo /
+ * subscriber_discount_kobo; payable_kobo (a generated column) is what the
+ * patient actually owes. Charging total_kobo would overcharge an order with
+ * either applied.
  */
 export async function payForPharmacyOrder(
   _prevState: PayForPharmacyOrderState,
@@ -30,7 +34,7 @@ export async function payForPharmacyOrder(
 
   const { data: pharmacyOrder } = await supabase
     .from("pharmacy_orders")
-    .select("total_kobo")
+    .select("payable_kobo, total_kobo")
     .eq("id", orderId)
     .single();
   if (!pharmacyOrder) {
@@ -43,7 +47,7 @@ export async function payForPharmacyOrder(
     orderId,
     organisationId: order.organisation_id,
     patientId: order.patient_id,
-    amountKobo: pharmacyOrder.total_kobo,
+    amountKobo: pharmacyOrder.payable_kobo ?? pharmacyOrder.total_kobo,
     currency: "NGN",
     email: user.email,
     description: "Pharmacy order",
