@@ -63,6 +63,7 @@ export default async function FinancialProfilePage() {
   const [
     ledgerResult,
     servicePurchasesResult,
+    pendingPurchasesResult,
     vouchersResult,
     refundsResult,
     failedPaymentResult,
@@ -75,6 +76,13 @@ export default async function FinancialProfilePage() {
         .eq("patient_id", user.id)
         .eq("status", "active")
         .order("purchased_at", { ascending: false })
+        .limit(10),
+      supabase
+        .from("service_purchases")
+        .select("id, payable_kobo, currency, created_at, service_product:service_products(name)")
+        .eq("patient_id", user.id)
+        .eq("status", "pending_payment")
+        .order("created_at", { ascending: false })
         .limit(10),
       supabase
         .from("care_vouchers")
@@ -106,6 +114,7 @@ export default async function FinancialProfilePage() {
 
   const transactions = ledgerResult.data ?? [];
   const activeServices = servicePurchasesResult.data ?? [];
+  const pendingPurchases = pendingPurchasesResult.data ?? [];
   const vouchers = vouchersResult.data ?? [];
   const refunds = refundsResult.data ?? [];
   const recentFailures = failedPaymentResult.data ?? [];
@@ -175,6 +184,41 @@ export default async function FinancialProfilePage() {
           </CardContent>
         </Card>
       </div>
+
+      {pendingPurchases.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle as="h2">Payment pending</CardTitle>
+            <CardDescription>
+              Started but not paid for yet. Finish or close these from your dashboard.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-2">
+              {pendingPurchases.map((p) => (
+                <li
+                  key={p.id}
+                  className="flex flex-wrap items-center justify-between gap-2 border-b border-charcoal-ink/10 dark:border-night-ink/15 pb-2 text-sm last:border-0"
+                >
+                  <span className="text-charcoal-ink/80 dark:text-night-ink/80">
+                    {p.service_product?.name ?? "Service"} ·{" "}
+                    <span className="font-medium text-charcoal-ink dark:text-night-ink">
+                      {naira(p.payable_kobo ?? 0)} {p.currency}
+                    </span>{" "}
+                    still unpaid
+                  </span>
+                  <Badge variant="amber">pending payment</Badge>
+                </li>
+              ))}
+            </ul>
+            <p className="pt-2">
+              <Link href="/patient" className="text-xs font-medium text-deep-forest dark:text-brand-green-bright hover:underline">
+                Finish or close from your dashboard →
+              </Link>
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {pendingShares.length > 0 && (
         <Card>
