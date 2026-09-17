@@ -1,24 +1,30 @@
 /**
  * platform-credit.ts is a thin domain layer over the api.ts passthrough
- * wrappers (fetchPlatformCreditBalance / postPlatformCreditTopupIntent) —
- * these tests pin the shape it hands back to the balance screen (combined
- * balance, suggested-amount fallback, error surfacing) without re-testing
- * request()'s own auth/retry policy, which api.test.ts already covers.
+ * wrappers (fetchPlatformCreditBalance / postPlatformCreditTopupIntent /
+ * postPlatformCreditSpend) — these tests pin the shape it hands back to the
+ * balance screen and to the direct-purchase flows that spend from this
+ * balance (combined balance, suggested-amount fallback, error surfacing,
+ * spend-result pass-through) without re-testing request()'s own auth/retry
+ * policy, which api.test.ts already covers.
  */
-import { fetchPlatformCreditBalance, postPlatformCreditTopupIntent } from "./api";
+import { fetchPlatformCreditBalance, postPlatformCreditTopupIntent, postPlatformCreditSpend } from "./api";
 import {
   loadPlatformCreditState,
   platformCreditSuggestedAmountsKobo,
   startPlatformCreditTopup,
+  spendPlatformCreditOnService,
+  hasEnoughPlatformCredit,
 } from "./platform-credit";
 
 jest.mock("./api", () => ({
   fetchPlatformCreditBalance: jest.fn(),
   postPlatformCreditTopupIntent: jest.fn(),
+  postPlatformCreditSpend: jest.fn(),
 }));
 
 const mockFetchBalance = fetchPlatformCreditBalance as jest.MockedFunction<typeof fetchPlatformCreditBalance>;
 const mockPostTopupIntent = postPlatformCreditTopupIntent as jest.MockedFunction<typeof postPlatformCreditTopupIntent>;
+const mockPostSpend = postPlatformCreditSpend as jest.MockedFunction<typeof postPlatformCreditSpend>;
 
 describe("loadPlatformCreditState", () => {
   it("maps a successful response into the balance/ledger shape the screen reads", async () => {
@@ -94,5 +100,56 @@ describe("startPlatformCreditTopup", () => {
       ok: false,
       error: "the minimum top-up is 100000 kobo",
     });
+  });
+});
+
+describe("spendPlatformCreditOnService", () => {
+  it("passes through a successful settlement result", async () => {
+    mockPostSpend.mockResolvedValue({
+      success: true,
+      result: { ok: true, service_purchase_id: "sp1", amount_kobo: 500000, new_balance_kobo: 0 },
+    });
+    await expect(spendPlatformCreditOnService("essential_pack")).resolves.toEqual({
+      ok: true,
+      data: { ok: true, service_purchase_id: "sp1", amount_kobo: 500000, new_balance_kobo: 0 },
+    });
+    expect(mockPostSpend).toHaveBeenCalledWith("essential_pack");
+  });
+
+  it("passes through an insufficient-balance result rather than treating it as a transport error", async () => {
+    mockPostSpend.mockResolvedValue({
+      success: true,
+      result: { ok: false, reason: "insufficient_balance", balance_kobo: 100, required_kobo: 500000, shortfall_kobo: 499900 },
+    });
+    await expect(spendPlatformCreditOnService("essential_pack")).resolves.toEqual({
+      ok: true,
+      data: { ok: false, reason: "insufficient_balance", balance_kobo: 100, required_kobo: 500000, shortfall_kobo: 499900 },
+    });
+  });
+
+  it("surfaces a transport/auth error as its own failure, distinct from a within-result rejection", async () => {
+    mockPostSpend.mockResolvedValue({ error: "Invalid or expired session" });
+    await expect(spendPlatformCreditOnService("essential_pack")).resolves.toEqual({
+      ok: false,
+      error: "Invalid or expired session",
+    });
+  });
+});
+
+describe("hasEnoughPlatformCredit", () => {
+  it("covers a free (zero-price) product regardless of balance", () => {
+    expect(hasEnoughPlatformCredit(0, 0)).toBe(true);
+  });
+
+  it("covers a price strictly less than the balance", () => {
+    expect(hasEnoughPlatformCredit(500000, 300000)).toBe(true);
+  });
+
+  it("covers a price exactly equal to the balance", () => {
+    expect(hasEnoughPlatformCredit(500000, 500000)).toBe(true);
+  });
+
+  it("does not cover a price above the balance", () => {
+    expect(hasEnoughPlatformCredit(100, 500000)).toBe(false);
   });
 });

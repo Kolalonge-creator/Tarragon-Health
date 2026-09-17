@@ -411,7 +411,7 @@ export interface PlatformCreditBalanceResponse {
 /** Mirrors apps/web/src/lib/queries/platform-credit.ts's
  * useMyPlatformCreditBalance/usePlatformCreditConfig/useMyPlatformCreditLedger --
  * see apps/web/src/app/api/mobile/platform-credit/balance/route.ts. Balance
- * viewing only; there is no mobile "spend" route yet. */
+ * viewing only — see postPlatformCreditSpend below for the spend side. */
 export async function fetchPlatformCreditBalance(): Promise<PlatformCreditBalanceResponse> {
   const result = await request<PlatformCreditBalanceResponse>("/api/mobile/platform-credit/balance", "GET");
   return result.ok ? result.data : { error: result.error };
@@ -438,6 +438,46 @@ export async function postPlatformCreditTopupIntent(
     "/api/mobile/platform-credit/topup-intent",
     "POST",
     { amountKobo, ...(patientId ? { patientId } : {}) }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** Mirrors apps/web/src/lib/queries/platform-credit.ts's PayWithCreditResult
+ * — the shared result shape for settling a service_purchases row entirely
+ * out of platform credit, no Paystack round trip. */
+export type PayServicePurchaseWithCreditResult =
+  | { ok: true; service_purchase_id: string; amount_kobo: number; new_balance_kobo: number }
+  | { ok: true; already_active: boolean }
+  | { ok: false; reason: "not_payable"; status: string }
+  | {
+      ok: false;
+      reason: "insufficient_balance";
+      balance_kobo: number;
+      required_kobo: number;
+      shortfall_kobo: number;
+    };
+
+export interface PlatformCreditSpendResponse {
+  success?: boolean;
+  result?: PayServicePurchaseWithCreditResult;
+  error?: string;
+}
+
+/** Mirrors apps/web/src/lib/queries/platform-credit.ts's
+ * usePayServicePurchaseWithCredit -- see
+ * apps/web/src/app/api/mobile/platform-credit/spend/route.ts. Settles a
+ * fresh service_purchases intent for serviceProductCode entirely out of the
+ * caller's platform credit balance — the route does both RPC calls
+ * (record_service_purchase_intent, then pay_service_purchase_on_platform_credit)
+ * server-side and hands back the settlement RPC's own result JSON. */
+export async function postPlatformCreditSpend(
+  serviceProductCode: string,
+  patientId?: string
+): Promise<PlatformCreditSpendResponse> {
+  const result = await request<PlatformCreditSpendResponse>(
+    "/api/mobile/platform-credit/spend",
+    "POST",
+    { serviceProductCode, ...(patientId ? { patientId } : {}) }
   );
   return result.ok ? result.data : { error: result.error };
 }

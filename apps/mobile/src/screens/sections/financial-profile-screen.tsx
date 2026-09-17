@@ -309,6 +309,19 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
         <View>
           <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Your share of a split bill</Text>
           <MutedText>Someone supporting you paid part of one of your bills. This is the reduced amount left for you to pay yourself.</MutedText>
+          {/*
+           * "Pay my share" deliberately stays a pure browser hand-off (checked
+           * 2026-09-18, not wired to platform credit like Services/the payment
+           * -issue retry). share.amount_minor is a subsidy_contributions row —
+           * the patient's reduced remainder of a lab/pharmacy/referral order
+           * split with a sponsor (see payMySubsidyShare/subsidy-checkout.ts) —
+           * never a service_products purchase. pay_service_purchase_on_platform_
+           * credit only settles a service_purchases row created by
+           * record_service_purchase_intent; there is no equivalent RPC (and no
+           * plan to add one) that lets platform credit settle a
+           * subsidy_contributions charge, so this is a genuinely different
+           * money shape platform credit can't cleanly pay into.
+           */}
           {profile.pendingShares.map((share) => (
             <Card key={share.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
               <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>

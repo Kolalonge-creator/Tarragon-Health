@@ -1,5 +1,12 @@
-import { fetchPlatformCreditBalance, postPlatformCreditTopupIntent } from "./api";
+import {
+  fetchPlatformCreditBalance,
+  postPlatformCreditTopupIntent,
+  postPlatformCreditSpend,
+  type PayServicePurchaseWithCreditResult,
+} from "./api";
 import type { QueryResult } from "./medications";
+
+export type { PayServicePurchaseWithCreditResult } from "./api";
 
 export interface PlatformCreditLedgerEntry {
   id: string;
@@ -40,9 +47,10 @@ export const PLATFORM_CREDIT_ENTRY_LABEL: Record<string, string> = {
  * Unlike a care voucher (an entitlement to one named service), this is a
  * general balance.
  *
- * Read-only for now — this is the balance/top-up foundation only; spending
- * platform credit isn't wired into any purchase flow on mobile yet, and
- * this module deliberately has no "spend" function to match.
+ * Balance/top-up, plus spendPlatformCreditOnService below for the direct
+ * purchase flows that prefer paying from this balance over the browser
+ * hand-off when it covers the price (see services-screen.tsx,
+ * payment-issue-card.tsx).
  */
 export async function loadPlatformCreditState(): Promise<QueryResult<PlatformCreditState>> {
   const result = await fetchPlatformCreditBalance();
@@ -78,4 +86,31 @@ export async function startPlatformCreditTopup(amountKobo: number): Promise<Quer
     return { ok: false, error: result.error ?? "Could not start this top-up" };
   }
   return { ok: true, data: result.checkoutUrl };
+}
+
+/**
+ * Buys serviceProductCode entirely out of the caller's platform credit
+ * balance — no browser hand-off. Callers should only invoke this once
+ * they've already confirmed the balance covers the price (see
+ * hasEnoughPlatformCredit below); this still returns a proper
+ * `insufficient_balance` result rather than throwing if that check raced
+ * with something else spending the balance in the meantime, so callers
+ * should fall back to their existing browser checkout on any !ok result.
+ */
+export async function spendPlatformCreditOnService(
+  serviceProductCode: string
+): Promise<QueryResult<PayServicePurchaseWithCreditResult>> {
+  const result = await postPlatformCreditSpend(serviceProductCode);
+  if (result.error || !result.result) {
+    return { ok: false, error: result.error ?? "Could not complete this purchase" };
+  }
+  return { ok: true, data: result.result };
+}
+
+/** Whether a balance already on hand (e.g. from loadPlatformCreditState)
+ * covers a given price — the shared "does in-app credit cover this" check
+ * every direct-purchase screen runs before choosing credit over the browser
+ * hand-off. A zero price (nothing left to pay) always counts as covered. */
+export function hasEnoughPlatformCredit(balanceKobo: number, priceKobo: number): boolean {
+  return priceKobo <= 0 || balanceKobo >= priceKobo;
 }
