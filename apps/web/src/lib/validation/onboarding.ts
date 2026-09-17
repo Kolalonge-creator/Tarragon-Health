@@ -21,14 +21,29 @@ export const demographicsSchema = z.object({
 
 export type DemographicsInput = z.infer<typeof demographicsSchema>;
 
+/** Mirrors the live `consent_type` enum (Database["public"]["Enums"]["consent_type"]). */
+const consentTypeSchema = z.enum([
+  "data_processing",
+  "telehealth",
+  "terms_of_service",
+  "device_data",
+  "marketing",
+  "research",
+  "wearable_device_data",
+]);
+
 /**
- * The consent step records acceptance of every current consent version. The
- * UI shows the actual consent text (data processing, remote care, terms) and
- * a single required confirmation; the server records one patient_consents row
- * per current version. `accept` must be literally true.
+ * The consent step records acceptance of every current consent version the
+ * caller was actually shown and asked to agree to. `accept` must be
+ * literally true. `onlyTypes`, when present, restricts which consent_type
+ * values get recorded as accepted — see ConsentStep's own `onlyTypes` prop:
+ * a supporter shown only the terms-of-service text must never end up with a
+ * patient_consents row claiming they also agreed to data processing or
+ * telehealth, which they were never shown and have no basis to consent to.
  */
 export const consentSchema = z.object({
   accept: z.literal(true, { message: "Please accept to continue" }),
+  onlyTypes: z.array(consentTypeSchema).optional(),
 });
 
 export type ConsentInput = z.infer<typeof consentSchema>;
