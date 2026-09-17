@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { loadMedicationSafety } from "@/lib/clinical/patient-clinical-context";
-import type { DrugSafetySeverity, FindingKind } from "@/lib/rules/drug-safety";
+import type { DrugSafetySeverity, FindingKind } from "@tarragon/shared";
 import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
 
 const SEVERITY_BADGE: Record<DrugSafetySeverity, { label: string; variant: "red" | "amber" | "grey" }> = {

@@ -26,7 +26,7 @@
  * problem this change does not attempt; see docs/PEDIATRIC_CHILD_HEALTH_SPEC.md.
  */
 
-import type { SafetyFinding } from "./drug-safety";
+import type { SafetyFinding } from "@tarragon/shared";
 
 export interface PediatricFormularyEntry {
   drugName: string;

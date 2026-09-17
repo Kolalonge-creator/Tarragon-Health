@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import { assessMedicationSafety, type DrugSafetySeverity, type FindingKind } from "@tarragon/shared";
 import {
   addMedication,
   checkPackAgainstPrescription,
@@ -25,10 +26,12 @@ import {
 } from "@/lib/medications";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
+import type { SectionId } from "@/lib/sections";
 
 interface MedicineCabinetScreenProps {
   patientId: string;
   organisationId: string;
+  onNavigate: (section: SectionId) => void;
 }
 
 const inputStyle = {
@@ -83,6 +86,91 @@ function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; ch
   );
 }
 
+const SAFETY_SEVERITY_TONE: Record<DrugSafetySeverity, { tone: "red" | "amber" | "grey"; label: string }> = {
+  contraindicated: { tone: "red", label: "Avoid together" },
+  caution: { tone: "amber", label: "Caution" },
+  info: { tone: "grey", label: "Note" },
+};
+
+const SAFETY_KIND_LABEL: Record<FindingKind, string> = {
+  interaction: "Interaction",
+  duplicate_therapy: "Duplicate therapy",
+  renal_dosing: "Kidney function",
+  drug_specific: "Drug note",
+  allergy: "Allergy",
+};
+
+/**
+ * Native counterpart to medications-list.tsx's MedicationInteractionNote —
+ * same rule engine (assessMedicationSafety, now in @tarragon/shared so both
+ * apps run identical logic), same scoping: only interaction/duplicate_
+ * therapy/drug_specific findings are shown, because renal_dosing and allergy
+ * findings need eGFR/allergy context this screen never loads. Advisory only;
+ * never blocks adding a medication and writes nothing anywhere.
+ */
+function MedicationSafetyNote({
+  medications,
+  onNavigate,
+}: {
+  medications: MedicationCabinetItem[];
+  onNavigate: (section: SectionId) => void;
+}) {
+  const findings = useMemo(() => {
+    const report = assessMedicationSafety(
+      medications.map((m) => ({
+        id: m.id,
+        drugName: m.drug_name,
+        dose: m.dose,
+        prescriberName: m.prescriber_name,
+        source: m.source,
+      }))
+    );
+    return report.findings.filter(
+      (f) => f.kind === "interaction" || f.kind === "duplicate_therapy" || f.kind === "drug_specific"
+    );
+  }, [medications]);
+
+  console.log("ZZZDEBUG MedicationSafetyNote", medications.length, findings.length, JSON.stringify(findings.map((f) => f.title)));
+  if (medications.length < 2 || findings.length === 0) return null;
+
+  return (
+    <Card style={{ gap: 10, backgroundColor: colors.status.warnBg, borderColor: colors.status.warn, borderWidth: 1 }}>
+      <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.status.warn }}>
+        Something worth knowing about how these work together
+      </Text>
+      <View style={{ gap: 8 }}>
+        {findings.map((finding, index) => {
+          const badge = SAFETY_SEVERITY_TONE[finding.severity];
+          return (
+            <View
+              key={`${finding.kind}-${finding.title}-${index}`}
+              style={{ backgroundColor: colors.card, borderRadius: radius.control, padding: 10, gap: 4 }}
+            >
+              <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                <Pill tone={badge.tone}>{badge.label}</Pill>
+                <Text style={{ fontSize: 10.5, fontWeight: "700", color: colors.faint, textTransform: "uppercase" }}>
+                  {SAFETY_KIND_LABEL[finding.kind]}
+                </Text>
+              </View>
+              <Text style={{ fontSize: 13.5, fontWeight: "700", color: colors.ink }}>{finding.title}</Text>
+              <Text style={{ fontSize: 13, color: colors.ink, lineHeight: 18 }}>{finding.message}</Text>
+              <MutedText>{[...new Set(finding.drugNames)].join(" · ")}</MutedText>
+            </View>
+          );
+        })}
+      </View>
+      <Text style={{ fontSize: 12, color: colors.status.warn, lineHeight: 17 }}>
+        This is a curated check, not a complete interaction database, and it does not replace a
+        clinician&apos;s judgement. Do not stop or change a dose on your own,{" "}
+        <Text onPress={() => onNavigate("messages")} style={{ fontWeight: "700", textDecorationLine: "underline" }}>
+          message your care team
+        </Text>{" "}
+        about this instead.
+      </Text>
+    </Card>
+  );
+}
+
 /**
  * Native replacement for the "Your medicines cabinet" WebView modal
  * (previously <WebViewScreen path="/patient/medications" />). Covers the
@@ -100,7 +188,7 @@ function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; ch
  * reading instead of an AI OCR read — see checkPackAgainstPrescription's
  * header comment in lib/medications.ts for why.
  */
-export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCabinetScreenProps) {
+export function MedicineCabinetScreen({ patientId, organisationId, onNavigate }: MedicineCabinetScreenProps) {
   const [medications, setMedications] = useState<MedicationCabinetItem[]>([]);
   const [medsLoading, setMedsLoading] = useState(true);
   const [medsError, setMedsError] = useState(false);
@@ -173,6 +261,7 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
           </Card>
         ) : (
           <View style={{ gap: 10 }}>
+            <MedicationSafetyNote medications={medications} onNavigate={onNavigate} />
             {medications.map((medication) => (
               <MedicationCard
                 key={medication.id}

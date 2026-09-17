@@ -4,7 +4,7 @@ import { useState, type FormEvent } from "react";
 import { useAddMedication } from "@/lib/queries/medications";
 import { checkMedicationSafetyAfterAdd } from "./actions";
 import { medicationSchema, type MedicationInput } from "@/lib/validation/medications";
-import { diabetesDrugSafety, type DrugSafetySeverity } from "@/lib/rules/diabetes-drug-safety";
+import { diabetesDrugSafety, type DrugSafetySeverity } from "@tarragon/shared";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

@@ -1,5 +1,5 @@
 import { computeCdsRecommendations, type CdsEngineInput } from "./engine";
-import type { SafetyReport } from "@/lib/rules/drug-safety";
+import type { SafetyReport } from "@tarragon/shared";
 
 const NOW = new Date("2026-08-29T10:00:00Z");
 

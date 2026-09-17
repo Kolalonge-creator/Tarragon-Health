@@ -6,6 +6,7 @@ import { syncDoseReminders } from "@/lib/dose-reminders";
 import { colors, inkAlpha, spacing } from "@/ui/theme";
 import { CalloutCard, Card, GroupedList, GroupedListRow, MutedText, SecondaryButton, SectionLabel } from "@/ui/components";
 import { MedicineCabinetScreen } from "@/screens/sections/medicine-cabinet-screen";
+import type { SectionId } from "@/lib/sections";
 
 interface MedicationsScreenProps {
   patientId: string;
@@ -14,9 +15,10 @@ interface MedicationsScreenProps {
    * (home-shell.tsx), so the heading never implies these are the device
    * owner's own doses while marking somebody else's. */
   subjectName?: string;
+  onNavigate: (section: SectionId) => void;
 }
 
-export function MedicationsScreen({ patientId, organisationId, subjectName }: MedicationsScreenProps) {
+export function MedicationsScreen({ patientId, organisationId, subjectName, onNavigate }: MedicationsScreenProps) {
   const [doses, setDoses] = useState<DoseChecklistItem[]>([]);
   const [loading, setLoading] = useState(true);
   // A failed dose fetch must never render as "No scheduled doses today" —
@@ -178,7 +180,14 @@ export function MedicationsScreen({ patientId, organisationId, subjectName }: Me
           <View style={{ padding: spacing.screen, paddingTop: 56 }}>
             <SecondaryButton title="Close" onPress={() => setCabinetOpen(false)} />
           </View>
-          <MedicineCabinetScreen patientId={patientId} organisationId={organisationId} />
+          <MedicineCabinetScreen
+            patientId={patientId}
+            organisationId={organisationId}
+            onNavigate={(section) => {
+              setCabinetOpen(false);
+              onNavigate(section);
+            }}
+          />
         </View>
       </Modal>
     </ScrollView>

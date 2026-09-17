@@ -220,6 +220,7 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
             patientId={subjectId}
             organisationId={organisationId}
             subjectName={acting?.fullName ?? undefined}
+            onNavigate={handleSelect}
           />
         )}
         {section === "labs" && <LabsScreen />}

@@ -8,7 +8,7 @@ import {
   type AllergyInput,
   type MedicationInput,
   type SafetyReport,
-} from "@/lib/rules/drug-safety";
+} from "@tarragon/shared";
 import { analyseRecord, type TrendFinding } from "@/lib/rules/longitudinal";
 import {
   medicationEffectivenessVitalType,

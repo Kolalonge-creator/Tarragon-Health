@@ -10,7 +10,7 @@ import {
   usePharmacistDeclineOrder,
   usePharmacistFlagUnavailable,
 } from "@/lib/queries/pharmacist";
-import { assessAllergyFindings, type AllergyInput, type MedicationInput } from "@/lib/rules/drug-safety";
+import { assessAllergyFindings, type AllergyInput, type MedicationInput } from "@tarragon/shared";
 import { controlledSubstanceInfo } from "@/lib/rules/controlled-substances";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";

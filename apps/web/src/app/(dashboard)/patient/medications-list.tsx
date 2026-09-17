@@ -45,7 +45,7 @@ import { Label } from "@/components/ui/label";
 import { FormError, fieldErrorId } from "@/components/ui/form-error";
 import { SEMANTIC_ICON } from "@/lib/icons";
 import { isPolypharmacy, POLYPHARMACY_THRESHOLD } from "@/lib/healthy-ageing/types";
-import { assessMedicationSafety, type DrugSafetySeverity, type FindingKind } from "@/lib/rules/drug-safety";
+import { assessMedicationSafety, type DrugSafetySeverity, type FindingKind } from "@tarragon/shared";
 
 import { formatPatientDate } from "@/lib/format-date";
 const SOURCE_BADGE: Record<
@@ -327,7 +327,7 @@ function RefillGapNote({
  * Read-only, patient-facing surfacing of assessMedicationSafety's interaction/
  * duplicate-therapy/drug-specific findings across the patient's own active
  * list — the same rule engine MedicationSafetyPanel already runs for
- * clinicians (@/lib/rules/drug-safety.ts), just without the eGFR/allergy
+ * clinicians (@tarragon/shared's drug-safety.ts), just without the eGFR/allergy
  * context a clinician's chart has loaded, so renal-dosing and allergy
  * findings are left out here rather than shown as checked when they were
  * not. Advisory only: it never blocks adding a medication and writes

@@ -2,7 +2,7 @@
  * Clinical Decision Support engine (spec §38).
  *
  * PURE. No I/O, no Supabase client, no clock reads beyond what the caller
- * hands in — same discipline as lib/rules/drug-safety.ts and
+ * hands in — same discipline as packages/shared/src/rules/drug-safety.ts and
  * lib/rules/longitudinal.ts, and for the same reason: every rule here needs
  * to be exercised in a unit test without a database, and the point-of-care
  * panel needs the exact same recommendations the tests already proved.
@@ -18,7 +18,7 @@
  * ADVISORY, NEVER A BLOCK (§38.1 "augment clinicians rather than replace
  * them"): nothing here can be used to gate a write anywhere in the app.
  */
-import type { SafetyReport, DrugSafetySeverity } from "@/lib/rules/drug-safety";
+import type { SafetyReport, DrugSafetySeverity } from "@tarragon/shared";
 import type { CdsRecommendation, CdsPriority } from "./types";
 
 const SEVERITY_TO_PRIORITY: Record<DrugSafetySeverity, CdsPriority> = {

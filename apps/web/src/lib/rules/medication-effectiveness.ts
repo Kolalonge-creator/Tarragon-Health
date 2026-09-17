@@ -18,7 +18,7 @@
  * one classifier, one source of truth for what a drug name "is".
  */
 
-import { classifyDrug, type TherapeuticClass } from "./drug-safety";
+import { classifyDrug, type TherapeuticClass } from "@tarragon/shared";
 
 export type EffectivenessVitalType = "blood_pressure" | "glucose";
 
