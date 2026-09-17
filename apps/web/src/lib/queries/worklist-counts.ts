@@ -227,6 +227,24 @@ async function countResultsInboxAwaitingAction(supabase: Client) {
   return count ?? 0;
 }
 
+/**
+ * Emergency contraception requests specifically (not the sexual-health
+ * worklist's other two sub-lists, STI case episodes and requested
+ * contraception plans) -- exact same filter as useOrgPendingEcRequests
+ * (lib/queries/emergency-contraception.ts). Singled out because it carries a
+ * 1-hour SLA, the most time-critical item on that page by a wide margin --
+ * found sitting 127 hours overdue with no badge anywhere pointing at it
+ * during the 2026-09-17 pending-jobs-banner audit.
+ */
+async function countPendingEcRequests(supabase: Client) {
+  const { count, error } = await supabase
+    .from("emergency_contraception_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -249,7 +267,8 @@ export type WorklistCountKey =
   | "vaccinationVerifications"
   | "activeCases"
   | "operationsQueueAlerts"
-  | "resultsInboxAwaitingAction";
+  | "resultsInboxAwaitingAction"
+  | "pendingEcRequests";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -279,6 +298,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   activeCases: countActiveCases,
   operationsQueueAlerts: countOperationsQueueAlerts,
   resultsInboxAwaitingAction: countResultsInboxAwaitingAction,
+  pendingEcRequests: countPendingEcRequests,
 };
 
 /**

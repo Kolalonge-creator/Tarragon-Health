@@ -414,7 +414,12 @@ export function getNavSections(
                 { label: "Lifestyle flags", href: "/clinician/lifestyle-flags", icon: "lifestyle", countKey: "lifestyleFlags" },
                 { label: "Annual reviews", href: "/clinician/annual-reviews", icon: "review", countKey: "annualReviews" },
                 { label: "Preventive reviews", href: "/clinician/preventive-reviews", icon: "preventive", countKey: "preventiveReviews" },
-                { label: "Sexual health cases", href: "/clinician/sexual-health", icon: "escalation" },
+                {
+                  label: "Sexual health cases",
+                  href: "/clinician/sexual-health",
+                  icon: "escalation",
+                  countKey: "pendingEcRequests",
+                },
               ],
             },
             {
