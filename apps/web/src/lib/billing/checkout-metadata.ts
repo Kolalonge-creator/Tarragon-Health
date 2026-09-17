@@ -65,6 +65,18 @@
  * 'subscription'/'add_on' are kept below only until the old tables and their
  * webhook branches are removed in a later migration.
  */
+/**
+ * 'platform_credit_topup' (2026-09-17) follows the same deliberate pattern:
+ * read only by private.apply_platform_credit_topup_payment (an AFTER INSERT
+ * trigger on payment_transactions, see
+ * supabase/migrations/20260917100406_platform_credit_ledger_functions.sql),
+ * not by either deployed webhook. A patient tops up a non-expiring, never-
+ * cashed-out platform credit balance in any amount (suggested ₦10k/20k/50k/
+ * 100k or custom); spending it against a service_purchases row happens
+ * synchronously via public.pay_service_purchase_on_platform_credit and never
+ * goes through Paystack/this metadata shape at all — only funding the
+ * balance does.
+ */
 export type CheckoutKind =
   | "subscription"
   | "add_on"
@@ -73,7 +85,8 @@ export type CheckoutKind =
   | "sponsored_subscription"
   | "screening_day_payment"
   | "subsidy_contribution"
-  | "service_purchase";
+  | "service_purchase"
+  | "platform_credit_topup";
 
 export type BookingOrderType = "lab" | "pharmacy" | "referral" | "video_visit" | "lab_result_consult";
 

@@ -28380,6 +28380,254 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_credit_balances: {
+        Row: {
+          balance_kobo: number | null
+          created_at: string
+          lifetime_funded_kobo: number
+          lifetime_granted_kobo: number
+          lifetime_spent_kobo: number
+          organisation_id: string
+          paid_balance_kobo: number
+          patient_id: string
+          promo_balance_kobo: number
+          updated_at: string
+        }
+        Insert: {
+          balance_kobo?: number | null
+          created_at?: string
+          lifetime_funded_kobo?: number
+          lifetime_granted_kobo?: number
+          lifetime_spent_kobo?: number
+          organisation_id: string
+          paid_balance_kobo?: number
+          patient_id: string
+          promo_balance_kobo?: number
+          updated_at?: string
+        }
+        Update: {
+          balance_kobo?: number | null
+          created_at?: string
+          lifetime_funded_kobo?: number
+          lifetime_granted_kobo?: number
+          lifetime_spent_kobo?: number
+          organisation_id?: string
+          paid_balance_kobo?: number
+          patient_id?: string
+          promo_balance_kobo?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_credit_balances_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credit_balances_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_credit_config: {
+        Row: {
+          id: boolean
+          max_topup_kobo: number
+          min_topup_kobo: number
+          suggested_amounts_kobo: number[]
+          updated_at: string
+        }
+        Insert: {
+          id?: boolean
+          max_topup_kobo?: number
+          min_topup_kobo?: number
+          suggested_amounts_kobo?: number[]
+          updated_at?: string
+        }
+        Update: {
+          id?: boolean
+          max_topup_kobo?: number
+          min_topup_kobo?: number
+          suggested_amounts_kobo?: number[]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      platform_credit_ledger_entries: {
+        Row: {
+          amount_kobo: number | null
+          balance_after_kobo: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          entry_type: Database["public"]["Enums"]["platform_credit_entry_type"]
+          id: string
+          organisation_id: string
+          paid_amount_kobo: number
+          patient_id: string
+          payment_transaction_id: string | null
+          promo_amount_kobo: number
+          service_purchase_id: string | null
+          topup_intent_id: string | null
+        }
+        Insert: {
+          amount_kobo?: number | null
+          balance_after_kobo: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          entry_type: Database["public"]["Enums"]["platform_credit_entry_type"]
+          id?: string
+          organisation_id: string
+          paid_amount_kobo?: number
+          patient_id: string
+          payment_transaction_id?: string | null
+          promo_amount_kobo?: number
+          service_purchase_id?: string | null
+          topup_intent_id?: string | null
+        }
+        Update: {
+          amount_kobo?: number | null
+          balance_after_kobo?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          entry_type?: Database["public"]["Enums"]["platform_credit_entry_type"]
+          id?: string
+          organisation_id?: string
+          paid_amount_kobo?: number
+          patient_id?: string
+          payment_transaction_id?: string | null
+          promo_amount_kobo?: number
+          service_purchase_id?: string | null
+          topup_intent_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_credit_ledger_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credit_ledger_entries_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credit_ledger_entries_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credit_ledger_entries_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credit_ledger_entries_service_purchase_id_fkey"
+            columns: ["service_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "service_purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credit_ledger_entries_topup_intent_fkey"
+            columns: ["topup_intent_id"]
+            isOneToOne: false
+            referencedRelation: "platform_credit_topup_intents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      platform_credit_topup_intents: {
+        Row: {
+          amount_kobo: number
+          cancelled_at: string | null
+          completed_at: string | null
+          created_at: string
+          currency: Database["public"]["Enums"]["currency"]
+          id: string
+          organisation_id: string
+          patient_id: string
+          payment_provider:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref: string | null
+          pending_payment_provider_ref: string | null
+          purchaser_profile_id: string
+          status: Database["public"]["Enums"]["platform_credit_topup_status"]
+        }
+        Insert: {
+          amount_kobo: number
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          organisation_id: string
+          patient_id: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          purchaser_profile_id: string
+          status?: Database["public"]["Enums"]["platform_credit_topup_status"]
+        }
+        Update: {
+          amount_kobo?: number
+          cancelled_at?: string | null
+          completed_at?: string | null
+          created_at?: string
+          currency?: Database["public"]["Enums"]["currency"]
+          id?: string
+          organisation_id?: string
+          patient_id?: string
+          payment_provider?:
+            | Database["public"]["Enums"]["payment_provider"]
+            | null
+          payment_provider_ref?: string | null
+          pending_payment_provider_ref?: string | null
+          purchaser_profile_id?: string
+          status?: Database["public"]["Enums"]["platform_credit_topup_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_credit_topup_intents_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credit_topup_intents_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "platform_credit_topup_intents_purchaser_profile_id_fkey"
+            columns: ["purchaser_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       platform_currency_settings: {
         Row: {
           id: boolean
@@ -39852,6 +40100,10 @@ export type Database = {
         Args: { p_service_purchase_id: string }
         Returns: undefined
       }
+      cancel_platform_credit_topup_intent: {
+        Args: { p_intent_id: string }
+        Returns: undefined
+      }
       cancel_waiting_list_entry: {
         Args: { p_waiting_list_id: string }
         Returns: undefined
@@ -40080,6 +40332,16 @@ export type Database = {
       }
       convert_unit: {
         Args: { p_from_code: string; p_to_code: string; p_value: number }
+        Returns: number
+      }
+      correct_platform_credit: {
+        Args: {
+          p_amount_kobo: number
+          p_bucket: Database["public"]["Enums"]["platform_credit_bucket"]
+          p_direction: string
+          p_patient_id: string
+          p_reason: string
+        }
         Returns: number
       }
       create_emergency_card: { Args: never; Returns: string }
@@ -40852,6 +41114,10 @@ export type Database = {
         Args: { p_patient_id: string }
         Returns: Json
       }
+      grant_platform_credit: {
+        Args: { p_amount_kobo: number; p_patient_id: string; p_reason: string }
+        Returns: number
+      }
       hand_over_care: {
         Args: {
           p_new_profile_id: string
@@ -41543,6 +41809,10 @@ export type Database = {
           vital_type: Database["public"]["Enums"]["vital_type"]
         }[]
       }
+      pay_service_purchase_on_platform_credit: {
+        Args: { p_service_purchase_id: string }
+        Returns: Json
+      }
       payer_adjudicate_claim: {
         Args: {
           p_claim_id: string
@@ -41923,6 +42193,10 @@ export type Database = {
           p_result: string
         }
         Returns: undefined
+      }
+      record_platform_credit_topup_intent: {
+        Args: { p_amount_kobo: number; p_patient_id: string }
+        Returns: string
       }
       record_result_correction: {
         Args: {
@@ -44429,6 +44703,7 @@ export type Database = {
         | "wallet"
         | "voucher"
         | "employer"
+        | "platform_credit"
       payment_transaction_type:
         | "charge.success"
         | "charge.failed"
@@ -44497,6 +44772,16 @@ export type Database = {
         | "duplicate_order"
         | "clinically_withdrawn"
       pharmacy_refund_status: "requested" | "approved" | "rejected" | "paid"
+      platform_credit_bucket: "paid" | "promo"
+      platform_credit_entry_type:
+        | "topup"
+        | "admin_grant"
+        | "spend"
+        | "admin_correction"
+      platform_credit_topup_status:
+        | "pending_payment"
+        | "completed"
+        | "cancelled"
       population_data_gate_key:
         | "sufficient_real_patient_volume"
         | "ndpc_registration_and_dpo"
@@ -46813,7 +47098,14 @@ export const Constants = {
         "terminated",
       ],
       payer_plan_status: ["draft", "active", "closed"],
-      payment_provider: ["paystack", "stripe", "wallet", "voucher", "employer"],
+      payment_provider: [
+        "paystack",
+        "stripe",
+        "wallet",
+        "voucher",
+        "employer",
+        "platform_credit",
+      ],
       payment_transaction_type: [
         "charge.success",
         "charge.failed",
@@ -46892,6 +47184,18 @@ export const Constants = {
         "clinically_withdrawn",
       ],
       pharmacy_refund_status: ["requested", "approved", "rejected", "paid"],
+      platform_credit_bucket: ["paid", "promo"],
+      platform_credit_entry_type: [
+        "topup",
+        "admin_grant",
+        "spend",
+        "admin_correction",
+      ],
+      platform_credit_topup_status: [
+        "pending_payment",
+        "completed",
+        "cancelled",
+      ],
       population_data_gate_key: [
         "sufficient_real_patient_volume",
         "ndpc_registration_and_dpo",

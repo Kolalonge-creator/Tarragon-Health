@@ -140,3 +140,13 @@ diagnostic_episode_engine.sql
 # Proves auto-drafting + idempotency + that a manual insert can never
 # self-claim auto_generated=true (server-derived, no GUC leak).
 auto_generated_continuous_clinical_note.sql
+
+# --- Added 2026-09-17 --------------------------------------------------
+# Platform Credit: a patient session cannot write platform_credit_balances/
+# _ledger_entries/_topup_intents directly (only private.platform_credit_apply,
+# a SECURITY DEFINER RPC, can), a patient cannot read another patient's
+# balance/ledger, a spend consumes the promotional (admin-granted) bucket
+# before the paid (real-money) bucket, an overspend is refused without
+# partial application, and a sabotage run (restoring the old grant+policy
+# shape) proves the RLS checks actually discriminate.
+platform_credit_ledger.sql
