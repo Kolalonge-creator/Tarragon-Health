@@ -46,9 +46,9 @@
 
 do $$
 declare
-  v_suite_id    uuid := '70d5c06f-c629-4654-bacc-001fc20f475e'; -- Platform AI safety baseline (ai_system_id is null)
+  v_suite_id    uuid; -- Platform AI safety baseline (ai_system_id is null)
   v_system_id   uuid;
-  v_version_id  uuid := '8c454f55-1848-4618-9a25-eefbb95da173'; -- AI-010 v1
+  v_version_id  uuid; -- AI-010 v1
   v_run_id      uuid;
   v_case_count  int;
 begin
@@ -56,6 +56,12 @@ begin
   if v_system_id is null then
     raise exception 'AI-010 is not registered';
   end if;
+
+  select v.id into v_version_id from public.ai_system_versions v where v.ai_system_id = v_system_id and v.version = 'v1';
+  if v_version_id is null then raise exception 'AI-010 v1 version not found'; end if;
+
+  select id into v_suite_id from public.ai_evaluation_suites where name = 'Platform AI safety baseline' and ai_system_id is null;
+  if v_suite_id is null then raise exception 'Platform AI safety baseline suite not found'; end if;
 
   -- ---------------------------------------------------------------------
   -- Four AI-010-scoped cases under the shared global suite

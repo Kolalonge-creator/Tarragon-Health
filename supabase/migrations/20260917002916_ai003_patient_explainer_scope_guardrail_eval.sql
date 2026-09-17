@@ -23,14 +23,20 @@
 do $$
 declare
   v_system_id          uuid;
-  v_version_id         uuid := '78b888b0-6f77-4cfb-9c1d-afe059e38759';
+  v_version_id         uuid;
   v_dedicated_suite_id uuid;
   v_language_suite_id  uuid;
-  v_global_suite_id    uuid := '70d5c06f-c629-4654-bacc-001fc20f475e';
+  v_global_suite_id    uuid;
   v_run_id             uuid;
 begin
   select id into v_system_id from public.ai_systems where system_code = 'AI-003';
   if v_system_id is null then raise exception 'AI-003 is not registered'; end if;
+
+  select v.id into v_version_id from public.ai_system_versions v where v.ai_system_id = v_system_id and v.version = 'v1';
+  if v_version_id is null then raise exception 'AI-003 v1 version not found'; end if;
+
+  select id into v_global_suite_id from public.ai_evaluation_suites where name = 'Platform AI safety baseline' and ai_system_id is null;
+  if v_global_suite_id is null then raise exception 'Platform AI safety baseline suite not found'; end if;
 
   select id into v_dedicated_suite_id from public.ai_evaluation_suites
     where name = 'AI-003 patient explainer scope guardrail' and ai_system_id = v_system_id;
