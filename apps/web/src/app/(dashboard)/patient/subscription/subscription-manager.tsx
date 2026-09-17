@@ -28,6 +28,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatPatientDate } from "@/lib/format-date";
 import { PaystackFeeNotice } from "@/components/billing/paystack-fee-notice";
+import { BuyServiceDialog } from "./buy-service-dialog";
 
 function formatPrice(priceKobo: number, currency: Currency): string {
   if (priceKobo === 0) return "Free";
@@ -106,7 +107,7 @@ const PRODUCT_GROUPS: {
  * concept: a purchase is a one-off charge for a fixed window and simply
  * expires — buying again is the only "renewal" there is.
  */
-export function SubscriptionManager() {
+export function SubscriptionManager({ patientId }: { patientId: string }) {
   const {
     data: purchases,
     isLoading,
@@ -278,30 +279,51 @@ export function SubscriptionManager() {
                               </p>
                             ) : null}
                           </div>
-                          <form action={buyAction} className="shrink-0">
-                            <input
-                              type="hidden"
-                              name="serviceProductCode"
-                              value={product.code}
-                            />
-                            <input
-                              type="hidden"
-                              name="promoCode"
-                              value={promoCode}
-                            />
-                            <Button
-                              type="submit"
-                              size="sm"
-                              variant="outline"
-                              disabled={buyPending}
-                            >
-                              {product.price_kobo === 0 ? "Switch to" : "Buy"}{" "}
-                              {formatPrice(
-                                product.price_kobo,
-                                product.currency as Currency,
-                              )}
-                            </Button>
-                          </form>
+                          {product.price_kobo === 0 ? (
+                            <form action={buyAction} className="shrink-0">
+                              <input
+                                type="hidden"
+                                name="serviceProductCode"
+                                value={product.code}
+                              />
+                              <input
+                                type="hidden"
+                                name="promoCode"
+                                value={promoCode}
+                              />
+                              <Button
+                                type="submit"
+                                size="sm"
+                                variant="outline"
+                                disabled={buyPending}
+                              >
+                                Switch to Free
+                              </Button>
+                            </form>
+                          ) : (
+                            <div className="shrink-0">
+                              <BuyServiceDialog
+                                patientId={patientId}
+                                product={product}
+                                promoCode={promoCode}
+                                paystackFormAction={buyAction}
+                                trigger={
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={buyPending}
+                                  >
+                                    Buy{" "}
+                                    {formatPrice(
+                                      product.price_kobo,
+                                      product.currency as Currency,
+                                    )}
+                                  </Button>
+                                }
+                              />
+                            </div>
+                          )}
                         </li>
                       ))}
                     </ul>

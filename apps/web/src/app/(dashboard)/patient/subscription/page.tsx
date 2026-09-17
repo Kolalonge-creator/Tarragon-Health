@@ -24,7 +24,7 @@ export default async function PatientSubscriptionPage() {
         icon={SEMANTIC_ICON.billing}
         description="One-off purchases covering a fixed window each. Nothing auto-renews. Buy again any time to extend."
       />
-      <SubscriptionManager />
+      <SubscriptionManager patientId={profile.id} />
     </div>
   );
 }
