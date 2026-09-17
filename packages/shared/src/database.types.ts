@@ -42904,6 +42904,10 @@ export type Database = {
         }
         Returns: Database["public"]["Tables"]["weight_management_enrolments"]["Row"]
       }
+      count_care_threads_awaiting_reply: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
     }
     Enums: {
       lab_integration_status: "api" | "hl7_fhir" | "file_exchange" | "structured_upload" | "manual"

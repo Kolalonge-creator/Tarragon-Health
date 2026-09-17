@@ -361,6 +361,23 @@ async function countUnreadSupportMessages(supabase: Client) {
   return count ?? 0;
 }
 
+/**
+ * Threads waiting on a care-team reply -- exact same predicate as
+ * isAwaitingCareTeam (lib/worklist/message-triage.ts), which compares
+ * care_team_last_read_at to last_message_at. That's a column-vs-column
+ * comparison PostgREST's query-string filters can't express (they only ever
+ * compare a column to a supplied value), so this counter calls a
+ * `security invoker` SQL RPC instead of the usual .select().eq() chain --
+ * see migration 20260917090629_count_care_threads_awaiting_reply_rpc.sql.
+ * RLS on care_message_threads still scopes the result per caller, same as
+ * every other counter here.
+ */
+async function countCareThreadsAwaitingReply(supabase: Client) {
+  const { data, error } = await supabase.rpc("count_care_threads_awaiting_reply");
+  if (error) throw error;
+  return data ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -392,7 +409,8 @@ export type WorklistCountKey =
   | "openComplaints"
   | "weightManagementPendingEligibility"
   | "therapyApprovalsWaiting"
-  | "unreadSupportMessages";
+  | "unreadSupportMessages"
+  | "careThreadsAwaitingReply";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -431,6 +449,7 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   weightManagementPendingEligibility: countWeightManagementPendingEligibility,
   therapyApprovalsWaiting: countTherapyApprovalsWaiting,
   unreadSupportMessages: countUnreadSupportMessages,
+  careThreadsAwaitingReply: countCareThreadsAwaitingReply,
 };
 
 /**

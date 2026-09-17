@@ -12,6 +12,13 @@ type CountResult = { count: number | null; error: { message: string } | null };
  * `.from(...).select(...).eq(...).in(...)` resolves to one fixed result. That
  * is enough to assert the only thing this test cares about — whether a
  * counter reports a failed query as a number or as a rejection.
+ *
+ * `rpc` is stubbed separately on the same fixed `result` (mapped from
+ * `count` to `data`, matching what `.rpc()` actually returns) so the one
+ * counter that can't be expressed as a PostgREST filter chain
+ * (careThreadsAwaitingReply, which compares two columns to each other) is
+ * covered by the exact same three generic-success/null/error cases as every
+ * other counter here, rather than needing its own bespoke test.
  */
 function stubClient(result: CountResult): Client {
   const builder: Record<string, unknown> = {
@@ -20,6 +27,7 @@ function stubClient(result: CountResult): Client {
   for (const method of ["from", "select", "eq", "neq", "in", "or", "is", "gte", "not"]) {
     builder[method] = () => builder;
   }
+  builder.rpc = () => Promise.resolve({ data: result.count, error: result.error });
   return builder as unknown as Client;
 }
 
@@ -27,7 +35,7 @@ const KEYS = Object.keys(COUNTERS) as WorklistCountKey[];
 
 describe("worklist counters", () => {
   it("covers every worklist the clinician dashboard counts", () => {
-    expect(KEYS.length).toBe(31);
+    expect(KEYS.length).toBe(32);
   });
 
   it.each(KEYS)("%s returns the live count when the query succeeds", async (key) => {

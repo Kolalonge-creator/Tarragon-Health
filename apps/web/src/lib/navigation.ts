@@ -412,7 +412,12 @@ export function getNavSections(
                   icon: "governance",
                   countKey: "openComplaints",
                 },
-                { label: "Patient messages", href: "/clinician/messages", icon: "messages" },
+                {
+                  label: "Patient messages",
+                  href: "/clinician/messages",
+                  icon: "messages",
+                  countKey: "careThreadsAwaitingReply",
+                },
                 { label: "Async consults", href: "/clinician/async-consults", icon: "inbox", countKey: "asyncConsults" },
                 // Real pages with no prior sidebar entry at all — previously
                 // reachable only via the dashboard's "All worklists" strip,
