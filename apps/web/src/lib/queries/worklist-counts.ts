@@ -206,6 +206,27 @@ async function countActiveCases(supabase: Client) {
   return count ?? 0;
 }
 
+/** Exact same filter as useOperationsQueueAlerts (lib/queries/operations-queue.ts). */
+async function countOperationsQueueAlerts(supabase: Client) {
+  const { count, error } = await supabase
+    .from("clinician_alerts")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "open");
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/** Exact same filter as the results-inbox page's own "Awaiting action" count
+ * (apps/web/src/app/(dashboard)/clinician/results-inbox/page.tsx). */
+async function countResultsInboxAwaitingAction(supabase: Client) {
+  const { count, error } = await supabase
+    .from("lab_result_documents")
+    .select("id", { count: "exact", head: true })
+    .neq("acknowledgement_status", "action_completed");
+  if (error) throw error;
+  return count ?? 0;
+}
+
 export type WorklistCountKey =
   | "escalations"
   | "referralsNeedingUrgency"
@@ -226,7 +247,9 @@ export type WorklistCountKey =
   | "carePlanReviewPrompts"
   | "recommendations"
   | "vaccinationVerifications"
-  | "activeCases";
+  | "activeCases"
+  | "operationsQueueAlerts"
+  | "resultsInboxAwaitingAction";
 
 /**
  * Exported so the "a broken query must never render as 0" invariant above is
@@ -254,6 +277,8 @@ export const COUNTERS: Record<WorklistCountKey, (supabase: Client) => Promise<nu
   recommendations: countRecommendations,
   vaccinationVerifications: countPendingVaccinationVerifications,
   activeCases: countActiveCases,
+  operationsQueueAlerts: countOperationsQueueAlerts,
+  resultsInboxAwaitingAction: countResultsInboxAwaitingAction,
 };
 
 /**
