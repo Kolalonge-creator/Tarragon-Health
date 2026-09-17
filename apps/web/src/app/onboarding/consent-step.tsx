@@ -109,6 +109,13 @@ export function ConsentStep({
       </div>
 
       <form action={formAction} className="space-y-3">
+        {/* Restricts the server action to recording exactly the consent
+            types rendered above — see acceptConsents' own doc comment. Without
+            this, the server previously recorded every CURRENT consent version
+            regardless of what the form actually showed, which for the
+            supporter path (onlyTypes=["terms_of_service"]) meant a false
+            data-processing/telehealth acceptance row. */}
+        {onlyTypes?.map((type) => <input key={type} type="hidden" name="onlyTypes" value={type} />)}
         <label className="flex items-start gap-2 text-sm text-charcoal-ink">
           <input
             type="checkbox"
