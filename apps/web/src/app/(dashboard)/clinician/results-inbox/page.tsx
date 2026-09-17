@@ -265,6 +265,20 @@ export default async function ResultsInboxPage({
           value={String(overdueReview ?? 0)}
         />
       </div>
+      <p className="-mt-2 text-xs text-charcoal-ink/50">
+        These four counts are org-wide situational awareness, not a preview of the table below — they
+        span every open clinician alert and unactioned abnormal screening result, not just result
+        documents. Work the alerts from{" "}
+        <Link href="/clinician/operations-queue" className="underline">
+          Operations queue
+        </Link>{" "}
+        or{" "}
+        <Link href="/clinician/escalations" className="underline">
+          Escalations
+        </Link>
+        ; an abnormal screening result with no follow-up action yet is worked from that patient&apos;s
+        own screening &amp; prevention tab.
+      </p>
 
       <Card>
         <CardHeader>
