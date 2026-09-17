@@ -170,6 +170,60 @@ describe("computeCdsRecommendations — BP control (§38.3 'BP remains uncontrol
     const recs = computeCdsRecommendations(baseInput({ hbpm: { ...hbpm, average: null } }));
     expect(recs).toHaveLength(0);
   });
+
+  describe("severity gradient (mirrors private.classify_bp_level's EMERGENCY/RED/AMBER bands)", () => {
+    it("is 'low' priority for a mildly above-target average, below every population red-flag threshold", () => {
+      const recs = computeCdsRecommendations(
+        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 134, diastolic: 84 } } }),
+      );
+      expect(recs[0].priority).toBe("low");
+      expect(recs[0].triggerText).not.toContain("crisis");
+      expect(recs[0].triggerText).not.toContain("urgent");
+    });
+
+    it("is 'medium' priority for the AMBER band (systolic 135-159 or diastolic 85-99)", () => {
+      const recs = computeCdsRecommendations(
+        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 145, diastolic: 92 } } }),
+      );
+      expect(recs[0].priority).toBe("medium");
+    });
+
+    it("is 'high' priority for the RED band (systolic 160-199 or diastolic 100-119) and notes it's urgent", () => {
+      const recs = computeCdsRecommendations(
+        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 165, diastolic: 95 } } }),
+      );
+      expect(recs[0].priority).toBe("high");
+      expect(recs[0].triggerText).toContain("urgent, same-day-review range");
+    });
+
+    it("is 'high' priority for a diastolic-only crisis (diastolic >= 120) and names the crisis range", () => {
+      const recs = computeCdsRecommendations(
+        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 150, diastolic: 130 } } }),
+      );
+      expect(recs[0].priority).toBe("high");
+      expect(recs[0].triggerText).toContain("hypertensive-crisis range");
+    });
+
+    it("is 'high' priority for the live crisis case (205/130) — never the same priority as a barely-above-target reading", () => {
+      const crisis = computeCdsRecommendations(
+        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 205, diastolic: 130 } } }),
+      )[0];
+      const mild = computeCdsRecommendations(
+        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 136, diastolic: 86 } } }),
+      )[0];
+      expect(crisis.priority).toBe("high");
+      expect(mild.priority).toBe("medium");
+      expect(crisis.priority).not.toBe(mild.priority);
+    });
+
+    it("grades the systolic and diastolic bands independently — the more severe of the two wins", () => {
+      // Systolic alone is only AMBER-range, but diastolic 105 is RED-range.
+      const recs = computeCdsRecommendations(
+        baseInput({ hbpm: { ...hbpm, average: { ...hbpm.average, systolic: 140, diastolic: 105 } } }),
+      );
+      expect(recs[0].priority).toBe("high");
+    });
+  });
 });
 
 describe("computeCdsRecommendations — referral pathway (§38.3 'Referral pathway may be appropriate')", () => {
