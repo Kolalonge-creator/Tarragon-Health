@@ -201,7 +201,6 @@ async function runGraphCase(prompt: string) {
   const graph = buildCoachGraph({
     supabase,
     getServiceRoleSupabase: () => supabase,
-    embedder: null,
   });
   const result = await graph.invoke({
     profileId: "00000000-0000-0000-0000-0000000000ee",

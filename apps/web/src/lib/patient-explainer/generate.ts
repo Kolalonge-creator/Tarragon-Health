@@ -265,51 +265,77 @@ async function generateMedicationExplanation(
   const languageName = EXPLAINER_LANGUAGE_NAME[language] ?? EXPLAINER_LANGUAGE_NAME.en;
   const promptText = formatMedicationSnapshotForPrompt(snapshot);
 
-  try {
-    const chatModel =
-      model ??
-      new ChatAnthropic({
-        apiKey: process.env.ANTHROPIC_API_KEY,
-        model: MODEL_ID,
-        maxTokens: 400,
-        invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
-      });
-    const structuredModel = chatModel.withStructuredOutput(explanationSchema);
+  // AI-003 in the registry -- same system as generateResultExplanation above,
+  // just a different `kind`. This path used to be a bare try/catch around a
+  // direct ChatAnthropic call with no runGovernedAi, no kill-switch check and
+  // no audit row (see docs/AI_002_015_EVALUATION_SCOPE.md's "real finding").
+  // Switching AI-003 off in the console did nothing to it; it kept calling
+  // Claude regardless. Fixed by routing through the same wrapper the other
+  // six kinds already use.
+  const governed = await runGovernedAi<{ status: "generated" | "failed"; explanation?: string }>({
+    supabase,
+    systemCode: AI_SYSTEMS.patientResultExplainer.code,
+    inputCategory: "result_explanation:medication",
+    subjectProfileId: patientId,
 
-    const result = await structuredModel.invoke([
-      new SystemMessage(MEDICATION_SYSTEM_PROMPT_TEMPLATE(languageName)),
-      new HumanMessage(promptText),
-    ]);
+    run: async ({ config }) => {
+      const chatModel =
+        model ??
+        new ChatAnthropic({
+          apiKey: process.env.ANTHROPIC_API_KEY,
+          model: MODEL_ID,
+          maxTokens: 400,
+          invocationKwargs: { temperature: undefined, top_p: undefined, top_k: undefined },
+        });
+      const structuredModel = chatModel.withStructuredOutput(explanationSchema);
 
-    const svc = getServiceRoleSupabase();
-    await svc.from("patient_result_explanations").upsert(
-      {
-        organisation_id: organisationId,
-        patient_id: patientId,
-        kind: "medication",
-        subject_key: subjectKey,
-        language,
-        status: "generated",
-        model_id: MODEL_ID,
-        explanation_text: result.explanation,
-        input_snapshot: snapshot as unknown as Json,
-        error_message: null,
-        generated_at: new Date().toISOString(),
-      },
-      { onConflict: "patient_id,kind,subject_key,language" }
-    );
+      const result = await structuredModel.invoke([
+        new SystemMessage(governedSystemPrompt(config) ?? MEDICATION_SYSTEM_PROMPT_TEMPLATE(languageName)),
+        new HumanMessage(promptText),
+      ]);
 
-    return { status: "generated", explanation: result.explanation };
-  } catch (error) {
-    console.error("patient-explainer: medication generation failed, degrading to no explanation", error);
-    await persistFailure(
-      getServiceRoleSupabase(),
-      params,
-      snapshot,
-      error instanceof Error ? error.message : "Unknown error"
-    );
-    return { status: "failed" };
-  }
+      const svc = getServiceRoleSupabase();
+      await svc.from("patient_result_explanations").upsert(
+        {
+          organisation_id: organisationId,
+          patient_id: patientId,
+          kind: "medication",
+          subject_key: subjectKey,
+          language,
+          status: "generated",
+          model_id: MODEL_ID,
+          explanation_text: result.explanation,
+          input_snapshot: snapshot as unknown as Json,
+          error_message: null,
+          generated_at: new Date().toISOString(),
+        },
+        { onConflict: "patient_id,kind,subject_key,language" }
+      );
+
+      return {
+        value: { status: "generated" as const, explanation: result.explanation },
+        modelIdentifier: MODEL_ID,
+        outputSummary: result.explanation,
+        resultingAction: "explanation_shown_to_patient",
+      };
+    },
+
+    fallback: async (reason, error) => {
+      const detail =
+        reason === "ai_error"
+          ? error instanceof Error
+            ? error.message
+            : "Unknown error"
+          : `No explanation generated: ${reason}.`;
+      if (reason === "ai_error") {
+        console.error("patient-explainer: medication generation failed, degrading to no explanation", error);
+      }
+      await persistFailure(getServiceRoleSupabase(), params, snapshot, detail);
+      return { status: "failed" as const };
+    },
+  });
+
+  return governed.value;
 }
 
 async function persistFailure(
