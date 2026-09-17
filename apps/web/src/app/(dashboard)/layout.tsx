@@ -3,6 +3,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { AppShell } from "@/components/shell/app-shell";
 import { asUiLanguage } from "@tarragon/shared";
 import { MfaNudgeBanner } from "@/components/shell/mfa-nudge-banner";
+import { ConsentNudgeBanner } from "@/components/shell/consent-nudge-banner";
 import { PendingJobsBanner } from "@/components/shell/pending-jobs-banner";
 import { getNavSections } from "@/lib/navigation";
 import { ROLE_DISPLAY_LABEL } from "@/lib/auth/roles";
@@ -28,7 +29,7 @@ export default async function DashboardLayout({
   const { data: profile } = await supabase
     .from("profiles")
     .select(
-      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url, language"
+      "full_name, role, organisation_id, receives_care, patient_number, staff_number, avatar_url, language, onboarding_completed_at"
     )
     .eq("id", user.id)
     .single();
@@ -133,6 +134,16 @@ export default async function DashboardLayout({
         signOutAction={signOut}
       >
         <MfaNudgeBanner role={profile?.role ?? null} />
+        {/* Reachable at /patient/privacy for any signed-in patient, supporter-only
+            accounts included (they consent to terms_of_service and can go stale
+            same as anyone else) — gated here on onboarding_completed_at so this
+            never doubles up with ConsentStep's own gate for a patient still
+            mid-onboarding (who can't reach this shared layout with a completed
+            profile anyway, since every /patient/* route redirects to /onboarding
+            first — see getPatientDashboardContext). */}
+        {profile?.role === "patient" && profile?.onboarding_completed_at && (
+          <ConsentNudgeBanner patientId={user.id} />
+        )}
         {profile?.role === "clinician" && (
           <PendingJobsBanner jobs={pendingJobItems} staffId={clinicalStaffId} />
         )}

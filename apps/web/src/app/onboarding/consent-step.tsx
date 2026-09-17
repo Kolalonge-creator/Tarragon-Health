@@ -25,6 +25,7 @@ export function ConsentStep({
   onComplete,
   onlyTypes,
   description,
+  agreementLabel,
 }: {
   onComplete: () => void;
   /**
@@ -38,6 +39,15 @@ export function ConsentStep({
    */
   onlyTypes?: string[];
   description?: string;
+  /**
+   * Overrides the checkbox copy below. Used by the already-onboarded
+   * re-consent path (ConsentStatusPanel), where `onlyTypes` is whichever
+   * consent types happen to be outstanding for THIS patient right now — not
+   * the fixed "terms of service only" set the supporter path always shows —
+   * so the two-way onboarding ternary below can't describe it generically.
+   * Undefined preserves the exact existing onboarding/supporter copy.
+   */
+  agreementLabel?: string;
 }) {
   const { data: allVersions, isLoading } = useCurrentConsentVersions();
   const [state, formAction, pending] = useActionState(acceptConsents, undefined);
@@ -129,9 +139,10 @@ export function ConsentStep({
               agreed "to receive remote care" would record a consent they were
               never asked for — the exact untruth this split exists to avoid. */}
           <span>
-            {onlyTypes
-              ? "I have read and agree to the terms of service."
-              : "I have read and agree to how my health information is used, to receive remote care, and to the terms of service."}
+            {agreementLabel ??
+              (onlyTypes
+                ? "I have read and agree to the terms of service."
+                : "I have read and agree to how my health information is used, to receive remote care, and to the terms of service.")}
           </span>
         </label>
         <FormError id={errorId} message={state?.error} />
