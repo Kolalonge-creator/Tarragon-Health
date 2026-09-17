@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { PlatformCreditConfigManager, type PlatformCreditConfigRow } from "./platform-credit-config-manager";
 
+export const metadata = { title: "Platform credit" };
+
 /**
  * Admin control for public.platform_credit_config — the min/max top-up
  * bounds and the four suggested amounts shown on the patient-facing

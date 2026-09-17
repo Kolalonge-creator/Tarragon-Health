@@ -13,6 +13,8 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed, failedQueryLabels, joinLabels } from "@/lib/queries/server-query-state";
 import { SEMANTIC_ICON, NAV_ICON } from "@/lib/icons";
 
+export const metadata = { title: "Dashboard" };
+
 type AdminTile = {
   href: string;
   label: string;
@@ -414,13 +416,6 @@ export default async function AdminPage() {
           visible: can("integrations.manage"),
         },
         {
-          href: "/admin/settings/feature-flags",
-          label: "Feature flags",
-          blurb: "Roll a feature out to staff, a percentage, or a named cohort",
-          icon: NAV_ICON.settings,
-          visible: can("feature_flags.manage"),
-        },
-        {
           href: "/admin/settings/protocol-api",
           label: "Protocol API",
           blurb: "License escalation/risk/protocol machinery to partners",
@@ -470,7 +465,7 @@ export default async function AdminPage() {
         {
           href: "/admin/settings/feature-flags",
           label: "Feature flags",
-          blurb: "Roll a feature out by state, role, org or percentage, no deploy",
+          blurb: "Roll a feature out by staff, state, role, organisation, or percentage — no deploy",
           icon: NAV_ICON.flag,
           visible: can("feature_flags.manage"),
         },

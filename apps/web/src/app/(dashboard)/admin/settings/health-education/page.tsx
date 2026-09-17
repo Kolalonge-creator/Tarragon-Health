@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { HealthEducationManager } from "./health-education-manager";
 
+export const metadata = { title: "Health education library" };
+
 export default async function HealthEducationSettingsPage() {
   const profile = await getCurrentProfile();
 

@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { CommissionsDashboard } from "./commissions-dashboard";
 
+export const metadata = { title: "Commission tracking" };
+
 export default async function CommissionsSettingsPage() {
   const profile = await getCurrentProfile();
 

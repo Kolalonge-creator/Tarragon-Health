@@ -10,6 +10,8 @@ import {
   type RequestedCampaignRow,
 } from "./campaign-manager";
 
+export const metadata = { title: "Prevention campaigns" };
+
 /**
  * Population-level prevention campaigns (spec §2.16) — "Heart Health Month"
  * style time-boxed initiatives. A campaign is created as a draft (visible

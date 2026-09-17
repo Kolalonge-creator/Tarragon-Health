@@ -7,6 +7,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { TestimonialModerationButtons } from "./moderation-buttons";
 
+export const metadata = { title: "Testimonials" };
+
 export default async function AdminTestimonialsPage() {
   const profile = await getCurrentProfile();
   // proxy.ts already blocks non-admins from /admin/**; defence in depth.

@@ -7,6 +7,8 @@ import {
   type ResultReleasePolicyVersionRow,
 } from "./result-release-policies-manager";
 
+export const metadata = { title: "Result release policies" };
+
 /**
  * Clinical Director sign-off for the result_release_policies config table
  * (Result Lifecycle §58.13) — the governed switch controlling whether a

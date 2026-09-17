@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProviderRestrictionsManager } from "./provider-restrictions-manager";
 
+export const metadata = { title: "Provider restrictions" };
+
 export default async function ProviderRestrictionsSettingsPage() {
   const profile = await getCurrentProfile();
 

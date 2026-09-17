@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { ScreeningDaysDashboard } from "./screening-days-dashboard";
 
+export const metadata = { title: "Group screening days" };
+
 export default async function ScreeningDaysSettingsPage() {
   const profile = await getCurrentProfile();
 

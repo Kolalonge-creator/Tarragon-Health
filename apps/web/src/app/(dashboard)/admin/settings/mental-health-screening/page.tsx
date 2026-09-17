@@ -8,6 +8,8 @@ import {
   type ScreeningCadenceVersionRow,
 } from "./mental-health-screening-manager";
 
+export const metadata = { title: "Mental health screening cadences" };
+
 /**
  * Clinical Director sign-off for the mental-health screening cadences
  * (PHQ-9/GAD-7/AUDIT-C re-screen and post-concern follow-up intervals, §46.5).

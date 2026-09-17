@@ -5,6 +5,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { AlertRulesManager, type AlertRulesVersionRow } from "./alert-rules-manager";
 
+export const metadata = { title: "Alert rules" };
+
 /**
  * Clinical Director sign-off for the unified alert taxonomy (severity,
  * owner tier, ack timeout, channel sequence for every clinician_alerts

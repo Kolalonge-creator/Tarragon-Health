@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { OutcomesContractReviewQueue } from "./review-queue";
 
+export const metadata = { title: "Fee-at-risk contracts" };
+
 export default async function OutcomesContractsAdminPage() {
   const profile = await getCurrentProfile();
 

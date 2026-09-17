@@ -7,6 +7,8 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { anyQueryFailed } from "@/lib/queries/server-query-state";
 import { MembersManager } from "./members-manager";
 
+export const metadata = { title: "Members & access" };
+
 export type MemberRow = {
   id: string;
   email: string | null;

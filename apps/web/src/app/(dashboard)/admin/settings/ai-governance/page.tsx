@@ -25,6 +25,8 @@ import {
   type AiClinicalAccuracyCaseRow,
 } from "./ai-governance-console";
 
+export const metadata = { title: "AI governance" };
+
 /**
  * AI governance console — Module 40.13's clinical-governance view, plus the
  * controls behind it: the kill switch (40.17), incident triage and closure

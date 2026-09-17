@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { RulesManager } from "./rules-manager";
 
+export const metadata = { title: "Medication refill reminders" };
+
 export default async function MedicationRefillsSettingsPage() {
   const profile = await getCurrentProfile();
 

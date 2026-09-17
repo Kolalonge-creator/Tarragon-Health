@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { BookingRequestsAdmin } from "./booking-requests-admin";
 
+export const metadata = { title: "Bookings" };
+
 export default async function AdminBookingsPage() {
   const profile = await getCurrentProfile();
 

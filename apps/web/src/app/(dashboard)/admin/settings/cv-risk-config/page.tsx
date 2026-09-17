@@ -8,6 +8,8 @@ import { CvRiskConfigEditor } from "./cv-risk-config-editor";
 import { PROVISIONAL_CV_RISK_CONFIG, type CvRiskConfig } from "@/lib/rules/cv-risk";
 import { configToFormValues } from "@/lib/validation/cv-risk-config";
 
+export const metadata = { title: "CV-risk (cholesterol) config" };
+
 /**
  * Medical-Director sign-off for the cardiovascular-risk configuration —
  * every LDL/Non-HDL target, statin-eligibility rule and escalation threshold

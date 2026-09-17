@@ -5,6 +5,8 @@ import { getCallerPermissions } from "@/lib/auth/permissions";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 
+export const metadata = { title: "Labs, pharmacies & specialists" };
+
 type PartnerLink = { href: string; title: string; description: string; permission?: string };
 
 const PARTNER_LINKS: PartnerLink[] = [

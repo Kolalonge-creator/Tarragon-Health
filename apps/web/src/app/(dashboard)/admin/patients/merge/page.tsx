@@ -8,6 +8,8 @@ import { PageHeader } from "@/components/ui/page-header";
 import { LoadFailure } from "@/components/ui/load-failure";
 import { MergeTool, type MergeCandidate, type RecordWeight } from "./merge-tool";
 
+export const metadata = { title: "Merge patient records" };
+
 /**
  * How much clinical history each candidate carries. Choosing which record
  * survives from name, patient number, DOB and phone alone tells an operator

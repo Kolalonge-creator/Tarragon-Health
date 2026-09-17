@@ -3,6 +3,8 @@ import { getCurrentProfile } from "@/lib/auth/current-profile";
 import { PageHeader } from "@/components/ui/page-header";
 import { BroadcastComposer } from "./broadcast-composer";
 
+export const metadata = { title: "Broadcasts & announcements" };
+
 export default async function BroadcastsSettingsPage() {
   const profile = await getCurrentProfile();
 
