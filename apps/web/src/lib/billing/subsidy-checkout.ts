@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { isPaystackConfigured } from "@/lib/paystack/client";
 import { initializeOneOffTransaction } from "@/lib/paystack/transactions";
+import { toPatientFacingCheckoutError } from "@/lib/paystack/patient-facing-error";
 import type { CheckoutMetadata } from "@/lib/billing/checkout-metadata";
 
 export type SubsidizedOrderType = "lab" | "pharmacy" | "referral";
@@ -151,7 +152,7 @@ async function startContributionCheckout(
     callbackUrl: args.callbackUrl,
     metadata,
   });
-  if (!result.ok) return { ok: false, error: result.error };
+  if (!result.ok) return { ok: false, error: toPatientFacingCheckoutError(result.error) };
 
   const { error: refError } = await supabase.rpc("set_subsidy_contribution_pending_ref", {
     p_contribution_id: args.contributionId,

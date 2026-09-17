@@ -10,6 +10,7 @@ import { SearchableList } from "@/components/ui/searchable-list";
 import { downloadCsv } from "@/lib/analytics/download-csv";
 import type { CsvRow } from "@/lib/analytics/to-csv";
 import { logPatientDirectoryExport } from "./actions";
+import { PlatformCreditPanel } from "./platform-credit-panel";
 
 export type PatientPurchase = {
   label: string;
@@ -38,6 +39,8 @@ export type PatientRow = {
   lastPurchaseAt: string | null;
   /** Full itemised history, every status included — shown in the row detail and the CSV export. */
   purchases: PatientPurchase[];
+  platformCreditBalanceKobo: number;
+  platformCreditPromoBalanceKobo: number;
 };
 
 function naira(kobo: number): string {
@@ -86,6 +89,7 @@ export function PatientsDirectory({ rows }: { rows: PatientRow[] }) {
       "Purchases (paid)": r.purchaseCount,
       "Total spent (NGN)": koboToNaira(r.totalSpentKobo),
       "Last purchase": r.lastPurchaseAt ?? "",
+      "Platform credit balance (NGN)": koboToNaira(r.platformCreditBalanceKobo),
       "Purchase history": r.purchases
         .map((p) => `${p.label} — ${naira(p.amountKobo)} (${p.status}, ${shortDate(p.purchasedAt)})`)
         .join(" | "),
@@ -143,6 +147,7 @@ export function PatientsDirectory({ rows }: { rows: PatientRow[] }) {
                   <th className="px-3 py-2">Age / sex</th>
                   <th className="px-3 py-2">Joined</th>
                   <th className="px-3 py-2">Purchases</th>
+                  <th className="px-3 py-2">Platform credit</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -200,28 +205,39 @@ function PatientTableRow({ row }: { row: PatientRow }) {
             </>
           )}
         </td>
-        <td className="px-3 py-2 text-right">
-          {row.purchases.length > 0 && (
-            <Button type="button" size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
-              {expanded ? "Hide" : "Details"}
-            </Button>
+        <td className="px-3 py-2 text-charcoal-ink/80">
+          {naira(row.platformCreditBalanceKobo)}
+          {row.platformCreditPromoBalanceKobo > 0 && (
+            <p className="text-xs text-charcoal-ink/50">incl. {naira(row.platformCreditPromoBalanceKobo)} promo</p>
           )}
         </td>
+        <td className="px-3 py-2 text-right">
+          <Button type="button" size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)}>
+            {expanded ? "Hide" : "Manage"}
+          </Button>
+        </td>
       </tr>
-      {expanded && row.purchases.length > 0 && (
+      {expanded && (
         <tr>
-          <td colSpan={6} className="bg-charcoal-ink/[0.03] px-3 py-2">
-            <ul className="space-y-1">
-              {row.purchases.map((p, i) => (
-                <li key={i} className="flex flex-wrap items-center gap-2 text-xs">
-                  <Badge variant={PURCHASE_STATUS_VARIANT[p.status] ?? "grey"}>{p.status}</Badge>
-                  <span className="text-charcoal-ink/80">{p.label}</span>
-                  <span className="text-charcoal-ink/50">
-                    {naira(p.amountKobo)} · {shortDate(p.purchasedAt)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+          <td colSpan={7} className="space-y-3 bg-charcoal-ink/[0.03] px-3 py-3">
+            {row.purchases.length > 0 && (
+              <ul className="space-y-1">
+                {row.purchases.map((p, i) => (
+                  <li key={i} className="flex flex-wrap items-center gap-2 text-xs">
+                    <Badge variant={PURCHASE_STATUS_VARIANT[p.status] ?? "grey"}>{p.status}</Badge>
+                    <span className="text-charcoal-ink/80">{p.label}</span>
+                    <span className="text-charcoal-ink/50">
+                      {naira(p.amountKobo)} · {shortDate(p.purchasedAt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <PlatformCreditPanel
+              patientId={row.id}
+              balanceKobo={row.platformCreditBalanceKobo}
+              promoBalanceKobo={row.platformCreditPromoBalanceKobo}
+            />
           </td>
         </tr>
       )}
