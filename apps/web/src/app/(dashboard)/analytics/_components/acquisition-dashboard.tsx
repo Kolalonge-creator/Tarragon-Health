@@ -130,6 +130,7 @@ export function AcquisitionDashboard() {
           <MiniBarList
             items={(s?.by_referrer ?? []).map((r) => ({ label: r.referrer_host, value: r.visitors }))}
             emptyLabel="No referrers yet."
+            preserveCase
           />
         </SectionCard>
         <SectionCard
@@ -139,6 +140,7 @@ export function AcquisitionDashboard() {
           <MiniBarList
             items={(s?.by_source ?? []).map((r) => ({ label: r.source, value: r.visitors }))}
             emptyLabel="No campaign traffic yet."
+            preserveCase
           />
         </SectionCard>
         <SectionCard
@@ -153,6 +155,7 @@ export function AcquisitionDashboard() {
               display: `${formatNumber(p.pageviews)} · ${formatNumber(p.visitors)} visitors`,
             }))}
             emptyLabel="No pageviews yet."
+            preserveCase
           />
         </SectionCard>
         <SectionCard

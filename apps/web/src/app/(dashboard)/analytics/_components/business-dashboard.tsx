@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Building2, Receipt, UserCheck, Users } from "lucide-react";
-import { CartesianGrid, Cell, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, XAxis, YAxis } from "recharts";
 import { StatTile } from "@/components/ui/stat-tile";
 import {
   ChartContainer,
@@ -116,6 +116,21 @@ export function BusinessDashboard() {
                     <Cell key={entry.role} fill={paletteColor(i)} />
                   ))}
                 </Pie>
+                <Legend
+                  content={() => (
+                    <ul className="mt-2 flex flex-wrap justify-center gap-x-4 gap-y-1 text-xs text-charcoal-ink/70">
+                      {s.roles.map((entry, i) => (
+                        <li key={entry.role} className="flex items-center gap-1.5">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-sm"
+                            style={{ backgroundColor: paletteColor(i) }}
+                          />
+                          {entry.role} ({entry.count})
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                />
               </PieChart>
             </ChartContainer>
           )}

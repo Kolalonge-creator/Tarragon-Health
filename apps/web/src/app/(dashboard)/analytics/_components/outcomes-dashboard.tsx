@@ -8,7 +8,7 @@ import {
   useDiagnosticPathwayAnalytics,
   useEscalationQuality,
 } from "@/lib/analytics/queries";
-import { formatNumber, formatPercent } from "@/lib/analytics/format";
+import { formatMinutesDuration, formatNumber, formatPercent } from "@/lib/analytics/format";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
 
@@ -125,7 +125,7 @@ export function OutcomesDashboard() {
             <div className="space-y-2 text-sm">
               <div className="flex justify-between"><span className="text-charcoal-ink/60">SLA met</span><span className="font-medium tabular-nums">{e?.sla.met ?? 0} / {e?.sla.total ?? 0} ({formatPercent(e?.sla.pct_met ?? 0)})</span></div>
               <div className="flex justify-between"><span className="text-charcoal-ink/60">SLA breached</span><span className="font-medium tabular-nums">{formatNumber(e?.sla.breached ?? 0)}</span></div>
-              <div className="flex justify-between"><span className="text-charcoal-ink/60">Avg time to acknowledge</span><span className="font-medium tabular-nums">{formatNumber(e?.avg_ack_minutes ?? 0)} min</span></div>
+              <div className="flex justify-between"><span className="text-charcoal-ink/60">Avg time to acknowledge</span><span className="font-medium tabular-nums">{formatMinutesDuration(e?.avg_ack_minutes ?? 0)}</span></div>
               <div className="flex justify-between"><span className="text-charcoal-ink/60">Open alerts</span><span className="font-medium tabular-nums">{formatNumber(e?.open_alerts ?? 0)}</span></div>
               <div className="flex justify-between"><span className="text-charcoal-ink/60">Overdue alerts</span><span className="font-medium tabular-nums text-red-700">{formatNumber(e?.overdue_alerts ?? 0)}</span></div>
             </div>

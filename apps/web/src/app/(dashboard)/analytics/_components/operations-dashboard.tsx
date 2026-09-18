@@ -7,6 +7,16 @@ import { formatNumber, formatPercent } from "@/lib/analytics/format";
 import { CenterNote, MiniBarList, SectionCard } from "./primitives";
 import { ExportButton } from "./export-button";
 
+/** CSS capitalize() alone turns "in_app" into "In_app" and "whatsapp" into
+ * "Whatsapp" — this is the real, correctly-cased name for each channel. */
+const CHANNEL_LABEL: Record<string, string> = {
+  whatsapp: "WhatsApp",
+  sms: "SMS",
+  email: "Email",
+  push: "Push",
+  in_app: "In-app",
+};
+
 export function OperationsDashboard() {
   const ops = useOperationsSummary();
   const deliver = useDeliverability();
@@ -22,7 +32,11 @@ export function OperationsDashboard() {
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile icon={Stethoscope} label="Clinicians with panels" value={formatNumber(o?.clinician_load.length ?? 0)} />
-        <StatTile icon={AlertTriangle} label={`Over ${o?.target_ratio ?? 120}:1 ratio`} value={formatNumber(o?.over_target ?? 0)} />
+        <StatTile
+          icon={AlertTriangle}
+          label={`Heavy caseload (>${o?.target_ratio ?? 120})`}
+          value={formatNumber(o?.over_target ?? 0)}
+        />
         <StatTile icon={AlertTriangle} label="Open escalation alerts" value={formatNumber(openAlerts)} />
         <StatTile icon={Send} label="Notification queue" value={formatNumber(d?.queue_depth ?? 0)} />
       </div>
@@ -30,7 +44,7 @@ export function OperationsDashboard() {
       <div className="grid gap-6 lg:grid-cols-2">
         <SectionCard
           title="Clinician workload"
-          description={`Patients assigned per clinician. Target ratio ${o?.target_ratio ?? 120}:1.`}
+          description={`Patients assigned per clinician. Rows above ${o?.target_ratio ?? 120} are flagged for a staffing/capacity check — an internal caseload-monitoring heuristic, not a confirmed doctor:patient ratio (that figure is under founder review).`}
           actions={<ExportButton filename="clinician-load" rows={o?.clinician_load ?? []} />}
         >
           {ops.isLoading ? (
@@ -130,7 +144,7 @@ export function OperationsDashboard() {
               <tbody>
                 {(d?.by_channel ?? []).map((c) => (
                   <tr key={c.channel} className="border-b border-charcoal-ink/5">
-                    <td className="py-2 pr-4 capitalize text-charcoal-ink/80">{c.channel}</td>
+                    <td className="py-2 pr-4 text-charcoal-ink/80">{CHANNEL_LABEL[c.channel] ?? c.channel}</td>
                     <td className="py-2 pr-4 text-right tabular-nums">{formatNumber(c.total)}</td>
                     <td className="py-2 pr-4 text-right tabular-nums text-brand-green">{formatNumber(c.sent)}</td>
                     <td className="py-2 pr-4 text-right tabular-nums text-red-700">{formatNumber(c.failed)}</td>
