@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { useCreateReferral } from "@/lib/queries/specialist-referrals";
 import { checkReferralAppropriateness } from "@/lib/referrals/appropriateness-check";
+import { SPECIALIST_TYPE_OPTIONS } from "@/lib/referrals/specialist-type-options";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -12,21 +13,6 @@ import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ReferralSource, ReferralUrgency, SpecialistType } from "@tarragon/shared";
-
-const SPECIALIST_TYPE_OPTIONS: { value: SpecialistType; label: string }[] = [
-  { value: "cardiology", label: "Cardiology" },
-  { value: "endocrinology", label: "Endocrinology" },
-  { value: "nephrology", label: "Nephrology" },
-  { value: "ophthalmology", label: "Ophthalmology" },
-  { value: "ob_gyn", label: "Obstetrics & Gynaecology (O&G)" },
-  { value: "urologist", label: "Urology" },
-  { value: "oncologist", label: "Oncology" },
-  { value: "dietetics", label: "Dietetics" },
-  { value: "podiatry", label: "Podiatry" },
-  { value: "psychiatry", label: "Psychiatry" },
-  { value: "psychology", label: "Psychology" },
-  { value: "other", label: "Other" },
-];
 
 const REFERRAL_SOURCE_OPTIONS: { value: ReferralSource; label: string }[] = [
   { value: "clinician_initiated", label: "Clinician judgment during review" },

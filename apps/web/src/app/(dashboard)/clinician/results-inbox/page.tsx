@@ -104,9 +104,13 @@ type OpenOrderRow = {
 export default async function ResultsInboxPage({
   searchParams,
 }: {
-  searchParams: Promise<{ view?: string }>;
+  searchParams: Promise<{ view?: string; q?: string | string[] }>;
 }) {
-  const view = parseFilter((await searchParams).view);
+  const { view: viewParam, q: qParam } = await searchParams;
+  // Next.js hands back string[] for a repeated query key (?q=a&q=b) — guard
+  // the param this diff adds rather than assuming it's always a plain string.
+  const q = Array.isArray(qParam) ? qParam[0] : qParam;
+  const view = parseFilter(viewParam);
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
 
@@ -124,7 +128,11 @@ export default async function ResultsInboxPage({
       )
       .neq("acknowledgement_status", "action_completed")
       .order("created_at", { ascending: true })
-      .limit(200)
+      // Fetches one row past the real 200-row window so `inboxWindowTruncated`
+      // below can tell "exactly 200 unactioned items, nothing more" apart from
+      // "more than 200 exist" — the extra row is sliced back off immediately
+      // and never rendered.
+      .limit(201)
       .returns<InboxRow[]>(),
     // Result Lifecycle §58.17 safety dashboard — composed from the same
     // clinician_alerts/screening_results filters the worklist and dashboard
@@ -152,7 +160,17 @@ export default async function ResultsInboxPage({
       .lt("sla_due_at", nowIso),
   ]);
 
-  const rows = data ?? [];
+  // The inbox fetch itself is capped at 200 (pre-existing, not something
+  // this diff changed) — so the new search box only ever searches within
+  // that oldest-200 window, not the org's full unactioned history. A "no
+  // match" message must say so rather than reading as "this document
+  // doesn't exist", since a genuinely older unactioned result outside the
+  // window would otherwise look the same as one that was never uploaded.
+  // `inboxWindowTruncated` is decided on the un-sliced fetch (see the
+  // .limit(201) above) so a real "exactly 200, nothing more" org doesn't
+  // get the caveat too.
+  const inboxWindowTruncated = (data ?? []).length > 200;
+  const rows = (data ?? []).slice(0, 200);
 
   // Previous document per patient — the row immediately before each in the
   // patient's own timeline, from the same fetch (cheap: this page is
@@ -171,18 +189,33 @@ export default async function ResultsInboxPage({
   // upload time, so an emergency-level result landed wherever it happened to
   // arrive. Rank by severity first, oldest-first within a severity.
   const ranked = rows.slice().sort(compareResultRows);
-  const urgentCount = ranked.filter(isHighSeverityResult).length;
-  const unreviewedCount = ranked.filter(
+  const searchQuery = q?.trim().toLowerCase();
+  const matchesSearch = (row: InboxRow) => {
+    if (!searchQuery) return true;
+    const haystack = `${row.original_filename ?? ""} ${row.note ?? ""}`.toLowerCase();
+    return haystack.includes(searchQuery);
+  };
+  // Tab badges/links carry the current search forward (below), so their
+  // counts are computed on the search-matched rows too — otherwise a badge
+  // promising 5 urgent results could land on a tab showing only 1 once the
+  // still-active search narrows it further, reading as results gone missing.
+  const searchMatched = ranked.filter(matchesSearch);
+  const urgentCount = searchMatched.filter(isHighSeverityResult).length;
+  const unreviewedCount = searchMatched.filter(
     (row) => row.acknowledgement_status === "new" || row.acknowledgement_status === "opened"
   ).length;
-  const visible = ranked.filter((row) => {
-    if (view === "urgent") return isHighSeverityResult(row);
-    if (view === "unreviewed")
-      return row.acknowledgement_status === "new" || row.acknowledgement_status === "opened";
+  const visible = searchMatched.filter((row) => {
+    if (view === "urgent" && !isHighSeverityResult(row)) return false;
+    if (
+      view === "unreviewed" &&
+      row.acknowledgement_status !== "new" &&
+      row.acknowledgement_status !== "opened"
+    )
+      return false;
     return true;
   });
   const filterCount: Record<InboxFilter, number> = {
-    all: ranked.length,
+    all: searchMatched.length,
     urgent: urgentCount,
     unreviewed: unreviewedCount,
   };
@@ -282,27 +315,67 @@ export default async function ResultsInboxPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Awaiting action{inboxError ? "" : ` (${ranked.length})`}</CardTitle>
+          {/* The header always carries the TRUE org-wide unactioned count
+              (ranked.length), never the search-narrowed one — a stale `q` in
+              a bookmarked/back-navigated URL that happens to match nothing
+              must not make a genuinely non-empty inbox read as "Awaiting
+              action (0)" at a glance, the exact false-all-clear this page's
+              own LoadFailure copy elsewhere goes out of its way to avoid.
+              The search-matched count still appears, just qualified, so it
+              doesn't silently disagree with the "All" tab badge below it. */}
+          <CardTitle>
+            Awaiting action
+            {inboxError
+              ? ""
+              : searchQuery
+                ? ` (${ranked.length}, ${searchMatched.length} matching search)`
+                : ` (${ranked.length})`}
+          </CardTitle>
           <CardDescription>Across every patient in your organisation.</CardDescription>
         </CardHeader>
         <CardContent>
           {!inboxError && ranked.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {INBOX_FILTERS.map((filter) => (
-                <Link
-                  key={filter.value}
-                  href={filter.value === "all" ? "/clinician/results-inbox" : `/clinician/results-inbox?view=${filter.value}`}
-                  aria-current={view === filter.value ? "page" : undefined}
-                  className={
-                    view === filter.value
-                      ? "rounded-full border border-brand-green bg-brand-green/10 px-3 py-1 text-xs font-medium text-deep-forest"
-                      : "rounded-full border border-charcoal-ink/20 px-3 py-1 text-xs text-charcoal-ink/70 hover:border-brand-green"
-                  }
+            <>
+              <form method="GET" className="mb-3 flex gap-2">
+                {view !== "all" && <input type="hidden" name="view" value={view} />}
+                <input
+                  type="search"
+                  name="q"
+                  defaultValue={q ?? ""}
+                  placeholder="Search by test / document name"
+                  aria-label="Search results by test or document name"
+                  className="w-full max-w-sm rounded-lg border border-charcoal-ink/15 bg-white px-3 py-2 text-sm text-charcoal-ink placeholder:text-charcoal-ink/40 focus:border-brand-green focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  className="rounded-lg bg-brand-green px-4 py-2 text-sm font-medium text-white hover:bg-deep-forest"
                 >
-                  {filter.label} ({filterCount[filter.value]})
-                </Link>
-              ))}
-            </div>
+                  Search
+                </button>
+              </form>
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {INBOX_FILTERS.map((filter) => {
+                  const params = new URLSearchParams();
+                  if (filter.value !== "all") params.set("view", filter.value);
+                  if (q?.trim()) params.set("q", q.trim());
+                  const qs = params.toString();
+                  return (
+                    <Link
+                      key={filter.value}
+                      href={qs ? `/clinician/results-inbox?${qs}` : "/clinician/results-inbox"}
+                      aria-current={view === filter.value ? "page" : undefined}
+                      className={
+                        view === filter.value
+                          ? "rounded-full border border-brand-green bg-brand-green/10 px-3 py-1 text-xs font-medium text-deep-forest"
+                          : "rounded-full border border-charcoal-ink/20 px-3 py-1 text-xs text-charcoal-ink/70 hover:border-brand-green"
+                      }
+                    >
+                      {filter.label} ({filterCount[filter.value]})
+                    </Link>
+                  );
+                })}
+              </div>
+            </>
           )}
           {/* "The inbox is clear" off a failed read is a result nobody looks
               at again. An unread query is not an empty inbox. */}
@@ -315,7 +388,18 @@ export default async function ResultsInboxPage({
             <p className="text-sm text-charcoal-ink/60">Nothing waiting: the inbox is clear.</p>
           ) : visible.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
-              Nothing in this view. Choose All to see the rest of the inbox.
+              {searchQuery && searchMatched.length > 0
+                ? // The search matched something — just not within the current
+                  // view (Urgent/Unreviewed) — so this must not read as "no
+                  // match found", only as "not in this view".
+                  `“${q?.trim()}” matches ${searchMatched.length} result${searchMatched.length === 1 ? "" : "s"}, but none in this view. Choose All to see ${searchMatched.length === 1 ? "it" : "them"}.`
+                : searchQuery
+                  ? `Nothing matches “${q?.trim()}” among the ${rows.length} unactioned items currently loaded here.${
+                      inboxWindowTruncated
+                        ? " This inbox is showing only the oldest 200 unactioned items — a matching result could still exist further back; this is not a confirmation the document doesn't exist."
+                        : " Try clearing the search."
+                    }`
+                  : "Nothing in this view. Choose All to see the rest of the inbox."}
             </p>
           ) : (
             <div className="overflow-x-auto">
