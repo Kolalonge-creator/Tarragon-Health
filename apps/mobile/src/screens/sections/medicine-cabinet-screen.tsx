@@ -25,6 +25,7 @@ import {
 } from "@/lib/medications";
 import { colors, inkAlpha, radius, spacing } from "@/ui/theme";
 import { Card, ErrorText, MutedText, PrimaryButton, SecondaryButton, SectionLabel } from "@/ui/components";
+import { PharmacyOrdersSection } from "@/screens/sections/pharmacy-orders-section";
 
 interface MedicineCabinetScreenProps {
   patientId: string;
@@ -94,8 +95,14 @@ function Pill({ tone, children }: { tone: "green" | "amber" | "grey" | "red"; ch
  *
  * Deliberately NOT ported from the web page, as out-of-scope simplifications
  * for this native pass: stop-medication, side-effect/access-barrier
- * reporting, the paid prescription-renewal purchase flow, prescription
- * amendment, and past (stopped) medications history. "Check my pack" keeps
+ * reporting, prescription amendment, and past (stopped) medications
+ * history. The paid prescription-renewal purchase flow (see
+ * pharmacy-orders-section.tsx, rendered below) is now built: a patient can
+ * see every pharmacy_orders row on file and pay a pending one with
+ * Platform Credit or, via a system-browser fallback, by card — what's
+ * still web-only is order CREATION from the pharmacy catalogue, because
+ * every pharmacy_partners row is is_active=false platform-wide today (see
+ * lib/prescription-renewal.ts's module comment). "Check my pack" keeps
  * the photo step for the patient's own reference but compares a typed
  * reading instead of an AI OCR read — see checkPackAgainstPrescription's
  * header comment in lib/medications.ts for why.
@@ -191,6 +198,8 @@ export function MedicineCabinetScreen({ patientId, organisationId }: MedicineCab
           </View>
         )}
       </View>
+
+      <PharmacyOrdersSection patientId={patientId} />
 
       <AddMedicationSection patientId={patientId} onAdded={load} />
 
