@@ -63,13 +63,13 @@ export async function setPeriodStatusAction(
   status: "open" | "closed" | "locked",
 ): Promise<FinanceActionResult> {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("finance_set_period_status", {
+  const { data, error } = await supabase.rpc("finance_set_period_status", {
     p_month: month,
     p_status: status,
   });
   if (error) return { ok: false, error: error.message };
   revalidateFinance();
-  return { ok: true };
+  return { ok: true, data };
 }
 
 export async function upsertAccountAction(input: {
