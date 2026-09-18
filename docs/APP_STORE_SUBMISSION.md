@@ -155,8 +155,21 @@ background-sync/wearables area before it's trusted.
 
 ## Build status from this pass
 
-A fresh `development-simulator` build (no Apple credentials needed) was kicked off after fixing
-items 1-3 above, to (a) prove the tooling fixes actually work end-to-end and (b) capture real
-screenshots for this doc. See the PR this file ships in for the outcome — either finished
-screenshots are attached under `apps/mobile/store-assets/ios-submission/`, or the build was still
-running when this PR was opened and that step is a documented follow-up.
+The `development-simulator` build kicked off after fixing items 1-3 above **finished
+successfully** (`https://expo.dev/accounts/worldbest/projects/tarragon-health/builds/6ab65564-6ac6-4e20-8023-f66c9341376f`)
+— real, end-to-end proof the three tooling fixes actually work, not just that the individual
+files look right. Installed it in the iOS Simulator, connected it to a local Metro instance, and
+confirmed the app boots to a real, correctly-branded sign-in screen (the corrected pulse-line icon
+from `0d7be19a` renders correctly) — `apps/mobile/store-assets/ios-submission/01-sign-in.png`.
+
+**This is a start, not a finished screenshot set — two things still need doing before
+submission:**
+1. It was captured on an **iPhone 17 Pro simulator (1206×2622 px)**, not the 6.9"-class device
+   (e.g. iPhone 17 Pro Max, 1320×2868 px) Apple's screenshot requirements are keyed to. Re-capture
+   on the correct device size before uploading to App Store Connect.
+2. Only the signed-out sign-in screen was captured — logging into the `patient.complete.test`
+   demo account (see App Review information above) to get a populated dashboard/vitals screenshot
+   hit a real "email and password don't match" error against the QA credential roster documented
+   elsewhere in this project's working notes. Not investigated further in this pass (out of scope
+   for a release-tooling audit) — either that fixture's password has drifted, or the login form
+   itself has a bug; check which before assuming the demo account is still usable for App Review.
