@@ -286,14 +286,20 @@ export function EscalationWorklist({
                           // Optional -- see useAssignEscalation's own doc
                           // comment for why this lands in audit_log.reason.
                           // Never enter a patient name or clinical detail here.
+                          // Clicking Cancel aborts the reassignment entirely
+                          // -- same convention as the reject-reason prompt in
+                          // finance/_components/approvals.tsx -- rather than
+                          // silently proceeding with no reason, which would
+                          // surprise a CMO who meant to back out.
                           const reason = window.prompt(
                             "Reason for this reassignment? (optional, no clinical detail)"
                           );
+                          if (reason === null) return;
                           assign.mutate({
                             escalationId: escalation.id,
                             doctorProfileId,
                             organisationId: escalation.organisation_id,
-                            reason: reason?.trim() || undefined,
+                            reason: reason.trim() || undefined,
                           });
                         }}
                       >

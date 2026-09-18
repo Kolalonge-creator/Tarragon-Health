@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 
+type LogDeniedActionClient = Pick<ReturnType<typeof createClient>, "rpc">;
+
 /**
  * True for a Postgres permission-denied error (errcode 42501) -- the class
  * every authority-gate trigger/RPC in this codebase raises with (see
@@ -42,15 +44,19 @@ export function isPermissionDeniedError(error: unknown): boolean {
  * authority was missing), never what the case/prescription/patient actually
  * involved.
  */
-export function logDeniedAction(params: {
-  action: string;
-  entityType: string;
-  entityId: string;
-  organisationId: string;
-  reason?: string;
-}): void {
-  const supabase = createClient();
-  void supabase
+export function logDeniedAction(
+  params: {
+    action: string;
+    entityType: string;
+    entityId: string;
+    organisationId: string;
+    reason?: string;
+  },
+  // Injectable for testing (see log-denied-action.test.ts) -- defaults to the
+  // real browser client for every actual call site, unchanged.
+  client: LogDeniedActionClient = createClient()
+): void {
+  void client
     .rpc("log_denied_action", {
       p_action: params.action,
       p_entity_type: params.entityType,
@@ -58,7 +64,17 @@ export function logDeniedAction(params: {
       p_organisation_id: params.organisationId,
       p_reason: params.reason,
     })
-    .then(() => {
-      // Nothing to do either way -- fire-and-forget, see the doc comment above.
-    });
+    .then(
+      () => {
+        // Nothing to do either way -- fire-and-forget, see the doc comment above.
+      },
+      () => {
+        // Rejection handler, not a chained .catch() -- the Supabase query
+        // builder's return type is PromiseLike, not a full Promise, so it has
+        // no .catch(). Same fire-and-forget posture as generateCaseBriefAction's
+        // own .catch(() => {}) in lib/queries/escalations.ts -- a
+        // network-level rejection here must never surface as an unhandled
+        // promise rejection on top of the real error the user already saw.
+      }
+    );
 }

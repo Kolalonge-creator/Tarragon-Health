@@ -445,6 +445,7 @@ from public.clinician_alerts a where a.id = (select v from ids where k = 'alert'
 -- ---------------------------------------------------------------------------
 do $$
 declare
+  v_baseline_ids uuid[];
   v_row record;
 begin
   -- No set_config('role', ...) here, deliberately -- matches every other
@@ -460,6 +461,18 @@ begin
   -- error also carries sqlstate 42501, indistinguishable from a real
   -- rejection without reading sqlerrm) -- exactly the vacuous-pass trap
   -- CLAUDE.md's "assert the gate opens, not just closes" warns about.
+
+  -- now() is frozen for this whole transaction (cases 6/8/13 already wrote
+  -- 'escalations.updated' rows for this same entity_id) and audit_log.id is
+  -- a random gen_random_uuid(), so `order by created_at desc, id desc limit
+  -- 1` cannot reliably pick THIS call's row out from an earlier one -- same
+  -- non-determinism 20260829204722_audit_log_reason_and_result.sql's own
+  -- proof block avoids by snapshotting baseline ids first. Do the same here.
+  select coalesce(array_agg(id), array[]::uuid[]) into v_baseline_ids from public.audit_log
+    where entity_type = 'escalations'
+      and entity_id = (select v from ids where k = 'emergency_case')
+      and action = 'escalations.updated';
+
   perform set_config('request.jwt.claims',
     json_build_object('sub', (select v from ids where k = 'doctor_cmo'), 'role', 'authenticated')::text, true);
 
@@ -475,8 +488,7 @@ begin
    where entity_type = 'escalations'
      and entity_id = (select v from ids where k = 'emergency_case')
      and action = 'escalations.updated'
-   order by created_at desc, id desc
-   limit 1;
+     and id <> all (v_baseline_ids);
 
   insert into test_result values (14, 'reassign_escalation() captures the caller-supplied reason into audit_log.reason',
     case when (select assigned_doctor_id from public.escalations where id = (select v from ids where k = 'emergency_case'))
