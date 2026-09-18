@@ -156,6 +156,16 @@ Cloud API and Termii (reminder/alert delivery only, phone number and message con
 
 No `android.permission.health.*` and no location permission in v0.1.0.
 
+## App access / demo account
+
+If Google Play's "App access" declaration asks for a login (it can, e.g. for the Health apps
+declaration reviewer or a restricted-permission review), use the same dedicated account created
+for Apple App Review, not one of the shared `*.test@tarragon.test` QA fixtures — those get reset/
+reused by every concurrent QA session on this project and can't be trusted to still work when a
+reviewer actually logs in weeks later. See `docs/APP_STORE_SUBMISSION.md`'s "App Review
+information" section for the credentials and full reasoning: `appreview.demo@tarragon.test` /
+`TarragonReview2026!`, fully onboarded, verified directly against the Supabase Auth API.
+
 ## Store listing
 
 - App name: **TarragonHealth**

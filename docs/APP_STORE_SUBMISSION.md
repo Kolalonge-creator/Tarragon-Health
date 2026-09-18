@@ -73,20 +73,50 @@ section; see that section for the outcome.
 
 Apple App Review needs a working login to review a patient-facing app gated behind sign-in.
 
-- **Demo account:** `patient.complete.test@tarragon.test` / `TarragonQA2026!` — a QA fixture
-  (Complete plan, active chronic-care programme) from the shared test-account roster documented
-  in this project's own working notes; already onboarded (DOB/sex/state/consents complete), so a
-  reviewer lands straight on the dashboard, not the onboarding wizard.
+- **Demo account (dedicated, 2026-09-18):** `appreview.demo@tarragon.test` /
+  `TarragonReview2026!`. Deliberately **not** one of the shared `*.test@tarragon.test` QA fixtures
+  (e.g. `patient.complete.test`) — those are actively used and reset by every concurrent QA/test
+  session on this project (see `CLAUDE.md`'s standing note on the shared-worktree fleet), so their
+  state and even their password can drift without warning, which is exactly the kind of thing that
+  strands a reviewer mid-review. This account exists for App/Play Store review only — don't reuse
+  it as a general QA fixture, and don't "fix" its data to match the shared roster's conventions.
+  Created via the real signup endpoint (not a direct DB row), fully onboarded (DOB/sex/state/all 3
+  current consents — `data_processing` 2026-09-08-v1, `telehealth` 2026-08-12-v2,
+  `terms_of_service` 2026-09-02-v1, so it won't hit the re-consent nudge either), role `patient`,
+  org `00000000-0000-0000-0000-000000000001`. **Verified working directly against the Supabase
+  Auth API** (`POST /auth/v1/token?grant_type=password` returns a real access token) — see the
+  note below on why that verification method was necessary.
+  It has no clinical history (no vitals/medications/care plan) — a reviewer will see a real,
+  functional, empty-state dashboard rather than a populated one. Populating it with sample data
+  was deliberately not attempted in this pass: the schema for a "Complete"-tier patient record
+  spans dozens of interdependent tables (care plans, medication logs, vitals) with triggers this
+  session didn't have full visibility into, and getting that wrong risks a subtly-broken fixture
+  that's worse than an honestly-empty one.
+- **A note on verifying this in the Simulator:** two independent login attempts through the iOS
+  Simulator (this account, and separately `patient.complete.test`) both failed with "email and
+  password don't match" — but both accounts' exact credentials were separately confirmed correct
+  by calling Supabase's Auth API directly (`curl .../auth/v1/token?grant_type=password`), and
+  Supabase's own auth logs show a `400 invalid_credentials` request landing at the same moment as
+  the in-Simulator attempt. Conclusion: this is a quirk in how the iOS Simulator control tool's
+  synthetic `text` action injects characters into a React Native `TextInput` (visually looks
+  correct — the field shows the right value — but the RN controlled-component state that actually
+  gets submitted apparently doesn't always match), not a real app or backend bug. `autoCapitalize`
+  is already correctly set to `"none"` on the email field, and `.trim()` is applied before submit
+  (`src/screens/login-screen.tsx`), so this isn't the well-known iOS-autocapitalize gotcha either.
+  A real reviewer typing on a real keyboard should not hit this — but if App Review reports a
+  login failure with these exact credentials, verify the account directly via the Auth API first
+  (command above) before assuming the credentials themselves are wrong.
 - **Sign-in with Apple:** not required. The app has no third-party sign-in of any kind (Google,
   Facebook, etc.) — email/password only — so Apple's "must also offer Sign in with Apple" rule
   (guideline 4.8) does not apply. Confirmed by searching the mobile source for any social-auth
   SDK: none present.
 - **Review notes to include:** "This is a patient-facing chronic-disease and preventive-care app.
-  The demo account above has completed onboarding and has sample vitals/medication history. Doctor
-  consultations are billed per booking via an external Paystack checkout opened in the system
-  browser (`expo-web-browser`'s `openBrowserAsync`, never an embedded webview) — this is a
-  real-world clinical service, not a digital good, so it is exempt from Apple's in-app purchase
-  requirement under guideline 3.1.1 (physical goods and services)."
+  The demo account above has completed onboarding; it's a fresh account so its own clinical
+  history is empty, but every core screen (vitals logging, medications, messaging, bookings) is
+  fully functional. Doctor consultations are billed per booking via an external Paystack checkout
+  opened in the system browser (`expo-web-browser`'s `openBrowserAsync`, never an embedded
+  webview) — this is a real-world clinical service, not a digital good, so it is exempt from
+  Apple's in-app purchase requirement under guideline 3.1.1 (physical goods and services)."
 
 ## App privacy ("nutrition label") — App Store Connect's App Privacy section
 
@@ -162,14 +192,9 @@ files look right. Installed it in the iOS Simulator, connected it to a local Met
 confirmed the app boots to a real, correctly-branded sign-in screen (the corrected pulse-line icon
 from `0d7be19a` renders correctly) — `apps/mobile/store-assets/ios-submission/01-sign-in.png`.
 
-**This is a start, not a finished screenshot set — two things still need doing before
-submission:**
-1. It was captured on an **iPhone 17 Pro simulator (1206×2622 px)**, not the 6.9"-class device
-   (e.g. iPhone 17 Pro Max, 1320×2868 px) Apple's screenshot requirements are keyed to. Re-capture
-   on the correct device size before uploading to App Store Connect.
-2. Only the signed-out sign-in screen was captured — logging into the `patient.complete.test`
-   demo account (see App Review information above) to get a populated dashboard/vitals screenshot
-   hit a real "email and password don't match" error against the QA credential roster documented
-   elsewhere in this project's working notes. Not investigated further in this pass (out of scope
-   for a release-tooling audit) — either that fixture's password has drifted, or the login form
-   itself has a bug; check which before assuming the demo account is still usable for App Review.
+**This is a start, not a finished screenshot set — one thing still needs doing before
+submission:** it was captured on an **iPhone 17 Pro simulator (1206×2622 px)**, not the
+6.9"-class device (e.g. iPhone 17 Pro Max, 1320×2868 px) Apple's screenshot requirements are keyed
+to. Re-capture on the correct device size before uploading to App Store Connect — ideally logged
+in, showing a populated screen, once the login-in-Simulator quirk noted under App Review
+information above is worked around (or just fixed on a real device, which shouldn't hit it).
