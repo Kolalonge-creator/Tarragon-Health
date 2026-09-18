@@ -6,10 +6,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { NAV_ICON } from "@/lib/icons";
 
+// WhatsApp and SMS are deliberately not offered here: Meta WABA template
+// approval and Termii sender-ID approval are both off the founder's
+// near-term plan (CLAUDE.md, 2026-09-15), and both channels have a live
+// 100% failure rate as of 2026-09-18 — offering them would let a patient
+// pick a channel guaranteed to never deliver, with no way for them to
+// notice. In-app notifications reach a patient regardless of this setting;
+// this only controls the reminder-channel fallback ladder.
 const CHANNEL_OPTIONS: Array<{ value: string; label: string }> = [
-  { value: "", label: "No preference (default: app notification, then WhatsApp/SMS as needed)" },
-  { value: "whatsapp", label: "WhatsApp" },
-  { value: "sms", label: "SMS" },
+  { value: "", label: "No preference (default: app notification, then email as needed)" },
   { value: "email", label: "Email" },
   { value: "push", label: "App notification" },
 ];

@@ -25,11 +25,19 @@ const CATEGORY_LABEL: Record<NotificationPreferenceCategory, string> = {
 
 type Channel = "email" | "sms" | "push" | "whatsapp";
 
+// SMS and WhatsApp are deliberately not rendered as toggles: both channels
+// are currently dead (Meta WABA template approval and Termii sender-ID
+// approval are off the founder's near-term plan, CLAUDE.md 2026-09-15) —
+// supabase/functions/send-pending-notifications/index.ts's
+// platformDisabledChannel() now suppresses every routine send on either
+// channel before it reaches the provider, regardless of this toggle. A
+// patient switching "WhatsApp" on here would reasonably expect it to do
+// something; it wouldn't. The underlying columns stay untouched (a toggle
+// flipped before this change keeps its value, just isn't shown or editable)
+// so re-enabling either channel later needs no data migration.
 const CHANNELS: { key: Channel; label: string }[] = [
   { key: "email", label: "Email" },
-  { key: "sms", label: "SMS" },
   { key: "push", label: "Push" },
-  { key: "whatsapp", label: "WhatsApp" },
 ];
 
 /** A missing row for a category means every channel defaults on — matches
