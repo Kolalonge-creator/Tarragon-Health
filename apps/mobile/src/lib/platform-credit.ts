@@ -164,7 +164,7 @@ export async function trySpendPlatformCreditForService(
   }
 
   const spendResult = await postPlatformCreditSpend(serviceProductCode, { patientId });
-  if (spendResult.error) return { spent: false, error: spendResult.error };
+  if (!spendResult.success) return { spent: false, error: spendResult.error };
   if (spendResult.ok === false) {
     if (spendResult.reason === "insufficient_balance") {
       return { spent: false, shortfallKobo: spendResult.shortfall_kobo ?? priceKobo };
@@ -187,10 +187,11 @@ export async function spendPlatformCreditOnService(
   serviceProductCode: string
 ): Promise<QueryResult<PayServicePurchaseWithCreditResult>> {
   const result = await postPlatformCreditSpend(serviceProductCode);
-  if (result.error) {
+  if (!result.success) {
     return { ok: false, error: result.error };
   }
-  const { success: _success, ...rest } = result;
+  const { success, ...rest } = result;
+  void success;
   return { ok: true, data: rest as PayServicePurchaseWithCreditResult };
 }
 
