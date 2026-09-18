@@ -15,15 +15,18 @@ name: Browser E2E smoke
 # founder to make once this workflow has proven itself stable over enough
 # real PRs. Until then this reports as an ordinary, non-blocking check.
 #
-# This is also the first CI job in this repo that actually runs `next
-# build` at all (ci.yml's "TypeScript (web + shared)" job only typechecks/
-# lints/tests `apps/web`, never builds it) — verified locally that a full
-# build succeeds with only NEXT_PUBLIC_SUPABASE_URL/
-# NEXT_PUBLIC_SUPABASE_ANON_KEY set (no other secret), but that has never
-# been exercised on an actual GitHub Actions runner before this PR. If the
-# very first real run of this workflow fails at the build step rather than
-# in a test, check for an env var some module reads at build/module-init
-# time before assuming it's a real app regression.
+# `next build` itself is NOT new to CI — ci.yml's "TypeScript (web +
+# shared)" job already runs `pnpm build` (turbo -> `next build` on
+# apps/web) on every PR, with ZERO Supabase env vars set at all, so a build
+# failure here is unlikely to be "the build doesn't work in CI" (already
+# proven false by that job) and more likely something specific to THIS
+# workflow — the webServer readiness check, the app.localhost host-header
+# routing (see fixtures.ts's own comment on why that matters), or a secret
+# that's missing/malformed. Worth knowing regardless: this IS the first CI
+# job that runs a build with any NEXT_PUBLIC_SUPABASE_* var actually set —
+# verified locally that succeeds with just the two public ones, but that
+# exact combination has never been exercised on a real GitHub Actions
+# runner before this PR.
 #
 # One further, currently-unmitigated flakiness risk worth knowing about
 # before considering this a required check: this suite performs a small
@@ -117,10 +120,37 @@ jobs:
         if: steps.secrets-check.outputs.configured == 'true'
         run: pnpm install --frozen-lockfile
 
-      - name: Install Playwright's Chromium
+      - name: Get installed Playwright version
         if: steps.secrets-check.outputs.configured == 'true'
+        id: playwright-version
+        working-directory: apps/web
+        run: echo "version=$(node -e "console.log(require('@playwright/test/package.json').version)")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright's Chromium download
+        if: steps.secrets-check.outputs.configured == 'true'
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          # Keyed on the exact @playwright/test version so a dependency bump
+          # (which can ship a newer bundled Chromium) never reuses a stale
+          # cached binary — Playwright itself would just re-download in that
+          # case, but keying the cache correctly means it actually gets a
+          # fresh hit next time instead of permanently missing.
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright's Chromium
+        if: steps.secrets-check.outputs.configured == 'true' && steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: apps/web
         run: npx playwright install --with-deps chromium
+
+      # Even on a cache hit, the OS package dependencies Chromium needs
+      # (libnss3 etc., installed via --with-deps above) aren't part of the
+      # cached ~/.cache/ms-playwright directory — only the browser binary is.
+      - name: Install Chromium's OS dependencies
+        if: steps.secrets-check.outputs.configured == 'true' && steps.playwright-cache.outputs.cache-hit == 'true'
+        working-directory: apps/web
+        run: npx playwright install-deps chromium
 
       - name: Run the browser E2E smoke suite
         if: steps.secrets-check.outputs.configured == 'true'

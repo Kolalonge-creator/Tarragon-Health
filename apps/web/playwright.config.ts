@@ -4,11 +4,12 @@ import { PORT, BASE_URL } from "./e2e/env";
 /**
  * Browser E2E smoke suite — apps/web has no separate staging Supabase
  * project (CLAUDE.md: one live production project, koiplnmbgnqnbywhpjlf),
- * so this always runs against a locally-run `next dev` server while auth
- * and data come from the shared production database via the 23 dedicated
- * `@tarragon.test` QA accounts (see e2e/fixtures.ts's `qaPassword()` for
- * the shared password — deliberately NOT written here or anywhere else in
- * source; this repo is public).
+ * so this always runs against a locally-built-and-started `next build` +
+ * `next start` server (see `webServer` below for why NOT `next dev`) while
+ * auth and data come from the shared production database via the 23
+ * dedicated `@tarragon.test` QA accounts (see e2e/fixtures.ts's
+ * `qaPassword()` for the shared password — deliberately NOT written here or
+ * anywhere else in source; this repo is public).
  *
  * This suite is READ-ONLY / NAVIGATION-ONLY by design: it logs in,
  * navigates, and asserts pages render — it never submits a form that
@@ -68,18 +69,32 @@ export default defineConfig({
   webServer: {
     // A real production build+start, not `next dev`. `next dev`'s
     // on-demand-per-route Turbopack compile was tried first (faster to
-    // boot for local iteration) but produced real, intermittent failures
-    // in practice: under repeated/concurrent navigation across several
-    // routes, requests to an already-visited route occasionally still hit
-    // Next's own root not-found.tsx (a genuine 404 from the dev router,
-    // not a test bug — every one of this repo's platform AND marketing
-    // routes share that single not-found.tsx, so it's easy to mistake for
-    // a host-routing problem, but it isn't one) rather than the real page.
-    // A production build has no on-demand compile step — every route is
-    // already built before the server accepts its first request — so this
-    // whole class of flakiness doesn't apply. `next build` measured ~40s
-    // locally; still comfortably inside the timeout below even accounting
-    // for a slower CI runner.
+    // boot for local iteration), and this suite intermittently failed
+    // under it in a way that first looked like real app flakiness —
+    // requests to an already-visited route occasionally 404ing, plus (once
+    // traced further) a dev-only React console error appearing in a
+    // production-only run. Root cause turned out to be this project's own
+    // heavy concurrent-worktree practice (CLAUDE.md): another worktree's
+    // own `next dev`, already bound to the same default port on the same
+    // shared machine, was intermittently reused by `reuseExistingServer`
+    // below instead of this suite's own server — see e2e/env.ts's PORT
+    // comment: the fix is PLAYWRIGHT_PORT, set explicitly, not an
+    // automatic one (a PID-derived default port was tried and reverted —
+    // it broke a different way, see that comment for why). A production
+    // build sidesteps the *other* real property `next dev` has regardless
+    // of the port issue: no on-demand compile step, so every route is
+    // already built before the server accepts its first request — worth
+    // keeping for that reason alone. `next build` measured ~40s locally;
+    // still comfortably inside the timeout below even accounting for a
+    // slower CI runner.
+    //
+    // `npx next build && npx next start -p ${PORT}`, not this package's own
+    // `pnpm build`/`pnpm start` scripts: `pnpm start -- -p ${PORT}` (the
+    // normal way to forward an extra flag through a pnpm script) resolves
+    // to a literal `next start -- -p ${PORT}` — pnpm's own `--` plus this
+    // one collapse into a flag Next's CLI doesn't understand, so the port
+    // is silently ignored. Confirmed by testing directly; calling the
+    // Next.js CLI itself sidesteps that pnpm-specific quirk entirely.
     command: `npx next build && npx next start -p ${PORT}`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,

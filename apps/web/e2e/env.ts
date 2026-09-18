@@ -6,6 +6,24 @@
  * playwright.config.ts actually started).
  */
 const rawPort = process.env.PLAYWRIGHT_PORT;
+// A fixed default (not derived from anything per-process, e.g. process.pid)
+// deliberately: this module is re-imported — and its top-level code
+// genuinely re-executed, empirically confirmed, not just theoretically
+// possible — by more than one Node process within a single `playwright
+// test` invocation (the process that resolves webServer's command versus
+// the process(es) that actually navigate the browser), so a PID-derived
+// port was tried here and produced a REAL bug: the webServer bound one
+// port while individual tests independently computed and connected to
+// DIFFERENT ports each, none of which matched — page.goto() failing with
+// ERR_CONNECTION_REFUSED on every test. A fixed value is the only way to
+// guarantee every process that imports this module agrees on the same
+// port. This DOES mean a genuine risk of colliding with another concurrent
+// git worktree's own dev/E2E server (CLAUDE.md documents this repo's heavy
+// concurrent-worktree practice — see also playwright.config.ts's webServer
+// comment for a real instance of exactly that collision happening during
+// this suite's own development) — the mitigation is PLAYWRIGHT_PORT, not
+// automatic spreading: set it explicitly to a port you know is free when
+// running this suite alongside another worktree's own server.
 const parsedPort = rawPort ? Number(rawPort) : 3100;
 if (!Number.isInteger(parsedPort) || parsedPort <= 0) {
   throw new Error(

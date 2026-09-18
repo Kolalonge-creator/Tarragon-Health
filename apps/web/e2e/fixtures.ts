@@ -26,7 +26,7 @@ import { APP_ORIGIN } from "./env";
  * Must be exported in the shell that runs `pnpm e2e` / `npx playwright
  * test` itself — e.g. `PLAYWRIGHT_QA_PASSWORD=... pnpm e2e`, or `export`ed
  * beforehand. Putting it in `apps/web/.env.local` alone is NOT enough: that
- * file is loaded by the spawned `next dev` child process
+ * file is loaded by the spawned `next build`/`next start` child process
  * (playwright.config.ts's `webServer`), not by the Playwright test runner
  * itself, and this function runs in the runner, not in the app. In CI, set
  * it as a repo secret for `.github/workflows/e2e-browser.yml` (see that
@@ -68,17 +68,20 @@ export const QA_ACCOUNTS = {
 /**
  * Signs in via the real login form (email/password tab, which is the
  * default) and waits for the post-login redirect to land somewhere other
- * than /login. Next.js dev's on-demand Turbopack compile of a route neither
- * Playwright nor this test suite has visited yet can take several seconds
- * on a cold server, hence the generous timeout — a warm server (repeated
- * runs, or a production build) resolves this in well under a second.
+ * than /login. Every route is pre-built (playwright.config.ts's webServer
+ * runs `next build && next start`, not `next dev` — no on-demand compile
+ * step), so this is headroom for a real network round trip to production
+ * Supabase Auth on a possibly-loaded CI runner, not compile time; observed
+ * well under 2s locally in practice. Left comfortably inside the 60s
+ * per-test timeout (playwright.config.ts) rather than eating most of that
+ * budget on its own.
  */
 export async function loginAs(page: Page, email: string, password: string): Promise<void> {
   await page.goto("/login");
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByLabel("Password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 45_000 });
+  await page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 20_000 });
 }
 
 function isSameOrigin(url: string): boolean {

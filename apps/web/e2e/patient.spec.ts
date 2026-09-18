@@ -27,6 +27,16 @@ test.describe("patient", () => {
     page = await context.newPage();
     errorWatcher = watchForPageErrors(page);
     await loginAs(page, QA_ACCOUNTS.patientFree, qaPassword());
+    // Asserted HERE, not left for the first test: the first test's own
+    // errorWatcher.reset() (needed so ITS assertion covers only its own
+    // navigation, not this login too) would otherwise silently discard
+    // whatever the sign-in itself produced before anything ever checked
+    // it — a real console error or failed request during login would pass
+    // unnoticed. A failure here fails the whole describe block (all 4
+    // tests, reported as a hook failure) rather than one test, which is
+    // the right shape: if login itself is broken, none of their
+    // navigations are meaningful either.
+    errorWatcher.assertNoPageErrors();
   });
 
   test.afterAll(async () => {
