@@ -197,8 +197,8 @@ const PIDGIN: Record<string, string> = {
   "For how many minutes?": "How many minutes e take?",
   "Save it": "Save am",
 
-  "Write down what you ate. Over time it helps you and your care team see what is working. To add a photo and get a carb estimate, open Meals on the website.":
-    "Write down wetin you chop. Over time e go help you and your care team see wetin dey work. To add photo make you get carb estimate, open Meals for the website.",
+  "Write down what you ate, or take a photo for an AI estimate of the carbs and calories. Over time it helps you and your care team see what is working.":
+    "Write down wetin you chop, or snap photo make AI estimate the carb and calories. Over time e go help you and your care team see wetin dey work.",
   "Which meal?": "Which food?",
   "What did you eat?": "Wetin you chop?",
   "Save this meal": "Save this food",

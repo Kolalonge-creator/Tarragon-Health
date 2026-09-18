@@ -74,7 +74,7 @@ describe("ui language", () => {
       "For how many minutes?",
       "Save it",
       "Meals",
-      "Write down what you ate. Over time it helps you and your care team see what is working. To add a photo and get a carb estimate, open Meals on the website.",
+      "Write down what you ate, or take a photo for an AI estimate of the carbs and calories. Over time it helps you and your care team see what is working.",
       "Which meal?",
       "What did you eat?",
       "Save this meal",
