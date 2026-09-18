@@ -22,6 +22,36 @@ export function isPermissionDeniedError(error: unknown): boolean {
 }
 
 /**
+ * A 42501 guard can raise more than one message from the same call site --
+ * e.g. private.enforce_emergency_escalation_tier raises for a bystander
+ * starting someone else's case AND, separately, for re-resolving an
+ * already-terminal case; amend_medication raises for insufficient
+ * prescribing authority AND, separately, for the target not being a
+ * clinician-issued record. A single hardcoded guess at "the reason" for a
+ * call site is wrong whenever the real cause was the other branch --
+ * misleading in a trail this codebase treats as NDPR-relevant.
+ *
+ * Every 42501 message actually raised by the guard clauses this module logs
+ * for (see log-denied-action.test.ts for the confirmed list) is plain,
+ * generic English describing which authority was missing or which
+ * transition was refused -- never a patient name, diagnosis, or other
+ * clinical detail. So the caught error's own message is what gets logged,
+ * not a per-call-site guess -- accurate by construction, for whichever
+ * branch of the guard actually fired. `fallback` covers the case
+ * error.message is missing or not a string, which should not happen for a
+ * real PostgrestError but keeps this defensive. Capped at 300 chars to
+ * match public.log_denied_action()'s own cap.
+ */
+export function denialReasonFromError(error: unknown, fallback: string): string {
+  const message =
+    error && typeof error === "object" && "message" in error
+      ? (error as { message?: unknown }).message
+      : undefined;
+  const reason = typeof message === "string" && message.trim() ? message.trim() : fallback;
+  return reason.slice(0, 300);
+}
+
+/**
  * Durably records that an attempted action was just rejected by a DB-level
  * authority gate, via the public.log_denied_action() RPC (see
  * supabase/migrations/20260918085308_wire_audit_reason_and_denied_action_logging.sql).

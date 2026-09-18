@@ -38,6 +38,10 @@
 --       cannot (see the migration's own header for why).
 --   18. public.log_denied_action() refuses a non-org-staff caller (private.is_org_staff gate) --
 --       it must not be usable to graffiti another org's audit trail.
+--   19. (20260918092530_fix_reassign_escalation_found_clobbered_by_set_config.sql) reassign_escalation
+--       on a nonexistent escalation_id genuinely raises rather than silently returning success --
+--       its "not found" check used to be dead code (a query between the UPDATE and the FOUND
+--       check clobbered FOUND back to true).
 --
 -- Run: npx supabase db query --linked -f packages/db/tests/escalation_auto_assignment_and_reassignment_authority.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
@@ -620,6 +624,38 @@ begin
   insert into test_result values (18, 'log_denied_action() refuses a non-org-staff caller (a patient)',
     case when v_raised = '42501' and v_message = 'not authorised' then 'PASS' else 'FAIL' end,
     'sqlstate=' || coalesce(v_raised, 'none -- call succeeded') || ' message=' || coalesce(v_message, ''));
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Case 19 (added 20260918092530_fix_reassign_escalation_found_clobbered_by_set_config.sql):
+-- public.reassign_escalation() on a nonexistent escalation_id must actually raise, not silently
+-- return success. Its "not found" check used PL/pgSQL's special FOUND variable, which the very
+-- next statement (a `perform set_config(...)`, itself a query) was clobbering back to true before
+-- the check ever ran -- so this used to always pass through as if the reassignment had succeeded.
+-- Run by doctor_cmo, who genuinely has CMO authority in this org, so the ONLY thing that can make
+-- this call fail is the not-found path -- isolates the exact bug from any authority-gate noise.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_raised text;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select v from ids where k = 'doctor_cmo'), 'role', 'authenticated')::text, true);
+
+  begin
+    perform public.reassign_escalation(
+      gen_random_uuid(), (select v from ids where k = 'doctor_c'), 'should not be reachable'
+    );
+    v_raised := null;
+  exception when others then
+    v_raised := sqlstate;
+  end;
+
+  perform set_config('request.jwt.claims', '', true);
+
+  insert into test_result values (19, 'reassign_escalation() on a nonexistent escalation_id is REJECTED, not silently a no-op',
+    case when v_raised = 'P0002' then 'PASS' else 'FAIL' end,
+    'sqlstate=' || coalesce(v_raised, 'none -- call succeeded as if the escalation existed'));
 end $$;
 
 -- ---------------------------------------------------------------------------

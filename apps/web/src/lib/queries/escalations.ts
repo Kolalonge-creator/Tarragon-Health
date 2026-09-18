@@ -2,7 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { compareByAlert } from "@/lib/worklist/priority";
 import { generateCaseBriefAction } from "@/lib/case-briefs/actions";
-import { isPermissionDeniedError, logDeniedAction } from "@/lib/audit/log-denied-action";
+import {
+  denialReasonFromError,
+  isPermissionDeniedError,
+  logDeniedAction,
+} from "@/lib/audit/log-denied-action";
 import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
@@ -205,7 +209,11 @@ export function useClaimEscalation() {
  * logDeniedAction (see
  * supabase/migrations/20260918085308_wire_audit_reason_and_denied_action_logging.sql
  * for why that has to be a separate call, not something the trigger itself
- * can log).
+ * can log). private.enforce_emergency_escalation_tier raises 42501 for more
+ * than one reason (the bystander check here, but also re-resolving an
+ * already-terminal case) — denialReasonFromError logs the trigger's own
+ * message rather than a single hardcoded guess, so the audit trail names
+ * whichever branch actually fired.
  */
 export function useStartEscalationReview() {
   const queryClient = useQueryClient();
@@ -232,8 +240,10 @@ export function useStartEscalationReview() {
             entityType: "escalations",
             entityId: escalationId,
             organisationId,
-            reason:
-              "Attempted to start review on a case assigned to another doctor, or requiring higher-tier authority",
+            reason: denialReasonFromError(
+              error,
+              "Escalation status-transition attempt rejected by the authority gate"
+            ),
           });
         }
         throw error;
@@ -297,7 +307,10 @@ export function useAssignEscalation() {
             entityType: "escalations",
             entityId: escalationId,
             organisationId,
-            reason: "Reassignment attempted without Chief Medical Officer authority",
+            reason: denialReasonFromError(
+              error,
+              "Reassignment attempted without Chief Medical Officer authority"
+            ),
           });
         }
         throw error;

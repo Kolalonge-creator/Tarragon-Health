@@ -1,4 +1,4 @@
-import { isPermissionDeniedError, logDeniedAction } from "./log-denied-action";
+import { denialReasonFromError, isPermissionDeniedError, logDeniedAction } from "./log-denied-action";
 
 describe("isPermissionDeniedError", () => {
   it("recognises a Postgres 42501 error", () => {
@@ -16,6 +16,33 @@ describe("isPermissionDeniedError", () => {
     expect(isPermissionDeniedError(undefined)).toBe(false);
     expect(isPermissionDeniedError("permission denied")).toBe(false);
     expect(isPermissionDeniedError({})).toBe(false);
+  });
+});
+
+describe("denialReasonFromError", () => {
+  it("uses the real error message -- the guard clause a call site logs for can raise more than one message", () => {
+    // e.g. private.enforce_emergency_escalation_tier raises this for a
+    // terminal-state re-transition, not the bystander-claim case a
+    // hardcoded guess would assume.
+    expect(
+      denialReasonFromError(
+        { code: "42501", message: "This case was already resolved; it cannot be re-resolved or re-referred." },
+        "fallback should not be used"
+      )
+    ).toBe("This case was already resolved; it cannot be re-resolved or re-referred.");
+  });
+
+  it("falls back when the error has no usable message", () => {
+    expect(denialReasonFromError({ code: "42501" }, "fallback text")).toBe("fallback text");
+    expect(denialReasonFromError(null, "fallback text")).toBe("fallback text");
+    expect(denialReasonFromError({ code: "42501", message: "   " }, "fallback text")).toBe(
+      "fallback text"
+    );
+  });
+
+  it("caps at 300 characters, matching public.log_denied_action()'s own cap", () => {
+    const longMessage = "x".repeat(500);
+    expect(denialReasonFromError({ message: longMessage }, "fallback").length).toBe(300);
   });
 });
 

@@ -1,6 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
-import { isPermissionDeniedError, logDeniedAction } from "@/lib/audit/log-denied-action";
+import {
+  denialReasonFromError,
+  isPermissionDeniedError,
+  logDeniedAction,
+} from "@/lib/audit/log-denied-action";
 import type { Tables } from "@tarragon/shared";
 import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
@@ -289,6 +293,10 @@ export function useConfirmMedicationRefill() {
  * 42501 back — durably logged via logDeniedAction, since amend_medication's
  * own raise can't make its own audit trail entry survive the rollback it
  * causes (see 20260918085308_wire_audit_reason_and_denied_action_logging.sql).
+ * amend_medication raises 42501 for more than one reason (insufficient
+ * prescribing authority, but also amending a non-clinician-issued record) —
+ * denialReasonFromError logs the RPC's own message rather than a single
+ * hardcoded guess, so the audit trail names whichever branch actually fired.
  */
 export function useAmendMedication() {
   const queryClient = useQueryClient();
@@ -336,7 +344,10 @@ export function useAmendMedication() {
             entityType: "medications",
             entityId: medicationId,
             organisationId,
-            reason: "Prescription amendment attempted without prescribing authority",
+            reason: denialReasonFromError(
+              error,
+              "Prescription amendment attempted without prescribing authority"
+            ),
           });
         }
         throw error;
