@@ -122,4 +122,41 @@ describe("RiskAssessmentForm", () => {
     expect(fd.get("other_vaccines_detail")).toBe("Yellow fever");
     expect(fd.get("prior_abnormal_result")).toBe("on");
   });
+
+  /**
+   * Regression test for a second, separate bug found in the same live
+   * walkthrough (2026-09-18): Lifestyle's several `required` fields sit on
+   * step 2, which stays mounted but `hidden` while viewing step 4. In a real
+   * browser this does NOT exempt those fields from constraint validation the
+   * way the (now-corrected) comment on the <form> used to claim — Chrome
+   * logs "An invalid form control ... is not focusable" and the browser
+   * silently refuses to submit at all: no request, no error, nothing. The
+   * fix adds `noValidate` to the form so a genuinely incomplete assessment
+   * still reaches the server action (which enforces the same fields via
+   * riskAssessmentSchema and returns a real, visible error) instead of dying
+   * silently client-side. This asserts the request actually goes out.
+   */
+  it("still submits to the server when a hidden earlier step's required fields are left blank", async () => {
+    render(<RiskAssessmentForm patientId="patient-1" />);
+
+    // Step 1: leave blank, go straight to step 2.
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 2 (Lifestyle): deliberately leave every required field blank.
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 3: leave blank.
+    fireEvent.click(screen.getByText("Next"));
+
+    // Step 4: submit without ever having filled step 2.
+    fireEvent.click(screen.getByText("Save assessment"));
+
+    // The whole point of the fix: this resolves (the mocked action always
+    // succeeds) instead of the click silently doing nothing. Before the fix,
+    // capturedFormData stayed null and this findByText would time out.
+    await screen.findByText(
+      "Thanks, your care plan preview below reflects your answers."
+    );
+    expect(capturedFormData).not.toBeNull();
+  });
 });
