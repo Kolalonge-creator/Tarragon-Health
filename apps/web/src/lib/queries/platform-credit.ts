@@ -113,6 +113,38 @@ export function usePayServicePurchaseWithCredit() {
   });
 }
 
+export type PayPharmacyOrderWithCreditResult =
+  | { ok: true; pharmacy_order_id: string; amount_kobo: number; new_balance_kobo: number }
+  | { ok: true; already_active: boolean }
+  | { ok: false; reason: "not_payable"; status: string }
+  | { ok: false; reason: "insufficient_balance"; balance_kobo: number; required_kobo: number; shortfall_kobo: number };
+
+/**
+ * Pays for a pharmacy order already sitting at status='pending_payment'
+ * entirely out of the caller's platform credit balance — no Paystack
+ * redirect. Single RPC call (unlike usePayServicePurchaseWithCredit, the
+ * pending row already exists by the time this button is shown — see
+ * PayForPharmacyOrderButton) — public.pay_pharmacy_order_on_platform_credit
+ * does the balance check + spend + order activation atomically.
+ */
+export function usePayPharmacyOrderWithCredit() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { patientId: string; pharmacyOrderId: string }) => {
+      const supabase = createClient();
+      const { data, error } = await supabase.rpc("pay_pharmacy_order_on_platform_credit", {
+        p_pharmacy_order_id: input.pharmacyOrderId,
+      });
+      if (error) throw error;
+      return data as PayPharmacyOrderWithCreditResult;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["platform-credit"] });
+      queryClient.invalidateQueries({ queryKey: ["pharmacy-orders", variables.patientId] });
+    },
+  });
+}
+
 export function useCancelPlatformCreditTopupIntent() {
   const queryClient = useQueryClient();
   return useMutation({

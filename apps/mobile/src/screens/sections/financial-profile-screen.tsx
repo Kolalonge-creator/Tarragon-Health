@@ -1,13 +1,200 @@
-import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, TextInput, View } from "react-native";
 import * as WebBrowser from "expo-web-browser";
-import { koboToNaira } from "@tarragon/shared";
+import { koboToNaira, nairaToKobo } from "@tarragon/shared";
 import { loadFinancialProfile, type FinancialProfile } from "@/lib/financial-profile";
+import {
+  loadPlatformCreditState,
+  platformCreditSuggestedAmountsKobo,
+  startPlatformCreditTopup,
+  PLATFORM_CREDIT_ENTRY_LABEL,
+  type PlatformCreditState,
+} from "@/lib/platform-credit";
 import { PLATFORM_URL } from "@/lib/platform-url";
-import { colors, spacing } from "@/ui/theme";
-import { Badge, Card, ErrorText, MutedText, ScreenTitle, SecondaryButton } from "@/ui/components";
+import { colors, radius, spacing } from "@/ui/theme";
+import { Badge, Card, ErrorText, MutedText, PrimaryButton, ScreenTitle, SecondaryButton } from "@/ui/components";
 
 const naira = (kobo: number) => `₦${koboToNaira(kobo).toLocaleString()}`;
+
+const amountInputStyle = {
+  flex: 1,
+  height: 38,
+  borderWidth: 1,
+  borderColor: colors.border,
+  borderRadius: radius.control,
+  paddingHorizontal: 10,
+  fontSize: 14,
+  color: colors.ink,
+};
+
+/**
+ * Platform credit balance + top-up — mirrors
+ * apps/web/src/components/platform-credit-card.tsx. A general-purpose
+ * prepaid balance (not tied to one service, unlike a care voucher), read
+ * natively over the /api/mobile/platform-credit/* passthrough routes.
+ * "Top up" opens the real Paystack checkout in the system browser and
+ * refreshes on return — same idiom as services-screen.tsx's
+ * openServicesPage, not the weaker "open and forget" pattern used
+ * elsewhere on this screen for the web-only card flows.
+ */
+function PlatformCreditSection() {
+  const [state, setState] = useState<PlatformCreditState | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [startingAmountKobo, setStartingAmountKobo] = useState<number | null>(null);
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customNaira, setCustomNaira] = useState("");
+  const [customSubmitting, setCustomSubmitting] = useState(false);
+  const [topupError, setTopupError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    const result = await loadPlatformCreditState();
+    if (result.ok) {
+      setState(result.data);
+      setError(null);
+    } else {
+      setError(result.error);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh()
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [refresh]);
+
+  const pending = startingAmountKobo !== null || customSubmitting;
+
+  /** Starts a top-up for a fixed suggested amount, then hands the caller
+   * off to the real Paystack checkout in the system browser and refreshes
+   * on return — same "open then refresh" idiom as services-screen.tsx's
+   * openServicesPage, not the weaker "open and forget" pattern this screen
+   * otherwise uses for the web-only card flows below. */
+  async function runTopUp(amountKobo: number): Promise<void> {
+    setTopupError(null);
+    const result = await startPlatformCreditTopup(amountKobo);
+    if (!result.ok) {
+      setTopupError(result.error);
+      return;
+    }
+    await WebBrowser.openBrowserAsync(result.data);
+    void refresh();
+  }
+
+  async function handlePresetTopUp(amountKobo: number) {
+    setStartingAmountKobo(amountKobo);
+    await runTopUp(amountKobo);
+    setStartingAmountKobo(null);
+  }
+
+  async function handleCustomTopUp() {
+    const amountKobo = nairaToKobo(Number(customNaira));
+    if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
+      setTopupError("Enter how much you'd like to add.");
+      return;
+    }
+    setCustomSubmitting(true);
+    await runTopUp(amountKobo);
+    setCustomSubmitting(false);
+  }
+
+  if (loading) {
+    return (
+      <Card style={{ alignItems: "center", paddingVertical: 20 }}>
+        <ActivityIndicator color={colors.brand} />
+      </Card>
+    );
+  }
+
+  if (error || !state) {
+    return (
+      <Card>
+        <ErrorText>{error ?? "Could not load your platform credit"}</ErrorText>
+      </Card>
+    );
+  }
+
+  const suggested = platformCreditSuggestedAmountsKobo(state.config);
+
+  return (
+    <Card style={{ gap: 10 }}>
+      <Text style={{ fontSize: 14.5, fontWeight: "700", color: colors.ink }}>Platform credit</Text>
+      <MutedText>
+        Fund your account once and use it whenever you buy a service. It never expires and can&apos;t be
+        withdrawn or transferred — only ever spent here.
+      </MutedText>
+
+      <View>
+        <MutedText>Your balance</MutedText>
+        <Text style={{ fontSize: 22, fontWeight: "700", color: colors.ink }}>{naira(state.balanceKobo)}</Text>
+        {state.promoBalanceKobo > 0 && (
+          <MutedText>Includes {naira(state.promoBalanceKobo)} of promotional credit.</MutedText>
+        )}
+      </View>
+
+      <View style={{ gap: 8 }}>
+        <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Add to your balance</Text>
+        {topupError && <ErrorText>{topupError}</ErrorText>}
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+          {suggested.map((amountKobo) => (
+            <SecondaryButton
+              key={amountKobo}
+              title={naira(amountKobo)}
+              loading={startingAmountKobo === amountKobo}
+              disabled={pending}
+              onPress={() => void handlePresetTopUp(amountKobo)}
+            />
+          ))}
+          <SecondaryButton
+            title={customOpen ? "Cancel" : "Custom amount"}
+            disabled={pending}
+            onPress={() => setCustomOpen(!customOpen)}
+          />
+        </View>
+
+        {customOpen && (
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+            <TextInput
+              placeholder="Amount in ₦"
+              placeholderTextColor={colors.faint}
+              keyboardType="number-pad"
+              value={customNaira}
+              onChangeText={setCustomNaira}
+              style={amountInputStyle}
+            />
+            <PrimaryButton
+              title="Add funds"
+              loading={customSubmitting}
+              disabled={pending}
+              onPress={() => void handleCustomTopUp()}
+            />
+          </View>
+        )}
+      </View>
+
+      {state.ledger.length > 0 && (
+        <View style={{ gap: 6 }}>
+          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.ink }}>Recent activity</Text>
+          {state.ledger.slice(0, 5).map((entry) => (
+            <View
+              key={entry.id}
+              style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}
+            >
+              <Text style={{ fontSize: 12.5, color: colors.ink, flex: 1 }}>
+                {PLATFORM_CREDIT_ENTRY_LABEL[entry.entry_type] ?? entry.entry_type}
+                {entry.description ? ` — ${entry.description}` : ""}
+              </Text>
+              <Text style={{ fontSize: 12.5, fontWeight: "600", color: colors.ink }}>
+                {entry.entry_type === "topup" || entry.entry_type === "admin_grant" ? "+" : "−"}
+                {naira(entry.amount_kobo)}
+              </Text>
+            </View>
+          ))}
+        </View>
+      )}
+    </Card>
+  );
+}
 
 const ORDER_TYPE_LABEL: Record<string, string> = {
   lab: "lab order",
@@ -102,6 +289,8 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
         ))}
       </View>
 
+      <PlatformCreditSection />
+
       <View>
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Recent payment issues</Text>
         <MutedText>Your card details are not stored with us. A failed charge means Paystack declined it, not that anything on our side went wrong.</MutedText>
@@ -120,6 +309,19 @@ export function FinancialProfileScreen({ userId }: FinancialProfileScreenProps) 
         <View>
           <Text style={{ fontSize: 13, fontWeight: "700", color: colors.ink, marginBottom: 8 }}>Your share of a split bill</Text>
           <MutedText>Someone supporting you paid part of one of your bills. This is the reduced amount left for you to pay yourself.</MutedText>
+          {/*
+           * "Pay my share" deliberately stays a pure browser hand-off (checked
+           * 2026-09-18, not wired to platform credit like Services/the payment
+           * -issue retry). share.amount_minor is a subsidy_contributions row —
+           * the patient's reduced remainder of a lab/pharmacy/referral order
+           * split with a sponsor (see payMySubsidyShare/subsidy-checkout.ts) —
+           * never a service_products purchase. pay_service_purchase_on_platform_
+           * credit only settles a service_purchases row created by
+           * record_service_purchase_intent; there is no equivalent RPC (and no
+           * plan to add one) that lets platform credit settle a
+           * subsidy_contributions charge, so this is a genuinely different
+           * money shape platform credit can't cleanly pay into.
+           */}
           {profile.pendingShares.map((share) => (
             <Card key={share.id} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
               <Text style={{ fontSize: 13.5, color: colors.ink, flex: 1 }}>

@@ -5,14 +5,17 @@ import {
   loadMyVerifiedDocuments,
   requestVerifiedDocument,
   getVerifiedDocumentPdfUrl,
+  serviceProductCodeFor,
   VERIFIED_DOCUMENT_CREDIT_REQUIRED_MARKER,
   DOCUMENT_TYPE_LABEL,
   DOCUMENT_TYPE_OPTIONS,
   type VerifiedDocument,
   type VerifiedDocumentType,
 } from "@/lib/verified-documents";
+import { trySpendPlatformCreditForService } from "@/lib/platform-credit";
 import { formatCareDate } from "@/lib/care";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { koboToNaira } from "@tarragon/shared";
 import { colors, radius } from "@/ui/theme";
 import { Badge, Card, ErrorText, MutedText, PrimaryButton, SecondaryButton } from "@/ui/components";
 
@@ -28,13 +31,14 @@ const textInputStyle = {
 
 /**
  * Native "Verified documents" — mirrors apps/web/src/app/(dashboard)/
- * patient/verified-documents-card.tsx. Payment stays on the web (App Store
- * 3.1.1): this submits the request directly and, only if the DB trigger
- * rejects for lack of a credit, offers to buy one for the selected document
- * type in the system browser — same pattern as AskADoctorSection in
- * care-support-screen.tsx. Unlike the web card, this never pre-checks credit
- * balance (type-specific or the retired legacy flat credit) — the trigger is
- * the sole source of truth either way, so there's nothing to duplicate.
+ * patient/verified-documents-card.tsx. Submits the request directly; if the
+ * DB trigger rejects it for lack of a credit, this settles the *selected
+ * document type's own* credit (serviceProductCodeFor(documentType) — each
+ * type is priced and sold separately) in-app from the patient's platform
+ * credit balance when that already covers the price, and retries — no
+ * browser trip. Only a short balance (or a spend-level failure) falls back
+ * to the system browser — buying a credit still requires Paystack checkout,
+ * web-only (App Store 3.1.1).
  */
 export function VerifiedDocumentsSection({
   patientId,
@@ -51,6 +55,7 @@ export function VerifiedDocumentsSection({
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
   const [needsCredit, setNeedsCredit] = useState(false);
+  const [creditShortfallKobo, setCreditShortfallKobo] = useState<number | null>(null);
   const [openingPdfId, setOpeningPdfId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -64,19 +69,37 @@ export function VerifiedDocumentsSection({
 
   useEffect(() => {
     setNeedsCredit(false);
+    setCreditShortfallKobo(null);
   }, [documentType]);
 
   async function submit() {
     setSubmitting(true);
     setError(null);
     setNeedsCredit(false);
+    setCreditShortfallKobo(null);
     setSent(false);
-    const result = await requestVerifiedDocument({
+
+    const input = {
       patientId,
       organisationId,
       documentType,
       requestNote: requestNote.trim() || undefined,
-    });
+    };
+    let result = await requestVerifiedDocument(input);
+
+    if (!result.ok && result.error.includes(VERIFIED_DOCUMENT_CREDIT_REQUIRED_MARKER)) {
+      const spend = await trySpendPlatformCreditForService(serviceProductCodeFor(documentType), patientId);
+      if (spend.spent) {
+        result = await requestVerifiedDocument(input);
+      } else {
+        setSubmitting(false);
+        setNeedsCredit(true);
+        setCreditShortfallKobo(spend.shortfallKobo ?? null);
+        if (spend.error) setError(spend.error);
+        return;
+      }
+    }
+
     setSubmitting(false);
     if (!result.ok) {
       if (result.error.includes(VERIFIED_DOCUMENT_CREDIT_REQUIRED_MARKER)) {
@@ -113,7 +136,9 @@ export function VerifiedDocumentsSection({
       {needsCredit && (
         <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
           <Text style={{ fontSize: 13, color: colors.brandPressed }}>
-            Buy a credit for this document type to request it.
+            {creditShortfallKobo
+              ? `You need ₦${koboToNaira(creditShortfallKobo).toLocaleString()} more platform credit for this document type.`
+              : "Buy a credit for this document type to request it."}
           </Text>
           <SecondaryButton
             title="Buy a credit in the browser"

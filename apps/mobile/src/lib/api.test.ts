@@ -13,6 +13,8 @@ import {
   fetchVitalsThresholds,
   postDeviceReading,
   postVitalReading,
+  postVideoVisitRequestWithPlatformCredit,
+  postSelectVideoVisitAlternateSlot,
 } from "./api";
 import { supabase } from "./supabase";
 
@@ -223,5 +225,90 @@ describe("fetchVitalsThresholds", () => {
   it("returns null rather than throwing on any failure, so the caller keeps its bundled defaults", async () => {
     mockFetch.mockResolvedValue(jsonResponse(401, { error: "Invalid or expired session" }));
     await expect(fetchVitalsThresholds()).resolves.toBeNull();
+  });
+});
+
+describe("postVideoVisitRequestWithPlatformCredit", () => {
+  it("posts to the video-visit-request route with slotId, omitting note when unset", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ok: true, request_id: "req-1", amount_kobo: 500000 }));
+    await postVideoVisitRequestWithPlatformCredit("slot-1");
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/api/mobile/platform-credit/video-visit-request`);
+    expect(JSON.parse(init.body)).toEqual({ slotId: "slot-1" });
+  });
+
+  it("carries the note when one is given", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ok: true, request_id: "req-1", amount_kobo: 500000 }));
+    await postVideoVisitRequestWithPlatformCredit("slot-1", "Follow-up on my last visit");
+
+    expect(JSON.parse(mockFetch.mock.calls[0][1].body)).toEqual({
+      slotId: "slot-1",
+      note: "Follow-up on my last visit",
+    });
+  });
+
+  it("returns the RPC's own ok:true shape untouched", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { ok: true, request_id: "req-1", amount_kobo: 500000 }));
+    await expect(postVideoVisitRequestWithPlatformCredit("slot-1")).resolves.toEqual({
+      ok: true,
+      request_id: "req-1",
+      amount_kobo: 500000,
+    });
+  });
+
+  it("returns a business-level insufficient-balance result at 200 with its own error message intact", async () => {
+    mockFetch.mockResolvedValue(
+      jsonResponse(200, {
+        ok: false,
+        reason: "insufficient_balance",
+        balance_kobo: 100000,
+        required_kobo: 500000,
+        shortfall_kobo: 400000,
+        error: "You need ₦4,000 more in platform credit to reserve this visit.",
+      })
+    );
+    await expect(postVideoVisitRequestWithPlatformCredit("slot-1")).resolves.toEqual({
+      ok: false,
+      reason: "insufficient_balance",
+      balance_kobo: 100000,
+      required_kobo: 500000,
+      shortfall_kobo: 400000,
+      error: "You need ₦4,000 more in platform credit to reserve this visit.",
+    });
+  });
+
+  it("wraps a genuine HTTP-level failure as ok:false", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(400, { error: "That time is no longer available, pick another slot." }));
+    await expect(postVideoVisitRequestWithPlatformCredit("slot-1")).resolves.toEqual({
+      ok: false,
+      error: "That time is no longer available, pick another slot.",
+    });
+  });
+});
+
+describe("postSelectVideoVisitAlternateSlot", () => {
+  it("posts requestId and slotId to the select-alternate-slot route", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { success: true, consultationId: "consult-1" }));
+    await postSelectVideoVisitAlternateSlot("req-1", "slot-b");
+
+    const [url, init] = mockFetch.mock.calls[0];
+    expect(url).toBe(`${API_BASE_URL}/api/mobile/video-visits/select-alternate-slot`);
+    expect(JSON.parse(init.body)).toEqual({ requestId: "req-1", slotId: "slot-b" });
+  });
+
+  it("returns the new consultation id on success", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(200, { success: true, consultationId: "consult-1" }));
+    await expect(postSelectVideoVisitAlternateSlot("req-1", "slot-b")).resolves.toEqual({
+      success: true,
+      consultationId: "consult-1",
+    });
+  });
+
+  it("surfaces a server error", async () => {
+    mockFetch.mockResolvedValue(jsonResponse(400, { error: "that time is no longer available" }));
+    await expect(postSelectVideoVisitAlternateSlot("req-1", "slot-b")).resolves.toEqual({
+      error: "that time is no longer available",
+    });
   });
 });

@@ -38,9 +38,15 @@ import {
   type SexualHealthInstrument,
   type SexualWellnessResult,
 } from "@/lib/sexual-wellness";
-import { CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER, startConfidentialSrhThread } from "@/lib/confidential-message";
+import {
+  CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER,
+  CONFIDENTIAL_MESSAGE_CREDIT_CODE,
+  startConfidentialSrhThread,
+} from "@/lib/confidential-message";
+import { trySpendPlatformCreditForService } from "@/lib/platform-credit";
 import { loadHealthEducationLibrary, type LibraryItem as HealthEducationLibraryItem } from "@/lib/health-education";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { koboToNaira } from "@tarragon/shared";
 import { SexualHealthResultsTab, SexualHealthTestingTab } from "@/screens/sections/sexual-health-testing-tab";
 import type { SectionId } from "@/lib/sections";
 import { colors, radius, spacing } from "@/ui/theme";
@@ -708,7 +714,28 @@ function ConfidentialMessageCard() {
     setError(null);
     setNeedsCredit(false);
     setPending(true);
-    const result = await startConfidentialSrhThread(subject, body);
+
+    let result = await startConfidentialSrhThread(subject, body);
+
+    if (!result.ok && result.error.includes(CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER)) {
+      // start_care_thread resolves the caller's own patient id from
+      // auth.uid() itself, so this spends against the caller — no
+      // patientId to pass, same as this card's own props (none).
+      const spend = await trySpendPlatformCreditForService(CONFIDENTIAL_MESSAGE_CREDIT_CODE);
+      if (spend.spent) {
+        result = await startConfidentialSrhThread(subject, body);
+      } else {
+        setPending(false);
+        setNeedsCredit(true);
+        setError(
+          spend.shortfallKobo
+            ? `You need ₦${koboToNaira(spend.shortfallKobo).toLocaleString()} more platform credit to send this.`
+            : (spend.error ?? "Buy a confidential message credit to send this.")
+        );
+        return;
+      }
+    }
+
     setPending(false);
     if (!result.ok) {
       setError(result.error);

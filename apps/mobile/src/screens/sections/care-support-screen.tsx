@@ -6,6 +6,7 @@ import {
   submitAsyncConsult,
   ASYNC_CONSULT_CATEGORIES,
   ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER,
+  ASYNC_CONSULT_CREDIT_CODE,
   loadMyNavigationRequests,
   createNavigationRequest,
   submitNavigationRequestFeedback,
@@ -45,7 +46,10 @@ import {
 import { SecondOpinionSection } from "./second-opinion-section";
 import { SeniorCaseReviewSection } from "./senior-case-review-section";
 import { VerifiedDocumentsSection } from "./verified-documents-section";
+import { trySpendPlatformCreditForService } from "@/lib/platform-credit";
+import { VideoVisitBookingSection } from "./video-visit-booking-section";
 import { PLATFORM_URL } from "@/lib/platform-url";
+import { koboToNaira } from "@tarragon/shared";
 import {
   loadMyVouchers,
   loadMyReferralCode,
@@ -91,6 +95,9 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 interface CareSupportScreenProps {
   patientId: string;
   organisationId: string;
+  /** Pushes the native "manage this visit" screen once a video-visit
+   * request reaches 'accepted' — see home-shell.tsx's openVideoVisitId. */
+  onOpenVideoVisit: (consultationId: string) => void;
 }
 
 /**
@@ -112,18 +119,25 @@ interface CareSupportScreenProps {
  * system browser — same reasoning as "My services" elsewhere in the app
  * (App Store Review 3.1.1: embedding a digital-purchase checkout in-app
  * risks rejection, so the actual payment always opens the system browser,
- * never a WebView or an in-app checkout form). Book Video Visit is the one
- * remaining service still left as a full system-browser hand-off below,
- * not rebuilt here — it isn't credit-based at all (a slot-pick-and-pay
- * atomic action followed by a multi-stage doctor-acceptance lifecycle),
- * a materially different shape that deserves its own native pass. Also
+ * never a WebView or an in-app checkout form). Book Video Visit is now
+ * native too (VideoVisitBookingSection, below) — it was the one remaining
+ * browser-only gap on this screen until this pass; it isn't credit-based
+ * at all (a slot-pick-and-pay HELD-payment request followed by a
+ * multi-stage doctor-acceptance lifecycle), a materially different shape
+ * from every other section here, which is why it lives in its own file.
+ * Reserving a request against Platform Credit, and a doctor's proposed
+ * alternate-time pick, both go through bearer-authenticated passthrough
+ * routes (video-visit-booking.ts) rather than a raw client RPC call, since
+ * each needs more than the mobile client's own RLS-scoped session; a card
+ * payment still opens the web booking page in the system browser, same App
+ * Store Review 3.1.1 reasoning as everything else on this screen. Also
  * left on web: proposing a
  * new care-plan goal (a form on top of an already sizeable screen) and the
  * discretionary/engagement cards (chronic programme timeline, care circle,
  * vouchers, wellness points, testimonials) that the web page itself treats
  * as lower priority than the content above.
  */
-export function CareSupportScreen({ patientId, organisationId }: CareSupportScreenProps) {
+export function CareSupportScreen({ patientId, organisationId, onOpenVideoVisit }: CareSupportScreenProps) {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: colors.background }}
@@ -138,6 +152,11 @@ export function CareSupportScreen({ patientId, organisationId }: CareSupportScre
       <EscalationsSection patientId={patientId} />
       <ReferralsSection patientId={patientId} />
       <HospitalAdmissionsSection patientId={patientId} organisationId={organisationId} />
+      <VideoVisitBookingSection
+        patientId={patientId}
+        organisationId={organisationId}
+        onOpenVideoVisit={onOpenVideoVisit}
+      />
       <AskADoctorSection patientId={patientId} organisationId={organisationId} />
       <SecondOpinionSection patientId={patientId} organisationId={organisationId} />
       <SeniorCaseReviewSection patientId={patientId} organisationId={organisationId} />
@@ -145,14 +164,6 @@ export function CareSupportScreen({ patientId, organisationId }: CareSupportScre
       <NeedHelpSection patientId={patientId} />
       <VouchersSection patientId={patientId} />
       <TestimonialSection />
-
-      <CalloutCard
-        icon="medkit-outline"
-        title="Book a video visit"
-        subtitle="A one-off online consultation with a doctor — booking and payment both happen in your browser."
-        ctaLabel="Open"
-        onPress={() => void WebBrowser.openBrowserAsync(`${PLATFORM_URL}/patient/care`)}
-      />
     </ScrollView>
   );
 }
@@ -741,6 +752,7 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [needsCredit, setNeedsCredit] = useState(false);
+  const [creditShortfallKobo, setCreditShortfallKobo] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     const result = await loadMyAsyncConsults(patientId);
@@ -759,7 +771,29 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
     setSubmitting(true);
     setError(null);
     setNeedsCredit(false);
-    const result = await submitAsyncConsult({ patientId, organisationId, category, question: question.trim() });
+    setCreditShortfallKobo(null);
+
+    const input = { patientId, organisationId, category, question: question.trim() };
+    let result = await submitAsyncConsult(input);
+
+    if (!result.ok && result.error.includes(ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER)) {
+      // Plan-covered patients (async_doctor_visit feature access) never
+      // reach here at all — the insert above already succeeded for them.
+      // This only fires for a patient with neither plan access nor a
+      // pre-purchased credit; settle it from platform credit in-app when
+      // the balance covers it and retry — no browser trip.
+      const spend = await trySpendPlatformCreditForService(ASYNC_CONSULT_CREDIT_CODE, patientId);
+      if (spend.spent) {
+        result = await submitAsyncConsult(input);
+      } else {
+        setSubmitting(false);
+        setNeedsCredit(true);
+        setCreditShortfallKobo(spend.shortfallKobo ?? null);
+        if (spend.error) setError(spend.error);
+        return;
+      }
+    }
+
     setSubmitting(false);
     if (!result.ok) {
       if (result.error.includes(ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER)) {
@@ -784,8 +818,9 @@ function AskADoctorSection({ patientId, organisationId }: { patientId: string; o
       {needsCredit && (
         <Card style={{ gap: 8, backgroundColor: colors.brandTint }}>
           <Text style={{ fontSize: 13, color: colors.brandPressed }}>
-            Ask a doctor isn&apos;t included on your current plan. Buy a one-off credit to send
-            this question.
+            {creditShortfallKobo
+              ? `You need ₦${koboToNaira(creditShortfallKobo).toLocaleString()} more platform credit to send this question.`
+              : "Ask a doctor isn't included on your current plan. Buy a one-off credit to send this question."}
           </Text>
           <SecondaryButton
             title="Buy a credit in the browser"

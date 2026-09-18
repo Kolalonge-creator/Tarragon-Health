@@ -16,6 +16,10 @@ import type { QueryResult } from "./medications";
  */
 export const CONFIDENTIAL_MESSAGE_CREDIT_REQUIRED_MARKER = "confidential message credit";
 
+/** The service_products code a thread spends — see
+ * platform-credit.ts's trySpendPlatformCreditForService. */
+export const CONFIDENTIAL_MESSAGE_CREDIT_CODE = "confidential_message_credit";
+
 export async function startConfidentialSrhThread(subject: string, body: string): Promise<QueryResult<string>> {
   const trimmedSubject = subject.trim();
   const trimmedBody = body.trim();

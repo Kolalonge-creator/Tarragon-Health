@@ -222,7 +222,16 @@ export function HomeShell({ userId, organisationId, patientName, patientNumber, 
     labs: () => <LabsScreen />,
     appointments: () => <AppointmentsScreen patientId={userId} organisationId={organisationId} />,
     prevention: () => <PreventionScreen patientId={subjectId} organisationId={organisationId} />,
-    care: () => <CareSupportScreen patientId={userId} organisationId={organisationId} />,
+    care: () =>
+      openVideoVisitId ? (
+        <VideoVisitScreen consultationId={openVideoVisitId} onBack={() => setOpenVideoVisitId(null)} />
+      ) : (
+        <CareSupportScreen
+          patientId={userId}
+          organisationId={organisationId}
+          onOpenVideoVisit={setOpenVideoVisitId}
+        />
+      ),
     myActions: () => <ActionsScreen patientId={subjectId} onNavigate={handleSelect} />,
     healthSummary: () => <HealthSummaryScreen patientId={subjectId} onNavigate={handleSelect} />,
     timeline: () => <TimelineScreen patientId={subjectId} onNavigate={handleSelect} />,

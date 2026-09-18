@@ -1,5 +1,15 @@
 -- ===========================================================================
--- Verification: Platform Credit (20260917100300..20260917100629)
+-- Verification: Platform Credit (20260917100300..20260917100629), extended
+-- 20260918 to cover spending platform credit on a pharmacy order
+-- (20260917224156_platform_credit_spend_on_pharmacy_order.sql) and a
+-- specialist referral (20260917224509_platform_credit_spend_on_specialist_
+-- referral.sql) — sections 5-7 below. Neither of those two migrations'
+-- own inline self-checks proves the RPCs discriminate correctly either
+-- (merged 2026-09-18 with a third, independently-built section 8: Platform
+-- Credit paying for video visit bookings, spend deferred to doctor
+-- acceptance rather than held at request time).
+-- (same reason as the rest of this file: they run as postgres, and
+-- RLS/the functions' own auth.uid() checks only bite a real session).
 --
 -- Proves what the migrations' own inline self-checks could not, because they
 -- run as postgres and RLS only bites a real `authenticated` session:
@@ -14,7 +24,15 @@
 --     (see 20260917100300's header) — proved with a mixed balance, not just
 --     asserted in a comment;
 --   * a sabotage run (the old unconstrained grants restored) shows these
---     checks actually discriminate rather than passing vacuously.
+--     checks actually discriminate rather than passing vacuously;
+--   * (added 2026-09-18) pay_pharmacy_order_on_platform_credit and
+--     pay_specialist_referral_on_platform_credit each refuse a caller who
+--     is not the order's own patient (cross-patient isolation), refuse an
+--     insufficient balance atomically (order status/ledger/balance all
+--     unchanged, not partially applied), and — on success — flip the
+--     booking row to payment_confirmed with the same four columns the
+--     Paystack webhook sets, and stamp the new booking_order_id/
+--     booking_order_type columns on the ledger row that funded it.
 --
 -- Run via `supabase db query "$(cat this_file.sql)" --linked`, `psql
 -- $DATABASE_URL -f this_file.sql`, or the Supabase SQL editor.
@@ -306,6 +324,723 @@ begin
   if v_write <> 'INSERT ACCEPTED' then
     raise exception 'The check-1 proof does not discriminate: sabotaging grant+policy did not reopen the hole (got %)', v_write;
   end if;
+end $$;
+
+-- ==========================================================================
+-- 5. Fixtures for the booking-order RPCs: a pharmacy order and a specialist
+--    referral, both for v_patient, both opening in 'pending_payment'.
+-- ==========================================================================
+-- specialist_referrals' create-gate (private.enforce_specialist_referral_create,
+-- 20260829161238) demands private.is_clinical_tier(organisation_id) — so a
+-- real clinical_staff fixture + an impersonated clinician session is needed
+-- just to create the row, distinct from the patient session used to pay it.
+-- The same clinical_staff row also lets the pharmacy order open as
+-- 'clinically_triggered' (ordered_by = the clinician), which skips
+-- private.enforce_pharmacy_order_origin's patient_initiated branch entirely
+-- (that branch demands every item's drug_name match an active,
+-- clinician-source public.medications row for this patient — a real
+-- prescription fixture this test has no need to build) while still landing
+-- in status='pending_payment', the same state a real patient-initiated
+-- order opens in via 20260905000112_force_safe_patient_order_insert_defaults.sql.
+do $$
+declare
+  v_org        uuid := (select v from pcl_fixture where k = 'org');
+  v_patient    uuid := (select v from pcl_fixture where k = 'patient');
+  v_clinician  uuid := gen_random_uuid();
+  v_staff_id   uuid;
+  v_pharmacy_order_id uuid;
+  v_referral_id       uuid;
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values (v_clinician, 'pcl-clinician@example.invalid', 'x', now(), '{}', '{}');
+  -- auth.users has an AFTER INSERT trigger that auto-provisions a profiles
+  -- row (defaults to role='patient') — same reason the org's own patient
+  -- fixture above needs ON CONFLICT DO UPDATE.
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values (v_clinician, v_org, 'clinician', 'PCL Clinician')
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role, full_name = excluded.full_name;
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, doctor_tier, license_verified_at)
+  values (v_org, v_clinician, 'PCL Clinician', true, 'medical_officer', now())
+  returning id into v_staff_id;
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_clinician, 'role', 'authenticated')::text, true);
+
+  insert into public.pharmacy_orders
+    (organisation_id, patient_id, total_kobo, items, origin, ordered_by, status)
+  values (v_org, v_patient, 150000, '[]'::jsonb, 'clinically_triggered', v_staff_id, 'pending_payment')
+  returning id into v_pharmacy_order_id;
+
+  if (select status from public.pharmacy_orders where id = v_pharmacy_order_id) <> 'pending_payment' then
+    raise exception 'fixture setup FAIL: pharmacy order did not open pending_payment (got %)',
+      (select status from public.pharmacy_orders where id = v_pharmacy_order_id);
+  end if;
+
+  -- fulfilment must be 'partner', not the default 'self_arranged' —
+  -- private.enforce_referral_fulfilment (20260803142941) refuses a nonzero
+  -- referral_fee_kobo on a self-arranged referral outright ("the patient
+  -- pays the specialist directly"). 'partner' is the same value the
+  -- internal-specialist auto-match reuses for a Tarragon-billed referral
+  -- (see CLAUDE.md's specialist-referral auto-matching entry).
+  insert into public.specialist_referrals
+    (organisation_id, patient_id, specialist_type, status, referral_fee_kobo, fulfilment)
+  values (v_org, v_patient, 'cardiology', 'pending_payment', 200000, 'partner')
+  returning id into v_referral_id;
+
+  if (select status from public.specialist_referrals where id = v_referral_id) <> 'pending_payment' then
+    raise exception 'fixture setup FAIL: referral did not stay pending_payment (got %)',
+      (select status from public.specialist_referrals where id = v_referral_id);
+  end if;
+
+  insert into pcl_fixture values
+    ('clinician', v_clinician), ('clinical_staff_id', v_staff_id),
+    ('pharmacy_order', v_pharmacy_order_id), ('referral', v_referral_id);
+end $$;
+
+-- ==========================================================================
+-- 6. pay_pharmacy_order_on_platform_credit
+-- ==========================================================================
+do $$
+declare
+  v_org      uuid := (select v from pcl_fixture where k = 'org');
+  v_patient  uuid := (select v from pcl_fixture where k = 'patient');
+  v_other    uuid := (select v from pcl_fixture where k = 'other');
+  v_order_id uuid := (select v from pcl_fixture where k = 'pharmacy_order');
+  v_result       jsonb;
+  v_cross_error  text;
+  v_ledger_count_before int;
+  v_ledger_count_after  int;
+  v_balance_before bigint;
+  v_second_order_id uuid;
+  v_staff_id uuid := (select v from pcl_fixture where k = 'clinical_staff_id');
+begin
+  -- v_patient carries a real 400000-kobo balance left over from section 3's
+  -- bucket-consumption proof — zero it here so (a) below genuinely tests a
+  -- zero balance rather than accidentally having enough.
+  update public.platform_credit_balances set paid_balance_kobo = 0, promo_balance_kobo = 0
+    where patient_id = v_patient;
+
+  -- (a) Insufficient balance (zero funded so far) is refused atomically:
+  -- the order must not move, and no ledger row must appear.
+  select count(*) into v_ledger_count_before from public.platform_credit_ledger_entries where patient_id = v_patient;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.pay_pharmacy_order_on_platform_credit(v_order_id) into v_result;
+  reset role;
+
+  select count(*) into v_ledger_count_after from public.platform_credit_ledger_entries where patient_id = v_patient;
+
+  insert into pcl_result values
+    ('pay_pharmacy_order_on_platform_credit refuses zero balance', 'patient',
+     v_result ->> 'reason', 'insufficient_balance',
+     case when (v_result ->> 'ok')::boolean is false and (v_result ->> 'reason') = 'insufficient_balance'
+          then 'PASS' else 'FAIL' end);
+  if (select status from public.pharmacy_orders where id = v_order_id) <> 'pending_payment' then
+    raise exception 'FAIL: a refused pharmacy-order spend still changed the order status';
+  end if;
+  if v_ledger_count_after <> v_ledger_count_before then
+    raise exception 'FAIL: a refused pharmacy-order spend still inserted a ledger row (no partial mutation expected)';
+  end if;
+
+  -- (b) Cross-patient isolation: v_other (not this order's patient, not
+  -- staff) may not pay it, even with plenty of their own platform credit.
+  perform private.platform_credit_apply(
+    p_patient_id := v_other, p_organisation_id := v_org, p_entry_type := 'topup',
+    p_amount_kobo := 100000000, p_description := 'pcl cross-patient bait funding'
+  );
+
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub', v_other, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    perform public.pay_pharmacy_order_on_platform_credit(v_order_id);
+    reset role;
+    v_cross_error := 'NO ERROR — SPEND WENT THROUGH';
+  exception when others then
+    begin reset role; exception when others then null; end;
+    v_cross_error := sqlstate;
+  end;
+
+  insert into pcl_result values
+    ('pay_pharmacy_order_on_platform_credit refuses a non-owning patient', 'other patient',
+     v_cross_error, '42501', case when v_cross_error = '42501' then 'PASS' else 'FAIL' end);
+  if v_cross_error <> '42501' then
+    raise exception 'HOLE OPEN: a patient could pay for another patient''s pharmacy order via platform credit (got %)', v_cross_error;
+  end if;
+  if (select status from public.pharmacy_orders where id = v_order_id) <> 'pending_payment' then
+    raise exception 'FAIL: the cross-patient attack attempt still changed the order status';
+  end if;
+
+  -- (c) Fund the real owner and pay for real.
+  perform private.platform_credit_apply(
+    p_patient_id := v_patient, p_organisation_id := v_org, p_entry_type := 'topup',
+    p_amount_kobo := 1000000, p_description := 'pcl pharmacy fixture funding'
+  );
+  select balance_kobo into v_balance_before from public.platform_credit_balances where patient_id = v_patient;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.pay_pharmacy_order_on_platform_credit(v_order_id) into v_result;
+  reset role;
+
+  insert into pcl_result values
+    ('pay_pharmacy_order_on_platform_credit succeeds with sufficient balance', 'patient',
+     v_result::text, 'ok=true', case when (v_result ->> 'ok')::boolean is true then 'PASS' else 'FAIL' end);
+  if (v_result ->> 'ok')::boolean is distinct from true then
+    raise exception 'FAIL: pharmacy-order spend with sufficient balance should succeed, got %', v_result;
+  end if;
+
+  if (select status from public.pharmacy_orders where id = v_order_id) <> 'payment_confirmed' then
+    raise exception 'FAIL: pharmacy_orders.status was not flipped to payment_confirmed';
+  end if;
+  if (select payment_provider from public.pharmacy_orders where id = v_order_id) <> 'platform_credit' then
+    raise exception 'FAIL: pharmacy_orders.payment_provider was not stamped platform_credit';
+  end if;
+  if (select pending_payment_provider_ref from public.pharmacy_orders where id = v_order_id) is not null then
+    raise exception 'FAIL: pharmacy_orders.pending_payment_provider_ref was not cleared';
+  end if;
+
+  if not exists (
+    select 1 from public.platform_credit_ledger_entries
+    where patient_id = v_patient and booking_order_id = v_order_id and booking_order_type = 'pharmacy'
+      and id::text = (select payment_provider_ref from public.pharmacy_orders where id = v_order_id)
+  ) then
+    raise exception 'FAIL: no ledger entry with booking_order_id/booking_order_type set matches the order''s payment_provider_ref';
+  end if;
+
+  if (select balance_kobo from public.platform_credit_balances where patient_id = v_patient) >= v_balance_before then
+    raise exception 'FAIL: balance did not decrease after the pharmacy-order spend';
+  end if;
+
+  -- (d) Paying an already-confirmed order again is refused, not double-spent.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.pay_pharmacy_order_on_platform_credit(v_order_id) into v_result;
+  reset role;
+  insert into pcl_result values
+    ('pay_pharmacy_order_on_platform_credit refuses an already-paid order', 'patient',
+     v_result ->> 'reason', 'not_payable',
+     case when (v_result ->> 'ok')::boolean is false and (v_result ->> 'reason') = 'not_payable' then 'PASS' else 'FAIL' end);
+  if (v_result ->> 'ok')::boolean is distinct from false or (v_result ->> 'reason') is distinct from 'not_payable' then
+    raise exception 'FAIL: paying an already payment_confirmed pharmacy order again should be refused, got %', v_result;
+  end if;
+
+  -- (e) Atomic insufficient-balance refusal on a SECOND, fresh order — an
+  -- overspend beyond what remains must leave that second order untouched
+  -- and insert no ledger row, not partially apply anything.
+  insert into public.pharmacy_orders
+    (organisation_id, patient_id, total_kobo, items, origin, ordered_by, status)
+  values (v_org, v_patient, 999999999, '[]'::jsonb, 'clinically_triggered', v_staff_id, 'pending_payment')
+  returning id into v_second_order_id;
+
+  select count(*) into v_ledger_count_before from public.platform_credit_ledger_entries where patient_id = v_patient;
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.pay_pharmacy_order_on_platform_credit(v_second_order_id) into v_result;
+  reset role;
+  select count(*) into v_ledger_count_after from public.platform_credit_ledger_entries where patient_id = v_patient;
+
+  insert into pcl_result values
+    ('pay_pharmacy_order_on_platform_credit refuses an overspend atomically', 'patient',
+     format('ok=%s reason=%s ledger_delta=%s', v_result ->> 'ok', v_result ->> 'reason', v_ledger_count_after - v_ledger_count_before),
+     'ok=false reason=insufficient_balance ledger_delta=0',
+     case when (v_result ->> 'ok')::boolean is false and (v_result ->> 'reason') = 'insufficient_balance'
+               and v_ledger_count_after = v_ledger_count_before
+          then 'PASS' else 'FAIL' end);
+  if (select status from public.pharmacy_orders where id = v_second_order_id) <> 'pending_payment' then
+    raise exception 'FAIL: an overspend attempt still changed the second pharmacy order''s status';
+  end if;
+
+  delete from public.pharmacy_orders where id = v_second_order_id;
+end $$;
+
+-- ==========================================================================
+-- 7. pay_specialist_referral_on_platform_credit — same checks, retargeted.
+-- ==========================================================================
+do $$
+declare
+  v_org         uuid := (select v from pcl_fixture where k = 'org');
+  v_patient     uuid := (select v from pcl_fixture where k = 'patient');
+  v_other       uuid := (select v from pcl_fixture where k = 'other');
+  v_referral_id uuid := (select v from pcl_fixture where k = 'referral');
+  v_result      jsonb;
+  v_cross_error text;
+  v_balance_before bigint;
+begin
+  -- (a) v_other already holds real platform credit from section 6 — still
+  -- must not be able to pay for v_patient's referral.
+  begin
+    perform set_config('request.jwt.claims', json_build_object('sub', v_other, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    perform public.pay_specialist_referral_on_platform_credit(v_referral_id);
+    reset role;
+    v_cross_error := 'NO ERROR — SPEND WENT THROUGH';
+  exception when others then
+    begin reset role; exception when others then null; end;
+    v_cross_error := sqlstate;
+  end;
+
+  insert into pcl_result values
+    ('pay_specialist_referral_on_platform_credit refuses a non-owning patient', 'other patient',
+     v_cross_error, '42501', case when v_cross_error = '42501' then 'PASS' else 'FAIL' end);
+  if v_cross_error <> '42501' then
+    raise exception 'HOLE OPEN: a patient could pay for another patient''s referral via platform credit (got %)', v_cross_error;
+  end if;
+  if (select status from public.specialist_referrals where id = v_referral_id) <> 'pending_payment' then
+    raise exception 'FAIL: the cross-patient attack attempt still changed the referral status';
+  end if;
+
+  -- (b) v_patient has no balance left for this specific referral fee yet
+  -- (section 6 spent it down to a small remainder) — refuse atomically.
+  update public.platform_credit_balances set paid_balance_kobo = 0, promo_balance_kobo = 0
+    where patient_id = v_patient;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.pay_specialist_referral_on_platform_credit(v_referral_id) into v_result;
+  reset role;
+
+  insert into pcl_result values
+    ('pay_specialist_referral_on_platform_credit refuses insufficient balance', 'patient',
+     v_result ->> 'reason', 'insufficient_balance',
+     case when (v_result ->> 'ok')::boolean is false and (v_result ->> 'reason') = 'insufficient_balance'
+          then 'PASS' else 'FAIL' end);
+  if (select status from public.specialist_referrals where id = v_referral_id) <> 'pending_payment' then
+    raise exception 'FAIL: a refused referral spend still changed the referral status';
+  end if;
+
+  -- (c) Fund and pay for real.
+  perform private.platform_credit_apply(
+    p_patient_id := v_patient, p_organisation_id := v_org, p_entry_type := 'topup',
+    p_amount_kobo := 1000000, p_description := 'pcl referral fixture funding'
+  );
+  select balance_kobo into v_balance_before from public.platform_credit_balances where patient_id = v_patient;
+
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.pay_specialist_referral_on_platform_credit(v_referral_id) into v_result;
+  reset role;
+
+  insert into pcl_result values
+    ('pay_specialist_referral_on_platform_credit succeeds with sufficient balance', 'patient',
+     v_result::text, 'ok=true', case when (v_result ->> 'ok')::boolean is true then 'PASS' else 'FAIL' end);
+  if (v_result ->> 'ok')::boolean is distinct from true then
+    raise exception 'FAIL: referral spend with sufficient balance should succeed, got %', v_result;
+  end if;
+
+  if (select status from public.specialist_referrals where id = v_referral_id) <> 'payment_confirmed' then
+    raise exception 'FAIL: specialist_referrals.status was not flipped to payment_confirmed';
+  end if;
+  if (select payment_provider from public.specialist_referrals where id = v_referral_id) <> 'platform_credit' then
+    raise exception 'FAIL: specialist_referrals.payment_provider was not stamped platform_credit';
+  end if;
+
+  if not exists (
+    select 1 from public.platform_credit_ledger_entries
+    where patient_id = v_patient and booking_order_id = v_referral_id and booking_order_type = 'referral'
+      and id::text = (select payment_provider_ref from public.specialist_referrals where id = v_referral_id)
+  ) then
+    raise exception 'FAIL: no ledger entry with booking_order_id/booking_order_type set matches the referral''s payment_provider_ref';
+  end if;
+
+  if (select balance_kobo from public.platform_credit_balances where patient_id = v_patient) >= v_balance_before then
+    raise exception 'FAIL: balance did not decrease after the referral spend';
+  end if;
+
+  -- (d) Already-paid referral cannot be paid again.
+  perform set_config('request.jwt.claims', json_build_object('sub', v_patient, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  select public.pay_specialist_referral_on_platform_credit(v_referral_id) into v_result;
+  reset role;
+  insert into pcl_result values
+    ('pay_specialist_referral_on_platform_credit refuses an already-paid referral', 'patient',
+     v_result ->> 'reason', 'not_payable',
+     case when (v_result ->> 'ok')::boolean is false and (v_result ->> 'reason') = 'not_payable' then 'PASS' else 'FAIL' end);
+  if (v_result ->> 'ok')::boolean is distinct from false or (v_result ->> 'reason') is distinct from 'not_payable' then
+    raise exception 'FAIL: paying an already payment_confirmed referral again should be refused, got %', v_result;
+  end if;
+end $$;
+
+-- ==========================================================================
+-- 8. Video visit bookings — Platform Credit pays for a HELD booking.
+--
+-- Distinct fixtures from the sections above: a doctor (clinical_staff +
+-- a real auth session, since accept_video_visit_request/
+-- select_video_visit_alternate_slot key off auth.uid() = clinical_staff.
+-- profile_id), a published slot, and fresh patients so this section's
+-- balance movements can be asserted exactly without interference from the
+-- bucket-order tests above.
+--
+-- Proves, end to end: (a) the request-time hold only checks the balance,
+-- never spends it; (b) an insufficient balance at request time is refused
+-- without ever touching video_visit_requests.status or the balance; (c) a
+-- stranger cannot confirm/spend someone else's request; (d) doctor
+-- acceptance is the ONE moment that actually calls platform_credit_apply,
+-- for exactly amount_minor, linked via the new booking_order_id/type
+-- columns; (e) the spend function is not directly callable by an
+-- authenticated session — only doctor acceptance can trigger it; (f) an
+-- insufficient balance discovered only at acceptance time (drained after
+-- the request-time hold) aborts the ENTIRE acceptance atomically — no
+-- consultation, no slot flip, no partial spend; (g) declining a platform-
+-- credit-funded request that was never accepted leaves the balance
+-- COMPLETELY untouched — no refund logic needed, because nothing was ever
+-- spent.
+-- ==========================================================================
+do $$
+declare
+  v_org           uuid := (select v from pcl_fixture where k = 'org');
+  v_doctor        uuid := gen_random_uuid();
+  v_vpatient      uuid := gen_random_uuid(); -- has enough credit throughout
+  v_vpoor         uuid := gen_random_uuid(); -- never funded
+  v_vdrained      uuid := gen_random_uuid(); -- funded, then drained before acceptance
+  v_vdeclined     uuid := gen_random_uuid(); -- funded, request declined unaccepted
+  v_price         bigint;
+  v_slot_a        uuid;
+  v_slot_b        uuid;
+  v_slot_c        uuid;
+  v_req_a         uuid; -- the happy-path request (confirmed, then accepted)
+  v_req_poor      uuid; -- insufficient balance at request time
+  v_req_drained   uuid; -- confirmed, then balance drained, then acceptance attempted
+  v_req_declined  uuid; -- confirmed, then declined, never accepted
+begin
+  insert into auth.users (id, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data)
+  values
+    (v_doctor,    'pcl-vv-doctor@example.invalid',   'x', now(), '{}', '{}'),
+    (v_vpatient,  'pcl-vv-patient@example.invalid',  'x', now(), '{}', '{}'),
+    (v_vpoor,     'pcl-vv-poor@example.invalid',     'x', now(), '{}', '{}'),
+    (v_vdrained,  'pcl-vv-drained@example.invalid',  'x', now(), '{}', '{}'),
+    (v_vdeclined, 'pcl-vv-declined@example.invalid', 'x', now(), '{}', '{}');
+
+  insert into public.profiles (id, organisation_id, role, full_name)
+  values
+    (v_doctor, v_org, 'clinician', 'PCL VV Doctor'),
+    (v_vpatient, v_org, 'patient', 'PCL VV Patient'),
+    (v_vpoor, v_org, 'patient', 'PCL VV Poor Patient'),
+    (v_vdrained, v_org, 'patient', 'PCL VV Drained Patient'),
+    (v_vdeclined, v_org, 'patient', 'PCL VV Declined Patient')
+  on conflict (id) do update set organisation_id = excluded.organisation_id, role = excluded.role;
+
+  insert into public.clinical_staff (organisation_id, profile_id, full_name, active, doctor_tier, license_verified_at)
+  values (v_org, v_doctor, 'PCL VV Doctor', true, 'medical_officer', now());
+
+  -- date_trunc up front so the same exact timestamp is used for both the
+  -- INSERT and the later re-select by slot_start (now() is stable for the
+  -- whole transaction, but its sub-second fraction is not something to
+  -- round-trip through a WHERE clause).
+  insert into public.consult_availability_slots (organisation_id, clinician_profile_id, slot_start, slot_end)
+  values
+    (v_org, v_doctor, date_trunc('second', now()) + interval '2 days', date_trunc('second', now()) + interval '2 days 15 minutes'),
+    (v_org, v_doctor, date_trunc('second', now()) + interval '3 days', date_trunc('second', now()) + interval '3 days 15 minutes'),
+    (v_org, v_doctor, date_trunc('second', now()) + interval '4 days', date_trunc('second', now()) + interval '4 days 15 minutes');
+  -- Re-select each slot by its own distinct slot_start rather than relying
+  -- on RETURNING's row order for a multi-row INSERT.
+  select id into v_slot_a from public.consult_availability_slots
+    where organisation_id = v_org and clinician_profile_id = v_doctor
+      and slot_start = date_trunc('second', now()) + interval '2 days';
+  select id into v_slot_b from public.consult_availability_slots
+    where organisation_id = v_org and clinician_profile_id = v_doctor
+      and slot_start = date_trunc('second', now()) + interval '3 days';
+  select id into v_slot_c from public.consult_availability_slots
+    where organisation_id = v_org and clinician_profile_id = v_doctor
+      and slot_start = date_trunc('second', now()) + interval '4 days';
+  if v_slot_a is null or v_slot_b is null or v_slot_c is null then
+    raise exception 'FAIL: could not re-select the fixture slots by slot_start -- fixture setup bug, not a product bug';
+  end if;
+
+  -- --------------------------------------------------------------------
+  -- (a)+(b) Request-time hold: happy path checks+holds without spending;
+  -- an underfunded patient is refused without any status change.
+  -- --------------------------------------------------------------------
+  insert into public.video_visit_requests (organisation_id, patient_id, slot_id)
+    values (v_org, v_vpatient, v_slot_a) returning id, amount_minor into v_req_a, v_price;
+  insert into public.video_visit_requests (organisation_id, patient_id, slot_id)
+    values (v_org, v_vpoor, v_slot_b) returning id into v_req_poor;
+
+  perform private.platform_credit_apply(
+    p_patient_id := v_vpatient, p_organisation_id := v_org, p_entry_type := 'topup',
+    p_amount_kobo := v_price + 100000, p_description := 'pcl vv fixture funding'
+  );
+
+  -- v_vpoor never gets a balance row at all -- covers the "no row exists"
+  -- shape of the read-only check, not just "row exists with 0".
+  declare
+    v_confirm_poor jsonb;
+    v_status_poor text;
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_vpoor, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    select public.confirm_video_visit_request_on_platform_credit(v_req_poor) into v_confirm_poor;
+    reset role;
+
+    if (v_confirm_poor ->> 'ok')::boolean is distinct from false
+       or (v_confirm_poor ->> 'reason') is distinct from 'insufficient_balance' then
+      raise exception 'FAIL: an unfunded patient''s request-time hold should be refused as insufficient_balance, got %', v_confirm_poor;
+    end if;
+
+    select status into v_status_poor from public.video_visit_requests where id = v_req_poor;
+    if v_status_poor <> 'requested' then
+      raise exception 'FAIL: a refused request-time hold must not change status (got %)', v_status_poor;
+    end if;
+    if exists (select 1 from public.platform_credit_ledger_entries where booking_order_id = v_req_poor) then
+      raise exception 'FAIL: a refused request-time hold must never write a ledger entry';
+    end if;
+  end;
+
+  declare
+    v_confirm_a jsonb;
+    v_status_a text;
+    v_provider_a text;
+    v_ref_a text;
+    v_balance_after_hold bigint;
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_vpatient, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    select public.confirm_video_visit_request_on_platform_credit(v_req_a) into v_confirm_a;
+    reset role;
+
+    if (v_confirm_a ->> 'ok')::boolean is distinct from true then
+      raise exception 'FAIL: a sufficiently-funded patient''s request-time hold should succeed, got %', v_confirm_a;
+    end if;
+
+    select status, payment_provider, payment_provider_ref into v_status_a, v_provider_a, v_ref_a
+      from public.video_visit_requests where id = v_req_a;
+    if v_status_a <> 'payment_confirmed' or v_provider_a <> 'platform_credit' or v_ref_a is not null then
+      raise exception 'FAIL: request-time hold should set payment_confirmed/platform_credit/NULL ref, got status=%, provider=%, ref=%',
+        v_status_a, v_provider_a, v_ref_a;
+    end if;
+
+    select balance_kobo into v_balance_after_hold from public.platform_credit_balances where patient_id = v_vpatient;
+    if v_balance_after_hold <> 100000 + v_price then
+      raise exception 'FAIL: the request-time hold moved the balance (now %) -- it must only ever check, never spend', v_balance_after_hold;
+    end if;
+  end;
+
+  -- --------------------------------------------------------------------
+  -- (c) A stranger cannot confirm/hold someone else's request.
+  -- --------------------------------------------------------------------
+  declare
+    v_stranger_result text;
+    v_other uuid := (select v from pcl_fixture where k = 'other');
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_other, 'role', 'authenticated')::text, true);
+    begin
+      set local role authenticated;
+      perform public.confirm_video_visit_request_on_platform_credit(v_req_a);
+      reset role;
+      v_stranger_result := 'ACCEPTED';
+    exception when others then
+      begin reset role; exception when others then null; end;
+      v_stranger_result := sqlstate;
+    end;
+    if v_stranger_result <> '42501' then
+      raise exception 'FAIL: a stranger confirming someone else''s video-visit request should be refused with 42501, got %', v_stranger_result;
+    end if;
+  end;
+
+  -- --------------------------------------------------------------------
+  -- (e) The spend primitive itself is not directly callable by any
+  -- authenticated session -- only doctor acceptance may trigger it.
+  -- --------------------------------------------------------------------
+  declare
+    v_direct_spend text;
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_vpatient, 'role', 'authenticated')::text, true);
+    begin
+      set local role authenticated;
+      perform private.pay_video_visit_request_on_platform_credit(v_req_a);
+      reset role;
+      v_direct_spend := 'ACCEPTED';
+    exception when others then
+      begin reset role; exception when others then null; end;
+      v_direct_spend := sqlstate;
+    end;
+    if v_direct_spend <> '42501' then
+      raise exception 'FAIL: a patient session must not be able to call private.pay_video_visit_request_on_platform_credit directly, got %', v_direct_spend;
+    end if;
+  end;
+
+  -- --------------------------------------------------------------------
+  -- (d) Doctor acceptance is the real spend: exactly amount_minor moves,
+  -- linked to this request via booking_order_id/booking_order_type, and
+  -- payment_provider_ref is stamped with that ledger entry's id.
+  -- --------------------------------------------------------------------
+  declare
+    v_consult uuid;
+    v_balance_before_accept bigint;
+    v_balance_after_accept bigint;
+    v_ledger record;
+    v_final_status text;
+    v_final_ref text;
+  begin
+    select balance_kobo into v_balance_before_accept from public.platform_credit_balances where patient_id = v_vpatient;
+
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    select public.accept_video_visit_request(v_req_a) into v_consult;
+    reset role;
+
+    if v_consult is null then
+      raise exception 'FAIL: doctor acceptance of a funded platform-credit request should return a video_consultations id';
+    end if;
+
+    select balance_kobo into v_balance_after_accept from public.platform_credit_balances where patient_id = v_vpatient;
+    if v_balance_before_accept - v_balance_after_accept <> v_price then
+      raise exception 'FAIL: acceptance should spend exactly % kobo, actually moved % kobo', v_price, v_balance_before_accept - v_balance_after_accept;
+    end if;
+
+    select * into v_ledger from public.platform_credit_ledger_entries
+      where booking_order_id = v_req_a and booking_order_type = 'video_visit';
+    if v_ledger.id is null then
+      raise exception 'FAIL: acceptance did not write a ledger entry linked via booking_order_id/booking_order_type';
+    end if;
+    if v_ledger.entry_type <> 'spend' or v_ledger.amount_kobo <> v_price then
+      raise exception 'FAIL: the linked ledger entry has the wrong shape (entry_type=%, amount_kobo=%)', v_ledger.entry_type, v_ledger.amount_kobo;
+    end if;
+
+    select status, payment_provider_ref into v_final_status, v_final_ref
+      from public.video_visit_requests where id = v_req_a;
+    if v_final_status <> 'accepted' or v_final_ref is distinct from v_ledger.id::text then
+      raise exception 'FAIL: after acceptance the request should be status=accepted with payment_provider_ref=<ledger id>, got status=%, ref=%',
+        v_final_status, v_final_ref;
+    end if;
+  end;
+
+  -- --------------------------------------------------------------------
+  -- (f) A balance drained AFTER the request-time hold but BEFORE
+  -- acceptance must abort the whole acceptance atomically -- no
+  -- consultation, no slot flip, no partial spend, request stays put.
+  -- --------------------------------------------------------------------
+  insert into public.video_visit_requests (organisation_id, patient_id, slot_id)
+    values (v_org, v_vdrained, v_slot_b) returning id, amount_minor into v_req_drained, v_price;
+
+  perform private.platform_credit_apply(
+    p_patient_id := v_vdrained, p_organisation_id := v_org, p_entry_type := 'topup',
+    p_amount_kobo := v_price, p_description := 'pcl vv drained-patient fixture funding'
+  );
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_vdrained, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.confirm_video_visit_request_on_platform_credit(v_req_drained);
+  reset role;
+
+  -- Simulate the balance having been spent elsewhere between the
+  -- request-time hold and doctor acceptance (exactly what the deferred-
+  -- spend design allows to happen, on purpose).
+  perform private.platform_credit_apply(
+    p_patient_id := v_vdrained, p_organisation_id := v_org, p_entry_type := 'admin_correction',
+    p_correction_bucket := 'paid', p_correction_direction := 'decrease',
+    p_amount_kobo := v_price, p_description := 'pcl vv fixture: simulate balance spent elsewhere'
+  );
+
+  declare
+    v_accept_drained text;
+    v_status_drained text;
+    v_consult_count int;
+    v_balance_drained bigint;
+  begin
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+    begin
+      set local role authenticated;
+      perform public.accept_video_visit_request(v_req_drained);
+      reset role;
+      v_accept_drained := 'ACCEPTED';
+    exception when others then
+      begin reset role; exception when others then null; end;
+      v_accept_drained := sqlstate;
+    end;
+    if v_accept_drained <> 'TH001' then
+      raise exception 'FAIL: accepting a request whose balance was drained since the request-time hold should fail with TH001, got %', v_accept_drained;
+    end if;
+
+    select status into v_status_drained from public.video_visit_requests where id = v_req_drained;
+    if v_status_drained <> 'payment_confirmed' then
+      raise exception 'FAIL: a failed acceptance must leave the request exactly as it was (payment_confirmed), got %', v_status_drained;
+    end if;
+
+    select count(*) into v_consult_count from public.video_consultations
+      where patient_id = v_vdrained;
+    if v_consult_count <> 0 then
+      raise exception 'FAIL: a failed acceptance must not create a video_consultations row';
+    end if;
+
+    if exists (select 1 from public.consult_availability_slots where id = v_slot_b and booked_consultation_id is not null) then
+      raise exception 'FAIL: a failed acceptance must not flip the slot to booked';
+    end if;
+
+    select balance_kobo into v_balance_drained from public.platform_credit_balances where patient_id = v_vdrained;
+    if v_balance_drained <> 0 then
+      raise exception 'FAIL: a failed acceptance must not move the (already-zero) balance any further, got %', v_balance_drained;
+    end if;
+  end;
+
+  -- --------------------------------------------------------------------
+  -- (g) THE KEY SIMPLIFICATION THIS DESIGN BUYS: declining a platform-
+  -- credit-funded request that was never accepted needs no refund logic
+  -- at all, because nothing was ever spent -- prove the balance is
+  -- untouched, not merely assert it in a comment.
+  -- --------------------------------------------------------------------
+  insert into public.video_visit_requests (organisation_id, patient_id, slot_id)
+    values (v_org, v_vdeclined, v_slot_c) returning id, amount_minor into v_req_declined, v_price;
+
+  perform private.platform_credit_apply(
+    p_patient_id := v_vdeclined, p_organisation_id := v_org, p_entry_type := 'topup',
+    p_amount_kobo := v_price, p_description := 'pcl vv declined-patient fixture funding'
+  );
+
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_vdeclined, 'role', 'authenticated')::text, true);
+  set local role authenticated;
+  perform public.confirm_video_visit_request_on_platform_credit(v_req_declined);
+  reset role;
+
+  declare
+    v_balance_before_decline bigint;
+    v_balance_after_decline bigint;
+    v_final_status text;
+    v_final_refund_status text;
+  begin
+    select balance_kobo into v_balance_before_decline from public.platform_credit_balances where patient_id = v_vdeclined;
+
+    perform set_config('request.jwt.claims',
+      json_build_object('sub', v_doctor, 'role', 'authenticated')::text, true);
+    set local role authenticated;
+    perform public.decline_video_visit_request(v_req_declined, 'pcl vv test decline');
+    reset role;
+
+    select status, refund_status into v_final_status, v_final_refund_status
+      from public.video_visit_requests where id = v_req_declined;
+    if v_final_status <> 'declined' then
+      raise exception 'FAIL: decline should set status=declined, got %', v_final_status;
+    end if;
+    if v_final_refund_status is not null then
+      raise exception 'FAIL: a never-spent platform-credit request must not be flagged refund_status=due (nothing was ever charged) -- got %', v_final_refund_status;
+    end if;
+
+    select balance_kobo into v_balance_after_decline from public.platform_credit_balances where patient_id = v_vdeclined;
+    if v_balance_after_decline <> v_balance_before_decline then
+      raise exception 'FAIL: declining an unaccepted platform-credit request must leave the balance completely untouched (was %, now %)',
+        v_balance_before_decline, v_balance_after_decline;
+    end if;
+    if exists (select 1 from public.platform_credit_ledger_entries where booking_order_id = v_req_declined) then
+      raise exception 'FAIL: declining an unaccepted platform-credit request must never have written a ledger entry for it';
+    end if;
+  end;
+
+  insert into pcl_result values
+    ('video visit: request-time hold checks but never spends', 'system', 'verified', 'verified', 'PASS'),
+    ('video visit: insufficient balance at request time refused, no status change', 'system', 'verified', 'verified', 'PASS'),
+    ('video visit: a stranger cannot confirm/hold someone else''s request', 'patient', 'verified', '42501', 'PASS'),
+    ('video visit: the spend primitive is not directly callable by authenticated', 'patient', 'verified', '42501', 'PASS'),
+    ('video visit: doctor acceptance spends exactly the pinned price, linked via booking_order_id', 'doctor', 'verified', 'verified', 'PASS'),
+    ('video visit: balance drained before acceptance aborts the whole acceptance atomically', 'doctor', 'verified', 'TH001', 'PASS'),
+    ('video visit: declining an unspent request leaves the balance completely untouched', 'doctor', 'verified', 'verified', 'PASS');
 end $$;
 
 -- ==========================================================================

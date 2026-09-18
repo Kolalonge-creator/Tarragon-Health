@@ -398,6 +398,163 @@ export async function postCoachHandoffToCareTeam(
   return result.ok ? result.data : { error: result.error };
 }
 
+export interface PlatformCreditBalanceResponse {
+  success?: boolean;
+  balance_kobo?: number;
+  paid_balance_kobo?: number;
+  promo_balance_kobo?: number;
+  config?: { min_topup_kobo: number; max_topup_kobo: number; suggested_amounts_kobo: number[] } | null;
+  ledger?: Array<{ id: string; entry_type: string; amount_kobo: number; description: string | null; created_at: string }>;
+  error?: string;
+}
+
+/** Mirrors apps/web/src/lib/queries/platform-credit.ts's
+ * useMyPlatformCreditBalance/usePlatformCreditConfig/useMyPlatformCreditLedger --
+ * see apps/web/src/app/api/mobile/platform-credit/balance/route.ts. Balance
+ * viewing only — see postPlatformCreditSpend below for the spend side. */
+export async function fetchPlatformCreditBalance(): Promise<PlatformCreditBalanceResponse> {
+  const result = await request<PlatformCreditBalanceResponse>("/api/mobile/platform-credit/balance", "GET");
+  return result.ok ? result.data : { error: result.error };
+}
+
+export interface PlatformCreditTopupIntentResult {
+  success?: boolean;
+  checkoutUrl?: string;
+  intentId?: string;
+  error?: string;
+}
+
+/** Mirrors apps/web/.../patient/platform-credit/actions.ts's
+ * topUpPlatformCredit -- see
+ * apps/web/src/app/api/mobile/platform-credit/topup-intent/route.ts.
+ * Returns a Paystack checkout URL for the caller to open in the system
+ * browser (WebBrowser.openBrowserAsync) rather than following a server
+ * redirect the way the web server action does. */
+export async function postPlatformCreditTopupIntent(
+  amountKobo: number,
+  patientId?: string
+): Promise<PlatformCreditTopupIntentResult> {
+  const result = await request<PlatformCreditTopupIntentResult>(
+    "/api/mobile/platform-credit/topup-intent",
+    "POST",
+    { amountKobo, ...(patientId ? { patientId } : {}) }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
+/** Mirrors apps/web/src/lib/queries/platform-credit.ts's PayWithCreditResult
+ * — the shared result shape for settling a service_purchases row entirely
+ * out of platform credit, no Paystack round trip. Precise discriminated
+ * union so a caller narrowing on `ok`/`reason` gets real type-checking. */
+export type PayServicePurchaseWithCreditResult =
+  | { ok: true; service_purchase_id: string; amount_kobo: number; new_balance_kobo: number }
+  | { ok: true; already_active: boolean }
+  | { ok: false; reason: "not_payable"; status: string }
+  | {
+      ok: false;
+      reason: "insufficient_balance";
+      balance_kobo: number;
+      required_kobo: number;
+      shortfall_kobo: number;
+    };
+
+export type PlatformCreditSpendReason = "not_payable" | "insufficient_balance";
+
+/** The route returns `{ success: true, ...result }` — the settlement RPC's
+ * own fields spread flat alongside `success`, not nested under a `result`
+ * key. `error` only ever reflects a request-level failure (network/auth/
+ * validation), never a business decision — a caller must check `ok` before
+ * treating this as a paid credit, exactly as the web hook's callers do. */
+export type PlatformCreditSpendResult =
+  | ({ success: true } & PayServicePurchaseWithCreditResult)
+  | { success?: false; error: string };
+
+/** Mirrors apps/web/src/lib/queries/platform-credit.ts's
+ * usePayServicePurchaseWithCredit -- see
+ * apps/web/src/app/api/mobile/platform-credit/spend/route.ts. Same two-RPC
+ * shape server-side (record_service_purchase_intent, then
+ * pay_service_purchase_on_platform_credit), collapsed into one request here.
+ * scopedEntityType/scopedEntityId mirror record_service_purchase_intent's
+ * own optional params — none of today's callers need them, but they're
+ * accepted so a future scoped product doesn't need a second wrapper. */
+export async function postPlatformCreditSpend(
+  serviceProductCode: string,
+  options?: { patientId?: string; scopedEntityType?: string; scopedEntityId?: string }
+): Promise<PlatformCreditSpendResult> {
+  const result = await request<PlatformCreditSpendResult>(
+    "/api/mobile/platform-credit/spend",
+    "POST",
+    {
+      serviceProductCode,
+      ...(options?.patientId ? { patientId: options.patientId } : {}),
+      ...(options?.scopedEntityType ? { scopedEntityType: options.scopedEntityType } : {}),
+      ...(options?.scopedEntityId ? { scopedEntityId: options.scopedEntityId } : {}),
+    }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
+export type VideoVisitPlatformCreditResult =
+  | { ok: true; request_id: string; amount_kobo: number }
+  | {
+      ok: false;
+      reason?: "not_payable" | "unsupported_currency" | "insufficient_balance";
+      status?: string;
+      currency?: string;
+      balance_kobo?: number;
+      required_kobo?: number;
+      shortfall_kobo?: number;
+      error: string;
+    };
+
+/**
+ * Mobile equivalent of apps/web/.../patient/video-visit-actions.ts's
+ * requestVideoVisitWithPlatformCredit — see
+ * apps/web/src/app/api/mobile/platform-credit/video-visit-request/route.ts.
+ * The route inserts the video_visit_requests row and calls
+ * confirm_video_visit_request_on_platform_credit under the caller's own
+ * RLS, exactly like the web server action does; it never spends anything
+ * itself (the real spend waits for a doctor to accept — see that RPC's own
+ * migration header). A business-level "insufficient balance"/"not payable"/
+ * "unsupported currency" outcome comes back as `ok: false` with a `reason`,
+ * not as a thrown/HTTP error, so the caller can show the specific shortfall.
+ */
+export async function postVideoVisitRequestWithPlatformCredit(
+  slotId: string,
+  note?: string
+): Promise<VideoVisitPlatformCreditResult> {
+  const result = await request<VideoVisitPlatformCreditResult>(
+    "/api/mobile/platform-credit/video-visit-request",
+    "POST",
+    { slotId, ...(note ? { note } : {}) }
+  );
+  return result.ok ? result.data : { ok: false, error: result.error };
+}
+
+export interface SelectVideoVisitAlternateSlotResult {
+  success?: boolean;
+  consultationId?: string;
+  error?: string;
+}
+
+/** Mirrors video-visit-actions.ts's selectVideoVisitAlternateSlot — see
+ * apps/web/src/app/api/mobile/video-visits/select-alternate-slot/route.ts.
+ * The RPC alone is a safe direct call, but booking a Zoom meeting and
+ * sending the confirmation both need a service-role client this app
+ * doesn't have, so this goes through the route rather than calling
+ * select_video_visit_alternate_slot from the mobile client directly. */
+export async function postSelectVideoVisitAlternateSlot(
+  requestId: string,
+  slotId: string
+): Promise<SelectVideoVisitAlternateSlotResult> {
+  const result = await request<SelectVideoVisitAlternateSlotResult>(
+    "/api/mobile/video-visits/select-alternate-slot",
+    "POST",
+    { requestId, slotId }
+  );
+  return result.ok ? result.data : { error: result.error };
+}
+
 /**
  * The one error message request() returns when it never got a usable
  * response from the server (network drop, timeout, or an unparseable

@@ -27,6 +27,12 @@ export const ASYNC_CONSULT_CATEGORIES: { value: string; label: string }[] = [
 
 export const ASK_A_DOCTOR_CREDIT_REQUIRED_MARKER = "Ask a doctor";
 
+/** The service_products code a question spends when the patient has no
+ * plan-based 'async_doctor_visit' feature access — see
+ * private.enforce_async_consult_entitlement_or_credit and
+ * platform-credit.ts's trySpendPlatformCreditForService. */
+export const ASYNC_CONSULT_CREDIT_CODE = "async_consult_credit";
+
 export async function loadMyAsyncConsults(patientId: string): Promise<QueryResult<AsyncConsultWithAnswerer[]>> {
   const { data, error } = await supabase
     .from("async_consults")
