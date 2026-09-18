@@ -42,7 +42,7 @@ export default async function PatientMonitoringPage({
   const supabase = await createClient();
   const currentUser = showMineOnly ? await getCurrentUser() : null;
 
-  const { rows, rosterFailed, readingsFailed } = await loadPatientMonitoringRoster(supabase, {
+  const { rows, rosterFailed, readingsFailed, truncated } = await loadPatientMonitoringRoster(supabase, {
     q,
     mineOnly: showMineOnly,
     callerId: currentUser?.id ?? null,
@@ -177,6 +177,19 @@ export default async function PatientMonitoringPage({
           </Link>
         </div>
       </form>
+
+      {/* Rendered above every branch below, including the empty and failure
+          states — a truncated roster fetch can still turn up zero matches
+          after a name search, and that empty result must not read as a
+          definitive "no match" when only the first 200 patients on file
+          were ever checked. Same pattern as clinician/patients/page.tsx's
+          `conditionTruncated` caveat. */}
+      {truncated && q?.trim() && !rosterFailed && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">
+          This search stopped after checking the first 200 patients on file, so it may not have
+          checked every patient in your organisation. Narrow your search for a complete result.
+        </p>
+      )}
 
       {/* readingsFailed is deliberately shown ALONGSIDE the cards rather than
           instead of them: the roster itself is real, and knowing which
