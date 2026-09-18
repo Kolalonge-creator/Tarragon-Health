@@ -152,11 +152,23 @@ export function useRaiseEscalation() {
  * specific doctor's queue at creation, so this mutation is deliberately
  * scoped to `assigned_doctor_id is null` only — it is not the everyday way
  * work gets picked up any more, see useStartEscalationReview for that.
+ *
+ * Gated by the same private.enforce_emergency_escalation_tier trigger as
+ * useStartEscalationReview (a stale worklist showing an unassigned case that
+ * someone else just claimed, or a tier that can't clear the emergency bar,
+ * both surface here as 42501) -- durably logged via handleIfPermissionDenied
+ * for the same reason its sibling is.
  */
 export function useClaimEscalation() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (escalationId: string) => {
+    mutationFn: async ({
+      escalationId,
+      organisationId,
+    }: {
+      escalationId: string;
+      organisationId: string;
+    }) => {
       const supabase = createClient();
       const {
         data: { user },
@@ -171,7 +183,16 @@ export function useClaimEscalation() {
         .is("assigned_doctor_id", null)
         .select("clinician_alert_id")
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        handleIfPermissionDenied(error, {
+          action: "escalations.claim_denied",
+          entityType: "escalations",
+          entityId: escalationId,
+          organisationId,
+          fallbackReason: "Escalation status-transition attempt rejected by the authority gate",
+        });
+        throw error;
+      }
       return data;
     },
     onSuccess: (data) => {

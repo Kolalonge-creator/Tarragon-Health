@@ -243,7 +243,12 @@ export function EscalationWorklist({
                           size="sm"
                           variant="outline"
                           disabled={claim.isPending}
-                          onClick={() => claim.mutate(escalation.id)}
+                          onClick={() =>
+                            claim.mutate({
+                              escalationId: escalation.id,
+                              organisationId: escalation.organisation_id,
+                            })
+                          }
                         >
                           Claim
                         </Button>

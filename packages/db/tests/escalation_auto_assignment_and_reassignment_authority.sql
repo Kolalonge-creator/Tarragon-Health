@@ -633,6 +633,15 @@ begin
   insert into test_result values (18, 'log_denied_action() refuses a non-org-staff caller (a patient)',
     case when v_raised = '42501' and v_message = 'not authorised' then 'PASS' else 'FAIL' end,
     'sqlstate=' || coalesce(v_raised, 'none -- call succeeded') || ' message=' || coalesce(v_message, ''));
+exception when others then
+  -- Every sibling case (14, 17, 19, 20, 21) resets request.jwt.claims in an
+  -- outer exception handler too -- without this, an unexpected failure
+  -- ANYWHERE in this block (not just the inner nested probe above, e.g. the
+  -- insert into test_result itself, or get stacked diagnostics) would abort
+  -- leaving the session impersonating patient_a, and every case after this
+  -- one in the same transaction would silently run as the wrong actor.
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (18, 'log_denied_action() refuses a non-org-staff caller (a patient)', 'FAIL', sqlerrm);
 end $$;
 
 -- ---------------------------------------------------------------------------
