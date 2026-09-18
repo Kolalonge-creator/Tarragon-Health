@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
 import { compareByAlert } from "@/lib/worklist/priority";
 import { generateCaseBriefAction } from "@/lib/case-briefs/actions";
+import { isPermissionDeniedError, logDeniedAction } from "@/lib/audit/log-denied-action";
 import type { EscalationLevel, ScreeningResultStatus, Tables } from "@tarragon/shared";
 
 export type EscalationWithDetails = Tables<"escalations"> & {
@@ -197,11 +198,25 @@ export function useClaimEscalation() {
  * (private.enforce_emergency_escalation_tier, 20260831001458) to the
  * assigned doctor or the Chief Medical Officer; this mutation only decides
  * whether to render the "Start review" control.
+ *
+ * A bystander (not the assigned doctor, not the CMO) who still attempts this
+ * — e.g. a stale worklist that hasn't refreshed since the case was
+ * reassigned — gets a 42501 from the trigger, which is durably logged via
+ * logDeniedAction (see
+ * supabase/migrations/20260918085308_wire_audit_reason_and_denied_action_logging.sql
+ * for why that has to be a separate call, not something the trigger itself
+ * can log).
  */
 export function useStartEscalationReview() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (escalationId: string) => {
+    mutationFn: async ({
+      escalationId,
+      organisationId,
+    }: {
+      escalationId: string;
+      organisationId: string;
+    }) => {
       const supabase = createClient();
       const { data, error } = await supabase
         .from("escalations")
@@ -210,7 +225,19 @@ export function useStartEscalationReview() {
         .eq("status", "open")
         .select("clinician_alert_id")
         .maybeSingle();
-      if (error) throw error;
+      if (error) {
+        if (isPermissionDeniedError(error)) {
+          logDeniedAction({
+            action: "escalations.claim_denied",
+            entityType: "escalations",
+            entityId: escalationId,
+            organisationId,
+            reason:
+              "Attempted to start review on a case assigned to another doctor, or requiring higher-tier authority",
+          });
+        }
+        throw error;
+      }
       return data;
     },
     onSuccess: (data) => {
@@ -229,12 +256,19 @@ export function useStartEscalationReview() {
  * gets assigned (see private.auto_assign_escalation, 20260831001458).
  * Resets status back to "open": the newly-assigned doctor starts their own
  * review explicitly (useStartEscalationReview) rather than being marked as
- * already reviewing something they haven't opened yet. Setting
- * assigned_doctor_id to someone OTHER than the caller is gated by a DB
- * trigger to doctor_tier = 'chief_medical_officer'; this mutation only
- * decides whether to render the "Assign to…" control (see canAssignCases in
- * lib/clinical/doctor-tier.ts) — the trigger is the real enforcement
- * boundary.
+ * already reviewing something they haven't opened yet.
+ *
+ * Goes through the public.reassign_escalation() RPC rather than a bare
+ * `.update()` (see 20260918085308_wire_audit_reason_and_denied_action_logging.sql)
+ * so an optional caller-supplied `reason` ("rebalancing", "routing to a
+ * specialist's expertise") lands on the resulting audit_log row — never
+ * patient-identifying or clinical detail, see audit_log.reason's own column
+ * comment. The RPC is SECURITY INVOKER and performs the exact same update;
+ * setting assigned_doctor_id to someone OTHER than the caller is still gated
+ * by the DB trigger to doctor_tier = 'chief_medical_officer', unchanged —
+ * this mutation only decides whether to render the "Assign to…" control (see
+ * canAssignCases in lib/clinical/doctor-tier.ts) and, on a 42501 from that
+ * gate, durably logs the denial via logDeniedAction.
  */
 export function useAssignEscalation() {
   const queryClient = useQueryClient();
@@ -242,16 +276,32 @@ export function useAssignEscalation() {
     mutationFn: async ({
       escalationId,
       doctorProfileId,
+      organisationId,
+      reason,
     }: {
       escalationId: string;
       doctorProfileId: string;
+      organisationId: string;
+      reason?: string;
     }) => {
       const supabase = createClient();
-      const { error } = await supabase
-        .from("escalations")
-        .update({ assigned_doctor_id: doctorProfileId, status: "open" })
-        .eq("id", escalationId);
-      if (error) throw error;
+      const { error } = await supabase.rpc("reassign_escalation", {
+        p_escalation_id: escalationId,
+        p_doctor_profile_id: doctorProfileId,
+        p_reason: reason || undefined,
+      });
+      if (error) {
+        if (isPermissionDeniedError(error)) {
+          logDeniedAction({
+            action: "escalations.reassignment_denied",
+            entityType: "escalations",
+            entityId: escalationId,
+            organisationId,
+            reason: "Reassignment attempted without Chief Medical Officer authority",
+          });
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["escalations"] });

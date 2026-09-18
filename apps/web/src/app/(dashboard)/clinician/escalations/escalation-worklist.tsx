@@ -259,7 +259,12 @@ export function EscalationWorklist({
                           size="sm"
                           variant="outline"
                           disabled={startReview.isPending}
-                          onClick={() => startReview.mutate(escalation.id)}
+                          onClick={() =>
+                            startReview.mutate({
+                              escalationId: escalation.id,
+                              organisationId: escalation.organisation_id,
+                            })
+                          }
                         >
                           Start review
                         </Button>
@@ -276,8 +281,20 @@ export function EscalationWorklist({
                         disabled={assign.isPending}
                         value=""
                         onChange={(e) => {
-                          if (!e.target.value) return;
-                          assign.mutate({ escalationId: escalation.id, doctorProfileId: e.target.value });
+                          const doctorProfileId = e.target.value;
+                          if (!doctorProfileId) return;
+                          // Optional -- see useAssignEscalation's own doc
+                          // comment for why this lands in audit_log.reason.
+                          // Never enter a patient name or clinical detail here.
+                          const reason = window.prompt(
+                            "Reason for this reassignment? (optional, no clinical detail)"
+                          );
+                          assign.mutate({
+                            escalationId: escalation.id,
+                            doctorProfileId,
+                            organisationId: escalation.organisation_id,
+                            reason: reason?.trim() || undefined,
+                          });
                         }}
                       >
                         <option value="">Assign to…</option>

@@ -61,7 +61,12 @@ export function AmendMedicationForm({
     }
     setValidationError(null);
     amendMedication.mutate(
-      { medicationId: medication.id, patientId, input: parsed.data },
+      {
+        medicationId: medication.id,
+        patientId,
+        organisationId: medication.organisation_id,
+        input: parsed.data,
+      },
       { onSuccess: onDone }
     );
   }

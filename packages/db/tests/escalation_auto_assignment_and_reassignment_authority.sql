@@ -22,6 +22,23 @@
 -- "reusable pattern for removing a shipped feature" bullet, applied here to
 -- an authority check rather than a removal).
 --
+-- Cases 14-18 (added 2026-09-18, 20260918085308_wire_audit_reason_and_denied_action_logging.sql):
+-- prove the audit-trail wiring built on top of this same reassignment-authority pair --
+--   14. public.reassign_escalation() with a caller-supplied reason -> the reassignment succeeds
+--       AND the resulting audit_log row carries that reason (proves the Part 0 fix to
+--       private.audit_row_change() actually restored reason capture, not just that the RPC runs).
+--   15. A bystander (not the assignee, not the CMO) tries to start review of a case assigned to
+--       someone else -> BLOCKED by private.enforce_emergency_escalation_tier's bystander check
+--       (a different branch of that trigger from the tier-insufficiency one
+--       emergency_escalation_tier_gate.sql already covers).
+--   16. CONTROL: the actual assignee starts review of the same case -> ALLOWED.
+--   17. public.log_denied_action(), called standalone the way the app layer calls it after
+--       catching case 15's 42501, durably records a result='denied' audit_log row -- proving the
+--       row survives at all, which a same-transaction "log-then-raise" inside the trigger itself
+--       cannot (see the migration's own header for why).
+--   18. public.log_denied_action() refuses a non-org-staff caller (private.is_org_staff gate) --
+--       it must not be usable to graffiti another org's audit trail.
+--
 -- Run: npx supabase db query --linked -f packages/db/tests/escalation_auto_assignment_and_reassignment_authority.sql
 -- Nothing here persists -- the whole file runs inside begin/rollback.
 
@@ -418,6 +435,180 @@ select 12, 'clinician_alerts: CMO reassignment actually took effect (responsible
   case when a.responsible_clinician_id = (select v from ids where k = 'doctor_c_staff') then 'PASS' else 'FAIL' end,
   'responsible_clinician_id=' || coalesce(a.responsible_clinician_id::text, 'null')
 from public.clinician_alerts a where a.id = (select v from ids where k = 'alert');
+
+-- ---------------------------------------------------------------------------
+-- Case 14: public.reassign_escalation() with a caller-supplied reason.
+-- emergency_case is at doctor_a (case 8's sabotage-enabled reassignment,
+-- confirmed still in place by case 13). doctor_cmo reassigns it to doctor_c
+-- via the RPC this time, with a reason -- must both take effect AND land on
+-- the resulting audit_log row.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_row record;
+begin
+  -- No set_config('role', ...) here, deliberately -- matches every other
+  -- case in this file. The session stays 'postgres' (bypasses RLS), and
+  -- that's fine: reassign_escalation's real authority boundary is
+  -- private.enforce_escalation_reassignment_authority, a SECURITY DEFINER
+  -- trigger keyed off auth.uid() (from request.jwt.claims), which fires
+  -- regardless of the caller's actual Postgres role. An earlier draft of
+  -- this block DID switch role to 'authenticated', which broke on
+  -- "permission denied for table ids" -- these temp tables belong to the
+  -- postgres session and were never granted to authenticated, and worse,
+  -- case 15 below then "passed" for the wrong reason (that same permission
+  -- error also carries sqlstate 42501, indistinguishable from a real
+  -- rejection without reading sqlerrm) -- exactly the vacuous-pass trap
+  -- CLAUDE.md's "assert the gate opens, not just closes" warns about.
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select v from ids where k = 'doctor_cmo'), 'role', 'authenticated')::text, true);
+
+  perform public.reassign_escalation(
+    (select v from ids where k = 'emergency_case'),
+    (select v from ids where k = 'doctor_c'),
+    'Rebalancing -- doctor_a is covering another emergency this shift'
+  );
+
+  perform set_config('request.jwt.claims', '', true);
+
+  select * into v_row from public.audit_log
+   where entity_type = 'escalations'
+     and entity_id = (select v from ids where k = 'emergency_case')
+     and action = 'escalations.updated'
+   order by created_at desc, id desc
+   limit 1;
+
+  insert into test_result values (14, 'reassign_escalation() captures the caller-supplied reason into audit_log.reason',
+    case when (select assigned_doctor_id from public.escalations where id = (select v from ids where k = 'emergency_case'))
+           = (select v from ids where k = 'doctor_c')
+      and v_row.reason = 'Rebalancing -- doctor_a is covering another emergency this shift'
+      and v_row.result = 'success'
+      then 'PASS' else 'FAIL' end,
+    'reason=' || coalesce(v_row.reason, 'null') || ' result=' || coalesce(v_row.result, 'null'));
+exception when others then
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (14, 'reassign_escalation() captures the caller-supplied reason into audit_log.reason', 'FAIL', sqlerrm);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Case 15: a bystander (doctor_rogue, not the assignee, not the CMO) tries to
+-- START REVIEW of the case now assigned to doctor_c. Distinct from cases 4/10
+-- (reassignment authority) -- this is enforce_emergency_escalation_tier's
+-- bystander-claim check, exercised WITHOUT touching assigned_doctor_id.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select v from ids where k = 'doctor_rogue'), 'role', 'authenticated')::text, true);
+
+  update public.escalations
+    set status = 'under_review'
+    where id = (select v from ids where k = 'emergency_case');
+
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (15, 'bystander (not assignee, not CMO) starting review of someone else''s case is REJECTED', 'FAIL', 'no exception raised -- claim silently succeeded');
+exception when others then
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (
+    15, 'bystander (not assignee, not CMO) starting review of someone else''s case is REJECTED',
+    case when sqlstate = '42501' and sqlerrm like '%assigned to, or the Chief Medical Officer%' then 'PASS' else 'FAIL' end,
+    'sqlstate=' || sqlstate || ' message=' || sqlerrm
+  );
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Case 16: CONTROL -- doctor_c, the actual assignee, starts review of the
+-- same case. Must succeed (pairs with case 15 so a "trigger blocks
+-- everything" bug can't pass case 15 vacuously).
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select v from ids where k = 'doctor_c'), 'role', 'authenticated')::text, true);
+
+  update public.escalations
+    set status = 'under_review'
+    where id = (select v from ids where k = 'emergency_case');
+
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (16, 'CONTROL: the actual assignee starts review successfully', 'PASS', 'no exception raised');
+exception when others then
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (16, 'CONTROL: the actual assignee starts review successfully', 'FAIL', sqlerrm);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Case 17: public.log_denied_action(), called standalone the way
+-- apps/web/src/lib/audit/log-denied-action.ts calls it right after the app
+-- layer catches case 15's 42501 -- proves the denial row actually survives,
+-- which a same-transaction "log inside the trigger, then raise" cannot (see
+-- the migration's header). doctor_rogue logs their own just-rejected attempt.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_id uuid;
+  v_row record;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', (select v from ids where k = 'doctor_rogue'), 'role', 'authenticated')::text, true);
+
+  select public.log_denied_action(
+    'escalations.claim_denied', 'escalations',
+    (select v from ids where k = 'emergency_case'),
+    (select v from ids where k = 'org'),
+    'Attempted to start review on a case assigned to another doctor'
+  ) into v_id;
+
+  perform set_config('request.jwt.claims', '', true);
+
+  select * into v_row from public.audit_log where id = v_id;
+
+  insert into test_result values (17, 'log_denied_action() durably records a rejected claim attempt',
+    case when v_row.result = 'denied'
+      and v_row.actor_id = (select v from ids where k = 'doctor_rogue')
+      and v_row.entity_type = 'escalations'
+      and v_row.entity_id = (select v from ids where k = 'emergency_case')
+      and v_row.reason = 'Attempted to start review on a case assigned to another doctor'
+      then 'PASS' else 'FAIL' end,
+    'result=' || coalesce(v_row.result, 'null') || ' actor_id=' || coalesce(v_row.actor_id::text, 'null'));
+exception when others then
+  perform set_config('request.jwt.claims', '', true);
+  insert into test_result values (17, 'log_denied_action() durably records a rejected claim attempt', 'FAIL', sqlerrm);
+end $$;
+
+-- ---------------------------------------------------------------------------
+-- Case 18: log_denied_action() must refuse a caller with no org-staff
+-- relationship to the organisation they're claiming a denial for -- a patient
+-- in the SAME org is enough to prove the gate, doesn't need to be a total
+-- stranger.
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  v_patient_a uuid := (select v from ids where k = 'patient_a');
+  v_org       uuid := (select v from ids where k = 'org');
+  v_case      uuid := (select v from ids where k = 'emergency_case');
+  v_raised    text;
+  v_message   text;
+begin
+  perform set_config('request.jwt.claims',
+    json_build_object('sub', v_patient_a, 'role', 'authenticated')::text, true);
+
+  begin
+    perform public.log_denied_action(
+      'escalations.claim_denied', 'escalations', v_case, v_org,
+      'should not be reachable by a patient'
+    );
+    v_raised := null;
+  exception when others then
+    get stacked diagnostics v_raised = returned_sqlstate, v_message = message_text;
+  end;
+
+  perform set_config('request.jwt.claims', '', true);
+
+  insert into test_result values (18, 'log_denied_action() refuses a non-org-staff caller (a patient)',
+    case when v_raised = '42501' and v_message = 'not authorised' then 'PASS' else 'FAIL' end,
+    'sqlstate=' || coalesce(v_raised, 'none -- call succeeded') || ' message=' || coalesce(v_message, ''));
+end $$;
 
 -- ---------------------------------------------------------------------------
 -- Verdict. Raise if anything failed -- the CI runner's trailing-FAIL scan

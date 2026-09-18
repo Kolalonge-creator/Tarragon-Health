@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createClient } from "@/lib/supabase/client";
+import { isPermissionDeniedError, logDeniedAction } from "@/lib/audit/log-denied-action";
 import type { Tables } from "@tarragon/shared";
 import type { AmendMedicationInput, MedicationInput } from "@/lib/validation/medications";
 import type { MedicationLogInput } from "@/lib/validation/medication-logs";
@@ -283,16 +284,23 @@ export function useConfirmMedicationRefill() {
  * that only clinical staff — never the patient — may call it. Tier 2+/
  * Clinical Director only; the DB is the real gate, hasPrescribingAuthority()
  * just decides whether the UI offers this at all.
+ *
+ * A caller without prescribing authority (e.g. a Medical Officer) gets a
+ * 42501 back — durably logged via logDeniedAction, since amend_medication's
+ * own raise can't make its own audit trail entry survive the rollback it
+ * causes (see 20260918085308_wire_audit_reason_and_denied_action_logging.sql).
  */
 export function useAmendMedication() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({
       medicationId,
+      organisationId,
       input,
     }: {
       medicationId: string;
       patientId: string;
+      organisationId: string;
       input: AmendMedicationInput;
     }) => {
       const supabase = createClient();
@@ -321,7 +329,18 @@ export function useAmendMedication() {
             ? input.schedule_times
             : undefined,
       });
-      if (error) throw error;
+      if (error) {
+        if (isPermissionDeniedError(error)) {
+          logDeniedAction({
+            action: "medications.amendment_denied",
+            entityType: "medications",
+            entityId: medicationId,
+            organisationId,
+            reason: "Prescription amendment attempted without prescribing authority",
+          });
+        }
+        throw error;
+      }
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: medicationsKey(variables.patientId) });
