@@ -15,7 +15,7 @@ import {
   PDF_BRAND_GREEN,
   PDF_CLINICAL_NAVY,
 } from "@/lib/pdf/pdf-brand";
-import { specialistNoun } from "./specialist-noun";
+import { specialistTypeNoun } from "@tarragon/shared";
 
 registerPdfFonts();
 
@@ -279,7 +279,7 @@ export function ReferralLetterDocument({ data }: { data: ReferralLetterData }) {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>
-            To: any {specialistNoun(data.specialistType)} the patient chooses
+            To: any {specialistTypeNoun(data.specialistType)} the patient chooses
           </Text>
           <Text style={styles.muted}>
             This patient has not been booked with a named specialist. They are
