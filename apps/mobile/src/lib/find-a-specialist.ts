@@ -1,28 +1,15 @@
 import { supabase } from "./supabase";
 import type { QueryResult } from "./medications";
-import type { Tables, Enums } from "@tarragon/shared";
+import type { Tables } from "@tarragon/shared";
+import { SPECIALIST_TYPES, type SpecialistType } from "@tarragon/shared";
 
 /** public.specialist_directory, not the base table: specialist_providers became
  * admin-only on 2026-09-10 (its SELECT policy was `using (true)`, exposing
  * commission rates and partner contact details to every patient). The view
  * carries the licence fields, which patients are meant to see. */
 export type SpecialistProvider = Tables<"specialist_directory">;
-export type SpecialistType = Enums<"specialist_type">;
-
-export const SPECIALIST_TYPES: SpecialistType[] = [
-  "cardiology",
-  "endocrinology",
-  "nephrology",
-  "ophthalmology",
-  "urologist",
-  "oncologist",
-  "ob_gyn",
-  "dietetics",
-  "podiatry",
-  "psychiatry",
-  "psychology",
-  "other",
-];
+export type { SpecialistType };
+export { SPECIALIST_TYPES };
 
 export interface SpecialistSearchFilters {
   specialistType: SpecialistType;
