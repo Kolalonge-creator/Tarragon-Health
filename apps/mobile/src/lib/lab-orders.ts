@@ -231,33 +231,41 @@ export async function getResultDocuments(patientId: string): Promise<QueryResult
       }
     }
 
-    const items = await Promise.all(
-      rows.map(async (row) => {
-        let signedUrl: string | null = null;
-        if (row.file_path) {
-          const { data: signed } = await supabase.storage
-            .from(RESULT_DOC_BUCKET)
-            .createSignedUrl(row.file_path, 300);
-          signedUrl = signed?.signedUrl ?? null;
-        }
-        return {
-          id: row.id,
-          source: row.source,
-          originalFilename: row.original_filename,
-          note: row.note,
-          testCode: row.test_code,
-          createdAt: row.created_at,
-          isPdf: row.mime_type === "application/pdf",
-          signedUrl,
-          reviewedAt: row.reviewed_at,
-          reviewedByName: row.reviewed_by ? reviewerNameByProfileId.get(row.reviewed_by) ?? null : null,
-          patientInterpretation: row.patient_interpretation,
-          nextSteps: row.next_steps,
-          interpretationSentAt: row.interpretation_sent_at,
-          aiSummaryStatus: row.ai_summary_status,
-        };
-      })
-    );
+    // Batch-resolve every signed URL in one Storage call rather than N+1 —
+    // same fix as the reviewer-name lookup just above, which this one
+    // originally missed despite sitting right next to it. A patient with
+    // 20 result documents used to fire 20 separate createSignedUrl round
+    // trips on every load of this screen.
+    const filePaths = [...new Set(rows.map((r) => r.file_path).filter((p): p is string => !!p))];
+    const signedUrlByPath = new Map<string, string | null>();
+    if (filePaths.length > 0) {
+      const { data: signed, error: signError } = await supabase.storage
+        .from(RESULT_DOC_BUCKET)
+        .createSignedUrls(filePaths, 300);
+      if (signError) {
+        console.error(`Failed to batch-sign ${filePaths.length} result document URL(s)`, signError);
+      }
+      for (const entry of signed ?? []) {
+        signedUrlByPath.set(entry.path ?? "", entry.signedUrl ?? null);
+      }
+    }
+
+    const items = rows.map((row) => ({
+      id: row.id,
+      source: row.source,
+      originalFilename: row.original_filename,
+      note: row.note,
+      testCode: row.test_code,
+      createdAt: row.created_at,
+      isPdf: row.mime_type === "application/pdf",
+      signedUrl: row.file_path ? (signedUrlByPath.get(row.file_path) ?? null) : null,
+      reviewedAt: row.reviewed_at,
+      reviewedByName: row.reviewed_by ? reviewerNameByProfileId.get(row.reviewed_by) ?? null : null,
+      patientInterpretation: row.patient_interpretation,
+      nextSteps: row.next_steps,
+      interpretationSentAt: row.interpretation_sent_at,
+      aiSummaryStatus: row.ai_summary_status,
+    }));
     return { ok: true, data: items };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : String(e) };

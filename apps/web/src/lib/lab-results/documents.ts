@@ -1,5 +1,5 @@
 import "server-only";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { signStoragePaths } from "@/lib/supabase/sign-storage-paths";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@tarragon/shared";
 
@@ -50,24 +50,6 @@ export interface ResultDocumentView {
 }
 
 /**
- * Mint a short-lived signed URL for a result document's storage object. Uses
- * the service-role client because org staff have no storage-object read policy
- * (the bucket's policies only let a patient read their own uid folder) — the
- * row-level RLS on lab_result_documents is the real authorisation gate, so the
- * CALLER must already have read the row through their own RLS-scoped session
- * before asking for a URL. Never returns a public URL.
- */
-export async function signResultDocumentPath(
-  path: string,
-): Promise<string | null> {
-  const service = createServiceRoleClient();
-  const { data } = await service.storage
-    .from(RESULT_DOC_BUCKET)
-    .createSignedUrl(path, 300);
-  return data?.signedUrl ?? null;
-}
-
-/**
  * Load a patient's result documents (RLS-scoped to the passed caller client —
  * a patient sees their own, org staff see org patients') and attach a signed
  * URL to each. Newest first.
@@ -86,30 +68,36 @@ export async function loadResultDocuments(
 
   if (!rows || rows.length === 0) return [];
 
-  return Promise.all(
-    rows.map(async (row) => ({
-      id: row.id,
-      source: row.source,
-      originalFilename: row.original_filename,
-      mimeType: row.mime_type,
-      note: row.note,
-      testCode: row.test_code,
-      createdAt: row.created_at,
-      reviewedBy: row.reviewed_by,
-      reviewedAt: row.reviewed_at,
-      reviewNote: row.review_note,
-      patientInterpretation: row.patient_interpretation,
-      nextSteps: row.next_steps,
-      interpretationSentAt: row.interpretation_sent_at,
-      acknowledgementStatus: row.acknowledgement_status,
-      actionCompletedAt: row.action_completed_at,
-      aiSummaryStatus: row.ai_summary_status,
-      aiSummaryGeneratedAt: row.ai_summary_generated_at,
-      signedUrl: await signResultDocumentPath(row.file_path),
-      isPdf: row.mime_type === "application/pdf",
-      supersedesDocumentId: row.supersedes_document_id,
-      supersededByDocumentId: row.superseded_by_document_id,
-      supersededAt: row.superseded_at,
-    })),
+  // One batched Storage call for every document's signed URL instead of one
+  // request per row (see signStoragePaths).
+  const signedUrlByPath = await signStoragePaths(
+    RESULT_DOC_BUCKET,
+    rows.map((row) => row.file_path),
+    300,
   );
+
+  return rows.map((row) => ({
+    id: row.id,
+    source: row.source,
+    originalFilename: row.original_filename,
+    mimeType: row.mime_type,
+    note: row.note,
+    testCode: row.test_code,
+    createdAt: row.created_at,
+    reviewedBy: row.reviewed_by,
+    reviewedAt: row.reviewed_at,
+    reviewNote: row.review_note,
+    patientInterpretation: row.patient_interpretation,
+    nextSteps: row.next_steps,
+    interpretationSentAt: row.interpretation_sent_at,
+    acknowledgementStatus: row.acknowledgement_status,
+    actionCompletedAt: row.action_completed_at,
+    aiSummaryStatus: row.ai_summary_status,
+    aiSummaryGeneratedAt: row.ai_summary_generated_at,
+    signedUrl: signedUrlByPath.get(row.file_path) ?? null,
+    isPdf: row.mime_type === "application/pdf",
+    supersedesDocumentId: row.supersedes_document_id,
+    supersededByDocumentId: row.superseded_by_document_id,
+    supersededAt: row.superseded_at,
+  }));
 }
