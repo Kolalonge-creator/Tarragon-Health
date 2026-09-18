@@ -22,6 +22,35 @@ const EMPTY_STATE: Record<PatientFilter, string> = {
 };
 
 /**
+ * The empty-roster message, one dimension at a time rather than one deeply
+ * nested ternary — `filterAloneEmpty` takes priority because it means the
+ * condition search was never even evaluated (see the skip in the main
+ * function), so the message must not blame the condition for an empty tab.
+ */
+function emptyRosterMessage({
+  filter,
+  filterAloneEmpty,
+  condition,
+  q,
+}: {
+  filter: PatientFilter | undefined;
+  filterAloneEmpty: boolean;
+  condition: string | undefined;
+  q: string | undefined;
+}): string {
+  if (filterAloneEmpty && filter) return EMPTY_STATE[filter];
+  if (condition?.trim()) {
+    const trimmed = condition.trim();
+    return filter
+      ? `No patients on the “${FILTER_TABS.find((t) => t.value === filter)?.label}” tab have a condition on file matching “${trimmed}”.`
+      : `No patients have a condition on file matching “${trimmed}”.`;
+  }
+  if (filter) return EMPTY_STATE[filter];
+  if (q?.trim()) return "No patients match that name.";
+  return "No patients enrolled yet.";
+}
+
+/**
  * Org patient directory — the index behind the sidebar "Patients" link.
  * RLS (private.is_org_staff) scopes the query to the caller's organisation;
  * app-code filtering is limited to name search and the filter tabs below —
@@ -39,9 +68,13 @@ const EMPTY_STATE: Record<PatientFilter, string> = {
 export default async function ClinicianPatientsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; filter?: string; mine?: string }>;
+  searchParams: Promise<{ q?: string; filter?: string; mine?: string; condition?: string | string[] }>;
 }) {
-  const { q, filter: filterParam, mine } = await searchParams;
+  const { q, filter: filterParam, mine, condition: conditionParam } = await searchParams;
+  // Next.js hands back string[] for a repeated query key (?condition=a&condition=b)
+  // despite most of this file's other params assuming a plain string — guard
+  // the one param this diff adds rather than inheriting that same assumption.
+  const condition = Array.isArray(conditionParam) ? conditionParam[0] : conditionParam;
   // `mine=1` is the pre-existing link shape (still used by the Monitoring
   // view toggle) — treated as a synonym for filter=mine rather than removed.
   const filter: PatientFilter | undefined =
@@ -65,10 +98,38 @@ export default async function ClinicianPatientsPage({
     restrictedIds = result.ids;
     filterFailed = result.failed;
   }
+  // Captured before the condition search can touch restrictedIds, so the
+  // empty state below can tell "this tab itself has no patients" apart from
+  // "this tab's patients don't have that condition" — the two need
+  // different messages (and the first one is EMPTY_STATE[filter], not a
+  // claim about the condition search that was never actually evaluated).
+  const filterAloneEmpty = !!filter && !filterFailed && restrictedIds !== null && restrictedIds.length === 0;
+
+  // Condition search intersects with (rather than replaces) a filter tab's
+  // id list, the same way the roster query below ANDs `q` and `filter`
+  // together — "Assigned to me" + "diabetes" narrows to both, it doesn't
+  // pick one. Skipped once a filter tab has already resolved to zero ids:
+  // the intersection is empty either way, so the condition query would just
+  // be a wasted round trip.
+  let conditionFailed = false;
+  if (!filterFailed && condition?.trim() && !filterAloneEmpty) {
+    const result = await loadConditionPatientIds(supabase, condition.trim());
+    conditionFailed = result.failed;
+    if (!result.failed) {
+      if (restrictedIds === null) {
+        restrictedIds = result.ids;
+      } else {
+        const conditionIdSet = new Set(result.ids);
+        restrictedIds = restrictedIds.filter((id) => conditionIdSet.has(id));
+      }
+    }
+  }
+  const scopeFailed = filterFailed || conditionFailed;
+  const scopeApplied = !!filter || !!condition?.trim();
 
   let rosterFailed = false;
   let patients: { id: string; full_name: string | null; patient_number: string | null; phone: string | null }[] = [];
-  if (!filterFailed && (!filter || (restrictedIds && restrictedIds.length > 0))) {
+  if (!scopeFailed && (!scopeApplied || (restrictedIds && restrictedIds.length > 0))) {
     let query = supabase
       .from("profiles")
       .select("id, full_name, patient_number, phone")
@@ -78,7 +139,7 @@ export default async function ClinicianPatientsPage({
     if (q?.trim()) {
       query = query.ilike("full_name", `%${q.trim()}%`);
     }
-    if (filter && restrictedIds) {
+    if (restrictedIds) {
       query = query.in("id", restrictedIds);
     }
     const { data, error } = await query;
@@ -92,11 +153,12 @@ export default async function ClinicianPatientsPage({
     }
   }
 
-  const loadFailed = filterFailed || rosterFailed;
+  const loadFailed = scopeFailed || rosterFailed;
 
   function tabHref(value: PatientFilter | undefined): string {
     const params = new URLSearchParams();
     if (q?.trim()) params.set("q", q.trim());
+    if (condition?.trim()) params.set("condition", condition.trim());
     if (value) params.set("filter", value);
     const qs = params.toString();
     return qs ? `?${qs}` : "?";
@@ -121,7 +183,7 @@ export default async function ClinicianPatientsPage({
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <form method="GET" className="flex gap-2">
+        <form method="GET" className="flex flex-wrap gap-2">
           {filter && <input type="hidden" name="filter" value={filter} />}
           <input
             type="search"
@@ -129,6 +191,14 @@ export default async function ClinicianPatientsPage({
             defaultValue={q ?? ""}
             placeholder="Search by name"
             aria-label="Search patients by name"
+            className="w-full max-w-sm rounded-lg border border-charcoal-ink/15 bg-white px-3 py-2 text-sm text-charcoal-ink placeholder:text-charcoal-ink/40 focus:border-brand-green focus:outline-none"
+          />
+          <input
+            type="search"
+            name="condition"
+            defaultValue={condition ?? ""}
+            placeholder="Search by condition (e.g. hypertension)"
+            aria-label="Filter patients by condition"
             className="w-full max-w-sm rounded-lg border border-charcoal-ink/15 bg-white px-3 py-2 text-sm text-charcoal-ink placeholder:text-charcoal-ink/40 focus:border-brand-green focus:outline-none"
           />
           <button
@@ -160,9 +230,11 @@ export default async function ClinicianPatientsPage({
           <CardTitle>
             {filter
               ? FILTER_TABS.find((t) => t.value === filter)?.label
-              : q?.trim()
-                ? `Results for “${q.trim()}”`
-                : "All patients"}
+              : condition?.trim()
+                ? `Condition: “${condition.trim()}”`
+                : q?.trim()
+                  ? `Results for “${q.trim()}”`
+                  : "All patients"}
             {loadFailed ? "" : ` (${patients.length})`}
           </CardTitle>
         </CardHeader>
@@ -173,17 +245,17 @@ export default async function ClinicianPatientsPage({
               platform, and goes no further. */}
           {loadFailed ? (
             <LoadFailure>
-              The patient directory could not be loaded. This is not a report that there are no
-              patients{filter ? " on this tab" : ""}. Reload the page, and if it keeps failing,
-              raise it with the platform team rather than assuming a patient is not enrolled.
+              {conditionFailed
+                ? "The condition search could not run. This is not a report that no patient has a matching condition — reload the page, or clear the condition search, rather than assuming none was found."
+                : <>
+                    The patient directory could not be loaded. This is not a report that there are no
+                    patients{filter ? " on this tab" : ""}. Reload the page, and if it keeps failing,
+                    raise it with the platform team rather than assuming a patient is not enrolled.
+                  </>}
             </LoadFailure>
           ) : patients.length === 0 ? (
             <p className="text-sm text-charcoal-ink/60">
-              {filter
-                ? EMPTY_STATE[filter]
-                : q?.trim()
-                  ? "No patients match that name."
-                  : "No patients enrolled yet."}
+              {emptyRosterMessage({ filter, filterAloneEmpty, condition, q })}
             </p>
           ) : (
             <ReminderFrequencySelector patients={patients} />
@@ -263,6 +335,46 @@ async function loadFilteredPatientIds(
     .from("preventive_programme_enrolments")
     .select("patient_id")
     .eq("status", "enrolled");
+  if (error) return { ids: [], failed: true };
+  return { ids: [...new Set((data ?? []).map((row) => row.patient_id))], failed: false };
+}
+
+/**
+ * Patient ids with at least one patient_conditions row whose condition_name
+ * matches (plain ilike, no ranking/matching — a literal name filter on an
+ * existing column, same shape as the name search above). RLS
+ * (private.is_org_staff, per patient_conditions' own policy) scopes this to
+ * the caller's organisation the same way the roster query below is scoped;
+ * this function does not touch RLS or add any org-crossing path.
+ *
+ * Deliberately not filtered by `status` — it matches a condition_name on
+ * file regardless of clinical_status (active/controlled/resolved/
+ * historical/etc.), so the copy this feeds never claims a patient
+ * "currently" has the condition, only that one is on file.
+ *
+ * Capped like the roster query below (and unlike the "mine"/"high_risk"/
+ * "programme" branches above, which have no cap at all) — condition name is
+ * free text a clinician is likely to search for one of this platform's own
+ * core chronic-disease categories (hypertension, diabetes), which can
+ * plausibly match hundreds of rows in a real org; an unbounded id list here
+ * would grow past what a GET `.in()` filter can safely carry.
+ *
+ * Deliberately a plain `ilike`, not `patient_conditions.search_vector`
+ * (the ranked full-text column from `20260830004048_patient_record_search.sql`)
+ * — this is a literal name filter on the patient directory, not a ranked
+ * search result; reaching for the ranking-capable column here would blur
+ * exactly the line this task's own guardrail draws against building a
+ * scoring/matching engine.
+ */
+async function loadConditionPatientIds(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  condition: string,
+): Promise<FilteredPatientIds> {
+  const { data, error } = await supabase
+    .from("patient_conditions")
+    .select("patient_id")
+    .ilike("condition_name", `%${condition}%`)
+    .limit(1000);
   if (error) return { ids: [], failed: true };
   return { ids: [...new Set((data ?? []).map((row) => row.patient_id))], failed: false };
 }

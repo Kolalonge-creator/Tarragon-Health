@@ -10,6 +10,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SearchableList } from "@/components/ui/searchable-list";
 import { Textarea } from "@/components/ui/textarea";
 
 function RequestRow({ request }: { request: PrescriptionRenewalRequestWithPatient }) {
@@ -103,15 +104,20 @@ export default function PrescriptionRenewalsPage() {
         <CardContent>
           {isLoading && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
           {isError && <p className="text-sm text-red-600">Could not load requests.</p>}
-          {data && data.length === 0 && (
-            <p className="text-sm text-charcoal-ink/60">Nothing waiting.</p>
-          )}
-          {data && data.length > 0 && (
-            <ul className="divide-y divide-charcoal-ink/10">
-              {data.map((r) => (
-                <RequestRow key={r.id} request={r} />
-              ))}
-            </ul>
+          {data && (
+            <SearchableList
+              items={data}
+              // Same already-RLS-scoped result set useOrgPrescriptionRenewalRequests
+              // always returned — a plain case-insensitive substring match on the
+              // medication name, filtered client-side rather than re-querying.
+              filterFn={(r, q) => (r.medication?.drug_name ?? "").toLowerCase().includes(q)}
+              searchPlaceholder="Search by medication name"
+              searchAriaLabel="Search requests by medication name"
+              emptyMessage="Nothing waiting."
+              noMatchMessage={(q) => `No requests match “${q}”.`}
+              renderContainer={(children) => <ul className="divide-y divide-charcoal-ink/10">{children}</ul>}
+              renderItem={(r) => <RequestRow key={r.id} request={r} />}
+            />
           )}
         </CardContent>
       </Card>

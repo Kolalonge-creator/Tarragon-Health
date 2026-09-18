@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import {
   useOrgSpecialistReferrals,
@@ -13,10 +13,37 @@ import { LoadFailure } from "@/components/ui/load-failure";
 import { listQueryState } from "@/lib/queries/list-query-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { REFERRAL_STATUS_BADGE } from "@/lib/worklist/referral-status-badge";
+import type { SpecialistType } from "@tarragon/shared";
 
 const TERMINAL_STATUSES: SpecialistReferralWithDetails["status"][] = ["closed", "declined"];
+
+// Plain equality filters on existing columns (status, specialist_type) — not
+// ranking or matching a specialist to a case, just narrowing this worklist's
+// own rows. Labels are based on create-referral-form.tsx's
+// SPECIALIST_TYPE_OPTIONS, plus "genitourinary_medicine" — a real
+// specialist_type value that list is missing, but a referral can carry.
+// This filter must cover every value the column can hold, so don't drop it
+// to "match" that list; if anything, that list is the one that's short.
+const SPECIALIST_TYPE_FILTER_OPTIONS: { value: SpecialistType; label: string }[] = [
+  { value: "cardiology", label: "Cardiology" },
+  { value: "endocrinology", label: "Endocrinology" },
+  { value: "nephrology", label: "Nephrology" },
+  { value: "ophthalmology", label: "Ophthalmology" },
+  { value: "ob_gyn", label: "Obstetrics & Gynaecology (O&G)" },
+  { value: "urologist", label: "Urology" },
+  { value: "oncologist", label: "Oncology" },
+  { value: "dietetics", label: "Dietetics" },
+  { value: "podiatry", label: "Podiatry" },
+  { value: "psychiatry", label: "Psychiatry" },
+  { value: "psychology", label: "Psychology" },
+  { value: "genitourinary_medicine", label: "Genitourinary medicine" },
+  { value: "other", label: "Other" },
+];
+
+const STATUS_FILTER_OPTIONS = Object.keys(REFERRAL_STATUS_BADGE) as SpecialistReferralWithDetails["status"][];
 
 function DraftActions({ referral }: { referral: SpecialistReferralWithDetails }) {
   const submit = useSubmitDraftReferral();
@@ -71,6 +98,20 @@ function DeclineForm({ referral }: { referral: SpecialistReferralWithDetails }) 
 export default function ClinicianReferralsPage() {
   const { data, isLoading, isError } = useOrgSpecialistReferrals();
   const state = listQueryState({ isLoading, isError, count: data?.length });
+  const [statusFilter, setStatusFilter] = useState<"all" | SpecialistReferralWithDetails["status"]>("all");
+  const [specialistTypeFilter, setSpecialistTypeFilter] = useState<"all" | SpecialistType>("all");
+
+  // Filtering the org's already-RLS-scoped referral list by two existing
+  // columns — no ranking, no re-querying, same rows private.is_org_staff
+  // already returned to useOrgSpecialistReferrals.
+  const filtered = useMemo(() => {
+    if (!data) return data;
+    return data.filter(
+      (referral) =>
+        (statusFilter === "all" || referral.status === statusFilter) &&
+        (specialistTypeFilter === "all" || referral.specialist_type === specialistTypeFilter)
+    );
+  }, [data, statusFilter, specialistTypeFilter]);
 
   return (
     <div className="space-y-6">
@@ -89,6 +130,36 @@ export default function ClinicianReferralsPage() {
         </Link>
       </CardHeader>
       <CardContent>
+        {state === "ready" && data && data.length > 0 && (
+          <div className="mb-3 flex flex-wrap gap-2">
+            <Select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+              aria-label="Filter by status"
+              className="w-auto"
+            >
+              <option value="all">All statuses</option>
+              {STATUS_FILTER_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {REFERRAL_STATUS_BADGE[status].label}
+                </option>
+              ))}
+            </Select>
+            <Select
+              value={specialistTypeFilter}
+              onChange={(e) => setSpecialistTypeFilter(e.target.value as typeof specialistTypeFilter)}
+              aria-label="Filter by specialist type"
+              className="w-auto"
+            >
+              <option value="all">All specialist types</option>
+              {SPECIALIST_TYPE_FILTER_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         {state === "loading" && <p className="text-sm text-charcoal-ink/60">Loading…</p>}
         {state === "error" && (
           <LoadFailure>
@@ -97,9 +168,12 @@ export default function ClinicianReferralsPage() {
           </LoadFailure>
         )}
         {state === "empty" && <p className="text-sm text-charcoal-ink/60">No referrals yet.</p>}
-        {state === "ready" && data && (
+        {state === "ready" && filtered && filtered.length === 0 && data && data.length > 0 && (
+          <p className="text-sm text-charcoal-ink/60">No referrals match this status/specialist filter.</p>
+        )}
+        {state === "ready" && filtered && filtered.length > 0 && (
           <ul className="divide-y divide-charcoal-ink/10">
-            {data.map((referral) => {
+            {filtered.map((referral) => {
               const statusBadge = REFERRAL_STATUS_BADGE[referral.status];
               const terminal = TERMINAL_STATUSES.includes(referral.status);
               return (
